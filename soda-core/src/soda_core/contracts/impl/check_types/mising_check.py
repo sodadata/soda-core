@@ -5,7 +5,8 @@ from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.mising_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column
+    ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column, MissingAndValidity, MissingAndValidityCheck
+from soda_core.contracts.impl.contract_yaml import ColumnYaml, CheckYaml
 
 
 class MissingCheckParser(CheckParser):
@@ -28,7 +29,7 @@ class MissingCheckParser(CheckParser):
         )
 
 
-class MissingCheck(Check):
+class MissingCheck(MissingAndValidityCheck):
 
     def __init__(
         self,
@@ -103,6 +104,9 @@ class MissingCheck(Check):
             diagnostic_lines=diagnostic_lines,
         )
 
+    def build_missing_and_validity(self, column_yaml: ColumnYaml, check_yaml: CheckYaml) -> MissingAndValidity:
+        pass
+
 
 class MissingCountMetric(AggregationMetric):
 
@@ -110,16 +114,18 @@ class MissingCountMetric(AggregationMetric):
         self,
         contract: Contract,
         column: Column,
-        check: Check,
+        check: MissingAndValidityCheck,
     ):
         super().__init__(
             contract=contract,
             column=column,
             metric_type=check.type,
         )
+        self.missing_and_validity: MissingAndValidity = check.missing_and_validity
 
     def sql_expression(self) -> SqlExpression:
-        return self.column.get_missing_expr()
+        column_name: str = self.column.column_yaml.name
+        return self.missing_and_validity.get_missing_expr(column_name)
 
     def set_value(self, value):
         # expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if there are no rows

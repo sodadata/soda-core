@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from soda_core.common.yaml import YamlObject
-from soda_core.contracts.impl.contract_yaml import CheckYamlParser, ColumnYaml, CheckYaml
+from soda_core.contracts.impl.contract_yaml import CheckYamlParser, ColumnYaml, CheckYaml, ThresholdCheckYaml
 
 
 class RowCountCheckYamlParser(CheckYamlParser):
@@ -19,7 +19,7 @@ class RowCountCheckYamlParser(CheckYamlParser):
         )
 
 
-class RowCountCheckYaml(CheckYaml):
+class RowCountCheckYaml(ThresholdCheckYaml):
 
     def __init__(
         self,
@@ -28,4 +28,3 @@ class RowCountCheckYaml(CheckYaml):
         super().__init__(
             check_yaml_object=check_yaml_object
         )
-        self.parse_threshold(check_yaml_object=check_yaml_object)

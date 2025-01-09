@@ -67,7 +67,11 @@ For more details on threshold, see [Thresholds](thresholds.md)
 
 By default the `missing_count` and `missing_percent` both count NULL values.  
 
-Extra missing values can be configured for text based and number based columns like this:
+NULL will always be considered a missing value.  Only configure the extra 
+non-NULL values that must be considered as missing. Typical examples are 
+'-', 'No value', 'N/A', 'None', 'null', -1, 999
+
+For now, only numeric and text based column types are supported.
 ```
 dataset: dim_employee
 columns:
@@ -78,7 +82,9 @@ columns:
       - type: missing_count
   
   - name: age
-    missing_values: [-1]
     checks:
       - type: missing_count
+        missing_values: [-1]
 ```
+
+See also [Missing and validity configurations](missing_and_validity_configurations.md)

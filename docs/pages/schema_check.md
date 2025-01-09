@@ -45,6 +45,7 @@ Lengths are considered optional.  They are only checked if specified in the
 contract with round brackets.  So for a column with data type `data_type: varchar`
 the length will not be checked.
 
-### Optional columns
+### Schema check roadmap features
 
-Not implemented yet
+* Allow for optional columns
+* Allow for extra columns not in the list

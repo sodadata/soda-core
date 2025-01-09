@@ -152,28 +152,25 @@ class ValidValuesReferenceDataYaml:
         self.ref_column: str | None = None
 
 
-class ColumnYaml:
+class MissingAndValidityYaml:
 
-    def __init__(self, contract_yaml: ContractYaml, column_yaml_object: YamlObject):
-        self.column_yaml_object: YamlObject = column_yaml_object
-        self.name: str | None = column_yaml_object.read_string("name")
-        self.data_type: str | None = column_yaml_object.read_string_opt("data_type")
-        self.missing_values: list | None = YamlValue.yaml_unwrap(column_yaml_object.read_list_opt("missing_values"))
-        self.missing_regex_sql: str | None = column_yaml_object.read_string_opt("missing_regex_sql")
+    def __init__(self, yaml_object: YamlObject):
+        self.missing_values: list | None = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
+        self.missing_regex_sql: str | None = yaml_object.read_string_opt("missing_regex_sql")
 
-        self.invalid_values: list | None = column_yaml_object.read_list_opt("invalid_values")
-        self.invalid_format: str | None = column_yaml_object.read_string_opt("invalid_format")
-        self.invalid_regex_sql: str | None = column_yaml_object.read_string_opt("invalid_regex_sql")
-        self.valid_values: list | None = column_yaml_object.read_list_opt("valid_values")
-        self.valid_format: str | None = column_yaml_object.read_string_opt("valid_format")
-        self.valid_regex_sql: str | None = column_yaml_object.read_string_opt("valid_regex_sql")
-        self.valid_min: Number | None = column_yaml_object.read_number_opt("valid_min")
-        self.valid_max: Number | None = column_yaml_object.read_number_opt("valid_max")
-        self.valid_length: int | None = column_yaml_object.read_number_opt("valid_length")
-        self.valid_min_length: int | None = column_yaml_object.read_number_opt("valid_min_length")
-        self.valid_max_length: int | None = column_yaml_object.read_number_opt("valid_max_length")
+        self.invalid_values: list | None = yaml_object.read_list_opt("invalid_values")
+        self.invalid_format: str | None = yaml_object.read_string_opt("invalid_format")
+        self.invalid_regex_sql: str | None = yaml_object.read_string_opt("invalid_regex_sql")
+        self.valid_values: list | None = yaml_object.read_list_opt("valid_values")
+        self.valid_format: str | None = yaml_object.read_string_opt("valid_format")
+        self.valid_regex_sql: str | None = yaml_object.read_string_opt("valid_regex_sql")
+        self.valid_min: Number | None = yaml_object.read_number_opt("valid_min")
+        self.valid_max: Number | None = yaml_object.read_number_opt("valid_max")
+        self.valid_length: int | None = yaml_object.read_number_opt("valid_length")
+        self.valid_min_length: int | None = yaml_object.read_number_opt("valid_min_length")
+        self.valid_max_length: int | None = yaml_object.read_number_opt("valid_max_length")
 
-        ref_data_yaml: YamlObject | None = column_yaml_object.read_object_opt(
+        ref_data_yaml: YamlObject | None = yaml_object.read_object_opt(
             "valid_values_reference_data"
         )
         self.valid_values_reference_data: ValidValuesReferenceDataYaml | None = None
@@ -182,6 +179,14 @@ class ColumnYaml:
             self.valid_values_reference_data.ref_dataset = ref_data_yaml.read_string("dataset")
             self.valid_values_reference_data.ref_column = ref_data_yaml.read_string("column")
 
+
+class ColumnYaml(MissingAndValidityYaml):
+
+    def __init__(self, contract_yaml: ContractYaml, column_yaml_object: YamlObject):
+        self.column_yaml_object: YamlObject = column_yaml_object
+        self.name: str | None = column_yaml_object.read_string("name")
+        self.data_type: str | None = column_yaml_object.read_string_opt("data_type")
+        super().__init__(column_yaml_object)
         self.checks: list[CheckYaml] | None = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object,
             column_yaml=self
@@ -259,21 +264,21 @@ class CheckYaml(ABC):
         self.name: str | None = check_yaml_object.read_string_opt("name")
         self.qualifier: str | None = check_yaml_object.read_string_opt("qualifier")
 
-        self.must_be_greater_than: Number | None = None
-        self.must_be_greater_than_or_equal: Number | None = None
-        self.must_be_less_than: Number | None = None
-        self.must_be_less_than_or_equal: Number | None = None
-        self.must_be: Number | None = None
-        self.must_not_be: Number | None = None
-        self.must_be_between: RangeYaml | None = None
-        self.must_be_not_between: RangeYaml | None = None
 
-    def parse_threshold(self, check_yaml_object: YamlObject):
-        self.must_be_greater_than = check_yaml_object.read_number_opt("must_be_greater_than")
-        self.must_be_greater_than_or_equal = check_yaml_object.read_number_opt("must_be_greater_than_or_equal")
-        self.must_be_less_than = check_yaml_object.read_number_opt("must_be_less_than")
-        self.must_be_less_than_or_equal = check_yaml_object.read_number_opt("must_be_less_than_or_equal")
-        self.must_be = check_yaml_object.read_number_opt("must_be")
-        self.must_not_be = check_yaml_object.read_number_opt("must_not_be")
-        self.must_be_between = RangeYaml.read_opt(check_yaml_object, "must_be_between")
-        self.must_be_not_between = RangeYaml.read_opt(check_yaml_object, "must_be_not_between")
+class ThresholdCheckYaml(CheckYaml):
+    def __init__(self, check_yaml_object: YamlObject):
+        super().__init__(check_yaml_object)
+        self.must_be_greater_than: Number | None = check_yaml_object.read_number_opt("must_be_greater_than")
+        self.must_be_greater_than_or_equal: Number | None = check_yaml_object.read_number_opt("must_be_greater_than_or_equal")
+        self.must_be_less_than: Number | None = check_yaml_object.read_number_opt("must_be_less_than")
+        self.must_be_less_than_or_equal: Number | None = check_yaml_object.read_number_opt("must_be_less_than_or_equal")
+        self.must_be: Number | None = check_yaml_object.read_number_opt("must_be")
+        self.must_not_be: Number | None = check_yaml_object.read_number_opt("must_not_be")
+        self.must_be_between: RangeYaml = RangeYaml.read_opt(check_yaml_object, "must_be_between")
+        self.must_be_not_between: RangeYaml = RangeYaml.read_opt(check_yaml_object, "must_be_not_between")
+
+
+class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):
+    def __init__(self, check_yaml_object: YamlObject):
+        ThresholdCheckYaml.__init__(self, check_yaml_object)
+        MissingAndValidityYaml.__init__(self, check_yaml_object)

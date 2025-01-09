@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from soda_core.common.yaml import YamlObject
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, CheckYamlParser
+from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, CheckYamlParser, MissingAncValidityCheckYaml
 
 
 class MissingCheckYamlParser(CheckYamlParser):
@@ -19,13 +19,7 @@ class MissingCheckYamlParser(CheckYamlParser):
         )
 
 
-class MissingCheckYaml(CheckYaml):
+class MissingCheckYaml(MissingAncValidityCheckYaml):
 
-    def __init__(
-        self,
-        check_yaml_object: YamlObject,
-    ):
-        super().__init__(
-            check_yaml_object=check_yaml_object
-        )
-        self.parse_threshold(check_yaml_object)
+    def __init__(self, check_yaml_object: YamlObject):
+        super().__init__(check_yaml_object)

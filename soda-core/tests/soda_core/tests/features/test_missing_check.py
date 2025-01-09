@@ -1,3 +1,4 @@
+from soda_core.contracts.contract_verification import ContractResult, CheckOutcome
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -50,7 +51,7 @@ def test_missing_count_custom_missing_values(data_source_test_helper: DataSource
     )
 
 
-def test_missing_count_custom_missing_values_int(data_source_test_helper: DataSourceTestHelper):
+def test_missing_count_custom_missing_values_int_on_column(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -62,6 +63,41 @@ def test_missing_count_custom_missing_values_int(data_source_test_helper: DataSo
                 missing_values: [-1, -2]
                 checks:
                   - type: missing_count
+                    must_be: 2
+        """
+    )
+
+
+def test_missing_count_missing_values_on_check(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                  - type: missing_count
+                    missing_values: ['X', 'Y']
+                    must_be: 2
+        """
+    )
+
+
+def test_missing_count_overwrite_missing_values_on_check(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                missing_regex_sql: ^xxx$
+                checks:
+                  - type: missing_count
+                    missing_values: ['X', 'Y']
                     must_be: 2
         """
     )
@@ -95,7 +131,7 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
 
     test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
 
-    data_source_test_helper.assert_contract_pass(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
@@ -105,12 +141,14 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
         """
     )
 
+    assert contract_result.check_results[0].outcome == CheckOutcome.NOT_EVALUATED
+
 
 def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
 
-    data_source_test_helper.assert_contract_pass(
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
@@ -119,3 +157,5 @@ def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
                   - type: missing_count
         """
     )
+
+    assert contract_result.check_results[0].outcome == CheckOutcome.PASSED

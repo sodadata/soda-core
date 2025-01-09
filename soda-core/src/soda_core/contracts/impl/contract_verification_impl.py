@@ -13,7 +13,8 @@ from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml
+from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
+    MissingAndValidityYaml, ValidValuesReferenceDataYaml, MissingAncValidityCheckYaml
 
 
 class DataSourceContracts:
@@ -277,6 +278,7 @@ class Contract:
 class Column:
     def __init__(self, contract: Contract, column_yaml: ColumnYaml, metrics_resolver: MetricsResolver):
         self.column_yaml = column_yaml
+        self.missing_and_validity: MissingAndValidity = MissingAndValidity(column_yaml)
         self.checks: list[Check] = []
         if column_yaml.checks:
             for check_yaml in column_yaml.checks:
@@ -289,15 +291,96 @@ class Column:
                     )
                     self.checks.append(check)
 
-    def get_missing_expr(self) -> SqlExpression:
-        is_missing_clauses: list[SqlExpression] = [IS_NULL(self.column_yaml.name)]
-        if isinstance(self.column_yaml.missing_values, list):
-            literal_values = [LITERAL(value) for value in self.column_yaml.missing_values]
-            is_missing_clauses.append(IN(self.column_yaml.name, literal_values))
-        if isinstance(self.column_yaml.missing_regex_sql, str):
+
+class ValidValuesReferenceData:
+
+    def __init__(self, valid_values_reference_data_yaml: ValidValuesReferenceDataYaml):
+        self.ref_dataset: str | None = valid_values_reference_data_yaml.ref_dataset
+        self.ref_column: str | None = valid_values_reference_data_yaml.ref_column
+
+
+class MissingAndValidity:
+
+    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml):
+        self.missing_values: list | None = missing_and_validity_yaml.missing_values
+        self.missing_regex_sql: str | None = missing_and_validity_yaml.missing_regex_sql
+
+        self.invalid_values: list | None = missing_and_validity_yaml.invalid_values
+        self.invalid_format: str | None = missing_and_validity_yaml.invalid_format
+        self.invalid_regex_sql: str | None = missing_and_validity_yaml.invalid_regex_sql
+        self.valid_values: list | None = missing_and_validity_yaml.valid_values
+        self.valid_format: str | None = missing_and_validity_yaml.valid_format
+        self.valid_regex_sql: str | None = missing_and_validity_yaml.valid_regex_sql
+        self.valid_min: Number | None = missing_and_validity_yaml.valid_min
+        self.valid_max: Number | None = missing_and_validity_yaml.valid_max
+        self.valid_length: int | None = missing_and_validity_yaml.valid_length
+        self.valid_min_length: int | None = missing_and_validity_yaml.valid_min_length
+        self.valid_max_length: int | None = missing_and_validity_yaml.valid_max_length
+        self.valid_values_reference_data: ValidValuesReferenceData | None = (
+            ValidValuesReferenceData(missing_and_validity_yaml.valid_values_reference_data)
+            if missing_and_validity_yaml.valid_values_reference_data
+            else None
+        )
+
+    def get_missing_expr(self, column_name: str) -> SqlExpression:
+        is_missing_clauses: list[SqlExpression] = [IS_NULL(column_name)]
+        if isinstance(self.missing_values, list):
+            literal_values = [LITERAL(value) for value in self.missing_values]
+            is_missing_clauses.append(IN(column_name, literal_values))
+        if isinstance(self.missing_regex_sql, str):
             raise UnsupportedOperation("TODO")
             # ...TODO like regex...
         return SUM(CASE_WHEN(OR(is_missing_clauses), LITERAL(1), LITERAL(0)))
+
+
+    @classmethod
+    def __apply_default(cls, self_value, default_value) -> any:
+        if self_value is not None:
+            return self_value
+        return default_value
+
+    def apply_column_defaults(self, column: Column) -> None:
+        if not column:
+            return
+        column_defaults: MissingAndValidity = column.missing_and_validity
+        if not column_defaults:
+            return
+
+        check_has_missing: bool = self._has_missing_configurations()
+        self.missing_values = self.missing_values if check_has_missing else column_defaults.missing_values
+        self.missing_regex_sql = self.missing_regex_sql if check_has_missing else column_defaults.missing_regex_sql
+
+        check_has_validity: bool = self._has_validity_configurations()
+        self.invalid_values = self.invalid_values if check_has_validity else column_defaults.invalid_values
+        self.invalid_format = self.invalid_format if check_has_validity else column_defaults.invalid_format
+        self.invalid_regex_sql = self.invalid_regex_sql if check_has_validity else column_defaults.invalid_regex_sql
+        self.valid_values = self.valid_values if check_has_validity else column_defaults.valid_values
+        self.valid_format = self.valid_format if check_has_validity else column_defaults.valid_format
+        self.valid_regex_sql = self.valid_regex_sql if check_has_validity else column_defaults.valid_regex_sql
+        self.valid_min = self.valid_min if check_has_validity else column_defaults.valid_min
+        self.valid_max = self.valid_max if check_has_validity else column_defaults.valid_max
+        self.valid_length = self.valid_length if check_has_validity else column_defaults.valid_length
+        self.valid_min_length = self.valid_min_length if check_has_validity else column_defaults.valid_min_length
+        self.valid_max_length = self.valid_max_length if check_has_validity else column_defaults.valid_max_length
+        self.valid_values_reference_data = self.valid_values_reference_data if check_has_validity else column_defaults.valid_values_reference_data
+
+    def _has_missing_configurations(self) -> bool:
+        return (self.missing_values is not None
+                or self.missing_regex_sql is not None)
+
+    def _has_validity_configurations(self) -> bool:
+        return (self.invalid_values is not None
+                or self.invalid_format is not None
+                or self.invalid_regex_sql  is not None
+                or self.valid_values is not None
+                or self.valid_format is not None
+                or self.valid_regex_sql is not None
+                or self.valid_min is not None
+                or self.valid_max is not None
+                or self.valid_length is not None
+                or self.valid_min_length is not None
+                or self.valid_max_length is not None
+                or self.valid_values_reference_data is not None)
 
 
 class MetricsResolver:
@@ -424,11 +507,15 @@ class Threshold:
         self.must_not_be: Number | None = must_not_be
 
     def get_assertion_summary(self, metric_name: str) -> str:
+        """
+        For ease of reading, thresholds always list small values lef and big values right (where applicable).
+        Eg '0 < metric_name', 'metric_name < 25', '0 <= metric_name < 25'
+        """
         if self.type == ThresholdType.SINGLE_COMPARATOR:
             if isinstance(self.must_be_greater_than, Number):
-                return f"{metric_name} > {self.must_be_greater_than}"
+                return f"{self.must_be_greater_than} < {metric_name}"
             if isinstance(self.must_be_greater_than_or_equal, Number):
-                return f"{metric_name} >= {self.must_be_greater_than_or_equal}"
+                return f"{self.must_be_greater_than_or_equal} <= {metric_name}"
             if isinstance(self.must_be_less_than, Number):
                 return f"{metric_name} < {self.must_be_less_than}"
             if isinstance(self.must_be_less_than_or_equal, Number):
@@ -531,6 +618,14 @@ class Check:
     @abstractmethod
     def evaluate(self) -> CheckResult:
         pass
+
+
+class MissingAndValidityCheck(Check):
+
+    def __init__(self, contract: Contract, column: Column | None, check_yaml: MissingAncValidityCheckYaml):
+        super().__init__(contract, column, check_yaml)
+        self.missing_and_validity: MissingAndValidity = MissingAndValidity(check_yaml)
+        self.missing_and_validity.apply_column_defaults(column)
 
 
 class Metric:
