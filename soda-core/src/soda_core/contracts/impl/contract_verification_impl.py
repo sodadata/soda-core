@@ -322,7 +322,7 @@ class MissingAndValidity:
             else None
         )
 
-    def get_missing_expr(self, column_name: str) -> SqlExpression:
+    def get_missing_count_condition(self, column_name):
         is_missing_clauses: list[SqlExpression] = [IS_NULL(column_name)]
         if isinstance(self.missing_values, list):
             literal_values = [LITERAL(value) for value in self.missing_values]
@@ -330,8 +330,30 @@ class MissingAndValidity:
         if isinstance(self.missing_regex_sql, str):
             raise UnsupportedOperation("TODO")
             # ...TODO like regex...
-        return SUM(CASE_WHEN(OR(is_missing_clauses), LITERAL(1), LITERAL(0)))
+        return OR(is_missing_clauses)
 
+    def get_sum_missing_count_expr(self, column_name: str) -> SqlExpression:
+        missing_count_condition: SqlExpression = self.get_missing_count_condition(column_name)
+        return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
+
+    def get_invalid_count_condition(self, column_name: str) -> SqlExpression:
+        not_missing_expr: SqlExpression = NOT(self.get_missing_count_condition(column_name))
+        invalid_clauses: list[SqlExpression] = [not_missing_expr]
+        if isinstance(self.valid_values, list):
+            literal_values = [LITERAL(value) for value in self.valid_values]
+            invalid_clauses.append(NOT(IN(column_name, literal_values)))
+        if isinstance(self.valid_regex_sql, str):
+            raise UnsupportedOperation("TODO")
+            # ...TODO like regex...
+        if isinstance(self.valid_min, str):
+            invalid_clauses.append(GTE(column_name, LITERAL(self.valid_min)))
+        if isinstance(self.valid_max, str):
+            invalid_clauses.append(LTE(column_name, LITERAL(self.valid_max)))
+        return AND(invalid_clauses)
+
+    def get_sum_invalid_count_expr(self, column_name: str) -> SqlExpression:
+        not_missing_and_invalid_expr = self.get_invalid_count_condition(column_name)
+        return SUM(CASE_WHEN(not_missing_and_invalid_expr, LITERAL(1), LITERAL(0)))
 
     @classmethod
     def __apply_default(cls, self_value, default_value) -> any:

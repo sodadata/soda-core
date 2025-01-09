@@ -137,6 +137,8 @@ class SqlDialect:
             return self._build_or_sql(expression)
         elif isinstance(expression, AND):
             return self._build_and_sql(expression)
+        elif isinstance(expression, NOT):
+            return self._build_not_sql(expression)
         elif isinstance(expression, Operator):
             return self._build_operator_sql(expression)
         elif isinstance(expression, COUNT):
@@ -181,6 +183,10 @@ class SqlDialect:
             for or_clause in or_expr.clauses
         )
         return f"({or_clauses_sql})"
+
+    def _build_not_sql(self, not_expr: NOT) -> str:
+        expr_sql: str = self.build_expression_sql(not_expr.expression)
+        return f"NOT({expr_sql})"
 
     def _build_and_sql(self, and_expr: AND) -> str:
         if isinstance(and_expr.clauses, list) and len(and_expr.clauses) == 1:

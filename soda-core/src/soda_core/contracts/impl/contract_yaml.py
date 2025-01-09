@@ -15,10 +15,15 @@ def register_check_types() -> None:
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckParser
     Check.register(SchemaCheckParser())
 
-    from soda_core.contracts.impl.check_types.mising_check_yaml import MissingCheckYamlParser
+    from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYamlParser
     CheckYaml.register(MissingCheckYamlParser())
-    from soda_core.contracts.impl.check_types.mising_check import MissingCheckParser
+    from soda_core.contracts.impl.check_types.missing_check import MissingCheckParser
     Check.register(MissingCheckParser())
+
+    from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYamlParser
+    CheckYaml.register(InvalidCheckYamlParser())
+    from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckParser
+    Check.register(InvalidCheckParser())
 
     from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYamlParser
     CheckYaml.register(RowCountCheckYamlParser())
@@ -161,7 +166,7 @@ class MissingAndValidityYaml:
         self.invalid_values: list | None = yaml_object.read_list_opt("invalid_values")
         self.invalid_format: str | None = yaml_object.read_string_opt("invalid_format")
         self.invalid_regex_sql: str | None = yaml_object.read_string_opt("invalid_regex_sql")
-        self.valid_values: list | None = yaml_object.read_list_opt("valid_values")
+        self.valid_values: list | None = YamlValue.yaml_unwrap(yaml_object.read_list_opt("valid_values"))
         self.valid_format: str | None = yaml_object.read_string_opt("valid_format")
         self.valid_regex_sql: str | None = yaml_object.read_string_opt("valid_regex_sql")
         self.valid_min: Number | None = yaml_object.read_number_opt("valid_min")

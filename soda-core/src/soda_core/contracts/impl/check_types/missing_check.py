@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
-from soda_core.contracts.impl.check_types.mising_check_yaml import MissingCheckYaml
+from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
     ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column, MissingAndValidity, MissingAndValidityCheck
@@ -104,9 +104,6 @@ class MissingCheck(MissingAndValidityCheck):
             diagnostic_lines=diagnostic_lines,
         )
 
-    def build_missing_and_validity(self, column_yaml: ColumnYaml, check_yaml: CheckYaml) -> MissingAndValidity:
-        pass
-
 
 class MissingCountMetric(AggregationMetric):
 
@@ -125,9 +122,10 @@ class MissingCountMetric(AggregationMetric):
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column.column_yaml.name
-        return self.missing_and_validity.get_missing_expr(column_name)
+        return self.missing_and_validity.get_sum_missing_count_expr(column_name)
 
     def set_value(self, value):
-        # expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if there are no rows
+        # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
+        # there are no rows
         value = 0 if value is None else value
         self.value = int(value)
