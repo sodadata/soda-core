@@ -1,6 +1,7 @@
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logs import Logs
+from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import YamlFileContent
 from soda_postgres.common.data_sources.postgres_data_source_connection import PostgresDataSourceConnection
@@ -34,3 +35,7 @@ class PostgresSqlDialect(SqlDialect):
 
     def __init__(self):
         super().__init__()
+
+    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
+        expression: str = self.build_expression_sql(matches.expression)
+        return f"{expression} ~ '{matches.regex_pattern}'"

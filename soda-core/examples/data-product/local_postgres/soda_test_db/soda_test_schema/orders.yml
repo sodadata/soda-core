@@ -1,0 +1,12 @@
+dataset: ORDERS
+
+columns:
+  - name: id
+  - name: customer_id
+  - name: date
+  - name: items
+  - name: created_at
+
+checks:
+  - type: schema
+  - type: row_count

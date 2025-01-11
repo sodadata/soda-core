@@ -1,0 +1,18 @@
+dataset: ORDERS_BATCH
+
+# The top level contains the full schema and should include the default test suite.
+# It should be owned by the producer and it's recommended that it is triggered from the pipeline
+
+# Non-producers should not have access to edit checks in the default in-pipeline
+
+columns:
+  - name: id
+    checks:
+      - type: missing_count
+  - name: customer_id
+  - name: date
+  - name: items
+  - name: created_at
+
+checks:
+  - type: row_count

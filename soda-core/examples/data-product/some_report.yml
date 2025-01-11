@@ -1,0 +1,15 @@
+name: Some report
+
+inputs:
+  - contract: local_postgres/soda_test_db/soda_test_schema/orders.yml
+    columns:
+      - name: id
+        checks:
+          - type: duplicate_count
+    checks:
+      - type: row_count
+
+outputs:
+  - contract: local_postgres/soda_test_db/soda_test_schema/orders_gold.yml
+    checks:
+      - type: row_count

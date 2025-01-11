@@ -1,0 +1,5 @@
+type: postgres
+name: local_postgres
+connection:
+  host: localhost
+  ...

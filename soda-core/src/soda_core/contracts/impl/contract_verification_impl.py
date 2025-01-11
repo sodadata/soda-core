@@ -14,7 +14,7 @@ from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
-    MissingAndValidityYaml, ValidValuesReferenceDataYaml, MissingAncValidityCheckYaml
+    MissingAndValidityYaml, ValidValuesReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
 
 
 class DataSourceContracts:
@@ -110,33 +110,6 @@ class ContractVerificationImpl:
             logs=self.logs,
             contract_results=contract_results
         )
-
-    # def _parse_soda_cloud(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-    #     soda_cloud_file: YamlSource | None = contract_verification_builder.soda_cloud_file
-    #     if isinstance(soda_cloud_file, YamlSource) and soda_cloud_file.exists():
-    #         soda_cloud_file.parse(contract_verification_builder.variables)
-    #         self.soda_cloud = SodaCloud(soda_cloud_file)
-    #
-    # def _parse_plugins(self, contract_verification_builder) -> None:
-    #     plugin_files_by_type: dict[str, list[YamlSource]] = {}
-    #     for plugin_file in contract_verification_builder.plugin_files:
-    #         plugin_file.parse(self.variables)
-    #         if isinstance(plugin_file.dict, dict):
-    #             plugin: str | None = plugin_file.dict.get("plugin")
-    #             if isinstance(plugin, str):
-    #                 plugin_files_by_type.setdefault(plugin, []).append(plugin_file)
-    #             else:
-    #                 self.logs.error(f"Key plugin is required in plugin YAML files")
-    #         else:
-    #             self.logs.error(f"Could not read plugin YAML file {plugin_file.file_path}")
-    #     for plugin_name, plugin_yaml_files in plugin_files_by_type.items():
-    #         for plugin_yaml_file in plugin_yaml_files:
-    #             plugin_yaml_file.parse(self.variables)
-    #         plugin: Plugin = Plugin.create(plugin_name, plugin_yaml_files, self.logs)
-    #         if isinstance(plugin, Plugin):
-    #             self.plugins.append(plugin)
-    #         else:
-    #             self.logs.error(f"Could not load plugin {plugin_name}")
 
     def verify_data_source_contracts(self, data_source_contracts: DataSourceContracts) -> list[ContractResult]:
         contract_results: list[ContractResult] = []
@@ -328,8 +301,7 @@ class MissingAndValidity:
             literal_values = [LITERAL(value) for value in self.missing_values]
             is_missing_clauses.append(IN(column_name, literal_values))
         if isinstance(self.missing_regex_sql, str):
-            raise UnsupportedOperation("TODO")
-            # ...TODO like regex...
+            is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_regex_sql))
         return OR(is_missing_clauses)
 
     def get_sum_missing_count_expr(self, column_name: str) -> SqlExpression:
@@ -337,19 +309,27 @@ class MissingAndValidity:
         return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
 
     def get_invalid_count_condition(self, column_name: str) -> SqlExpression:
-        not_missing_expr: SqlExpression = NOT(self.get_missing_count_condition(column_name))
-        invalid_clauses: list[SqlExpression] = [not_missing_expr]
+        invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values]
             invalid_clauses.append(NOT(IN(column_name, literal_values)))
         if isinstance(self.valid_regex_sql, str):
-            raise UnsupportedOperation("TODO")
-            # ...TODO like regex...
-        if isinstance(self.valid_min, str):
-            invalid_clauses.append(GTE(column_name, LITERAL(self.valid_min)))
-        if isinstance(self.valid_max, str):
-            invalid_clauses.append(LTE(column_name, LITERAL(self.valid_max)))
-        return AND(invalid_clauses)
+            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_regex_sql)))
+        if isinstance(self.valid_min, Number) or isinstance(self.valid_min, str):
+            invalid_clauses.append(LT(column_name, LITERAL(self.valid_min)))
+        if isinstance(self.valid_max, Number) or isinstance(self.valid_max, str):
+            invalid_clauses.append(GT(column_name, LITERAL(self.valid_max)))
+        if isinstance(self.invalid_regex_sql, str):
+            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_regex_sql))
+        if isinstance(self.valid_length, int):
+            invalid_clauses.append(NEQ(LENGTH(column_name), LITERAL(self.valid_length)))
+        if isinstance(self.valid_min_length, int):
+            invalid_clauses.append(LT(LENGTH(column_name), LITERAL(self.valid_min_length)))
+        if isinstance(self.valid_max_length, int):
+            invalid_clauses.append(GT(LENGTH(column_name), LITERAL(self.valid_max_length)))
+        missing_expr: SqlExpression = self.get_missing_count_condition(column_name)
+        invalid_expression: SqlExpression = OR(invalid_clauses)
+        return AND([NOT(missing_expr), OR(invalid_expression)])
 
     def get_sum_invalid_count_expr(self, column_name: str) -> SqlExpression:
         not_missing_and_invalid_expr = self.get_invalid_count_condition(column_name)
@@ -430,7 +410,7 @@ class ThresholdType(Enum):
 class Threshold:
 
     @classmethod
-    def create(cls, check_yaml: CheckYaml, default_threshold: Threshold | None = None) -> Threshold | None:
+    def create(cls, check_yaml: ThresholdCheckYaml, default_threshold: Threshold | None = None) -> Threshold | None:
         total_config_count: int = cls.__config_count([
             check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal, check_yaml.must_be_less_than,
             check_yaml.must_be_less_than_or_equal, check_yaml.must_be, check_yaml.must_not_be,

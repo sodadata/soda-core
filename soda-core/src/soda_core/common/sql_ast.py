@@ -76,6 +76,11 @@ class LOWER(SqlExpression):
 
 
 @dataclass
+class LENGTH(SqlExpression):
+    expression: SqlExpression | str
+
+
+@dataclass
 class COLUMN(SqlExpression):
     name: str
     table_alias: str | None = None
@@ -141,7 +146,7 @@ class NOT(SqlExpression):
 
 
 @dataclass
-class MATCHES(SqlExpression):
+class REGEX_LIKE(SqlExpression):
     expression: SqlExpression | str
     regex_pattern: str
 

@@ -37,6 +37,67 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
     assert "Actual invalid_count was 1" in diagnostic_line
 
 
+def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                valid_regex_sql: ^[123]$
+                checks:
+                  - type: invalid_count
+                    # Expected check to fail because...
+                    # must_be: 0 is the default threshold
+        """
+    )
+    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
+    assert "Actual invalid_count was 1" in diagnostic_line
+
+
+def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: age
+                valid_min: 1
+                valid_max: 2
+                checks:
+                  - type: invalid_count
+                    # Expected check to fail because...
+                    # must_be: 0 is the default threshold
+        """
+    )
+    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
+    assert "Actual invalid_count was 1" in diagnostic_line
+
+
+def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                invalid_regex_sql: ^[X]$
+                checks:
+                  - type: invalid_count
+                    # Expected check to fail because...
+                    # must_be: 0 is the default threshold
+        """
+    )
+    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
+    assert "Actual invalid_count was 1" in diagnostic_line
+
+
 # def test_missing_count_custom_missing_values(data_source_test_helper: DataSourceTestHelper):
 #
 #     test_table = data_source_test_helper.ensure_test_table(test_table_specification)

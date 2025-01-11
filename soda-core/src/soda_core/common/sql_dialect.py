@@ -149,8 +149,8 @@ class SqlDialect:
             return self._build_case_when_sql(expression)
         elif isinstance(expression, IS_NULL):
             return self._build_is_null_sql(expression)
-        elif isinstance(expression, MATCHES):
-            return self._build_matches_sql(expression)
+        elif isinstance(expression, REGEX_LIKE):
+            return self._build_regex_like_sql(expression)
         elif isinstance(expression, LIKE):
             return self._build_like_sql(expression)
         elif isinstance(expression, IN):
@@ -159,6 +159,8 @@ class SqlDialect:
             return self._build_not_like_sql(expression)
         elif isinstance(expression, LOWER):
             return self._build_lower_sql(expression)
+        elif isinstance(expression, LENGTH):
+            return self._build_length_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
@@ -301,11 +303,15 @@ class SqlDialect:
     def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
         return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
 
-    def _build_matches_sql(self, matches: MATCHES) -> str:
-        return f"REGEXP_LIKE({matches.expression}, '{matches.regex_pattern}')"
+    def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
+        expression: str = self.build_expression_sql(matches.expression)
+        return f"REGEXP_LIKE({expression}, '{matches.regex_pattern}')"
 
     def _build_lower_sql(self, lower: LOWER) -> str:
         return f"LOWER({self.build_expression_sql(lower.expression)})"
+
+    def _build_length_sql(self, length: LENGTH) -> str:
+        return f"LENGTH({self.build_expression_sql(length.expression)})"
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
