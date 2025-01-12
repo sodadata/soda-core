@@ -26,7 +26,7 @@ And there are validity configuration keys
 | `valid_length`                |             |          |
 | `valid_min_length`            |             |          |
 | `valid_max_length`            |             |          |
-| `valid_values_reference_data` |             |          |
+| `valid_reference_data` |             |          |
 
 Check types `invalid_count` and `invalid_percent` take into account both validity and also missing configurations. 
 

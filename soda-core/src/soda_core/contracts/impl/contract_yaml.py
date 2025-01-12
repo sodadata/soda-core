@@ -150,11 +150,22 @@ class ContractYaml:
         return checks
 
 
-class ValidValuesReferenceDataYaml:
+class ValidReferenceDataYaml:
 
-    def __init__(self):
-        self.ref_dataset: str | None = None
-        self.ref_column: str | None = None
+    def __init__(self, valid_reference_data_yaml: YamlObject):
+        logs = valid_reference_data_yaml.logs
+
+        dataset: any = valid_reference_data_yaml.read_value("dataset")
+        is_list_str: bool = isinstance(dataset, list) and all(isinstance(e, str) for e in dataset)
+        self.dataset: str | list[str] | None = dataset if isinstance(dataset, str) or is_list_str else None
+        if self.dataset is None:
+            logs.error(
+                message="'dataset' is required. Must be the dataset name as a string "
+                        "or a list of strings representing the qualified name.",
+                location=valid_reference_data_yaml.location
+            )
+
+        self.column: str | None = valid_reference_data_yaml.read_string("column")
 
 
 class MissingAndValidityYaml:
@@ -175,14 +186,34 @@ class MissingAndValidityYaml:
         self.valid_min_length: int | None = yaml_object.read_number_opt("valid_min_length")
         self.valid_max_length: int | None = yaml_object.read_number_opt("valid_max_length")
 
-        ref_data_yaml: YamlObject | None = yaml_object.read_object_opt(
-            "valid_values_reference_data"
-        )
-        self.valid_values_reference_data: ValidValuesReferenceDataYaml | None = None
-        if ref_data_yaml:
-            self.valid_values_reference_data = ValidValuesReferenceDataYaml()
-            self.valid_values_reference_data.ref_dataset = ref_data_yaml.read_string("dataset")
-            self.valid_values_reference_data.ref_column = ref_data_yaml.read_string("column")
+        self.valid_reference_data: ValidReferenceDataYaml | None = None
+        valid_reference_data_yaml: YamlObject | None = yaml_object.read_object_opt("valid_reference_data")
+        if valid_reference_data_yaml:
+            self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
+            non_reference_configurations: list[str] = self.get_non_reference_configurations()
+            if non_reference_configurations:
+                yaml_object.logs.error("'valid_reference_data' is mutually exclusive with other "
+                                       f"missing and validity configurations: {non_reference_configurations}")
+
+    def get_non_reference_configurations(self) -> list[str]:
+        non_reference_configurations: list[str] = [
+            "missing_values" if self.missing_values is not None else None,
+            "missing_regex_sql" if self.missing_regex_sql is not None else None,
+            "invalid_values" if self.invalid_values is not None else None,
+            "invalid_format" if self.invalid_format is not None else None,
+            "invalid_regex_sql" if self.invalid_regex_sql is not None else None,
+            "valid_values" if self.valid_values is not None else None,
+            "valid_format" if self.valid_format is not None else None,
+            "valid_regex_sql" if self.valid_regex_sql is not None else None,
+            "valid_min" if self.valid_min is not None else None,
+            "valid_max" if self.valid_max is not None else None,
+            "valid_length" if self.valid_length is not None else None,
+            "valid_min_length" if self.valid_min_length is not None else None,
+            "valid_max_length" if self.valid_max_length is not None else None,
+        ]
+        return [
+            cfg for cfg in non_reference_configurations if cfg is not None
+        ]
 
 
 class ColumnYaml(MissingAndValidityYaml):

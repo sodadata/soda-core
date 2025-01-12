@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from numbers import Number
+from shlex import quote
+from smtplib import quotedata
 
 from soda_core.common.sql_ast import *
 
@@ -201,40 +203,76 @@ class SqlDialect:
         )
 
     def _build_from_sql_lines(self, select_elements: list) -> list[str]:
-        from_parts: list[str] = []
-        for select_element in select_elements:
-            if isinstance(select_element, FROM):
-                from_parts.append(self._build_from_part(select_element))
-
+        sql_lines: list[str] = []
+        # This method formats with newlines and indentation.
         # Alternatively, concatenate all the fields on one line to reduce SQL statement length
         # return "SELECT " + (", ".join(select_fields_sql))
         # For now, we opt for SELECT statement readability...
 
-        from_sql_lines: list[str] = []
-        for i in range(0, len(from_parts)):
-            if i == 0:
-                sql_line = f"FROM {from_parts[0]}"
-            else:
-                sql_line = f"     {from_parts[i]}"
-            # Append comma all lines except the last one
-            if i < len(from_parts) - 1:
-                sql_line += ", "
-            from_sql_lines.append(sql_line)
+        from_elements: list[FROM] = [
+            select_element
+            for select_element in select_elements
+            if isinstance(select_element, FROM)
+        ]
 
-        return from_sql_lines
+        from_sql_line: str = "FROM "
+        for from_element in from_elements:
+            if type(from_element) == FROM:
+                if from_element is not from_elements[0]:
+                    sql_lines.append(f"{from_sql_line},")
+                    from_sql_line = "     "
+                from_sql_line += self._build_from_part(from_element)
+            elif isinstance(from_element, LEFT_INNER_JOIN):
+                sql_lines.append(from_sql_line)
+                from_sql_line = f"     {self._build_left_inner_join_part(from_element)}"
 
-    def _build_from_part(self, from_clause: FROM) -> str:
-        table_parts_quoted: list[str] = []
-        if from_clause.table_prefix:
-            table_parts_quoted.extend([
-                self.quote_default(prefix_part)
-                for prefix_part in from_clause.table_prefix
-            ])
-        table_parts_quoted.append(self.quote_default(from_clause.table_name))
-        from_part: str = ".".join(table_parts_quoted)
-        if from_clause.alias:
-            from_part += f" AS {self.quote_default(from_clause.alias)}"
-        return from_part
+        sql_lines.append(from_sql_line)
+        return sql_lines
+
+    def _build_from_part(self, from_part: FROM) -> str:
+        # "fully".qualified"."tablename" [AS "table_alias"]
+
+        from_parts: list[str] = [
+            self._build_qualified_quoted_dataset_name(
+                dataset_name=from_part.table_name,
+                dataset_prefix=from_part.table_prefix
+            )
+        ]
+
+        if isinstance(from_part.alias, str):
+            from_parts.append(f"AS {self.quote_default(from_part.alias)}")
+
+        return " ".join(from_parts)
+
+    def _build_left_inner_join_part(self, left_inner_join: LEFT_INNER_JOIN) -> str:
+        # [INNER JOIN] "fully".qualified"."tablename" [AS "table_alias"] [ON join_condition]
+
+        from_parts: list[str] = []
+
+        if isinstance(left_inner_join, LEFT_INNER_JOIN):
+            from_parts.append("LEFT JOIN")
+
+        from_parts.append(self._build_qualified_quoted_dataset_name(
+            dataset_name=left_inner_join.table_name,
+            dataset_prefix=left_inner_join.table_prefix
+        ))
+
+        if isinstance(left_inner_join.alias, str):
+            from_parts.append(f"AS {self.quote_default(left_inner_join.alias)}")
+
+        if isinstance(left_inner_join, LEFT_INNER_JOIN):
+            from_parts.append(f"ON {self.build_expression_sql(left_inner_join.on_condition)}")
+
+        return " ".join(from_parts)
+
+    def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: list[str] | None) -> str:
+        name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
+        name_parts.append(dataset_name)
+        quoted_name_parts: list[str] = [
+            self.quote_default(name_part)
+            for name_part in name_parts
+        ]
+        return ".".join(quoted_name_parts)
 
     def _build_operator_sql(self, operator: Operator) -> str:
         operators: dict[type, str] = {

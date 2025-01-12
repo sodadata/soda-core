@@ -470,5 +470,8 @@ class DataSourceTestHelper:
         logger.debug(f"Contract result:\n{contract_verification_result}")
         return contract_verification_result
 
-    def create_test_verification_builder(self):
+    def create_test_verification_builder(self) -> TestContractVerificationBuilder:
         return TestContractVerification.builder(self.data_source)
+
+    def test_method_ended(self) -> None:
+        self.data_source.data_source_connection.rollback()

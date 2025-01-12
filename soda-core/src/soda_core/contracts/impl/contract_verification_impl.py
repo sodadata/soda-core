@@ -14,7 +14,7 @@ from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
-    MissingAndValidityYaml, ValidValuesReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
+    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
 
 
 class DataSourceContracts:
@@ -265,11 +265,17 @@ class Column:
                     self.checks.append(check)
 
 
-class ValidValuesReferenceData:
+class ValidReferenceData:
 
-    def __init__(self, valid_values_reference_data_yaml: ValidValuesReferenceDataYaml):
-        self.ref_dataset: str | None = valid_values_reference_data_yaml.ref_dataset
-        self.ref_column: str | None = valid_values_reference_data_yaml.ref_column
+    def __init__(self, valid_reference_data_yaml: ValidReferenceDataYaml):
+        self.dataset_name: str | None = None
+        self.dataset_prefix: str | list[str] | None = None
+        if isinstance(valid_reference_data_yaml.dataset, str):
+            self.dataset_name = valid_reference_data_yaml.dataset
+        if isinstance(valid_reference_data_yaml.dataset, list) and len(valid_reference_data_yaml.dataset) > 0:
+            self.dataset_name = valid_reference_data_yaml.dataset[-1]
+            self.dataset_prefix = valid_reference_data_yaml.dataset[1:]
+        self.column: str | None = valid_reference_data_yaml.column
 
 
 class MissingAndValidity:
@@ -289,9 +295,9 @@ class MissingAndValidity:
         self.valid_length: int | None = missing_and_validity_yaml.valid_length
         self.valid_min_length: int | None = missing_and_validity_yaml.valid_min_length
         self.valid_max_length: int | None = missing_and_validity_yaml.valid_max_length
-        self.valid_values_reference_data: ValidValuesReferenceData | None = (
-            ValidValuesReferenceData(missing_and_validity_yaml.valid_values_reference_data)
-            if missing_and_validity_yaml.valid_values_reference_data
+        self.valid_reference_data: ValidReferenceData | None = (
+            ValidReferenceData(missing_and_validity_yaml.valid_reference_data)
+            if missing_and_validity_yaml.valid_reference_data
             else None
         )
 
@@ -364,7 +370,7 @@ class MissingAndValidity:
         self.valid_length = self.valid_length if check_has_validity else column_defaults.valid_length
         self.valid_min_length = self.valid_min_length if check_has_validity else column_defaults.valid_min_length
         self.valid_max_length = self.valid_max_length if check_has_validity else column_defaults.valid_max_length
-        self.valid_values_reference_data = self.valid_values_reference_data if check_has_validity else column_defaults.valid_values_reference_data
+        self.valid_reference_data = self.valid_reference_data if check_has_validity else column_defaults.valid_reference_data
 
     def _has_missing_configurations(self) -> bool:
         return (self.missing_values is not None
@@ -382,7 +388,10 @@ class MissingAndValidity:
                 or self.valid_length is not None
                 or self.valid_min_length is not None
                 or self.valid_max_length is not None
-                or self.valid_values_reference_data is not None)
+                or self.valid_reference_data is not None)
+
+    def has_reference_data(self) -> bool:
+        return isinstance(self.valid_reference_data, ValidReferenceData)
 
 
 class MetricsResolver:

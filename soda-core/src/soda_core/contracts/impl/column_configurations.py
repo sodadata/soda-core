@@ -23,7 +23,7 @@ class ValidConfigurations:
     valid_length: int | None
     valid_min_length: int | None
     valid_max_length: int | None
-    valid_values_reference_data: ValidValuesReferenceData | None
+    valid_reference_data: ValidReferenceData | None
 
     def has_non_reference_data_configs(self) -> bool:
         return (
@@ -42,6 +42,7 @@ class ValidConfigurations:
 
 
 @dataclass
-class ValidValuesReferenceData:
+class ValidReferenceData:
     dataset: str
     column: str
+    columns: list[str]

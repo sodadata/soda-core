@@ -27,8 +27,14 @@ def project_root_dir() -> str:
     yield project_root_dir
 
 
+@pytest.fixture(scope="function")
+def data_source_test_helper(data_source_test_helper_session: DataSourceTestHelper) -> DataSourceTestHelper:
+    yield data_source_test_helper_session
+    data_source_test_helper_session.test_method_ended()
+
+
 @pytest.fixture(scope="session")
-def data_source_test_helper() -> DataSourceTestHelper:
+def data_source_test_helper_session() -> DataSourceTestHelper:
     data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create()
     data_source_test_helper.start_test_session()
     exception: Exception | None = None

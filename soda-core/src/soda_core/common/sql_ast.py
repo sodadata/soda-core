@@ -15,11 +15,21 @@ class FROM:
     alias: str | None = None
 
     def AS(self, alias: str) -> FROM:
-        return FROM(table_name=self.table_name, table_prefix=self.table_prefix, alias=alias)
+        self.alias = alias
+        return self
 
-    def IN(self, table_prefixes: str | list[str]) -> FROM:
-        table_prefixes = table_prefixes if isinstance(table_prefixes, list) else [table_prefixes]
-        return FROM(table_name=self.table_name, table_prefix=table_prefixes, alias=self.alias)
+    def IN(self, table_prefix: str | list[str]) -> FROM:
+        self.table_prefix = table_prefix if isinstance(table_prefix, list) else [table_prefix]
+        return self
+
+
+@dataclass
+class LEFT_INNER_JOIN(FROM):
+    on_condition: SqlExpression | None = None
+
+    def ON(self, on_condition: SqlExpression) -> FROM:
+        self.on_condition = on_condition
+        return self
 
 
 @dataclass

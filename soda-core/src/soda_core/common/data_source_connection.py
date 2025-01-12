@@ -106,9 +106,13 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
 
-    def commit(self):
+    def commit(self) -> None:
         # noinspection PyUnresolvedReferences
         self.connection.commit()
+
+    def rollback(self) -> None:
+        # noinspection PyUnresolvedReferences
+        self.connection.rollback()
 
     def disable_close_connection(self) -> None:
         self.close_connection_enabled = False
