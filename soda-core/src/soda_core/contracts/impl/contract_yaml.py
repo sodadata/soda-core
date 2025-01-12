@@ -158,14 +158,21 @@ class ValidReferenceDataYaml:
         dataset: any = valid_reference_data_yaml.read_value("dataset")
         is_list_str: bool = isinstance(dataset, list) and all(isinstance(e, str) for e in dataset)
         self.dataset: str | list[str] | None = dataset if isinstance(dataset, str) or is_list_str else None
+        self.column: str | None = valid_reference_data_yaml.read_string("column")
+
+        cfg_keys = valid_reference_data_yaml.yaml_dict.keys()
+        self.has_configuration_error: bool = (
+            ("dataset" in cfg_keys and self.dataset is None)
+            and ("column" in cfg_keys and self.column is None)
+        )
+
         if self.dataset is None:
+            self.has_configuration_error = True
             logs.error(
                 message="'dataset' is required. Must be the dataset name as a string "
                         "or a list of strings representing the qualified name.",
                 location=valid_reference_data_yaml.location
             )
-
-        self.column: str | None = valid_reference_data_yaml.read_string("column")
 
 
 class MissingAndValidityYaml:
@@ -173,6 +180,12 @@ class MissingAndValidityYaml:
     def __init__(self, yaml_object: YamlObject):
         self.missing_values: list | None = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
         self.missing_regex_sql: str | None = yaml_object.read_string_opt("missing_regex_sql")
+
+        cfg_keys = yaml_object.yaml_dict.keys()
+        self.has_missing_configuration_error: bool = (
+            ("missing_values" in cfg_keys and self.missing_values is None)
+            or ("missing_regex_sql" in cfg_keys and self.missing_regex_sql is None)
+        )
 
         self.invalid_values: list | None = yaml_object.read_list_opt("invalid_values")
         self.invalid_format: str | None = yaml_object.read_string_opt("invalid_format")
@@ -194,6 +207,21 @@ class MissingAndValidityYaml:
             if non_reference_configurations:
                 yaml_object.logs.error("'valid_reference_data' is mutually exclusive with other "
                                        f"missing and validity configurations: {non_reference_configurations}")
+
+        self.has_valid_configuration_error: bool = (
+            ("invalid_values" in cfg_keys and self.invalid_values is None)
+            or ("invalid_format" in cfg_keys and self.invalid_format is None)
+            or ("invalid_regex_sql" in cfg_keys and self.invalid_regex_sql is None)
+            or ("valid_values" in cfg_keys and self.valid_values is None)
+            or ("valid_format" in cfg_keys and self.valid_format is None)
+            or ("valid_regex_sql" in cfg_keys and self.valid_regex_sql is None)
+            or ("valid_min" in cfg_keys and self.valid_min is None)
+            or ("valid_max" in cfg_keys and self.valid_max is None)
+            or ("valid_length" in cfg_keys and self.valid_length is None)
+            or ("valid_min_length" in cfg_keys and self.valid_min_length is None)
+            or ("valid_max_length" in cfg_keys and self.valid_max_length is None)
+            or ("valid_reference_data" in cfg_keys and self.valid_reference_data.has_configuration_error)
+        )
 
     def get_non_reference_configurations(self) -> list[str]:
         non_reference_configurations: list[str] = [

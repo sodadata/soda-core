@@ -9,8 +9,14 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import Po
 
 class PostgresDataSource(DataSource):
 
-    def __init__(self, data_source_yaml_file_content: YamlFileContent, name: str, type_name: str, connection_properties: dict):
-        super().__init__(data_source_yaml_file_content, name, type_name, connection_properties)
+    def __init__(self,
+                 data_source_yaml_file_content: YamlFileContent,
+                 name: str,
+                 type_name: str,
+                 connection_properties: dict,
+                 format_regexes: dict[str, str]
+                 ):
+        super().__init__(data_source_yaml_file_content, name, type_name, connection_properties, format_regexes)
 
     def get_data_source_type_name(self) -> str:
         return "postgres"

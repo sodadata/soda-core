@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from abc import abstractmethod, ABC
 from enum import Enum
-from io import UnsupportedOperation
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
@@ -251,7 +250,10 @@ class Contract:
 class Column:
     def __init__(self, contract: Contract, column_yaml: ColumnYaml, metrics_resolver: MetricsResolver):
         self.column_yaml = column_yaml
-        self.missing_and_validity: MissingAndValidity = MissingAndValidity(column_yaml)
+        self.missing_and_validity: MissingAndValidity = MissingAndValidity(
+            missing_and_validity_yaml=column_yaml,
+            data_source=contract.data_source
+        )
         self.checks: list[Check] = []
         if column_yaml.checks:
             for check_yaml in column_yaml.checks:
@@ -280,15 +282,17 @@ class ValidReferenceData:
 
 class MissingAndValidity:
 
-    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml):
+    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml, data_source: DataSource):
         self.missing_values: list | None = missing_and_validity_yaml.missing_values
         self.missing_regex_sql: str | None = missing_and_validity_yaml.missing_regex_sql
 
         self.invalid_values: list | None = missing_and_validity_yaml.invalid_values
         self.invalid_format: str | None = missing_and_validity_yaml.invalid_format
+        self.invalid_format_regex: str | None = data_source.get_format_regex(self.invalid_format)
         self.invalid_regex_sql: str | None = missing_and_validity_yaml.invalid_regex_sql
         self.valid_values: list | None = missing_and_validity_yaml.valid_values
         self.valid_format: str | None = missing_and_validity_yaml.valid_format
+        self.valid_format_regex: str | None = data_source.get_format_regex(self.valid_format)
         self.valid_regex_sql: str | None = missing_and_validity_yaml.valid_regex_sql
         self.valid_min: Number | None = missing_and_validity_yaml.valid_min
         self.valid_max: Number | None = missing_and_validity_yaml.valid_max
@@ -321,12 +325,16 @@ class MissingAndValidity:
             invalid_clauses.append(NOT(IN(column_name, literal_values)))
         if isinstance(self.valid_regex_sql, str):
             invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_regex_sql)))
+        if isinstance(self.valid_format_regex, str):
+            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_format_regex)))
         if isinstance(self.valid_min, Number) or isinstance(self.valid_min, str):
             invalid_clauses.append(LT(column_name, LITERAL(self.valid_min)))
         if isinstance(self.valid_max, Number) or isinstance(self.valid_max, str):
             invalid_clauses.append(GT(column_name, LITERAL(self.valid_max)))
         if isinstance(self.invalid_regex_sql, str):
             invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_regex_sql))
+        if isinstance(self.invalid_format_regex, str):
+            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_format_regex))
         if isinstance(self.valid_length, int):
             invalid_clauses.append(NEQ(LENGTH(column_name), LITERAL(self.valid_length)))
         if isinstance(self.valid_min_length, int):
@@ -361,9 +369,11 @@ class MissingAndValidity:
         check_has_validity: bool = self._has_validity_configurations()
         self.invalid_values = self.invalid_values if check_has_validity else column_defaults.invalid_values
         self.invalid_format = self.invalid_format if check_has_validity else column_defaults.invalid_format
+        self.invalid_format_regex = self.invalid_format if check_has_validity else column_defaults.invalid_format_regex
         self.invalid_regex_sql = self.invalid_regex_sql if check_has_validity else column_defaults.invalid_regex_sql
         self.valid_values = self.valid_values if check_has_validity else column_defaults.valid_values
         self.valid_format = self.valid_format if check_has_validity else column_defaults.valid_format
+        self.valid_format_regex = self.valid_format if check_has_validity else column_defaults.valid_format_regex
         self.valid_regex_sql = self.valid_regex_sql if check_has_validity else column_defaults.valid_regex_sql
         self.valid_min = self.valid_min if check_has_validity else column_defaults.valid_min
         self.valid_max = self.valid_max if check_has_validity else column_defaults.valid_max
@@ -635,7 +645,10 @@ class MissingAndValidityCheck(Check):
 
     def __init__(self, contract: Contract, column: Column | None, check_yaml: MissingAncValidityCheckYaml):
         super().__init__(contract, column, check_yaml)
-        self.missing_and_validity: MissingAndValidity = MissingAndValidity(check_yaml)
+        self.missing_and_validity: MissingAndValidity = MissingAndValidity(
+            missing_and_validity_yaml=check_yaml,
+            data_source=contract.data_source
+        )
         self.missing_and_validity.apply_column_defaults(column)
 
 

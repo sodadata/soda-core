@@ -13,20 +13,22 @@ Check types `missing_count` and `missing_percent` have missing configurations.
 
 And there are validity configuration keys
 
-| Key                           | Description | Examples |
-|-------------------------------|-------------|----------|
-| `invalid_values`              |             |          |
-| `invalid_format`              |             |          |
-| `invalid_regex_sql`           |             |          |
-| `valid_values`                |             |          |
-| `valid_format`                |             |          |
-| `valid_regex_sql`             |             |          |
-| `valid_min`                   |             |          |
-| `valid_max`                   |             |          |
-| `valid_length`                |             |          |
-| `valid_min_length`            |             |          |
-| `valid_max_length`            |             |          |
-| `valid_reference_data` |             |          |
+
+
+| Key                     | Description                                                                                                                                      | Examples         |
+|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
+| `invalid_values`        | A list of values considered invalid                                                                                                              | ['X', 'ERROR']   |
+| `invalid_format`        | A format name that represents invalid values. [Formats are configured in the data source](data_source_configuration_reference.md#format-regexes) | email            |
+| `invalid_regex_sql`     | A regex that matches invalid values. The regex is interpreted by the data source SQL engine.                                                     | ^X[a-Z]*$        |
+| `valid_values`          | A list of the valid values.                                                                                                                      | ['S', 'M', 'L']  |
+| `valid_format`          | A format name that represents valid values. [Format are configured in the data source](data_source_configuration_reference.md#format-regexes)    |                  |
+| `valid_regex_sql`       | A regex that matches valid values. The regex is interpreted by the data source SQL engine.                                                       | ^X[a-Z]*$        |
+| `valid_min`             | The minimum valid value for the column                                                                                                           |                  |
+| `valid_max`             | The maximum valid value for the column                                                                                                           |                  |
+| `valid_length`          |                                                                                                                                                  |                  |
+| `valid_min_length`      |                                                                                                                                                  |                  |
+| `valid_max_length`      |                                                                                                                                                  |                  |
+| `valid_reference_data`  |                                                                                                                                                  |                  |
 
 Check types `invalid_count` and `invalid_percent` take into account both validity and also missing configurations. 
 

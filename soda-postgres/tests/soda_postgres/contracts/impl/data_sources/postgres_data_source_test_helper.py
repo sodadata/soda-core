@@ -24,4 +24,7 @@ class PostgresDataSourceTestHelper(DataSourceTestHelper):
                 "port": int(os.getenv("POSTGRES_PORT", "5432")),
                 "database": self.database_name,
             },
+            "format_regexes": {
+                "single_digit_test_format": "^[0-9]$"
+            }
         }

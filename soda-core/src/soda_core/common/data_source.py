@@ -21,7 +21,8 @@ class DataSource(ABC):
             name: str,
             type_name: str,
             connection_properties: dict,
-            variables: dict[str, str] | None
+            variables: dict[str, str] | None,
+            format_regexes: dict[str, str]
     ) -> DataSource:
         data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
             file_type="data source", variables=variables
@@ -32,7 +33,8 @@ class DataSource(ABC):
                 data_source_yaml_file_content=data_source_yaml_file_content,
                 name=name,
                 type_name=type_name,
-                connection_properties=connection_properties
+                connection_properties=connection_properties,
+                format_regexes=format_regexes
             )
 
     def __init__(
@@ -41,6 +43,7 @@ class DataSource(ABC):
             name: str,
             type_name: str,
             connection_properties: dict,
+            format_regexes: dict[str, str],
     ):
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
         self.logs: Logs = data_source_yaml_file_content.logs
@@ -49,6 +52,7 @@ class DataSource(ABC):
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
         self.connection_properties: dict | None = connection_properties
         self.data_source_connection: DataSourceConnection | None = None
+        self.format_regexes: dict[str, str] = format_regexes
 
     @abstractmethod
     def get_data_source_type_name(self) -> str:
@@ -134,3 +138,13 @@ class DataSource(ABC):
         if include_length and isinstance(column_metadata.max_length, int):
             data_type = f"{data_type}({column_metadata.max_length})"
         return data_type
+
+    def get_format_regex(self, format: str) -> str | None:
+        if format is None:
+            return None
+        if self.format_regexes is None:
+            self.logs.error("'format_regexes' not configured in data source")
+        format_regex: str | None = self.format_regexes.get(format)
+        if format_regex is None:
+            self.logs.error(f"Validity format regex '{format}' not configured in data source 'format_regexes'")
+        return format_regex
