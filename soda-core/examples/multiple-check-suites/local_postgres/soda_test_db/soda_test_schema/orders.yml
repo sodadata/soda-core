@@ -4,7 +4,6 @@ dataset: ORDERS
 # It should be owned by the producer and it's recommended that it is triggered from the pipeline
 
 # Non-producers should not have access to edit checks in the default in-pipeline
-
 time_column: created_at
 
 checks_filter:
@@ -24,6 +23,8 @@ checks:
   - type: row_count
 
 
+default_time_schedule: pipeline_triggered
+
 other_check_suites:
 
   # Each check suite is a group of checks
@@ -31,9 +32,10 @@ other_check_suites:
 
   - check_suite_name: Daily at 2am, last 5 days
     owner: john@example.com
-    time_schedule: * * 2 * *
+    time_schedule:
     checks_time_filter:
       time_window_in_days: 5
+    checks_file: ....
     columns:
       - name: id
         checks:

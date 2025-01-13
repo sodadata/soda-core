@@ -1,11 +1,15 @@
 # Missing checks
 
-### missing_count check
+Table of contents
+* [Verify there are no missing values](#verify-there-are-no-missing-values)
+* [Configure values that are considered as missing](#configure-values-that-are-considered-as-missing)
+* [Allow some missing values to occur, up to a threshold](#allow-some-missing-values-to-occur-up-to-a-threshold)
 
-To verify there are no missing values in a column, add a check 
-`type: missing_count` to the column.
+### Verify there are no missing values
 
-```
+Verify there are no missing values in the column: 
+
+```yaml
 dataset: dim_employee
 columns:
   - name: id
@@ -13,78 +17,102 @@ columns:
       - type: missing_count
 ```
 
-The above check will verify that column `id` has no missing values. 
+> The default threshold requires that `missing_count` must be 0.
 
-The default threshold requires that `missing_count` must be 0.
+### Configure values that are considered as missing
 
-### missing_percent check
-
-To verify that the percentage of missing values for a column is not 
-allowed to exceed a threshold, use the `missing_percent` check.
-
-The `missing_percent` is the number of missing values relative to the 
-total amount of rows.  If there is a filter, it's the amount of rows 
-in the filtered dataset.
-
-```
-dataset: dim_employee
-columns:
-  - name: id
-    checks:
-      - type: missing_percent
-```
-
-The default threshold requires that `missing_percent` must be 0.
-
-### Configure a threshold
-
-By default values for the `missing_count` and missing percentage must be 0.
-
-Example: verify that the number of rows with a missing value for column id is 
-less than 50.
-```
-dataset: dim_employee
-columns:
-  - name: id
-    checks:
-      - type: missing_count
-        must_be_less_than: 50
-```
-
-Example: verify that the percentage of missing values is less then 1%.
-```
-dataset: dim_employee
-columns:
-  - name: id
-    checks:
-      - type: missing_percent
-        must_be_less_than: 1
-```
-
-For more details on threshold, see [Thresholds](thresholds.md) 
-
-### Configure missing values
-
-By default the `missing_count` and `missing_percent` both count NULL values.  
-
-NULL will always be considered a missing value.  Only configure the extra 
+NULL is always considered a missing value.  Only configure the extra 
 non-NULL values that must be considered as missing. Typical examples are 
 '-', 'No value', 'N/A', 'None', 'null', -1, 999
 
-For now, only numeric and text based column types are supported.
-```
+##### Specify a list of extra values that apart from NULL, are also considered as missing values:
+
+```yaml
 dataset: dim_employee
 columns:
-
   - name: id
-    missing_values: ['No value', 'N/A', '-']
+    missing_values: ['N/A', '-']
     checks:
       - type: missing_count
-  
-  - name: age
-    checks:
-      - type: missing_count
-        missing_values: [-1]
 ```
 
-See also [Missing and validity configurations](missing_and_validity_configurations.md)
+`missing_values` is a list of values.  All strings or all numeric values are supported.
+
+> Note `missing_values` is on the column level. That's because of 2 reasons:
+> * Multiple checks will use the missing values configuration.  This way you don't have to 
+>   repeat the missing values configuration and maintain the duplicate configurations. 
+> * It separates the metadata (information describing the column) from the actual check. 
+
+##### Specify a regex that apart from NULL, matches with values that are also considered as missing:
+
+```yaml
+dataset: dim_employee
+columns:
+  - name: id
+    missing_regex_sql: ^[-]+$
+    checks:
+      - type: missing_count
+```
+
+`missing_regex_sql` is interpreted by the data source warehouse SQL engine.
+
+For the full list of options, see [the Reference list of missing value configuration keys below](#list-of-missing-value-configuration-keys) 
+
+### Allow some missing values to occur, up to a threshold
+
+Verify there are less than 25 missing values in a column:
+
+```yaml
+dataset: dim_employee
+columns:
+  - name: id
+    checks:
+      - type: missing_count
+        must_be_less_than: 25
+```
+
+Verify there are between 0 and 1 % missing values in a column:
+
+```yaml
+dataset: dim_employee
+columns:
+  - name: id
+    checks:
+      - type: missing_percent
+        must_be_between: [0, 1]
+```
+
+The metric used in this check type is `missing_percent`, which is calculated 
+as: `missing_count` x `100` / `row_count`
+
+> Pro tip: It can be more informative to use missing_percent as the diagnostic 
+> information for this check will include the actual row_count, missing_count and 
+> missing_percentage values.
+
+> Warning: A `missing_percent` check can only be evaluated if there are rows.
+> That's because division by zero is not possible.  A `missing_percent` check 
+> will have an outcome value of UNEVALUATED in case there are no rows. This 
+> will cause the contract verification to fail while there are no rows with 
+> missing values.   
+
+For more details on threshold, see [Thresholds](thresholds.md) 
+
+### List of missing value configuration keys
+
+There are missing value configuration keys 
+
+| Key                 | Description                                           | Examples                               |
+|---------------------|-------------------------------------------------------|----------------------------------------|
+| `missing_values`    | A list of values that represent missing data          | ['N/A', '-', 'No value']<br/>[-1, 999] |
+| `missing_regex_sql` | A warehouse SQL regex that matches for missing values | ^(-)+$                                 |
+
+### List of checks supporting the missing configuration keys
+
+These check types support the missing configuration keys:
+
+* `missing_count`
+* `missing_percent`
+* `invalid_count`
+* `invalid_percent`
+* `nok_count`
+* `nok_percent`

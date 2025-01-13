@@ -1,4 +1,6 @@
-# Data source configuration reference
+# Data source configuration YAML
+
+This page explains how to configure the connection and other data source details.
 
 ### Postgres
 
@@ -10,12 +12,15 @@ type: postgres
 
 ### Format regexes
 
-In each data source, a list of regex formats can be configured.  In the contracts, 
-the formats can be referred to by name and when parsed, the contract format names 
+In each data source, a list of regex formats can be configured.  These formats can be 
+used in the `valid_format` configurations in [invalid checks](invalid_checks.md#verify-values-are-in-a-named-format), 
+
+The formats can be referred to by name and when parsed, the contract format names 
 will be translated to the regex as configured in the data source.
 
-For example the following regexes are the regexes as (hard coded) in 
-the older version 3 of Soda Core:
+Add the following `format_regexes` to your data source YAML configuration file to 
+configure the same named regexes as were (hard coded) in the older version 3 of Soda Core:
+
 ```yaml
 format_regexes:
   integer: ^ *[-+]? *[0-9]+ *$

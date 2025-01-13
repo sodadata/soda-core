@@ -8,5 +8,6 @@ Table of contents
   * [Schema check](pages/schema_check.md)
   * [Row count check](pages/row_count_check.md)
   * [Missing checks](pages/missing_checks.md)
+  * [Invalid checks](pages/invalid_checks.md)
 * [Thresholds](pages/thresholds.md)
-* [Data sources configuration reference](pages/data_source_configuration_reference.md) 
+* [Data sources configuration reference](pages/data_source.md) 

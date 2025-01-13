@@ -1,0 +1,18 @@
+dataset: SODATEST_test_schema_31761d69
+
+columns:
+  - name: id
+    data_type: varchar(255)
+    valid_max_length: 255
+    valid_values: ['M']
+    checks:
+      - type: missing
+        missing_type: count
+        threshold:
+          greater_than: 5
+
+
+  - name: other_column
+checks:
+  - type: schema
+    extra_columns_allowed: true

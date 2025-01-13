@@ -32,3 +32,12 @@ checks:
 
 In your source code repository, we recommend to use a top level directory called `soda` and 
 organize all the soda YAML configuration files in there.  
+
+### Next: Adding checks
+
+Please refer to these pages for adding checks to a SodaCL contract YAML file
+
+* [schema](schema_check.md)
+* [row_count](row_count_check.md)
+* [missing_count & missing_percent](missing_checks.md)
+* [invalid_count & invalid_percent](invalid_checks.md)
