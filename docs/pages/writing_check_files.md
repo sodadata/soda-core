@@ -1,11 +1,8 @@
 # Writing check files
 
-This page applies to Soda check files version 4.
-
 ### Contract YAML layout
 
 Example contract YAML file:
-
 ```
 dataset: dim_employee
 columns:
