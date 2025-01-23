@@ -34,7 +34,7 @@ contextlib2==21.6.0
     # via schema
 coverage[toml]==7.2.7
     # via pytest-cov
-distlib==0.3.6
+distlib==0.3.9
     # via virtualenv
 docker==5.0.3
     # via tox-docker
@@ -67,7 +67,7 @@ pathspec==0.11.1
     # via black
 pip-tools==6.14.0
     # via -r dev-requirements.in
-platformdirs==3.8.1
+platformdirs==4.3.6
     # via
     #   black
     #   tox
@@ -142,7 +142,7 @@ urllib3==1.26.16
     # via
     #   -r dev-requirements.in
     #   requests
-virtualenv==20.23.1
+virtualenv==20.26.6
     # via tox
 webencodings==0.5.1
     # via bleach
