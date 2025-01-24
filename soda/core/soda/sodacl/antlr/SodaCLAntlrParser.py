@@ -1,4 +1,4 @@
-# Generated from /Users/baturayofluoglu/workspace/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
+# Generated from /Users/jarek/git/soda-core/soda/core/soda/sodacl/antlr/SodaCLAntlr.g4 by ANTLR 4.11.1
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO
@@ -45,7 +45,7 @@ def serializedATN():
         0,44,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,
         44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,
         0,8,1,0,31,33,2,0,34,34,38,38,2,0,35,35,39,39,1,0,26,28,2,0,46,46,
-        49,49,1,0,44,50,1,0,42,43,2,0,31,33,51,54,399,0,94,1,0,0,0,2,96,
+        49,49,1,0,44,50,1,0,42,43,2,0,31,33,55,58,399,0,94,1,0,0,0,2,96,
         1,0,0,0,4,110,1,0,0,0,6,115,1,0,0,0,8,118,1,0,0,0,10,121,1,0,0,0,
         12,124,1,0,0,0,14,142,1,0,0,0,16,154,1,0,0,0,18,158,1,0,0,0,20,178,
         1,0,0,0,22,180,1,0,0,0,24,182,1,0,0,0,26,184,1,0,0,0,28,187,1,0,
@@ -107,8 +107,8 @@ def serializedATN():
         4,0,0,256,51,1,0,0,0,257,258,7,5,0,0,258,53,1,0,0,0,259,264,3,80,
         40,0,260,262,5,61,0,0,261,260,1,0,0,0,261,262,1,0,0,0,262,263,1,
         0,0,0,263,265,5,41,0,0,264,261,1,0,0,0,264,265,1,0,0,0,265,269,1,
-        0,0,0,266,269,3,56,28,0,267,269,5,53,0,0,268,259,1,0,0,0,268,266,
-        1,0,0,0,268,267,1,0,0,0,269,55,1,0,0,0,270,272,5,57,0,0,271,270,
+        0,0,0,266,269,3,56,28,0,267,269,5,57,0,0,268,259,1,0,0,0,268,266,
+        1,0,0,0,268,267,1,0,0,0,269,55,1,0,0,0,270,272,5,51,0,0,271,270,
         1,0,0,0,272,273,1,0,0,0,273,271,1,0,0,0,273,274,1,0,0,0,274,57,1,
         0,0,0,275,276,5,11,0,0,276,277,5,61,0,0,277,278,3,62,31,0,278,279,
         5,61,0,0,279,280,3,60,30,0,280,281,5,61,0,0,281,282,3,86,43,0,282,
@@ -140,11 +140,11 @@ def serializedATN():
         364,1,0,0,0,370,77,1,0,0,0,371,372,5,19,0,0,372,373,5,61,0,0,373,
         374,3,86,43,0,374,375,5,0,0,1,375,79,1,0,0,0,376,378,7,6,0,0,377,
         376,1,0,0,0,377,378,1,0,0,0,378,379,1,0,0,0,379,380,3,82,41,0,380,
-        81,1,0,0,0,381,393,3,84,42,0,382,383,5,56,0,0,383,385,5,20,0,0,384,
-        386,5,56,0,0,385,384,1,0,0,0,385,386,1,0,0,0,386,393,1,0,0,0,387,
-        389,5,56,0,0,388,387,1,0,0,0,388,389,1,0,0,0,389,390,1,0,0,0,390,
-        391,5,20,0,0,391,393,5,56,0,0,392,381,1,0,0,0,392,382,1,0,0,0,392,
-        388,1,0,0,0,393,83,1,0,0,0,394,395,5,56,0,0,395,85,1,0,0,0,396,397,
+        81,1,0,0,0,381,393,3,84,42,0,382,383,5,60,0,0,383,385,5,20,0,0,384,
+        386,5,60,0,0,385,384,1,0,0,0,385,386,1,0,0,0,386,393,1,0,0,0,387,
+        389,5,60,0,0,388,387,1,0,0,0,388,389,1,0,0,0,389,390,1,0,0,0,390,
+        391,5,20,0,0,391,393,5,60,0,0,392,381,1,0,0,0,392,382,1,0,0,0,392,
+        388,1,0,0,0,393,83,1,0,0,0,394,395,5,60,0,0,395,85,1,0,0,0,396,397,
         7,7,0,0,397,87,1,0,0,0,34,94,100,106,129,135,142,148,150,163,166,
         178,193,204,211,215,219,224,232,249,261,264,268,273,294,310,315,
         321,334,341,369,377,385,388,392
@@ -170,9 +170,9 @@ class SodaCLAntlrParser ( Parser ):
                      "'pass'", "'change'", "'last'", "'avg'", "'min'", "'max'", 
                      "'['", "']'", "'{'", "'}'", "'('", "')'", "','", "'%'", 
                      "'+'", "'-'", "'!='", "'<>'", "'<='", "'>='", "'='", 
-                     "'<'", "'>'", "<INVALID>", "<INVALID>", "<INVALID>", 
+                     "'<'", "'>'", "<INVALID>", "'d'", "'h'", "'m'", "<INVALID>", 
                      "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                     "'d'", "'h'", "'m'", "' '" ]
+                     "<INVALID>", "' '" ]
 
     symbolicNames = [ "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
                       "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
@@ -184,10 +184,10 @@ class SodaCLAntlrParser ( Parser ):
                       "MAX", "SQUARE_LEFT", "SQUARE_RIGHT", "CURLY_LEFT", 
                       "CURLY_RIGHT", "ROUND_LEFT", "ROUND_RIGHT", "COMMA", 
                       "PERCENT", "PLUS", "MINUS", "NOT_EQUAL", "NOT_EQUAL_SQL", 
-                      "LTE", "GTE", "EQUAL", "LT", "GT", "IDENTIFIER_DOUBLE_QUOTE", 
-                      "IDENTIFIER_BACKTICK", "IDENTIFIER_UNQUOTED", "IDENTIFIER_SQUARE_BRACKETS", 
-                      "STRING", "DIGITS", "TIMEUNIT", "DAY", "HOUR", "MINUTE", 
-                      "S" ]
+                      "LTE", "GTE", "EQUAL", "LT", "GT", "TIMEUNIT", "DAY", 
+                      "HOUR", "MINUTE", "IDENTIFIER_DOUBLE_QUOTE", "IDENTIFIER_BACKTICK", 
+                      "IDENTIFIER_UNQUOTED", "IDENTIFIER_SQUARE_BRACKETS", 
+                      "STRING", "DIGITS", "S" ]
 
     RULE_check = 0
     RULE_freshness_check = 1
@@ -300,16 +300,16 @@ class SodaCLAntlrParser ( Parser ):
     EQUAL=48
     LT=49
     GT=50
-    IDENTIFIER_DOUBLE_QUOTE=51
-    IDENTIFIER_BACKTICK=52
-    IDENTIFIER_UNQUOTED=53
-    IDENTIFIER_SQUARE_BRACKETS=54
-    STRING=55
-    DIGITS=56
-    TIMEUNIT=57
-    DAY=58
-    HOUR=59
-    MINUTE=60
+    TIMEUNIT=51
+    DAY=52
+    HOUR=53
+    MINUTE=54
+    IDENTIFIER_DOUBLE_QUOTE=55
+    IDENTIFIER_BACKTICK=56
+    IDENTIFIER_UNQUOTED=57
+    IDENTIFIER_SQUARE_BRACKETS=58
+    STRING=59
+    DIGITS=60
     S=61
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
@@ -390,7 +390,7 @@ class SodaCLAntlrParser ( Parser ):
                 self.state = 89
                 self.row_count_comparison_check()
                 pass
-            elif token in [9, 10, 29, 31, 32, 33, 51, 52, 53, 54]:
+            elif token in [9, 10, 29, 31, 32, 33, 55, 56, 57, 58]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 90
                 self.metric_check()
@@ -906,7 +906,7 @@ class SodaCLAntlrParser ( Parser ):
                 self.state = 141
                 self.anomaly_detection()
                 pass
-            elif token in [31, 32, 33, 51, 52, 53, 54]:
+            elif token in [31, 32, 33, 55, 56, 57, 58]:
                 pass
             else:
                 pass
@@ -1657,12 +1657,12 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 211
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [20, 42, 43, 56]:
+            if token in [20, 42, 43, 60]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 209
                 self.signed_number()
                 pass
-            elif token in [31, 32, 33, 51, 52, 53, 54]:
+            elif token in [31, 32, 33, 55, 56, 57, 58]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 210
                 self.identifier()
@@ -2268,7 +2268,7 @@ class SodaCLAntlrParser ( Parser ):
             self.state = 268
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [20, 42, 43, 56]:
+            if token in [20, 42, 43, 60]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 259
                 self.signed_number()
@@ -2289,12 +2289,12 @@ class SodaCLAntlrParser ( Parser ):
 
 
                 pass
-            elif token in [57]:
+            elif token in [51]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 266
                 self.freshness_threshold_value()
                 pass
-            elif token in [53]:
+            elif token in [57]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 267
                 self.match(SodaCLAntlrParser.IDENTIFIER_UNQUOTED)
@@ -2360,7 +2360,7 @@ class SodaCLAntlrParser ( Parser ):
                 self.state = 273 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not (_la==57):
+                if not (_la==51):
                     break
 
         except RecognitionException as re:
@@ -3325,7 +3325,7 @@ class SodaCLAntlrParser ( Parser ):
                 self.state = 385
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==56:
+                if _la==60:
                     self.state = 384
                     self.match(SodaCLAntlrParser.DIGITS)
 
@@ -3337,7 +3337,7 @@ class SodaCLAntlrParser ( Parser ):
                 self.state = 388
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==56:
+                if _la==60:
                     self.state = 387
                     self.match(SodaCLAntlrParser.DIGITS)
 
@@ -3462,7 +3462,7 @@ class SodaCLAntlrParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 396
             _la = self._input.LA(1)
-            if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 33777012237664256) != 0):
+            if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 540431970316845056) != 0):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)

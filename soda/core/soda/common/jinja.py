@@ -19,7 +19,7 @@ class OsContext(Context):
 
 
 def create_os_environment():
-    environment = SandboxedEnvironment(variable_start_string="${", variable_end_string="}", autoescape=True)
+    environment = SandboxedEnvironment(variable_start_string="${", variable_end_string="}")
     environment.context_class = OsContext
     return environment
 
