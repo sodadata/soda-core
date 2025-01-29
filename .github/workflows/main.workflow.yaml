@@ -73,4 +73,4 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install tbump
-          tbump --only-patch 4.0.0dev${GITHUB_RUN_NUMBER}
+          tbump --only-patch --non-interactive 4.0.0dev${GITHUB_RUN_NUMBER}
