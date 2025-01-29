@@ -1,0 +1,57 @@
+---
+name: Build container on v4 commits
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'v4'
+
+env:
+  PROJECT_NAME: soda-core
+
+jobs:
+  check:
+    name: pre-commit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Run pre-commit
+        uses: pre-commit/action@v3
+        continue-on-error: true
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: "postgres:15.10-alpine3.21"
+        env:
+          POSTGRES_USER: soda_test
+          POSTGRES_DB: soda_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: |
+            python -m venv .venv
+            pip install pytest
+            pip install -e soda-core
+            pip install -e soda-postgres
+            pip -m pytest
