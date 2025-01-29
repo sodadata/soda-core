@@ -25,6 +25,7 @@ jobs:
         continue-on-error: true
   test:
     runs-on: ubuntu-24.04
+    needs: [check]
     services:
       postgres:
         image: "postgres:15.10-alpine3.21"
