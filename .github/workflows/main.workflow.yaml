@@ -51,7 +51,7 @@ jobs:
       - name: Run tests
         run: |
             python -m venv .venv
-            pip install pytest
+            pip install pytest python-dotenv
             pip install -e soda-core
             pip install -e soda-postgres
             python -m pytest
