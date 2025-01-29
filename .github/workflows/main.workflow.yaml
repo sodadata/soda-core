@@ -72,5 +72,4 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install tbump
-          export BUILD_NUMBER=$(expr ${GITHUB_RUN_NUMBER}-1551)
-          tbump --only-patch 4.0.0dev${BUILD_NUMBER}
+          tbump --only-patch 4.0.0dev${GITHUB_RUN_NUMBER}
