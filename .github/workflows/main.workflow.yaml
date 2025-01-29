@@ -1,5 +1,5 @@
 ---
-name: Build container on v4 commits
+name: CI pipeline
 
 on:
   workflow_dispatch:
