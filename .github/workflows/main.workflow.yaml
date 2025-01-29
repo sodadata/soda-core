@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.10"
       - name: Run pre-commit
-        uses: pre-commit/action@v3
+        uses: pre-commit/action@v3.0.1
         continue-on-error: true
   test:
     runs-on: ubuntu-24.04
@@ -54,4 +54,4 @@ jobs:
             pip install pytest
             pip install -e soda-core
             pip install -e soda-postgres
-            pip -m pytest
+            python -m pytest
