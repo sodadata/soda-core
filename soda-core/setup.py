@@ -37,4 +37,9 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3.10",
     ],
+    entry_points={
+        "console_scripts": [
+            "soda=soda_core.cli.soda:main",
+        ]
+    }
 )
