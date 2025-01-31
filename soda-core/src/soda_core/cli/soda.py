@@ -1,69 +1,115 @@
+from __future__ import annotations
+
 import argparse
 from textwrap import dedent
 
 
-def verify_contract(contract_file_path: str):
-    print(f"verifying contract {contract_file_path}")
+def verify_contract(
+    contract_file_paths: list[str] | None,
+    send_results: bool,
+    skip_publish: bool,
+    use_agent: bool
+):
+    print(
+        f"Verifying contracts {contract_file_paths} with "
+        f"send-results={send_results}, "
+        f"skip_publish={skip_publish}, "
+        f"use_agent={use_agent}"
+    )
+
+
+def publish_contract(contract_file_paths: list[str] | None):
+    print(
+        f"Publishing contracts {contract_file_paths}"
+    )
+
+
+def test_data_source(data_source_name: str):
+    print(f"Testing data source {data_source_name}")
 
 
 def main():
     print(dedent("""
           __|  _ \ _ \   \\
         \__ \ (   ||  | _ \\
-        ____/\___/___/_/  _\\ 4.0.0b1
-    """))
+        ____/\___/___/_/  _\\ CLI 4.0.0b1
+    """).strip("\n"))
 
-    cli_parser = argparse.ArgumentParser(
-        description="The Soda CLI"
-    )
+    cli_parser = argparse.ArgumentParser(epilog="Run 'soda {command} -h' for help on a particular soda command")
 
-    sub_parsers = cli_parser.add_subparsers(dest="command", help='Subcommand description')
-    parser = sub_parsers.add_parser('verify', help='Verify a contract')
+    sub_parsers = cli_parser.add_subparsers(dest="command", help='Soda command description')
+    verify_parser = sub_parsers.add_parser('verify', help='Verify a contract')
 
-    parser.add_argument(
+    verify_parser.add_argument(
         "-c", "--contract",
         type=str,
-        help="A contract file path. Prepend -c for each contract file you specify."
+        nargs='+',
+        help="One or more contract file paths."
     )
-    parser.add_argument(
+    verify_parser.add_argument(
         "-s", "--send-results",
         const=True,
         action='store_const',
+        default=False,
         help="Sends contract verification results to Soda Cloud."
     )
-    parser.add_argument(
+    verify_parser.add_argument(
         "-a", "--use-agent",
         const=True,
         action='store_const',
+        default=False,
         help="Executes contract verification on Soda Agent instead of locally in this library."
     )
-    parser.add_argument(
+    verify_parser.add_argument(
         "-sp", "--skip-publish",
         const=True,
         action='store_const',
+        default=False,
         help="Skips publishing of the contract when sending results to Soda Cloud.  Precondition: The contract version "
              "must already exist on Soda Cloud."
     )
 
-    parser = sub_parsers.add_parser('publish', help='Publish a contract')
-    parser.add_argument(
+    publish_parser = sub_parsers.add_parser('publish', help='Publish a contract')
+    publish_parser.add_argument(
         "-c", "--contract",
         type=str,
-        help="A contract file path. Prepend -c for each contract file you specify."
+        nargs='+',
+        help="One or more contract file paths."
     )
 
-    parser = sub_parsers.add_parser('help', help='Soda CLI help')
+    test_parser = sub_parsers.add_parser('test', help='Test a data source connection')
+    test_parser.add_argument(
+        "-ds", "--data-source",
+        type=str,
+        help="The name of a configured data source to test."
+    )
+
+    sub_parsers.add_parser('help', help='Soda CLI help')
 
     args = cli_parser.parse_args()
 
     try:
         if args.command == "verify":
-            verify_contract(args.contract)
+            # No -c means args.contract is None
+            if args.contract is not None:
+                verify_contract(args.contract, args.send_results, args.skip_publish, args.use_agent)
+            else:
+                raise Exception(
+                    "No contract provided. Add one or more contracts with option --contract <contract-file-path1> "
+                    "<contract-file-path2> ..."
+                )
+        elif args.command == "publish":
+            publish_contract(args.contract)
+        elif args.command == "test":
+            test_data_source(args.data_source)
         else:
             cli_parser.print_help()
     except Exception as e:
         cli_parser.print_help()
+        print()
         print(f"Error: {e}")
+        exit(1)
+    exit(0)
 
 
 if __name__ == "__main__":
