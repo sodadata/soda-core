@@ -3,4 +3,4 @@
   connection:
     host: localhost
     database: ${POSTGRES_DATABASE}
-    username: ${POSTGRES_USERNAME}
+    user: ${POSTGRES_USERNAME}

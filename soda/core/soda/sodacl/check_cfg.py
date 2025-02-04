@@ -27,6 +27,7 @@ class CheckCfg:
         self.samples_limit: int | None = samples_limit
         self.samples_columns: list | None = samples_columns
         self.failed_rows_query: str | None = failed_rows_query
+        self.variables: dict = {}
 
     def get_column_name(self) -> str | None:
         pass
@@ -35,6 +36,7 @@ class CheckCfg:
         self, name: str, table_alias: str, table_name: str, partition_name: str
     ) -> CheckCfg:
         instantiated_check_cfg = deepcopy(self)
+        instantiated_check_cfg.variables[table_alias] = table_name
         partition_replace = f" [{partition_name}]" if partition_name else ""
         instantiated_check_cfg.name = name
         instantiated_check_cfg.source_header = f"checks for {table_alias} being {table_name}{partition_replace}"

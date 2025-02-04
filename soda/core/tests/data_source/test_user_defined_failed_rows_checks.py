@@ -1,4 +1,4 @@
-from helpers.common_test_tables import customers_test_table
+from helpers.common_test_tables import customers_huge_test_table, customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
 from helpers.mock_http_request import MockHttpRequest
 from helpers.mock_http_sampler import MockHttpSampler
@@ -384,3 +384,29 @@ def test_failed_rows_condition_warn_threshold_pass(data_source_fixture: DataSour
     )
     scan.execute()
     scan.assert_check_pass()
+
+
+def test_failed_rows_over_100_failed(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_huge_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks:
+            - failed rows:
+                name: Customers must be empty
+                fail query: |
+                  SELECT *
+                  FROM {qualified_table_name}
+        """
+    )
+    scan.execute()
+    scan.assert_check_fail()
+    check_metric_name = mock_soda_cloud.find_check(0)["metrics"][0]
+
+    assert mock_soda_cloud.find_check_metric(check_metric_name)["value"] == 120
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == 100

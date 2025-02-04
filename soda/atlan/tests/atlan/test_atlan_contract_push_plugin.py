@@ -3,10 +3,27 @@ from textwrap import dedent
 import pytest
 from dotenv import load_dotenv
 from helpers.fixtures import project_root_dir
+from helpers.test_table import TestTable
+from soda.execution.data_type import DataType
 
 from soda.contracts.contract_verification import (
     ContractVerification,
     ContractVerificationResult,
+)
+
+contracts_atlan_contract_test_table = TestTable(
+    name="contracts_atlan_contract",
+    # fmt: off
+    columns=[
+        ("one", DataType.TEXT)
+    ],
+    values=[
+        ('ID1',),
+        ('XXX',),
+        ('N/A',),
+        (None,),
+    ]
+    # fmt: on
 )
 
 
@@ -24,16 +41,15 @@ def test_atlan_contract_push_plugin():
         connection:
             host: ${CONTRACTS_POSTGRES_HOST}
             database: ${CONTRACTS_POSTGRES_DATABASE}
-            username: ${CONTRACTS_POSTGRES_USERNAME}
+            user: ${CONTRACTS_POSTGRES_USERNAME}
             password: ${CONTRACTS_POSTGRES_PASSWORD}
-            schema: contracts
     """
     )
 
     contract_yaml_str: str = dedent(
-        """
+        f"""
         data_source: postgres_ds
-        database: ${CONTRACTS_POSTGRES_DATABASE}
+        database: ${{CONTRACTS_POSTGRES_DATABASE}}
         schema: contracts
         dataset: students
         columns:

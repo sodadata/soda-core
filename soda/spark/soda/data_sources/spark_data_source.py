@@ -219,7 +219,7 @@ class SparkSQLBase(DataSource):
             ),
         )
         query.execute()
-        if len(query.rows) > 0:
+        if query.rows and len(query.rows) > 0:
             rows = query.rows
             # Remove the partitioning information (see https://spark.apache.org/docs/latest/sql-ref-syntax-aux-describe-table.html)
             partition_indices = [i for i in range(len(rows)) if rows[i][0].startswith("# Partition")]
@@ -347,6 +347,15 @@ class SparkSQLBase(DataSource):
     ) -> dict[str, str] | None:
         if (not include_patterns) and (not exclude_patterns):
             return []
+
+        # Spark will not an implicit "include all" if no include patterns are provided like other datasources that match
+        # all tables because of the nature of the metadata query. If no include patterns are provided, we will simulate "include all"
+        # for the sake of consistency with other datasources.
+        if not include_patterns:
+            include_patterns = [{"table_name_pattern": "%", "column_name_pattern": "%"}]
+        if exclude_patterns is None:
+            exclude_patterns = []
+
         included_table_names: list[str] = self.get_included_table_names(
             query_name, include_patterns, exclude_patterns, table_names_only=table_names_only
         )

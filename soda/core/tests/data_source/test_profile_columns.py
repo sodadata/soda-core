@@ -475,3 +475,30 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
     assert len(column_profiles) == 2
     assert column_profiles[0]["columnName"] == column_casify("ITEMS_SOLD")
     assert column_profiles[1]["columnName"] == column_casify("CST_Size")
+
+
+@pytest.mark.parametrize(
+    "soda_cl_str",
+    [
+        pytest.param(
+            """
+                profile columns:
+                    columns:
+                        - exclude %.id
+            """,
+        )
+    ],
+)
+def test_profile_columns_implicit_include(data_source_fixture: DataSourceFixture, soda_cl_str):
+    _table_name1 = data_source_fixture.ensure_test_table(customers_profiling)
+    _table_name2 = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.add_sodacl_yaml_str(soda_cl_str.format(table_name1=_table_name1))
+    scan.execute(allow_error_warning=True)
+    scan_results = mock_soda_cloud.pop_scan_result()
+
+    profiled_tables = [table for table in scan_results["profiling"]]
+
+    # Two tables requested, make sure at least two are profiled.
+    assert len(profiled_tables) >= 2
