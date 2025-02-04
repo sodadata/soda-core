@@ -162,7 +162,7 @@ I believe this will launch separate test container(s), even if you already have 
 
 ## CI
 
-CI is configured in `.github/workflows/workflow.yml`
+CI is configured in `.github/workflows/pr.workflow.yml`
 
 The secrets used in that file are configured in GitHub: [https://github.com/sodadata/soda-core/settings/secrets/actions](https://github.com/sodadata/soda-core/settings/secrets/actions)
 
