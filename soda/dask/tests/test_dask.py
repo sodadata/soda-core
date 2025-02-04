@@ -18,4 +18,4 @@ def test_dask_row_count_with_duplicates(data_source_fixture: DataSourceFixture):
             - row_count > 0
         """,
     )
-    assert scan_result["queries"][0]["sql"].upper().count("COUNT(1)") == 1
+    assert scan_result["queries"][0]["sql"].upper().count("COUNT(*)") == 1
