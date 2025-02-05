@@ -1007,7 +1007,7 @@ class SodaCLParser(Parser):
         if isinstance(check_configurations, dict):
             self._push_path_element(check_str, check_configurations)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, QUERY]:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, QUERY, IDENTITY]:
                     self.logs.error(
                         f'Invalid group evolution check configuration key "{configuration_key}"', location=self.location
                     )
@@ -1375,7 +1375,7 @@ class SodaCLParser(Parser):
             samples_limit = self._get_optional(SAMPLES_LIMIT, int)
 
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES]:
+                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES, IDENTITY]:
                     self.logs.error(
                         f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )
