@@ -135,7 +135,7 @@ class DerivedMetric(Metric):
                 partition=self.partition,
                 column=self.column if metric_name != "row_count" else None,
                 metric_name=metric_name,
-                metric_args=self.metric_args,
+                metric_args=self.metric_args if metric_name != "row_count" else None,
                 filter=self.filter,
                 aggregation=None,
                 check_missing_and_valid_cfg=self.missing_and_valid_cfg if metric_name != "row_count" else None,
