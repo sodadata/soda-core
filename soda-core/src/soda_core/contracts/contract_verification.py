@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC
+from datetime import datetime
 from enum import Enum
 from logging import ERROR
+from tabnanny import check
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
-from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
 class ContractVerificationBuilder:
@@ -15,6 +16,7 @@ class ContractVerificationBuilder:
     def __init__(self, default_data_source: DataSource | None = None):
         self.default_data_source: DataSource | None = default_data_source
         self.contract_yaml_sources: list[YamlSource] = []
+        self.soda_cloud: 'SodaCloud' | None = None
         self.variables: dict[str, str] = {}
         self.logs: Logs = Logs()
 
@@ -101,7 +103,8 @@ class ContractVerification:
             default_data_source=contract_verification_builder.default_data_source,
             contract_yaml_sources=contract_verification_builder.contract_yaml_sources,
             variables=contract_verification_builder.variables,
-            logs=contract_verification_builder.logs
+            logs=contract_verification_builder.logs,
+            soda_cloud=contract_verification_builder.soda_cloud
         )
 
     def __str__(self) -> str:
@@ -152,7 +155,7 @@ class ContractVerificationResult:
 
     @classmethod
     def __format_contract_results_with_heading(cls, contract_result: ContractResult) -> list[str]:
-        return [f"### Contract results for {contract_result.contract_yaml.dataset_name}", str(contract_result)]
+        return [f"### Contract results for {contract_result.soda_qualified_dataset_name}", str(contract_result)]
 
 
 class SodaException(Exception):
@@ -175,9 +178,17 @@ class CheckOutcome(Enum):
 
 class CheckResult(ABC):
 
-    def __init__(self, outcome: CheckOutcome, check_summary: str, diagnostic_lines: list[str]):
+    def __init__(
+        self,
+        check_identity: str,
+        check_name: str,
+        outcome: CheckOutcome,
+        diagnostic_lines: list[str]
+    ):
+        self.check_identity: str = check_identity
+        # Short description used in UI. Required. Between 1 and 4000 chars.
+        self.check_name: str = check_name
         self.outcome: CheckOutcome = outcome
-        self.check_summary: str = check_summary
         self.diagnostic_lines: list[str] = diagnostic_lines
 
     def __str__(self) -> str:
@@ -188,11 +199,19 @@ class CheckResult(ABC):
         Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
         Method implementations can use self._get_outcome_line(self)
         """
-        log_lines: list[str] = [f"Check {self.outcome.name} {self.check_summary}"]
+        log_lines: list[str] = [f"Check {self.outcome.name} {self.check_name}"]
         log_lines.extend([
             f"  {diagnostic_line}" for diagnostic_line in self.diagnostic_lines
         ])
         return log_lines
+
+
+class Measurement:
+
+    def __init__(self, metric_id: str, value: any, metric_name: str | None):
+        self.metric_id: str = metric_id
+        self.metric_name: str | None = metric_name
+        self.value: any = value
 
 
 class ContractResult:
@@ -203,13 +222,25 @@ class ContractResult:
 
     def __init__(
             self,
-            contract_yaml: 'ContractYaml',
+            data_timestamp: datetime | None,
+            started_timestamp: datetime,
+            ended_timestamp: datetime,
+            data_source_name: str,
+            soda_qualified_dataset_name: str,
+            sql_qualified_dataset_name: str,
+            measurements: list[Measurement],
             check_results: list[CheckResult],
             logs: Logs
     ):
-        self.contract_yaml = contract_yaml
-        self.logs: Logs = logs
+        self.data_timestamp: datetime | None = data_timestamp
+        self.started_timestamp: datetime = started_timestamp
+        self.ended_timestamp: datetime = ended_timestamp
+        self.data_source_name: str = data_source_name
+        self.soda_qualified_dataset_name: str = soda_qualified_dataset_name
+        self.sql_qualified_dataset_name: str = sql_qualified_dataset_name
+        self.measurements: list[Measurement] = measurements
         self.check_results: list[CheckResult] = check_results
+        self.logs: Logs = logs
 
     def failed(self) -> bool:
         """

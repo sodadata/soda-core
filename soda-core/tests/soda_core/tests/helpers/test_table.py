@@ -102,9 +102,9 @@ class TestTableSpecificationBuilder:
         name_lower = self._table_purpose.lower()
         if name_lower in self.__names:
             raise AssertionError(
-                f"Duplicate test table purpose detected: {self.table_purpose}.  In the codebase, the table_purpose "
-                f"of every test table should be unique.  Search for \"{self.table_purpose}\" and you should find "
-                f"multiple places in the test codebase where the same table_purpose is created."
+                f"Duplicate test table purpose detected: {self._table_purpose}.  In the codebase, the table_purpose "
+                f"of every test table should be unique.  Search for .table_purpose(\"{self._table_purpose}\") and you "
+                f"should find multiple places in the test codebase where the same table_purpose is created."
             )
         self.__names.append(name_lower)
         unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
@@ -174,19 +174,20 @@ class TestTable:
 
     def __init__(self,
                  data_source_name: str,
-                 database_name: str | None,
-                 schema_name: str | None,
-                 name: str,
+                 dataset_prefix: list[str],
+                 code_name: str,
                  unique_name: str,
                  qualified_name: str,
                  columns: list[TestColumn],
                  row_values: list[tuple] | None
                  ):
         self.data_source_name: str = data_source_name
-        self.database_name: str = database_name
-        self.schema_name: str = schema_name
-        self.name: str = name
+        self.dataset_prefix: list[str] = dataset_prefix
+        # Name of the test table in the code.
+        self.code_name: str = code_name
+        # Name that includes the hash of the contents of the table
         self.unique_name: str = unique_name
+        # Fully qualified SQL name of the table
         self.qualified_name: str = qualified_name
         self.columns: dict[str, TestColumn] = {
             column.name: column for column in columns

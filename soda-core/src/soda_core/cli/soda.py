@@ -10,12 +10,19 @@ def verify_contract(
     skip_publish: bool,
     use_agent: bool
 ):
-    print(
-        f"Verifying contracts {contract_file_paths} with "
-        f"send-results={send_results}, "
-        f"skip_publish={skip_publish}, "
-        f"use_agent={use_agent}"
-    )
+    print(f"Verifying contracts {contract_file_paths} with ")
+    if send_results:
+        print(f"  \u2713 Sending results to Soda Cloud")
+    else:
+        print(f"  \u2713 Skip sending results to Soda Cloud")
+    # if skip_publish:
+    #     print(f"  \N{cross mark button} Skipping publication to Soda Cloud")
+    # else:
+    #     print(f"  \N{check mark button} Publishing contract to Soda Cloud")
+    # if use_agent:
+    #     print(f"  \N{check mark button} Using Soda Agent")
+    # else:
+    #     print(f"  \N{check mark button} Executing locally")
 
 
 def publish_contract(contract_file_paths: list[str] | None):
@@ -30,8 +37,8 @@ def test_data_source(data_source_name: str):
 
 def main():
     print(dedent("""
-          __|  _ \ _ \   \\
-        \__ \ (   ||  | _ \\
+          __|  _ \|  \   \\
+        \__ \ (   |   | _ \\
         ____/\___/___/_/  _\\ CLI 4.0.0b1
     """).strip("\n"))
 
@@ -77,14 +84,12 @@ def main():
         help="One or more contract file paths."
     )
 
-    test_parser = sub_parsers.add_parser('test', help='Test a data source connection')
+    test_parser = sub_parsers.add_parser('test-connection', help='Test a data source connection')
     test_parser.add_argument(
         "-ds", "--data-source",
         type=str,
         help="The name of a configured data source to test."
     )
-
-    sub_parsers.add_parser('help', help='Soda CLI help')
 
     args = cli_parser.parse_args()
 

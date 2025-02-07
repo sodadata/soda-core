@@ -32,14 +32,16 @@ class SqlDialect:
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
 
-    def qualify_table(
-        self, database_name: str | None, schema_name: str | None, table_name: str
+    def qualify_dataset_name(
+        self, dataset_prefix: list[str], dataset_name: str
     ) -> str:
         """
         Creates a fully qualified table name, optionally quoting the table name
         """
-        parts = [self.quote_default(database_name), self.quote_default(schema_name), self.quote_default(table_name)]
-        return ".".join([p for p in parts if p])
+        parts: list[str] = list(dataset_prefix) if dataset_prefix else []
+        parts.append(dataset_name)
+        parts = [self.quote_default(p) for p in parts if p]
+        return ".".join(parts)
 
     def literal(self, o: object) -> str:
         if o is None:

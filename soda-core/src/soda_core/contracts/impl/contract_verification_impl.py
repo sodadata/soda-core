@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import os
 from abc import abstractmethod, ABC
+from datetime import timezone
 from enum import Enum
+from symbol import varargslist
+
+from cfgv import check_string
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import YamlSource, VariableResolver
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult
+    CheckResult, Measurement
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
     MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
+from soda_core.tests.helpers.consistent_hash_builder import ConsistentHashBuilder
 
 
 class DataSourceContracts:
@@ -33,11 +38,13 @@ class ContractVerificationImpl:
             default_data_source: DataSource,
             contract_yaml_sources: list[YamlSource],
             variables: dict[str, str],
-            logs: Logs = Logs()
+            logs: Logs = Logs(),
+            soda_cloud: 'SodaCloud' | None = None
     ):
         self.logs: Logs = logs
         self.default_data_source_contracts: DataSourceContracts | None = None
         self.data_sources_contracts: list[DataSourceContracts] = []
+        self.soda_cloud: 'SodaCloud' | None = soda_cloud
 
         if default_data_source:
             self.default_data_source_contracts = DataSourceContracts(data_source=default_data_source)
@@ -49,7 +56,9 @@ class ContractVerificationImpl:
                 data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
                 if data_source_contracts:
                     data_source: DataSource = data_source_contracts.data_source
-                    contract: Contract = Contract(contract_yaml=contract_yaml, data_source=data_source, logs=self.logs)
+                    contract: Contract = Contract(
+                        contract_yaml=contract_yaml, data_source=data_source, variables=variables, logs=self.logs
+                    )
                     data_source_contracts.contracts.append(contract)
 
     def resolve_data_source_contracts(self, contract_yaml: ContractYaml) -> DataSourceContracts | None:
@@ -123,6 +132,8 @@ class ContractVerificationImpl:
                 for contract in data_source_contracts.contracts:
                     contract_result: ContractResult = contract.verify()
                     contract_results.append(contract_result)
+                    if self.soda_cloud:
+                        self.soda_cloud.send_contract_result(contract_result)
         finally:
             if open_close:
                 data_source.close_connection()
@@ -131,37 +142,90 @@ class ContractVerificationImpl:
 
 class Contract:
 
-    def __init__(self, contract_yaml: ContractYaml, data_source: DataSource, logs: Logs):
+    def __init__(
+        self,
+        contract_yaml: ContractYaml,
+        data_source: DataSource,
+        variables: dict[str, str],
+        logs: Logs
+    ):
         self.logs: Logs = logs
         self.data_source: DataSource = data_source
         self.contract_yaml: ContractYaml = contract_yaml
+        self.variables: dict[str, str] = variables
 
-        self.data_source_name: str | None = contract_yaml.data_source_file if contract_yaml else None
+        self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
+        # self.data_timestamp can be None if the user specified a DATA_TS variable that is not in the correct format
+        self.data_timestamp: datetime | None = self._get_data_timestamp(
+            variables=variables, default=self.started_timestamp
+        )
+
         data_source_location: dict[str, str] | None = (
             contract_yaml.dataset_locations.get(data_source.get_data_source_type_name())
             if contract_yaml.dataset_locations else None
         )
         self.dataset_prefix: list[str] | None = data_source.build_dataset_prefix(data_source_location)
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
-        metrics_resolver: MetricsResolver = MetricsResolver()
+
+        self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
+            data_source_name=self.data_source.name,
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=self.dataset_name
+        )
+        self.sql_qualified_dataset_name: str = data_source.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=self.dataset_name
+        )
+        self.metrics_resolver: MetricsResolver = MetricsResolver()
         self.columns: list[Column] = self._parse_columns(
             contract_yaml=contract_yaml,
-            metrics_resolver=metrics_resolver
         )
 
-        self.checks: list[Check] = self._parse_checks(contract_yaml, metrics_resolver)
+        self.checks: list[Check] = self._parse_checks(contract_yaml)
 
         self.all_checks: list[Check] = list(self.checks)
         for column in self.columns:
             self.all_checks.extend(column.checks)
 
-        self.metrics: list[Metric] = metrics_resolver.get_resolved_metrics()
+        self._verify_duplicate_identities(self.all_checks, self.logs)
+
+        self.metrics: list[Metric] = self.metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries()
+
+    def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> datetime | None:
+        now_variable_name: str = "DATA_TS"
+        now_variable_timestamp_text = VariableResolver.get_variable(variables=variables, variable=now_variable_name)
+        if isinstance(now_variable_timestamp_text, str):
+            try:
+                now_variable_timestamp = datetime.fromisoformat(now_variable_timestamp_text)
+                if isinstance(now_variable_timestamp, datetime):
+                    return now_variable_timestamp
+            except:
+                pass
+            self.logs.error(
+                f"Could not parse variable {now_variable_name} as a timestamp: {now_variable_timestamp_text}"
+            )
+        else:
+            return default
+        return None
+
+    @classmethod
+    def create_soda_qualified_dataset_name(
+        cls,
+        data_source_name: str,
+        dataset_prefix: list[str],
+        dataset_name: str
+    ) -> str:
+        soda_name_parts: list[str] = [data_source_name]
+        if dataset_prefix:
+            soda_name_parts.extend(dataset_prefix)
+        soda_name_parts.append(dataset_name)
+        soda_name_parts = [str(p) for p in soda_name_parts]
+        return "/" + "/".join(soda_name_parts)
 
     def _parse_checks(
         self,
-        contract_yaml: ContractYaml,
-        metrics_resolver: MetricsResolver,
+        contract_yaml: ContractYaml
     ) -> list[Check]:
         checks: list[Check] = []
         if contract_yaml.checks:
@@ -170,7 +234,7 @@ class Contract:
                     check = Check.parse_check(
                         contract=self,
                         check_yaml=check_yaml,
-                        metrics_resolver=metrics_resolver,
+                        metrics_resolver=self.metrics_resolver,
                     )
                     checks.append(check)
         return checks
@@ -209,42 +273,74 @@ class Contract:
 
         return schema_queries + aggregation_queries + other_queries
 
-    def _parse_columns(self, contract_yaml: ContractYaml, metrics_resolver: MetricsResolver) -> list[Column]:
+    def _parse_columns(self, contract_yaml: ContractYaml) -> list[Column]:
         columns: list[Column] = []
         if contract_yaml.columns:
             for column_yaml in contract_yaml.columns:
                 column = Column(
                     contract=self,
                     column_yaml=column_yaml,
-                    metrics_resolver=metrics_resolver
+                    metrics_resolver=self.metrics_resolver
                 )
                 columns.append(column)
         return columns
 
     def verify(self) -> ContractResult:
+        measurements: list[Measurement] = []
         # Executing the queries will set the value of the metrics linked to queries
         for query in self.queries:
-            query.execute()
+            query_measurements: list[Measurement] = query.execute()
+            measurements.extend(query_measurements)
 
         # Triggering the derived metrics to initialize their value based on their dependencies
         derived_metrics: list[DerivedPercentageMetric] = [
             derived_metric for derived_metric in self.metrics
             if isinstance(derived_metric, DerivedPercentageMetric)
         ]
+        measurement_values: MeasurementValues = MeasurementValues(measurements)
         for derived_metric in derived_metrics:
-            derived_metric.initialize_measured_value()
+            derived_measurement: Measurement = derived_metric.create_derived_measurement(measurement_values)
+            measurements.append(derived_measurement)
 
         # Evaluate the checks
+        measurement_values = MeasurementValues(measurements)
         check_results: list[CheckResult] = []
         for check in self.all_checks:
-            check_result: CheckResult = check.evaluate()
+            check_result: CheckResult = check.evaluate(measurement_values=measurement_values)
             check_results.append(check_result)
 
         return ContractResult(
-            contract_yaml=self.contract_yaml,
+            data_timestamp=self.data_timestamp,
+            started_timestamp=self.started_timestamp,
+            ended_timestamp=datetime.now(tz=timezone.utc),
+            data_source_name=self.data_source.name,
+            soda_qualified_dataset_name=self.soda_qualified_dataset_name,
+            sql_qualified_dataset_name=self.sql_qualified_dataset_name,
+            measurements=measurements,
             check_results=check_results,
             logs=self.logs
         )
+
+    @classmethod
+    def _verify_duplicate_identities(cls, all_checks: list[Check], logs: Logs):
+        checks_by_identity: dict[str, Check] = {}
+        for check in all_checks:
+            existing_check: Check | None = checks_by_identity.get(check.identity)
+            if existing_check:
+                # TODO distill better diagnostic error message: which check in which column on which lines in the file
+                logs.error(f"Duplicate identity ({check.identity})")
+            checks_by_identity[check.identity] = check
+
+
+class MeasurementValues:
+    def __init__(self, measurements: list[Measurement]):
+        self.measurement_values_by_metric_id: dict[str, any] = {
+            measurement.metric_id: measurement.value
+            for measurement in measurements
+        }
+
+    def get_value(self, metric: Metric) -> any:
+        return self.measurement_values_by_metric_id.get(metric.id)
 
 
 class Column:
@@ -625,20 +721,44 @@ class Check:
         self.logs: Logs = contract.logs
 
         self.contract: Contract = contract
+        self.check_yaml: CheckYaml = check_yaml
         self.column: Column | None = column
         self.type: str = check_yaml.type
-        self.qualifier: str | None = check_yaml.qualifier
-        self.check_yaml: CheckYaml = check_yaml
+        self.name: str | None = None
+        self.identity: str = self._build_identity(
+            contract=contract,
+            column=column,
+            check_type=check_yaml.type,
+            qualifier=check_yaml.qualifier
+        )
 
         self.threshold: Threshold | None = None
-        self.summary: str | None = None
-        self.metrics: dict[str, Metric] = {}
+        self.metrics: list[Metric] = []
         self.queries: list[Query] = []
         self.skip: bool = False
 
+    def _resolve_metric(self, metric: Metric) -> Metric:
+        resolved_metric: Metric = self.contract.metrics_resolver.resolve_metric(metric)
+        self.metrics.append(resolved_metric)
+        return resolved_metric
+
     @abstractmethod
-    def evaluate(self) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         pass
+
+    def _build_identity(
+        self,
+        contract: Contract,
+        column: Column | None,
+        check_type: str,
+        qualifier: str | None
+    ) -> str:
+        identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
+        identity_hash_builder.add_property("fp", contract.contract_yaml.contract_yaml_file_content.yaml_file_path)
+        identity_hash_builder.add_property("c", column.column_yaml.name if column else None)
+        identity_hash_builder.add_property("t", check_type)
+        identity_hash_builder.add_property("q", qualifier)
+        return identity_hash_builder.get_hash()
 
 
 class MissingAndValidityCheck(Check):
@@ -660,26 +780,32 @@ class Metric:
         metric_type: str,
         column: Column | None = None,
     ):
+        # TODO id of a metric will have to be extended to include check configuration parameters that
+        #      influence the metric identity
+        self.id: str = self.create_metric_id(contract, metric_type, column)
         self.contract: Contract = contract
         self.column: Column | None = column
         self.type: str = metric_type
 
-        # Initialized in the check.evaluate after queries are executed
-        self.value: any = None
-
-    def _get_eq_properties(self, m: Metric) -> dict:
-        return {
-            k: v for k, v in m.__dict__.items() if k != "value"
-        }
+    @classmethod
+    def create_metric_id(
+        cls,
+        contract: Contract,
+        metric_type: str,
+        column: Column | None = None,
+    ):
+        id_parts: list[str] = [contract.data_source.name]
+        if contract.dataset_prefix:
+            id_parts.extend(contract.dataset_prefix)
+        if column:
+            id_parts.append(column.column_yaml.name)
+        id_parts.append(metric_type)
+        return "/" + "/".join(id_parts)
 
     def __eq__(self, other):
         if type(other) != type(self):
             return False
-        other_metric_properties: dict = self._get_eq_properties(other)
-        self_metric_properties: dict = self._get_eq_properties(self)
-        if other_metric_properties != self_metric_properties:
-            return False
-        return True
+        return self.id == other.id
 
 
 class AggregationMetric(Metric):
@@ -700,8 +826,12 @@ class AggregationMetric(Metric):
     def sql_expression(self) -> SqlExpression:
         pass
 
-    def set_value(self, value: any) -> None:
-        pass
+    def convert_db_value(self, value: any) -> any:
+        return value
+
+    def get_short_description(self) -> str:
+        return self.type
+
 
 
 class DerivedPercentageMetric(Metric):
@@ -719,11 +849,16 @@ class DerivedPercentageMetric(Metric):
         self.fraction_metric: Metric = fraction_metric
         self.total_metric: Metric = total_metric
 
-    def initialize_measured_value(self) -> None:
-        fraction: Number = self.fraction_metric.value
-        total: Number = self.total_metric.value
-        if isinstance(fraction, Number) and isinstance(total, Number) and total != 0:
-            self.value = fraction * 100 / total
+    def create_derived_measurement(self, measurement_values: MeasurementValues) -> Measurement:
+        fraction: Number = measurement_values.get_value(self.fraction_metric)
+        total: Number = measurement_values.get_value(self.total_metric)
+        if isinstance(fraction, Number) and isinstance(total, Number):
+            value: float = (fraction * 100 / total) if total != 0 else 0
+            return Measurement(
+                metric_id=self.id,
+                value=value,
+                metric_name=self.type
+            )
 
 
 class Query(ABC):
@@ -745,7 +880,7 @@ class Query(ABC):
         return self.sql
 
     @abstractmethod
-    def execute(self) -> None:
+    def execute(self) -> list[Measurement]:
         pass
 
 
@@ -794,21 +929,17 @@ class AggregationQuery(Query):
             for aggregation_metric in self.aggregation_metrics
         ]
 
-    def execute(self) -> None:
+    def execute(self) -> list[Measurement]:
+        measurements: list[Measurement] = []
         sql = self.build_sql()
         query_result: QueryResult = self.data_source.execute_query(sql)
         row: tuple = query_result.rows[0]
         for i in range(0, len(self.aggregation_metrics)):
             aggregation_metric: AggregationMetric = self.aggregation_metrics[i]
-            aggregation_metric.set_value(row[i])
-
-    def process_query_result(self, query_result: QueryResult) -> None:
-        row: tuple = query_result.rows[0]
-        for i in range(0, len(row)):
-            self.aggregation_metrics[i].value = row[i]
-
-
-class Measurement:
-    def __init__(self, metric: Metric, value: object):
-        self.metric: Metric = metric
-        self.value: object = value
+            measurement_value = aggregation_metric.convert_db_value(row[i])
+            measurements.append(Measurement(
+                metric_id=aggregation_metric.id,
+                value=measurement_value,
+                metric_name=aggregation_metric.get_short_description()
+            ))
+        return measurements

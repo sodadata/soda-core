@@ -3,13 +3,13 @@ from __future__ import annotations
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
     ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column, MissingAndValidity, MissingAndValidityCheck, \
-    Metric, Query, ValidReferenceData
+    Metric, Query, ValidReferenceData, MeasurementValues
 from soda_core.contracts.impl.contract_yaml import ColumnYaml, CheckYaml
 
 
@@ -51,49 +51,45 @@ class InvalidCheck(MissingAndValidityCheck):
             check_yaml=check_yaml,
             default_threshold=Threshold(type=ThresholdType.SINGLE_COMPARATOR,must_be=0)
         )
-        self.summary = (
+        self.name = (
             self.threshold.get_assertion_summary(metric_name=check_yaml.type) if self.threshold
             else f"{check_yaml.type} (invalid threshold)"
         )
 
-        invalid_count_metric: Metric | None = None
+        self.invalid_count_metric: Metric | None = None
         if self.missing_and_validity.has_reference_data():
-            invalid_count_metric: InvalidReferenceCountMetric = InvalidReferenceCountMetric(
+            # noinspection PyTypeChecker
+            self.invalid_count_metric = self._resolve_metric(InvalidReferenceCountMetric(
                 contract=contract,
                 column=column,
                 missing_and_validity=self.missing_and_validity
-            )
+            ))
             self.queries.append(InvalidReferenceCountQuery(
-                metric=invalid_count_metric,
+                metric=self.invalid_count_metric,
                 data_source=contract.data_source
             ))
         else:
-            invalid_count_metric = InvalidCountMetric(
+            self.invalid_count_metric = self._resolve_metric(InvalidCountMetric(
                 contract=contract,
                 column=column,
                 check=self
-            )
-
-        resolved_invalid_count_metric: InvalidCountMetric = metrics_resolver.resolve_metric(invalid_count_metric)
-        self.metrics["invalid_count"] = resolved_invalid_count_metric
-
-        if self.type == "invalid_percent":
-            row_count_metric = RowCountMetric(
-                contract=contract,
-            )
-            resolved_row_count_metric: RowCountMetric = metrics_resolver.resolve_metric(row_count_metric)
-            self.metrics["row_count"] = resolved_row_count_metric
-
-            self.metrics["invalid_percent"] = metrics_resolver.resolve_metric(DerivedPercentageMetric(
-                metric_type="invalid_percent",
-                fraction_metric=resolved_invalid_count_metric,
-                total_metric=resolved_row_count_metric
             ))
 
-    def evaluate(self) -> CheckResult:
+        if self.type == "invalid_percent":
+            self.row_count_metric = self._resolve_metric(RowCountMetric(
+                contract=contract,
+            ))
+
+            self.invalid_percent_metric = self._resolve_metric(DerivedPercentageMetric(
+                metric_type="invalid_percent",
+                fraction_metric=self.invalid_count_metric,
+                total_metric=self.row_count_metric
+            ))
+
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        invalid_count: int = self.metrics["invalid_count"].value
+        invalid_count: int = measurement_values.get_value(self.invalid_count_metric)
         diagnostic_lines = [
             f"Actual invalid_count was {invalid_count}"
         ]
@@ -102,10 +98,10 @@ class InvalidCheck(MissingAndValidityCheck):
         if self.type == "invalid_count":
             threshold_value = invalid_count
         else:
-            row_count: int = self.metrics["row_count"].value
+            row_count: int = measurement_values.get_value(self.row_count_metric)
             diagnostic_lines.append(f"Actual row_count was {row_count}")
             if row_count > 0:
-                missing_percent: float = self.metrics["invalid_percent"].value
+                missing_percent: float = measurement_values.get_value(self.invalid_percent_metric)
                 diagnostic_lines.append(f"Actual invalid_percent was {missing_percent}")
                 threshold_value = missing_percent
 
@@ -116,8 +112,9 @@ class InvalidCheck(MissingAndValidityCheck):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
+            check_identity=self.identity,
+            check_name=self.name,
             outcome=outcome,
-            check_summary=self.summary,
             diagnostic_lines=diagnostic_lines,
         )
 
@@ -141,11 +138,11 @@ class InvalidCountMetric(AggregationMetric):
         column_name: str = self.column.column_yaml.name
         return self.missing_and_validity.get_sum_invalid_count_expr(column_name)
 
-    def set_value(self, value):
+    def convert_db_value(self, value) -> any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
         # there are no rows
         value = 0 if value is None else value
-        self.value = int(value)
+        return int(value)
 
 
 class InvalidReferenceCountMetric(Metric):
@@ -158,8 +155,8 @@ class InvalidReferenceCountMetric(Metric):
     ):
         super().__init__(
             contract=contract,
-            column=column,
             metric_type="invalid_count",
+            column=column,
         )
         self.missing_and_validity = missing_and_validity
 
@@ -209,7 +206,12 @@ class InvalidReferenceCountQuery(Query):
                        NOT(IS_NULL(COLUMN(referencing_column_name).IN(referencing_alias)))])),
         ])
 
-    def execute(self) -> None:
+    def execute(self) -> list[Measurement]:
         query_result: QueryResult = self.data_source.execute_query(self.sql)
         metric_value = query_result.rows[0][0]
-        self.metrics[0].value = metric_value
+        metric: Metric = self.metrics[0]
+        return [Measurement(
+            metric_id=metric.id,
+            value=metric_value,
+            metric_name=metric.type
+        )]

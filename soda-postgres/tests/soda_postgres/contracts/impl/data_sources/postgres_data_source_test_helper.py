@@ -21,7 +21,7 @@ class PostgresDataSourceTestHelper(DataSourceTestHelper):
                 "user": os.getenv("POSTGRES_USERNAME", "soda_test"),
                 "password": os.getenv("POSTGRES_PASSWORD"),
                 "port": int(os.getenv("POSTGRES_PORT", "5432")),
-                "database": self.database_name,
+                "database": self.dataset_prefix[0],
             },
             "format_regexes": {"single_digit_test_format": "^[0-9]$"},
         }

@@ -141,7 +141,7 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
         """
     )
 
-    assert contract_result.check_results[0].outcome == CheckOutcome.NOT_EVALUATED
+    assert contract_result.check_results[0].outcome == CheckOutcome.PASSED
 
 
 def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):

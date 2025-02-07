@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from distutils.command.check import check
+
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column, MissingAndValidity, MissingAndValidityCheck
-from soda_core.contracts.impl.contract_yaml import ColumnYaml, CheckYaml
+    ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column, MissingAndValidity, MissingAndValidityCheck, \
+    Metric, MeasurementValues
 
 
 class MissingCheckParser(CheckParser):
@@ -52,31 +54,27 @@ class MissingCheck(MissingAndValidityCheck):
             else f"{check_yaml.type} (invalid threshold)"
         )
 
-        missing_count_metric = MissingCountMetric(
+        self.missing_count_metric = self._resolve_metric(MissingCountMetric(
             contract=contract,
             column=column,
             check=self
-        )
-        resolved_missing_count_metric: MissingCountMetric = metrics_resolver.resolve_metric(missing_count_metric)
-        self.metrics["missing_count"] = resolved_missing_count_metric
+        ))
 
         if self.type == "missing_percent":
-            row_count_metric = RowCountMetric(
+            self.row_count_metric: Metric = self._resolve_metric(RowCountMetric(
                 contract=contract,
-            )
-            resolved_row_count_metric: RowCountMetric = metrics_resolver.resolve_metric(row_count_metric)
-            self.metrics["row_count"] = resolved_row_count_metric
-
-            self.metrics["missing_percent"] = metrics_resolver.resolve_metric(DerivedPercentageMetric(
-                metric_type="missing_percent",
-                fraction_metric=resolved_missing_count_metric,
-                total_metric=resolved_row_count_metric
             ))
 
-    def evaluate(self) -> CheckResult:
+            self.missing_percent_metric: Metric = metrics_resolver.resolve_metric(DerivedPercentageMetric(
+                metric_type="missing_percent",
+                fraction_metric=self.missing_count_metric,
+                total_metric=self.row_count_metric
+            ))
+
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        missing_count: int = self.metrics["missing_count"].value
+        missing_count: int = measurement_values.get_value(self.missing_count_metric)
         diagnostic_lines = [
             f"Actual missing_count was {missing_count}"
         ]
@@ -85,12 +83,11 @@ class MissingCheck(MissingAndValidityCheck):
         if self.type == "missing_count":
             threshold_value = missing_count
         else:
-            row_count: int = self.metrics["row_count"].value
+            row_count: int = measurement_values.get_value(self.row_count_metric)
             diagnostic_lines.append(f"Actual row_count was {row_count}")
-            if row_count > 0:
-                missing_percent: float = self.metrics["missing_percent"].value
-                diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
-                threshold_value = missing_percent
+            missing_percent: float = measurement_values.get_value(self.missing_percent_metric)
+            diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
+            threshold_value = missing_percent
 
         if self.threshold and isinstance(threshold_value, Number):
             if self.threshold.passes(threshold_value):
@@ -99,8 +96,9 @@ class MissingCheck(MissingAndValidityCheck):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
+            check_identity=self.identity,
+            check_name=self.name,
             outcome=outcome,
-            check_summary=self.summary,
             diagnostic_lines=diagnostic_lines,
         )
 
@@ -124,8 +122,8 @@ class MissingCountMetric(AggregationMetric):
         column_name: str = self.column.column_yaml.name
         return self.missing_and_validity.get_sum_missing_count_expr(column_name)
 
-    def set_value(self, value):
+    def convert_db_value(self, value) -> any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
         # there are no rows
         value = 0 if value is None else value
-        self.value = int(value)
+        return int(value)

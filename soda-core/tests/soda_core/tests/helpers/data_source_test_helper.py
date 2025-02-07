@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 class TestContractVerificationBuilder(ContractVerificationBuilder):
     __test__ = False
 
-    def __init__(self, default_data_source: DataSource | None = None):
+    def __init__(self, default_data_source: DataSource | None = None, soda_cloud = None):
         super().__init__(default_data_source=default_data_source)
         self.data_source = None
+        self.soda_cloud = soda_cloud
 
     def build(self) -> TestContractVerification:
         return TestContractVerification(self)
@@ -56,8 +57,7 @@ class DataSourceTestHelper:
 
     def __init__(self):
         super().__init__()
-        self.database_name: str = self._create_database_name()
-        self.schema_name: str = self._create_schema_name()
+        self.dataset_prefix: list[str] = self._create_dataset_prefix()
         self.data_source: DataSource = self._create_data_source()
         if self.data_source.logs.has_errors():
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source.logs}")
@@ -96,6 +96,11 @@ class DataSourceTestHelper:
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
         return {}
+
+    def _create_dataset_prefix(self) -> list[str]:
+        database_name: str = self._create_database_name()
+        schema_name: str = self._create_schema_name()
+        return [database_name, schema_name]
 
     def _create_database_name(self) -> str | None:
         """
@@ -208,10 +213,9 @@ class DataSourceTestHelper:
             raise AssertionError(f"Connection creation has errors: {self.data_source.logs}") from e
 
     def start_test_session_ensure_schema(self) -> None:
-        if self.schema_name:
-            if self.is_cicd:
-                self.drop_test_schema_if_exists()
-            self.create_test_schema_if_not_exists()
+        if self.is_cicd:
+            self.drop_test_schema_if_exists()
+        self.create_test_schema_if_not_exists()
 
     def end_test_session(self, exception: Exception | None) -> None:
         self.end_test_session_drop_schema()
@@ -221,15 +225,14 @@ class DataSourceTestHelper:
         self.data_source.close_connection()
 
     def end_test_session_drop_schema(self) -> None:
-        if self.schema_name:
-            if self.is_cicd:
-                self.drop_test_schema_if_exists()
+        if self.is_cicd:
+            self.drop_test_schema_if_exists()
 
     def query_existing_test_table_names(self):
         metadata_tables_query: MetadataTablesQuery = self.data_source.create_metadata_tables_query()
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
-            database_name=self.database_name,
-            schema_name=self.schema_name,
+            database_name=self.dataset_prefix[0],
+            schema_name=self.dataset_prefix[1],
             include_table_name_like_filters=["SODATEST_%"],
         )
         return [
@@ -242,14 +245,14 @@ class DataSourceTestHelper:
         self.data_source.execute_update(sql)
 
     def create_test_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE SCHEMA IF NOT EXISTS {self.schema_name} AUTHORIZATION CURRENT_USER;"
+        return f"CREATE SCHEMA IF NOT EXISTS {self.dataset_prefix[1]} AUTHORIZATION CURRENT_USER;"
 
     def drop_test_schema_if_exists(self) -> None:
         sql: str = self.drop_test_schema_if_exists_sql()
         self.data_source.execute_update(sql)
 
     def drop_test_schema_if_exists_sql(self) -> str:
-        return f"DROP SCHEMA IF EXISTS {self.schema_name} CASCADE;"
+        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[1]} CASCADE;"
 
     def ensure_test_table(self, test_table_specification: TestTableSpecification) -> TestTable:
         """
@@ -302,14 +305,12 @@ class DataSourceTestHelper:
 
         return TestTable(
             data_source_name=self.data_source.name,
-            database_name=self.database_name,
-            schema_name=self.schema_name,
-            name=test_table_specification.unique_name,
+            dataset_prefix=self.dataset_prefix,
+            code_name=test_table_specification.unique_name,
             unique_name=test_table_specification.unique_name,
-            qualified_name=sql_dialect.qualify_table(
-                database_name=self.database_name,
-                schema_name=self.schema_name,
-                table_name=test_table_specification.unique_name
+            qualified_name=sql_dialect.qualify_dataset_name(
+                dataset_prefix=self.dataset_prefix,
+                dataset_name=test_table_specification.unique_name,
             ),
             columns=columns,
             row_values=test_table_specification.row_values
@@ -324,18 +325,13 @@ class DataSourceTestHelper:
         self.data_source.execute_update(sql)
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
-        test_table_name_qualified_quoted: str = self.data_source.sql_dialect.qualify_table(
-            database_name=self.database_name,
-            schema_name=self.schema_name,
-            table_name=test_table.unique_name
-        )
         columns_sql: str = ",\n".join(
             [
                 f"  {column.name} {column.data_type}"
                 for column in test_table.columns.values()
             ]
         )
-        return self._create_test_table_sql_statement(test_table_name_qualified_quoted, columns_sql)
+        return self._create_test_table_sql_statement(test_table.qualified_name, columns_sql)
 
     def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
         return f"CREATE TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n);"
@@ -358,12 +354,6 @@ class DataSourceTestHelper:
                 for row_values in test_table.row_values
             ]
 
-            table_name_qualified_quoted = self.data_source.sql_dialect.qualify_table(
-                database_name=self.database_name,
-                schema_name=self.schema_name,
-                table_name=test_table.unique_name
-            )
-
             def format_literal_row_values(row: list[str]) -> str:
                 return ",".join(row)
 
@@ -373,7 +363,7 @@ class DataSourceTestHelper:
                 ]
             )
 
-            return self._insert_test_table_rows_sql_statement(table_name_qualified_quoted, rows_sql)
+            return self._insert_test_table_rows_sql_statement(test_table.qualified_name, rows_sql)
 
     def _insert_test_table_rows_sql_statement(self, table_name_qualified_quoted, rows_sql):
         return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
@@ -383,12 +373,10 @@ class DataSourceTestHelper:
         self.data_source.execute_update(sql)
 
     def _drop_test_table_sql(self, table_name) -> str:
-        table_name_qualified_quoted: str = self.data_source.sql_dialect.qualify_table(
-            database_name=self.database_name,
-            schema_name=self.schema_name,
-            table_name=table_name
+        table_name_qualified_quoted: str = self.data_source.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=table_name
         )
-
         return self._drop_test_table_sql_statement(table_name_qualified_quoted)
 
     def _drop_test_table_sql_statement(self, table_name_qualified_quoted: str) -> str:
@@ -408,7 +396,7 @@ class DataSourceTestHelper:
     ) -> ContractVerificationResult:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
         contract_verification_result: ContractVerificationResult = (
-            self.create_test_verification_builder()
+            self.create_test_verification_builder(soda_cloud=None)
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -421,24 +409,28 @@ class DataSourceTestHelper:
         return contract_verification_result
 
     def assert_contract_pass(
-        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None,
+        soda_cloud = None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self._verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
-            variables=variables
+            variables=variables,
+            soda_cloud=soda_cloud
         )
         if not contract_verification_result.is_ok():
             raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
-        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None,
+        soda_cloud = None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self._verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
-            variables=variables
+            variables=variables,
+            soda_cloud=soda_cloud
         )
         if not contract_verification_result.failed():
             raise AssertionError(
@@ -450,19 +442,13 @@ class DataSourceTestHelper:
         self,
         contract_yaml_str: str,
         test_table: TestTable,
-        variables: dict
+        variables: dict,
+        soda_cloud
     ) -> ContractVerificationResult:
-        header_contract_yaml_str: str = (
-            f"dataset: {test_table.unique_name}\n"
-            f"dataset_location_{self.data_source.get_data_source_type_name()}:\n"
-            f"  database: {self.database_name}\n"
-            f"  schema: {self.schema_name}\n"
-        )
-        checks_contract_yaml_str = dedent(contract_yaml_str).strip()
-        full_contract_yaml_str: str = header_contract_yaml_str + checks_contract_yaml_str
+        full_contract_yaml_str = self._prepend_dataset_to_contract(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{full_contract_yaml_str}")
         contract_verification_result: ContractVerificationResult = (
-            self.create_test_verification_builder()
+            self.create_test_verification_builder(soda_cloud)
             .with_contract_yaml_str(full_contract_yaml_str)
             .with_variables(variables)
             .execute()
@@ -470,8 +456,21 @@ class DataSourceTestHelper:
         logger.debug(f"Contract result:\n{contract_verification_result}")
         return contract_verification_result
 
-    def create_test_verification_builder(self) -> TestContractVerificationBuilder:
-        return TestContractVerification.builder(self.data_source)
+    def _prepend_dataset_to_contract(self, contract_yaml_str: str, test_table: TestTable):
+        header_contract_yaml_str: str = (
+            f"dataset: {test_table.unique_name}\n"
+            f"dataset_location_{self.data_source.get_data_source_type_name()}:\n"
+            f"  database: {self.dataset_prefix[0]}\n"
+            f"  schema: {self.dataset_prefix[1]}\n"
+        )
+        checks_contract_yaml_str = dedent(contract_yaml_str).strip()
+        full_contract_yaml_str: str = header_contract_yaml_str + checks_contract_yaml_str
+        return full_contract_yaml_str
+
+    def create_test_verification_builder(self, soda_cloud) -> TestContractVerificationBuilder:
+        builder: TestContractVerificationBuilder = TestContractVerification.builder(self.data_source)
+        builder.soda_cloud = soda_cloud
+        return builder
 
     def test_method_ended(self) -> None:
         self.data_source.data_source_connection.rollback()

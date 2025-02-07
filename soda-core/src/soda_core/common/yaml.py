@@ -402,16 +402,20 @@ class VariableResolver:
         if isinstance(source_text_with_variables, str):
             return re.sub(
                 pattern=r"\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}",
-                repl=lambda m: cls._resolve_variable(variables=variables, variable=m.group(1).strip()),
+                repl=lambda m: cls._resolve_variable_pattern(variables=variables, variable=m.group(1).strip()),
                 string=source_text_with_variables,
             )
         else:
             return source_text_with_variables
 
     @classmethod
-    def _resolve_variable(cls, variables: dict[str, str], variable: str) -> str:
+    def _resolve_variable_pattern(cls, variables: dict[str, str], variable: str) -> str:
+        return cls.get_variable(variables=variables, variable=variable, default=f"\${{{variable}}}")
+
+    @classmethod
+    def get_variable(cls, variables: dict[str, str], variable: str, default: str | None = None) -> str | None:
         if isinstance(variables, dict) and variable in variables:
             return variables[variable]
         if variable in os.environ:
             return os.getenv(variable)
-        return f"{{{variable}}}"
+        return default

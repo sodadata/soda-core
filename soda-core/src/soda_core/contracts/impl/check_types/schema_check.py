@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
-    Contract, Column
+    Contract, Column, MeasurementValues
 
 
 class SchemaCheckParser(CheckParser):
@@ -67,28 +67,26 @@ class SchemaCheck(Check):
             for column in contract.columns
         ]
 
-        schema_metric = SchemaMetric(
+        self.schema_metric = self._resolve_metric(SchemaMetric(
             contract=contract,
-        )
-        resolved_schema_metric: SchemaMetric = metrics_resolver.resolve_metric(schema_metric)
-        self.metrics["schema"] = resolved_schema_metric
+        ))
 
         schema_query: Query = SchemaQuery(
             dataset_prefix=contract.dataset_prefix,
             dataset_name=contract.dataset_name,
-            schema_metric=resolved_schema_metric,
+            schema_metric=self.schema_metric,
             data_source=contract.data_source
         )
         self.queries.append(schema_query)
 
-    def evaluate(self) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         expected_column_names_not_actual: list[str] = []
         actual_column_names_not_expected: list[str] = []
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
 
-        actual_columns: list[ColumnMetadata] = self.metrics["schema"].value
+        actual_columns: list[ColumnMetadata] = measurement_values.get_value(self.schema_metric)
         if actual_columns:
             actual_column_names: list[str] = [
                 actual_column.column_name for actual_column in actual_columns
@@ -134,6 +132,8 @@ class SchemaCheck(Check):
             )
 
         return SchemaCheckResult(
+            check_identity=self.identity,
+            check_name=self.name,
             expected_columns=self.expected_columns,
             outcome=outcome,
             actual_columns=actual_columns,
@@ -174,15 +174,22 @@ class SchemaQuery(Query):
             dataset_name=dataset_name,
         )
 
-    def execute(self) -> None:
+    def execute(self) -> list[Measurement]:
         query_result: QueryResult = self.data_source.execute_query(self.sql)
         metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
-        self.metrics[0].value = metadata_columns
+        schema_metric: Metric = self.metrics[0]
+        return [Measurement(
+            metric_id=schema_metric.id,
+            value=metadata_columns,
+            metric_name=schema_metric.type
+        )]
 
 
 class SchemaCheckResult(CheckResult):
 
     def __init__(self,
+                 check_identity: str,
+                 check_name: str,
                  outcome: CheckOutcome,
                  expected_columns: list[ExpectedColumn],
                  actual_columns: list[ColumnMetadata],
@@ -191,8 +198,9 @@ class SchemaCheckResult(CheckResult):
                  column_data_type_mismatches: list[ColumnDataTypeMismatch],
                  ):
         super().__init__(
+            check_identity=check_identity,
+            check_name=check_name,
             outcome=outcome,
-            check_summary="Schema",
             diagnostic_lines=self._create_diagnostic_lines(
                 expected_columns=expected_columns,
                 actual_columns=actual_columns,

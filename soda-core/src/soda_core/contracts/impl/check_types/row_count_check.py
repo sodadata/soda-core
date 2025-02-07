@@ -4,7 +4,7 @@ from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType, CheckParser, Contract, Column
+    ThresholdType, CheckParser, Contract, Column, MeasurementValues
 
 
 class RowCountCheckParser(CheckParser):
@@ -55,15 +55,13 @@ class RowCountCheck(Check):
             else "row_count (invalid threshold)"
         )
 
-        row_count_metric = RowCountMetric(
+        self.row_count_metric = self._resolve_metric(RowCountMetric(
             contract=contract,
-        )
-        resolved_row_count_metric: RowCountMetric = metrics_resolver.resolve_metric(row_count_metric)
-        self.metrics["row_count"] = resolved_row_count_metric
+        ))
 
-    def evaluate(self) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
-        row_count: int = self.metrics["row_count"].value
+        row_count: int = measurement_values.get_value(self.row_count_metric)
 
         if self.threshold:
             if self.threshold.passes(row_count):
@@ -72,8 +70,9 @@ class RowCountCheck(Check):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
+            check_identity=self.identity,
+            check_name=self.name,
             outcome=outcome,
-            check_summary=self.summary,
             diagnostic_lines=[
                 f"Actual row_count was {row_count}"
             ],
@@ -94,5 +93,5 @@ class RowCountMetric(AggregationMetric):
     def sql_expression(self) -> SqlExpression:
         return COUNT(STAR())
 
-    def set_value(self, value: any) -> None:
-        self.value = int(value)
+    def convert_db_value(self, value: any) -> any:
+        return int(value)
