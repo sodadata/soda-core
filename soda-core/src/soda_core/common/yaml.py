@@ -412,7 +412,7 @@ class VariableResolver:
 
     @classmethod
     def _resolve_variable_pattern(cls, variables: dict[str, str], variable: str) -> str:
-        return cls.get_variable(variables=variables, variable=variable, default=f"\${{{variable}}}")
+        return cls.get_variable(variables=variables, variable=variable, default=f"${{{variable}}}")
 
     @classmethod
     def get_variable(cls, variables: dict[str, str], variable: str, default: str | None = None) -> str | None:
