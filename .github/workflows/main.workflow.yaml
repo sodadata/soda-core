@@ -88,6 +88,6 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install tbump build twine
-          tbump --only-patch --non-interactive 4.0.0dev${GITHUB_RUN_NUMBER}
+          tbump --only-patch --non-interactive 4.0.0.dev${GITHUB_RUN_NUMBER}
           cd ${{ matrix.modules }}
           python3 -m build
