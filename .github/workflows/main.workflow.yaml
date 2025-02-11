@@ -59,18 +59,33 @@ jobs:
           pip install -e soda-core
           pip install -e soda-postgres
           python -m pytest
+  define-matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      modules: ${{ steps.modules.outputs.modules }}
+    steps:
+      - name: Define modules
+        id: modules
+        run: |
+          echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release:
     runs-on: ubuntu-24.04
-    needs: [test]
+    needs: [define-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        modules: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: Release soda-core v4
+      - name: Release ${{ matrix.modules }}
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          pip install tbump
+          pip install tbump setuptools wheel twine
           tbump --only-patch --non-interactive 4.0.0dev${GITHUB_RUN_NUMBER}
+          cd ${{ matrix.modules }}
+          python3 setup.py sdist bdist_wheel
