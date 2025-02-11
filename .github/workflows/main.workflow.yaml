@@ -87,7 +87,7 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          pip install tbump setuptools wheel twine
+          pip install tbump build twine
           tbump --only-patch --non-interactive 4.0.0dev${GITHUB_RUN_NUMBER}
           cd ${{ matrix.modules }}
-          python3 setup.py sdist bdist_wheel
+          python3 -m build
