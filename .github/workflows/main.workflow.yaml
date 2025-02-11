@@ -91,3 +91,10 @@ jobs:
           tbump --only-patch --non-interactive 4.0.0.dev${GITHUB_RUN_NUMBER}
           cd ${{ matrix.modules }}
           python3 -m build
+      - name: Publish package to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ matrix.modules }}/dist
+          user: ${{ secrets.DEV_PYPI_USERNAME }}
+          password: ${{ secrets.DEV_PYPI_PASSWORD }}
+          repository-url: ${{ secrets.DEV_PYPI_URL }}
