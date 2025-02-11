@@ -2,7 +2,7 @@
 current = "4.0.0b1"
 
 regex = '''
-  (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z,0-9]+)(?P<build>\d+))?
+  (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.)?((?P<prerelease>[a-z,0-9]+)(?P<build>\d+))?
   '''
 
 [git]
