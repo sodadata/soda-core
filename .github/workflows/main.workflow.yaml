@@ -61,6 +61,7 @@ jobs:
           python -m pytest
   define-matrix:
     runs-on: ubuntu-24.04
+    needs: [test]
     outputs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:
