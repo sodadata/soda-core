@@ -307,19 +307,21 @@ class YamlObject(YamlValue):
     def read_list_of_strings(self, key: str) -> list[str] | None:
         return self.read_list(key, expected_element_type=str)
 
-    def read_string(self, key: str) -> str | None:
+    def read_string(self, key: str, env_var: str | None = None) -> str | None:
         """
         An error is generated if the value is missing or not a string.
         :return: a str if the value for the key is a YAML string, otherwise None.
         """
-        return self.read_value(key=key, expected_type=str, required=True, default_value=None)
+        return self.read_value(key=key, env_var=env_var, expected_type=str, required=True, default_value=None)
 
-    def read_string_opt(self, key: str, default_value: str | None = None) -> str | None:
+    def read_string_opt(self, key: str, env_var: str | None = None, default_value: str | None = None) -> str | None:
         """
         An error is generated if the value is present and not a string.
         :return: a str if the value for the key is a string, otherwise None.
         """
-        return self.read_value(key=key, expected_type=str, required=False, default_value=default_value)
+        return self.read_value(
+            key=key, env_var=env_var, expected_type=str, required=False, default_value=default_value
+        )
 
     def read_bool(self, key: str) -> bool | None:
         """
@@ -352,23 +354,29 @@ class YamlObject(YamlValue):
     def read_value(
         self,
         key: str,
+        env_var: str | None = None,
         expected_type: type = None,
         required: bool = False,
         default_value=None,
     ) -> object | None:
-        if key not in self.yaml_dict:
+        if key in self.yaml_dict:
+            value = self.yaml_dict.get(key)
+        elif env_var is not None and env_var in os.environ:
+            value = os.environ[env_var]
+        else:
             if required:
                 self.logs.error(
                     message=f"'{key}' is required",
                     location=self.location
                 )
-            return default_value
-        value = self.yaml_dict.get(key)
-        if expected_type is not None and not isinstance(value, expected_type):
+            value = default_value
+
+        if expected_type is not None and not isinstance(value, expected_type) and value != default_value:
             self.logs.error(
                 message=f"'{key}' expected a {expected_type.__name__}, but was {type(value).__name__}",
                 location=self.create_location_from_yaml_dict_key(key)
             )
+
         return self._yaml_wrap(value)
 
     def create_location_from_yaml_dict_key(self, key) -> Location | None:

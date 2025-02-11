@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
-import tempfile
 from abc import ABC
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone, time
@@ -18,8 +16,8 @@ from requests import Response
 
 from soda_core.common.logs import Logs, Log
 from soda_core.common.version import SODA_CORE_VERSION
-from soda_core.common.yaml import YamlFileContent, YamlObject, YamlSource
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
+from soda_core.common.yaml import YamlFileContent, YamlObject
+from soda_core.contracts.contract_verification import ContractResult, \
     CheckResult, CheckOutcome, ThresholdInfo
 
 
@@ -29,35 +27,43 @@ class SodaCloud:
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
     CSV_TEXT_MAX_LENGTH = 1500
 
-    def from_file(self, soda_cloud_file_content: YamlFileContent):
+    @classmethod
+    def from_file(cls, soda_cloud_file_content: YamlFileContent):
 
         logs = soda_cloud_file_content.logs
 
-        soda_cloud_configuration_yaml_object: YamlObject = (
+        soda_cloud_yaml_object: YamlObject = (
             soda_cloud_file_content.get_yaml_object()
             if soda_cloud_file_content.has_yaml_object() else {}
         )
 
-        def get_configuration(key: str, default_value: str | None = None, is_required: bool = True) -> str | None:
-            """
-            Looks for the key in the configuration_dict, if it exists
-            If not, in the corresponding environment variable
-            If not applies the default value
-            """
-            environment_variable_name: str = f"SODA_CLOUD_{key.upper()}"
-            default_value = os.environ.get(environment_variable_name, default_value)
-            value = soda_cloud_configuration_yaml_object.read_string_opt(key=key, default_value=default_value)
-            if is_required and not isinstance(value, str):
-                logs.error(f"Soda Cloud configuration '{key}' not provided as configuration nor environment variable")
-            return value
-
         return SodaCloud(
-            host=get_configuration(key="host", default_value="cloud.soda.io"),
-            api_key_id=get_configuration(key="api_key_id"),
-            api_key_secret=get_configuration(key="api_key_secret"),
-            token=get_configuration(key="token", is_required=False),
-            port=get_configuration(key="port", is_required=False),
-            scheme=get_configuration(key="scheme", is_required=False),
+            host=soda_cloud_yaml_object.read_string_opt(
+                key="host",
+                env_var="SODA_CLOUD_HOST",
+                default_value="cloud.soda.io"
+            ),
+            api_key_id=soda_cloud_yaml_object.read_string(
+                key="api_key_id",
+                env_var="SODA_CLOUD_API_KEY_ID"
+            ),
+            api_key_secret=soda_cloud_yaml_object.read_string(
+                key="api_key_secret",
+                env_var="SODA_CLOUD_API_KEY_SECRET"
+            ),
+            token=soda_cloud_yaml_object.read_string_opt(
+                key="token",
+                env_var="SODA_CLOUD_TOKEN"
+            ),
+            port=soda_cloud_yaml_object.read_string_opt(
+                key="port",
+                env_var="SODA_CLOUD_PORT"
+            ),
+            scheme=soda_cloud_yaml_object.read_string_opt(
+                key="scheme",
+                env_var="SODA_CLOUD_SCHEME",
+                default_value="https"
+            ),
             logs=logs,
         )
 
@@ -69,7 +75,7 @@ class SodaCloud:
         token: str | None,
         port: str | None,
         logs: Logs,
-        scheme: str = "https",
+        scheme: str | None,
     ):
         self.host = host
         self.port = f":{port}" if port else ""

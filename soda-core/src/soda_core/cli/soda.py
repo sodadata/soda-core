@@ -12,7 +12,7 @@ def verify_contract(
 ):
     print(f"Verifying contracts {contract_file_paths} with ")
     if send_results:
-        print(f"  \u2713 Sending results to Soda Cloud")
+        print(f"  ✓ Sending results to Soda Cloud")
     else:
         print(f"  \u2713 Skip sending results to Soda Cloud")
     # if skip_publish:

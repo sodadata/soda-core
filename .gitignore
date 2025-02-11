@@ -16,6 +16,7 @@ pyrightconfig.json
 
 # C extensions
 *.so
+*.so
 
 # Distribution / packaging
 .Python

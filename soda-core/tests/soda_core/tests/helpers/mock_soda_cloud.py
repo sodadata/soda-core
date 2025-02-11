@@ -41,27 +41,18 @@ class MockRequest:
 
 class MockSodaCloud(SodaCloud):
 
-    def __init__(self):
+    def __init__(self, responses: list[MockResponse | None] | None = None):
         super().__init__(
-            host="test",
-            api_key_id="iiiiiiiiiiii",
-            api_key_secret="sssssssssss",
-            token="ttttttttttt",
-            port="5555",
+            host="mock.soda.io",
+            api_key_id="mock-key-id",
+            api_key_secret="mock-key-secret",
+            token="mock-token",
+            port="9999",
             scheme="https",
             logs=Logs(),
         )
         self.requests: list[MockRequest] = []
-        self.responses: list[MockResponse | None] = []
-
-    def add_response(self, index: int, status_code: int, headers: dict | None = None, json_dict: dict | None = None):
-        while len(self.responses) < index - 1:
-            self.responses.append(None)
-        self.responses.append(MockResponse(
-            status_code=status_code,
-            headers=headers if headers is not None else {},
-            json_dict=json_dict if json_dict is not None else {}
-        ))
+        self.responses: list[MockResponse | None] = responses if responses is not None else []
 
     def _http_post(
         self,
@@ -71,7 +62,7 @@ class MockSodaCloud(SodaCloud):
         json: dict | None = None,
         data: TemporaryFile | None = None
     ) -> Response:
-        logging.debug(f"REQUEST TO SODA CLOUD: {request_name}")
+        logging.debug(f"Request sent to MockSodaCloud: {request_name}")
         self.requests.append(MockRequest(
             request_name=request_name,
             url=url,
