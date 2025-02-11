@@ -18,7 +18,7 @@ from requests import Response
 
 from soda_core.common.logs import Logs, Log
 from soda_core.common.version import SODA_CORE_VERSION
-from soda_core.common.yaml import YamlFileContent, YamlObject
+from soda_core.common.yaml import YamlFileContent, YamlObject, YamlSource
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult, CheckOutcome, ThresholdInfo
 
@@ -84,6 +84,14 @@ class SodaCloud:
         self._organization_configuration = None
 
     def send_contract_result(self, contract_result: ContractResult):
+        contract_yaml_source_str = contract_result.contract_info.source.source_content_str
+        soda_cloud_file_path : str = f"{contract_result.contract_info.soda_qualified_dataset_name.lower()}.yml"
+        file_id: str | None = self.upload_contract(
+            yaml_str_source=contract_yaml_source_str,
+            soda_cloud_file_path=soda_cloud_file_path
+        )
+        contract_result.contract_info.source.soda_cloud_file_id = file_id
+
         contract_result = self.build_contract_result_json(contract_result)
         contract_result["type"] = "sodaCoreInsertScanResults"
         self._execute_command(contract_result, command_name="send_scan_results")
@@ -137,6 +145,21 @@ class SodaCloud:
                 # ],
                 "logs": log_cloud_json_dicts,
                 "sourceOwner": "soda-core",
+
+                "contract": {
+                    "fileId": contract_result.contract_info.source.soda_cloud_file_id,
+                    "dataset": {
+                        "datasource": contract_result.contract_info.data_source_name,
+                        "prefixes": contract_result.contract_info.dataset_prefix,
+                        "name": contract_result.contract_info.dataset_name
+                    },
+                    "metadata": {
+                        "source": {
+                            "type": "local",
+                            "filePath": contract_result.contract_info.source.local_file_path
+                        }
+                    }
+                }
             }
         )
 
@@ -157,7 +180,7 @@ class SodaCloud:
             "definition": check_result.check.definition,
             "resourceAttributes": [], # TODO
             "location": {
-                "filePath": check_result.contract.source.file_path,
+                "filePath": check_result.contract.source.local_file_path,
                 "line": check_result.check.contract_file_line,
                 "col": check_result.check.contract_file_column
             },
@@ -203,71 +226,40 @@ class SodaCloud:
             return value
         return str(value)
 
-    def upload_sample(
-            self, contract_verification_results: ContractVerificationResult, sample_rows: tuple[tuple],
-            sample_file_name: str, samples_limit: int | None
-    ) -> str:
-        """
-        :param sample_file_name: file name without extension
-        :return: Soda Cloud file_id
-        """
-
-        # Keep the interface of this method backward compatible and allow for samples limit to be None, but do not continue with no limit in such case.
-        if not samples_limit:
-            samples_limit = 100
-
+    def upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> str:
         try:
-            scan_definition_name = contract_verification_results._scan_definition_name
-            scan_data_timestamp = contract_verification_results._data_timestamp
-            scan_folder_name = (
-                f"{self._fileify(scan_definition_name)}"
-                f'_{scan_data_timestamp.strftime("%Y%m%d%H%M%S")}'
-                f'_{datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")}'
-            )
-
             with TemporaryFile() as temp_file:
-                for row in sample_rows[0:samples_limit]:
-                    row = [self._serialize_file_upload_value(v) for v in row]
-                    rows_json_str = json.dumps(row)
-                    rows_json_bytes = bytearray(rows_json_str, "utf-8")
-                    temp_file.write(rows_json_bytes)
-                    temp_file.write(b"\n")
+                rows_json_bytes = bytearray(yaml_str_source, "utf-8")
+                temp_file.write(rows_json_bytes)
 
-                temp_file_size_in_bytes = temp_file.tell()
+                file_size_in_bytes = temp_file.tell()
                 temp_file.seek(0)
 
-                file_path = f"{scan_folder_name}/" + f"{sample_file_name}.jsonl"
+                headers = {
+                    "Authorization": self._get_token(),
+                    "Content-Type": "application/octet-stream",
+                    "Is-V3": "true",
+                    "File-Path": soda_cloud_file_path,
+                }
 
-                file_id = self._upload_sample_http(scan_definition_name, file_path, temp_file, temp_file_size_in_bytes)
+                if file_size_in_bytes == 0:
+                    # because of https://github.com/psf/requests/issues/4215 we can't send content size
+                    # when the size is 0 since requests blocks then on I/O indefinitely
+                    self.logs.warning("Empty file upload detected, not sending Content-Length header")
+                else:
+                    headers["Content-Length"] = str(file_size_in_bytes)
 
-                return file_id
+                upload_response = self._http_post(url=f"{self.api_url}/scan/upload", headers=headers, data=temp_file)
+                upload_response_json = upload_response.json()
+
+                if "fileId" not in upload_response_json:
+                    self.logs.error(f"No fileId received in response: {upload_response_json}")
+                    return None
+                else:
+                    return upload_response_json["fileId"]
 
         except Exception as e:
-            self.logs.error(f"Soda cloud error: Could not upload sample {sample_file_name}", exception=e)
-
-    def _upload_sample_http(self, scan_definition_name: str, file_path, temp_file: TemporaryFile, file_size_in_bytes: int):
-        headers = {
-            "Authorization": self._get_token(),
-            "Content-Type": "application/octet-stream",
-            "Is-V3": "true",
-            "File-Path": file_path,
-        }
-
-        if file_size_in_bytes == 0:
-            # because of https://github.com/psf/requests/issues/4215 we can't send content size
-            # when the size is 0 since requests blocks then on I/O indefinitely
-            self.logs.warning("Empty file upload detected, not sending Content-Length header")
-        else:
-            headers["Content-Length"] = str(file_size_in_bytes)
-
-        upload_response = self._http_post(url=f"{self.api_url}/scan/upload", headers=headers, data=temp_file)
-        upload_response_json = upload_response.json()
-
-        if "fileId" not in upload_response_json:
-            self.logs.error(f"No fileId received in response: {upload_response_json}")
-            return None
-        else:
-            return upload_response_json["fileId"]
+            self.logs.error(f"Soda cloud error: Could not upload contract", exception=e)
 
     def _fileify(self, name: str):
         return re.sub(r"\W+", "_", name).lower()

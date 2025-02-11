@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, CheckInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, CheckInfo, ContractInfo
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
     ThresholdType, CheckParser, Contract, Column, MeasurementValues
@@ -60,7 +60,7 @@ class RowCountCheck(Check):
             contract=contract,
         ))
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
         row_count: int = measurement_values.get_value(self.row_count_metric)
 
@@ -75,7 +75,7 @@ class RowCountCheck(Check):
         ]
 
         return CheckResult(
-            contract=self._build_contract_info(),
+            contract=contract_info,
             check=self._build_check_info(),
             metric_value=row_count,
             outcome=outcome,

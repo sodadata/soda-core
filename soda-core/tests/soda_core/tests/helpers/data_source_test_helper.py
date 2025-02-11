@@ -449,7 +449,10 @@ class DataSourceTestHelper:
         logger.debug(f"Contract:\n{full_contract_yaml_str}")
         contract_verification_result: ContractVerificationResult = (
             self.create_test_verification_builder(soda_cloud)
-            .with_contract_yaml_str(full_contract_yaml_str)
+            .with_contract_yaml_str(
+                contract_yaml_str=full_contract_yaml_str,
+                file_path=f"./{test_table.unique_name.lower()}.yml"
+            )
             .with_variables(variables)
             .execute()
         )

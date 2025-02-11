@@ -79,7 +79,7 @@ class SchemaCheck(Check):
         )
         self.queries.append(schema_query)
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         expected_column_names_not_actual: list[str] = []
@@ -132,7 +132,7 @@ class SchemaCheck(Check):
             )
 
         return SchemaCheckResult(
-            contract=self._build_contract_info(),
+            contract=contract_info,
             check=self._build_check_info(),
             outcome=outcome,
             expected_columns=self.expected_columns,

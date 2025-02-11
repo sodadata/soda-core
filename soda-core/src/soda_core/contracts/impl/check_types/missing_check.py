@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from distutils.command.check import check
-
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, CheckInfo, ContractInfo, SourceFileInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, ContractInfo
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
@@ -72,7 +70,7 @@ class MissingCheck(MissingAndValidityCheck):
                 total_metric=self.row_count_metric
             ))
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
@@ -97,7 +95,7 @@ class MissingCheck(MissingAndValidityCheck):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=self._build_contract_info(),
+            contract=contract_info,
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,

@@ -31,9 +31,11 @@ class ContractVerificationBuilder:
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         return self
 
-    def with_contract_yaml_str(self, contract_yaml_str: str) -> ContractVerificationBuilder:
+    def with_contract_yaml_str(
+        self, contract_yaml_str: str, file_path: str | None = None
+    ) -> ContractVerificationBuilder:
         assert isinstance(contract_yaml_str, str)
-        self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
+        self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str, file_path=file_path))
         return self
 
     def with_contract_yaml_dict(self, contract_yaml_dict: dict) -> ContractVerificationBuilder:
@@ -180,10 +182,11 @@ class CheckOutcome(Enum):
 
 
 @dataclass
-class SourceFileInfo:
-    file_path: str | None
+class YamlFileContentInfo:
+    source_content_str: str | None
+    local_file_path: str | None
     git_repo: str | None = None # Aspirational, not used yet
-    soda_cloud_file_id: str | None = None # Aspirational, not used yet
+    soda_cloud_file_id: str | None = None
 
 
 @dataclass
@@ -191,7 +194,8 @@ class ContractInfo:
     data_source_name: str
     dataset_prefix: list[str]
     dataset_name: str
-    source: SourceFileInfo | None
+    soda_qualified_dataset_name: str
+    source: YamlFileContentInfo
 
 
 @dataclass
@@ -262,6 +266,7 @@ class ContractResult:
 
     def __init__(
             self,
+            contract_info: ContractInfo,
             data_timestamp: datetime | None,
             started_timestamp: datetime,
             ended_timestamp: datetime,
@@ -272,12 +277,17 @@ class ContractResult:
             check_results: list[CheckResult],
             logs: Logs
     ):
+        self.contract_info: ContractInfo = contract_info
+        # TODO move to contract info
+        self.data_source_name: str = data_source_name
+        # TODO move to contract info
+        self.soda_qualified_dataset_name: str = soda_qualified_dataset_name
+        # TODO move to contract info
+        self.sql_qualified_dataset_name: str = sql_qualified_dataset_name
+
         self.data_timestamp: datetime | None = data_timestamp
         self.started_timestamp: datetime = started_timestamp
         self.ended_timestamp: datetime = ended_timestamp
-        self.data_source_name: str = data_source_name
-        self.soda_qualified_dataset_name: str = soda_qualified_dataset_name
-        self.sql_qualified_dataset_name: str = sql_qualified_dataset_name
         self.measurements: list[Measurement] = measurements
         self.check_results: list[CheckResult] = check_results
         self.logs: Logs = logs

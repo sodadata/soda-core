@@ -22,9 +22,10 @@ class YamlParser:
 class YamlSource:
 
     @classmethod
-    def from_str(cls, yaml_str: str) -> YamlSource:
+    def from_str(cls, yaml_str: str, file_path: str | None = None) -> YamlSource:
         return StrYamlSource(
-            yaml_str=yaml_str
+            yaml_str=yaml_str,
+            file_path=file_path
         )
 
     @classmethod
@@ -76,9 +77,10 @@ class FileYamlSource(YamlSource):
 
 class StrYamlSource(YamlSource):
 
-    def __init__(self, yaml_str: str):
+    def __init__(self, yaml_str: str, file_path: str | None):
         super().__init__()
         self.yaml_str: str = yaml_str
+        self.file_path: str | None = file_path
 
     def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
@@ -89,7 +91,7 @@ class StrYamlSource(YamlSource):
             yaml_source_description=yaml_source_description, logs=logs
         )
         return YamlFileContent(
-            yaml_file_path=None,
+            yaml_file_path=self.file_path,
             yaml_source_description=yaml_source_description,
             yaml_str_source=self.yaml_str,
             yaml_str_resolved=yaml_str_resolved,

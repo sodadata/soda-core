@@ -23,6 +23,8 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper):
 
     mock_soda_cloud: MockSodaCloud = MockSodaCloud()
 
+    mock_soda_cloud.add_response(index=0, status_code=200, json_dict={"fileId": "777ggg"})
+
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""

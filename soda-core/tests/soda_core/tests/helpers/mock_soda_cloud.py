@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from io import BytesIO
 from tempfile import TemporaryFile
@@ -51,6 +52,16 @@ class MockSodaCloud(SodaCloud):
             logs=Logs(),
         )
         self.requests: list[MockRequest] = []
+        self.responses: list[MockResponse | None] = []
+
+    def add_response(self, index: int, status_code: int, headers: dict | None = None, json_dict: dict | None = None):
+        while len(self.responses) < index - 1:
+            self.responses.append(None)
+        self.responses.append(MockResponse(
+            status_code=status_code,
+            headers=headers if headers is not None else {},
+            json_dict=json_dict if json_dict is not None else {}
+        ))
 
     def _http_post(
         self,
@@ -60,6 +71,7 @@ class MockSodaCloud(SodaCloud):
         json: dict | None = None,
         data: TemporaryFile | None = None
     ) -> Response:
+        logging.debug(f"REQUEST TO SODA CLOUD: {request_name}")
         self.requests.append(MockRequest(
             request_name=request_name,
             url=url,
@@ -67,6 +79,10 @@ class MockSodaCloud(SodaCloud):
             json=json,
             data=data
         ))
+        if self.responses:
+            response = self.responses.pop(0)
+            if isinstance(response, MockResponse):
+                return response
         return MockResponse(
             status_code=200,
             headers={},

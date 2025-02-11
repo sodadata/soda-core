@@ -3,7 +3,7 @@ from __future__ import annotations
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo, ContractInfo
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
@@ -87,7 +87,7 @@ class InvalidCheck(MissingAndValidityCheck):
                 total_metric=self.row_count_metric
             ))
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric)
@@ -113,7 +113,7 @@ class InvalidCheck(MissingAndValidityCheck):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=self._build_contract_info(),
+            contract=contract_info,
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,

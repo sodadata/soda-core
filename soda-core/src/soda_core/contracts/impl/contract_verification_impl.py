@@ -14,7 +14,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource, VariableResolver
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult, Measurement, ThresholdInfo, ContractInfo, SourceFileInfo, CheckInfo
+    CheckResult, Measurement, ThresholdInfo, ContractInfo, CheckInfo, YamlFileContentInfo
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
     MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
 from soda_core.tests.helpers.consistent_hash_builder import ConsistentHashBuilder
@@ -303,14 +303,20 @@ class Contract:
             derived_measurement: Measurement = derived_metric.create_derived_measurement(measurement_values)
             measurements.append(derived_measurement)
 
+        contract_info: ContractInfo = self.build_contract_info()
+
         # Evaluate the checks
         measurement_values = MeasurementValues(measurements)
         check_results: list[CheckResult] = []
         for check in self.all_checks:
-            check_result: CheckResult = check.evaluate(measurement_values=measurement_values)
+            check_result: CheckResult = check.evaluate(
+                measurement_values=measurement_values,
+                contract_info=contract_info
+            )
             check_results.append(check_result)
 
         return ContractResult(
+            contract_info=contract_info,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),
@@ -320,6 +326,18 @@ class Contract:
             measurements=measurements,
             check_results=check_results,
             logs=self.logs
+        )
+
+    def build_contract_info(self) -> ContractInfo:
+        return ContractInfo(
+            data_source_name=self.data_source.name,
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=self.dataset_name,
+            soda_qualified_dataset_name=self.soda_qualified_dataset_name,
+            source=YamlFileContentInfo(
+                source_content_str=self.contract_yaml.contract_yaml_file_content.yaml_str_source,
+                local_file_path=self.contract_yaml.contract_yaml_file_content.yaml_file_path,
+            )
         )
 
     @classmethod
@@ -770,18 +788,8 @@ class Check:
         return resolved_metric
 
     @abstractmethod
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
         pass
-
-    def _build_contract_info(self) -> ContractInfo:
-        return ContractInfo(
-            data_source_name=self.contract.data_source.name,
-            dataset_prefix=self.contract.dataset_prefix,
-            dataset_name=self.contract.dataset_name,
-            source=SourceFileInfo(
-                file_path=self.contract.contract_yaml.contract_yaml_file_content.yaml_file_path,
-            )
-        )
 
     def _build_check_info(self) -> CheckInfo:
         return CheckInfo(
