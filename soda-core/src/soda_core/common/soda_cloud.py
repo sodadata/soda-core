@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import tempfile
@@ -19,7 +20,7 @@ from soda_core.common.logs import Logs, Log
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult
+    CheckResult, CheckOutcome, ThresholdInfo
 
 
 class SodaCloud:
@@ -97,9 +98,9 @@ class SodaCloud:
             # and check.archetype is None
         ]
 
-        log_cloud_json_dicts = [
-            self.build_log_cloud_json_dict(log)
-            for log in contract_result.logs.logs
+        log_cloud_json_dicts: list[dict] = [
+            self.build_log_cloud_json_dict(log, index)
+            for index, log in enumerate(contract_result.logs.logs)
             # TODO ask m1no if this should be ported
             # if check.check_type == CheckType.CLOUD
             # and (check.outcome is not None or check.force_send_results_to_cloud is True)
@@ -139,68 +140,62 @@ class SodaCloud:
             }
         )
 
+    def _translate_check_outcome_for_soda_cloud(self, outcome: CheckOutcome) -> str:
+        if outcome == CheckOutcome.PASSED:
+            return "pass"
+        elif outcome == CheckOutcome.FAILED:
+            return "fail"
+        return "unevaluated"
+
     def build_check_result_cloud_dict(self, check_result: CheckResult) -> dict:
-        return {
+        check_result_cloud_dict: dict = {
             "identities": {
-                "vc1": check_result.check_identity
-            }
+                "vc1": check_result.check.identity
+            },
+            "name": check_result.check.name,
+            "type": "generic",
+            "definition": check_result.check.definition,
+            "resourceAttributes": [], # TODO
+            "location": {
+                "filePath": check_result.contract.source.file_path,
+                "line": check_result.check.contract_file_line,
+                "col": check_result.check.contract_file_column
+            },
+            "dataSource": "SnowflakeCon_GLOBAL_BI_BUSINESS",
+            "table": "ORDERSCUBE",
+            "datasetPrefix" : check_result.contract.dataset_prefix,
+            "column": check_result.check.column_name,
+                # "metrics": [
+                #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
+                # ],
+            "outcome": self._translate_check_outcome_for_soda_cloud(check_result.outcome),
+            "source": "soda-contract"
         }
-        #     // remain as-is, here is an example
-        #     {
-        #       "identities": {
-        #                value needs to be unique within the organization
-        #         "vc1": "2fefe263",
-        #       },
-        #
-        #       UI label for the . (between 1 and 4000 chars)  Required, also if contract does not have name specified.
-        #       "name": "Order_Records_Missing_in_the_Deliveries_Table_for_All_Markets",
-        #
-        #       "type": "generic",
-        #       "definition": "checks for ORDERSCUBE:\n  - percentage_of_missing_orders > 100:\n      identity: 9aa2a4df\n      name: Order_Records_Missing_in_the_Deliveries_Table_for_All_Markets\n      percentage_of_missing_orders query: \"WITH orders AS (     SELECT *         \\\n        \\ FROM GLOBAL_BI.BUSINESS.orderscube AS o          JOIN product_analytics.base_grain.plan_status_hist\n        psh                     ON o.plan_id = psh.plan_nk           WHERE       \\\n        \\        expected_delivery_date > 9999999               AND              \\\n        \\ TO_DATE(TO_CHAR(expected_delivery_date), 'YYYYMMDD') = '2025-01-27'    \\\n        \\        AND box_type_level_1 = 'Mealboxes'            AND subscription_id\n        is not null            AND psh.plan_status_date_to = '9999-12-31'        \\\n        \\    AND psh.plan_status != 'Ineligible' ), deliveries AS (     SELECT * \\\n        \\    FROM product_analytics.landing.delivery_v1     WHERE delivery_state =\n        1         AND is_editable = FALSE         AND planned_delivery_date = '2025-01-27'\n        ) SELECT     CASE WHEN            ROUND(100 * COUNT_IF(deliveries.plan_id\n        IS NOT NULL) / NULLIF(COUNT(*),0),2) IS NULL THEN 0     ELSE           ROUND(100\n        * COUNT_IF(deliveries.plan_id IS NOT NULL) / NULLIF(COUNT(*),0),2)     END\n        AS percentage_of_quality FROM     orders     LEFT JOIN deliveries ON deliveries.plan_id\n        = orders.plan_id         AND hellofresh_delivery_week = hf_week; \"\n",
-        #
-        #       The list of valid resourceAttributes keys is stored on Soda Cloud
-        #       "resourceAttributes": [],
-        #
-        #       "location": {
-        #         All properties here are required
-        #         "filePath": "sodacl_string.yml",
-        #         "line": 44,
-        #         "col": 3
-        #       },
+        if check_result.metric_value is not None and check_result.check.threshold is not None:
+            t: ThresholdInfo = check_result.check.threshold
+            fail_threshold: dict = {}
+            if t.must_be_less_than_or_equal is not None:
+                fail_threshold["greaterThan"] = t.must_be_less_than_or_equal
+            if t.must_be_less_than is not None:
+                fail_threshold["greaterThanOrEqual"] = t.must_be_less_than
+            if t.must_be_greater_than_or_equal is not None:
+                fail_threshold["lessThan"] = t.must_be_greater_than_or_equal
+            if t.must_be_greater_than is not None:
+                fail_threshold["lessThanOrEqual"] = t.must_be_greater_than
+            check_result_cloud_dict["diagnostics"] = {
+                "blocks": [],
+                "value": check_result.metric_value,
+                "fail": fail_threshold
+            }
+        return check_result_cloud_dict
 
-        #       "dataSource": "SnowflakeCon_GLOBAL_BI_BUSINESS",
-        #       "table": "ORDERSCUBE",
-        #       "datasetPrefix" : ""
-
-        #       "column": null,
-
-        #       let's see if we can skip metrics and see if it works
-        #       "metrics": [
-        #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
-        #       ],
-        #       "outcome": "fail",
-        #       "diagnostics": {
-        #         "blocks": [],
-        #         "value": 99.97,
-        #         "fail": {
-        #           "lessThanOrEqual": 100.0
-        #         }
-        #       },
-        #       "source": "soda-contract"
-        #     }
-        pass
-
-    def build_log_cloud_dict(self, log: Log) -> dict:
-        #       {
-        #       "level": "info",
-        #       "message": "All is good. No failures. No warnings. No errors.",
-        #       "timestamp": "2025-02-07T13:38:36.400+00:00",
-        #       "index": 20,
-        #       "dataset": null,
-        #       "column": null,
-        #       "metric": null
-        #     },
-        pass
+    def build_log_cloud_json_dict(self, log: Log, index: int) -> dict:
+        return {
+            "level": logging.getLevelName(log.level).lower(),
+            "message": log.message,
+            "timestamp": log.timestamp,
+            "index": index,
+        }
 
     @staticmethod
     def _serialize_file_upload_value(value):

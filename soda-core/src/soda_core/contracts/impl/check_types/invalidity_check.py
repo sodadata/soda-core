@@ -3,7 +3,7 @@ from __future__ import annotations
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
@@ -51,8 +51,9 @@ class InvalidCheck(MissingAndValidityCheck):
             check_yaml=check_yaml,
             default_threshold=Threshold(type=ThresholdType.SINGLE_COMPARATOR,must_be=0)
         )
+        metric_name: str = Threshold.get_metric_name(check_yaml.type, column=column)
         self.name = (
-            self.threshold.get_assertion_summary(metric_name=check_yaml.type) if self.threshold
+            self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
             else f"{check_yaml.type} (invalid threshold)"
         )
 
@@ -112,8 +113,9 @@ class InvalidCheck(MissingAndValidityCheck):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            check_identity=self.identity,
-            check_name=self.name,
+            contract=self._build_contract_info(),
+            check=self._build_check_info(),
+            metric_value=threshold_value,
             outcome=outcome,
             diagnostic_lines=diagnostic_lines,
         )

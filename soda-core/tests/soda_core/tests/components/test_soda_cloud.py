@@ -31,7 +31,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper):
                 missing_values: [-1, -2]
                 checks:
                   - type: missing_count
-                    must_be: 2
+                    must_be_between: [1, 3]
         """,
         soda_cloud=mock_soda_cloud
     )

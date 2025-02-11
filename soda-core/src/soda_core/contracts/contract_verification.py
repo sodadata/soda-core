@@ -4,7 +4,10 @@ from abc import ABC
 from datetime import datetime
 from enum import Enum
 from logging import ERROR
+from numbers import Number
 from tabnanny import check
+
+from attr import dataclass
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
@@ -176,18 +179,55 @@ class CheckOutcome(Enum):
     NOT_EVALUATED = "NOT_EVALUATED"
 
 
+@dataclass
+class SourceFileInfo:
+    file_path: str | None
+    git_repo: str | None = None # Aspirational, not used yet
+    soda_cloud_file_id: str | None = None # Aspirational, not used yet
+
+
+@dataclass
+class ContractInfo:
+    data_source_name: str
+    dataset_prefix: list[str]
+    dataset_name: str
+    source: SourceFileInfo | None
+
+
+@dataclass
+class ThresholdInfo:
+    must_be_greater_than: Number | None = None
+    must_be_greater_than_or_equal: Number | None = None
+    must_be_less_than: Number | None = None
+    must_be_less_than_or_equal: Number | None = None
+
+
+@dataclass
+class CheckInfo:
+    column_name: str | None
+    type: str
+    name: str # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
+    identity: str
+    definition: str
+    column_name: str | None
+    contract_file_line: int
+    contract_file_column: int
+    threshold: ThresholdInfo | None
+
+
 class CheckResult(ABC):
 
     def __init__(
         self,
-        check_identity: str,
-        check_name: str,
+        contract: ContractInfo,
+        check: CheckInfo,
+        metric_value: Number | None,
         outcome: CheckOutcome,
         diagnostic_lines: list[str]
     ):
-        self.check_identity: str = check_identity
-        # Short description used in UI. Required. Between 1 and 4000 chars.
-        self.check_name: str = check_name
+        self.contract: ContractInfo = contract
+        self.check: CheckInfo = check
+        self.metric_value: Number | None = metric_value
         self.outcome: CheckOutcome = outcome
         self.diagnostic_lines: list[str] = diagnostic_lines
 
@@ -199,7 +239,7 @@ class CheckResult(ABC):
         Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
         Method implementations can use self._get_outcome_line(self)
         """
-        log_lines: list[str] = [f"Check {self.outcome.name} {self.check_name}"]
+        log_lines: list[str] = [f"Check {self.outcome.name} {self.check.name}"]
         log_lines.extend([
             f"  {diagnostic_line}" for diagnostic_line in self.diagnostic_lines
         ])

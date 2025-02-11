@@ -1,5 +1,5 @@
 from soda_core.common.yaml import YamlSource, YamlObject
-from soda_core.contracts.impl.contract_verification_impl import Threshold
+from soda_core.contracts.impl.contract_verification_impl import Threshold, Column
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ThresholdCheckYaml
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 

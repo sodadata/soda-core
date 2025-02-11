@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo, ContractInfo
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
     Contract, Column, MeasurementValues
@@ -132,10 +132,10 @@ class SchemaCheck(Check):
             )
 
         return SchemaCheckResult(
-            check_identity=self.identity,
-            check_name=self.name,
-            expected_columns=self.expected_columns,
+            contract=self._build_contract_info(),
+            check=self._build_check_info(),
             outcome=outcome,
+            expected_columns=self.expected_columns,
             actual_columns=actual_columns,
             expected_column_names_not_actual=expected_column_names_not_actual,
             actual_column_names_not_expected=actual_column_names_not_expected,
@@ -188,8 +188,8 @@ class SchemaQuery(Query):
 class SchemaCheckResult(CheckResult):
 
     def __init__(self,
-                 check_identity: str,
-                 check_name: str,
+                 contract: ContractInfo,
+                 check: CheckInfo,
                  outcome: CheckOutcome,
                  expected_columns: list[ExpectedColumn],
                  actual_columns: list[ColumnMetadata],
@@ -198,9 +198,10 @@ class SchemaCheckResult(CheckResult):
                  column_data_type_mismatches: list[ColumnDataTypeMismatch],
                  ):
         super().__init__(
-            check_identity=check_identity,
-            check_name=check_name,
+            contract=contract,
+            check=check,
             outcome=outcome,
+            metric_value=None,
             diagnostic_lines=self._create_diagnostic_lines(
                 expected_columns=expected_columns,
                 actual_columns=actual_columns,

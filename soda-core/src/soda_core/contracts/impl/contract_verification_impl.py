@@ -4,9 +4,8 @@ import os
 from abc import abstractmethod, ABC
 from datetime import timezone
 from enum import Enum
-from symbol import varargslist
 
-from cfgv import check_string
+from ruamel.yaml import YAML, StringIO
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
@@ -15,7 +14,7 @@ from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource, VariableResolver
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult, Measurement
+    CheckResult, Measurement, ThresholdInfo, ContractInfo, SourceFileInfo, CheckInfo
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
     MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
 from soda_core.tests.helpers.consistent_hash_builder import ConsistentHashBuilder
@@ -130,6 +129,8 @@ class ContractVerificationImpl:
                 self.logs.error("No contracts specified")
             else:
                 for contract in data_source_contracts.contracts:
+                    self.logs.info(f"Verifying contract {contract.soda_qualified_dataset_name}")
+
                     contract_result: ContractResult = contract.verify()
                     contract_results.append(contract_result)
                     if self.soda_cloud:
@@ -623,6 +624,32 @@ class Threshold:
         self.must_be: Number | None = must_be
         self.must_not_be: Number | None = must_not_be
 
+    def to_threshold_info(self) -> ThresholdInfo:
+        if self.must_be is None and self.must_not_be is None:
+            return ThresholdInfo(
+                must_be_greater_than=self.must_be_greater_than,
+                must_be_greater_than_or_equal=self.must_be_greater_than_or_equal,
+                must_be_less_than=self.must_be_less_than,
+                must_be_less_than_or_equal=self.must_be_less_than_or_equal
+            )
+        elif self.must_be is not None:
+            return ThresholdInfo(
+                must_be_greater_than_or_equal=self.must_be,
+                must_be_less_than_or_equal=self.must_be
+            )
+        elif self.must_not_be is not None:
+            return ThresholdInfo(
+                must_be_greater_than=self.must_not_be,
+                must_be_less_than=self.must_not_be
+            )
+
+    @classmethod
+    def get_metric_name(cls, metric_name: str, column: Column | None) -> str:
+        if column:
+            return f"{metric_name}({column.column_yaml.name})"
+        else:
+            return metric_name
+
     def get_assertion_summary(self, metric_name: str) -> str:
         """
         For ease of reading, thresholds always list small values lef and big values right (where applicable).
@@ -746,6 +773,28 @@ class Check:
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         pass
 
+    def _build_contract_info(self) -> ContractInfo:
+        return ContractInfo(
+            data_source_name=self.contract.data_source.name,
+            dataset_prefix=self.contract.dataset_prefix,
+            dataset_name=self.contract.dataset_name,
+            source=SourceFileInfo(
+                file_path=self.contract.contract_yaml.contract_yaml_file_content.yaml_file_path,
+            )
+        )
+
+    def _build_check_info(self) -> CheckInfo:
+        return CheckInfo(
+            type=self.type,
+            name=self.name,
+            identity=self.identity,
+            definition=self._build_definition(),
+            column_name=self.column.column_yaml.name if self.column else None,
+            contract_file_line=self.check_yaml.check_yaml_object.location.line,
+            contract_file_column=self.check_yaml.check_yaml_object.location.column,
+            threshold=self._build_threshold()
+        )
+
     def _build_identity(
         self,
         contract: Contract,
@@ -759,6 +808,16 @@ class Check:
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
         return identity_hash_builder.get_hash()
+
+    def _build_definition(self) -> str:
+        text_stream = StringIO()
+        yaml = YAML()
+        yaml.dump(self.check_yaml.check_yaml_object.to_dict(), text_stream)
+        text_stream.seek(0)
+        return text_stream.read()
+
+    def _build_threshold(self) -> ThresholdInfo | None:
+        return self.threshold.to_threshold_info() if self.threshold else None
 
 
 class MissingAndValidityCheck(Check):
