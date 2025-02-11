@@ -55,7 +55,7 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          pip install pytest python-dotenv
+          pip install pytest python-dotenv requests
           pip install -e soda-core
           pip install -e soda-postgres
           python -m pytest
