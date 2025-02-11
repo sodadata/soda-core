@@ -1,3 +1,4 @@
+import pytest
 from importlib.metadata import entry_points
 
 from soda_core.contracts.impl.instantiator import instantiate
