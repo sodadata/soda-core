@@ -65,6 +65,7 @@ jobs:
     outputs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:
+      - uses: actions/checkout@v4
       - name: Define modules
         id: modules
         run: |
