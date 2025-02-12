@@ -92,6 +92,8 @@ def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTest
 
 def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelper):
 
+    # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/701311a4-6fc3-4f41-86a1-2a7fe4dc358f/checks
+
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     # This test depends on data source configuration 'format_regexes'

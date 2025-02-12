@@ -11,18 +11,20 @@ def verify_contract(
     use_agent: bool
 ):
     print(f"Verifying contracts {contract_file_paths} with ")
-    if send_results:
-        print(f"  ✓ Sending results to Soda Cloud")
+
+    if use_agent:
+        print(f"  \u2705 Using Soda Agent")
     else:
-        print(f"  \u2713 Skip sending results to Soda Cloud")
-    # if skip_publish:
-    #     print(f"  \N{cross mark button} Skipping publication to Soda Cloud")
-    # else:
-    #     print(f"  \N{check mark button} Publishing contract to Soda Cloud")
-    # if use_agent:
-    #     print(f"  \N{check mark button} Using Soda Agent")
-    # else:
-    #     print(f"  \N{check mark button} Executing locally")
+        print(f"  \u2705 Executing locally")
+
+    if send_results:
+        print(f"  \u2705 Sending results to Soda Cloud")
+        if skip_publish:
+            print(f"  \u274C Not publishing the contract on Soda Cloud")
+        else:
+            print(f"  \u2705 Publishing contract to Soda Cloud")
+    else:
+        print(f"  \u274C Not sending results to Soda Cloud")
 
 
 def publish_contract(contract_file_paths: list[str] | None):

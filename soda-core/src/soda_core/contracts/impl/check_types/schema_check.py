@@ -57,7 +57,7 @@ class SchemaCheck(Check):
             check_yaml=check_yaml,
         )
 
-        self.summary = "schema"
+        self.name = check_yaml.name if check_yaml.name else "schema"
 
         self.expected_columns: list[ExpectedColumn] = [
             ExpectedColumn(

@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 
+project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/helpers/test_fixtures.py")]
+load_dotenv(f"{project_root_dir}/.env", override=True)
+
 
 @pytest.fixture(scope="function")
 def env_vars() -> dict:
@@ -14,17 +17,6 @@ def env_vars() -> dict:
     yield os.environ
     os.environ.clear()
     os.environ.update(original_env_vars)
-
-
-@pytest.fixture(scope="session")
-def dot_env(project_root_dir: str):
-    load_dotenv(f"{project_root_dir}/.env", override=True)
-
-
-@pytest.fixture(scope="session")
-def project_root_dir() -> str:
-    project_root_dir = __file__[: -len("/tests/helpers/test_fixtures.py")]
-    yield project_root_dir
 
 
 @pytest.fixture(scope="function")

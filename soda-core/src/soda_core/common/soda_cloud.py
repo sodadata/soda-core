@@ -190,8 +190,8 @@ class SodaCloud:
                 "line": check_result.check.contract_file_line,
                 "col": check_result.check.contract_file_column
             },
-            "dataSource": "SnowflakeCon_GLOBAL_BI_BUSINESS",
-            "table": "ORDERSCUBE",
+            "dataSource": check_result.contract.data_source_name,
+            "table": check_result.contract.dataset_name,
             "datasetPrefix" : check_result.contract.dataset_prefix,
             "column": check_result.check.column_name,
                 # "metrics": [
@@ -432,29 +432,38 @@ class SodaCloud:
             response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
             )
-            response_json = response.json()
+
+            trace_id: str = ""
+            if request_name:
+                trace_id = response.headers.get("X-Soda-Trace-Id")
+
+                # TODO let m1no check if this is still needed...
+                # if trace_id:
+                #     self.soda_cloud_trace_ids[request_name] = trace_id
+
             if response.status_code == 401 and not is_retry:
-                self.logs.debug("Authentication failed. Probably token expired. Re-authenticating...")
+                self.logs.debug(
+                    f"Soda Cloud authentication failed. Probably token expired. Re-authenticating... | "
+                    f"X-Soda-Trace-Id:{trace_id}"
+                )
                 self.token = None
                 response_json = self._execute_request(request_type, request_body, True, request_name)
             elif response.status_code != 200:
                 self.logs.error(
-                    f"Error while executing Soda Cloud {request_type} response code: {response.status_code}"
+                    f"Soda Cloud error for {request_type} | status_code:{response.status_code} | "
+                    f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
-                self.logs.debug(response.text)
-            return response_json
+            else:
+                self.logs.info(
+                    f"Soda Cloud {request_type} OK | X-Soda-Trace-Id:{trace_id}"
+                )
+
+            return response.json()
         except Exception as e:
             self.logs.error(f"Error while executing Soda Cloud {request_type}", exception=e)
 
     def _http_post(self, request_name: str = None, **kwargs) -> Response:
-        response = requests.post(**kwargs)
-
-        if request_name:
-            trace_id = response.headers.get("X-Soda-Trace-Id")
-            if trace_id:
-                self.soda_cloud_trace_ids[request_name] = trace_id
-
-        return response
+        return requests.post(**kwargs)
 
     def _get_token(self) -> str:
         if not self.token:

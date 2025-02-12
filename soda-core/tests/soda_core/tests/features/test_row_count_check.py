@@ -71,6 +71,9 @@ def test_row_count_thresholds_pass(data_source_test_helper: DataSourceTestHelper
 
 
 def test_row_count_thresholds_fail(data_source_test_helper: DataSourceTestHelper):
+
+    # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/f089d7ef-559a-47ea-aa14-a648823c1f9e/checks
+
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(

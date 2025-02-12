@@ -38,6 +38,8 @@ referenced_table_specification = (
 
 def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
 
+    # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/2945ba9d-b1ff-4cfd-b277-d5e4edfa2bd5/checks
+
     referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
     referenced_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
 

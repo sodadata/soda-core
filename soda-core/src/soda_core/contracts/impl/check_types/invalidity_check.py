@@ -52,7 +52,7 @@ class InvalidCheck(MissingAndValidityCheck):
             default_threshold=Threshold(type=ThresholdType.SINGLE_COMPARATOR,must_be=0)
         )
         metric_name: str = Threshold.get_metric_name(check_yaml.type, column=column)
-        self.name = (
+        self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
             else f"{check_yaml.type} (invalid threshold)"
         )

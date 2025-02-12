@@ -364,16 +364,17 @@ class YamlObject(YamlValue):
         elif env_var is not None and env_var in os.environ:
             value = os.environ[env_var]
         else:
+            env_var_text: str = f"or environment variable '{env_var}' " if isinstance(env_var, str) else ""
             if required:
                 self.logs.error(
-                    message=f"'{key}' is required",
+                    message=f"Property '{key}' {env_var_text}is required",
                     location=self.location
                 )
             value = default_value
 
         if expected_type is not None and not isinstance(value, expected_type) and value != default_value:
             self.logs.error(
-                message=f"'{key}' expected a {expected_type.__name__}, but was {type(value).__name__}",
+                message=f"Property '{key}' expected a {expected_type.__name__}, but was {type(value).__name__}",
                 location=self.create_location_from_yaml_dict_key(key)
             )
 
