@@ -40,7 +40,7 @@ class DaskCursor:
         if self.df.empty:
             row_value = []
             for col_dtype in self.df.dtypes:
-                if col_dtype in ["int", "float"]:
+                if np.issubdtype(col_dtype, np.number):
                     row_value.append(0)
                 else:
                     row_value.append(None)
