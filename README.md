@@ -25,7 +25,7 @@ The above command will block the command line so that you can stop the postgres 
 
 ### Creating a new release
 
-TODO.  Any volunteer?
+Every time a commit is done to `main` on the `v4` branch, a release is triggered automatically to pypi.dev.sodadata.io 
 
 ### Running the test suite in PyCharm
 

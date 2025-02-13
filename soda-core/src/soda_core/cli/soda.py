@@ -205,7 +205,7 @@ def main():
              "must already exist on Soda Cloud."
     )
 
-    publish_parser = sub_parsers.add_parser('publish', help='Publish a contract')
+    publish_parser = sub_parsers.add_parser('publish', help='Publish a contract (not yet implemented)')
     publish_parser.add_argument(
         "-c", "--contract",
         type=str,
@@ -229,12 +229,6 @@ def main():
         help="Type of the data source.  Eg postgres"
     )
 
-    test_parser = sub_parsers.add_parser('test-data-source', help='Test a data source connection')
-    test_parser.add_argument(
-        "-ds", "--data-source",
-        type=str,
-        help="The name of a configured data source to test."
-    )
     test_parser = sub_parsers.add_parser('test-data-source', help='Test a data source connection')
     test_parser.add_argument(
         "-ds", "--data-source",
