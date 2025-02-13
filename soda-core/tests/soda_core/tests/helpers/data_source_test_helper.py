@@ -30,11 +30,11 @@ class TestContractVerificationBuilder(ContractVerificationBuilder):
 
     def __init__(
         self,
-        default_data_source: Optional[DataSource] = None,
+        data_source: Optional[DataSource] = None,
         soda_cloud: Optional[SodaCloud] = None
     ):
-        super().__init__(default_data_source=default_data_source)
-        self.data_source: Optional[DataSource] = None # initialized in _initialize_data_source below
+        super().__init__()
+        self.data_source: Optional[DataSource] = data_source # initialized in _initialize_data_source below
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
 
     def build(self) -> TestContractVerification:
@@ -47,16 +47,16 @@ class TestContractVerification(ContractVerification):
     @classmethod
     def builder(
         cls,
-        default_data_source: DataSource | None = None,
+        data_source: DataSource | None = None,
         soda_cloud: Optional[SodaCloud] = None
     ) -> TestContractVerificationBuilder:
-        return TestContractVerificationBuilder(default_data_source=default_data_source, soda_cloud=soda_cloud)
+        return TestContractVerificationBuilder(data_source=data_source, soda_cloud=soda_cloud)
 
     def __init__(self, test_contract_verification_builder: TestContractVerificationBuilder):
         super().__init__(contract_verification_builder=test_contract_verification_builder)
 
     def _initialize_data_source(self, contract_verification_builder: ContractVerificationBuilder) -> None:
-        self.data_source = contract_verification_builder.default_data_source
+        self.data_source = contract_verification_builder.data_source
 
 
 class DataSourceTestHelper:
@@ -89,7 +89,7 @@ class DataSourceTestHelper:
 
         if os.environ.get("SODA_CLOUD") == "on":
             logs: Logs = Logs()
-            soda_cloud_yaml_dict: dict = {}
+            soda_cloud_yaml_dict: dict = {"soda_cloud":{}}
             soda_cloud_yaml_source: YamlSource = YamlSource.from_dict(soda_cloud_yaml_dict)
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(logs=logs)
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
@@ -109,11 +109,11 @@ class DataSourceTestHelper:
         logs: Logs = Logs()
         test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
         data_source_yaml_file = YamlSource.from_dict(yaml_dict=test_data_source_yaml_dict)
-        data_source_parser = DataSourceParser(
-            data_source_yaml_source=data_source_yaml_file,
-            logs=logs,
-            spark_session=None
+        data_source_yaml_file_content: YamlFileContent = data_source_yaml_file.parse_yaml_file_content(
+            file_type="data source",
+            logs=logs
         )
+        data_source_parser = DataSourceParser(data_source_yaml_file_content)
         data_source: DataSource = data_source_parser.parse()
         assert not logs.has_errors()
         return data_source
@@ -495,7 +495,11 @@ class DataSourceTestHelper:
         return full_contract_yaml_str
 
     def create_test_verification_builder(self) -> TestContractVerificationBuilder:
-        return TestContractVerification.builder(self.data_source, self.soda_cloud)
+        return (
+            TestContractVerification.builder()
+            .with_data_source(self.data_source)
+            .with_soda_cloud(self.soda_cloud)
+        )
 
     def test_method_ended(self) -> None:
         self.data_source.data_source_connection.rollback()

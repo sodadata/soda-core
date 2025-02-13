@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from logging import ERROR
 from numbers import Number
-from tabnanny import check
+from typing import Optional
 
 from attr import dataclass
 
@@ -16,10 +16,12 @@ from soda_core.common.yaml import YamlSource
 
 class ContractVerificationBuilder:
 
-    def __init__(self, default_data_source: DataSource | None = None):
-        self.default_data_source: DataSource | None = default_data_source
+    def __init__(self):
         self.contract_yaml_sources: list[YamlSource] = []
-        self.soda_cloud: 'SodaCloud' | None = None
+        self.data_source: Optional['DataSource'] = None
+        self.data_source_yaml_source: Optional[YamlSource] = None
+        self.soda_cloud: Optional['SodaCloud'] = None
+        self.soda_cloud_yaml_source: Optional[YamlSource] = None
         self.variables: dict[str, str] = {}
         self.logs: Logs = Logs()
 
@@ -38,46 +40,41 @@ class ContractVerificationBuilder:
         self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str, file_path=file_path))
         return self
 
-    def with_contract_yaml_dict(self, contract_yaml_dict: dict) -> ContractVerificationBuilder:
-        assert isinstance(contract_yaml_dict, dict)
-        self.contract_yaml_sources.append(YamlSource.from_dict(yaml_dict=contract_yaml_dict))
+    def with_data_source_yaml_file(self, data_source_yaml_file_path: str) -> ContractVerificationBuilder:
+        assert isinstance(data_source_yaml_file_path, str)
+        if self.data_source_yaml_source is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.data_source_yaml_source = YamlSource.from_file_path(yaml_file_path=data_source_yaml_file_path)
         return self
 
-    # def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
-    #     assert isinstance(soda_cloud_yaml_file_path, str)
-    #     if self.soda_cloud_file is not None:
-    #         self.logs.error("Duplicate Soda Cloud definition. Ignoring previous data sources.")
-    #     self.soda_cloud_file = YamlSource(yaml_file_path=soda_cloud_yaml_file_path, logs=self.logs, file_type="soda cloud")
-    #     return self
-    #
-    # def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
-    #     assert isinstance(soda_cloud_yaml_str, str)
-    #     if self.soda_cloud_file is not None:
-    #         self.logs.error("Duplicate Soda Cloud definition. Ignoring previous data sources.")
-    #     self.soda_cloud_file = YamlSource(yaml_str=soda_cloud_yaml_str, logs=self.logs, file_type="soda cloud")
-    #     return self
-    #
-    # def with_soda_cloud_yaml_dict(self, soda_cloud_yaml_dict: dict) -> ContractVerificationBuilder:
-    #     assert isinstance(soda_cloud_yaml_dict, dict)
-    #     if self.soda_cloud_file is not None:
-    #         self.logs.error("Duplicate Soda Cloud definition. Ignoring previous data sources.")
-    #     self.soda_cloud_file = YamlSource(yaml_dict=soda_cloud_yaml_dict, logs=self.logs, file_type="soda cloud")
-    #     return self
-    #
-    # def with_plugin_yaml_file(self, plugin_yaml_file_path: str) -> ContractVerificationBuilder:
-    #     assert isinstance(plugin_yaml_file_path, str)
-    #     self.plugin_files.append(YamlSource(yaml_file_path=plugin_yaml_file_path, logs=self.logs, file_type="plugin"))
-    #     return self
-    #
-    # def with_plugin_yaml_str(self, plugin_yaml_str: str) -> ContractVerificationBuilder:
-    #     assert isinstance(plugin_yaml_str, str)
-    #     self.plugin_files.append(YamlSource(yaml_str=plugin_yaml_str, logs=self.logs, file_type="plugin"))
-    #     return self
-    #
-    # def with_plugin_yaml_dict(self, plugin_yaml_dict: dict) -> ContractVerificationBuilder:
-    #     assert isinstance(plugin_yaml_dict, dict)
-    #     self.plugin_files.append(YamlSource(yaml_dict=plugin_yaml_dict, logs=self.logs, file_type="plugin"))
-    #     return self
+    def with_data_source_yaml_str(self, data_source_yaml_str: str) -> ContractVerificationBuilder:
+        assert isinstance(data_source_yaml_str, str)
+        if self.data_source_yaml_source is not None:
+            self.logs.error("Duplicate data source definition. Ignoring previous data sources.")
+        self.data_source_yaml_source = YamlSource.from_str(yaml_str=data_source_yaml_str)
+        return self
+
+    def with_data_source(self, data_source: object) -> ContractVerificationBuilder:
+        self.data_source = data_source
+        return self
+
+    def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
+        assert isinstance(soda_cloud_yaml_file_path, str)
+        if self.soda_cloud_yaml_source is not None:
+            self.logs.error("Duplicate Soda Cloud definition. Ignoring previous Soda Cloud files.")
+        self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
+        return self
+
+    def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
+        assert isinstance(soda_cloud_yaml_str, str)
+        if self.soda_cloud_yaml_source is not None:
+            self.logs.error("Duplicate Soda Cloud definition. Ignoring previous Soda Cloud files.")
+        self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
+        return self
+
+    def with_soda_cloud(self, soda_cloud: object) -> ContractVerificationBuilder:
+        self.soda_cloud = soda_cloud
+        return self
 
     def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
         self.variables[key] = value
@@ -99,17 +96,19 @@ class ContractVerificationBuilder:
 class ContractVerification:
 
     @classmethod
-    def builder(cls, default_data_source: DataSource | None = None) -> ContractVerificationBuilder:
-        return ContractVerificationBuilder(default_data_source=default_data_source)
+    def builder(cls) -> ContractVerificationBuilder:
+        return ContractVerificationBuilder()
 
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         from soda_core.contracts.impl.contract_verification_impl import ContractVerificationImpl
         self.contract_verification_impl: ContractVerificationImpl = ContractVerificationImpl(
-            default_data_source=contract_verification_builder.default_data_source,
             contract_yaml_sources=contract_verification_builder.contract_yaml_sources,
+            data_source=contract_verification_builder.data_source,
+            data_source_yaml_source=contract_verification_builder.data_source_yaml_source,
+            soda_cloud=contract_verification_builder.soda_cloud,
+            soda_cloud_yaml_source=contract_verification_builder.soda_cloud_yaml_source,
             variables=contract_verification_builder.variables,
             logs=contract_verification_builder.logs,
-            soda_cloud=contract_verification_builder.soda_cloud
         )
 
     def __str__(self) -> str:

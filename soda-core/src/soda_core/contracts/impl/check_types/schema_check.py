@@ -57,6 +57,7 @@ class SchemaCheck(Check):
             check_yaml=check_yaml,
         )
 
+        # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
         self.name = check_yaml.name if check_yaml.name else "schema"
 
         self.expected_columns: list[ExpectedColumn] = [

@@ -4,6 +4,7 @@ import os
 from abc import abstractmethod, ABC
 from datetime import timezone
 from enum import Enum
+from typing import Optional
 
 from ruamel.yaml import YAML, StringIO
 
@@ -11,8 +12,9 @@ from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlSource, VariableResolver
+from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult, Measurement, ThresholdInfo, ContractInfo, CheckInfo, YamlFileContentInfo
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
@@ -34,24 +36,44 @@ class ContractVerificationImpl:
 
     def __init__(
             self,
-            default_data_source: DataSource,
             contract_yaml_sources: list[YamlSource],
+            data_source: DataSource | None,
+            data_source_yaml_source: Optional[YamlSource],
+            soda_cloud: 'SodaCloud' | None,
+            soda_cloud_yaml_source: Optional[YamlSource],
             variables: dict[str, str],
             logs: Logs = Logs(),
-            soda_cloud: 'SodaCloud' | None = None
     ):
         self.logs: Logs = logs
-        self.default_data_source_contracts: DataSourceContracts | None = None
-        self.data_sources_contracts: list[DataSourceContracts] = []
-        self.soda_cloud: 'SodaCloud' | None = soda_cloud
 
-        if default_data_source:
-            self.default_data_source_contracts = DataSourceContracts(data_source=default_data_source)
-            self.data_sources_contracts.append(self.default_data_source_contracts)
+        self.data_source: DataSource | None = data_source
+        if self.data_source is None and data_source_yaml_source is not None:
+            data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
+                file_type="data source",
+                variables=variables,
+                logs=logs
+            )
+            data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
+            self.data_source = data_source_parser.parse()
+        if self.data_source is None:
+            self.logs.error("No data source configured")
+
+        self.data_source_contracts: DataSourceContracts = DataSourceContracts(data_source=self.data_source)
+        self.data_sources_contracts: list[DataSourceContracts] = []
+        self.data_sources_contracts.append(self.data_source_contracts)
+
+        self.soda_cloud: SodaCloud | None = soda_cloud
+        if self.soda_cloud is None and soda_cloud_yaml_source is not None:
+            soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
+                file_type="soda cloud",
+                variables=variables,
+                logs=logs
+            )
+            self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
 
         for contract_yaml_source in contract_yaml_sources:
             contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)
-            if contract_yaml:
+            if contract_yaml and self.data_source:
                 data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
                 if data_source_contracts:
                     data_source: DataSource = data_source_contracts.data_source
@@ -87,8 +109,8 @@ class ContractVerificationImpl:
                     data_source_contracts = DataSourceContracts(data_source=data_source)
 
                 return data_source_contracts
-        if self.default_data_source_contracts:
-            return self.default_data_source_contracts
+        if self.data_source_contracts:
+            return self.data_source_contracts
         else:
             self.logs.error(
                 f"'data_source_file' is required. "
@@ -110,8 +132,6 @@ class ContractVerificationImpl:
                     data_source_contracts
                 )
                 contract_results.extend(data_source_contract_results)
-            else:
-                self.logs.error("No data source configured")
 
         return ContractVerificationResult(
             logs=self.logs,
@@ -165,7 +185,7 @@ class Contract:
             contract_yaml.dataset_locations.get(data_source.get_data_source_type_name())
             if contract_yaml.dataset_locations else None
         )
-        self.dataset_prefix: list[str] | None = data_source.build_dataset_prefix(data_source_location)
+        self.dataset_prefix: list[str] | None = self.data_source.build_dataset_prefix(data_source_location)
         self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
 
         self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(

@@ -50,8 +50,8 @@ class RowCountCheck(Check):
             )
         )
 
+        # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
         metric_name: str = Threshold.get_metric_name(check_yaml.type, column=column)
-
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
             else f"{check_yaml.type} (invalid threshold)"

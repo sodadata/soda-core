@@ -51,6 +51,8 @@ class InvalidCheck(MissingAndValidityCheck):
             check_yaml=check_yaml,
             default_threshold=Threshold(type=ThresholdType.SINGLE_COMPARATOR,must_be=0)
         )
+
+        # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
         metric_name: str = Threshold.get_metric_name(check_yaml.type, column=column)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold

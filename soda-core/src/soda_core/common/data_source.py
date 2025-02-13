@@ -17,17 +17,12 @@ class DataSource(ABC):
     @classmethod
     def create(
             cls,
-            data_source_yaml_source: YamlSource,
+            data_source_yaml_file_content: YamlFileContent,
             name: str,
             type_name: str,
             connection_properties: dict,
-            variables: dict[str, str] | None,
             format_regexes: dict[str, str]
     ) -> DataSource:
-        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-            file_type="data source", variables=variables
-        )
-
         from soda_core.common.data_sources.postgres_data_source import PostgresDataSource
         return PostgresDataSource(
                 data_source_yaml_file_content=data_source_yaml_file_content,

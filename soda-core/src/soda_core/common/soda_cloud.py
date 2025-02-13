@@ -28,14 +28,24 @@ class SodaCloud:
     CSV_TEXT_MAX_LENGTH = 1500
 
     @classmethod
-    def from_file(cls, soda_cloud_file_content: YamlFileContent):
+    def from_file(cls, soda_cloud_file_content: YamlFileContent) -> SodaCloud | None:
 
         logs = soda_cloud_file_content.logs
 
-        soda_cloud_yaml_object: YamlObject = (
-            soda_cloud_file_content.get_yaml_object()
-            if soda_cloud_file_content.has_yaml_object() else {}
-        )
+        if not isinstance(soda_cloud_file_content, YamlFileContent):
+            logs.error(f"soda_cloud_file_content is not a YamlFileContent: {type(soda_cloud_file_content)}")
+            return None
+
+        if not soda_cloud_file_content.has_yaml_object():
+            logs.error(f"Invalid Soda Cloud config file: No valid YAML object as file content")
+            return None
+
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_file_content.get_yaml_object()
+
+        soda_cloud_yaml_object: YamlObject | None = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
+        if not soda_cloud_yaml_object:
+            logs.error(f"key 'soda_cloud' is required in a Soda Cloud configuration file")
+            return None
 
         return SodaCloud(
             host=soda_cloud_yaml_object.read_string_opt(

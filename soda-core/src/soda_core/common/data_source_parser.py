@@ -2,29 +2,25 @@ from __future__ import annotations
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource, YamlObject, YamlFileContent, YamlValue
+from soda_core.common.yaml import YamlObject, YamlFileContent
 
 
 class DataSourceParser:
 
     def __init__(
             self,
-            data_source_yaml_source: YamlSource,
-            logs: Logs | None = None,
+            data_source_yaml_file_content: YamlFileContent,
             spark_session: object | None = None
     ):
-        self.logs: Logs = logs if logs else Logs()
-        self.data_source_yaml_source: YamlSource = data_source_yaml_source
+        self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
+        self.logs: Logs = data_source_yaml_file_content.logs
         self.spark_session: object = spark_session
 
-    def parse(self, variables: dict | None = None) -> DataSource | None:
-        yaml_files_content: YamlFileContent = self.data_source_yaml_source.parse_yaml_file_content(
-            file_type="data source", variables=variables, logs=self.logs
-        )
-        if not yaml_files_content:
+    def parse(self) -> DataSource | None:
+        if not self.data_source_yaml_file_content:
             return None
 
-        data_source_yaml: YamlObject = yaml_files_content.get_yaml_object()
+        data_source_yaml: YamlObject = self.data_source_yaml_file_content.get_yaml_object()
         if not data_source_yaml:
             return None
 
@@ -54,10 +50,9 @@ class DataSourceParser:
                     )
 
         return DataSource.create(
-            data_source_yaml_source=self.data_source_yaml_source,
+            data_source_yaml_file_content=self.data_source_yaml_file_content,
             name=data_source_name,
             type_name=data_source_type_name,
             connection_properties=connection_properties,
-            variables=variables,
             format_regexes=format_regexes,
         )

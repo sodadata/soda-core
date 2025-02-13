@@ -41,8 +41,9 @@ the `ContractVerification.builder`
 
 ```
 contract_verification_result: ContractVerificationResult = (
-    ContractVerification.builder(data_source_file_path="../soda/my_postgres_ds.yml")
+    ContractVerification.builder()
     .with_contract_yaml_file("../soda/mydb/myschema/mydataset.yml")
+    .with_data_source_yaml_file("../soda/my_postgres_ds.yml")
     .with_variables({"MY_VAR": "somevalue"})
     .execute()
     .assert_ok()
