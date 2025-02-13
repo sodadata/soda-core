@@ -153,6 +153,9 @@ class SodaCloud:
             {
                 "definitionName": contract_result.soda_qualified_dataset_name,
                 "defaultDataSource": contract_result.data_source_name,
+                "defaultDataSourceProperties": {
+                    "type": contract_result.data_source_info.type
+                },
                 # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
                 # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
                 "dataTimestamp": contract_result.data_timestamp,
@@ -175,7 +178,6 @@ class SodaCloud:
                 # ],
                 "logs": log_cloud_json_dicts,
                 "sourceOwner": "soda-core",
-
                 "contract": {
                     "fileId": contract_result.contract_info.source.soda_cloud_file_id,
                     "dataset": {

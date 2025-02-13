@@ -17,7 +17,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult, Measurement, ThresholdInfo, ContractInfo, CheckInfo, YamlFileContentInfo
+    CheckResult, Measurement, ThresholdInfo, ContractInfo, CheckInfo, YamlFileContentInfo, DataSourceInfo
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
     MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
 
@@ -327,6 +327,7 @@ class Contract:
             measurements.append(derived_measurement)
 
         contract_info: ContractInfo = self.build_contract_info()
+        data_source_info: DataSourceInfo = self.data_source.build_data_source_info()
 
         # Evaluate the checks
         measurement_values = MeasurementValues(measurements)
@@ -340,6 +341,7 @@ class Contract:
 
         return ContractResult(
             contract_info=contract_info,
+            data_source_info=data_source_info,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),

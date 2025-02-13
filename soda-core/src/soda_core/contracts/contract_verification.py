@@ -206,6 +206,12 @@ class ContractInfo:
 
 
 @dataclass
+class DataSourceInfo:
+    name: str
+    type: str
+
+
+@dataclass
 class ThresholdInfo:
     must_be_greater_than: Number | None = None
     must_be_greater_than_or_equal: Number | None = None
@@ -274,6 +280,7 @@ class ContractResult:
     def __init__(
             self,
             contract_info: ContractInfo,
+            data_source_info: DataSourceInfo,
             data_timestamp: datetime | None,
             started_timestamp: datetime,
             ended_timestamp: datetime,
@@ -285,12 +292,14 @@ class ContractResult:
             logs: Logs
     ):
         self.contract_info: ContractInfo = contract_info
-        # TODO move to contract info
+        # TODO move to contract info or use the data_source_info
         self.data_source_name: str = data_source_name
         # TODO move to contract info
         self.soda_qualified_dataset_name: str = soda_qualified_dataset_name
         # TODO move to contract info
         self.sql_qualified_dataset_name: str = sql_qualified_dataset_name
+
+        self.data_source_info: DataSourceInfo = data_source_info
 
         self.data_timestamp: datetime | None = data_timestamp
         self.started_timestamp: datetime = started_timestamp

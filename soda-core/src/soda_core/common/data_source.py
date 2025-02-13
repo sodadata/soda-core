@@ -11,6 +11,7 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.contracts.contract_verification import DataSourceInfo
 
 
 class DataSource(ABC):
@@ -165,3 +166,9 @@ class DataSource(ABC):
                 return None
         except Exception as e:
             return str(e)
+
+    def build_data_source_info(self) -> DataSourceInfo:
+        return DataSourceInfo(
+            name=self.name,
+            type=self.type_name
+        )
