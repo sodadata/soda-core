@@ -42,6 +42,7 @@ class ContractVerificationImpl:
             soda_cloud: 'SodaCloud' | None,
             soda_cloud_yaml_source: Optional[YamlSource],
             variables: dict[str, str],
+            skip_publish: bool,
             logs: Logs = Logs(),
     ):
         self.logs: Logs = logs
@@ -70,6 +71,8 @@ class ContractVerificationImpl:
                 logs=logs
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
+        if self.soda_cloud:
+            self.soda_cloud.skip_publish = skip_publish
 
         for contract_yaml_source in contract_yaml_sources:
             contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)

@@ -23,6 +23,7 @@ class ContractVerificationBuilder:
         self.soda_cloud: Optional['SodaCloud'] = None
         self.soda_cloud_yaml_source: Optional[YamlSource] = None
         self.variables: dict[str, str] = {}
+        self.soda_cloud_skip_publish: bool = False
         self.logs: Logs = Logs()
 
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> ContractVerificationBuilder:
@@ -85,6 +86,13 @@ class ContractVerificationBuilder:
             self.variables.update(variables)
         return self
 
+    def with_soda_cloud_skip_publish(self) -> ContractVerificationBuilder:
+        """
+        Skips contract publication on Soda Cloud.
+        """
+        self.soda_cloud_skip_publish = True
+        return self
+
     def build(self) -> ContractVerification:
         return ContractVerification(contract_verification_builder=self)
 
@@ -108,6 +116,7 @@ class ContractVerification:
             soda_cloud=contract_verification_builder.soda_cloud,
             soda_cloud_yaml_source=contract_verification_builder.soda_cloud_yaml_source,
             variables=contract_verification_builder.variables,
+            skip_publish=contract_verification_builder.soda_cloud_skip_publish,
             logs=contract_verification_builder.logs,
         )
 

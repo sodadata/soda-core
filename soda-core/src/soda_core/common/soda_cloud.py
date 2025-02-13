@@ -98,6 +98,7 @@ class SodaCloud:
         self.logs = logs
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
+        self.skip_publish: bool = False
 
     def send_contract_result(self, contract_result: ContractResult):
         contract_yaml_source_str = contract_result.contract_info.source.source_content_str
