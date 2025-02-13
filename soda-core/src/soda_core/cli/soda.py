@@ -6,7 +6,10 @@ import sys
 from os.path import dirname, exists
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
+from soda_core.common.logs import Logs
+from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
     ContractVerificationResult
 
@@ -45,38 +48,37 @@ def verify_contract(
     if contract_file_paths is None or len(contract_file_paths) == 0:
         print(f"\U0001F92F I'm suppose to verify a contract but no contract file specified")
         return
-    elif len(contract_file_paths) == 1:
-        print(f"Verifying contract {contract_file_paths}")
-    else:
-        print(f"Verifying contracts")
-        for contract_file_path in contract_file_paths:
-            print(f"  \U0001F4DC {contract_file_path}")
-            contract_verification_builder.with_contract_yaml_file(contract_file_path)
+
+    print(f"Verifying...")
+    for contract_file_path in contract_file_paths:
+        print(f"\U0001F4DC contract {contract_file_path}")
+        contract_verification_builder.with_contract_yaml_file(contract_file_path)
 
     if use_agent:
         if soda_cloud_file_path:
-            print(f"on Soda Agent \U0001F325")
+            print(f"\U0001F325 on Soda Agent")
         else:
             print(f"\U0001F92F I'm suppose to verify the contract on Soda Agent but no Soda Cloud configured")
             return
     else:
-        print(f"locally \U0001F4BB")
+        print(f"\U0001F4BB locally")
         if data_source_file_path:
-            print(f"\U0001F92F on data source {data_source_file_path}")
+            print(f"\u2705 on data source {data_source_file_path} \U0001F4BE")
             contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
 
     if soda_cloud_file_path:
-        print(f"\u2705 Sending results to Soda Cloud \U0001F325")
+        print(f"\u2705 Sending results to Soda Cloud \U0001F4AD")
         contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
         if skip_publish:
-            print(f"\u274C Not publishing the contract on Soda Cloud")
+            print(f"\u274C Not publishing the contract on Soda Cloud \U0001F4AD")
             contract_verification_builder.with_soda_cloud_skip_publish()
         else:
-            print(f"\u2705 Publishing contract to Soda Cloud \U0001F325")
+            print(f"\u2705 Publishing contract to Soda Cloud \U0001F4AD")
     else:
-        print(f"\u274C Not sending results to Soda Cloud")
+        print(f"\u274C Not sending results to Soda Cloud \U0001F4AD")
 
     contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
+    print(str(contract_verification_result))
 
 
 def publish_contract(contract_file_paths: list[str] | None):
@@ -115,6 +117,13 @@ def create_data_source(data_source_file_path: str, data_source_type: str):
 
 def test_data_source(data_source_file_path: str):
     print(f"Testing data source configuration file {data_source_file_path}")
+    from soda_core.common.data_source import DataSource
+    data_source: DataSource = DataSource.from_file(data_source_file_path)
+    error_message: Optional[str] = data_source.test_connection_error_message()
+    if error_message:
+        print(f"\U0001F92F Error: Connection configured in data source file '{data_source_file_path}' failed: {error_message}")
+    else:
+        print(f"\u2705 Success! Tested data source connection in '{data_source_file_path}'")
 
 
 def create_soda_cloud(soda_cloud_file_path: str):
@@ -136,7 +145,18 @@ def create_soda_cloud(soda_cloud_file_path: str):
 
 
 def test_soda_cloud(soda_cloud_file_path: str):
+    from soda_core.common.soda_cloud import SodaCloud
     print(f"Testing soda cloud file {soda_cloud_file_path}")
+    soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
+    soda_cloud_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
+        file_type="soda_cloud", variables={}, logs=Logs()
+    )
+    soda_cloud: SodaCloud = SodaCloud.from_file(soda_cloud_file_content)
+    error_msg = soda_cloud.test_connection()
+    if error_msg:
+        print(f"\U0001F92F Could not connect to Soda Cloud: {error_msg}")
+    else:
+        print(f"\u2705 Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
 
 
 def main():
@@ -243,7 +263,7 @@ def main():
 
     try:
         if args.command == "verify":
-            verify_contract(args.contract, args.soda_cloud, args.skip_publish, args.use_agent)
+            verify_contract(args.contract, args.data_source, args.soda_cloud, args.skip_publish, args.use_agent)
         elif args.command == "publish":
             publish_contract(args.contract)
         elif args.command == "create-data-source":

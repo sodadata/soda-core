@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
@@ -143,3 +144,24 @@ class DataSource(ABC):
         if format_regex is None:
             self.logs.error(f"Validity format regex '{format}' not configured in data source 'format_regexes'")
         return format_regex
+
+    @classmethod
+    def from_file(cls, data_source_file_path: str) -> DataSource | None:
+        data_source_yaml_source: YamlSource = YamlSource.from_file_path(data_source_file_path)
+        logs: Logs = Logs()
+        data_source_yaml_file_content: YamlFileContent = (
+            data_source_yaml_source.parse_yaml_file_content(file_type="data source", variables={}, logs=logs)
+        )
+        from soda_core.common.data_source_parser import DataSourceParser
+        data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
+        return data_source_parser.parse()
+
+    def test_connection_error_message(self) -> Optional[str]:
+        try:
+            with self:
+                query_result: QueryResult = self.data_source_connection.execute_query(
+                    f"SELECT 1"
+                )
+                return None
+        except Exception as e:
+            return str(e)

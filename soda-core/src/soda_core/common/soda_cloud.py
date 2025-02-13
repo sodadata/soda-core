@@ -113,6 +113,19 @@ class SodaCloud:
         contract_result["type"] = "sodaCoreInsertScanResults"
         self._execute_command(contract_result, command_name="send_scan_results")
 
+    def test_connection(self) -> Optional[str]:
+        """
+        Returns an error message or None if the connection test is successful
+        """
+        query: dict = {
+            "type": "whoAmI"
+        }
+        self._execute_query(query=query, query_name="who_am_i")
+        if self.logs.has_errors():
+            return self.logs.get_errors_str()
+        else:
+            return None
+
     def build_contract_result_json(self, contract_result: ContractResult) -> dict:
         check_result_cloud_json_dicts = [
             self.build_check_result_cloud_dict(check_result)

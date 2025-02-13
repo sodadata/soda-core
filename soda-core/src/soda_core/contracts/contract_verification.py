@@ -9,7 +9,6 @@ from typing import Optional
 
 from attr import dataclass
 
-from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
 

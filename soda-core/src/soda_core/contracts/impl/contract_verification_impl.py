@@ -8,6 +8,7 @@ from typing import Optional
 
 from ruamel.yaml import YAML, StringIO
 
+from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
@@ -19,7 +20,6 @@ from soda_core.contracts.contract_verification import ContractVerificationResult
     CheckResult, Measurement, ThresholdInfo, ContractInfo, CheckInfo, YamlFileContentInfo
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
     MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
-from soda_core.tests.helpers.consistent_hash_builder import ConsistentHashBuilder
 
 
 class DataSourceContracts:

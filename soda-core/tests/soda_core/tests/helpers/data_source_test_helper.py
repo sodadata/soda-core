@@ -8,8 +8,6 @@ import string
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.data_source import DataSource
-from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.logs import Logs, Log
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
@@ -30,11 +28,11 @@ class TestContractVerificationBuilder(ContractVerificationBuilder):
 
     def __init__(
         self,
-        data_source: Optional[DataSource] = None,
+        data_source: Optional['DataSource'] = None,
         soda_cloud: Optional[SodaCloud] = None
     ):
         super().__init__()
-        self.data_source: Optional[DataSource] = data_source # initialized in _initialize_data_source below
+        self.data_source: Optional['DataSource'] = data_source # initialized in _initialize_data_source below
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
 
     def build(self) -> TestContractVerification:
@@ -47,7 +45,7 @@ class TestContractVerification(ContractVerification):
     @classmethod
     def builder(
         cls,
-        data_source: DataSource | None = None,
+        data_source: 'DataSource' | None = None,
         soda_cloud: Optional[SodaCloud] = None
     ) -> TestContractVerificationBuilder:
         return TestContractVerificationBuilder(data_source=data_source, soda_cloud=soda_cloud)
@@ -69,7 +67,7 @@ class DataSourceTestHelper:
     def __init__(self):
         super().__init__()
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
-        self.data_source: DataSource = self._create_data_source()
+        self.data_source: 'DataSource' = self._create_data_source()
         if self.data_source.logs.has_errors():
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
@@ -102,7 +100,7 @@ class DataSourceTestHelper:
         if isinstance(self.soda_cloud, MockSodaCloud):
             self.soda_cloud.responses = responses
 
-    def _create_data_source(self) -> DataSource:
+    def _create_data_source(self) -> 'DataSource':
         """
         Called in constructor to initialized self.data_source
         """
@@ -113,8 +111,9 @@ class DataSourceTestHelper:
             file_type="data source",
             logs=logs
         )
+        from soda_core.common.data_source_parser import DataSourceParser
         data_source_parser = DataSourceParser(data_source_yaml_file_content)
-        data_source: DataSource = data_source_parser.parse()
+        data_source: 'DataSource' = data_source_parser.parse()
         assert not logs.has_errors()
         return data_source
 
