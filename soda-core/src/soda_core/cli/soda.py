@@ -106,7 +106,7 @@ def create_data_source(data_source_file_path: str, data_source_type: str):
                 host: localhost
                 user: ${POSTGRES_USERNAME}
                 password: ${POSTGRES_PASSWORD}
-                database: your_postgres_db,
+                database: your_postgres_db
             format_regexes:
               # Example named regex format
               single_digit_test_format: ^[0-9]$

@@ -14,8 +14,8 @@ package_version = "4.0.0b1"
 description = "Soda Core V4"
 
 requires = [
-    "jsonschema>=4.20.0",
     "ruamel.yaml>=0.17.0,<0.18.0",
+    "requests>=2.32.3,<2.33.0"
 ]
 
 setup(

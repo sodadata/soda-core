@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from logging import ERROR
 from numbers import Number
 from typing import Optional
-
-from attr import dataclass
 
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
