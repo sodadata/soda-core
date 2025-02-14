@@ -107,11 +107,13 @@ class SodaCloud:
             yaml_str_source=contract_yaml_source_str,
             soda_cloud_file_path=soda_cloud_file_path
         )
-        contract_result.contract_info.source.soda_cloud_file_id = file_id
-
-        contract_result = self.build_contract_result_json(contract_result)
-        contract_result["type"] = "sodaCoreInsertScanResults"
-        self._execute_command(contract_result, command_name="send_scan_results")
+        if file_id:
+            contract_result.contract_info.source.soda_cloud_file_id = file_id
+            contract_result = self.build_contract_result_json(contract_result)
+            contract_result["type"] = "sodaCoreInsertScanResults"
+            self._execute_command(contract_result, command_name="send_scan_results")
+        else:
+            self.logs.error("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
 
     def test_connection(self) -> Optional[str]:
         """
@@ -258,7 +260,10 @@ class SodaCloud:
             return value
         return str(value)
 
-    def upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> str:
+    def upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> str | None:
+        """
+        Returns a Soda Cloud fileId or None if something is wrong.
+        """
         try:
             with TemporaryFile() as temp_file:
                 rows_json_bytes = bytearray(yaml_str_source, "utf-8")
@@ -284,14 +289,13 @@ class SodaCloud:
                 upload_response = self._http_post(url=f"{self.api_url}/scan/upload", headers=headers, data=temp_file)
                 upload_response_json = upload_response.json()
 
-                if "fileId" not in upload_response_json:
+                if isinstance(upload_response_json, dict) and "fileId" in upload_response_json:
+                    return upload_response_json.get("fileId")
+                else:
                     self.logs.error(f"No fileId received in response: {upload_response_json}")
                     return None
-                else:
-                    return upload_response_json["fileId"]
-
         except Exception as e:
-            self.logs.error(f"Soda cloud error: Could not upload contract", exception=e)
+            self.logs.error(f"Soda cloud error: Could not upload contract: {e}", exception=e)
 
     def _fileify(self, name: str):
         return re.sub(r"\W+", "_", name).lower()

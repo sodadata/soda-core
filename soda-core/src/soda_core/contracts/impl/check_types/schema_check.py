@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo, ContractInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo, ContractInfo, \
+    ThresholdInfo
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
     Contract, Column, MeasurementValues
@@ -140,7 +141,12 @@ class SchemaCheck(Check):
             actual_columns=actual_columns,
             expected_column_names_not_actual=expected_column_names_not_actual,
             actual_column_names_not_expected=actual_column_names_not_expected,
-            column_data_type_mismatches=column_data_type_mismatches
+            column_data_type_mismatches=column_data_type_mismatches,
+        )
+
+    def _build_threshold(self) -> ThresholdInfo:
+        return ThresholdInfo(
+            must_be_less_than_or_equal=0
         )
 
 
@@ -202,7 +208,9 @@ class SchemaCheckResult(CheckResult):
             contract=contract,
             check=check,
             outcome=outcome,
-            metric_value=None,
+            metric_value=(len(expected_column_names_not_actual) +
+                          len(actual_column_names_not_expected) +
+                          len(column_data_type_mismatches)),
             diagnostic_lines=self._create_diagnostic_lines(
                 expected_columns=expected_columns,
                 actual_columns=actual_columns,
