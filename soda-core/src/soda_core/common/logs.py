@@ -150,7 +150,7 @@ class Logs:
         )
 
     def __str__(self) -> str:
-        return "\n".join([str(log) for log in self.logs])
+        return super().__str__() + "\n".join([str(log) for log in self.logs])
 
     def has_errors(self) -> bool:
         return any(log.level == ERROR for log in self.logs)
@@ -165,8 +165,7 @@ class Logs:
         return [log for log in self.logs if log.level == ERROR]
 
     def __log(self, log: Log) -> None:
-        if log.level > DEBUG:
-            self.logs.append(log)
+        self.logs.append(log)
         self.__log_to_python_logging(log)
 
     def __log_to_python_logging(self, log: Log) -> None:

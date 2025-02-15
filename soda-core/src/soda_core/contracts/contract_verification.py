@@ -323,7 +323,9 @@ class ContractResult:
         return not self.failed()
 
     def __str__(self) -> str:
-        log_lines: list[str] = [str(log) for log in self.logs.logs]
+        # TODO consider if the logs should be displayed here as well.
+        #  I ve removed them because they were printed double in the soda cli
+        log_lines: list[str] = []
 
         failed_count: int = 0
         not_evaluated_count: int = 0
