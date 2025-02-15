@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, CheckInfo, ContractInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Check, Contract
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
-from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType, CheckParser, Contract, Column, MeasurementValues
+from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, CheckImpl, AggregationMetricImpl, ThresholdImpl, \
+    ThresholdType, CheckParser, ContractImpl, ColumnImpl, MeasurementValues
 
 
 class RowCountCheckParser(CheckParser):
@@ -14,44 +14,44 @@ class RowCountCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract: Contract,
-        column: Column | None,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl | None,
         check_yaml: RowCountCheckYaml,
         metrics_resolver: MetricsResolver,
-    ) -> Check | None:
-        return RowCountCheck(
-            contract=contract,
-            column=column,
+    ) -> CheckImpl | None:
+        return RowCountCheckImpl(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
             check_yaml=check_yaml,
             metrics_resolver=metrics_resolver,
         )
 
 
-class RowCountCheck(Check):
+class RowCountCheckImpl(CheckImpl):
 
     def __init__(
         self,
-        contract: Contract,
-        column: Column | None,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl | None,
         check_yaml: RowCountCheckYaml,
         metrics_resolver: MetricsResolver,
     ):
         super().__init__(
-            contract=contract,
-            column=column,
+            contract_impl=contract_impl,
+            column_impl=column_impl,
             check_yaml=check_yaml,
         )
 
-        self.threshold = Threshold.create(
+        self.threshold = ThresholdImpl.create(
             check_yaml=check_yaml,
-            default_threshold=Threshold(
+            default_threshold=ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
                 must_be_greater_than=0
             )
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-        metric_name: str = Threshold.get_metric_name(check_yaml.type, column=column)
+        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type, column_impl=column_impl)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
             else f"{check_yaml.type} (invalid threshold)"
@@ -63,10 +63,10 @@ class RowCountCheck(Check):
         )
 
         self.row_count_metric = self._resolve_metric(RowCountMetric(
-            contract=contract,
+            contract_impl=contract_impl,
         ))
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
         row_count: int = measurement_values.get_value(self.row_count_metric)
 
@@ -89,14 +89,14 @@ class RowCountCheck(Check):
         )
 
 
-class RowCountMetric(AggregationMetric):
+class RowCountMetric(AggregationMetricImpl):
 
     def __init__(
         self,
-        contract: Contract,
+        contract_impl: ContractImpl,
     ):
         super().__init__(
-            contract=contract,
+            contract_impl=contract_impl,
             metric_type="row_count",
         )
 

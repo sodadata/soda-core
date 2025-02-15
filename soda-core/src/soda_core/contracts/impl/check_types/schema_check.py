@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, CheckInfo, ContractInfo, \
-    ThresholdInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, Check, Contract, \
+    Threshold
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
-from soda_core.contracts.impl.contract_verification_impl import Metric, Check, MetricsResolver, Query, CheckParser, \
-    Contract, Column, MeasurementValues
+from soda_core.contracts.impl.contract_verification_impl import MetricImpl, CheckImpl, MetricsResolver, Query, CheckParser, \
+    ContractImpl, ColumnImpl, MeasurementValues
 
 
 class SchemaCheckParser(CheckParser):
@@ -19,13 +19,13 @@ class SchemaCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract: Contract,
-        column: Column | None,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl | None,
         check_yaml: SchemaCheckYaml,
         metrics_resolver: MetricsResolver,
-    ) -> Check | None:
-        return SchemaCheck(
-            contract=contract,
+    ) -> CheckImpl | None:
+        return SchemaCheckImpl(
+            contract_impl=contract_impl,
             check_yaml=check_yaml,
             metrics_resolver=metrics_resolver,
         )
@@ -44,17 +44,17 @@ class ColumnDataTypeMismatch:
     actual_data_type: str
 
 
-class SchemaCheck(Check):
+class SchemaCheckImpl(CheckImpl):
 
     def __init__(
         self,
-        contract: Contract,
+        contract_impl: ContractImpl,
         check_yaml: SchemaCheckYaml,
         metrics_resolver: MetricsResolver,
     ):
         super().__init__(
-            contract=contract,
-            column=None,
+            contract_impl=contract_impl,
+            column_impl=None,
             check_yaml=check_yaml,
         )
 
@@ -63,25 +63,25 @@ class SchemaCheck(Check):
 
         self.expected_columns: list[ExpectedColumn] = [
             ExpectedColumn(
-                column_name=column.column_yaml.name,
-                data_type=column.column_yaml.data_type
+                column_name=column_impl.column_yaml.name,
+                data_type=column_impl.column_yaml.data_type
             )
-            for column in contract.columns
+            for column_impl in contract_impl.column_impls
         ]
 
-        self.schema_metric = self._resolve_metric(SchemaMetric(
-            contract=contract,
+        self.schema_metric = self._resolve_metric(SchemaMetricImpl(
+            contract_impl=contract_impl,
         ))
 
         schema_query: Query = SchemaQuery(
-            dataset_prefix=contract.dataset_prefix,
-            dataset_name=contract.dataset_name,
-            schema_metric=self.schema_metric,
-            data_source=contract.data_source
+            dataset_prefix=contract_impl.dataset_prefix,
+            dataset_name=contract_impl.dataset_name,
+            schema_metric_impl=self.schema_metric,
+            data_source=contract_impl.data_source
         )
         self.queries.append(schema_query)
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         expected_column_names_not_actual: list[str] = []
@@ -111,8 +111,8 @@ class SchemaCheck(Check):
             for expected_column in self.expected_columns:
                 expected_data_type: str | None = expected_column.data_type
                 actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
-                if expected_data_type and not self.contract.data_source.is_data_type_equal(expected_data_type, actual_column_metadata):
-                    data_type_str: str = self.contract.data_source.get_data_type_text(actual_column_metadata)
+                if expected_data_type and not self.contract_impl.data_source.is_data_type_equal(expected_data_type, actual_column_metadata):
+                    data_type_str: str = self.contract_impl.data_source.get_data_type_text(actual_column_metadata)
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
@@ -144,20 +144,20 @@ class SchemaCheck(Check):
             column_data_type_mismatches=column_data_type_mismatches,
         )
 
-    def _build_threshold(self) -> ThresholdInfo:
-        return ThresholdInfo(
+    def _build_threshold(self) -> Threshold:
+        return Threshold(
             must_be_less_than_or_equal=0
         )
 
 
-class SchemaMetric(Metric):
+class SchemaMetricImpl(MetricImpl):
 
     def __init__(
         self,
-        contract: Contract,
+        contract_impl: ContractImpl,
     ):
         super().__init__(
-            contract=contract,
+            contract_impl=contract_impl,
             metric_type="schema"
         )
 
@@ -168,12 +168,12 @@ class SchemaQuery(Query):
         self,
         dataset_prefix: list[str] | None,
         dataset_name: str,
-        schema_metric: SchemaMetric,
+        schema_metric_impl: SchemaMetricImpl,
         data_source: DataSource
     ):
         super().__init__(
             data_source=data_source,
-            metrics=[schema_metric]
+            metrics=[schema_metric_impl]
         )
         self.metadata_columns_query_builder: MetadataColumnsQuery = data_source.create_metadata_columns_query()
         self.sql = self.metadata_columns_query_builder.build_sql(
@@ -184,19 +184,19 @@ class SchemaQuery(Query):
     def execute(self) -> list[Measurement]:
         query_result: QueryResult = self.data_source.execute_query(self.sql)
         metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
-        schema_metric: Metric = self.metrics[0]
+        schema_metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(
-            metric_id=schema_metric.id,
+            metric_id=schema_metric_impl.id,
             value=metadata_columns,
-            metric_name=schema_metric.type
+            metric_name=schema_metric_impl.type
         )]
 
 
 class SchemaCheckResult(CheckResult):
 
     def __init__(self,
-                 contract: ContractInfo,
-                 check: CheckInfo,
+                 contract: Contract,
+                 check: Check,
                  outcome: CheckOutcome,
                  expected_columns: list[ExpectedColumn],
                  actual_columns: list[ColumnMetadata],

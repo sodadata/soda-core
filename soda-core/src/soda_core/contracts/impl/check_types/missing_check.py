@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, ContractInfo
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Contract
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
-from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, Check, AggregationMetric, Threshold, \
-    ThresholdType, DerivedPercentageMetric, CheckParser, Contract, Column, MissingAndValidity, MissingAndValidityCheck, \
-    Metric, MeasurementValues
+from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, CheckImpl, AggregationMetricImpl, ThresholdImpl, \
+    ThresholdType, DerivedPercentageMetricImpl, CheckParser, ContractImpl, ColumnImpl, MissingAndValidity, MissingAndValidityCheckImpl, \
+    MetricImpl, MeasurementValues
 
 
 class MissingCheckParser(CheckParser):
@@ -16,63 +16,63 @@ class MissingCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract: Contract,
-        column: Column | None,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl | None,
         check_yaml: MissingCheckYaml,
         metrics_resolver: MetricsResolver,
-    ) -> Check | None:
+    ) -> CheckImpl | None:
         return MissingCheck(
-            contract=contract,
-            column=column,
+            contract_impl=contract_impl,
+            column_impl=column_impl,
             check_yaml=check_yaml,
             metrics_resolver=metrics_resolver,
         )
 
 
-class MissingCheck(MissingAndValidityCheck):
+class MissingCheck(MissingAndValidityCheckImpl):
 
     def __init__(
         self,
-        contract: Contract,
-        column: Column,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
         check_yaml: MissingCheckYaml,
         metrics_resolver: MetricsResolver,
     ):
         super().__init__(
-            contract=contract,
-            column=column,
+            contract_impl=contract_impl,
+            column_impl=column_impl,
             check_yaml=check_yaml,
         )
-        self.threshold = Threshold.create(
+        self.threshold = ThresholdImpl.create(
             check_yaml=check_yaml,
-            default_threshold=Threshold(type=ThresholdType.SINGLE_COMPARATOR,must_be=0)
+            default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0)
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-        metric_name: str = Threshold.get_metric_name(check_yaml.type, column=column)
+        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type, column_impl=column_impl)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
             else f"{check_yaml.type} (invalid threshold)"
         )
 
         self.missing_count_metric = self._resolve_metric(MissingCountMetric(
-            contract=contract,
-            column=column,
-            check=self
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            check_impl=self
         ))
 
         if self.type == "missing_percent":
-            self.row_count_metric: Metric = self._resolve_metric(RowCountMetric(
-                contract=contract,
+            self.row_count_metric_impl: MetricImpl = self._resolve_metric(RowCountMetric(
+                contract_impl=contract_impl,
             ))
 
-            self.missing_percent_metric: Metric = metrics_resolver.resolve_metric(DerivedPercentageMetric(
+            self.missing_percent_metric_impl: MetricImpl = metrics_resolver.resolve_metric(DerivedPercentageMetricImpl(
                 metric_type="missing_percent",
-                fraction_metric=self.missing_count_metric,
-                total_metric=self.row_count_metric
+                fraction_metric_impl=self.missing_count_metric,
+                total_metric_impl=self.row_count_metric_impl
             ))
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: ContractInfo) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
@@ -84,9 +84,9 @@ class MissingCheck(MissingAndValidityCheck):
         if self.type == "missing_count":
             threshold_value = missing_count
         else:
-            row_count: int = measurement_values.get_value(self.row_count_metric)
+            row_count: int = measurement_values.get_value(self.row_count_metric_impl)
             diagnostic_lines.append(f"Actual row_count was {row_count}")
-            missing_percent: float = measurement_values.get_value(self.missing_percent_metric)
+            missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
             diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
             threshold_value = missing_percent
 
@@ -105,23 +105,23 @@ class MissingCheck(MissingAndValidityCheck):
         )
 
 
-class MissingCountMetric(AggregationMetric):
+class MissingCountMetric(AggregationMetricImpl):
 
     def __init__(
         self,
-        contract: Contract,
-        column: Column,
-        check: MissingAndValidityCheck,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_impl: MissingAndValidityCheckImpl,
     ):
         super().__init__(
-            contract=contract,
-            column=column,
-            metric_type=check.type,
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            metric_type=check_impl.type,
         )
-        self.missing_and_validity: MissingAndValidity = check.missing_and_validity
+        self.missing_and_validity: MissingAndValidity = check_impl.missing_and_validity
 
     def sql_expression(self) -> SqlExpression:
-        column_name: str = self.column.column_yaml.name
+        column_name: str = self.column_impl.column_yaml.name
         return self.missing_and_validity.get_sum_missing_count_expr(column_name)
 
     def convert_db_value(self, value) -> any:

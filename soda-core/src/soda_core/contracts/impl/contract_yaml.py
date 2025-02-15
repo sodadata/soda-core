@@ -8,27 +8,27 @@ from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, Y
 
 
 def register_check_types() -> None:
-    from soda_core.contracts.impl.contract_verification_impl import Check
+    from soda_core.contracts.impl.contract_verification_impl import CheckImpl
 
     from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYamlParser
     CheckYaml.register(SchemaCheckYamlParser())
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckParser
-    Check.register(SchemaCheckParser())
+    CheckImpl.register(SchemaCheckParser())
 
     from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYamlParser
     CheckYaml.register(MissingCheckYamlParser())
     from soda_core.contracts.impl.check_types.missing_check import MissingCheckParser
-    Check.register(MissingCheckParser())
+    CheckImpl.register(MissingCheckParser())
 
     from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYamlParser
     CheckYaml.register(InvalidCheckYamlParser())
     from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckParser
-    Check.register(InvalidCheckParser())
+    CheckImpl.register(InvalidCheckParser())
 
     from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYamlParser
     CheckYaml.register(RowCountCheckYamlParser())
     from soda_core.contracts.impl.check_types.row_count_check import RowCountCheckParser
-    Check.register(RowCountCheckParser())
+    CheckImpl.register(RowCountCheckParser())
 
 
 class ContractYaml:
@@ -63,7 +63,7 @@ class ContractYaml:
         self.dataset_locations: dict[str, dict[str, str]] | None = self._parse_dataset_locations(self.contract_yaml_object)
         self.dataset_name: str | None = self.contract_yaml_object.read_string("dataset")
         self.columns: list[ColumnYaml | None] | None = self._parse_columns(self.contract_yaml_object)
-        self.checks: list[CheckYaml | None] = self._parse_checks(self.contract_yaml_object)
+        self.check_yamls: list[CheckYaml | None] = self._parse_checks(self.contract_yaml_object)
 
     def _parse_dataset_locations(self, contract_yaml_object: YamlObject) -> dict[str, dict[str, str]] | None:
         dataset_locations: dict[str, dict[str, str]] | None = None
@@ -251,7 +251,7 @@ class ColumnYaml(MissingAndValidityYaml):
         self.name: str | None = column_yaml_object.read_string("name")
         self.data_type: str | None = column_yaml_object.read_string_opt("data_type")
         super().__init__(column_yaml_object)
-        self.checks: list[CheckYaml] | None = contract_yaml._parse_checks(
+        self.check_yamls: list[CheckYaml] | None = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object,
             column_yaml=self
         )

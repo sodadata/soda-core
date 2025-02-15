@@ -31,7 +31,7 @@ def configure_logging():
         force=True,  # Override any previously set handlers.
         # https://docs.python.org/3/library/logging.html#logrecord-attributes
         # %(name)s
-        format="%(asctime)s [%(levelname)s] %(message)s",
+        format="%(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
 
@@ -115,7 +115,8 @@ def create_data_source(data_source_file_path: str, data_source_type: str):
     print(f"\u2705 Created data source file '{data_source_file_path}'")
 
 
-def test_data_source(data_source_file_path: str):
+# name has underscore otherwise pycharm thinks this is a unit test file
+def _test_data_source(data_source_file_path: str):
     print(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source import DataSource
     data_source: DataSource = DataSource.from_file(data_source_file_path)
@@ -144,7 +145,8 @@ def create_soda_cloud(soda_cloud_file_path: str):
     print(f"\u2705 Created Soda Cloud configuration file '{soda_cloud_file_path}'")
 
 
-def test_soda_cloud(soda_cloud_file_path: str):
+# name has underscore otherwise pycharm thinks this is a unit test file
+def _test_soda_cloud(soda_cloud_file_path: str):
     from soda_core.common.soda_cloud import SodaCloud
     print(f"Testing soda cloud file {soda_cloud_file_path}")
     soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
@@ -263,11 +265,11 @@ def main():
         elif args.command == "create-data-source":
             create_data_source(args.file, args.type)
         elif args.command == "test-data-source":
-            test_data_source(args.data_source)
+            _test_data_source(args.data_source)
         elif args.command == "create-soda-cloud":
             create_soda_cloud(args.file)
         elif args.command == "test-soda-cloud":
-            test_soda_cloud(args.soda_cloud)
+            _test_soda_cloud(args.soda_cloud)
         else:
             cli_parser.print_help()
     except Exception as e:

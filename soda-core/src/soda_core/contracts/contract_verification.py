@@ -196,7 +196,7 @@ class YamlFileContentInfo:
 
 
 @dataclass
-class ContractInfo:
+class Contract:
     data_source_name: str
     dataset_prefix: list[str]
     dataset_name: str
@@ -206,12 +206,13 @@ class ContractInfo:
 
 @dataclass
 class DataSourceInfo:
+    # TODO rename to DataSource (but first rename DataSource to DataSourceImpl?)
     name: str
     type: str
 
 
 @dataclass
-class ThresholdInfo:
+class Threshold:
     must_be_greater_than: Number | None = None
     must_be_greater_than_or_equal: Number | None = None
     must_be_less_than: Number | None = None
@@ -219,7 +220,7 @@ class ThresholdInfo:
 
 
 @dataclass
-class CheckInfo:
+class Check:
     column_name: str | None
     type: str
     name: str # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
@@ -228,21 +229,21 @@ class CheckInfo:
     column_name: str | None
     contract_file_line: int
     contract_file_column: int
-    threshold: ThresholdInfo | None
+    threshold: Threshold | None
 
 
 class CheckResult(ABC):
 
     def __init__(
         self,
-        contract: ContractInfo,
-        check: CheckInfo,
+        contract: Contract,
+        check: Check,
         metric_value: Number | None,
         outcome: CheckOutcome,
         diagnostic_lines: list[str]
     ):
-        self.contract: ContractInfo = contract
-        self.check: CheckInfo = check
+        self.contract: Contract = contract
+        self.check: Check = check
         self.metric_value: Number | None = metric_value
         self.outcome: CheckOutcome = outcome
         self.diagnostic_lines: list[str] = diagnostic_lines
@@ -278,7 +279,7 @@ class ContractResult:
 
     def __init__(
             self,
-            contract_info: ContractInfo,
+            contract_info: Contract,
             data_source_info: DataSourceInfo,
             data_timestamp: datetime | None,
             started_timestamp: datetime,
@@ -290,7 +291,7 @@ class ContractResult:
             check_results: list[CheckResult],
             logs: Logs
     ):
-        self.contract_info: ContractInfo = contract_info
+        self.contract_info: Contract = contract_info
         # TODO move to contract info or use the data_source_info
         self.data_source_name: str = data_source_name
         # TODO move to contract info
@@ -312,7 +313,7 @@ class ContractResult:
         Returns true if there are checks that have failed.
         Ignores execution errors in the logs.
         """
-        return any(check.outcome == CheckOutcome.FAILED for check in self.check_results)
+        return any(check_result.outcome == CheckOutcome.FAILED for check_result in self.check_results)
 
     def passed(self) -> bool:
         """

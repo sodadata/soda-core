@@ -18,7 +18,7 @@ from soda_core.common.logs import Logs, Log
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_verification import ContractResult, \
-    CheckResult, CheckOutcome, ThresholdInfo
+    CheckResult, CheckOutcome, Threshold
 
 
 class SodaCloud:
@@ -229,7 +229,7 @@ class SodaCloud:
             "source": "soda-contract"
         }
         if check_result.metric_value is not None and check_result.check.threshold is not None:
-            t: ThresholdInfo = check_result.check.threshold
+            t: Threshold = check_result.check.threshold
             fail_threshold: dict = {}
             if t.must_be_less_than_or_equal is not None:
                 fail_threshold["greaterThan"] = t.must_be_less_than_or_equal
