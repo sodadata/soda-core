@@ -79,8 +79,8 @@ def verify_contract(
     else:
         print(f"\u274C Not sending results to Soda Cloud \U0001F4AD")
 
-    print(f"Contract verification summary:")
     contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
+    print(f"Contract verification summary:")
     contract_verification_result.log_summary()
 
 

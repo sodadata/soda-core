@@ -82,7 +82,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            self.logs.info(f"SQL query fetchall: \n{sql}")
+            self.logs.debug(f"SQL query fetchall: \n{sql}")
             cursor.execute(sql)
             rows = cursor.fetchall()
             if self.is_tabulate_available:
@@ -99,7 +99,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            self.logs.info(f"SQL update: \n{sql}")
+            self.logs.debug(f"SQL update: \n{sql}")
             updates = cursor.execute(sql)
             self.commit()
             return updates

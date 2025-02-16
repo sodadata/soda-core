@@ -458,7 +458,7 @@ class SodaCloud:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(self.to_jsonnable(request_body), indent=2)
-            self.logs.debug(f"HTTP post body JSON: {log_body_text}")
+            self.logs.debug(f"Soda Cloud {request_type} body JSON: {log_body_text}")
             response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_name=request_name
             )
@@ -484,7 +484,7 @@ class SodaCloud:
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
             else:
-                self.logs.info(
+                self.logs.debug(
                     f"Soda Cloud {request_type} OK | X-Soda-Trace-Id:{trace_id}"
                 )
 
