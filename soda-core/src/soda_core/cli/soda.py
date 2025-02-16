@@ -14,7 +14,7 @@ from soda_core.contracts.contract_verification import ContractVerification, Cont
     ContractVerificationResult
 
 
-def configure_logging():
+def configure_logging(verbose: bool):
     sys.stderr = sys.stdout
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("botocore").setLevel(logging.WARNING)
@@ -26,8 +26,10 @@ def configure_logging():
     logging.getLogger("pyhive").setLevel(logging.ERROR)
     logging.getLogger("py4j").setLevel(logging.INFO)
     logging.getLogger("segment").setLevel(logging.WARNING)
+
+    default_logging_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=default_logging_level,
         force=True,  # Override any previously set handlers.
         # https://docs.python.org/3/library/logging.html#logrecord-attributes
         # %(name)s
@@ -67,18 +69,19 @@ def verify_contract(
             contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
 
     if soda_cloud_file_path:
-        print(f"\u2705 Sending results to Soda Cloud \U0001F4AD")
-        contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
         if skip_publish:
             print(f"\u274C Not publishing the contract on Soda Cloud \U0001F4AD")
             contract_verification_builder.with_soda_cloud_skip_publish()
         else:
             print(f"\u2705 Publishing contract to Soda Cloud \U0001F4AD")
+        print(f"\u2705 Sending results to Soda Cloud \U0001F4AD")
+        contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
     else:
         print(f"\u274C Not sending results to Soda Cloud \U0001F4AD")
 
+    print(f"Contract verification summary:")
     contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-    print(str(contract_verification_result))
+    contract_verification_result.log_summary()
 
 
 def publish_contract(contract_file_paths: list[str] | None):
@@ -162,8 +165,6 @@ def _test_soda_cloud(soda_cloud_file_path: str):
 
 
 def main():
-    configure_logging()
-
     print(dedent("""
           __|  _ \|  \   \\
         \__ \ (   |   | _ \\
@@ -205,6 +206,13 @@ def main():
         default=False,
         help="Skips publishing of the contract when sending results to Soda Cloud.  Precondition: The contract version "
              "must already exist on Soda Cloud."
+    )
+    verify_parser.add_argument(
+        "-v", "--verbose",
+        const=True,
+        action='store_const',
+        default=False,
+        help="Show more detailed logs on the console."
     )
 
     publish_parser = sub_parsers.add_parser('publish', help='Publish a contract (not yet implemented)')
@@ -256,6 +264,9 @@ def main():
     )
 
     args = cli_parser.parse_args()
+
+    verbose = args.verbose if hasattr(args, "verbose") else False
+    configure_logging(verbose)
 
     try:
         if args.command == "verify":

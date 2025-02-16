@@ -155,18 +155,15 @@ class ContractVerificationResult:
         has_error: bool = any(log.level >= ERROR for log in self.logs.logs)
         has_check_failures: bool = any(contract_result.failed() for contract_result in self.contract_results)
         if has_error or has_check_failures:
-            raise SodaException(message=str(self), contract_verification_result=self)
+            raise SodaException(message=self.get_logs_str(), contract_verification_result=self)
         return self
 
-    def __str__(self) -> str:
-        blocks: list[str] = [str(self.logs)]
-        for contract_result in self.contract_results:
-            blocks.extend(self.__format_contract_results_with_heading(contract_result))
-        return "\n".join(blocks)
+    def get_logs_str(self) -> str:
+        return "/n".join([log.message for log in self.logs.logs])
 
-    @classmethod
-    def __format_contract_results_with_heading(cls, contract_result: ContractResult) -> list[str]:
-        return [f"### Contract results for {contract_result.soda_qualified_dataset_name}", str(contract_result)]
+    def log_summary(self):
+        for contract_result in self.contract_results:
+            contract_result.log_summary()
 
 
 class SodaException(Exception):
@@ -248,19 +245,15 @@ class CheckResult(ABC):
         self.outcome: CheckOutcome = outcome
         self.diagnostic_lines: list[str] = diagnostic_lines
 
-    def __str__(self) -> str:
-        return "\n".join(self.get_log_lines())
-
-    def get_log_lines(self) -> list[str]:
-        """
-        Provides the summary for the contract result logs, as well as the __str__ impl of this check result.
-        Method implementations can use self._get_outcome_line(self)
-        """
-        log_lines: list[str] = [f"Check {self.outcome.name} {self.check.name}"]
-        log_lines.extend([
-            f"  {diagnostic_line}" for diagnostic_line in self.diagnostic_lines
-        ])
-        return log_lines
+    def log_summary(self, logs: Logs):
+        outcome_emoticon: str = (
+            "\u2705" if self.outcome == CheckOutcome.PASSED
+            else "\U0001F6A8" if self.outcome == CheckOutcome.FAILED
+            else "\U0001F6A9"
+        )
+        logs.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
+        for diagnostic_line in self.diagnostic_lines:
+            logs.info(diagnostic_line)
 
 
 class Measurement:
@@ -322,17 +315,13 @@ class ContractResult:
         """
         return not self.failed()
 
-    def __str__(self) -> str:
-        # TODO consider if the logs should be displayed here as well.
-        #  I ve removed them because they were printed double in the soda cli
-        log_lines: list[str] = []
-
+    def log_summary(self):
+        self.logs.info(f"### Contract results for {self.soda_qualified_dataset_name}")
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
         for check_result in self.check_results:
-            result_str_lines = check_result.get_log_lines()
-            log_lines.extend(result_str_lines)
+            check_result.log_summary(self.logs)
             if check_result.outcome == CheckOutcome.FAILED:
                 failed_count += 1
             elif check_result.outcome == CheckOutcome.NOT_EVALUATED:
@@ -346,10 +335,10 @@ class ContractResult:
             for check_result in self.check_results)
 
         if failed_count + error_count + not_evaluated_count == 0:
-            log_lines.append(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
+            self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
         else:
-            log_lines.append(f"Contract summary: Ouch! {failed_count} checks failures, "
-                             f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
-                             f"and {error_count} errors.")
-
-        return "\n".join(log_lines)
+            self.logs.info(
+                f"Contract summary: Ouch! {failed_count} checks failures, "
+                f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
+                f"and {error_count} errors."
+            )
