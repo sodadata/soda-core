@@ -10,7 +10,8 @@ from typing import Optional
 
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFileContent, YamlSource
-from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder
+from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
+    ContractVerificationResult
 
 
 def configure_logging(verbose: bool):
@@ -57,7 +58,9 @@ def verify_contract(
             contract_verification_builder.with_soda_cloud_skip_publish()
         contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
 
-    contract_verification_builder.execute()
+    contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
+    if not contract_verification_result.is_ok():
+        exit(1)
 
 
 def publish_contract(contract_file_paths: list[str] | None):
@@ -102,6 +105,7 @@ def _test_data_source(data_source_file_path: str):
     error_message: Optional[str] = data_source.test_connection_error_message()
     if error_message:
         print(f"\U0001F92F Error: Connection configured in data source file '{data_source_file_path}' failed: {error_message}")
+        exit(1)
     else:
         print(f"\u2705 Success! Tested data source connection in '{data_source_file_path}'")
 
@@ -136,6 +140,7 @@ def _test_soda_cloud(soda_cloud_file_path: str):
     error_msg = soda_cloud.test_connection()
     if error_msg:
         print(f"\U0001F92F Could not connect to Soda Cloud: {error_msg}")
+        exit(1)
     else:
         print(f"\u2705 Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
 
