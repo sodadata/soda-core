@@ -12,12 +12,12 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, AsciiEmoticons
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult, Measurement, Threshold, Contract, Check, YamlFileContentInfo, DataSourceInfo
+    CheckResult, Measurement, Threshold, Contract, Check, YamlFileContentInfo, DataSourceInfo, CheckOutcome
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
     MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
 
@@ -56,12 +56,6 @@ class ContractVerificationImpl:
             )
             data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
             self.data_source = data_source_parser.parse()
-        if self.data_source is None:
-            self.logs.error("No data source configured")
-
-        self.data_source_contracts: DataSourceContracts = DataSourceContracts(data_source=self.data_source)
-        self.data_sources_contracts: list[DataSourceContracts] = []
-        self.data_sources_contracts.append(self.data_source_contracts)
 
         self.soda_cloud: SodaCloud | None = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
@@ -71,8 +65,18 @@ class ContractVerificationImpl:
                 logs=logs
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
-        if self.soda_cloud:
-            self.soda_cloud.skip_publish = skip_publish
+
+        self.skip_publish: bool = skip_publish
+
+        if self.data_source is None:
+            self.logs.error(f"No data source configured {AsciiEmoticons.POLICE_CAR_LIGHT}")
+
+        if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
+            self.logs.error(f"No contracts configured {AsciiEmoticons.POLICE_CAR_LIGHT}")
+
+        self.data_source_contracts: DataSourceContracts = DataSourceContracts(data_source=self.data_source)
+        self.data_sources_contracts: list[DataSourceContracts] = []
+        self.data_sources_contracts.append(self.data_source_contracts)
 
         for contract_yaml_source in contract_yaml_sources:
             contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)
@@ -152,16 +156,46 @@ class ContractVerificationImpl:
                 self.logs.error("No contracts specified")
             else:
                 for contract_impl in data_source_contracts.contract_impls:
-                    self.logs.info(f"Verifying contract {contract_impl.soda_qualified_dataset_name}")
-
                     contract_result: ContractResult = contract_impl.verify()
                     contract_results.append(contract_result)
                     if self.soda_cloud:
-                        self.soda_cloud.send_contract_result(contract_result)
+                        self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
+                    else:
+                        self.logs.debug(f"Not sending results to Soda Cloud {AsciiEmoticons.CROSS_MARK}")
+
+                    self._log_summary(contract_result)
         finally:
             if open_close:
                 data_source.close_connection()
         return contract_results
+
+    def _log_summary(self, contract_result: ContractResult):
+        self.logs.info(f"### Contract results for {contract_result.soda_qualified_dataset_name}")
+        failed_count: int = 0
+        not_evaluated_count: int = 0
+        passed_count: int = 0
+        for check_result in contract_result.check_results:
+            check_result.log_summary(self.logs)
+            if check_result.outcome == CheckOutcome.FAILED:
+                failed_count += 1
+            elif check_result.outcome == CheckOutcome.NOT_EVALUATED:
+                not_evaluated_count += 1
+            elif check_result.outcome == CheckOutcome.PASSED:
+                passed_count += 1
+
+        error_count: int = len(self.logs.get_errors())
+
+        not_evaluated_count: int = sum(1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
+                                       for check_result in contract_result.check_results)
+
+        if failed_count + error_count + not_evaluated_count == 0:
+            self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
+        else:
+            self.logs.info(
+                f"Contract summary: Ouch! {failed_count} checks failures, "
+                f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
+                f"and {error_count} errors."
+            )
 
 
 class ContractImpl:
@@ -310,6 +344,8 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractResult:
+        self.logs.info(f"Verifying {AsciiEmoticons.SCROLL} contract {self.soda_qualified_dataset_name} {AsciiEmoticons.FINGERS_CROSSED}")
+
         measurements: list[Measurement] = []
         # Executing the queries will set the value of the metrics linked to queries
         for query in self.queries:

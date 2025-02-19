@@ -32,7 +32,7 @@ class MockResponse(Response):
 
 @dataclass
 class MockRequest:
-    request_name: str = None,
+    request_log_name: str = None,
     url: str | None = None,
     headers: dict[str, str] = None,
     json: dict | None = None,
@@ -56,15 +56,15 @@ class MockSodaCloud(SodaCloud):
 
     def _http_post(
         self,
-        request_name: str = None,
+        request_log_name: str = None,
         url: str | None = None,
         headers: dict[str, str] = None,
         json: dict | None = None,
         data: TemporaryFile | None = None
     ) -> Response:
-        logging.debug(f"Request sent to MockSodaCloud: {request_name}")
+        logging.debug(f"Request sent to MockSodaCloud: {request_log_name}")
         self.requests.append(MockRequest(
-            request_name=request_name,
+            request_log_name=request_log_name,
             url=url,
             headers=headers,
             json=json,

@@ -10,8 +10,7 @@ from typing import Optional
 
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFileContent, YamlSource
-from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
-    ContractVerificationResult
+from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder
 
 
 def configure_logging(verbose: bool):
@@ -47,41 +46,18 @@ def verify_contract(
 ):
     contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
 
-    if contract_file_paths is None or len(contract_file_paths) == 0:
-        print(f"\U0001F92F I'm suppose to verify a contract but no contract file specified")
-        return
-
-    print(f"Verifying...")
     for contract_file_path in contract_file_paths:
-        print(f"\U0001F4DC contract {contract_file_path}")
         contract_verification_builder.with_contract_yaml_file(contract_file_path)
 
-    if use_agent:
-        if soda_cloud_file_path:
-            print(f"\U0001F325 on Soda Agent")
-        else:
-            print(f"\U0001F92F I'm suppose to verify the contract on Soda Agent but no Soda Cloud configured")
-            return
-    else:
-        print(f"\U0001F4BB locally")
-        if data_source_file_path:
-            print(f"\u2705 on data source {data_source_file_path} \U0001F4BE")
-            contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
+    if not use_agent and data_source_file_path:
+        contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
 
     if soda_cloud_file_path:
         if skip_publish:
-            print(f"\u274C Not publishing the contract on Soda Cloud \U0001F4AD")
             contract_verification_builder.with_soda_cloud_skip_publish()
-        else:
-            print(f"\u2705 Publishing contract to Soda Cloud \U0001F4AD")
-        print(f"\u2705 Sending results to Soda Cloud \U0001F4AD")
         contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
-    else:
-        print(f"\u274C Not sending results to Soda Cloud \U0001F4AD")
 
-    contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-    print(f"Contract verification summary:")
-    contract_verification_result.log_summary()
+    contract_verification_builder.execute()
 
 
 def publish_contract(contract_file_paths: list[str] | None):

@@ -22,23 +22,16 @@ class YamlParser:
 class YamlSource:
 
     @classmethod
-    def from_str(cls, yaml_str: str, file_path: str | None = None) -> YamlSource:
-        return StrYamlSource(
-            yaml_str=yaml_str,
-            file_path=file_path
-        )
+    def from_str(cls, yaml_str: str) -> YamlSource:
+        return StrYamlSource(yaml_str=yaml_str)
 
     @classmethod
     def from_file_path(cls, yaml_file_path: str) -> YamlSource:
-        return FileYamlSource(
-            yaml_file_path=yaml_file_path
-        )
+        return FileYamlSource(yaml_file_path=yaml_file_path)
 
     @classmethod
     def from_dict(cls, yaml_dict: dict) -> YamlSource:
-        return DictYamlSource(
-            yaml_dict=yaml_dict
-        )
+        return DictYamlSource(yaml_dict=yaml_dict)
 
     @abstractmethod
     def parse_yaml_file_content(
@@ -52,6 +45,9 @@ class FileYamlSource(YamlSource):
     def __init__(self, yaml_file_path: str):
         super().__init__()
         self.yaml_file_path: str = yaml_file_path
+
+    def __str__(self) -> str:
+        return self.yaml_file_path
 
     def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
@@ -77,10 +73,13 @@ class FileYamlSource(YamlSource):
 
 class StrYamlSource(YamlSource):
 
-    def __init__(self, yaml_str: str, file_path: str | None):
+    def __init__(self, yaml_str: str, file_path: str | None = None):
         super().__init__()
         self.yaml_str: str = yaml_str
         self.file_path: str | None = file_path
+
+    def __str__(self) -> str:
+        return self.file_path if isinstance(self.file_path, str) else "yaml_str"
 
     def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()
@@ -102,9 +101,13 @@ class StrYamlSource(YamlSource):
 
 class DictYamlSource(YamlSource):
 
-    def __init__(self, yaml_dict: dict):
+    def __init__(self, yaml_dict: dict, file_path: str | None = None):
         super().__init__()
         self.yaml_dict: dict = yaml_dict
+        self.file_path: str | None = file_path
+
+    def __str__(self) -> str:
+        return self.file_path if isinstance(self.file_path, str) else "yaml_dict"
 
     def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
         logs = logs if logs else Logs()

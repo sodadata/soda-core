@@ -6,6 +6,15 @@ from datetime import datetime, timezone
 from logging import getLevelName, ERROR, WARNING, INFO, DEBUG, Logger
 
 
+class AsciiEmoticons:
+    CROSS_MARK: str = "\u274C"
+    WHITE_HEAVY_CHECK_MARK: str = "\u2705"
+    CLOUD: str = "\u2601"
+    SCROLL: str = "\U0001F4DC"
+    FINGERS_CROSSED: str = "\U0001F91E"
+    POLICE_CAR_LIGHT: str = "\U0001F92F"
+
+
 class Location:
 
     def __init__(
@@ -94,7 +103,7 @@ class Logs:
             doc: str | None = None,
             index: int | None = None
             ) -> None:
-        self.__log(
+        self.log(
             Log(
                 level=ERROR, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
                 index=index
@@ -110,7 +119,7 @@ class Logs:
             doc: str | None = None,
             index: int | None = None
             ) -> None:
-        self.__log(
+        self.log(
             Log(
                 level=WARNING, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
                 index=index
@@ -126,7 +135,7 @@ class Logs:
             doc: str | None = None,
             index: int | None = None
             ) -> None:
-        self.__log(
+        self.log(
             Log(
                 level=INFO, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
                 index=index
@@ -142,7 +151,7 @@ class Logs:
             doc: str | None = None,
             index: int | None = None
     ) -> None:
-        self.__log(
+        self.log(
             Log(
                 level=DEBUG, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
                 index=index
@@ -164,7 +173,7 @@ class Logs:
     def get_errors(self) -> list[Log]:
         return [log for log in self.logs if log.level == ERROR]
 
-    def __log(self, log: Log) -> None:
+    def log(self, log: Log) -> None:
         self.logs.append(log)
         self.__log_to_python_logging(log)
 

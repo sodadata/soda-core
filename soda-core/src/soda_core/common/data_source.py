@@ -51,6 +51,9 @@ class DataSource(ABC):
         self.data_source_connection: DataSourceConnection | None = None
         self.format_regexes: dict[str, str] = format_regexes
 
+    def __str__(self) -> str:
+        return self.name
+
     @abstractmethod
     def get_data_source_type_name(self) -> str:
         pass

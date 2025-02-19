@@ -431,8 +431,6 @@ class DataSourceTestHelper:
         logs_text = "\n".join([str(l) for l in contract_verification_result.logs.logs])
         if not contract_verification_result.has_errors():
             raise AssertionError(f"Expected contract execution errors, but got none. Logs:\n{logs_text}")
-        contract_result_str = str(contract_verification_result)
-        logging.debug(f"Contract result: {contract_result_str}")
         return contract_verification_result
 
     def assert_contract_pass(
@@ -444,7 +442,7 @@ class DataSourceTestHelper:
             variables=variables
         )
         if not contract_verification_result.is_ok():
-            raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result}")
+            raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result.get_logs_str()}")
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
@@ -473,13 +471,11 @@ class DataSourceTestHelper:
         contract_verification_result: ContractVerificationResult = (
             self.create_test_verification_builder()
             .with_contract_yaml_str(
-                contract_yaml_str=full_contract_yaml_str,
-                file_path=f"./{test_table.unique_name.lower()}.yml"
+                contract_yaml_str=full_contract_yaml_str
             )
             .with_variables(variables)
             .execute()
         )
-        logger.debug(f"Contract result:\n{contract_verification_result}")
         return contract_verification_result
 
     def _prepend_dataset_to_contract(self, contract_yaml_str: str, test_table: TestTable):
