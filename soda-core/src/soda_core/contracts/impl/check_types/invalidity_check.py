@@ -94,7 +94,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
 
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
         diagnostic_lines = [
-            f"Actual invalid_count was {invalid_count}"
+            f"  Actual invalid_count was {invalid_count}"
         ]
 
         threshold_value: Number | None = None
@@ -102,10 +102,10 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             threshold_value = invalid_count
         else:
             row_count: int = measurement_values.get_value(self.row_count_metric)
-            diagnostic_lines.append(f"Actual row_count was {row_count}")
+            diagnostic_lines.append(f"  Actual row_count was {row_count}")
             if row_count > 0:
                 missing_percent: float = measurement_values.get_value(self.invalid_percent_metric)
-                diagnostic_lines.append(f"Actual invalid_percent was {missing_percent}")
+                diagnostic_lines.append(f"  Actual invalid_percent was {missing_percent}")
                 threshold_value = missing_percent
 
         if self.threshold and isinstance(threshold_value, Number):

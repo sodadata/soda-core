@@ -77,7 +77,7 @@ class MissingCheck(MissingAndValidityCheckImpl):
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
         diagnostic_lines = [
-            f"Actual missing_count was {missing_count}"
+            f"  Actual missing_count was {missing_count}"
         ]
 
         threshold_value: Number | None = None
@@ -85,9 +85,9 @@ class MissingCheck(MissingAndValidityCheckImpl):
             threshold_value = missing_count
         else:
             row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-            diagnostic_lines.append(f"Actual row_count was {row_count}")
+            diagnostic_lines.append(f"  Actual row_count was {row_count}")
             missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
-            diagnostic_lines.append(f"Actual missing_percent was {missing_percent}")
+            diagnostic_lines.append(f"  Actual missing_percent was {missing_percent}")
             threshold_value = missing_percent
 
         if self.threshold and isinstance(threshold_value, Number):

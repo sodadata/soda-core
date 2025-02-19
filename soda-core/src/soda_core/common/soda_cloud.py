@@ -15,7 +15,7 @@ from typing import Optional
 import requests
 from requests import Response
 
-from soda_core.common.logs import Logs, Log, AsciiEmoticons
+from soda_core.common.logs import Logs, Log, Emoticons
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_verification import ContractResult, \
@@ -127,7 +127,7 @@ class SodaCloud:
 
     def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
         contract_yaml_source_str = contract_result.contract_info.source.source_content_str
-        self.logs.debug(f"Sending results to Soda Cloud {AsciiEmoticons.CLOUD}")
+        self.logs.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
         soda_cloud_file_path : str = f"{contract_result.contract_info.soda_qualified_dataset_name.lower()}.yml"
         file_id: str | None = self._upload_contract(
             yaml_str_source=contract_yaml_source_str,
@@ -144,7 +144,7 @@ class SodaCloud:
                 request_log_name="send_contract_verification_results"
             )
             if response.status_code == 200:
-                self.logs.debug("")
+                self.logs.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
         else:
             self.logs.error("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
 

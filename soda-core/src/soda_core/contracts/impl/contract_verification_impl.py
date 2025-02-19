@@ -12,7 +12,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logs import Logs, AsciiEmoticons
+from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
@@ -69,10 +69,10 @@ class ContractVerificationImpl:
         self.skip_publish: bool = skip_publish
 
         if self.data_source is None:
-            self.logs.error(f"No data source configured {AsciiEmoticons.POLICE_CAR_LIGHT}")
+            self.logs.error(f"No data source configured {Emoticons.POLICE_CAR_LIGHT}")
 
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"No contracts configured {AsciiEmoticons.POLICE_CAR_LIGHT}")
+            self.logs.error(f"No contracts configured {Emoticons.POLICE_CAR_LIGHT}")
 
         self.data_source_contracts: DataSourceContracts = DataSourceContracts(data_source=self.data_source)
         self.data_sources_contracts: list[DataSourceContracts] = []
@@ -161,7 +161,7 @@ class ContractVerificationImpl:
                     if self.soda_cloud:
                         self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
                     else:
-                        self.logs.debug(f"Not sending results to Soda Cloud {AsciiEmoticons.CROSS_MARK}")
+                        self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
                     self._log_summary(contract_result)
         finally:
@@ -344,7 +344,7 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractResult:
-        self.logs.info(f"Verifying {AsciiEmoticons.SCROLL} contract {self.soda_qualified_dataset_name} {AsciiEmoticons.FINGERS_CROSSED}")
+        self.logs.info(f"Verifying {Emoticons.SCROLL} contract {self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}")
 
         measurements: list[Measurement] = []
         # Executing the queries will set the value of the metrics linked to queries

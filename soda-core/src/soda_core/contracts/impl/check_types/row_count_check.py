@@ -77,7 +77,7 @@ class RowCountCheckImpl(CheckImpl):
                 outcome = CheckOutcome.FAILED
 
         diagnostic_lines: list[str] = [
-            f"Actual row_count was {row_count}"
+            f"  Actual row_count was {row_count}"
         ]
 
         return CheckResult(

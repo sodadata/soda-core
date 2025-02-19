@@ -6,10 +6,11 @@ from datetime import datetime, timezone
 from logging import getLevelName, ERROR, WARNING, INFO, DEBUG, Logger
 
 
-class AsciiEmoticons:
+class Emoticons:
     CROSS_MARK: str = "\u274C"
-    WHITE_HEAVY_CHECK_MARK: str = "\u2705"
+    WHITE_CHECK_MARK: str = "\u2705"
     CLOUD: str = "\u2601"
+    OK_HAND: str = "\U0001F44C"
     SCROLL: str = "\U0001F4DC"
     FINGERS_CROSSED: str = "\U0001F91E"
     POLICE_CAR_LIGHT: str = "\U0001F92F"
