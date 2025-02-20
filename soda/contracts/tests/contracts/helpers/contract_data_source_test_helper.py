@@ -9,6 +9,7 @@ from importlib import import_module
 from io import StringIO
 from textwrap import dedent
 
+from helpers.test_column import TestColumn
 from helpers.test_table import TestTable
 from ruamel.yaml import YAML, round_trip_dump
 
@@ -232,11 +233,11 @@ class ContractDataSourceTestHelper:
         self, database_name: str | None, schema_name: str | None, test_table: TestTable
     ) -> None:
         ds = self.contract_data_source
-        create_table_sql = ds.sql_dialect.stmt_create_test_table(
+        create_table_sql = self._stmt_create_test_table(
             database_name=database_name, schema_name=schema_name, test_table=test_table
         )
         ds._execute_sql_update(create_table_sql)
-        insert_table_sql = ds.sql_dialect._insert_test_table_sql(
+        insert_table_sql = self._insert_test_table_sql(
             database_name=database_name, schema_name=schema_name, test_table=test_table
         )
         if insert_table_sql:
@@ -244,7 +245,7 @@ class ContractDataSourceTestHelper:
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str = dedent(contract_yaml_str).strip()
-        contract_verification_builder = self.create_test_verification_builder().with_contract_yaml_str(
+        contract_verification_builder = ContractVerification.builder().with_contract_yaml_str(
             contract_yaml_str=contract_yaml_str
         )
         contract_verification = contract_verification_builder.build()
@@ -349,3 +350,52 @@ class ContractDataSourceTestHelper:
             round_trip_dump(contract_content_dict, stream=stream)
             contract_yaml_str = stream.getvalue()
         return contract_yaml_str
+
+    def _stmt_create_test_table(self, database_name: str | None, schema_name: str | None, test_table: TestTable) -> str:
+        sql_dialect: SqlDialect = self.contract_data_source.sql_dialect
+        table_name_qualified_quoted = sql_dialect.qualify_table(
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name=test_table.unique_table_name,
+            quote_table_name=test_table.quote_names,
+        )
+
+        test_columns = test_table.test_columns
+        if test_table.quote_names:
+            test_columns = [
+                TestColumn(name=sql_dialect.quote_default(test_column.name), data_type=test_column.data_type)
+                for test_column in test_columns
+            ]
+
+        columns_sql = ",\n".join(
+            [
+                f"  {test_column.name} {self.get_create_table_sql_type(test_column.data_type)}"
+                for test_column in test_columns
+            ]
+        )
+        return self.compose_create_table_statement(table_name_qualified_quoted, columns_sql)
+
+    def compose_create_table_statement(self, qualified_table_name, columns_sql) -> str:
+        return f"CREATE TABLE {qualified_table_name} ( \n{columns_sql} \n)"
+
+    def get_create_table_sql_type(self, data_type: str) -> str:
+        sql_dialect: SqlDialect = self.contract_data_source.sql_dialect
+        column_declaration_data_type: str = sql_dialect.create_table_sql_type_dict.get(data_type)
+        assert isinstance(column_declaration_data_type, str) and len(column_declaration_data_type) > 0
+        return column_declaration_data_type
+
+    def _insert_test_table_sql(self, database_name: str | None, schema_name: str | None, test_table: TestTable) -> str:
+        if test_table.values:
+            sql_dialect = self.contract_data_source.sql_dialect
+            table_name_qualified_quoted = sql_dialect.qualify_table(
+                database_name=database_name,
+                schema_name=schema_name,
+                table_name=test_table.unique_table_name,
+                quote_table_name=test_table.quote_names,
+            )
+
+            def sql_test_table_row(row):
+                return ",".join([sql_dialect.literal(value) for value in row])
+
+            rows_sql = ",\n".join([f"  ({sql_test_table_row(row)})" for row in test_table.values])
+            return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"

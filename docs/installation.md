@@ -18,8 +18,8 @@ Use Soda Core to scan a variety of data sources.<br />
 
 <table>
   <tr>
-    <td>Amazon Athena<br /> Amazon Redshift<br />  Apache Spark DataFrames<sup>1</sup><br /> Apache Spark for Databricks SQL<br /> Azure Synapse (Experimental)<br />ClickHouse (Experimental)<br />   Dask and Pandas (Experimental)<sup>1</sup><br /> Denodo (Experimental)<br />Dremio <br />DuckDB (Experimental)<br /> GCP Big Query</td>
-    <td>IBM DB2<br /> Local file using Dask<sup>1</sup><br />MS SQL Server<br /> MotherDuck (Experimental)<br /> MySQL<br > OracleDB<br /> PostgreSQL<br /> Snowflake<br /> Teradata (Experimental) <br />Trino<br /> Vertica (Experimental)</td>
+    <td>Amazon Athena<br /> Amazon Redshift<br />  Apache Spark DataFrames<sup>1</sup><br /> Apache Spark for Databricks SQL<br /> Azure Synapse<br />ClickHouse<br />   Dask and Pandas<sup>1</sup><br /> Denodo<br />Dremio <br />DuckDB<br /> GCP Big Query<br /> IBM DB2</td>
+    <td>Local file using Dask<sup>1</sup><br />MotherDuck<br /> MS Fabric<br />MS SQL Server<br />  MySQL<br > OracleDB<br /> PostgreSQL<br /> Snowflake<br /> Teradata<br />Trino<br /> Vertica</td>
   </tr>
 </table>
 <sup>1</sup> For use with programmatic Soda scans, only.
@@ -64,6 +64,7 @@ If you have not already installed Python, consider using <a href="https://github
 | IBM DB2 | `soda-core-db2` |
 | Local file | Use Dask. |
 | MotherDuck | `soda-core-duckdb` |
+| MS Fabric | `soda-core-fabric` |
 | MS SQL Server | `soda-core-sqlserver` |
 | MySQL | `soda-core-mysql` |
 | OracleDB | `soda-core-oracle` |
@@ -99,16 +100,19 @@ deactivate
 | ----------- | --------------- | 
 | Amazon Athena | `soda-core-athena` |
 | Amazon Redshift | `soda-core-redshift` | 
-| Apache Spark DataFrame <br /> (For use with [programmatic Soda scans]({% link soda-core/programmatic.md %}), only.) | `soda-core-spark-df` |
+| Apache Spark DataFrames <br /> (For use with [programmatic Soda scans]({% link soda-core/programmatic.md %}), only.) | `soda-core-spark-df` |
 | Azure Synapse (Experimental) | `soda-core-sqlserver` |
 | ClickHouse (Experimental) | `soda-core-mysql` |
 | Dask and Pandas (Experimental)  | `soda-core-pandas-dask` |
 | Databricks  | `soda-core-spark[databricks]` |
 | Denodo (Experimental) | `soda-core-denodo` |
 | Dremio | `soda-core-dremio` | 
-| DuckDB (Experimental) | `soda-core-duckdb` |
+| DuckDB (Experimental)  | `soda-core-duckdb` |
 | GCP Big Query | `soda-core-bigquery` | 
 | IBM DB2 | `soda-core-db2` |
+| Local file | Use Dask. |
+| MotherDuck | `soda-core-duckdb` |
+| MS Fabric | `soda-core-fabric` |
 | MS SQL Server | `soda-core-sqlserver` |
 | MySQL | `soda-core-mysql` |
 | OracleDB | `soda-core-oracle` |
@@ -202,7 +206,7 @@ You need to give Docker permission to acccess your configuration.yml and checks.
 #### Error: Configuration path does not exist
 
 If you encounter the following error, double check the syntax of the scan command in step 4 above. 
-* Be sure to prepend `/sodacl/` to both the congifuration.yml filepath and the checks.yml filepath. 
+* Be sure to prepend `/sodacl/` to both the configuration.yml filepath and the checks.yml filepath. 
 * Be sure to mount your files into the container by including the `-v` option.  For example, `-v /Users/MyName/soda_core_project:/sodacl`.
 
 ```shell

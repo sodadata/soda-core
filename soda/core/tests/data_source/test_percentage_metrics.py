@@ -5,7 +5,7 @@ from helpers.fixtures import test_data_source
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["fabric", "sqlserver"],
     reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
 )
 def test_default_missing_percentage(data_source_fixture: DataSourceFixture):

@@ -81,7 +81,7 @@ class ContractVerificationBuilder:
         assert isinstance(spark_session, object)
         assert isinstance(data_source_yaml_dict, dict)
         data_source_yaml_file = YamlFile(logs=self.logs, yaml_dict=data_source_yaml_dict)
-        self.data_source_yaml_files.append(data_source_yaml_file)
+        self.data_source_yaml_file = data_source_yaml_file
         self.spark_session = spark_session
         return self
 
@@ -174,8 +174,6 @@ class ContractVerification:
                     self.data_source = data_source
                 else:
                     self.logs.error(f"Error creating data source from {data_source_yaml_file}. See logs above.")
-        else:
-            self.logs.error("No data source configured")
 
     def _initialize_contracts(self, contract_verification_builder: ContractVerificationBuilder) -> None:
         for contract_file in contract_verification_builder.contract_files:

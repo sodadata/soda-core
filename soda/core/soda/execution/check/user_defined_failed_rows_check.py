@@ -39,10 +39,12 @@ class UserDefinedFailedRowsCheck(Check):
         check_cfg: UserDefinedFailedRowsCheckCfg = self.check_cfg
         self.check_value = None
 
+        jinja_resolve = self.data_source_scan.scan.jinja_resolve
+
         metric = UserDefinedFailedRowsMetric(
             data_source_scan=self.data_source_scan,
             check_name=check_cfg.source_line,
-            query=check_cfg.query,
+            query=jinja_resolve(check_cfg.query, self.check_cfg.variables),
             check=self,
             partition=partition,
         )
