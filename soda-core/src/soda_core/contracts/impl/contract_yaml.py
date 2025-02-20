@@ -60,10 +60,12 @@ class ContractYaml:
         self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
         self.contract_yaml_object: YamlObject = self.contract_yaml_file_content.get_yaml_object()
         self.data_source_file: str | None = self.contract_yaml_object.read_string_opt("data_source_file")
+        self.data_source: str | None = self.contract_yaml_object.read_string_opt("data_source")
         self.dataset_locations: dict[str, dict[str, str]] | None = self._parse_dataset_locations(self.contract_yaml_object)
-        self.dataset_name: str | None = self.contract_yaml_object.read_string("dataset")
+        self.dataset_prefix: list[str] | None = self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix")
+        self.dataset: str | None = self.contract_yaml_object.read_string("dataset")
         self.columns: list[ColumnYaml | None] | None = self._parse_columns(self.contract_yaml_object)
-        self.check_yamls: list[CheckYaml | None] = self._parse_checks(self.contract_yaml_object)
+        self.checks: list[CheckYaml | None] = self._parse_checks(self.contract_yaml_object)
 
     def _parse_dataset_locations(self, contract_yaml_object: YamlObject) -> dict[str, dict[str, str]] | None:
         dataset_locations: dict[str, dict[str, str]] | None = None

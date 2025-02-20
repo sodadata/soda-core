@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from logging import ERROR
@@ -22,6 +22,7 @@ class ContractVerificationBuilder:
         self.soda_cloud_yaml_source: Optional[YamlSource] = None
         self.variables: dict[str, str] = {}
         self.soda_cloud_skip_publish: bool = False
+        self.use_agent: bool = False
         self.logs: Logs = Logs()
         self.logs.debug("Contract verification...")
 
@@ -125,6 +126,11 @@ class ContractVerificationBuilder:
         self.soda_cloud = soda_cloud
         return self
 
+    def with_execution_on_soda_agent(self) -> ContractVerificationBuilder:
+        self.logs.debug(f"  ...with execution on Soda Agent")
+        self.use_agent = True
+        return self
+
     def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
         if isinstance(key, str) and isinstance(value, str):
             self.logs.debug(f"  ...with variable '{key}'")
@@ -182,6 +188,7 @@ class ContractVerification:
             soda_cloud_yaml_source=contract_verification_builder.soda_cloud_yaml_source,
             variables=contract_verification_builder.variables,
             skip_publish=contract_verification_builder.soda_cloud_skip_publish,
+            use_agent=contract_verification_builder.use_agent,
             logs=contract_verification_builder.logs,
         )
 

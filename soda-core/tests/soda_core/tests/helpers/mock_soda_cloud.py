@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from io import BytesIO
 from tempfile import TemporaryFile
 
@@ -12,15 +13,22 @@ from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 
 
+class MockHttpMethod(Enum):
+    POST = "post"
+    GET = "get"
+
+
 class MockResponse(Response):
 
     def __init__(
         self,
+        method: MockHttpMethod = MockHttpMethod.POST,
         status_code: int = 200,
         headers: dict[str, str] | None = None,
         json_dict: dict | None = None
     ):
         super().__init__()
+        self.method: MockHttpMethod = method
         self.status_code = status_code
         if isinstance(headers, dict):
             self.headers.update(headers)
@@ -52,7 +60,7 @@ class MockSodaCloud(SodaCloud):
             logs=Logs(),
         )
         self.requests: list[MockRequest] = []
-        self.responses: list[MockResponse | None] = responses if responses is not None else []
+        self.responses: list[MockResponse | None] = responses if isinstance(responses, list) else []
 
     def _http_post(
         self,
@@ -61,6 +69,41 @@ class MockSodaCloud(SodaCloud):
         headers: dict[str, str] = None,
         json: dict | None = None,
         data: TemporaryFile | None = None
+    ) -> Response:
+        return self._http_handle(
+            method=MockHttpMethod.POST,
+            request_log_name=request_log_name,
+            url=url,
+            headers=headers,
+            json=json,
+            data=data
+        )
+
+    def _http_get(
+        self,
+        request_log_name: str = None,
+        url: str | None = None,
+        headers: dict[str, str] = None,
+        json: dict | None = None,
+        data: TemporaryFile | None = None
+    ) -> Response:
+        return self._http_handle(
+            method=MockHttpMethod.GET,
+            request_log_name=request_log_name,
+            url=url,
+            headers=headers,
+            json=json,
+            data=data
+        )
+
+    def _http_handle(
+        self,
+        method: MockHttpMethod,
+        request_log_name: str,
+        url: str | None,
+        headers: dict[str, str],
+        json: dict | None,
+        data: TemporaryFile | None
     ) -> Response:
         logging.debug(f"Request sent to MockSodaCloud: {request_log_name}")
         self.requests.append(MockRequest(
@@ -73,6 +116,8 @@ class MockSodaCloud(SodaCloud):
         if self.responses:
             response = self.responses.pop(0)
             if isinstance(response, MockResponse):
+                if method != response.method:
+                    raise AssertionError("Wrong response method")
                 return response
         return MockResponse(
             status_code=200,

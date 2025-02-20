@@ -43,19 +43,32 @@ class ContractVerificationImpl:
             soda_cloud_yaml_source: Optional[YamlSource],
             variables: dict[str, str],
             skip_publish: bool,
+            use_agent: bool,
             logs: Logs = Logs(),
     ):
         self.logs: Logs = logs
+        self.skip_publish: bool = skip_publish
+        self.use_agent: bool = use_agent
 
-        self.data_source: DataSource | None = data_source
-        if self.data_source is None and data_source_yaml_source is not None:
-            data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                file_type="data source",
-                variables=variables,
-                logs=logs
+        self.data_source: DataSource | None = None
+        if not use_agent:
+            if data_source is not None:
+                self.data_source = data_source
+            elif data_source_yaml_source is not None:
+                data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
+                    file_type="data source",
+                    variables=variables,
+                    logs=logs
+                )
+                data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
+                self.data_source = data_source_parser.parse()
+            if self.data_source is None:
+                self.logs.error(f"No data source configured {Emoticons.POLICE_CAR_LIGHT}")
+        elif data_source is not None or data_source_yaml_source is not None:
+            self.logs.error(
+                f"When executing the contract verification on Soda Agent, "
+                f"a data source should not be configured {Emoticons.POLICE_CAR_LIGHT}"
             )
-            data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-            self.data_source = data_source_parser.parse()
 
         self.soda_cloud: SodaCloud | None = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
@@ -66,96 +79,63 @@ class ContractVerificationImpl:
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
 
-        self.skip_publish: bool = skip_publish
-
-        if self.data_source is None:
-            self.logs.error(f"No data source configured {Emoticons.POLICE_CAR_LIGHT}")
-
+        self.contract_yamls: list[ContractYaml] = []
+        self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
             self.logs.error(f"No contracts configured {Emoticons.POLICE_CAR_LIGHT}")
-
-        self.data_source_contracts: DataSourceContracts = DataSourceContracts(data_source=self.data_source)
-        self.data_sources_contracts: list[DataSourceContracts] = []
-        self.data_sources_contracts.append(self.data_source_contracts)
-
-        for contract_yaml_source in contract_yaml_sources:
-            contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables=variables, logs=logs)
-            if contract_yaml and self.data_source:
-                data_source_contracts: DataSourceContracts = self.resolve_data_source_contracts(contract_yaml)
-                if data_source_contracts:
-                    data_source: DataSource = data_source_contracts.data_source
-                    contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml, data_source=data_source, variables=variables, logs=self.logs
-                    )
-                    data_source_contracts.contract_impls.append(contract_impl)
-
-    def resolve_data_source_contracts(self, contract_yaml: ContractYaml) -> DataSourceContracts | None:
-        data_source_file_is_configured: bool = isinstance(contract_yaml.data_source_file, str)
-        if data_source_file_is_configured:
-            contract_yaml_file_path: str = contract_yaml.contract_yaml_file_content.yaml_file_path
-            contract_file_exists: bool = isinstance(contract_yaml_file_path, str) and os.path.exists(
-                contract_yaml_file_path)
-            if not contract_file_exists:
-                self.logs.error(
-                    "'data_source_file' is configured, but that can't be used with contract yaml string or yaml dict."
-                )
-            else:
-                real_contract_path: str = os.path.realpath(contract_yaml_file_path)
-                contract_dir: str = os.path.dirname(real_contract_path)
-
-                data_source_relative_path: str = contract_yaml.data_source_file
-                data_source_path: str = os.path.join(contract_dir, data_source_relative_path)
-                real_data_source_path: str = os.path.realpath(data_source_path)
-
-                data_source_contracts: DataSourceContracts = self.find_existing_data_source_contracts(real_data_source_path)
-
-                if not data_source_contracts:
-                    data_source_yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=real_data_source_path)
-                    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_source, logs=self.logs)
-                    data_source = data_source_parser.parse()
-                    data_source_contracts = DataSourceContracts(data_source=data_source)
-
-                return data_source_contracts
-        if self.data_source_contracts:
-            return self.data_source_contracts
         else:
-            self.logs.error(
-                f"'data_source_file' is required. "
-                f"No default data source was configured in the contract verification builder."
-            )
-
-    def find_existing_data_source_contracts(self, real_data_source_path: str) -> DataSourceContracts | None:
-        for data_source_contracts in self.data_sources_contracts:
-            if real_data_source_path == data_source_contracts.data_source.data_source_yaml_file_content.yaml_file_path:
-                return data_source_contracts
-        return None
+            for contract_yaml_source in contract_yaml_sources:
+                contract_yaml: ContractYaml = ContractYaml.parse(
+                    contract_yaml_source=contract_yaml_source,
+                    variables=variables,
+                    logs=logs
+                )
+                self.contract_yamls.append(contract_yaml)
+        if self.data_source:
+            for contract_yaml in self.contract_yamls:
+                contract_impl: ContractImpl = ContractImpl(
+                    contract_yaml=contract_yaml,
+                    data_source=data_source,
+                    variables=variables,
+                    logs=logs
+                )
+                if contract_impl:
+                    self.contract_impls.append(contract_impl)
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
 
-        for data_source_contracts in self.data_sources_contracts:
-            if isinstance(data_source_contracts.data_source, DataSource) and len(data_source_contracts.contract_impls) > 0:
-                data_source_contract_results: list[ContractResult] = self.verify_data_source_contracts(
-                    data_source_contracts
-                )
-                contract_results.extend(data_source_contract_results)
+        if self.use_agent:
+            contract_results = self.verify_contracts_on_agent(self.contract_yamls)
+        elif self.data_source:
+            contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
 
         return ContractVerificationResult(
             logs=self.logs,
             contract_results=contract_results
         )
 
-    def verify_data_source_contracts(self, data_source_contracts: DataSourceContracts) -> list[ContractResult]:
+    def verify_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
+        if self.soda_cloud and isinstance(contract_yamls, list) and len(contract_yamls) > 0:
+            return self.soda_cloud.execute_contracts_on_agent(contract_yamls)
+        else:
+            self.logs.error(
+                f"Using the agent requires a Soda Cloud configuration {Emoticons.POLICE_CAR_LIGHT}"
+            )
+            return []
+
+    def verify_contracts_locally(
+        self,
+        contract_impls: list[ContractImpl],
+        data_source: DataSource
+    ) -> list[ContractResult]:
         contract_results: list[ContractResult] = []
-        data_source = data_source_contracts.data_source
-        open_close: bool = not data_source.has_open_connection()
-        if open_close:
-            data_source.open_connection()
-        try:
-            if len(data_source_contracts.contract_impls) == 0:
-                self.logs.error("No contracts specified")
-            else:
-                for contract_impl in data_source_contracts.contract_impls:
+        if self.data_source and isinstance(contract_impls, list) and len(contract_impls) > 0:
+            open_close: bool = not data_source.has_open_connection()
+            if open_close:
+                data_source.open_connection()
+            try:
+                for contract_impl in contract_impls:
                     contract_result: ContractResult = contract_impl.verify()
                     contract_results.append(contract_result)
                     if self.soda_cloud:
@@ -164,9 +144,9 @@ class ContractVerificationImpl:
                         self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
                     self._log_summary(contract_result)
-        finally:
-            if open_close:
-                data_source.close_connection()
+            finally:
+                if open_close:
+                    data_source.close_connection()
         return contract_results
 
     def _log_summary(self, contract_result: ContractResult):
@@ -223,7 +203,7 @@ class ContractImpl:
             if contract_yaml.dataset_locations else None
         )
         self.dataset_prefix: list[str] | None = self.data_source.build_dataset_prefix(data_source_location)
-        self.dataset_name: str | None = contract_yaml.dataset_name if contract_yaml else None
+        self.dataset_name: str | None = contract_yaml.dataset if contract_yaml else None
 
         self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
             data_source_name=self.data_source.name,
@@ -286,8 +266,8 @@ class ContractImpl:
         contract_yaml: ContractYaml
     ) -> list[CheckImpl]:
         check_impls: list[CheckImpl] = []
-        if contract_yaml.check_yamls:
-            for check_yaml in contract_yaml.check_yamls:
+        if contract_yaml.checks:
+            for check_yaml in contract_yaml.checks:
                 if check_yaml:
                     check = CheckImpl.parse_check(
                         contract_impl=self,

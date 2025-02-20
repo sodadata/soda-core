@@ -1,5 +1,5 @@
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.mock_soda_cloud import MockResponse
+from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
 test_table_specification = (
@@ -21,7 +21,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.set_mock_soda_cloud_responses([MockResponse(
+    data_source_test_helper.enable_soda_cloud_mock([MockResponse(
         status_code=200,
         json_dict={"fileId": "777ggg"}
     )])
@@ -43,10 +43,30 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.set_mock_soda_cloud_responses([MockResponse(
-        status_code=200,
-        json_dict={"fileId": "777ggg"}
-    )])
+    data_source_test_helper.enable_soda_cloud_mock([
+        MockResponse(
+            method=MockHttpMethod.POST,
+            status_code=200,
+            json_dict={"fileId": "fffileid"}
+        ),
+        MockResponse(
+            method=MockHttpMethod.POST,
+            status_code=200,
+            json_dict={"scanId": "ssscanid"}
+        ),
+        MockResponse(
+            method=MockHttpMethod.GET,
+            status_code=200,
+            json_dict={
+                "scanId": "ssscanid",
+                "scanStatus": {
+                    "value": "completed"
+                }
+            }
+        )
+    ])
+
+    data_source_test_helper.use_agent = True
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,

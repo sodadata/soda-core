@@ -19,10 +19,11 @@ from soda_core.common.logs import Logs, Log, Emoticons
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_verification import ContractResult, \
-    CheckResult, CheckOutcome, Threshold
+    CheckResult, CheckOutcome, Threshold, Contract, DataSourceInfo
+from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
-class RemoteScanStatus(Enum):
+class RemoteScanStatus:
     QUEUING = "queuing"
     EXECUTING = "executing"
     CANCELATION_REQUESTED = "cancelationRequested"
@@ -325,14 +326,18 @@ class SodaCloud:
         else:
             return None
 
-    def verify_on_agent(
-        self,
-        contract_yaml_source_str: str,
-        contract_local_file_path: str | None,
-        data_source_name: str,
-        dataset_prefix: list[str],
-        dataset_name: str
-    ) -> list[Log]:
+    def execute_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
+        if not isinstance(contract_yamls, list) or len(contract_yamls) == 0:
+            self.logs.info(f"No contracts to execute on Soda Agent")
+            return []
+
+        contract_yaml: ContractYaml = contract_yamls[0]
+        contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
+        contract_local_file_path: str | None = contract_yaml.contract_yaml_file_content.yaml_file_path
+        data_source_name = contract_yaml.data_source
+        dataset_prefix = contract_yaml.dataset_prefix
+        dataset_name = contract_yaml.dataset
+
         soda_cloud_file_path : str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
@@ -342,7 +347,7 @@ class SodaCloud:
         )
         if not file_id:
             self.logs.error("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
-            return None
+            return []
 
         verify_contract_command: dict = {
             "type": "sodaCoreVerifyContract",
@@ -370,9 +375,8 @@ class SodaCloud:
 
         scan_is_finished: bool = self._poll_remote_scan_finished(scan_id=scan_id)
 
-        response: Response = self._get_scan_logs(scan_id=scan_id)
-        logs: list[dict] = response.json()
-        self.logs.info("Logs from contract verification on Soda Agent:")
+        logs_response: Response = self._get_scan_logs(scan_id=scan_id)
+        logs: list[dict] = logs_response.json()
         for log in logs:
             self.logs.log(
                 Log(level=log.get("level"),
@@ -383,9 +387,26 @@ class SodaCloud:
         if not scan_is_finished:
             self.logs.error("Max retries exceeded. Contract verification did not finish yet.")
 
-    def _poll_remote_scan_finished(self, scan_id: str, poll_wait: int = 5, max_retry: int = 100) -> bool:
-        pass
+        return [ContractResult(
+            contract=Contract(
+                data_source_name=data_source_name,
+                dataset_prefix=dataset_prefix,
+                dataset_name=dataset_name,
+                soda_qualified_dataset_name=None,
+                source=None
+            ),
+            data_source_info=None,
+            data_timestamp=None,
+            started_timestamp=None,
+            ended_timestamp=None,
+            measurements=[],
+            check_results=[
+                # TODO
+            ],
+            logs=self.logs
+        )]
 
+    def _poll_remote_scan_finished(self, scan_id: str, poll_wait: int = 5, max_retry: int = 5) -> bool:
         result: Optional[str] = None
         attempt = 0
         while attempt < max_retry:
@@ -397,7 +418,6 @@ class SodaCloud:
                 next_poll_time = response.headers.get("X-Soda-Next-Poll-Time")
                 if next_poll_time:
                     poll_wait = (self._datetime_from_iso_zulu(next_poll_time) - datetime.now(timezone.utc)).seconds
-                self.logs.debug(f"Next poll in {poll_wait} seconds.")
 
                 json: Optional[dict] = response.json() if response else None
                 scan_status: Optional[dict] = json.get("scanStatus") if json else None
@@ -413,6 +433,7 @@ class SodaCloud:
                         f"Remote scan did not finish in {max_retry} attempts. Last status: {scan_status_value}"
                     )
                 else:
+                    self.logs.debug(f"Next poll in {poll_wait} seconds.")
                     sleep(poll_wait)
             else:
                 raise Exception(f"Failed to poll remote scan status. Response: {response}")
@@ -435,12 +456,6 @@ class SodaCloud:
             relative_url_path=f"v1/scans/{scan_id}/logs",
             request_log_name="remote_scan_poll_result",
         )
-
-    # @staticmethod
-    # def _serialize_file_upload_value(value):
-    #     if value is None or isinstance(value, str) or isinstance(value, int) or isinstance(value, float):
-    #         return value
-    #     return str(value)
 
     def _fileify(self, name: str):
         return re.sub(r"\W+", "_", name).lower()

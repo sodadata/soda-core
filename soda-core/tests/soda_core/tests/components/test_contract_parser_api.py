@@ -27,13 +27,13 @@ def test_parse_relative_complete_contract():
     assert "../../data_source_test.yml" == contract_yaml.data_source_file
     assert "soda_test" == contract_yaml.dataset_locations["postgres"]["database"]
     assert "dev_xxx" == contract_yaml.dataset_locations["postgres"]["schema"]
-    assert "SODATEST_test_schema_31761d69" == contract_yaml.dataset_name
+    assert "SODATEST_test_schema_31761d69" == contract_yaml.dataset
 
     column_yaml: ColumnYaml = contract_yaml.columns[0]
     assert "id" == column_yaml.name
     assert "varchar(255)" == column_yaml.data_type
 
-    check_yaml: CheckYaml = contract_yaml.check_yamls[0]
+    check_yaml: CheckYaml = contract_yaml.checks[0]
     assert check_yaml.__class__.__name__ == "SchemaCheckYaml"
 
 

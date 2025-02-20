@@ -263,12 +263,12 @@ class YamlObject(YamlValue):
         """
         return self.read_value(key=key, expected_type=dict, required=False, default_value=None)
 
-    def read_list(self, key: str, expected_element_type: type | None = None) -> YamlList | None:
+    def read_list(self, key: str, expected_element_type: type | None = None, required: bool = True) -> YamlList | None:
         """
         An error is generated if the value is missing or not a YAML list.
         :return: a list if the value for the key is a YAML list, otherwise None.
         """
-        list_value: YamlList | None = self.read_value(key=key, expected_type=list, required=True, default_value=None)
+        list_value: YamlList | None = self.read_value(key=key, expected_type=list, required=required, default_value=None)
         if isinstance(list_value, YamlList):
             filtered_list: list = []
             if isinstance(expected_element_type, type):
@@ -308,7 +308,12 @@ class YamlObject(YamlValue):
         return list_value
 
     def read_list_of_strings(self, key: str) -> list[str] | None:
-        return self.read_list(key, expected_element_type=str)
+        l = self.read_list(key, expected_element_type=str)
+        return l.to_list() if isinstance(l, YamlList) else None
+
+    def read_list_of_strings_opt(self, key: str) -> list[str] | None:
+        l = self.read_list(key, expected_element_type=str, required=False)
+        return l.to_list() if isinstance(l, YamlList) else None
 
     def read_string(self, key: str, env_var: str | None = None) -> str | None:
         """

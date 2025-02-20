@@ -84,21 +84,22 @@ class DataSourceTestHelper:
         self.test_tables: dict[str, TestTable] = {}
 
         self.soda_cloud: Optional[SodaCloud] = None
+        self.use_agent: bool = False
 
         if os.environ.get("SODA_CLOUD") == "on":
-            logs: Logs = Logs()
-            soda_cloud_yaml_dict: dict = {"soda_cloud":{}}
-            soda_cloud_yaml_source: YamlSource = YamlSource.from_dict(soda_cloud_yaml_dict)
-            soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(logs=logs)
-            self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
-            if logs.has_errors():
-                raise AssertionError(str(logs))
-        elif os.environ.get("SODA_CLOUD") == "mock":
-            self.soda_cloud = MockSodaCloud()
+            self.enable_soda_cloud()
 
-    def set_mock_soda_cloud_responses(self, responses: list[MockResponse]):
-        if isinstance(self.soda_cloud, MockSodaCloud):
-            self.soda_cloud.responses = responses
+    def enable_soda_cloud(self):
+        logs: Logs = Logs()
+        soda_cloud_yaml_dict: dict = {"soda_cloud": {}}
+        soda_cloud_yaml_source: YamlSource = YamlSource.from_dict(soda_cloud_yaml_dict)
+        soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(logs=logs)
+        self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
+        if logs.has_errors():
+            raise AssertionError(str(logs))
+
+    def enable_soda_cloud_mock(self, responses: list[MockResponse]):
+        self.soda_cloud = MockSodaCloud(responses)
 
     def _create_data_source(self) -> 'DataSource':
         """
@@ -464,23 +465,27 @@ class DataSourceTestHelper:
         self,
         contract_yaml_str: str,
         test_table: TestTable,
-        variables: dict
+        variables: Optional[dict]
     ) -> ContractVerificationResult:
         full_contract_yaml_str = self._prepend_dataset_to_contract(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{full_contract_yaml_str}")
-        contract_verification_result: ContractVerificationResult = (
+        test_contract_verification_builder: TestContractVerificationBuilder = (
             self.create_test_verification_builder()
             .with_contract_yaml_str(
                 contract_yaml_str=full_contract_yaml_str
             )
-            .with_variables(variables)
-            .execute()
         )
-        return contract_verification_result
+        if isinstance(variables, dict):
+            test_contract_verification_builder.with_variables(variables)
+        if self.use_agent:
+            test_contract_verification_builder.with_execution_on_soda_agent()
+        return test_contract_verification_builder.execute()
 
     def _prepend_dataset_to_contract(self, contract_yaml_str: str, test_table: TestTable):
         header_contract_yaml_str: str = (
+            f"data_source: the_test_ds\n"
             f"dataset: {test_table.unique_name}\n"
+            f"dataset_prefix: {self.dataset_prefix}\n"
             f"dataset_location_{self.data_source.get_data_source_type_name()}:\n"
             f"  database: {self.dataset_prefix[0]}\n"
             f"  schema: {self.dataset_prefix[1]}\n"
@@ -490,11 +495,14 @@ class DataSourceTestHelper:
         return full_contract_yaml_str
 
     def create_test_verification_builder(self) -> TestContractVerificationBuilder:
-        return (
-            TestContractVerification.builder()
-            .with_data_source(self.data_source)
-            .with_soda_cloud(self.soda_cloud)
-        )
+        test_verification_builder: TestContractVerificationBuilder = TestContractVerification.builder()
+        if not self.use_agent:
+            test_verification_builder.with_data_source(self.data_source)
+        if self.soda_cloud:
+            test_verification_builder.with_soda_cloud(self.soda_cloud)
+        return test_verification_builder
 
     def test_method_ended(self) -> None:
         self.data_source.data_source_connection.rollback()
+        self.soda_cloud = None
+        self.use_agent = False
