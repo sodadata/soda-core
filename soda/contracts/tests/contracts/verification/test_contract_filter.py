@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from contracts.helpers.test_warehouse import TestWarehouse
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -23,24 +25,23 @@ contracts_filter_test_table = TestTable(
 )
 
 
-def test_contract_filter_row_count(test_warehouse: TestWarehouse, environ: dict):
-    table_name: str = test_warehouse.ensure_test_table(contracts_filter_test_table)
-
+def test_contract_filter_row_count(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
     filter_start_time = datetime(2021, 1, 1, 1, 1, 1)
-    environ["FILTER_START_TIME"] = test_warehouse.sodacl_data_source.literal_datetime(filter_start_time)
+    sql_dialect = data_source_test_helper.contract_data_source.sql_dialect
+    environ["FILTER_START_TIME"] = sql_dialect.literal_datetime(filter_start_time)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        filter_sql: |
-          created > ${{FILTER_START_TIME}}
-        columns:
-          - name: id
-          - name: created
-        checks:
-          - type: row_count
-            must_be: 0
-    """
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_filter_test_table,
+        contract_yaml_str=f"""
+            filter_sql: |
+              created > ${{FILTER_START_TIME}}
+            columns:
+              - name: id
+              - name: created
+            checks:
+              - type: row_count
+                must_be: 0
+        """,
     )
     check_result = contract_result.check_results[1]
     assert isinstance(check_result, MetricCheckResult)

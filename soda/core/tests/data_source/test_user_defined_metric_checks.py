@@ -10,7 +10,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    length_expr = "LEN" if data_source_fixture.data_source_name == "sqlserver" else "LENGTH"
+    length_expr = "LEN" if data_source_fixture.data_source_name in ["sqlserver", "fabric"] else "LENGTH"
 
     ones_expression = f"SUM({length_expr}(cst_size_txt))"
 
@@ -99,6 +99,33 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
                     avg_surface query: |
                       SELECT AVG(cst_size * ${{dist}}) as avg_surface
                       FROM {qualified_table_name}
+            """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+    avg_surface = scan._checks[0].check_value
+    assert isinstance(avg_surface, float)
+    assert 1068 < avg_surface < 1069
+
+
+def test_user_defined_data_source_query_metric_check_with_variable_special_chars(
+    data_source_fixture: DataSourceFixture,
+):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_variables({"cst_size": ">= -5"})
+    scan.add_sodacl_yaml_str(
+        f"""
+              checks:
+                - avg_surface between 1068 and 1069:
+                    avg_surface query: |
+                      SELECT AVG(cst_size * distance) as avg_surface
+                      FROM {qualified_table_name} WHERE cst_size ${{cst_size}} OR cst_size IS NULL
             """
     )
     scan.execute()

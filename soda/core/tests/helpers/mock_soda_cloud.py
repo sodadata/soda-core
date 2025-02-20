@@ -134,6 +134,16 @@ class MockSodaCloud(SodaCloud):
     def pop_scan_result(self) -> dict:
         return self.scan_results.pop()
 
+    def find_queries(self, query_name: str):
+        assert len(self.scan_results) > 0
+        scan_result = self.scan_results[0]
+        self.assert_key("queries", scan_result)
+        queries = scan_result["queries"]
+        for query in queries:
+            if query["name"] == query_name:
+                return query
+        return None
+
     def find_check(self, check_index: int) -> dict | None:
         assert len(self.scan_results) > 0
         scan_result = self.scan_results[0]
@@ -142,6 +152,15 @@ class MockSodaCloud(SodaCloud):
         checks = scan_result["checks"]
         assert len(checks) > check_index
         return checks[check_index]
+
+    def find_check_metric(self, metric_name: str) -> dict | None:
+        assert len(self.scan_results) > 0
+        scan_result = self.scan_results[0]
+        self.assert_key("metrics", scan_result)
+        metrics = scan_result["metrics"]
+        metric = next(filter(lambda obj: obj["identity"] == metric_name, metrics))
+        assert metric is not None
+        return metric
 
     def find_check_diagnostics(self, check_index: int) -> dict | None:
         check = self.find_check(check_index)
@@ -174,6 +193,16 @@ class MockSodaCloud(SodaCloud):
     def find_failed_rows_line_count(self, check_index: int) -> int:
         file_contents = self.find_failed_rows_content(check_index)
         return file_contents.count("\n")
+
+    def find_failed_rows_query(self, check_index: int, query_type: str = "failingRowsQueryName"):
+        block = self.find_failed_rows_diagnostics_block(check_index)
+        assert block[query_type]
+        return self.find_queries(block[query_type])
+
+    def find_failed_rows_query_sql(self, check_index: int, query_type: str = "failingRowsQueryName"):
+        sample_query = self.find_failed_rows_query(check_index, query_type)
+        assert sample_query["sql"]
+        return sample_query["sql"].lower()
 
     def assert_no_failed_rows_block_present(self, check_index: int):
         diagnostics = self.find_check_diagnostics(check_index)

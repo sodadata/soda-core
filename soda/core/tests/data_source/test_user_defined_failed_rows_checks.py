@@ -1,5 +1,7 @@
-from helpers.common_test_tables import customers_test_table
+from helpers.common_test_tables import customers_huge_test_table, customers_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.mock_http_request import MockHttpRequest
+from helpers.mock_http_sampler import MockHttpSampler
 
 
 def test_failed_rows_table_expression_with_limit(data_source_fixture: DataSourceFixture):
@@ -94,6 +96,62 @@ def test_failed_rows_data_source_query(data_source_fixture: DataSourceFixture):
     scan.assert_check_fail()
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 3
+
+
+def test_failed_rows_http_samples_present(
+    data_source_fixture: DataSourceFixture, mock_http_post_request: MockHttpRequest
+):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler(MockHttpSampler)
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks:
+            - failed rows:
+                name: Customers must have cst_size
+                fail query: |
+                  SELECT *
+                  FROM {qualified_table_name}
+                  WHERE cst_size < 0
+        """
+    )
+    scan.execute()
+
+    scan.assert_check_fail()
+
+    mock_http_post_request.assert_failed_rows_http_samples_present("Customers must have cst_size")
+
+
+def test_failed_rows_http_samples_absent(
+    data_source_fixture: DataSourceFixture, mock_http_post_request: MockHttpRequest
+):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler(MockHttpSampler)
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks:
+            - failed rows:
+                name: Customers must have cst_size
+                fail query: |
+                  SELECT *
+                  FROM {qualified_table_name}
+                  WHERE country IS NULL
+        """
+    )
+    scan.execute()
+
+    scan.assert_check_pass()
+
+    mock_http_post_request.assert_failed_rows_http_samples_absent("Customers must have cst_size")
 
 
 def test_failed_rows_table_query(data_source_fixture: DataSourceFixture):
@@ -326,3 +384,29 @@ def test_failed_rows_condition_warn_threshold_pass(data_source_fixture: DataSour
     )
     scan.execute()
     scan.assert_check_pass()
+
+
+def test_failed_rows_over_100_failed(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_huge_test_table)
+
+    qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
+
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_mock_sampler()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks:
+            - failed rows:
+                name: Customers must be empty
+                fail query: |
+                  SELECT *
+                  FROM {qualified_table_name}
+        """
+    )
+    scan.execute()
+    scan.assert_check_fail()
+    check_metric_name = mock_soda_cloud.find_check(0)["metrics"][0]
+
+    assert mock_soda_cloud.find_check_metric(check_metric_name)["value"] == 120
+    assert mock_soda_cloud.find_failed_rows_line_count(0) == 100

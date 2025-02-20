@@ -7,7 +7,6 @@ import os
 import re
 from datetime import timedelta
 from numbers import Number
-from textwrap import dedent
 from typing import List
 
 from antlr4 import CommonTokenStream, InputStream
@@ -394,7 +393,7 @@ class SodaCLParser(Parser):
 
             try:
                 group_limit = self._get_optional("group_limit", int) or 1000
-                query = self._get_required("query", str)
+                query = self._sanitize_query(self._get_required("query", str))
                 fields = self._get_required("fields", list)
                 check_cfgs = self._get_required("checks", list)
                 if check_cfgs:
@@ -444,7 +443,7 @@ class SodaCLParser(Parser):
                 fail_condition_sql_expr = self._get_optional(FAIL_CONDITION, str)
                 samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 samples_columns = self._get_optional(SAMPLES_COLUMNS, list)
-                fail_query = self._get_optional(FAIL_QUERY, str)
+                fail_query = self._sanitize_query(self._get_optional(FAIL_QUERY, str))
 
                 fail_threshold_condition_str = self._get_optional(FAIL, str)
                 fail_threshold_cfg = self.__parse_configuration_threshold_condition(fail_threshold_condition_str)
@@ -478,7 +477,7 @@ class SodaCLParser(Parser):
                         samples_columns=samples_columns,
                     )
                 else:
-                    fail_query = self._get_optional(FAIL_QUERY, str)
+                    fail_query = self._sanitize_query(self._get_optional(FAIL_QUERY, str))
                     if fail_query:
                         return UserDefinedFailedRowsCheckCfg(
                             source_header=header_str,
@@ -500,34 +499,6 @@ class SodaCLParser(Parser):
         else:
             self.logs.error(f'Check "{check_str}" expects a nested object/dict, but was {check_configurations}')
 
-    def __parse_failed_rows_table_expression_check(
-        self,
-        header_str: str,
-        check_str: str,
-        check_configurations: dict | None,
-    ) -> CheckCfg:
-        if isinstance(check_configurations, dict):
-            from soda.sodacl.user_defined_failed_rows_expression_check_cfg import (
-                UserDefinedFailedRowsExpressionCheckCfg,
-            )
-
-            self._push_path_element(check_str, check_configurations)
-            try:
-                expression = self._get_required("failed rows expression", str)
-                name = self._get_optional(NAME, str)
-                return UserDefinedFailedRowsExpressionCheckCfg(
-                    source_header=header_str,
-                    source_line=check_str,
-                    source_configurations=check_configurations,
-                    location=self.location,
-                    name=name,
-                    fail_condition_sql_expr=expression,
-                )
-            finally:
-                self._pop_path_element()
-        else:
-            self.logs.error(f'Check "{check_str}" expects a nested object/dict, but was {check_configurations}')
-
     def parse_failed_rows_data_source_query_check(
         self,
         header_str: str,
@@ -542,7 +513,7 @@ class SodaCLParser(Parser):
             self._push_path_element(check_str, check_configurations)
             try:
                 name = self._get_optional(NAME, str)
-                query = self._get_required(FAIL_QUERY, str)
+                query = self._sanitize_query(self._get_required(FAIL_QUERY, str))
                 samples_limit = self._get_optional(SAMPLES_LIMIT, int)
                 samples_columns = self._get_optional(SAMPLES_COLUMNS, list)
                 fail_threshold_condition_str = self._get_optional(FAIL, str)
@@ -663,14 +634,14 @@ class SodaCLParser(Parser):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
                         sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
-                        failed_rows_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                        failed_rows_query = self._sanitize_query(fs.file_read_as_str(sql_file_path))
                     else:
-                        failed_rows_query = dedent(configuration_value).strip()
+                        failed_rows_query = self._sanitize_query(configuration_value)
                 elif configuration_key.endswith("query") or configuration_key.endswith("sql_file"):
                     if configuration_key.endswith("sql_file"):
                         fs = file_system()
                         sql_file_path = fs.join(fs.dirname(self.path_stack.file_path), configuration_value.strip())
-                        metric_query = dedent(fs.file_read_as_str(sql_file_path)).strip()
+                        metric_query = self._sanitize_query(fs.file_read_as_str(sql_file_path))
                         configuration_metric_name = (
                             configuration_key[: -len(" sql_file")]
                             if len(configuration_key) > len(" sql_file")
@@ -678,7 +649,7 @@ class SodaCLParser(Parser):
                         )
 
                     else:
-                        metric_query = dedent(configuration_value).strip()
+                        metric_query = self._sanitize_query(configuration_value)
 
                         configuration_metric_name = (
                             configuration_key[: -len(" query")] if len(configuration_key) > len(" query") else None
@@ -1036,12 +1007,12 @@ class SodaCLParser(Parser):
         if isinstance(check_configurations, dict):
             self._push_path_element(check_str, check_configurations)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, QUERY]:
+                if configuration_key not in [NAME, WARN, FAIL, ATTRIBUTES, QUERY, IDENTITY]:
                     self.logs.error(
                         f'Invalid group evolution check configuration key "{configuration_key}"', location=self.location
                     )
             name = self._get_optional(NAME, str)
-            query = self._get_required("query", str)
+            query = self._sanitize_query(self._get_required("query", str))
             group_evolution_check_cfg = GroupEvolutionCheckCfg(
                 source_header=header_str,
                 source_line=check_str,
@@ -1329,7 +1300,7 @@ class SodaCLParser(Parser):
         other_partition_name = None
         antlr_partition_name = antlr_row_count_comparison_check.partition_name()
         if antlr_partition_name:
-            other_partition_name = self.__antlr_parse_identifier(antlr_partition_name)
+            other_partition_name = self.__antlr_parse_identifier(antlr_partition_name).strip("[]")
 
         other_data_source_name = antlr_identifier2.getText() if antlr_identifier2 else None
 
@@ -1338,7 +1309,7 @@ class SodaCLParser(Parser):
             self._push_path_element(check_str, check_configurations)
             name = self._get_optional(NAME, str)
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, ATTRIBUTES]:
+                if configuration_key not in [NAME, ATTRIBUTES, IDENTITY]:
                     self.logs.error(
                         f"Invalid row count comparison configuration key {configuration_key}", location=self.location
                     )
@@ -1404,7 +1375,7 @@ class SodaCLParser(Parser):
             samples_limit = self._get_optional(SAMPLES_LIMIT, int)
 
             for configuration_key in check_configurations:
-                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES]:
+                if configuration_key not in [NAME, SAMPLES_LIMIT, ATTRIBUTES, IDENTITY]:
                     self.logs.error(
                         f"Invalid reference check configuration key {configuration_key}", location=self.location
                     )
@@ -1548,7 +1519,13 @@ class SodaCLParser(Parser):
             upper_included = antlr_between_threshold.ROUND_RIGHT() is None
             antlr_upper_value = antlr_between_threshold.threshold_value(1)
             upper_bound = self.__antlr_threshold_value(antlr_upper_value)
-            if lower_bound > upper_bound:
+            if (isinstance(lower_bound, str) and "${" in lower_bound) or (
+                isinstance(upper_bound, str) and "${" in upper_bound
+            ):
+                self.logs.info(
+                    f"Lower bound ({lower_bound}) or upper bound ({lower_bound}) contains variables. Skip SodaCL parser 'between' validation."
+                )
+            elif lower_bound > upper_bound:
                 self.logs.error(
                     f"Left lower bound should be less than the upper bound on the right {antlr_between_threshold.getText()}",
                     location=self.location,
@@ -1577,7 +1554,19 @@ class SodaCLParser(Parser):
             freshness_threshold = antlr_threshold_value.freshness_threshold_value().getText()
             return self.parse_freshness_threshold(freshness_threshold)
         if antlr_threshold_value.IDENTIFIER_UNQUOTED():
+            resolved_value = self._resolve_jinja(
+                antlr_threshold_value.IDENTIFIER_UNQUOTED().getText(), self.sodacl_cfg.scan._variables
+            )
+            if self.__str_looks_like_freshness_threshold(resolved_value):
+                return self.parse_freshness_threshold(resolved_value)
             return antlr_threshold_value.IDENTIFIER_UNQUOTED().getText()
+
+    def __str_looks_like_freshness_threshold(self, str_value: str) -> bool:
+        """
+        This method replicates the antlr parsing logic for freshness threshold values. It is needed to validate input after parsing so that
+        variables can be used in thresholds.
+        """
+        return re.match(r"^(\d+[dhm])+$", str_value) is not None
 
     def __antlr_parse_signed_number(self, antlr_signed_number):
         signed_number_str = antlr_signed_number.getText()
@@ -1649,6 +1638,14 @@ class SodaCLParser(Parser):
             else:
                 self.logs.error(
                     f"{configuration_type} must be a string, but was {type(configuration_value).__name__}",
+                    location=self.location,
+                )
+        elif configuration_type in ["include null"]:
+            if isinstance(configuration_value, bool):
+                set_configuration_value(configuration_value)
+            else:
+                self.logs.error(
+                    f"{configuration_type} must be a boolean, but was '{type(configuration_value).__name__}'",
                     location=self.location,
                 )
 

@@ -7,6 +7,10 @@ def test_formats(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     test_definitions = {
+        "email": {
+            "passing_values": ["info@soda.io", "some+email@gmail.com", "a@b.be"],
+            "failing_values": ["", "a", " ", "1.5", "4,2", "@@@@@"],
+        },
         "integer": {
             "passing_values": ["0", "1234567890", "-0", "- 1234567890", "+0", "+1"],
             "failing_values": ["", "a", " ", "1.5", "4,2"],
@@ -45,7 +49,20 @@ def test_formats(data_source_fixture: DataSourceFixture):
             "failing_values": ["", " ", "%", "a %", "0", "0.0"],
         },
         "date us": {
-            "passing_values": ["1/1/2020", "01/06/2020", "12/31/1925", "11-13-1981", "9-05-2000"],
+            "passing_values": [
+                "1/1/2020",
+                "01/06/2020",
+                "12/31/1925",
+                "11-13-1981",
+                "9-05-2000",
+                "11-10-2020",
+                "06-14-1899",
+                "07-04-1776",
+                "08-15-1620",
+                "09-20-1519",
+                "01-01-2100",
+                "01-01-1899",
+            ],
             "failing_values": [
                 "",
                 " ",
@@ -54,6 +71,9 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "1/1/2020 12:00",
                 "13/11/1981",
                 "31-12-1925",
+                "07-00-2021",
+                "00-25-2019",
+                "02-14-999",
             ],
         },
         "date eu": {
@@ -107,6 +127,10 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "2020-02-08 09Z",
                 "2020-04-30",
                 "2020-04-30T00:00:00.000",
+                "2020-10-11 11:34",
+                "2100-01-01 14:36",
+                "1899-01-01 21:55",
+                "1623-10-11T10:10:10.0000+01:00",
             ],
             "failing_values": [
                 "",
@@ -115,11 +139,13 @@ def test_formats(data_source_fixture: DataSourceFixture):
                 "9999-01-01",
                 "2000-13-01",
                 "2000-01-32",
+                "2020-10-11 90:34",
+                "2100-01-01 14:67",
             ],
         },
     }
 
-    if test_data_source == "sqlserver":
+    if test_data_source in ["fabric", "sqlserver"]:
         test_definitions.pop("percentage")  # Partially supported.
         test_definitions.pop("date us")  # Partially supported.
         test_definitions.pop("date eu")  # Partially supported.
@@ -145,7 +171,7 @@ def assert_format_values(format, data_source_fixture: DataSourceFixture, table_n
     def set_up_expression(value: str, format: str) -> str:
         expression = data_source.get_default_format_expression(f"'{value}'", format)
         # Special handling for sqlserver and teradata - expression matching cannot be used in the SELECT statement, so wrap it in CASE ... THEN ... ELSE for this test.
-        if test_data_source in ["sqlserver", "teradata"]:
+        if test_data_source in ["sqlserver", "teradata", "fabric"]:
             expression = f"CASE WHEN {expression} THEN 1 ELSE 0 END"
 
         return expression

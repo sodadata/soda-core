@@ -5,7 +5,9 @@ import os
 from datetime import date
 from textwrap import dedent
 
-from contracts.helpers.test_warehouse import TestWarehouse
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -32,20 +34,20 @@ contracts_api_test_table = TestTable(
 )
 
 
-def test_contract_verification_api(test_warehouse: TestWarehouse, environ: dict):
-    table_name: str = test_warehouse.ensure_test_table(contracts_api_test_table)
+def test_contract_verification_api(data_source_test_helper: ContractDataSourceTestHelper, environ: dict):
+    table_name: str = data_source_test_helper.ensure_test_table(contracts_api_test_table)
 
     environ["USERNAME"] = "sodasql"
     environ["PORT"] = os.getenv("POSTGRES_PORT", "5432")
 
-    warehouse_yaml_str = dedent(
+    data_source_yaml_str = dedent(
         """
         name: postgres_ds
         type: postgres
         connection:
             host: localhost
             database: sodasql
-            username: ${USERNAME}
+            user: ${USERNAME}
             port: ${PORT}
     """
     )
@@ -68,7 +70,7 @@ def test_contract_verification_api(test_warehouse: TestWarehouse, environ: dict)
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
         .with_contract_yaml_str(contract_yaml_str)
-        .with_warehouse_yaml_str(warehouse_yaml_str)
+        .with_data_source_yaml_str(data_source_yaml_str)
         .with_variables({"TABLE_NAME": table_name})
         .execute()
         .assert_ok()

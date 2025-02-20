@@ -4,6 +4,7 @@ import logging
 import os
 import textwrap
 from textwrap import dedent
+from typing import Type, TypeVar
 
 from helpers.mock_sampler import MockSampler
 from helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
@@ -16,6 +17,8 @@ from soda.sampler.log_sampler import LogSampler
 from soda.scan import Scan
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class TestScan(Scan):
@@ -80,9 +83,9 @@ class TestScan(Scan):
             self._configuration.soda_cloud = MockSodaCloud(self)
         return self._configuration.soda_cloud
 
-    def enable_mock_sampler(self) -> MockSampler:
-        if not isinstance(self._configuration.sampler, MockSampler):
-            self._configuration.sampler = MockSampler()
+    def enable_mock_sampler(self, sampler_class: Type[T] = MockSampler) -> T:
+        if not type(self._configuration.sampler) is sampler_class:
+            self._configuration.sampler = sampler_class()
         return self._configuration.sampler
 
     def execute(self, allow_error_warning: bool = False, allow_warnings_only: bool = False):
@@ -125,21 +128,25 @@ class TestScan(Scan):
     def assert_log_error(self, message):
         self.assert_log(message, LogLevel.ERROR)
 
-    def assert_log(self, message, level: LogLevel | None = None):
-        if level:
-            if not any([log.level == level and message in log.message for log in self._logs.logs]):
-                raise AssertionError(f"{level.name} not found: {message}")
+    def assert_log(self, message, level: LogLevel | None = None, ignore_case=False):
+        levels = [level] if level else [l for l in LogLevel]
+
+        if ignore_case:
+            if not any([log.level in levels and message.lower() in log.message.lower() for log in self._logs.logs]):
+                raise AssertionError(f"{level.name if level else 'Log'} not found: {message}")
         else:
             if not any([message in log.message for log in self._logs.logs]):
-                raise AssertionError(f"Log not found: {message}")
+                raise AssertionError(f"{level.name if level else 'Log'} not found: {message}")
 
-    def assert_no_log(self, message, level: LogLevel | None = None):
-        if level:
-            if any([log.level == level and message in log.message for log in self._logs.logs]):
-                raise AssertionError(f"{level.name} found: {message}")
+    def assert_no_log(self, message, level: LogLevel | None = None, ignore_case=False):
+        levels = [level] if level else [l for l in LogLevel]
+
+        if ignore_case:
+            if any([log.level in levels and message.lower() in log.message.lower() for log in self._logs.logs]):
+                raise AssertionError(f"{level.name if level else 'Log'} found: {message}")
         else:
             if any([message in log.message for log in self._logs.logs]):
-                raise AssertionError(f"Log found: {message}")
+                raise AssertionError(f"{level.name if level else 'Log'} found: {message}")
 
     def assert_all_checks_pass(self):
         self.assert_all_checks(CheckOutcome.PASS)
@@ -219,9 +226,16 @@ class TestScan(Scan):
 
         return error_message
 
+    @property
+    def data_source(self) -> DataSource:
+        return self._data_source_manager.data_sources[self._data_source_name]
+
     def casify_data_type(self, data_type: str) -> str:
         data_source_type = self.data_source.get_sql_type_for_schema_check(data_type)
         return self.data_source.default_casify_column_name(data_source_type)
 
     def casify_column_name(self, test_column_name: str) -> str:
         return self.data_source.default_casify_column_name(test_column_name)
+
+    def quote_table_name(self, table_name: str) -> str:
+        return self.data_source.quote_table(table_name)

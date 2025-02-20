@@ -6,10 +6,7 @@ from numbers import Number
 from textwrap import indent
 from typing import List
 
-from soda.cloud.soda_cloud import SodaCloud as SodaCLSodaCloud
-from soda.common import logs as soda_core_logs
 from soda.scan import Scan
-from soda.scan import logger as scan_logger
 
 from soda.contracts.check import (
     AbstractCheck,
@@ -33,46 +30,29 @@ from soda.contracts.check import (
     ValidConfigurations,
     ValidValuesReferenceData,
 )
+from soda.contracts.impl.contract_data_source import ContractDataSource
 from soda.contracts.impl.json_schema_verifier import JsonSchemaVerifier
-from soda.contracts.impl.logs import Location, Log, LogLevel, Logs
-from soda.contracts.impl.soda_cloud import SodaCloud
-from soda.contracts.impl.warehouse import Warehouse
-from soda.contracts.impl.yaml_helper import QuotingSerializer, YamlFile, YamlHelper
+from soda.contracts.impl.logs import Location, Logs
+from soda.contracts.impl.yaml_helper import YamlFile, YamlHelper
 
 logger = logging.getLogger(__name__)
 
 
 class Contract:
 
-    @classmethod
-    def create(
-        cls,
-        warehouse: Warehouse,
-        contract_file: YamlFile,
-        variables: dict[str, str],
-        soda_cloud: SodaCloud | None,
-        logs: Logs,
-    ):
-        return Contract(
-            warehouse=warehouse, contract_file=contract_file, variables=variables, soda_cloud=soda_cloud, logs=logs
-        )
-
     def __init__(
         self,
-        warehouse: Warehouse,
         contract_file: YamlFile,
-        variables: dict[str, str],
-        soda_cloud: SodaCloud | None,
         logs: Logs,
     ):
-        self.warehouse: Warehouse = warehouse
         self.contract_file: YamlFile = contract_file
-        self.variables: dict[str, str] = variables
-        self.soda_cloud: SodaCloud | None = soda_cloud
         self.logs: Logs = logs
 
-        self.dataset: str | None = None
-        self.schema: str | None = None
+        self.data_source_name: str | None = None
+        self.database_name: str | None = None
+        self.schema_name: str | None = None
+        self.dataset_name: str | None = None
+
         # TODO explain filter_expression_sql, default filter and named filters
         # filter name must part of the identity of the metrics
         #   - no filter part if no filter is specified
@@ -95,30 +75,31 @@ class Contract:
         try:
             yaml_helper = YamlHelper(yaml_file=self.contract_file, logs=self.logs)
 
-            self.contract_file.parse(self.variables)
             if not self.contract_file.is_ok():
-                return self
+                return
 
             # Verify the contract schema on the ruamel instance object
             json_schema_verifier: JsonSchemaVerifier = JsonSchemaVerifier(self.logs)
-            json_schema_verifier.verify(self.contract_file.dict)
+            json_schema_verifier.verify(self.contract_file.get_dict())
 
-            contract_yaml_dict = self.contract_file.dict
+            contract_yaml_dict = self.contract_file.get_dict()
 
-            self.warehouse_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "warehouse")
-            self.schema: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
-            self.dataset: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
+            self.data_source_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "data_source")
+            self.database_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "database")
+            self.schema_name: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "schema")
+            self.dataset_name: str | None = yaml_helper.read_string(contract_yaml_dict, "dataset")
             self.filter_sql: str | None = yaml_helper.read_string_opt(contract_yaml_dict, "filter_sql")
             self.filter: str | None = "default" if self.filter_sql else None
 
             self.checks.append(
                 SchemaCheck(
-                    logs=self.logs,
                     contract_file=self.contract_file,
-                    warehouse=self.warehouse_name,
-                    schema=self.schema,
-                    dataset=self.dataset,
+                    data_source_name=self.data_source_name,
+                    database_name=self.database_name,
+                    schema_name=self.schema_name,
+                    dataset_name=self.dataset_name,
                     yaml_contract=contract_yaml_dict,
+                    logs=self.logs,
                 )
             )
 
@@ -161,9 +142,10 @@ class Contract:
         check_args: CheckArgs = CheckArgs(
             logs=self.logs,
             contract_file=self.contract_file,
-            warehouse=self.warehouse_name,
-            schema=self.schema,
-            dataset=self.dataset,
+            data_source_name=self.data_source_name,
+            database_name=self.database_name,
+            schema_name=self.schema_name,
+            dataset_name=self.dataset_name,
             filter=self.filter,
             check_type=check_type,
             check_yaml=check_yaml,
@@ -202,9 +184,10 @@ class Contract:
         check_args: CheckArgs = CheckArgs(
             logs=self.logs,
             contract_file=self.contract_file,
-            warehouse=self.warehouse_name,
-            schema=self.schema,
-            dataset=self.dataset,
+            data_source_name=self.data_source_name,
+            database_name=self.database_name,
+            schema_name=self.schema_name,
+            dataset_name=self.dataset_name,
             filter=self.filter,
             check_type=check_type,
             check_yaml=check_yaml,
@@ -349,114 +332,6 @@ class Contract:
             if check:
                 return check
 
-    def __append_scan_warning_and_error_logs(self, scan_logs: soda_core_logs.Logs) -> None:
-        level_map = {
-            soda_core_logs.LogLevel.ERROR: LogLevel.ERROR,
-            soda_core_logs.LogLevel.WARNING: LogLevel.WARNING,
-            soda_core_logs.LogLevel.INFO: LogLevel.INFO,
-            soda_core_logs.LogLevel.DEBUG: LogLevel.DEBUG,
-        }
-        for scan_log in scan_logs.logs:
-            if scan_log.level in [soda_core_logs.LogLevel.ERROR, soda_core_logs.LogLevel.WARNING]:
-                contracts_location: Location = (
-                    Location(
-                        file_path=self.contract_file.get_file_description(),
-                        line=scan_log.location.line,
-                        column=scan_log.location.col,
-                    )
-                    if scan_log.location is not None
-                    else None
-                )
-                contracts_level: LogLevel = level_map[scan_log.level]
-                self.logs._log(
-                    Log(
-                        level=contracts_level,
-                        message=f"SodaCL: {scan_log.message}",
-                        location=contracts_location,
-                        exception=scan_log.exception,
-                    )
-                )
-
-    def verify(self) -> ContractResult:
-        scan = Scan()
-
-        scan_logs = soda_core_logs.Logs(logger=scan_logger)
-        scan_logs.verbose = True
-
-        sodacl_yaml_str: str | None = None
-        try:
-            sodacl_yaml_str = self.__generate_sodacl_yaml_str()
-            logger.debug(sodacl_yaml_str)
-
-            if sodacl_yaml_str and hasattr(self.warehouse, "sodacl_data_source"):
-                scan._logs = scan_logs
-
-                # This assumes the connection is a WarehouseConnection
-                sodacl_data_source = self.warehouse.sodacl_data_source
-                # Execute the contract SodaCL in a scan
-                scan.set_data_source_name(sodacl_data_source.data_source_name)
-                scan_definition_name = (
-                    f"dataset://{self.warehouse.warehouse_name}/{self.schema}/{self.dataset}"
-                    if self.schema
-                    else f"dataset://{self.warehouse.warehouse_name}/{self.dataset}"
-                )
-                # noinspection PyProtectedMember
-                scan._data_source_manager.data_sources[self.warehouse.warehouse_name] = sodacl_data_source
-
-                if self.soda_cloud:
-                    scan.set_scan_definition_name(scan_definition_name)
-                    # noinspection PyProtectedMember
-                    scan._configuration.soda_cloud = SodaCLSodaCloud(
-                        host=self.soda_cloud.host,
-                        api_key_id=self.soda_cloud.api_key_id,
-                        api_key_secret=self.soda_cloud.api_key_secret,
-                        token=self.soda_cloud.token,
-                        port=self.soda_cloud.port,
-                        logs=scan_logs,
-                        scheme=self.soda_cloud.scheme,
-                    )
-
-                if self.variables:
-                    scan.add_variables(self.variables)
-
-                scan.add_sodacl_yaml_str(sodacl_yaml_str)
-                scan.execute()
-
-        except Exception as e:
-            self.logs.error(f"Data contract verification error: {e}", exception=e)
-
-        # The scan warning and error logs are copied into self.logs and at the end of this
-        # method, a SodaException is raised if there are error logs.
-        self.__append_scan_warning_and_error_logs(scan_logs)
-
-        contract_result: ContractResult = ContractResult(
-            contract=self, sodacl_yaml_str=sodacl_yaml_str, logs=self.logs, scan=scan
-        )
-
-        return contract_result
-
-    def __generate_sodacl_yaml_str(self) -> str:
-        # Serialize the SodaCL YAML object to a YAML string
-        sodacl_checks: list = []
-
-        dataset_name: str = QuotingSerializer.quote(self.dataset)
-        sodacl_yaml_object: dict = (
-            {
-                f"filter {dataset_name} [filter]": {"where": self.filter_sql},
-                f"checks for {dataset_name} [filter]": sodacl_checks,
-            }
-            if self.filter_sql
-            else {f"checks for {dataset_name}": sodacl_checks}
-        )
-
-        for check in self.checks:
-            if not check.skip:
-                sodacl_check = check.to_sodacl_check()
-                if sodacl_check is not None:
-                    sodacl_checks.append(sodacl_check)
-        yaml_helper: YamlHelper = YamlHelper(logs=self.logs)
-        return yaml_helper.write_to_yaml_str(sodacl_yaml_object)
-
 
 @dataclass
 class ContractResult:
@@ -474,7 +349,10 @@ class ContractResult:
     logs: Logs
     check_results: List[CheckResult]
 
-    def __init__(self, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan):
+    def __init__(
+        self, data_source: ContractDataSource, contract: Contract, sodacl_yaml_str: str | None, logs: Logs, scan: Scan
+    ):
+        self.data_source_yaml_dict: dict = data_source.data_source_yaml_dict
         self.contract = contract
         self.sodacl_yaml_str = sodacl_yaml_str
         # See also adr/03_exceptions_vs_error_logs.md
@@ -532,10 +410,13 @@ class ContractResult:
         error_texts_list: List[str] = [str(error) for error in self.logs.get_errors()]
 
         check_failure_message_list: list[str] = []
+
+        check_failure_count: int = 0
         for check_result in self.check_results:
             if check_result.outcome == CheckOutcome.FAIL:
                 result_str_lines = check_result.get_contract_result_str_lines()
                 check_failure_message_list.extend(result_str_lines)
+                check_failure_count += 1
 
         if not error_texts_list and not check_failure_message_list:
             return "All is good. No checks failed. No contract execution errors."
@@ -544,8 +425,8 @@ class ContractResult:
         if len(error_texts_list) != 1:
             errors_summary_text = f"{errors_summary_text}s"
 
-        checks_summary_text = f"{len(check_failure_message_list)} check failure"
-        if len(check_failure_message_list) != 1:
+        checks_summary_text = f"{check_failure_count} check failure"
+        if check_failure_count != 1:
             checks_summary_text = f"{checks_summary_text}s"
 
         parts = [f"{checks_summary_text} and {errors_summary_text}"]

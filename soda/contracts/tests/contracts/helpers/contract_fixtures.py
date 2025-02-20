@@ -1,19 +1,19 @@
-from typing import Any
+from __future__ import annotations
 
 import pytest
-from contracts.helpers.test_warehouse import TestWarehouse
-from helpers.data_source_fixture import DataSourceFixture
-from soda.common.logs import configure_logging
-
-from soda.contracts.impl.warehouse import Warehouse
-
-
-def pytest_sessionstart(session: Any) -> None:
-    configure_logging()
-    # logging.getLogger("soda").setLevel(logging.WARNING)
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 
 
 @pytest.fixture(scope="session")
-def test_warehouse(data_source_fixture: DataSourceFixture) -> Warehouse:
-    with TestWarehouse(data_source_fixture) as test_warehouse:
-        yield test_warehouse
+def data_source_test_helper() -> ContractDataSourceTestHelper:
+    contract_data_source_test_helper = ContractDataSourceTestHelper.create()
+    contract_data_source_test_helper.start_test_session()
+    exception: Exception | None = None
+    try:
+        yield contract_data_source_test_helper
+    except Exception as e:
+        exception = e
+    finally:
+        contract_data_source_test_helper.end_test_session(exception=exception)

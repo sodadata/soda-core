@@ -1,4 +1,6 @@
-from contracts.helpers.test_warehouse import TestWarehouse
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -6,7 +8,7 @@ from soda.contracts.check import MetricCheckResult, UserDefinedMetricQueryCheck
 from soda.contracts.contract import CheckOutcome, ContractResult
 
 user_defined_metric_query_sql_test_table = TestTable(
-    name="metric_query_query",
+    name="user_defined_metric_query_sql",
     # fmt: off
     columns=[
         ("id", DataType.TEXT),
@@ -21,24 +23,25 @@ user_defined_metric_query_sql_test_table = TestTable(
 )
 
 
-def test_contract_metric_query_on_column(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(user_defined_metric_query_sql_test_table)
+def test_contract_metric_query_on_column(data_source_test_helper: ContractDataSourceTestHelper):
+    unique_table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
+    qualified_table_name: str = data_source_test_helper.contract_data_source.qualify_table(unique_table_name)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: id
-            checks:
-            - type: metric_query
-              metric: us_count
-              query_sql: |
-                SELECT COUNT(*)
-                FROM {table_name}
-                WHERE country = 'US'
-              must_be_not_between: [0, 5]
-          - name: country
-    """
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=user_defined_metric_query_sql_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                - type: metric_query
+                  metric: us_count
+                  query_sql: |
+                    SELECT COUNT(*)
+                    FROM {qualified_table_name}
+                    WHERE country = 'US'
+                  must_be_not_between: [0, 5]
+              - name: country
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -50,17 +53,18 @@ def test_contract_metric_query_on_column(test_warehouse: TestWarehouse):
     assert isinstance(check, UserDefinedMetricQueryCheck)
     assert check.type == "metric_query"
     assert check.metric == "us_count"
-    assert check.column == "id"
+    assert check.column.lower() == "id"
 
-    assert "Actual us_count(id) was 2" in str(contract_result)
+    assert "actual us_count(id) was 2" in str(contract_result).lower()
 
 
-def test_contract_metric_query_on_dataset(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(user_defined_metric_query_sql_test_table)
+def test_contract_metric_query_on_dataset(data_source_test_helper: ContractDataSourceTestHelper):
+    unique_table_name: str = data_source_test_helper.ensure_test_table(user_defined_metric_query_sql_test_table)
+    qualified_table_name: str = data_source_test_helper.contract_data_source.qualify_table(unique_table_name)
 
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
-        f"""
-        dataset: {table_name}
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=user_defined_metric_query_sql_test_table,
+        contract_yaml_str=f"""
         columns:
           - name: id
           - name: country
@@ -69,10 +73,10 @@ def test_contract_metric_query_on_dataset(test_warehouse: TestWarehouse):
             metric: us_count
             query_sql: |
               SELECT COUNT(*)
-              FROM {table_name}
+              FROM {qualified_table_name}
               WHERE country = 'US'
             must_be_not_between: [0, 5]
-    """
+    """,
     )
 
     check_result = contract_result.check_results[1]
@@ -86,4 +90,4 @@ def test_contract_metric_query_on_dataset(test_warehouse: TestWarehouse):
     assert check.metric == "us_count"
     assert check.column is None
 
-    assert "Actual us_count was 2" in str(contract_result)
+    assert "actual us_count was 2" in str(contract_result).lower()

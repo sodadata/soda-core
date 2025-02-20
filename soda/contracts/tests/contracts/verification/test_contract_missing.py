@@ -1,5 +1,6 @@
-from contracts.helpers.contract_parse_errors import get_parse_errors_str
-from contracts.helpers.test_warehouse import TestWarehouse
+from contracts.helpers.contract_data_source_test_helper import (
+    ContractDataSourceTestHelper,
+)
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
@@ -22,8 +23,8 @@ contracts_missing_test_table = TestTable(
 )
 
 
-def test_no_missing_with_threshold():
-    errors_str = get_parse_errors_str(
+def test_no_missing_with_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -37,8 +38,8 @@ def test_no_missing_with_threshold():
     assert "Check type 'no_missing_values' does not allow for threshold keys must_..." in errors_str
 
 
-def test_missing_count_without_threshold():
-    errors_str = get_parse_errors_str(
+def test_missing_count_without_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    errors_str = data_source_test_helper.get_parse_errors_str(
         """
           dataset: TABLE_NAME
           columns:
@@ -51,18 +52,16 @@ def test_missing_count_without_threshold():
     assert "Check type 'missing_count' requires threshold configuration" in errors_str
 
 
-def test_contract_nomissing_with_missing_values(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: no_missing_values
-          - name: two
-    """
+def test_contract_nomissing_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: no_missing_values
+              - name: two
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -74,23 +73,21 @@ def test_contract_nomissing_with_missing_values(test_warehouse: TestWarehouse):
     assert isinstance(check, MetricCheck)
     assert check.type == "no_missing_values"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual missing_count(one) was 1" in str(contract_result)
+    assert "actual missing_count(one) was 1" in str(contract_result).lower()
 
 
-def test_contract_nomissing_without_missing_values(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-          - name: two
-            checks:
-            - type: no_missing_values
-    """
+def test_contract_nomissing_without_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+              - name: two
+                checks:
+                - type: no_missing_values
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -102,22 +99,20 @@ def test_contract_nomissing_without_missing_values(test_warehouse: TestWarehouse
     assert isinstance(check, MetricCheck)
     assert check.type == "no_missing_values"
     assert check.metric == "missing_count"
-    assert check.column == "two"
+    assert check.column.lower() == "two"
 
 
-def test_contract_missing_count_with_missing_values(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              must_be: 0
-          - name: two
-    """
+def test_contract_missing_count_with_missing_values(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  must_be: 0
+              - name: two
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -129,24 +124,22 @@ def test_contract_missing_count_with_missing_values(test_warehouse: TestWarehous
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual missing_count(one) was 1" in str(contract_result)
+    assert "actual missing_count(one) was 1" in str(contract_result).lower()
 
 
-def test_contract_missing_count_pass(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              must_be_less_than: 10
-          - name: two
-    """
+def test_contract_missing_count_pass(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  must_be_less_than: 10
+              - name: two
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -158,23 +151,21 @@ def test_contract_missing_count_pass(test_warehouse: TestWarehouse):
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
-def test_contract_missing_count_with_missing_values_pass(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              missing_values: ['N/A']
-              must_be: 2
-          - name: two
-    """
+def test_contract_missing_count_with_missing_values_pass(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  missing_values: ['N/A']
+                  must_be: 2
+              - name: two
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -186,23 +177,21 @@ def test_contract_missing_count_with_missing_values_pass(test_warehouse: TestWar
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
 
-def test_contract_missing_count_with_missing_regex_sql(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_fail(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              missing_regex_sql: ^N/A$
-              must_be: 0
-          - name: two
-    """
+def test_contract_missing_count_with_missing_regex_sql(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  missing_regex_sql: ^N/A$
+                  must_be: 0
+              - name: two
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -214,25 +203,23 @@ def test_contract_missing_count_with_missing_regex_sql(test_warehouse: TestWareh
     assert isinstance(check, MetricCheck)
     assert check.type == "missing_count"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"
 
-    assert "Actual missing_count(one) was 2" in str(contract_result)
+    assert "actual missing_count(one) was 2" in str(contract_result).lower()
 
 
-def test_contract_missing_count_name_and_threshold(test_warehouse: TestWarehouse):
-    table_name: str = test_warehouse.ensure_test_table(contracts_missing_test_table)
-
-    contract_result: ContractResult = test_warehouse.assert_contract_pass(
-        f"""
-        dataset: {table_name}
-        columns:
-          - name: one
-            checks:
-            - type: missing_count
-              name: Missing values count must be between 0 and 3
-              must_be_between: [0, 3]
-          - name: two
-    """
+def test_contract_missing_count_name_and_threshold(data_source_test_helper: ContractDataSourceTestHelper):
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=contracts_missing_test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: one
+                checks:
+                - type: missing_count
+                  name: Missing values count must be between 0 and 3
+                  must_be_between: [0, 3]
+              - name: two
+        """,
     )
 
     check_result = contract_result.check_results[1]
@@ -245,4 +232,4 @@ def test_contract_missing_count_name_and_threshold(test_warehouse: TestWarehouse
     assert check.type == "missing_count"
     assert check.name == "Missing values count must be between 0 and 3"
     assert check.metric == "missing_count"
-    assert check.column == "one"
+    assert check.column.lower() == "one"

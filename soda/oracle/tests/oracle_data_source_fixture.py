@@ -17,17 +17,12 @@ class OracleDataSourceFixture(DataSourceFixture):
                 "username": os.getenv("ORACLE_USERNAME", "sodacore"),
                 "password": os.getenv("ORACLE_PASSWORD", "password123"),
                 "connectstring": os.getenv("ORACLE_CONNECTSTRING", "localhost:1521/xepdb1"),
+                "schema": schema_name.upper() if schema_name else self.schema_name.upper(),
             }
         }
 
     def __init__(self, test_data_source: str):
         super().__init__(test_data_source)
-
-    def _create_schema_if_not_exists_sql(self):
-        return "select * from dual"
-
-    def _drop_schema_if_exists_sql(self):
-        return "select * from dual"
 
     def _insert_test_table_sql(self, test_table: TestTable) -> str:
         if test_table.values:
@@ -42,6 +37,8 @@ class OracleDataSourceFixture(DataSourceFixture):
                 return ",".join(self.data_source.literal(value) for value in row)
 
             test_table_columns = ", ".join([c.name for c in test_table.test_columns])
+            if test_table.quote_names:
+                test_table_columns = ", ".join([self.data_source.quote_column(c.name) for c in test_table.test_columns])
             rows_sql = "\n".join(
                 [
                     f" INTO {qualified_table_name} ({test_table_columns}) VALUES ( {sql_test_table_row(row)})"
@@ -50,26 +47,31 @@ class OracleDataSourceFixture(DataSourceFixture):
             )
             return f"INSERT ALL {rows_sql} \n SELECT 1 FROM DUAL"
 
-    # def _create_schema_if_not_exists_sql(self):
-    #     return f"""
-    #     declare
-    #     userexist integer;
-    #     begin
-    #         select count(*) into userexist from dba_users where username='{self.schema_name}';
-    #         if (userexist = 0) then
-    #             execute immediate 'create user {self.schema_name}';
-    #         end if;
-    #     end;
-    #     """
-    #
-    # def _drop_schema_if_exists_sql(self):
-    #     return f"""
-    #     declare
-    #     userexist integer;
-    #     begin
-    #         select count(*) into userexist from dba_users where username = '{self.schema_name}';
-    #         if (userexist = 1) then
-    #             execute immediate 'drop user {self.schema_name} cascade';
-    #         end if;
-    #     end;
-    #     """
+    def _create_schema_if_not_exists_sql(self):
+        casify = str.upper
+        return f"""
+        declare
+            userexist integer;
+        begin
+            select count(*) into userexist from dba_users where username='{casify(self.schema_name)}';
+            if (userexist = 0) then
+                execute immediate 'create user {casify(self.schema_name)}';
+                execute immediate 'ALTER USER {casify(self.schema_name)} QUOTA UNLIMITED ON SYSTEM';
+                execute immediate 'ALTER SESSION SET TIME_ZONE = ''+00:00''';
+
+            end if;
+        end;
+        """
+
+    def _drop_schema_if_exists_sql(self):
+        casify = str.upper
+        return f"""
+        declare
+        userexist integer;
+        begin
+            select count(*) into userexist from dba_users where username = '{casify(self.schema_name)}';
+            if (userexist = 1) then
+                execute immediate 'drop user {casify(self.schema_name)} cascade';
+            end if;
+        end;
+        """

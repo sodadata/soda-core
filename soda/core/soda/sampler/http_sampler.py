@@ -22,23 +22,34 @@ class HTTPSampler(Sampler):
         sample_rows = sample_context.sample.get_rows()
         row_count = sample_context.sample.get_rows_count()
         sample_schema = sample_context.sample.get_schema()
+        link = self.link
+        message = f"{self.message}"
+        link_text = self.link_text
 
-        result_dict = {
-            "schema": sample_schema.get_dict(),
-            "count": row_count,
-            "rows": sample_rows,
-            "datasource": sample_context.sample.data_source.data_source_name,
-            "dataset": Partition.get_table_name(sample_context.partition),
-            "scan_definition": sample_context.scan._scan_definition_name,
-            "check_name": sample_context.check_name,
-        }
+        if row_count != 0:
+            result_dict = {
+                "schema": sample_schema.get_dict(),
+                "count": row_count,
+                "rows": sample_rows,
+                "datasource": sample_context.sample.data_source.data_source_name,
+                "dataset": Partition.get_table_name(sample_context.partition),
+                "scan_definition": sample_context.scan._scan_definition_name,
+                "check_name": sample_context.check_name,
+                "scan_time": sample_context.scan._data_timestamp.isoformat(),
+            }
 
-        response = requests.post(self.url, json=json.dumps(result_dict, sort_keys=True, default=str))
+            response = requests.post(self.url, json=json.dumps(result_dict, sort_keys=True, default=str))
+            message = f"{self.message} {response.text}"
 
-        if response.status_code != 200:
-            self.logs.error(f"Unable to upload failed rows to {self.url} -  {response.text}")
+            if response.status_code != 200:
+                self.logs.error(f"Unable to upload failed rows to {self.url} -  {response.text}")
+            else:
+                self.logs.info(f"Uploaded {row_count} failed rows to {self.url}")
         else:
-            self.logs.info(f"Uploaded {row_count} failed rows to {self.url}")
+            link = None
+            message = None
+            link_text = None
+            self.logs.info(f"No failed rows recognized. Nothing uploaded to {self.url}")
 
         if sample_context.samples_limit is not None:
             stored_row_count = row_count if row_count < sample_context.samples_limit else sample_context.samples_limit
@@ -51,7 +62,7 @@ class HTTPSampler(Sampler):
             total_row_count=row_count,
             stored_row_count=stored_row_count,
             type=SampleRef.TYPE_NOT_PERSISTED,
-            link=self.link,
-            message=f"{self.message} {response.text}",
-            link_text=self.link_text,
+            link=link,
+            message=message,
+            link_text=link_text,
         )

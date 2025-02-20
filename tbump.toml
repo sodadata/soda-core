@@ -1,5 +1,5 @@
 [version]
-current = "3.3.5"
+current = "3.4.4"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)((?P<prerelease>[a-z]+)(?P<build>\d+))?
@@ -100,4 +100,16 @@ search = 'package_version = "{current_version}"'
 
 [[file]]
 src = "soda/contracts/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/atlan/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/fabric/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda/impala/setup.py"
 search = 'package_version = "{current_version}"'

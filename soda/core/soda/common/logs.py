@@ -47,6 +47,7 @@ class Logs:
     def reset(self):
         self.__instance = Logs()
         self.__instance._initialize()
+        return self.__instance
 
     def error(
         self,

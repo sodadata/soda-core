@@ -3,6 +3,7 @@ from typing import Optional
 
 from jinja2 import Environment
 from jinja2.runtime import Context
+from jinja2.sandbox import SandboxedEnvironment
 
 
 class OsContext(Context):
@@ -18,7 +19,7 @@ class OsContext(Context):
 
 
 def create_os_environment():
-    environment = Environment(variable_start_string="${", variable_end_string="}")
+    environment = SandboxedEnvironment(variable_start_string="${", variable_end_string="}")
     environment.context_class = OsContext
     return environment
 
@@ -27,14 +28,16 @@ class Jinja:
     environment = create_os_environment()
 
     @staticmethod
-    def resolve(template: str, variables: dict = None) -> str:
+    def resolve(template: str, variables: dict = None, environment: Environment = None) -> str:
         """
         Convenience method that funnels Jinja exceptions into parselog errors.
         This method throws no exceptions.  Returns None in case of Jinja exceptions.
         """
+        if environment is None:
+            environment = Jinja.environment
         if not isinstance(variables, dict):
             variables = {}
-        jinja_template = Jinja.environment.from_string(template)
+        jinja_template = environment.from_string(template)
         rendered_value = jinja_template.render(variables)
         return rendered_value
 
