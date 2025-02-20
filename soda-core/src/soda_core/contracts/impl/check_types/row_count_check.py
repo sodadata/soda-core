@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Check, Contract
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Check, Contract, Diagnostic, \
+    NumericDiagnostic
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, CheckImpl, AggregationMetricImpl, ThresholdImpl, \
     ThresholdType, CheckParser, ContractImpl, ColumnImpl, MeasurementValues
@@ -76,8 +77,8 @@ class RowCountCheckImpl(CheckImpl):
             else:
                 outcome = CheckOutcome.FAILED
 
-        diagnostic_lines: list[str] = [
-            f"  Actual row_count was {row_count}"
+        diagnostics: list[Diagnostic] = [
+            NumericDiagnostic(name="row_count", value=row_count)
         ]
 
         return CheckResult(
@@ -85,7 +86,7 @@ class RowCountCheckImpl(CheckImpl):
             check=self._build_check_info(),
             metric_value=row_count,
             outcome=outcome,
-            diagnostic_lines=diagnostic_lines,
+            diagnostics=diagnostics
         )
 
 

@@ -126,15 +126,15 @@ class SodaCloud:
         self._organization_configuration = None
 
     def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
-        contract_yaml_source_str = contract_result.contract_info.source.source_content_str
+        contract_yaml_source_str = contract_result.contract.source.source_content_str
         self.logs.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
-        soda_cloud_file_path : str = f"{contract_result.contract_info.soda_qualified_dataset_name.lower()}.yml"
+        soda_cloud_file_path : str = f"{contract_result.contract.soda_qualified_dataset_name.lower()}.yml"
         file_id: str | None = self._upload_contract(
             yaml_str_source=contract_yaml_source_str,
             soda_cloud_file_path=soda_cloud_file_path
         )
         if file_id:
-            contract_result.contract_info.source.soda_cloud_file_id = file_id
+            contract_result.contract.source.soda_cloud_file_id = file_id
             contract_result = self._build_contract_result_json(
                 contract_result=contract_result, skip_publish=skip_publish
             )
@@ -173,8 +173,8 @@ class SodaCloud:
 
         return self.to_jsonnable(  # type: ignore
             {
-                "definitionName": contract_result.soda_qualified_dataset_name,
-                "defaultDataSource": contract_result.data_source_name,
+                "definitionName": contract_result.contract.soda_qualified_dataset_name,
+                "defaultDataSource": contract_result.data_source_info.name,
                 "defaultDataSourceProperties": {
                     "type": contract_result.data_source_info.type
                 },
@@ -201,16 +201,16 @@ class SodaCloud:
                 "logs": log_cloud_json_dicts,
                 "sourceOwner": "soda-core",
                 "contract": {
-                    "fileId": contract_result.contract_info.source.soda_cloud_file_id,
+                    "fileId": contract_result.contract.source.soda_cloud_file_id,
                     "dataset": {
-                        "datasource": contract_result.contract_info.data_source_name,
-                        "prefixes": contract_result.contract_info.dataset_prefix,
-                        "name": contract_result.contract_info.dataset_name
+                        "datasource": contract_result.contract.data_source_name,
+                        "prefixes": contract_result.contract.dataset_prefix,
+                        "name": contract_result.contract.dataset_name
                     },
                     "metadata": {
                         "source": {
                             "type": "local",
-                            "filePath": contract_result.contract_info.source.local_file_path
+                            "filePath": contract_result.contract.source.local_file_path
                         }
                     }
                 },

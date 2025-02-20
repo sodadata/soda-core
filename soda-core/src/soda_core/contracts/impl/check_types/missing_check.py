@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Contract
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Contract, Diagnostic, NumericDiagnostic
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, CheckImpl, AggregationMetricImpl, ThresholdImpl, \
@@ -76,8 +76,8 @@ class MissingCheck(MissingAndValidityCheckImpl):
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
-        diagnostic_lines = [
-            f"  Actual missing_count was {missing_count}"
+        diagnostics: list[Diagnostic] = [
+            NumericDiagnostic(name="missing_count", value=missing_count)
         ]
 
         threshold_value: Number | None = None
@@ -85,9 +85,9 @@ class MissingCheck(MissingAndValidityCheckImpl):
             threshold_value = missing_count
         else:
             row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-            diagnostic_lines.append(f"  Actual row_count was {row_count}")
+            diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
             missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
-            diagnostic_lines.append(f"  Actual missing_percent was {missing_percent}")
+            diagnostics.append(NumericDiagnostic(name="missing_percent", value=missing_percent))
             threshold_value = missing_percent
 
         if self.threshold and isinstance(threshold_value, Number):
@@ -101,7 +101,7 @@ class MissingCheck(MissingAndValidityCheckImpl):
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,
-            diagnostic_lines=diagnostic_lines,
+            diagnostics=diagnostics
         )
 
 

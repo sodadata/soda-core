@@ -1,4 +1,4 @@
-from soda_core.contracts.contract_verification import ContractResult, CheckOutcome
+from soda_core.contracts.contract_verification import ContractResult, CheckOutcome, NumericDiagnostic, Diagnostic
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -31,8 +31,10 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
                   - type: invalid_count
         """
     )
-    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
-    assert "Actual invalid_count was 1" in diagnostic_line
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
 
 
 def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHelper):
@@ -49,8 +51,10 @@ def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHe
                   - type: invalid_count
         """
     )
-    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
-    assert "Actual invalid_count was 1" in diagnostic_line
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
 
 
 def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelper):
@@ -68,8 +72,10 @@ def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelp
                   - type: invalid_count
         """
     )
-    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
-    assert "Actual invalid_count was 1" in diagnostic_line
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
 
 
 def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTestHelper):
@@ -86,8 +92,10 @@ def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTest
                   - type: invalid_count
         """
     )
-    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
-    assert "Actual invalid_count was 1" in diagnostic_line
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
 
 
 def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelper):
@@ -112,5 +120,7 @@ def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelpe
                   - type: invalid_count
         """
     )
-    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
-    assert "Actual invalid_count was 1" in diagnostic_line
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value

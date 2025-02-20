@@ -170,7 +170,7 @@ class ContractVerificationImpl:
         return contract_results
 
     def _log_summary(self, contract_result: ContractResult):
-        self.logs.info(f"### Contract results for {contract_result.soda_qualified_dataset_name}")
+        self.logs.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
@@ -376,14 +376,11 @@ class ContractImpl:
             check_results.append(check_result)
 
         return ContractResult(
-            contract_info=contract_info,
+            contract=contract_info,
             data_source_info=data_source_info,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),
-            data_source_name=self.data_source.name,
-            soda_qualified_dataset_name=self.soda_qualified_dataset_name,
-            sql_qualified_dataset_name=self.sql_qualified_dataset_name,
             measurements=measurements,
             check_results=check_results,
             logs=self.logs

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -8,7 +8,7 @@ from logging import ERROR
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.yaml import YamlSource
 
 
@@ -31,7 +31,7 @@ class ContractVerificationBuilder:
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
                 f"Expected string, but was {contract_yaml_file_path.__class__.__name__}."
             )
         return self
@@ -42,7 +42,7 @@ class ContractVerificationBuilder:
             self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
                 f"Expected string, but was {contract_yaml_str.__class__.__name__}"
             )
         return self
@@ -53,13 +53,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'")
             else:
                 self.logs.debug(
-                    f"\U0001F92F ...with data_source_yaml_file_path '{data_source_yaml_file_path}'. "
+                    f"{Emoticons.POLICE_CAR_LIGHT} ...with data_source_yaml_file_path '{data_source_yaml_file_path}'. "
                     f"Ignoring previously configured data source '{self.data_source_yaml_source}'"
                 )
             self.data_source_yaml_source = YamlSource.from_file_path(yaml_file_path=data_source_yaml_file_path)
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid data_source_yaml_file_path  '{data_source_yaml_file_path}'.  "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid data_source_yaml_file_path  '{data_source_yaml_file_path}'.  "
                 f"Expected string, but was {data_source_yaml_file_path.__class__.__name__}"
             )
         return self
@@ -70,13 +70,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with data_source_yaml_str '{data_source_yaml_str}'")
             else:
                 self.logs.debug(
-                    f"\U0001F92F ...with data_source_yaml_str '{data_source_yaml_str}'. "
+                    f"{Emoticons.POLICE_CAR_LIGHT} ...with data_source_yaml_str '{data_source_yaml_str}'. "
                     f"Ignoring previously configured data source '{self.data_source_yaml_source}'"
                 )
             self.data_source_yaml_source = YamlSource.from_str(yaml_str=data_source_yaml_str)
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid data_source_yaml_str '{data_source_yaml_str}'. "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid data_source_yaml_str '{data_source_yaml_str}'. "
                 f"Expected string, but was {data_source_yaml_str.__class__.__name__}"
             )
         return self
@@ -92,13 +92,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
             else:
                 self.logs.debug(
-                    f"\U0001F92F ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
+                    f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                 f"Expected string, but was {soda_cloud_yaml_file_path.__class__.__name__}"
             )
         return self
@@ -109,13 +109,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'")
             else:
                 self.logs.debug(
-                    f"\U0001F92F ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
+                    f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                 f"Expected string, but was {soda_cloud_yaml_str.__class__.__name__}"
             )
         return self
@@ -131,7 +131,7 @@ class ContractVerificationBuilder:
             self.variables[key] = value
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid variable '{key}'. "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid variable '{key}'. "
                 f"Expected key str and value string"
             )
         return self
@@ -146,7 +146,7 @@ class ContractVerificationBuilder:
             self.variables = None
         else:
             self.logs.error(
-                f"\U0001F92F ...ignoring invalid variables '{variables}'. "
+                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid variables '{variables}'. "
                 f"Expected dict, but was {variables.__class__.__name__}"
             )
         return self
@@ -300,23 +300,23 @@ class CheckResult(ABC):
         check: Check,
         metric_value: Number | None,
         outcome: CheckOutcome,
-        diagnostic_lines: list[str]
+        diagnostics: list[Diagnostic]
     ):
         self.contract: Contract = contract
         self.check: Check = check
         self.metric_value: Number | None = metric_value
         self.outcome: CheckOutcome = outcome
-        self.diagnostic_lines: list[str] = diagnostic_lines
+        self.diagnostics: list[Diagnostic] = diagnostics
 
-    def log_summary(self, logs: Logs):
+    def log_summary(self, logs: Logs) -> None:
         outcome_emoticon: str = (
-            "\u2705" if self.outcome == CheckOutcome.PASSED
-            else "\U0001F6A8" if self.outcome == CheckOutcome.FAILED
-            else "\U0001F6A9"
+            Emoticons.WHITE_CHECK_MARK if self.outcome == CheckOutcome.PASSED
+            else Emoticons.POLICE_CAR_LIGHT if self.outcome == CheckOutcome.FAILED
+            else Emoticons.SEE_NO_EVIL
         )
         logs.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
-        for diagnostic_line in self.diagnostic_lines:
-            logs.info(diagnostic_line)
+        for diagnostic in self.diagnostics:
+            logs.info(f"  {diagnostic.log_line()}")
 
 
 class Measurement:
@@ -327,6 +327,25 @@ class Measurement:
         self.value: any = value
 
 
+@dataclass
+class Diagnostic:
+
+    name: str
+
+    @abstractmethod
+    def log_line(self) -> str:
+        pass
+
+
+@dataclass
+class NumericDiagnostic(Diagnostic):
+
+    value: float
+
+    def log_line(self) -> str:
+        return f"Actual {self.name} was {self.value}"
+
+
 class ContractResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
@@ -335,26 +354,16 @@ class ContractResult:
 
     def __init__(
             self,
-            contract_info: Contract,
+            contract: Contract,
             data_source_info: DataSourceInfo,
             data_timestamp: datetime | None,
             started_timestamp: datetime,
             ended_timestamp: datetime,
-            data_source_name: str,
-            soda_qualified_dataset_name: str,
-            sql_qualified_dataset_name: str,
             measurements: list[Measurement],
             check_results: list[CheckResult],
             logs: Logs
     ):
-        self.contract_info: Contract = contract_info
-        # TODO move to contract info or use the data_source_info
-        self.data_source_name: str = data_source_name
-        # TODO move to contract info
-        self.soda_qualified_dataset_name: str = soda_qualified_dataset_name
-        # TODO move to contract info
-        self.sql_qualified_dataset_name: str = sql_qualified_dataset_name
-
+        self.contract: Contract = contract
         self.data_source_info: DataSourceInfo = data_source_info
 
         self.data_timestamp: datetime | None = data_timestamp

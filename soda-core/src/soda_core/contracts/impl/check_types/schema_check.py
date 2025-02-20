@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logs import Logs
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, Check, Contract, \
     Threshold
@@ -111,7 +112,11 @@ class SchemaCheckImpl(CheckImpl):
             for expected_column in self.expected_columns:
                 expected_data_type: str | None = expected_column.data_type
                 actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
-                if expected_data_type and not self.contract_impl.data_source.is_data_type_equal(expected_data_type, actual_column_metadata):
+
+                if (actual_column_metadata is not None
+                    and expected_data_type
+                    and not self.contract_impl.data_source.is_data_type_equal(expected_data_type, actual_column_metadata)
+                ):
                     data_type_str: str = self.contract_impl.data_source.get_data_type_text(actual_column_metadata)
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
@@ -211,13 +216,7 @@ class SchemaCheckResult(CheckResult):
             metric_value=(len(expected_column_names_not_actual) +
                           len(actual_column_names_not_expected) +
                           len(column_data_type_mismatches)),
-            diagnostic_lines=self._create_diagnostic_lines(
-                expected_columns=expected_columns,
-                actual_columns=actual_columns,
-                expected_column_names_not_actual=expected_column_names_not_actual,
-                actual_column_names_not_expected=actual_column_names_not_expected,
-                column_data_type_mismatches=column_data_type_mismatches
-            )
+            diagnostics=[]
         )
         self.expected_columns: list[ExpectedColumn] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns
@@ -225,15 +224,9 @@ class SchemaCheckResult(CheckResult):
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected
         self.column_data_type_mismatches: list[ColumnDataTypeMismatch] = column_data_type_mismatches
 
-    @classmethod
-    def _create_diagnostic_lines(
-        cls,
-        expected_columns: list[ExpectedColumn],
-        actual_columns: list[ColumnMetadata],
-        expected_column_names_not_actual: list[str],
-        actual_column_names_not_expected: list[str],
-        column_data_type_mismatches: list[ColumnDataTypeMismatch],
-    ) -> list[str]:
+    def log_summary(self, logs: Logs) -> None:
+        super().log_summary(logs)
+
         def opt_data_type(data_type: str | None) -> str:
             if isinstance(data_type, str):
                 return f"[{data_type}]"
@@ -243,35 +236,28 @@ class SchemaCheckResult(CheckResult):
         expected_columns_str: str = ", ".join(
             [
                 f"{expected_column.column_name}{opt_data_type(expected_column.data_type)}"
-                for expected_column in expected_columns
+                for expected_column in self.expected_columns
             ]
         )
+        logs.info(f"  Expected schema: {expected_columns_str}")
 
         actual_columns_str: str = ", ".join([
             f"{actual_column.column_name}({actual_column.data_type})"
-            for actual_column in actual_columns
+            for actual_column in self.actual_columns
         ])
+        logs.info(f"  Actual schema: {actual_columns_str}")
 
-        lines: list[str] = [
-            f"  Expected schema: {expected_columns_str}",
-            f"  Actual schema: {actual_columns_str}",
-        ]
-        lines.extend(
-            [f"  Column '{column}' was present and not allowed" for column in actual_column_names_not_expected]
-        )
-        lines.extend(
-            [f"  Column '{column}' was missing" for column in expected_column_names_not_actual]
-        )
-        lines.extend(
-            [
-                (
-                    f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
-                    f"but was '{data_type_mismatch.actual_data_type}'"
-                )
-                for data_type_mismatch in column_data_type_mismatches
-            ]
-        )
-        return lines
+        for column in self.actual_column_names_not_expected:
+            logs.info(f"  Column '{column}' was present and not allowed")
+
+        for column in self.expected_column_names_not_actual:
+            logs.info(f"  Column '{column}' was missing")
+
+        for data_type_mismatch in self.column_data_type_mismatches:
+            logs.info(
+                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
+                f"but was '{data_type_mismatch.actual_data_type}'"
+            )
 
     def dataset_does_not_exists(self) -> bool:
         """

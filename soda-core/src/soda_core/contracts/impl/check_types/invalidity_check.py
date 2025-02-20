@@ -3,7 +3,8 @@ from __future__ import annotations
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, Check, Contract
+from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, Check, Contract, \
+    Diagnostic, NumericDiagnostic
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
@@ -93,8 +94,8 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
-        diagnostic_lines = [
-            f"  Actual invalid_count was {invalid_count}"
+        diagnostics: list[Diagnostic] = [
+            NumericDiagnostic(name="invalid_count", value=invalid_count)
         ]
 
         threshold_value: Number | None = None
@@ -102,11 +103,11 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             threshold_value = invalid_count
         else:
             row_count: int = measurement_values.get_value(self.row_count_metric)
-            diagnostic_lines.append(f"  Actual row_count was {row_count}")
+            diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
             if row_count > 0:
-                missing_percent: float = measurement_values.get_value(self.invalid_percent_metric)
-                diagnostic_lines.append(f"  Actual invalid_percent was {missing_percent}")
-                threshold_value = missing_percent
+                invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
+                diagnostics.append(NumericDiagnostic(name="invalid_percent", value=invalid_percent))
+                threshold_value = invalid_percent
 
         if self.threshold and isinstance(threshold_value, Number):
             if self.threshold.passes(threshold_value):
@@ -119,7 +120,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,
-            diagnostic_lines=diagnostic_lines,
+            diagnostics=diagnostics
         )
 
 

@@ -1,4 +1,4 @@
-from soda_core.contracts.contract_verification import ContractResult
+from soda_core.contracts.contract_verification import ContractResult, Diagnostic, NumericDiagnostic
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -55,5 +55,7 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
                   - type: invalid_count
         """
     )
-    diagnostic_line: str = contract_result.check_results[0].diagnostic_lines[0]
-    assert "Actual invalid_count was 3" in diagnostic_line
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 3 == diagnostic.value

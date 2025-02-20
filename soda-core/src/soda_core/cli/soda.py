@@ -8,7 +8,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
     ContractVerificationResult
@@ -72,10 +72,11 @@ def publish_contract(contract_file_paths: list[str] | None):
 def create_data_source(data_source_file_path: str, data_source_type: str):
     print(f"Creating {data_source_type} data source YAML file '{data_source_file_path}'")
     if exists(data_source_file_path):
-        print(f"\U0001F92F I'm suppose to create data source file '{data_source_file_path}' but it already exists")
+        print(f"Could not create data source file '{data_source_file_path}'. "
+              f"File already exists {Emoticons.POLICE_CAR_LIGHT}.")
         return
-    if data_source_type!= "postgres":
-        print(f"\U0001F92F Only type postgres is supported atm")
+    if data_source_type != "postgres":
+        print(f"{Emoticons.POLICE_CAR_LIGHT} Only type postgres is supported atm")
         return
     dir: str = dirname(data_source_file_path)
     Path(dir).mkdir(parents=True, exist_ok=True)
@@ -94,7 +95,7 @@ def create_data_source(data_source_file_path: str, data_source_type: str):
               single_digit_test_format: ^[0-9]$
             """
         ).strip())
-    print(f"\u2705 Created data source file '{data_source_file_path}'")
+    print(f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'")
 
 
 # name has underscore otherwise pycharm thinks this is a unit test file
@@ -104,16 +105,18 @@ def _test_data_source(data_source_file_path: str):
     data_source: DataSource = DataSource.from_file(data_source_file_path)
     error_message: Optional[str] = data_source.test_connection_error_message()
     if error_message:
-        print(f"\U0001F92F Error: Connection configured in data source file '{data_source_file_path}' failed: {error_message}")
+        print(f"Could not connect {Emoticons.POLICE_CAR_LIGHT} using data source '{data_source_file_path}': "
+              f"{error_message}")
         exit(1)
     else:
-        print(f"\u2705 Success! Tested data source connection in '{data_source_file_path}'")
+        print(f"Success! Connection in '{data_source_file_path}' tested ok. {Emoticons.WHITE_CHECK_MARK}")
 
 
 def create_soda_cloud(soda_cloud_file_path: str):
     print(f"Creating Soda Cloud YAML file '{soda_cloud_file_path}'")
     if exists(soda_cloud_file_path):
-        print(f"\U0001F92F I'm suppose to create soda cloud file '{soda_cloud_file_path}' but it already exists")
+        print(f"Could not create soda cloud file '{soda_cloud_file_path}'. "
+              f"File already exists {Emoticons.POLICE_CAR_LIGHT}")
     dir: str = dirname(soda_cloud_file_path)
     Path(dir).mkdir(parents=True, exist_ok=True)
     with open(soda_cloud_file_path, "w") as text_file:
@@ -125,7 +128,7 @@ def create_soda_cloud(soda_cloud_file_path: str):
               api_key_secret: ${SODA_CLOUD_API_KEY_SECRET}
             """
         ).strip())
-    print(f"\u2705 Created Soda Cloud configuration file '{soda_cloud_file_path}'")
+    print(f"{Emoticons.WHITE_CHECK_MARK} Created Soda Cloud configuration file '{soda_cloud_file_path}'")
 
 
 # name has underscore otherwise pycharm thinks this is a unit test file
@@ -139,10 +142,10 @@ def _test_soda_cloud(soda_cloud_file_path: str):
     soda_cloud: SodaCloud = SodaCloud.from_file(soda_cloud_file_content)
     error_msg = soda_cloud.test_connection()
     if error_msg:
-        print(f"\U0001F92F Could not connect to Soda Cloud: {error_msg}")
+        print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
         exit(1)
     else:
-        print(f"\u2705 Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
+        print(f"{Emoticons.WHITE_CHECK_MARK} Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
 
 
 def main():

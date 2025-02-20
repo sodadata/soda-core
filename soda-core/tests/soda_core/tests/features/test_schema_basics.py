@@ -28,3 +28,22 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
               - name: created
         """
     )
+
+
+def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - type: schema
+            columns:
+              - name: id
+                data_type: {test_table.data_type('id')}
+              - name: sizzze
+              - name: created
+                data_type: {test_table.data_type('id')}
+        """
+    )

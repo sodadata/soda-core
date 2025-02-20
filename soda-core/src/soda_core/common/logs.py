@@ -13,7 +13,9 @@ class Emoticons:
     OK_HAND: str = "\U0001F44C"
     SCROLL: str = "\U0001F4DC"
     FINGERS_CROSSED: str = "\U0001F91E"
-    POLICE_CAR_LIGHT: str = "\U0001F92F"
+    EXPLODING_HEAD: str = "\U0001F92F"
+    POLICE_CAR_LIGHT: str = "\U0001F6A8"
+    SEE_NO_EVIL: str = "\U0001F648"
 
 
 class Location:
