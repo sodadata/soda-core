@@ -86,7 +86,7 @@ def test_valid_min_max(data_source_fixture: DataSourceFixture):
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["fabric", "sqlserver"],
     reason="Full regex support is not supported by SQLServer",
 )
 def test_valid_format_email(data_source_fixture: DataSourceFixture):
@@ -107,7 +107,7 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
 
 
 @pytest.mark.skipif(
-    test_data_source == "sqlserver",
+    test_data_source in ["fabric", "sqlserver"],
     reason="Full regex support is not supported by SQLServer. 'Percentage' format is supported but with limited functionality.",
 )
 def test_column_configured_invalid_and_missing_values(data_source_fixture: DataSourceFixture):
@@ -293,6 +293,42 @@ def test_valid_with_invalid_config(check: str, data_source_fixture: DataSourceFi
           checks for {table_name}:
             - {check}
         """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_invalid_include_null(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    # Row count is 10
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - invalid_count(pct) = 3:
+            invalid values: ["error", "No value"]
+            include null: True
+    """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_valid_include_null(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    # Row count is 10
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+      checks for {table_name}:
+        - valid_count(pct) = 8:
+            invalid values: ["error", "No value"]
+            include null: True
+    """
     )
     scan.execute()
 

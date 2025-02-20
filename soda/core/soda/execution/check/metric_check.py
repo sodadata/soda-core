@@ -72,11 +72,11 @@ class MetricCheck(Check):
                     f"User defined metric {metric_name} is a data_source supported metric. Please, choose a different name for the metric.",
                     location=metric_check_cfg.location,
                 )
-
+            jinja_resolve = self.data_source_scan.scan.jinja_resolve
             metric = UserDefinedNumericMetric(
                 data_source_scan=self.data_source_scan,
                 check_name=metric_check_cfg.source_line,
-                sql=metric_check_cfg.metric_query,
+                sql=jinja_resolve(metric_check_cfg.metric_query, metric_check_cfg.variables),
                 check=self,
             )
 

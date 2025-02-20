@@ -15,7 +15,7 @@ Alternatively, you can provide data source connection configurations in the cont
 1. Soda Core connects with Spark DataFrames in a unique way, using programmtic scans.
     * If you are using Spark DataFrames, follow the configuration details in [Connect to Spark DataFrames](https://docs.soda.io/soda/connect-spark.html#connect-to-spark-dataframes).
     * If you are *not* using Spark DataFrames, continue to step 2.
-2. Create a `configuration.yml` file. This file stores connection details for your data sources. Use the data source-specific connection configurations listed below to copy+paste the connection syntax into your file, then adjust the values to correspond with your data source's details. You can use [system variables](#provide-credentials-as-system-variables) to pass sensitive values, if you wish. Access connection details in [Connect a data source](https://docs.soda.io/soda/connect-athena.html) section of Soda documentation.
+2. Create a `configuration.yml` file. This file stores connection details for your data sources. Use the data source-specific connection configurations listed below to copy+paste the connection syntax into your file, then adjust the values to correspond with your data source's details. You can use [system variables](#provide-credentials-as-system-variables) to pass sensitive values, if you wish. Access connection details in [Connect a data source](https://docs.soda.io/soda/connect-athena.html) section of Soda documentation; see below for MS Fabric connection config as it is only supported in Soda Core.
 3. Save the `configuration.yml` file, then create another new YAML file named `checks.yml`. 
 4. A Soda Check is a test that Soda Core performs when it scans a dataset in your data source. The checks YAML file stores the Soda Checks you write using [SodaCL](https://docs.soda.io/soda-cl/soda-cl-overview.html). Copy+paste the following basic check syntax in your file, then adjust the value for `dataset_name` to correspond with the name of one of the datasets in your data source.
     ```yaml
@@ -25,6 +25,21 @@ Alternatively, you can provide data source connection configurations in the cont
 5. Save the changes to the `checks.yml` file.
 6. Next: [run a scan](/docs/scan-core.md) of the data in your data source.
 
+#### MS Fabric connection configuration
+
+To your `configuration.yml` file, add the following.
+```yaml
+data_source my_data_source_name: 
+  type: fabric
+  host: xxx
+  database: xxx
+  schema: xxx
+  driver: ODBC Driver 18 for SQL Server
+  client_id: xxx
+  client_secret: xxx
+  encrypt: True
+  authentication: xxx
+```
 
 ## Provide credentials as system variables
 

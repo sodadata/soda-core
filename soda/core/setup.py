@@ -4,18 +4,17 @@ from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core"
 # Managed by tbump - do not change manually
-package_version = "3.3.22"
+package_version = "3.4.4"
 description = "Soda Core"
 
 requires = [
-    "markupsafe>=2.0.1,<=2.1.2",
     "Jinja2>=2.11,<4.0",
     "click~=8.0",
     "ruamel.yaml>=0.17.0,<0.18.0",
     "requests~=2.30",
     "antlr4-python3-runtime~=4.11.1",
-    "opentelemetry-api>=1.16.0,<1.23.0",  # 1.23.0 removes Python 3.7 support
-    "opentelemetry-exporter-otlp-proto-http>=1.16.0,<1.23.0",
+    "opentelemetry-api~=1.16.0,<2.0.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.16.0,<2.0.0",
     "sqlparse~=0.4",
     "inflect~=7.0",
     "pydantic>=2.0.0,<3.0.0",
