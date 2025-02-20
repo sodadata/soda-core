@@ -1,0 +1,91 @@
+services:
+  hms:
+    image: ${IMPALA_QUICKSTART_IMAGE_PREFIX:-apache/impala:4.4.1-}impala_quickstart_hms
+    # Give the HMS an explicit hostname to avoid issues with docker-compose-generated
+    # hostnames including underscore, which is rejected by Java's URL parser.
+    container_name: quickstart-hive-metastore
+    command: ["hms"]
+    volumes:
+      # Volume used to store Apache Derby database.
+      - impala-quickstart-warehouse:/var/lib/hive
+      # Warehouse directory. HMS does file operations so needs access to the
+      # shared volume.
+      - impala-quickstart-warehouse:/user/hive/warehouse
+      - ./config:/opt/hive/conf:ro
+    networks:
+      - quickstart-network
+  statestored:
+    image: ${IMPALA_QUICKSTART_IMAGE_PREFIX:-apache/impala:4.4.1-}statestored
+    ports:
+      # Web debug UI
+      - "0.0.0.0:25010:25010"
+    command: ["-redirect_stdout_stderr=false", "-logtostderr", "-v=1"]
+    volumes:
+      - ./config:/opt/impala/conf:ro
+    networks:
+      - quickstart-network
+  catalogd:
+    depends_on:
+      - statestored
+      - hms
+    image: ${IMPALA_QUICKSTART_IMAGE_PREFIX:-apache/impala:4.4.1-}catalogd
+    ports:
+      # Web debug UI
+      - "0.0.0.0:25020:25020"
+    command: ["-redirect_stdout_stderr=false", "-logtostderr", "-v=1",
+              "-hms_event_polling_interval_s=1", "-invalidate_tables_timeout_s=999999"]
+    volumes:
+      # Warehouse directory. Catalog does file operations so needs access to the
+      # shared volume.
+      - impala-quickstart-warehouse:/user/hive/warehouse
+      - ./config:/opt/impala/conf:ro
+    networks:
+      - quickstart-network
+  impalad-1:
+    image: ${IMPALA_QUICKSTART_IMAGE_PREFIX:-apache/impala:4.4.1-}impalad_coord_exec
+    container_name: docker_impalad-1_1
+    depends_on:
+      - statestored
+      - catalogd
+    ports:
+      # Beeswax endpoint (deprecated)
+      #- "0.0.0.0:21000:21000"
+      # HS2 endpoint
+      - "0.0.0.0:21050:21050"
+      # Web debug UI
+      - "0.0.0.0:25000:25000"
+      # HS2 over HTTP endpoint.
+      - "0.0.0.0:28000:28000"
+    command: [ "-v=1",
+              "-redirect_stdout_stderr=false", "-logtostderr",
+              "-kudu_master_hosts=kudu-master-1:7051",
+              "-mt_dop_auto_fallback=true",
+              "-default_query_options=mt_dop=4,default_file_format=parquet,default_transactional_type=insert_only",
+              "-mem_limit=4gb"]
+    environment:
+      # Keep the Java heap small to preserve memory for query execution.
+      - JAVA_TOOL_OPTIONS="-Xmx1g"
+    volumes:
+      - impala-quickstart-warehouse:/user/hive/warehouse
+      - ./config:/opt/impala/conf:ro
+    networks:
+      - quickstart-network
+  data-loader:
+    image: ${IMPALA_QUICKSTART_IMAGE_PREFIX:-apache/impala:4.4.1-}impala_quickstart_client
+    depends_on:
+      - impalad-1
+    command: ["load_tpcds"]
+    volumes:
+      - impala-quickstart-warehouse:/user/hive/warehouse
+      - ./config:/opt/impala/conf:ro
+    networks:
+      - quickstart-network
+
+volumes:
+  impala-quickstart-hms:
+  impala-quickstart-warehouse:
+
+networks:
+  quickstart-network:
+    name: quickstart-network
+    driver: bridge
