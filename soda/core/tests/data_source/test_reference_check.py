@@ -1,5 +1,6 @@
 from helpers.common_test_tables import customers_test_table, orders_test_table
 from helpers.data_source_fixture import DataSourceFixture
+from helpers.utils import execute_scan_and_get_scan_result
 
 
 def test_reference_check_fail(data_source_fixture: DataSourceFixture):
@@ -32,6 +33,23 @@ def test_reference_check_pass(data_source_fixture: DataSourceFixture):
     scan.execute()
 
     scan.assert_all_checks_pass()
+
+
+def test_reference_check_pass_identity(data_source_fixture: DataSourceFixture):
+    customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    orders_table_name = data_source_fixture.ensure_test_table(orders_test_table)
+
+    identity = "test_identity"
+    scan_result = execute_scan_and_get_scan_result(
+        data_source_fixture,
+        f"""
+          checks for {orders_table_name}:
+            - values in (customer_id_ok) must exist in {customers_table_name} (id):
+                identity: {identity}
+        """,
+    )
+    assert "v4" in scan_result["checks"][0]["identities"]
+    assert scan_result["checks"][0]["identities"]["v4"] == identity
 
 
 def test_multi_column_reference_check(data_source_fixture: DataSourceFixture):
