@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod
 from soda_core.tests.helpers.test_table import TestTableSpecification
@@ -23,7 +26,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper):
 
     data_source_test_helper.enable_soda_cloud_mock([MockResponse(
         status_code=200,
-        json_dict={"fileId": "777ggg"}
+        json_object={"fileId": "777ggg"}
     )])
 
     data_source_test_helper.assert_contract_pass(
@@ -47,22 +50,55 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
         MockResponse(
             method=MockHttpMethod.POST,
             status_code=200,
-            json_dict={"fileId": "fffileid"}
+            json_object={"fileId": "fffileid"}
         ),
         MockResponse(
             method=MockHttpMethod.POST,
             status_code=200,
-            json_dict={"scanId": "ssscanid"}
+            json_object={"scanId": "ssscanid"}
         ),
         MockResponse(
             method=MockHttpMethod.GET,
             status_code=200,
-            json_dict={
+            headers={
+                "X-Soda-Next-Poll-Time": SodaCloud.convert_datetime_to_str(
+                    datetime.now()
+                )
+            },
+            json_object={
+                "scanId": "ssscanid",
+                "scanStatus": {
+                    "value": "running"
+                }
+            }
+        ),
+        MockResponse(
+            method=MockHttpMethod.GET,
+            status_code=200,
+            json_object={
                 "scanId": "ssscanid",
                 "scanStatus": {
                     "value": "completed"
                 }
             }
+        ),
+        MockResponse(
+            method=MockHttpMethod.GET,
+            status_code=200,
+            json_object=[
+                {
+                    "level": "debug",
+                    "message": "m1",
+                    "timestamp": "2025-02-21T06:16:58+00:00",
+                    "index": 0,
+                },
+                {
+                    "level": "info",
+                    "message": "m2",
+                    "timestamp": "2025-02-21T06:16:59+00:00",
+                    "index": 1,
+                }
+            ]
         )
     ])
 

@@ -25,17 +25,16 @@ class MockResponse(Response):
         method: MockHttpMethod = MockHttpMethod.POST,
         status_code: int = 200,
         headers: dict[str, str] | None = None,
-        json_dict: dict | None = None
+        json_object: any = None
     ):
         super().__init__()
         self.method: MockHttpMethod = method
         self.status_code = status_code
         if isinstance(headers, dict):
             self.headers.update(headers)
-        if isinstance(json_dict, dict):
-            rows_json_str = json.dumps(json_dict)
-            rows_json_bytes = bytearray(rows_json_str, "utf-8")
-            self.raw = BytesIO(rows_json_bytes)
+        rows_json_str = json.dumps(json_object)
+        rows_json_bytes = bytearray(rows_json_str, "utf-8")
+        self.raw = BytesIO(rows_json_bytes)
 
 
 @dataclass
@@ -72,7 +71,6 @@ class MockSodaCloud(SodaCloud):
     ) -> Response:
         return self._http_handle(
             method=MockHttpMethod.POST,
-            request_log_name=request_log_name,
             url=url,
             headers=headers,
             json=json,
@@ -81,7 +79,6 @@ class MockSodaCloud(SodaCloud):
 
     def _http_get(
         self,
-        request_log_name: str = None,
         url: str | None = None,
         headers: dict[str, str] = None,
         json: dict | None = None,
@@ -89,7 +86,6 @@ class MockSodaCloud(SodaCloud):
     ) -> Response:
         return self._http_handle(
             method=MockHttpMethod.GET,
-            request_log_name=request_log_name,
             url=url,
             headers=headers,
             json=json,
@@ -99,15 +95,12 @@ class MockSodaCloud(SodaCloud):
     def _http_handle(
         self,
         method: MockHttpMethod,
-        request_log_name: str,
         url: str | None,
         headers: dict[str, str],
         json: dict | None,
         data: TemporaryFile | None
     ) -> Response:
-        logging.debug(f"Request sent to MockSodaCloud: {request_log_name}")
         self.requests.append(MockRequest(
-            request_log_name=request_log_name,
             url=url,
             headers=headers,
             json=json,
@@ -118,9 +111,11 @@ class MockSodaCloud(SodaCloud):
             if isinstance(response, MockResponse):
                 if method != response.method:
                     raise AssertionError("Wrong response method")
+                logging.debug(f"MockSodaCloud responds to {method} {url} with provided response")
                 return response
+        logging.debug(f"MockSodaCloud responds to {method} {url} with default empty 200 OK response")
         return MockResponse(
             status_code=200,
             headers={},
-            json_dict={}
+            json_object={}
         )

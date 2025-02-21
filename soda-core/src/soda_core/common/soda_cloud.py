@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone, time
 from decimal import Decimal
 from enum import Enum
+from operator import index
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional
@@ -378,9 +379,15 @@ class SodaCloud:
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
         logs: list[dict] = logs_response.json()
         for log in logs:
+            json_level_str: str = log.get("level")
+            logging_level: int = logging.getLevelName(json_level_str.upper())
+            timestamp_str: str = log.get("timestamp")
+            timestamp: datetime = self.convert_str_to_datetime(timestamp_str)
             self.logs.log(
-                Log(level=log.get("level"),
+                Log(level=logging_level,
                     message=log.get("message"),
+                    timestamp=timestamp,
+                    index=log.get("index")
                 )
             )
 
@@ -406,207 +413,57 @@ class SodaCloud:
             logs=self.logs
         )]
 
-    def _poll_remote_scan_finished(self, scan_id: str, poll_wait: int = 5, max_retry: int = 5) -> bool:
-        result: Optional[str] = None
+    def _poll_remote_scan_finished(self, scan_id: str, max_retry: int = 5) -> bool:
         attempt = 0
         while attempt < max_retry:
             attempt += 1
 
-            self.logs.debug(f"Polling remote scan result attempt {attempt}/{max_retry}.")
-            response = self._get_remote_scan_status(scan_id)
+            self.logs.debug(f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}/{max_retry}.")
+            response = self._get_scan_status(scan_id)
             if response:
-                next_poll_time = response.headers.get("X-Soda-Next-Poll-Time")
-                if next_poll_time:
-                    poll_wait = (self._datetime_from_iso_zulu(next_poll_time) - datetime.now(timezone.utc)).seconds
-
                 json: Optional[dict] = response.json() if response else None
                 scan_status: Optional[dict] = json.get("scanStatus") if json else None
                 scan_status_value: Optional[str] = scan_status.get("value") if scan_status else None
 
-                self.logs.debug(f"Remote scan status: '{scan_status_value}'.")
+                self.logs.debug(f"Soda Cloud responded scan {scan_id} status is '{scan_status_value}'")
 
                 if scan_status_value in REMOTE_SCAN_FINAL_STATES:
                     return True
 
-                if attempt == max_retry:
-                    raise Exception(
-                        f"Remote scan did not finish in {max_retry} attempts. Last status: {scan_status_value}"
-                    )
-                else:
-                    self.logs.debug(f"Next poll in {poll_wait} seconds.")
-                    sleep(poll_wait)
+                if attempt < max_retry:
+                    time_to_wait_in_seconds: float = 5
+                    next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+                    if next_poll_time_str:
+                        self.logs.debug(
+                            f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
+                            f"via header X-Soda-Next-Poll-Time"
+                        )
+                        next_poll_time: datetime = self.convert_str_to_datetime(next_poll_time_str)
+                        now = datetime.now(timezone.utc)
+                        time_to_wait = next_poll_time - now
+                        time_to_wait_in_seconds = time_to_wait.total_seconds()
+                    if time_to_wait_in_seconds > 0:
+                        self.logs.debug(
+                            f"Sleeping {time_to_wait_in_seconds} seconds before asking "
+                            f"Soda Cloud scan {scan_id} status again in ."
+                        )
+                        sleep(time_to_wait_in_seconds)
             else:
-                raise Exception(f"Failed to poll remote scan status. Response: {response}")
+                self.logs.error(f"Failed to poll remote scan status. Response: {response}")
 
         return False
 
-    def _datetime_from_iso_zulu(self, date_string: str) -> datetime:
-        if date_string.endswith("Z"):
-            date_string = date_string[:-1]
-        return datetime.fromisoformat(date_string)
-
-    def _get_remote_scan_status(self, scan_id: str) -> Response:
+    def _get_scan_status(self, scan_id: str) -> Response:
         return self._execute_rest_get(
             relative_url_path=f"v1/scans/{scan_id}",
-            request_log_name="remote_scan_poll_result",
+            request_log_name="get_scan_status",
         )
 
     def _get_scan_logs(self, scan_id: str) -> Response:
         return self._execute_rest_get(
             relative_url_path=f"v1/scans/{scan_id}/logs",
-            request_log_name="remote_scan_poll_result",
+            request_log_name="get_scan_logs",
         )
-
-    def _fileify(self, name: str):
-        return re.sub(r"\W+", "_", name).lower()
-
-    def get_historic_data(self, historic_descriptor: HistoricDescriptor):
-        measurements = {}
-        check_results = {}
-
-        if type(historic_descriptor) == HistoricMeasurementsDescriptor:
-            measurements = self._get_historic_measurements(historic_descriptor)
-        elif type(historic_descriptor) == HistoricCheckResultsDescriptor:
-            check_results = self._get_historic_check_results(historic_descriptor)
-        elif type(historic_descriptor) == HistoricChangeOverTimeDescriptor:
-            measurements = self._get_historic_changes_over_time(historic_descriptor)
-        else:
-            self.logs.error(f"Invalid Historic Descriptor provided {historic_descriptor}")
-
-        return {"measurements": measurements, "check_results": check_results}
-
-    def is_samples_disabled(self) -> bool:
-        return self.organization_configuration.get(self.ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA, True)
-
-    def get_check_attributes_schema(self) -> list(dict):
-        response_json_dict = self._execute_query(
-            {"type": "sodaCoreAvailableCheckAttributes"},
-            query_name="get_check_attributes",
-        )
-
-        if response_json_dict and "results" in response_json_dict:
-            return response_json_dict["results"]
-
-        return []
-
-    def get_check_identities(self, check_id: str) -> dict:
-        payload = {"type": "sodaCoreCheckIdentities", "checkId": check_id}
-
-        return self._execute_query(
-            payload,
-            query_name="get_check_identity",
-        )
-
-    def _get_historic_changes_over_time(self, hd: HistoricChangeOverTimeDescriptor):
-        query = {
-            "type": "sodaCoreHistoricMeasurements",
-            "filter": {
-                "type": "and",
-                "andExpressions": [
-                    {
-                        "type": "equals",
-                        "left": {"type": "columnValue", "columnName": "metric.identity"},
-                        "right": {"type": "string", "value": hd.metric_identity},
-                    }
-                ],
-            },
-        }
-
-        previous_time_start = None
-        previous_time_end = None
-        today = date.today()
-
-        if hd.change_over_time_cfg.same_day_last_week:
-            last_week = today - timedelta(days=7)
-            previous_time_start = datetime(
-                year=last_week.year, month=last_week.month, day=last_week.day, tzinfo=timezone.utc
-            )
-            previous_time_end = datetime(
-                year=last_week.year,
-                month=last_week.month,
-                day=last_week.day,
-                hour=23,
-                minute=59,
-                second=59,
-                tzinfo=timezone.utc,
-            )
-
-        if previous_time_start and previous_time_end:
-            query["filter"]["andExpressions"].append(
-                {
-                    "type": "greaterThanOrEqual",
-                    "left": {"type": "columnValue", "columnName": "measurement.dataTime"},
-                    "right": {"type": "time", "scanTime": False, "time": previous_time_start.isoformat()},
-                }
-            )
-            query["filter"]["andExpressions"].append(
-                {
-                    "type": "lessThanOrEqual",
-                    "left": {"type": "columnValue", "columnName": "measurement.dataTime"},
-                    "right": {"type": "time", "scanTime": False, "time": previous_time_end.isoformat()},
-                }
-            )
-
-        return self._execute_query(
-            query,
-            query_name="get_hisoric_changes_over_time",
-        )
-
-    def _get_historic_measurements(self, hd: HistoricMeasurementsDescriptor):
-        historic_measurements = self._execute_query(
-            {
-                "type": "sodaCoreHistoricMeasurements",
-                "limit": hd.limit,
-                "filter": {
-                    "type": "and",
-                    "andExpressions": [
-                        {
-                            "type": "equals",
-                            "left": {"type": "columnValue", "columnName": "metric.identity"},
-                            "right": {"type": "string", "value": hd.metric_identity},
-                        }
-                    ],
-                },
-            },
-            query_name="get_hisotric_check_results",
-        )
-        # Filter out historic_measurements not having 'value' key
-        historic_measurements["results"] = [
-            measurement for measurement in historic_measurements["results"] if "value" in measurement
-        ]
-        return historic_measurements
-
-    def _get_historic_check_results(self, hd: HistoricCheckResultsDescriptor):
-        return self._execute_query(
-            {
-                "type": "sodaCoreHistoricCheckResults",
-                "limit": hd.limit,
-                "filter": {
-                    "type": "and",
-                    "andExpressions": [
-                        {
-                            "type": "equals",
-                            "left": {"type": "columnValue", "columnName": "check.identity"},
-                            "right": {"type": "string", "value": hd.check_identity},
-                        }
-                    ],
-                },
-            },
-            query_name="get_hisotric_check_results",
-        )
-
-    @property
-    def organization_configuration(self) -> dict:
-        if isinstance(self._organization_configuration, dict):
-            return self._organization_configuration
-
-        response_json_dict = self._execute_query(
-            {"type": "sodaCoreCloudConfiguration"},
-            query_name="get_organization_configuration",
-        )
-        self._organization_configuration = response_json_dict if isinstance(response_json_dict, dict) else {}
-
-        return self._organization_configuration
 
     def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
         return self._execute_cqrs_request(
@@ -634,7 +491,7 @@ class SodaCloud:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(self.to_jsonnable(request_body), indent=2)
-            self.logs.debug(f"Soda Cloud {request_type} {request_log_name} body JSON: {log_body_text}")
+            self.logs.debug(f"Sending {request_type} {request_log_name} to Soda Cloud with body: {log_body_text}")
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_log_name=request_log_name
             )
@@ -661,12 +518,12 @@ class SodaCloud:
                 )
             elif response.status_code != 200:
                 self.logs.error(
-                    f"Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
+                    f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
             else:
                 self.logs.debug(
-                    f"Soda Cloud {request_type} {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
+                    f"{Emoticons.OK_HAND} Soda Cloud {request_type} {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
                 )
 
             return response
@@ -682,8 +539,11 @@ class SodaCloud:
         request_log_name: str,
         is_retry: bool = True
     ) -> Response:
+
+        url: str = f"{self.api_url}/v1/{relative_url_path}"
+        self.logs.debug(f"Sending GET {url} request to Soda Cloud")
         response: Response = self._http_get(
-            url=f"{self.api_url}/v1/{relative_url_path}",
+            url=url
         )
 
         trace_id: str = response.headers.get("X-Soda-Trace-Id")
@@ -701,12 +561,12 @@ class SodaCloud:
             )
         elif response.status_code != 200:
             self.logs.error(
-                f"Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
+                f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
             )
         else:
             self.logs.debug(
-                f"Soda Cloud {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
+                f"{Emoticons.OK_HAND} Soda Cloud {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
             )
 
         return response
@@ -765,7 +625,7 @@ class SodaCloud:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime):
-            return o.astimezone(timezone.utc).isoformat(timespec="seconds")
+            return SodaCloud.convert_datetime_to_str(o)
         if isinstance(o, date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, time):
@@ -778,47 +638,16 @@ class SodaCloud:
             return str(o)
         raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
 
+    @classmethod
+    def convert_datetime_to_str(cls, dt: datetime) -> str:
+        return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
 
-class HistoricDescriptor(ABC):
-    pass
-
-
-@dataclass(frozen=True)
-class HistoricMeasurementsDescriptor(HistoricDescriptor):
-    metric_identity: Optional[str]
-    limit: Optional[int] = 100
-
-
-@dataclass(frozen=True)
-class HistoricCheckResultsDescriptor(HistoricDescriptor):
-    check_identity: Optional[str]
-    limit: Optional[int] = 100
-
-
-@dataclass(frozen=True)
-class HistoricChangeOverTimeDescriptor(HistoricDescriptor):
-    metric_identity: Optional[str]
-    change_over_time_cfg: ChangeOverTimeCfg()
-
-
-class ChangeOverTimeCfg:
-    def __init__(self):
-        self.last_measurements: Optional[int] = None
-        self.last_aggregation: Optional[str] = None
-        self.same_day_last_week: bool = False
-        self.same_day_last_month: bool = False
-        self.percent: bool = False
-
-    def to_jsonnable(self):
-        jsonnable = {}
-        if self.last_measurements:
-            jsonnable["last_measurements"] = self.last_measurements
-        if self.last_aggregation:
-            jsonnable["last_aggregation"] = self.last_aggregation
-        if self.same_day_last_week:
-            jsonnable["same_day_last_week"] = self.same_day_last_week
-        if self.same_day_last_month:
-            jsonnable["same_day_last_month"] = self.same_day_last_month
-        if self.percent:
-            jsonnable["percent"] = self.percent
-        return jsonnable
+    @classmethod
+    def convert_str_to_datetime(cls, date_string: str) -> datetime:
+        # fromisoformat raises ValueError if date_string ends with a Z:
+        # Eg Invalid isoformat string: '2025-02-21T06:16:59Z'
+        if date_string.endswith("Z"):
+            # Z means Zulu time, which is UTC
+            # Converting timezone to format that fromisoformat understands
+            date_string = f"{date_string[:-1]}+00:00"
+        return datetime.fromisoformat(date_string)
