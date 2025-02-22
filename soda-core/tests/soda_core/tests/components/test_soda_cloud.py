@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest import skip
 
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
@@ -67,9 +68,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             },
             json_object={
                 "scanId": "ssscanid",
-                "scanStatus": {
-                    "value": "running"
-                }
+                "state": "running"
             }
         ),
         MockResponse(
@@ -77,28 +76,29 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             status_code=200,
             json_object={
                 "scanId": "ssscanid",
-                "scanStatus": {
-                    "value": "completed"
-                }
+                "state": "completed"
             }
         ),
         MockResponse(
             method=MockHttpMethod.GET,
             status_code=200,
-            json_object=[
-                {
-                    "level": "debug",
-                    "message": "m1",
-                    "timestamp": "2025-02-21T06:16:58+00:00",
-                    "index": 0,
-                },
-                {
-                    "level": "info",
-                    "message": "m2",
-                    "timestamp": "2025-02-21T06:16:59+00:00",
-                    "index": 1,
-                }
-            ]
+            json_object={
+                "scanId": "ssscanid",
+                "logs": [
+                    {
+                        "level": "debug",
+                        "message": "m1",
+                        "timestamp": "2025-02-21T06:16:58+00:00",
+                        "index": 0,
+                    },
+                    {
+                        "level": "info",
+                        "message": "m2",
+                        "timestamp": "2025-02-21T06:16:59+00:00",
+                        "index": 1,
+                    }
+                ]
+            }
         )
     ])
 

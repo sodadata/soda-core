@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
+import os
 import re
-from abc import ABC
-from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone, time
 from decimal import Decimal
 from enum import Enum
-from operator import index
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional
@@ -20,7 +19,7 @@ from soda_core.common.logs import Logs, Log, Emoticons
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_verification import ContractResult, \
-    CheckResult, CheckOutcome, Threshold, Contract, DataSourceInfo
+    CheckResult, CheckOutcome, Threshold, Contract
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
@@ -72,8 +71,7 @@ class SodaCloud:
 
         soda_cloud_yaml_object: YamlObject | None = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
         if not soda_cloud_yaml_object:
-            logs.error(f"key 'soda_cloud' is required in a Soda Cloud configuration file")
-            return None
+            logs.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
 
         return SodaCloud(
             host=soda_cloud_yaml_object.read_string_opt(
@@ -173,7 +171,7 @@ class SodaCloud:
         # for query in contract_result._queries:
         #     query_list += query.get_cloud_dicts()
 
-        return self.to_jsonnable(  # type: ignore
+        contract_result_json: dict = self.to_jsonnable(  # type: ignore
             {
                 "definitionName": contract_result.contract.soda_qualified_dataset_name,
                 "defaultDataSource": contract_result.data_source_info.name,
@@ -219,6 +217,10 @@ class SodaCloud:
                 "skipPublish": skip_publish
             }
         )
+        scan_id: Optional[str] = os.environ.get("SCAN_ID")
+        if scan_id:
+            contract_result_json["scanId"] = scan_id
+        return contract_result_json
 
     def _translate_check_outcome_for_soda_cloud(self, outcome: CheckOutcome) -> str:
         if outcome == CheckOutcome.PASSED:
@@ -376,20 +378,32 @@ class SodaCloud:
 
         scan_is_finished: bool = self._poll_remote_scan_finished(scan_id=scan_id)
 
+        self.logs.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
-        logs: list[dict] = logs_response.json()
-        for log in logs:
-            json_level_str: str = log.get("level")
-            logging_level: int = logging.getLevelName(json_level_str.upper())
-            timestamp_str: str = log.get("timestamp")
-            timestamp: datetime = self.convert_str_to_datetime(timestamp_str)
-            self.logs.log(
-                Log(level=logging_level,
-                    message=log.get("message"),
-                    timestamp=timestamp,
-                    index=log.get("index")
-                )
-            )
+        self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(logs_response.headers))}\n{logs_response.text}")
+
+        response_json: dict = logs_response.json()
+        logs: list[dict] = response_json.get("logs")
+        if isinstance(logs, list):
+            for log in logs:
+                if isinstance(log, dict):
+                    json_level_str: str = log.get("level")
+                    logging_level: int = logging.getLevelName(json_level_str.upper())
+                    timestamp_str: str = log.get("timestamp")
+                    timestamp: datetime = self.convert_str_to_datetime(timestamp_str)
+                    self.logs.log(
+                        Log(level=logging_level,
+                            message=log.get("message"),
+                            timestamp=timestamp,
+                            index=log.get("index")
+                        )
+                    )
+                else:
+                    self.logs.debug(f"Expected dict for logs list element, but was {type(log).__name__}")
+        elif logs is None:
+            self.logs.debug(f"No logs in Soda Cloud response")
+        else:
+            self.logs.debug(f"Expected dict for logs, but was {type(logs).__name__}")
 
         if not scan_is_finished:
             self.logs.error("Max retries exceeded. Contract verification did not finish yet.")
@@ -420,14 +434,14 @@ class SodaCloud:
 
             self.logs.debug(f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}/{max_retry}.")
             response = self._get_scan_status(scan_id)
+            self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
             if response:
-                json: Optional[dict] = response.json() if response else None
-                scan_status: Optional[dict] = json.get("scanStatus") if json else None
-                scan_status_value: Optional[str] = scan_status.get("value") if scan_status else None
+                response_body_dict: Optional[dict] = response.json() if response else None
+                scan_status: str = response_body_dict.get("state") if response_body_dict else None
 
-                self.logs.debug(f"Soda Cloud responded scan {scan_id} status is '{scan_status_value}'")
+                self.logs.debug(f"Scan {scan_id} status is '{scan_status}'")
 
-                if scan_status_value in REMOTE_SCAN_FINAL_STATES:
+                if scan_status in REMOTE_SCAN_FINAL_STATES:
                     return True
 
                 if attempt < max_retry:
@@ -455,13 +469,13 @@ class SodaCloud:
 
     def _get_scan_status(self, scan_id: str) -> Response:
         return self._execute_rest_get(
-            relative_url_path=f"v1/scans/{scan_id}",
+            relative_url_path=f"scans/{scan_id}",
             request_log_name="get_scan_status",
         )
 
     def _get_scan_logs(self, scan_id: str) -> Response:
         return self._execute_rest_get(
-            relative_url_path=f"v1/scans/{scan_id}/logs",
+            relative_url_path=f"scans/{scan_id}/logs",
             request_log_name="get_scan_logs",
         )
 
@@ -540,10 +554,21 @@ class SodaCloud:
         is_retry: bool = True
     ) -> Response:
 
+        credentials_plain = f"{self.api_key_id}:{self.api_key_secret}"
+        credentials_encoded = base64.b64encode(credentials_plain.encode()).decode()
+
+        headers = {
+            "Authorization": f"Basic {credentials_encoded}",
+            "Content-Type": "application/octet-stream", # Probably not needed
+            "Is-V3": "true", # Probably not needed
+            "Accept": "application/json",
+        }
+
         url: str = f"{self.api_url}/v1/{relative_url_path}"
         self.logs.debug(f"Sending GET {url} request to Soda Cloud")
         response: Response = self._http_get(
-            url=url
+            url=url,
+            headers=headers
         )
 
         trace_id: str = response.headers.get("X-Soda-Trace-Id")
@@ -649,5 +674,7 @@ class SodaCloud:
         if date_string.endswith("Z"):
             # Z means Zulu time, which is UTC
             # Converting timezone to format that fromisoformat understands
-            date_string = f"{date_string[:-1]}+00:00"
+            datetime_str_without_z: str = date_string[:-1]
+            datetime_str_without_z_seconds = re.sub(r"\.(\d+)$", "", datetime_str_without_z)
+            date_string = f"{datetime_str_without_z_seconds}+00:00"
         return datetime.fromisoformat(date_string)

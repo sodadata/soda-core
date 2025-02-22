@@ -107,7 +107,7 @@ class ContractVerificationBuilder:
     def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
         if isinstance(soda_cloud_yaml_str, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(f"  ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'")
+                self.logs.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
             else:
                 self.logs.debug(
                     f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
