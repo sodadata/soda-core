@@ -383,7 +383,17 @@ class SodaCloud:
         self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(logs_response.headers))}\n{logs_response.text}")
 
         response_json: dict = logs_response.json()
-        logs: list[dict] = response_json.get("logs")
+        logs: list[dict] = response_json.get("content")
+        # TODO implement extra page loading if there are more pages of scan logs....
+        # response body: {
+        #   "content": [...],
+        #   "totalElements": 0,
+        #   "totalPages": 0,
+        #   "number": 0,
+        #   "size": 0,
+        #   "last": true,
+        #   "first": true
+        # }
         if isinstance(logs, list):
             for log in logs:
                 if isinstance(log, dict):

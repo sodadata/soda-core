@@ -83,8 +83,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             method=MockHttpMethod.GET,
             status_code=200,
             json_object={
-                "scanId": "ssscanid",
-                "logs": [
+                "content": [
                     {
                         "level": "debug",
                         "message": "m1",
@@ -97,7 +96,13 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
                         "timestamp": "2025-02-21T06:16:59+00:00",
                         "index": 1,
                     }
-                ]
+                ],
+                "totalElements": 2,
+                "totalPages": 1,
+                "number": 0,
+                "size": 2,
+                "last": True,
+                "first": True
             }
         )
     ])
