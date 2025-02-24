@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import traceback
 from os.path import dirname, exists
 from pathlib import Path
 from textwrap import dedent
@@ -270,7 +271,7 @@ def main():
     except Exception as e:
         cli_parser.print_help()
         print()
-        print(f"Error: {e}")
+        traceback.print_exc()
         exit(1)
     exit(0)
 

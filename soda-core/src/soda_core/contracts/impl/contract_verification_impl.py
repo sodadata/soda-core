@@ -95,7 +95,7 @@ class ContractVerificationImpl:
             for contract_yaml in self.contract_yamls:
                 contract_impl: ContractImpl = ContractImpl(
                     contract_yaml=contract_yaml,
-                    data_source=data_source,
+                    data_source=self.data_source,
                     variables=variables,
                     logs=logs
                 )
@@ -198,11 +198,7 @@ class ContractImpl:
             variables=variables, default=self.started_timestamp
         )
 
-        data_source_location: dict[str, str] | None = (
-            contract_yaml.dataset_locations.get(data_source.get_data_source_type_name())
-            if contract_yaml.dataset_locations else None
-        )
-        self.dataset_prefix: list[str] | None = self.data_source.build_dataset_prefix(data_source_location)
+        self.dataset_prefix: list[str] | None = self.contract_yaml.dataset_prefix
         self.dataset_name: str | None = contract_yaml.dataset if contract_yaml else None
 
         self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
