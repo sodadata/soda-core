@@ -3,7 +3,7 @@ from unittest import skip
 
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod
+from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod, MockRequest
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
 test_table_specification = (
@@ -21,9 +21,11 @@ test_table_specification = (
 )
 
 
-def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper):
+def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
 
     data_source_test_helper.enable_soda_cloud_mock([MockResponse(
         status_code=200,
@@ -41,6 +43,9 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper):
                     must_be_less_than_or_equal: 2
         """
     )
+
+    request_body: dict = data_source_test_helper.soda_cloud.requests[1].json
+    assert "env_var_scan_id" == request_body["scanId"]
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
