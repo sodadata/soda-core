@@ -217,9 +217,9 @@ class SodaCloud:
                 "skipPublish": skip_publish
             }
         )
-        scan_id: Optional[str] = os.environ.get("SCAN_ID")
-        if scan_id:
-            contract_result_json["scanId"] = scan_id
+        soda_scan_id: Optional[str] = os.environ.get("SODA_SCAN_ID")
+        if soda_scan_id:
+            contract_result_json["scanId"] = soda_scan_id
         return contract_result_json
 
     def _translate_check_outcome_for_soda_cloud(self, outcome: CheckOutcome) -> str:
