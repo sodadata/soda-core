@@ -153,7 +153,7 @@ def main():
     print(dedent("""
           __|  _ \|  \   \\
         \__ \ (   |   | _ \\
-        ____/\___/___/_/  _\\ CLI 4.0.0b1
+        ____/\___/___/_/  _\\ CLI 4.0.0.dev??
     """).strip("\n"))
 
     cli_parser = argparse.ArgumentParser(epilog="Run 'soda {command} -h' for help on a particular soda command")

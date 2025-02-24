@@ -367,10 +367,10 @@ class YamlObject(YamlValue):
         required: bool = False,
         default_value=None,
     ) -> object | None:
-        if key in self.yaml_dict:
-            value = self.yaml_dict.get(key)
-        elif env_var is not None and env_var in os.environ:
+        if env_var is not None and env_var in os.environ:
             value = os.environ[env_var]
+        elif key in self.yaml_dict:
+            value = self.yaml_dict.get(key)
         else:
             env_var_text: str = f"or environment variable '{env_var}' " if isinstance(env_var, str) else ""
             if required:
@@ -417,10 +417,10 @@ class YamlList(YamlValue, Iterable):
 class VariableResolver:
 
     @classmethod
-    def resolve(cls, source_text_with_variables: str, variables: dict[str, str] | None) -> str:
+    def resolve(cls, source_text_with_variables: str, variables: dict[str, str] | None = None) -> str:
         if isinstance(source_text_with_variables, str):
             return re.sub(
-                pattern=r"\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}",
+                pattern=r"\$\{ *([a-zA-Z_][a-zA-Z_0-9]*)\ *}",
                 repl=lambda m: cls._resolve_variable_pattern(variables=variables, variable=m.group(1).strip()),
                 string=source_text_with_variables,
             )
