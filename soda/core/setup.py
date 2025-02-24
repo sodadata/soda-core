@@ -16,7 +16,7 @@ requires = [
     "antlr4-python3-runtime~=4.11.1",
     "opentelemetry-api~=1.16.0",
     "opentelemetry-exporter-otlp-proto-http~=1.16.0",
-    "sqlparse~=0.4",
+    "sqlparse~=0.5",
     "inflect~=6.0",
 ]
 
