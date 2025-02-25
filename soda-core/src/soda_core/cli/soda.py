@@ -60,8 +60,10 @@ def verify_contract(
         contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
 
     contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-    if not contract_verification_result.is_ok():
-        exit(1)
+    if contract_verification_result.has_failures():
+        exit(2)
+    elif contract_verification_result.has_errors():
+        exit(3)
 
 
 def publish_contract(contract_file_paths: list[str] | None):
@@ -108,7 +110,7 @@ def _test_data_source(data_source_file_path: str):
     if error_message:
         print(f"Could not connect {Emoticons.POLICE_CAR_LIGHT} using data source '{data_source_file_path}': "
               f"{error_message}")
-        exit(1)
+        exit(2)
     else:
         print(f"Success! Connection in '{data_source_file_path}' tested ok. {Emoticons.WHITE_CHECK_MARK}")
 
@@ -144,116 +146,116 @@ def _test_soda_cloud(soda_cloud_file_path: str):
     error_msg = soda_cloud.test_connection()
     if error_msg:
         print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
-        exit(1)
+        exit(3)
     else:
         print(f"{Emoticons.WHITE_CHECK_MARK} Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
 
 
 def main():
-    print(dedent("""
-          __|  _ \|  \   \\
-        \__ \ (   |   | _ \\
-        ____/\___/___/_/  _\\ CLI 4.0.0.dev??
-    """).strip("\n"))
-
-    cli_parser = argparse.ArgumentParser(epilog="Run 'soda {command} -h' for help on a particular soda command")
-
-    sub_parsers = cli_parser.add_subparsers(dest="command", help='Soda command description')
-    verify_parser = sub_parsers.add_parser('verify', help='Verify a contract')
-
-    verify_parser.add_argument(
-        "-c", "--contract",
-        type=str,
-        nargs='+',
-        help="One or more contract file paths."
-    )
-    verify_parser.add_argument(
-        "-ds", "--data-source",
-        type=str,
-        help="The data source configuration file."
-    )
-    verify_parser.add_argument(
-        "-sc", "--soda-cloud",
-        type=str,
-        help="A Soda Cloud configuration file path."
-    )
-    verify_parser.add_argument(
-        "-a", "--use-agent",
-        const=True,
-        action='store_const',
-        default=False,
-        help="Executes contract verification on Soda Agent instead of locally in this library."
-    )
-    verify_parser.add_argument(
-        "-sp", "--skip-publish",
-        const=True,
-        action='store_const',
-        default=False,
-        help="Skips publishing of the contract when sending results to Soda Cloud.  Precondition: The contract version "
-             "must already exist on Soda Cloud."
-    )
-    verify_parser.add_argument(
-        "-v", "--verbose",
-        const=True,
-        action='store_const',
-        default=False,
-        help="Show more detailed logs on the console."
-    )
-
-    publish_parser = sub_parsers.add_parser('publish', help='Publish a contract (not yet implemented)')
-    publish_parser.add_argument(
-        "-c", "--contract",
-        type=str,
-        nargs='+',
-        help="One or more contract file paths."
-    )
-
-    create_data_source_parser = sub_parsers.add_parser(
-        name="create-data-source",
-        help="Create a data source YAML configuration file"
-    )
-    create_data_source_parser.add_argument(
-        "-f", "--file",
-        type=str,
-        help="The path to the file to be created. (directories will be created if needed)"
-    )
-    create_data_source_parser.add_argument(
-        "-t", "--type",
-        type=str,
-        default="postgres",
-        help="Type of the data source.  Eg postgres"
-    )
-
-    test_parser = sub_parsers.add_parser('test-data-source', help='Test a data source connection')
-    test_parser.add_argument(
-        "-ds", "--data-source",
-        type=str,
-        help="The name of a configured data source to test."
-    )
-
-    create_soda_cloud_parser = sub_parsers.add_parser(
-        name="create-soda-cloud",
-        help="Create a Soda Cloud YAML configuration file"
-    )
-    create_soda_cloud_parser.add_argument(
-        "-f", "--file",
-        type=str,
-        help="The path to the file to be created. (directories will be created if needed)"
-    )
-
-    test_parser = sub_parsers.add_parser('test-soda-cloud', help='Test the Soda Cloud connection')
-    test_parser.add_argument(
-        "-sc", "--soda-cloud",
-        type=str,
-        help="A Soda Cloud configuration file path."
-    )
-
-    args = cli_parser.parse_args()
-
-    verbose = args.verbose if hasattr(args, "verbose") else False
-    configure_logging(verbose)
-
     try:
+        print(dedent("""
+              __|  _ \|  \   \\
+            \__ \ (   |   | _ \\
+            ____/\___/___/_/  _\\ CLI 4.0.0.dev??
+        """).strip("\n"))
+
+        cli_parser = argparse.ArgumentParser(epilog="Run 'soda {command} -h' for help on a particular soda command")
+
+        sub_parsers = cli_parser.add_subparsers(dest="command", help='Soda command description')
+        verify_parser = sub_parsers.add_parser('verify', help='Verify a contract')
+
+        verify_parser.add_argument(
+            "-c", "--contract",
+            type=str,
+            nargs='+',
+            help="One or more contract file paths."
+        )
+        verify_parser.add_argument(
+            "-ds", "--data-source",
+            type=str,
+            help="The data source configuration file."
+        )
+        verify_parser.add_argument(
+            "-sc", "--soda-cloud",
+            type=str,
+            help="A Soda Cloud configuration file path."
+        )
+        verify_parser.add_argument(
+            "-a", "--use-agent",
+            const=True,
+            action='store_const',
+            default=False,
+            help="Executes contract verification on Soda Agent instead of locally in this library."
+        )
+        verify_parser.add_argument(
+            "-sp", "--skip-publish",
+            const=True,
+            action='store_const',
+            default=False,
+            help="Skips publishing of the contract when sending results to Soda Cloud.  Precondition: The contract version "
+                 "must already exist on Soda Cloud."
+        )
+        verify_parser.add_argument(
+            "-v", "--verbose",
+            const=True,
+            action='store_const',
+            default=False,
+            help="Show more detailed logs on the console."
+        )
+
+        publish_parser = sub_parsers.add_parser('publish', help='Publish a contract (not yet implemented)')
+        publish_parser.add_argument(
+            "-c", "--contract",
+            type=str,
+            nargs='+',
+            help="One or more contract file paths."
+        )
+
+        create_data_source_parser = sub_parsers.add_parser(
+            name="create-data-source",
+            help="Create a data source YAML configuration file"
+        )
+        create_data_source_parser.add_argument(
+            "-f", "--file",
+            type=str,
+            help="The path to the file to be created. (directories will be created if needed)"
+        )
+        create_data_source_parser.add_argument(
+            "-t", "--type",
+            type=str,
+            default="postgres",
+            help="Type of the data source.  Eg postgres"
+        )
+
+        test_parser = sub_parsers.add_parser('test-data-source', help='Test a data source connection')
+        test_parser.add_argument(
+            "-ds", "--data-source",
+            type=str,
+            help="The name of a configured data source to test."
+        )
+
+        create_soda_cloud_parser = sub_parsers.add_parser(
+            name="create-soda-cloud",
+            help="Create a Soda Cloud YAML configuration file"
+        )
+        create_soda_cloud_parser.add_argument(
+            "-f", "--file",
+            type=str,
+            help="The path to the file to be created. (directories will be created if needed)"
+        )
+
+        test_parser = sub_parsers.add_parser('test-soda-cloud', help='Test the Soda Cloud connection')
+        test_parser.add_argument(
+            "-sc", "--soda-cloud",
+            type=str,
+            help="A Soda Cloud configuration file path."
+        )
+
+        args = cli_parser.parse_args()
+
+        verbose = args.verbose if hasattr(args, "verbose") else False
+        configure_logging(verbose)
+
         if args.command == "verify":
             verify_contract(args.contract, args.data_source, args.soda_cloud, args.skip_publish, args.use_agent)
         elif args.command == "publish":
@@ -268,12 +270,10 @@ def main():
             _test_soda_cloud(args.soda_cloud)
         else:
             cli_parser.print_help()
+
     except Exception as e:
-        cli_parser.print_help()
-        print()
         traceback.print_exc()
-        exit(1)
-    exit(0)
+        exit(3)
 
 
 if __name__ == "__main__":

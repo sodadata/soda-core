@@ -63,11 +63,11 @@ class ContractVerificationImpl:
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
                 self.data_source = data_source_parser.parse()
             if self.data_source is None:
-                self.logs.error(f"No data source configured {Emoticons.POLICE_CAR_LIGHT}")
+                self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} No data source configured")
         elif data_source is not None or data_source_yaml_source is not None:
             self.logs.error(
-                f"When executing the contract verification on Soda Agent, "
-                f"a data source should not be configured {Emoticons.POLICE_CAR_LIGHT}"
+                f"{Emoticons.POLICE_CAR_LIGHT} When executing the contract verification on Soda Agent, "
+                f"a data source should not be configured"
             )
 
         self.soda_cloud: SodaCloud | None = soda_cloud
@@ -82,7 +82,7 @@ class ContractVerificationImpl:
         self.contract_yamls: list[ContractYaml] = []
         self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"No contracts configured {Emoticons.POLICE_CAR_LIGHT}")
+            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -123,7 +123,7 @@ class ContractVerificationImpl:
             return self.soda_cloud.execute_contracts_on_agent(contract_yamls)
         else:
             self.logs.error(
-                f"Using the agent requires a Soda Cloud configuration {Emoticons.POLICE_CAR_LIGHT}"
+                f"{Emoticons.POLICE_CAR_LIGHT} Using the agent requires a Soda Cloud configuration"
             )
             return []
 
@@ -237,7 +237,8 @@ class ContractImpl:
             except:
                 pass
             self.logs.error(
-                f"Could not parse variable {now_variable_name} as a timestamp: {now_variable_timestamp_text}"
+                f"{Emoticons.POLICE_CAR_LIGHT} Could not parse variable {now_variable_name} "
+                f"as a timestamp: {now_variable_timestamp_text}"
             )
         else:
             return default
@@ -382,7 +383,7 @@ class ContractImpl:
             existing_check_impl: CheckImpl | None = checks_by_identity.get(check_impl.identity)
             if existing_check_impl:
                 # TODO distill better diagnostic error message: which check in which column on which lines in the file
-                logs.error(f"Duplicate identity ({check_impl.identity})")
+                logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Duplicate identity ({check_impl.identity})")
             checks_by_identity[check_impl.identity] = check_impl
 
 
@@ -588,7 +589,7 @@ class ThresholdImpl:
         if total_config_count == 0:
             if default_threshold:
                 return default_threshold
-            check_yaml.logs.error("Threshold required, but not specified")
+            check_yaml.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
             return None
 
         if total_config_count == 1 and cls.__config_count([
@@ -614,8 +615,10 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=check_yaml.must_be_between.upper_bound,
                     )
                 else:
-                    check_yaml.logs.error("Threshold must_be_between range: "
-                                          "first value must be less than the second value")
+                    check_yaml.logs.error(
+                        f"{Emoticons.POLICE_CAR_LIGHT} Threshold must_be_between range: "
+                        "first value must be less than the second value"
+                    )
                     return None
 
         elif total_config_count == 1 and isinstance(check_yaml.must_be_not_between, RangeYaml):
@@ -628,8 +631,10 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=check_yaml.must_be_not_between.lower_bound,
                     )
                 else:
-                    check_yaml.logs.error("Threshold must_be_not_between range: "
-                                          "first value must be less than the second value")
+                    check_yaml.logs.error(
+                        f"{Emoticons.POLICE_CAR_LIGHT} Threshold must_be_not_between range: "
+                        "first value must be less than the second value"
+                    )
                     return None
         else:
             lower_bound_count = cls.__config_count([check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal])
@@ -790,7 +795,7 @@ class CheckImpl:
                     metrics_resolver=metrics_resolver,
                 )
             else:
-                contract_impl.logs.error(f"Unknown check type '{check_yaml.type}'")
+                contract_impl.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Unknown check type '{check_yaml.type}'")
 
     def __init__(
         self,

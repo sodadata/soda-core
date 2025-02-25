@@ -3,8 +3,10 @@ from __future__ import annotations
 from abc import abstractmethod, ABC
 from importlib.util import find_spec
 
+from cli_ui import message
+
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, Emoticons
 
 
 class DataSourceConnection(ABC):
@@ -48,7 +50,10 @@ class DataSourceConnection(ABC):
                 self._log_connection_properties_excl_pwd(self.connection_properties)
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
-                self.logs.error(f"Could not connect to '{self.name}': {e}", exception=e)
+                self.logs.error(
+                    message=f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to '{self.name}': {e}",
+                    exception=e
+                )
 
     def _log_connection_properties_excl_pwd(self, connection_yaml_dict: dict):
         dict_without_pwd = {

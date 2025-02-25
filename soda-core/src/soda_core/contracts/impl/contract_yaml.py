@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Logs, Location
+from soda_core.common.logs import Logs, Location, Emoticons
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
 
 
@@ -109,7 +109,10 @@ class ContractYaml:
                             f": {file_location}{locations_message}"
                             if locations_message else ""
                         )
-                        self.logs.error(f"Duplicate columns with name '{column_name}'{locations_message}")
+                        self.logs.error(
+                            f"{Emoticons.POLICE_CAR_LIGHT} Duplicate columns with "
+                            f"name '{column_name}'{locations_message}"
+                        )
         return columns
 
     def _parse_checks(
@@ -135,11 +138,11 @@ class ContractYaml:
                             checks.append(check_yaml)
                         else:
                             self.logs.error(
-                                f"Invalid check type '{check_type_name}'. "
+                                f"{Emoticons.POLICE_CAR_LIGHT} Invalid check type '{check_type_name}'. "
                                 f"Existing check types: {CheckYaml.get_check_type_names()}"
                             )
                     else:
-                        self.logs.error(f"Checks must have a YAML object structure.")
+                        self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Checks must have a YAML object structure.")
 
         return checks
 
@@ -163,7 +166,7 @@ class ValidReferenceDataYaml:
         if self.dataset is None:
             self.has_configuration_error = True
             logs.error(
-                message="'dataset' is required. Must be the dataset name as a string "
+                message=f"{Emoticons.POLICE_CAR_LIGHT} 'dataset' is required. Must be the dataset name as a string "
                         "or a list of strings representing the qualified name.",
                 location=valid_reference_data_yaml.location
             )
@@ -199,8 +202,10 @@ class MissingAndValidityYaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
             non_reference_configurations: list[str] = self.get_non_reference_configurations()
             if non_reference_configurations:
-                yaml_object.logs.error("'valid_reference_data' is mutually exclusive with other "
-                                       f"missing and validity configurations: {non_reference_configurations}")
+                yaml_object.logs.error(
+                    f"{Emoticons.POLICE_CAR_LIGHT} 'valid_reference_data' is mutually exclusive with other "
+                    f"missing and validity configurations: {non_reference_configurations}"
+                )
 
         self.has_valid_configuration_error: bool = (
             ("invalid_values" in cfg_keys and self.invalid_values is None)

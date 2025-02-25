@@ -6,7 +6,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
@@ -135,10 +135,13 @@ class DataSource(ABC):
         if format is None:
             return None
         if self.format_regexes is None:
-            self.logs.error("'format_regexes' not configured in data source")
+            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} 'format_regexes' not configured in data source")
         format_regex: str | None = self.format_regexes.get(format)
         if format_regex is None:
-            self.logs.error(f"Validity format regex '{format}' not configured in data source 'format_regexes'")
+            self.logs.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Validity format regex '{format}' not configured "
+                f"in data source 'format_regexes'"
+            )
         return format_regex
 
     @classmethod

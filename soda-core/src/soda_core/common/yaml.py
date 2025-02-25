@@ -285,7 +285,8 @@ class YamlObject(YamlValue):
                         filtered_list.append(element)
                     else:
                         self.logs.error(
-                            message=f"'{key}' expects a list of {expected_element_type.__name__}. "
+                            message=f"{Emoticons.POLICE_CAR_LIGHT} YAML key '{key}' expects a "
+                                    f"list of {expected_element_type.__name__}. "
                                     f"But element {index} was {type(element).__name__}",
                             location=self.create_location_from_yaml_dict_key(key)
                         )
@@ -309,7 +310,8 @@ class YamlObject(YamlValue):
                 element = list_value.yaml_list[i]
                 if not isinstance(element, YamlObject):
                     self.logs.error(
-                        message=f"'{key}' expected list of objects.  But element {i} was {type(element).__name__}",
+                        message=f"{Emoticons.POLICE_CAR_LIGHT} YAML key '{key}' expected list of objects.  "
+                                f"But element {i} was {type(element).__name__}",
                         location=self.create_location_from_yaml_dict_key(key)
                     )
                     list_value.yaml_list[i] = None
@@ -385,7 +387,7 @@ class YamlObject(YamlValue):
 
             if required:
                 self.logs.error(
-                    message=f"{key_description} is required",
+                    message=f"{Emoticons.POLICE_CAR_LIGHT} {key_description} is required",
                     location=self.location
                 )
             value = default_value
@@ -399,7 +401,8 @@ class YamlObject(YamlValue):
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
             self.logs.error(
-                message=f"{key_description} expected a {expected_type.__name__}, but was {actual_type_str}",
+                message=f"{Emoticons.POLICE_CAR_LIGHT} {key_description} expected a {expected_type.__name__}, "
+                        f"but was {actual_type_str}",
                 location=self.create_location_from_yaml_dict_key(key)
             )
             value = None

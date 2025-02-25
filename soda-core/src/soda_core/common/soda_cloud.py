@@ -146,7 +146,9 @@ class SodaCloud:
             if response.status_code == 200:
                 self.logs.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
         else:
-            self.logs.error("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
+            self.logs.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
+                f"sending the results to Soda Cloud")
 
     def _build_contract_result_json(self, contract_result: ContractResult, skip_publish: bool) -> dict:
         check_result_cloud_json_dicts = [
@@ -239,7 +241,8 @@ class SodaCloud:
             "definition": check_result.check.definition,
             "resourceAttributes": [], # TODO
             "location": {
-                "filePath": check_result.contract.source.local_file_path,
+                "filePath": (check_result.contract.source.local_file_path
+                             if isinstance(check_result.contract.source.local_file_path, str) else "yamlstr.yml"),
                 "line": check_result.check.contract_file_line,
                 "col": check_result.check.contract_file_column
             },
@@ -311,10 +314,16 @@ class SodaCloud:
                 if isinstance(upload_response_json, dict) and "fileId" in upload_response_json:
                     return upload_response_json.get("fileId")
                 else:
-                    self.logs.error(f"No fileId received in response: {upload_response_json}")
+                    self.logs.error(
+                        f"{Emoticons.POLICE_CAR_LIGHT} No fileId received in response: {upload_response_json}"
+                    )
                     return None
         except Exception as e:
-            self.logs.error(f"Soda cloud error: Could not upload contract: {e}", exception=e)
+            self.logs.error(
+                message=f"{Emoticons.POLICE_CAR_LIGHT} Soda cloud error: Could not upload contract "
+                        f"to Soda Cloud: {e}",
+                exception=e
+            )
 
     def test_connection(self) -> Optional[str]:
         """
@@ -349,7 +358,10 @@ class SodaCloud:
             soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
-            self.logs.error("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
+            self.logs.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
+                "sending the results to Soda Cloud"
+            )
             return []
 
         verify_contract_command: dict = {
@@ -416,7 +428,8 @@ class SodaCloud:
             self.logs.debug(f"Expected dict for logs, but was {type(logs).__name__}")
 
         if not scan_is_finished:
-            self.logs.error("Max retries exceeded. Contract verification did not finish yet.")
+            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Max retries exceeded. "
+                            f"Contract verification did not finish yet.")
 
         return [ContractResult(
             contract=Contract(
@@ -473,7 +486,8 @@ class SodaCloud:
                         )
                         sleep(time_to_wait_in_seconds)
             else:
-                self.logs.error(f"Failed to poll remote scan status. Response: {response}")
+                self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Failed to poll remote scan status. "
+                                f"Response: {response}")
 
         return False
 
@@ -552,7 +566,7 @@ class SodaCloud:
 
             return response
         except Exception as e:
-            self.logs.error(f"Error while executing Soda Cloud {request_type} {request_log_name}", exception=e)
+            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Error while executing Soda Cloud {request_type} {request_log_name}", exception=e)
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)

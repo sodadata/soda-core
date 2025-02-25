@@ -31,7 +31,8 @@ class Location:
         self.column: int | None = column
 
     def __str__(self) -> str:
-        return f"{self.file_path}[{self.line},{self.column}]"
+        src_description: str = self.file_path if self.file_path else "source file position "
+        return f"{src_description}[{self.line},{self.column}]"
 
     def __hash__(self) -> int:
         return hash((self.line, self.column))
@@ -65,10 +66,10 @@ class Log:
         self.index: int | None = index
 
     def __str__(self):
-        location_str = f"At {self.location}: " if self.location else ""
+        location_str = f" | {self.location}" if self.location else ""
         doc_str = f" | see https://go.soda.io/{self.doc}" if self.doc else ""
         exception_str = f" | {self.exception}" if self.exception else ""
-        return f"{location_str}{self.message}{doc_str}{exception_str}"
+        return f"{self.message}{location_str}{doc_str}{exception_str}"
 
     def get_dict(self) -> dict:
         return {

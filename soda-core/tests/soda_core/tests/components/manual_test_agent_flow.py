@@ -14,7 +14,7 @@ def main():
     load_dotenv(f"{project_root_dir}/.env", override=True)
 
     contract_yaml_str: str = dedent("""
-        data_source: milan_throwaway
+        data_source: bus_nienu
         dataset_prefix: [nyc, public]
         dataset: bus_breakdown_and_delays
         columns:
