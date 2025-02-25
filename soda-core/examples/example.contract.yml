@@ -1,11 +1,5 @@
-# Optional, default is ../../data_source.yml
-data_source_file: ../../postgres_test_ds.yml
-
-# Optional, default is derived from data source file {database_name}/{schema_name}/data_source.yml
-dataset_location_postgres:
-  database: soda_test
-  schema: dev_tom
-
+data_source: postgresds
+dataset_prefix: [soda_test, dev_tom]
 dataset: SODATEST_test_schema_31761d69
 
 checks_filter:
