@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from numbers import Number
+from typing import Optional
 
 from soda_core.common.logs import Logs, Location
 from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
@@ -58,42 +59,25 @@ class ContractYaml:
     def __init__(self, contract_yaml_file_content: YamlFileContent):
         self.logs: Logs = contract_yaml_file_content.logs
         self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
-        self.contract_yaml_object: YamlObject = self.contract_yaml_file_content.get_yaml_object()
-        self.data_source_file: str | None = self.contract_yaml_object.read_string_opt("data_source_file")
-        self.data_source: str | None = self.contract_yaml_object.read_string_opt("data_source")
-        self.dataset_locations: dict[str, dict[str, str]] | None = self._parse_dataset_locations(self.contract_yaml_object)
-        self.dataset_prefix: list[str] | None = self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix")
-        self.dataset: str | None = self.contract_yaml_object.read_string("dataset")
-        self.columns: list[ColumnYaml | None] | None = self._parse_columns(self.contract_yaml_object)
-        self.checks: list[CheckYaml | None] = self._parse_checks(self.contract_yaml_object)
+        self.contract_yaml_object: Optional[YamlObject] = self.contract_yaml_file_content.get_yaml_object()
 
-    def _parse_dataset_locations(self, contract_yaml_object: YamlObject) -> dict[str, dict[str, str]] | None:
-        dataset_locations: dict[str, dict[str, str]] | None = None
-        dataset_location_key_prefix: str = "dataset_location_"
-        for contract_key in contract_yaml_object.keys():
-            dataset_location_key: str = contract_key
-            if contract_key.startswith(dataset_location_key_prefix):
-                dataset_location = {}
-                location_data_source_type = contract_key[len(dataset_location_key_prefix):]
-                if dataset_locations is None:
-                    dataset_locations = {}
-                dataset_locations[location_data_source_type] = dataset_location
-                dataset_location_yaml_object: YamlObject | None = contract_yaml_object.read_object(dataset_location_key)
-                if dataset_location_yaml_object:
-                    dataset_location_dict: dict = dataset_location_yaml_object.to_dict()
-                    for k, v in dataset_location_dict.items():
-                        if not isinstance(k, str):
-                            self.logs.error(f"Invalid location key type '{k}:{v}'.  "
-                                            f"Expected string, but was {k.__class__.__name__}")
-                        if not isinstance(v, str):
-                            self.logs.error(f"Invalid location value type '{k}:{v}'.  "
-                                            f"Expected string, but was {v.__class__.__name__}")
-                        if isinstance(k, str) and isinstance(v, str):
-                            dataset_location[k] = v
-        return dataset_locations
+        self.data_source: Optional[str] = (
+            self.contract_yaml_object.read_string_opt("data_source")
+            if self.contract_yaml_object else None
+        )
+        self.dataset_prefix: Optional[list[str]] = (
+            self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix")
+            if self.contract_yaml_object else None
+        )
+        self.dataset: Optional[str] = (
+            self.contract_yaml_object.read_string("dataset")
+            if self.contract_yaml_object else None
+        )
+        self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
 
-    def _parse_columns(self, contract_yaml_object: YamlObject) -> list[ColumnYaml] | None:
-        columns: list[ColumnYaml] | None = None
+    def _parse_columns(self, contract_yaml_object: YamlObject) -> Optional[list[Optional[ColumnYaml]]]:
+        columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
             column_yaml_objects: YamlList | None = contract_yaml_object.read_list_of_objects_opt("columns")
             if isinstance(column_yaml_objects, YamlList):
@@ -113,10 +97,18 @@ class ContractYaml:
                 for column_name, locations in column_locations_by_name.items():
                     if len(locations) > 1:
                         locations_message: str = ", ".join([
-                            f"[{location}]" for location in locations
+                            f"[{location.line},{location.column}]" for location in locations
                             if location is not None
                         ])
-                        locations_message = f": {locations_message}" if locations_message else ""
+                        file_location = (
+                            f" In {self.contract_yaml_file_content.yaml_file_path} at: "
+                            if self.contract_yaml_file_content.yaml_file_path
+                            else "At file locations: "
+                        )
+                        locations_message = (
+                            f": {file_location}{locations_message}"
+                            if locations_message else ""
+                        )
                         self.logs.error(f"Duplicate columns with name '{column_name}'{locations_message}")
         return columns
 
@@ -124,8 +116,8 @@ class ContractYaml:
         self,
         checks_containing_yaml_object: YamlObject,
         column_yaml: ColumnYaml | None = None
-    ) -> list[CheckYaml | None]:
-        checks: list[CheckYaml | None] | None = None
+    ) -> Optional[list[Optional[CheckYaml]]]:
+        checks: Optional[list[Optional[CheckYaml]]] = None
 
         if checks_containing_yaml_object:
             checks_yaml_list: YamlList = checks_containing_yaml_object.read_list_opt("checks")

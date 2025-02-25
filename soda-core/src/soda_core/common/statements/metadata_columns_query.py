@@ -26,7 +26,7 @@ class MetadataColumnsQuery:
         self,
         dataset_prefix: list[str] | None,
         dataset_name: str
-    ) -> str:
+    ) -> str | None:
         """
         Builds the full SQL query to query table names from the data source metadata.
         """

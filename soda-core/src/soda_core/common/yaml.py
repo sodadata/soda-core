@@ -4,12 +4,12 @@ import os
 import re
 from abc import abstractmethod
 from numbers import Number
-from typing import Iterable
+from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
 
-from soda_core.common.logs import Logs, Location
+from soda_core.common.logs import Logs, Location, Emoticons
 
 
 class YamlParser:
@@ -147,14 +147,22 @@ class YamlFileContent:
         if isinstance(file_path, str):
             try:
                 with open(file_path) as f:
-                    return f.read()
+                    file_content_str: str = f.read()
+                    if len(file_content_str) > 0:
+                        return file_content_str
+                    else:
+                        logs.error(message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} is empty")
+
             except OSError as e:
                 if not os.path.exists(file_path):
-                    logs.error(message=f"{yaml_source_description} does not exist")
+                    logs.error(message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} does not exist")
                 elif not os.path.isdir(file_path):
-                    logs.error(message=f"{yaml_source_description} is a directory")
+                    logs.error(message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} is a directory")
                 else:
-                    logs.error(message=f"{yaml_source_description} can't be read", exception=e)
+                    logs.error(
+                        message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} can't be read",
+                        exception=e
+                    )
 
     @classmethod
     def resolve_yaml_str(cls, yaml_str: str, variables: dict | None) -> str | None:
@@ -185,7 +193,7 @@ class YamlFileContent:
                 location = Location(file_path=yaml_file_path, line=line, column=col)
                 logs.error(message=f"YAML syntax error in {yaml_source_description}", exception=e, location=location)
 
-    def get_yaml_object(self) -> YamlObject | None:
+    def get_yaml_object(self) -> Optional[YamlObject]:
         return YamlObject(self, self.yaml_dict) if isinstance(self.yaml_dict, dict) else None
 
     def has_yaml_object(self) -> bool:
@@ -367,24 +375,34 @@ class YamlObject(YamlValue):
         required: bool = False,
         default_value=None,
     ) -> object | None:
+        key_description: str = f"YAML key '{key}'"
         if env_var is not None and env_var in os.environ:
+            key_description = f"Env var '{env_var}'"
             value = os.environ[env_var]
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)
         else:
-            env_var_text: str = f"or environment variable '{env_var}' " if isinstance(env_var, str) else ""
+
             if required:
                 self.logs.error(
-                    message=f"Property '{key}' {env_var_text}is required",
+                    message=f"{key_description} is required",
                     location=self.location
                 )
             value = default_value
 
         if expected_type is not None and not isinstance(value, expected_type) and value != default_value:
+            actual_type_str: str = type(value).__name__
+            if value is None:
+                actual_type_str = "None"
+            elif isinstance(value, dict):
+                actual_type_str = "YAML object"
+            elif isinstance(value, list):
+                actual_type_str = "YAML list"
             self.logs.error(
-                message=f"Property '{key}' expected a {expected_type.__name__}, but was {type(value).__name__}",
+                message=f"{key_description} expected a {expected_type.__name__}, but was {actual_type_str}",
                 location=self.create_location_from_yaml_dict_key(key)
             )
+            value = None
 
         return self._yaml_wrap(value)
 

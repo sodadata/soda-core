@@ -13,7 +13,7 @@ def test_error_duplicate_column_names(data_source_test_helper: DataSourceTestHel
     )
 
     assert (
-        "Duplicate columns with name 'id': [line=2,column=4], [line=3,column=4]"
+        "Duplicate columns with name 'id': At file locations: [2,4], [3,4]"
         in contract_verification_result.get_logs_str()
     )
 

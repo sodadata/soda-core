@@ -31,13 +31,7 @@ class Location:
         self.column: int | None = column
 
     def __str__(self) -> str:
-        parts = [
-            f"line={self.line}" if self.line is not None else None,
-            f"column={self.column}" if self.column is not None else None,
-            f"file={self.file_path}" if self.file_path is not None else None,
-        ]
-        parts = [p for p in parts if p is not None]
-        return ",".join(parts)
+        return f"{self.file_path}[{self.line},{self.column}]"
 
     def __hash__(self) -> int:
         return hash((self.line, self.column))
@@ -71,11 +65,10 @@ class Log:
         self.index: int | None = index
 
     def __str__(self):
-        location_str = f" | {self.location}" if self.location else ""
-        doc_str = f" | https://go.soda.io/{self.doc}" if self.doc else ""
+        location_str = f"At {self.location}: " if self.location else ""
+        doc_str = f" | see https://go.soda.io/{self.doc}" if self.doc else ""
         exception_str = f" | {self.exception}" if self.exception else ""
-        level_name: str = getLevelName(self.level)
-        return f"{level_name:<7}| {self.message}{location_str}{doc_str}{exception_str}"
+        return f"{location_str}{self.message}{doc_str}{exception_str}"
 
     def get_dict(self) -> dict:
         return {
@@ -181,14 +174,9 @@ class Logs:
         self.__log_to_python_logging(log)
 
     def __log_to_python_logging(self, log: Log) -> None:
-        message = log.message
-        if log.location:
-            message = f"{message}\n at {log.location}"
-        if log.doc:
-            message = f"{message}\n see https://go.soda.io/{log.doc}"
         self.logger.log(
             level=log.level,
-            msg=message,
+            msg=str(log),
             exc_info=log.exception,
             stack_info=log.exception is not None,
         )

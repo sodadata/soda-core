@@ -6,9 +6,7 @@ from soda_core.tests.helpers.test_functions import dedent_and_strip
 def test_parse_relative_complete_contract():
     contract_yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip("""
         data_source_file: ../../data_source_${env}.yml
-        dataset_location_postgres:
-          database: soda_test
-          schema: dev_xxx
+        dataset_prefix: [soda_test, dev_xxx]
         dataset: SODATEST_test_schema_31761d69
         columns:
           - name: id
@@ -24,9 +22,7 @@ def test_parse_relative_complete_contract():
         contract_yaml_source=contract_yaml_source, variables={"env": "test"}
     )
 
-    assert "../../data_source_test.yml" == contract_yaml.data_source_file
-    assert "soda_test" == contract_yaml.dataset_locations["postgres"]["database"]
-    assert "dev_xxx" == contract_yaml.dataset_locations["postgres"]["schema"]
+    assert ["soda_test", "dev_xxx"] == contract_yaml.dataset_prefix
     assert "SODATEST_test_schema_31761d69" == contract_yaml.dataset
 
     column_yaml: ColumnYaml = contract_yaml.columns[0]

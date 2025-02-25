@@ -93,14 +93,17 @@ class ContractVerificationImpl:
                 self.contract_yamls.append(contract_yaml)
         if self.data_source:
             for contract_yaml in self.contract_yamls:
-                contract_impl: ContractImpl = ContractImpl(
-                    contract_yaml=contract_yaml,
-                    data_source=self.data_source,
-                    variables=variables,
-                    logs=logs
-                )
-                if contract_impl:
-                    self.contract_impls.append(contract_impl)
+                if (isinstance(contract_yaml, ContractYaml)
+                    and self.data_source.is_valid_dataset_prefix(contract_yaml.dataset_prefix)
+                ):
+                    contract_impl: ContractImpl = ContractImpl(
+                        contract_yaml=contract_yaml,
+                        data_source=self.data_source,
+                        variables=variables,
+                        logs=logs
+                    )
+                    if contract_impl:
+                        self.contract_impls.append(contract_impl)
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
@@ -198,8 +201,8 @@ class ContractImpl:
             variables=variables, default=self.started_timestamp
         )
 
-        self.dataset_prefix: list[str] | None = self.contract_yaml.dataset_prefix
-        self.dataset_name: str | None = contract_yaml.dataset if contract_yaml else None
+        self.dataset_prefix: Optional[list[str]] = contract_yaml.dataset_prefix
+        self.dataset_name: Optional[str] = contract_yaml.dataset
 
         self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
             data_source_name=self.data_source.name,
@@ -211,10 +214,7 @@ class ContractImpl:
             dataset_name=self.dataset_name
         )
         self.metrics_resolver: MetricsResolver = MetricsResolver()
-        self.column_impls: list[ColumnImpl] = self._parse_columns(
-            contract_yaml=contract_yaml,
-        )
-
+        self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
 
         self.all_check_impls: list[CheckImpl] = list(self.check_impls)
@@ -311,12 +311,13 @@ class ContractImpl:
         columns: list[ColumnImpl] = []
         if contract_yaml.columns:
             for column_yaml in contract_yaml.columns:
-                column = ColumnImpl(
-                    contract_impl=self,
-                    column_yaml=column_yaml,
-                    metrics_resolver=self.metrics_resolver
-                )
-                columns.append(column)
+                if column_yaml:
+                    column = ColumnImpl(
+                        contract_impl=self,
+                        column_yaml=column_yaml,
+                        metrics_resolver=self.metrics_resolver
+                    )
+                    columns.append(column)
         return columns
 
     def verify(self) -> ContractResult:
