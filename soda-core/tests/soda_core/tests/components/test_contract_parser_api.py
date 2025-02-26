@@ -12,9 +12,9 @@ def test_parse_relative_complete_contract():
           - name: id
             data_type: varchar(255)
             checks:
-              - type: missing
+              - missing:
         checks:
-          - type: schema
+          - schema:
         """
     ))
 

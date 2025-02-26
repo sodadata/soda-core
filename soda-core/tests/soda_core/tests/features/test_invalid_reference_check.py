@@ -52,7 +52,7 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
                   dataset: {referenced_table.unique_name}
                   column: country_code
                 checks:
-                  - type: invalid_count
+                  - invalid:
         """
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]

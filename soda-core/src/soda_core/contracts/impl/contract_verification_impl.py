@@ -141,12 +141,12 @@ class ContractVerificationImpl:
                 for contract_impl in contract_impls:
                     contract_result: ContractResult = contract_impl.verify()
                     contract_results.append(contract_result)
+                    self._log_summary(contract_result)
                     if self.soda_cloud:
                         self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
                     else:
                         self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-                    self._log_summary(contract_result)
             finally:
                 if open_close:
                     data_source.close_connection()

@@ -21,7 +21,8 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
             columns:
               - name: id
                 checks:
-                  - type: missing_percent
+                  - missing:
+                      metric: percent
         """
     )
 
@@ -40,7 +41,7 @@ def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 checks:
-                  - type: missing_count
+                  - missing:
         """
     )
 

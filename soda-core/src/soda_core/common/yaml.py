@@ -264,12 +264,12 @@ class YamlObject(YamlValue):
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
-    def read_object_opt(self, key: str) -> YamlObject | None:
+    def read_object_opt(self, key: str, default_value: Optional[dict] = None) -> YamlObject | None:
         """
         An error is generated if the value is present and not a YAML object.
         :return: a dict if the value for the key is a YAML object, otherwise None.
         """
-        return self.read_value(key=key, expected_type=dict, required=False, default_value=None)
+        return self.read_value(key=key, expected_type=dict, required=False, default_value=default_value)
 
     def read_list(self, key: str, expected_element_type: type | None = None, required: bool = True) -> YamlList | None:
         """
@@ -384,7 +384,6 @@ class YamlObject(YamlValue):
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)
         else:
-
             if required:
                 self.logs.error(
                     message=f"{Emoticons.POLICE_CAR_LIGHT} {key_description} is required",

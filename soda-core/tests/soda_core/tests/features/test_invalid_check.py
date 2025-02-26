@@ -28,7 +28,7 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
               - name: id
                 valid_values: ['1', '2', '3']
                 checks:
-                  - type: invalid_count
+                  - invalid:
         """
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
@@ -48,7 +48,7 @@ def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHe
               - name: id
                 valid_regex_sql: ^[123]$
                 checks:
-                  - type: invalid_count
+                  - invalid:
         """
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
@@ -69,7 +69,7 @@ def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelp
                 valid_min: 1
                 valid_max: 2
                 checks:
-                  - type: invalid_count
+                  - invalid:
         """
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
@@ -89,7 +89,7 @@ def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTest
               - name: id
                 invalid_regex_sql: ^[X]$
                 checks:
-                  - type: invalid_count
+                  - invalid:
         """
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
@@ -117,7 +117,7 @@ def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelpe
               - name: id
                 valid_format: single_digit_test_format
                 checks:
-                  - type: invalid_count
+                  - invalid:
         """
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]

@@ -486,9 +486,6 @@ class DataSourceTestHelper:
             f"data_source: the_test_ds\n"
             f"dataset: {test_table.unique_name}\n"
             f"dataset_prefix: {self.dataset_prefix}\n"
-            f"dataset_location_{self.data_source.get_data_source_type_name()}:\n"
-            f"  database: {self.dataset_prefix[0]}\n"
-            f"  schema: {self.dataset_prefix[1]}\n"
         )
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         full_contract_yaml_str: str = header_contract_yaml_str + checks_contract_yaml_str

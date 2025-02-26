@@ -16,6 +16,7 @@ class Emoticons:
     EXPLODING_HEAD: str = "\U0001F92F"
     POLICE_CAR_LIGHT: str = "\U0001F6A8"
     SEE_NO_EVIL: str = "\U0001F648"
+    PINCHED_FINGERS: str = "\U0001F90C"
 
 
 class Location:

@@ -19,7 +19,7 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: schema
+              - schema:
             columns:
               - name: id
                 data_type: {test_table.data_type('id')}
@@ -38,7 +38,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: schema
+              - schema:
             columns:
               - name: id
                 data_type: {test_table.data_type('id')}

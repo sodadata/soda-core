@@ -39,8 +39,9 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
               - name: age
                 missing_values: [-1, -2]
                 checks:
-                  - type: missing_count
-                    must_be_less_than_or_equal: 2
+                  - missing:
+                      threshold:
+                        must_be_less_than_or_equal: 2
         """
     )
 
@@ -121,7 +122,8 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
               - name: age
                 missing_values: [-1, -2]
                 checks:
-                  - type: missing_count
-                    must_be_less_than_or_equal: 2
+                  - missing:
+                      threshold:
+                        must_be_less_than_or_equal: 2
         """
     )

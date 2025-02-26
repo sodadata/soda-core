@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Contract, Diagnostic, NumericDiagnostic
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
@@ -46,7 +48,9 @@ class MissingCheck(MissingAndValidityCheckImpl):
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type_name, column_impl=column_impl)
+
+        self.metric_name = "missing_percent" if check_yaml.metric == "percent" else "missing_count"
+        metric_name: str = ThresholdImpl.get_metric_name(self.metric_name, column_impl=column_impl)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
             else f"{check_yaml.type_name} (invalid threshold)"
@@ -78,12 +82,12 @@ class MissingCheck(MissingAndValidityCheckImpl):
             NumericDiagnostic(name="missing_count", value=missing_count)
         ]
 
-        threshold_value: Number | None = None
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
         missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
         diagnostics.append(NumericDiagnostic(name="missing_percent", value=missing_percent))
-        threshold_value = missing_percent
+
+        threshold_value: Optional[Number] = missing_percent if self.metric_name == "missing_percent" else missing_count
 
         if self.threshold and isinstance(threshold_value, Number):
             if self.threshold.passes(threshold_value):

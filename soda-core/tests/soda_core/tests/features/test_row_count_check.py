@@ -23,7 +23,7 @@ def test_row_count(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: row_count
+              - row_count:
         """
     )
 
@@ -35,37 +35,47 @@ def test_row_count_thresholds_pass(data_source_test_helper: DataSourceTestHelper
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: row_count
-                must_be: 3
-              - type: row_count
-                qualifier: 2
-                must_not_be: 2
-              - type: row_count
-                qualifier: 3
-                must_be_greater_than: 2
-              - type: row_count
-                qualifier: 4
-                must_be_greater_than_or_equal: 3
-              - type: row_count
-                qualifier: 5
-                must_be_less_than: 4
-              - type: row_count
-                qualifier: 6
-                must_be_less_than_or_equal: 3
-              - type: row_count
-                qualifier: 7
-                must_be_between: [2, 3]
-              - type: row_count
-                qualifier: 8
-                must_be_between: [3, 4]
-              - type: row_count
-                qualifier: 9
-                must_be_greater_than: 2
-                must_be_less_than_or_equal: 3
-              - type: row_count
-                qualifier: 10
-                must_be_greater_than_or_equal: 3
-                must_be_less_than: 4
+              - row_count:
+                  threshold:
+                    must_be: 3
+              - row_count:
+                  qualifier: 2
+                  threshold:
+                    must_not_be: 2
+              - row_count:
+                  qualifier: 3
+                  threshold:
+                    must_be_greater_than: 2
+              - row_count:
+                  qualifier: 4
+                  threshold:
+                    must_be_greater_than_or_equal: 3
+              - row_count:
+                  qualifier: 5
+                  threshold:
+                    must_be_less_than: 4
+              - row_count:
+                  qualifier: 6
+                  threshold:
+                    must_be_less_than_or_equal: 3
+              - row_count:
+                  qualifier: 7
+                  threshold:
+                    must_be_between: [2, 3]
+              - row_count:
+                  qualifier: 8
+                  threshold:
+                    must_be_between: [3, 4]
+              - row_count:
+                  qualifier: 9
+                  threshold:
+                    must_be_greater_than: 2
+                    must_be_less_than_or_equal: 3
+              - row_count:
+                  qualifier: 10
+                  threshold:
+                  must_be_greater_than_or_equal: 3
+                  must_be_less_than: 4
         """
     )
 
@@ -80,45 +90,57 @@ def test_row_count_thresholds_fail(data_source_test_helper: DataSourceTestHelper
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: row_count
-                must_be: 4
-              - type: row_count
-                qualifier: 2
-                must_not_be: 3
-              - type: row_count
-                qualifier: 3
-                must_be_greater_than: 3
-              - type: row_count
-                qualifier: 4
-                must_be_greater_than_or_equal: 4
-              - type: row_count
-                qualifier: 5
-                must_be_less_than: 3
-              - type: row_count
-                qualifier: 6
-                must_be_less_than_or_equal: 2
-              - type: row_count
-                qualifier: 7
-                must_be_between: [-100, 2]
-              - type: row_count
-                qualifier: 8
-                must_be_between: [4, 100]
-              - type: row_count
-                qualifier: 9
-                must_be_greater_than_or_equal: -100
-                must_be_less_than: 3
-              - type: row_count
-                qualifier: 10
-                must_be_greater_than: 3
-                must_be_less_than: 100
-              - type: row_count
-                qualifier: 11
-                must_be_greater_than: 4
-                must_be_less_than: 3
-              - type: row_count
-                qualifier: 12
-                must_be_greater_than: 3
-                must_be_less_than: 4
+              - row_count:
+                  threshold:
+                    must_be: 4
+              - row_count:
+                  qualifier: 2
+                  threshold:
+                    must_not_be: 3
+              - row_count:
+                  qualifier: 3
+                  threshold:
+                    must_be_greater_than: 3
+              - row_count:
+                  qualifier: 4
+                  threshold:
+                    must_be_greater_than_or_equal: 4
+              - row_count:
+                  qualifier: 5
+                  threshold:
+                    must_be_less_than: 3
+              - row_count:
+                  qualifier: 6
+                  threshold:
+                    must_be_less_than_or_equal: 2
+              - row_count:
+                  qualifier: 7
+                  threshold:
+                    must_be_between: [-100, 2]
+              - row_count:
+                  qualifier: 8
+                  threshold:
+                    must_be_between: [4, 100]
+              - row_count:
+                  qualifier: 9
+                  threshold:
+                    must_be_greater_than_or_equal: -100
+                    must_be_less_than: 3
+              - row_count:
+                  qualifier: 10
+                  threshold:
+                    must_be_greater_than: 3
+                    must_be_less_than: 100
+              - row_count:
+                  qualifier: 11
+                  threshold:
+                    must_be_greater_than: 4
+                    must_be_less_than: 3
+              - row_count:
+                  qualifier: 12
+                  threshold:
+                    must_be_greater_than: 3
+                    must_be_less_than: 4
         """
     )
     for i in range(0, len(contract_result.check_results)):

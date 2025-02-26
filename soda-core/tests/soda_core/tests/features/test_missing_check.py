@@ -26,7 +26,7 @@ def test_missing_count(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 checks:
-                  - missing:
+                  - missing
                     # Expected check to fail because...
                     # must_be: 0 is the default threshold
         """
@@ -44,8 +44,9 @@ def test_missing_count_custom_missing_values(data_source_test_helper: DataSource
               - name: id
                 missing_values: ['X', 'Y']
                 checks:
-                  - type: missing_count
-                    must_be: 2
+                  - missing:
+                      threshold:
+                        must_be: 2
         """
     )
 
@@ -61,8 +62,9 @@ def test_missing_count_custom_missing_values_int_on_column(data_source_test_help
               - name: age
                 missing_values: [-1, -2]
                 checks:
-                  - type: missing_count
-                    must_be: 2
+                  - missing:
+                      threshold:
+                        must_be: 2
         """
     )
 
@@ -77,9 +79,10 @@ def test_missing_count_missing_values_on_check(data_source_test_helper: DataSour
             columns:
               - name: id
                 checks:
-                  - type: missing_count
-                    missing_values: ['X', 'Y']
-                    must_be: 2
+                  - missing:
+                      missing_values: ['X', 'Y']
+                      threshold:
+                        must_be: 2
         """
     )
 
@@ -95,9 +98,10 @@ def test_missing_count_overwrite_missing_values_on_check(data_source_test_helper
               - name: id
                 missing_regex_sql: ^xxx$
                 checks:
-                  - type: missing_count
-                    missing_values: ['X', 'Y']
-                    must_be: 2
+                  - missing:
+                      missing_values: ['X', 'Y']
+                      threshold:
+                        must_be: 2
         """
     )
 
@@ -114,7 +118,9 @@ def test_missing_percent(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 checks:
-                  - type: missing_percent
-                    must_be_between: [24, 26]
+                  - missing:
+                      metric: percent
+                      threshold:
+                        must_be_between: [24, 26]
         """
     )

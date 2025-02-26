@@ -6,7 +6,8 @@ from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 def test_threshold_must_be():
     threshold: ThresholdImpl = parse_threshold("""
-        must_be: 0
+        threshold:
+          must_be: 0
     """)
 
     assert threshold.get_assertion_summary("m") == "m = 0"
@@ -17,7 +18,8 @@ def test_threshold_must_be():
 
 def test_threshold_greater_than():
     threshold: ThresholdImpl = parse_threshold("""
-        must_be_greater_than: 0
+        threshold:
+          must_be_greater_than: 0
     """)
 
     assert threshold.get_assertion_summary("m") == "0 < m"
@@ -28,7 +30,8 @@ def test_threshold_greater_than():
 
 def test_threshold_between():
     threshold: ThresholdImpl = parse_threshold("""
-        must_be_between: [0, 1]
+        threshold:
+          must_be_between: [0, 1]
     """)
 
     assert threshold.get_assertion_summary("m") == "0 <= m <= 1"
@@ -43,5 +46,9 @@ def parse_threshold(threshold_yaml: str) -> ThresholdImpl:
     yaml_source = YamlSource.from_str(dedented_threshold_yaml)
     yaml_file_content = yaml_source.parse_yaml_file_content()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
-    check_yaml: ThresholdCheckYaml = ThresholdCheckYaml(check_yaml_object=yaml_object)
+    check_yaml: ThresholdCheckYaml = ThresholdCheckYaml(
+        type_name="missing",
+        check_yaml_object=yaml_object,
+        logs=yaml_file_content.logs
+    )
     return ThresholdImpl.create(check_yaml)

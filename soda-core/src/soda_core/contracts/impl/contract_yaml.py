@@ -127,6 +127,9 @@ class ContractYaml:
             if checks_yaml_list:
                 checks = []
                 for check_yaml_object in checks_yaml_list:
+                    check_type_name: Optional[str] = None
+                    check_body_yaml_object: Optional[YamlObject] = None
+
                     if isinstance(check_yaml_object, YamlObject):
                         check_keys: set[str] = check_yaml_object.keys()
                         if len(check_keys) != 1:
@@ -135,21 +138,35 @@ class ContractYaml:
                                 location=check_yaml_object.location
                             )
                         else:
-                            check_type_name: str | None = check_keys.pop()
-                            check_body_yaml_object: YamlObject = check_yaml_object.read_object(check_type_name)
-
-                            check_yaml: CheckYaml | None = CheckYaml.parse_check_yaml(
-                                check_type_name=check_type_name,
-                                check_body_yaml_object=check_body_yaml_object,
-                                column_yaml=column_yaml,
+                            check_type_name = check_keys.pop()
+                            check_body_yaml_object = check_yaml_object.read_object_opt(key=check_type_name)
+                    elif isinstance(check_yaml_object, str):
+                        check_type_name = check_yaml_object
+                        self.logs.info(
+                            f"{Emoticons.PINCHED_FINGERS} I'll be forgiving and ignore that you forgot the "
+                            f"colon ':' behind the check '{check_type_name}'"
+                        )
+                    if isinstance(check_type_name, str):
+                        if check_body_yaml_object is None:
+                            check_body_yaml_object = YamlObject(
+                                yaml_file_content=checks_containing_yaml_object.yaml_file_content,
+                                yaml_dict={}
                             )
-                            if check_yaml:
-                                checks.append(check_yaml)
-                            else:
-                                self.logs.error(
-                                    f"{Emoticons.POLICE_CAR_LIGHT} Invalid check type '{check_type_name}'. "
-                                    f"Existing check types: {CheckYaml.get_check_type_names()}"
-                                )
+                            check_body_yaml_object.location = checks_containing_yaml_object.location
+
+                        check_yaml: CheckYaml | None = CheckYaml.parse_check_yaml(
+                            check_type_name=check_type_name,
+                            check_body_yaml_object=check_body_yaml_object,
+                            column_yaml=column_yaml,
+                            logs=self.logs
+                        )
+                        if check_yaml:
+                            checks.append(check_yaml)
+                        else:
+                            self.logs.error(
+                                f"{Emoticons.POLICE_CAR_LIGHT} Invalid check type '{check_type_name}'. "
+                                f"Existing check types: {CheckYaml.get_check_type_names()}"
+                            )
                     else:
                         self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Checks must have a YAML object structure.")
 
@@ -300,6 +317,7 @@ class CheckYamlParser(ABC):
         check_type_name: str,
         check_yaml_object: YamlObject,
         column_yaml: ColumnYaml | None,
+        logs: Logs
     ) -> CheckYaml | None:
         pass
 
@@ -323,6 +341,7 @@ class CheckYaml(ABC):
         check_type_name: str,
         check_body_yaml_object: YamlObject,
         column_yaml: ColumnYaml | None,
+        logs: Logs
     ) -> CheckYaml | None:
         if isinstance(check_type_name, str):
             check_yaml_parser: CheckYamlParser | None = cls.check_yaml_parsers.get(check_type_name)
@@ -330,33 +349,45 @@ class CheckYaml(ABC):
                 return check_yaml_parser.parse_check_yaml(
                     check_type_name=check_type_name,
                     check_yaml_object=check_body_yaml_object,
-                    column_yaml=column_yaml
+                    column_yaml=column_yaml,
+                    logs=logs
                 )
 
-    def __init__(self, check_type_name: str, check_yaml_object: YamlObject):
+    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
         self.check_yaml_object: YamlObject = check_yaml_object
-        self.logs: Logs = check_yaml_object.logs
-
-        self.type_name: str = check_type_name
-        self.name: str | None = check_yaml_object.read_string_opt("name")
-        qualifier = check_yaml_object.read_value("qualifier")
-        self.qualifier: str | None = None if qualifier is None else str(qualifier)
+        self.logs: Logs = logs
+        self.type_name: str = type_name
+        self.name: Optional[str] = check_yaml_object.read_string_opt("name") if check_yaml_object else None
+        qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
+        self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
 
 
 class ThresholdCheckYaml(CheckYaml):
-    def __init__(self, type_name: str, check_yaml_object: YamlObject):
-        super().__init__(type_name, check_yaml_object)
-        self.must_be_greater_than: Number | None = check_yaml_object.read_number_opt("must_be_greater_than")
-        self.must_be_greater_than_or_equal: Number | None = check_yaml_object.read_number_opt("must_be_greater_than_or_equal")
-        self.must_be_less_than: Number | None = check_yaml_object.read_number_opt("must_be_less_than")
-        self.must_be_less_than_or_equal: Number | None = check_yaml_object.read_number_opt("must_be_less_than_or_equal")
-        self.must_be: Number | None = check_yaml_object.read_number_opt("must_be")
-        self.must_not_be: Number | None = check_yaml_object.read_number_opt("must_not_be")
-        self.must_be_between: RangeYaml = RangeYaml.read_opt(check_yaml_object, "must_be_between")
-        self.must_be_not_between: RangeYaml = RangeYaml.read_opt(check_yaml_object, "must_be_not_between")
+    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
+        super().__init__(type_name=type_name, check_yaml_object=check_yaml_object, logs=logs)
+        self.must_be_greater_than: Optional[Number] = None
+        self.must_be_greater_than_or_equal: Optional[Number] = None
+        self.must_be_less_than: Optional[Number] = None
+        self.must_be_less_than_or_equal: Optional[Number] = None
+        self.must_be: Optional[Number] = None
+        self.must_not_be: Optional[Number] = None
+        self.must_be_between: Optional[RangeYaml] = None
+        self.must_be_not_between: Optional[RangeYaml] = None
+        self.metric: Optional[str] = check_yaml_object.read_string_opt("metric")
+
+        threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
+        if threshold_yaml_object:
+            self.must_be_greater_than = threshold_yaml_object.read_number_opt("must_be_greater_than")
+            self.must_be_greater_than_or_equal = threshold_yaml_object.read_number_opt("must_be_greater_than_or_equal")
+            self.must_be_less_than = threshold_yaml_object.read_number_opt("must_be_less_than")
+            self.must_be_less_than_or_equal = threshold_yaml_object.read_number_opt("must_be_less_than_or_equal")
+            self.must_be = threshold_yaml_object.read_number_opt("must_be")
+            self.must_not_be = threshold_yaml_object.read_number_opt("must_not_be")
+            self.must_be_between = RangeYaml.read_opt(threshold_yaml_object, "must_be_between")
+            self.must_be_not_between = RangeYaml.read_opt(threshold_yaml_object, "must_be_not_between")
 
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):
-    def __init__(self, type_name: str, check_yaml_object: YamlObject):
-        ThresholdCheckYaml.__init__(self, type_name=type_name, check_yaml_object=check_yaml_object)
+    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
+        ThresholdCheckYaml.__init__(self, type_name=type_name, check_yaml_object=check_yaml_object, logs=logs)
         MissingAndValidityYaml.__init__(self, yaml_object=check_yaml_object)

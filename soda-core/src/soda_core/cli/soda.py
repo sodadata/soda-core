@@ -51,13 +51,17 @@ def verify_contract(
     for contract_file_path in contract_file_paths:
         contract_verification_builder.with_contract_yaml_file(contract_file_path)
 
-    if not use_agent and data_source_file_path:
+    if data_source_file_path:
         contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
 
+    if use_agent:
+        contract_verification_builder.with_execution_on_soda_agent()
+
     if soda_cloud_file_path:
-        if skip_publish:
-            contract_verification_builder.with_soda_cloud_skip_publish()
         contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
+
+    if skip_publish:
+        contract_verification_builder.with_soda_cloud_skip_publish()
 
     contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
     if contract_verification_result.has_failures():
