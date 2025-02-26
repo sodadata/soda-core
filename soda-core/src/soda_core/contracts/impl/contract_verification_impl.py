@@ -268,8 +268,7 @@ class ContractImpl:
                 if check_yaml:
                     check = CheckImpl.parse_check(
                         contract_impl=self,
-                        check_yaml=check_yaml,
-                        metrics_resolver=self.metrics_resolver,
+                        check_yaml=check_yaml
                     )
                     check_impls.append(check)
         return check_impls
@@ -315,8 +314,7 @@ class ContractImpl:
                 if column_yaml:
                     column = ColumnImpl(
                         contract_impl=self,
-                        column_yaml=column_yaml,
-                        metrics_resolver=self.metrics_resolver
+                        column_yaml=column_yaml
                     )
                     columns.append(column)
         return columns
@@ -399,7 +397,7 @@ class MeasurementValues:
 
 
 class ColumnImpl:
-    def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml, metrics_resolver: MetricsResolver):
+    def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
         self.column_yaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
             missing_and_validity_yaml=column_yaml,
@@ -413,7 +411,6 @@ class ColumnImpl:
                         contract_impl=contract_impl,
                         column_impl=self,
                         check_yaml=check_yaml,
-                        metrics_resolver=metrics_resolver,
                     )
                     self.check_impls.append(check)
 
@@ -760,7 +757,6 @@ class CheckParser(ABC):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl | None,
         check_yaml: CheckYaml,
-        metrics_resolver: MetricsResolver,
     ) -> CheckImpl | None:
         pass
 
@@ -782,20 +778,18 @@ class CheckImpl:
         cls,
         contract_impl: ContractImpl,
         check_yaml: CheckYaml,
-        metrics_resolver: MetricsResolver,
         column_impl: ColumnImpl | None = None,
     ) -> CheckImpl | None:
-        if isinstance(check_yaml.type, str):
-            check_parser: CheckParser | None = cls.check_parsers.get(check_yaml.type)
+        if isinstance(check_yaml.type_name, str):
+            check_parser: CheckParser | None = cls.check_parsers.get(check_yaml.type_name)
             if check_parser:
                 return check_parser.parse_check(
                     contract_impl=contract_impl,
                     column_impl=column_impl,
                     check_yaml=check_yaml,
-                    metrics_resolver=metrics_resolver,
                 )
             else:
-                contract_impl.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Unknown check type '{check_yaml.type}'")
+                contract_impl.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Unknown check type '{check_yaml.type_name}'")
 
     def __init__(
         self,
@@ -808,12 +802,12 @@ class CheckImpl:
         self.contract_impl: ContractImpl = contract_impl
         self.check_yaml: CheckYaml = check_yaml
         self.column_impl: ColumnImpl | None = column_impl
-        self.type: str = check_yaml.type
+        self.type: str = check_yaml.type_name
         self.name: str | None = None
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,
-            check_type=check_yaml.type,
+            check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier
         )
 

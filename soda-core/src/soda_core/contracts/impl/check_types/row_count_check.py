@@ -18,13 +18,11 @@ class RowCountCheckParser(CheckParser):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl | None,
         check_yaml: RowCountCheckYaml,
-        metrics_resolver: MetricsResolver,
     ) -> CheckImpl | None:
         return RowCountCheckImpl(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
-            metrics_resolver=metrics_resolver,
         )
 
 
@@ -35,7 +33,6 @@ class RowCountCheckImpl(CheckImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl | None,
         check_yaml: RowCountCheckYaml,
-        metrics_resolver: MetricsResolver,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -52,15 +49,15 @@ class RowCountCheckImpl(CheckImpl):
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type, column_impl=column_impl)
+        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type_name, column_impl=column_impl)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
-            else f"{check_yaml.type} (invalid threshold)"
+            else f"{check_yaml.type_name} (invalid threshold)"
         )
 
         self.summary = (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
-            else f"{check_yaml.type} (invalid threshold)"
+            else f"{check_yaml.type_name} (invalid threshold)"
         )
 
         self.row_count_metric = self._resolve_metric(RowCountMetric(

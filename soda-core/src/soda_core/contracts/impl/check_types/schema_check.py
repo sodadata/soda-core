@@ -23,12 +23,10 @@ class SchemaCheckParser(CheckParser):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl | None,
         check_yaml: SchemaCheckYaml,
-        metrics_resolver: MetricsResolver,
     ) -> CheckImpl | None:
         return SchemaCheckImpl(
             contract_impl=contract_impl,
             check_yaml=check_yaml,
-            metrics_resolver=metrics_resolver,
         )
 
 
@@ -51,7 +49,6 @@ class SchemaCheckImpl(CheckImpl):
         self,
         contract_impl: ContractImpl,
         check_yaml: SchemaCheckYaml,
-        metrics_resolver: MetricsResolver,
     ):
         super().__init__(
             contract_impl=contract_impl,

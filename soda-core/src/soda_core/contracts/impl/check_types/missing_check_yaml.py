@@ -11,15 +11,17 @@ class MissingCheckYamlParser(CheckYamlParser):
 
     def parse_check_yaml(
         self,
+        check_type_name: str,
         check_yaml_object: YamlObject,
         column_yaml: ColumnYaml | None,
     ) -> CheckYaml | None:
         return MissingCheckYaml(
+            type_name=check_type_name,
             check_yaml_object=check_yaml_object,
         )
 
 
 class MissingCheckYaml(MissingAncValidityCheckYaml):
 
-    def __init__(self, check_yaml_object: YamlObject):
-        super().__init__(check_yaml_object)
+    def __init__(self, type_name: str, check_yaml_object: YamlObject):
+        super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)

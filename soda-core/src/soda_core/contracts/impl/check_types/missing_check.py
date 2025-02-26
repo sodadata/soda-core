@@ -12,20 +12,18 @@ from soda_core.contracts.impl.contract_verification_impl import MetricsResolver,
 class MissingCheckParser(CheckParser):
 
     def get_check_type_names(self) -> list[str]:
-        return ['missing_count', 'missing_percent']
+        return ['missing']
 
     def parse_check(
         self,
         contract_impl: ContractImpl,
         column_impl: ColumnImpl | None,
         check_yaml: MissingCheckYaml,
-        metrics_resolver: MetricsResolver,
     ) -> CheckImpl | None:
         return MissingCheck(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
-            metrics_resolver=metrics_resolver,
         )
 
 
@@ -36,7 +34,6 @@ class MissingCheck(MissingAndValidityCheckImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: MissingCheckYaml,
-        metrics_resolver: MetricsResolver,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -49,10 +46,10 @@ class MissingCheck(MissingAndValidityCheckImpl):
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type, column_impl=column_impl)
+        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type_name, column_impl=column_impl)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
-            else f"{check_yaml.type} (invalid threshold)"
+            else f"{check_yaml.type_name} (invalid threshold)"
         )
 
         self.missing_count_metric = self._resolve_metric(MissingCountMetric(
@@ -61,16 +58,17 @@ class MissingCheck(MissingAndValidityCheckImpl):
             check_impl=self
         ))
 
-        if self.type == "missing_percent":
-            self.row_count_metric_impl: MetricImpl = self._resolve_metric(RowCountMetric(
-                contract_impl=contract_impl,
-            ))
+        self.row_count_metric_impl: MetricImpl = self._resolve_metric(RowCountMetric(
+            contract_impl=contract_impl,
+        ))
 
-            self.missing_percent_metric_impl: MetricImpl = metrics_resolver.resolve_metric(DerivedPercentageMetricImpl(
+        self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
+            DerivedPercentageMetricImpl(
                 metric_type="missing_percent",
                 fraction_metric_impl=self.missing_count_metric,
                 total_metric_impl=self.row_count_metric_impl
-            ))
+            )
+        )
 
     def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
@@ -81,14 +79,11 @@ class MissingCheck(MissingAndValidityCheckImpl):
         ]
 
         threshold_value: Number | None = None
-        if self.type == "missing_count":
-            threshold_value = missing_count
-        else:
-            row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-            diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
-            missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
-            diagnostics.append(NumericDiagnostic(name="missing_percent", value=missing_percent))
-            threshold_value = missing_percent
+        row_count: int = measurement_values.get_value(self.row_count_metric_impl)
+        diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
+        missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
+        diagnostics.append(NumericDiagnostic(name="missing_percent", value=missing_percent))
+        threshold_value = missing_percent
 
         if self.threshold and isinstance(threshold_value, Number):
             if self.threshold.passes(threshold_value):

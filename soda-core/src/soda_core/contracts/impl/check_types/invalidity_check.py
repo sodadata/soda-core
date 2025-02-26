@@ -24,13 +24,11 @@ class InvalidCheckParser(CheckParser):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl | None,
         check_yaml: MissingCheckYaml,
-        metrics_resolver: MetricsResolver,
     ) -> CheckImpl | None:
         return InvalidCheck(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
-            metrics_resolver=metrics_resolver,
         )
 
 
@@ -41,7 +39,6 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: InvalidCheckYaml,
-        metrics_resolver: MetricsResolver,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -54,10 +51,10 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type, column_impl=column_impl)
+        metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type_name, column_impl=column_impl)
         self.name = check_yaml.name if check_yaml.name else (
             self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
-            else f"{check_yaml.type} (invalid threshold)"
+            else f"{check_yaml.type_name} (invalid threshold)"
         )
 
         self.invalid_count_metric_impl: MetricImpl | None = None
