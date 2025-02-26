@@ -143,8 +143,9 @@ class ContractYaml:
                     elif isinstance(check_yaml_object, str):
                         check_type_name = check_yaml_object
                         self.logs.info(
-                            f"{Emoticons.PINCHED_FINGERS} I'll be forgiving and ignore that you forgot the "
-                            f"colon ':' behind the check '{check_type_name}'"
+                            f"{Emoticons.PINCHED_FINGERS} Mama Mia! You forgot the "
+                            f"colon ':' behind the check '{check_type_name}'. For this once I'll "
+                            f"pretend I didn't see it {Emoticons.SEE_NO_EVIL}"
                         )
                     if isinstance(check_type_name, str):
                         if check_body_yaml_object is None:
