@@ -19,7 +19,7 @@ from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult, Measurement, Threshold, Contract, Check, YamlFileContentInfo, DataSourceInfo, CheckOutcome
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
-    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml
+    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml, ThresholdYaml
 
 
 class DataSourceContracts:
@@ -577,83 +577,90 @@ class ThresholdType(Enum):
 class ThresholdImpl:
 
     @classmethod
-    def create(cls, check_yaml: ThresholdCheckYaml, default_threshold: ThresholdImpl | None = None) -> ThresholdImpl | None:
+    def create(cls, threshold_yaml: ThresholdYaml, logs: Logs,  default_threshold: ThresholdImpl | None = None) -> ThresholdImpl | None:
+        if threshold_yaml is None:
+            if default_threshold:
+                return default_threshold
+            else:
+                logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
+                return None
+
         total_config_count: int = cls.__config_count([
-            check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal, check_yaml.must_be_less_than,
-            check_yaml.must_be_less_than_or_equal, check_yaml.must_be, check_yaml.must_not_be,
-            check_yaml.must_be_between, check_yaml.must_be_not_between])
+            threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal, threshold_yaml.must_be_less_than,
+            threshold_yaml.must_be_less_than_or_equal, threshold_yaml.must_be, threshold_yaml.must_not_be,
+            threshold_yaml.must_be_between, threshold_yaml.must_be_not_between])
 
         if total_config_count == 0:
             if default_threshold:
                 return default_threshold
-            check_yaml.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
+            logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
             return None
 
         if total_config_count == 1 and cls.__config_count([
-            check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal, check_yaml.must_be_less_than,
-            check_yaml.must_be_less_than_or_equal, check_yaml.must_be, check_yaml.must_not_be]) == 1:
+            threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal, threshold_yaml.must_be_less_than,
+            threshold_yaml.must_be_less_than_or_equal, threshold_yaml.must_be, threshold_yaml.must_not_be]) == 1:
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
-                must_be_greater_than=check_yaml.must_be_greater_than,
-                must_be_greater_than_or_equal=check_yaml.must_be_greater_than_or_equal,
-                must_be_less_than=check_yaml.must_be_less_than,
-                must_be_less_than_or_equal=check_yaml.must_be_less_than_or_equal,
-                must_be=check_yaml.must_be,
-                must_not_be=check_yaml.must_not_be,
+                must_be_greater_than=threshold_yaml.must_be_greater_than,
+                must_be_greater_than_or_equal=threshold_yaml.must_be_greater_than_or_equal,
+                must_be_less_than=threshold_yaml.must_be_less_than,
+                must_be_less_than_or_equal=threshold_yaml.must_be_less_than_or_equal,
+                must_be=threshold_yaml.must_be,
+                must_not_be=threshold_yaml.must_not_be,
             )
 
-        elif total_config_count == 1 and isinstance(check_yaml.must_be_between, RangeYaml):
-            if (isinstance(check_yaml.must_be_between.lower_bound, Number)
-               and isinstance(check_yaml.must_be_between.upper_bound, Number)):
-                if check_yaml.must_be_between.lower_bound < check_yaml.must_be_between.upper_bound:
+        elif total_config_count == 1 and isinstance(threshold_yaml.must_be_between, RangeYaml):
+            if (isinstance(threshold_yaml.must_be_between.lower_bound, Number)
+               and isinstance(threshold_yaml.must_be_between.upper_bound, Number)):
+                if threshold_yaml.must_be_between.lower_bound < threshold_yaml.must_be_between.upper_bound:
                     return ThresholdImpl(
                         type=ThresholdType.INNER_RANGE,
-                        must_be_greater_than_or_equal=check_yaml.must_be_between.lower_bound,
-                        must_be_less_than_or_equal=check_yaml.must_be_between.upper_bound,
+                        must_be_greater_than_or_equal=threshold_yaml.must_be_between.lower_bound,
+                        must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
                     )
                 else:
-                    check_yaml.logs.error(
+                    logs.error(
                         f"{Emoticons.POLICE_CAR_LIGHT} Threshold must_be_between range: "
                         "first value must be less than the second value"
                     )
                     return None
 
-        elif total_config_count == 1 and isinstance(check_yaml.must_be_not_between, RangeYaml):
-            if (isinstance(check_yaml.must_be_not_between.lower_bound, Number)
-               and isinstance(check_yaml.must_be_not_between.upper_bound, Number)):
-                if check_yaml.must_be_between.lower_bound < check_yaml.must_be_between.upper_bound:
+        elif total_config_count == 1 and isinstance(threshold_yaml.must_be_not_between, RangeYaml):
+            if (isinstance(threshold_yaml.must_be_not_between.lower_bound, Number)
+               and isinstance(threshold_yaml.must_be_not_between.upper_bound, Number)):
+                if threshold_yaml.must_be_not_between.lower_bound < threshold_yaml.must_be_not_between.upper_bound:
                     return ThresholdImpl(
                         type=ThresholdType.OUTER_RANGE,
-                        must_be_greater_than_or_equal=check_yaml.must_be_not_between.upper_bound,
-                        must_be_less_than_or_equal=check_yaml.must_be_not_between.lower_bound,
+                        must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.upper_bound,
+                        must_be_less_than_or_equal=threshold_yaml.must_be_not_between.lower_bound,
                     )
                 else:
-                    check_yaml.logs.error(
+                    logs.error(
                         f"{Emoticons.POLICE_CAR_LIGHT} Threshold must_be_not_between range: "
                         "first value must be less than the second value"
                     )
                     return None
         else:
-            lower_bound_count = cls.__config_count([check_yaml.must_be_greater_than, check_yaml.must_be_greater_than_or_equal])
-            upper_bound_count = cls.__config_count([check_yaml.must_be_less_than, check_yaml.must_be_less_than_or_equal])
+            lower_bound_count = cls.__config_count([threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal])
+            upper_bound_count = cls.__config_count([threshold_yaml.must_be_less_than, threshold_yaml.must_be_less_than_or_equal])
             if lower_bound_count == 1 and upper_bound_count == 1:
-                lower_bound = check_yaml.must_be_greater_than if check_yaml.must_be_greater_than is not None else check_yaml.must_be_greater_than_or_equal
-                upper_bound = check_yaml.must_be_less_than if check_yaml.must_be_less_than is not None else check_yaml.must_be_less_than_or_equal
+                lower_bound = threshold_yaml.must_be_greater_than if threshold_yaml.must_be_greater_than is not None else threshold_yaml.must_be_greater_than_or_equal
+                upper_bound = threshold_yaml.must_be_less_than if threshold_yaml.must_be_less_than is not None else threshold_yaml.must_be_less_than_or_equal
                 if lower_bound < upper_bound:
                     return ThresholdImpl(
                         type=ThresholdType.INNER_RANGE,
-                        must_be_greater_than=check_yaml.must_be_greater_than,
-                        must_be_greater_than_or_equal=check_yaml.must_be_greater_than_or_equal,
-                        must_be_less_than=check_yaml.must_be_less_than,
-                        must_be_less_than_or_equal=check_yaml.must_be_less_than_or_equal,
+                        must_be_greater_than=threshold_yaml.must_be_greater_than,
+                        must_be_greater_than_or_equal=threshold_yaml.must_be_greater_than_or_equal,
+                        must_be_less_than=threshold_yaml.must_be_less_than,
+                        must_be_less_than_or_equal=threshold_yaml.must_be_less_than_or_equal,
                     )
                 else:
                     return ThresholdImpl(
                         type=ThresholdType.OUTER_RANGE,
-                        must_be_greater_than=check_yaml.must_be_greater_than,
-                        must_be_greater_than_or_equal=check_yaml.must_be_greater_than_or_equal,
-                        must_be_less_than=check_yaml.must_be_less_than,
-                        must_be_less_than_or_equal=check_yaml.must_be_less_than_or_equal,
+                        must_be_greater_than=threshold_yaml.must_be_greater_than,
+                        must_be_greater_than_or_equal=threshold_yaml.must_be_greater_than_or_equal,
+                        must_be_less_than=threshold_yaml.must_be_less_than,
+                        must_be_less_than_or_equal=threshold_yaml.must_be_less_than_or_equal,
                     )
 
     @classmethod
@@ -736,13 +743,23 @@ class ThresholdImpl:
                 return f"{metric_name}{lt_comparator}{lt_bound} or {gt_bound}{gt_comparator}{metric_name}"
 
     def passes(self, value: Number) -> bool:
-        return ((self.must_be_greater_than is None or value > self.must_be_greater_than)
-           and (self.must_be_greater_than_or_equal is None or value >= self.must_be_greater_than_or_equal)
-           and (self.must_be_less_than is None or value < self.must_be_less_than)
-           and (self.must_be_less_than_or_equal is None or value <= self.must_be_less_than_or_equal)
-           and (not (isinstance(self.must_be, Number) or isinstance(self.must_be, str)) or value == self.must_be)
-           and (not (isinstance(self.must_not_be, Number) or isinstance(self.must_not_be, str)) or value != self.must_not_be)
+        is_greater_than_ok: bool = (
+                (self.must_be_greater_than is None or value > self.must_be_greater_than)
+                and (self.must_be_greater_than_or_equal is None or value >= self.must_be_greater_than_or_equal)
         )
+        is_less_than_ok: bool = (
+                (self.must_be_less_than is None or value < self.must_be_less_than)
+                and (self.must_be_less_than_or_equal is None or value <= self.must_be_less_than_or_equal)
+        )
+        if self.type == ThresholdType.OUTER_RANGE:
+            return is_greater_than_ok or is_less_than_ok
+        else:
+            return (
+                is_greater_than_ok
+                and is_less_than_ok
+                and (not (isinstance(self.must_be, Number) or isinstance(self.must_be, str)) or value == self.must_be)
+                and (not (isinstance(self.must_not_be, Number) or isinstance(self.must_not_be, str)) or value != self.must_not_be)
+            )
 
 
 class CheckParser(ABC):
@@ -811,7 +828,7 @@ class CheckImpl:
             qualifier=check_yaml.qualifier
         )
 
-        self.threshold: ThresholdImpl | None = None
+        self.threshold: Optional[ThresholdImpl] = None
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
         self.skip: bool = False

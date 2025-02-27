@@ -1,6 +1,5 @@
 # TODOs
 
-* [ ] Most urgent: Reconsider the term scan for contract verification.
 * [ ] Finish threshold testing  in [soda_core/tests/components/test_thresholds.py](soda-core/tests/soda_core/tests/components/test_thresholds.py)
 * [ ] Finish missing regex implementation and docs
 * [ ] Test & document identity & qualifiers

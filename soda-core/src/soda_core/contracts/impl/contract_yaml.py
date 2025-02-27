@@ -366,26 +366,24 @@ class CheckYaml(ABC):
 class ThresholdCheckYaml(CheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object, logs=logs)
-        self.must_be_greater_than: Optional[Number] = None
-        self.must_be_greater_than_or_equal: Optional[Number] = None
-        self.must_be_less_than: Optional[Number] = None
-        self.must_be_less_than_or_equal: Optional[Number] = None
-        self.must_be: Optional[Number] = None
-        self.must_not_be: Optional[Number] = None
-        self.must_be_between: Optional[RangeYaml] = None
-        self.must_be_not_between: Optional[RangeYaml] = None
         self.metric: Optional[str] = check_yaml_object.read_string_opt("metric")
-
+        self.threshold: Optional[ThresholdYaml] = None
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:
-            self.must_be_greater_than = threshold_yaml_object.read_number_opt("must_be_greater_than")
-            self.must_be_greater_than_or_equal = threshold_yaml_object.read_number_opt("must_be_greater_than_or_equal")
-            self.must_be_less_than = threshold_yaml_object.read_number_opt("must_be_less_than")
-            self.must_be_less_than_or_equal = threshold_yaml_object.read_number_opt("must_be_less_than_or_equal")
-            self.must_be = threshold_yaml_object.read_number_opt("must_be")
-            self.must_not_be = threshold_yaml_object.read_number_opt("must_not_be")
-            self.must_be_between = RangeYaml.read_opt(threshold_yaml_object, "must_be_between")
-            self.must_be_not_between = RangeYaml.read_opt(threshold_yaml_object, "must_be_not_between")
+            self.threshold = ThresholdYaml(threshold_yaml_object)
+
+
+class ThresholdYaml:
+
+    def __init__(self, threshold_yaml_object: YamlObject):
+        self.must_be_greater_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than")
+        self.must_be_greater_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than_or_equal")
+        self.must_be_less_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_less_than")
+        self.must_be_less_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_less_than_or_equal")
+        self.must_be: Optional[Number] = threshold_yaml_object.read_number_opt("must_be")
+        self.must_not_be: Optional[Number] = threshold_yaml_object.read_number_opt("must_not_be")
+        self.must_be_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_between")
+        self.must_be_not_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_not_between")
 
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):

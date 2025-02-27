@@ -43,7 +43,8 @@ class MissingCheck(MissingAndValidityCheckImpl):
             check_yaml=check_yaml,
         )
         self.threshold = ThresholdImpl.create(
-            check_yaml=check_yaml,
+            threshold_yaml=check_yaml.threshold,
+            logs=self.logs,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0)
         )
 
