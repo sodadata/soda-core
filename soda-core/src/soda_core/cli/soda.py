@@ -300,5 +300,9 @@ class CLI:
         return ArgumentParser(epilog="Run 'soda {command} -h' for help on a particular soda command")
 
 
-if __name__ == "__main__":
+def main():
     CLI().execute()
+
+
+if __name__ == "__main__":
+    main()
