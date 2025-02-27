@@ -460,11 +460,12 @@ class SodaCloud:
             self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
             if response:
                 response_body_dict: Optional[dict] = response.json() if response else None
-                scan_status: str = response_body_dict.get("state") if response_body_dict else None
+                scan_state: str = response_body_dict.get("state") if response_body_dict else None
+                scan_cloud_url: str = response_body_dict.get("cloudUrl") if response_body_dict else None
 
-                self.logs.debug(f"Scan {scan_id} status is '{scan_status}'")
+                self.logs.info(f"Scan {scan_id} is finished with state'{scan_state}'. See {scan_cloud_url}")
 
-                if scan_status in REMOTE_SCAN_FINAL_STATES:
+                if scan_state in REMOTE_SCAN_FINAL_STATES:
                     return True
 
                 if attempt < max_retry:

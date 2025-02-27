@@ -19,11 +19,11 @@ def main():
         dataset: bus_breakdown_and_delays
         columns:
           - name: reason
-            valid_values: [ 'Heavy Traffic', 'Other', 'Mechanical Problem', 'Won`t Start', 'Problem Run' ]
             checks:
-              - type: invalid_count
+              - invalid:
+                  valid_values: [ 'Heavy Traffic', 'Other', 'Mechanical Problem', 'Won`t Start', 'Problem Run' ]
         checks:
-          - type: schema
+          - schema:
     """).strip()
 
     soda_cloud_yaml_str = dedent("""

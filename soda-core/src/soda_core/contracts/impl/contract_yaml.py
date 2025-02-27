@@ -142,10 +142,10 @@ class ContractYaml:
                             check_body_yaml_object = check_yaml_object.read_object_opt(key=check_type_name)
                     elif isinstance(check_yaml_object, str):
                         check_type_name = check_yaml_object
-                        self.logs.info(
+                        self.logs.error(
                             f"{Emoticons.PINCHED_FINGERS} Mama Mia! You forgot the "
                             f"colon ':' behind the check '{check_type_name}'. For this once I'll "
-                            f"pretend I didn't see it {Emoticons.SEE_NO_EVIL}"
+                            f"still execute it {Emoticons.SEE_NO_EVIL}"
                         )
                     if isinstance(check_type_name, str):
                         if check_body_yaml_object is None:
