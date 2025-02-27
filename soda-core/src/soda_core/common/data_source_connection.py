@@ -3,8 +3,6 @@ from __future__ import annotations
 from abc import abstractmethod, ABC
 from importlib.util import find_spec
 
-from cli_ui import message
-
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logs import Logs, Emoticons
 
