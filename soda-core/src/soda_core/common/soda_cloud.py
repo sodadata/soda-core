@@ -388,7 +388,9 @@ class SodaCloud:
         response_json: dict = response.json()
         scan_id: str = response_json.get("scanId")
 
-        scan_is_finished: bool = self._poll_remote_scan_finished(scan_id=scan_id)
+        scan_is_finished: bool
+        soda_cloud_scan_url: Optional[str]
+        scan_is_finished, soda_cloud_scan_url = self._poll_remote_scan_finished(scan_id=scan_id)
 
         self.logs.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
@@ -431,6 +433,9 @@ class SodaCloud:
             self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Max retries exceeded. "
                             f"Contract verification did not finish yet.")
 
+        if soda_cloud_scan_url:
+            self.logs.info(f"See contract verification results on Soda Cloud: {soda_cloud_scan_url}")
+
         return [ContractResult(
             contract=Contract(
                 data_source_name=data_source_name,
@@ -450,7 +455,12 @@ class SodaCloud:
             logs=self.logs
         )]
 
-    def _poll_remote_scan_finished(self, scan_id: str, max_retry: int = 5) -> bool:
+    def _poll_remote_scan_finished(self, scan_id: str, max_retry: int = 5) -> tuple[bool, Optional[str]]:
+        """
+        Returns a tuple of 2 values:
+        * A boolean indicating if the scan finished (true means scan finished. false means there was a timeout or retry exceeded)
+        * The Soda Cloud URL that navigates to the scan.  If it was obtained from Soda Cloud.
+        """
         attempt = 0
         while attempt < max_retry:
             attempt += 1
@@ -461,12 +471,12 @@ class SodaCloud:
             if response:
                 response_body_dict: Optional[dict] = response.json() if response else None
                 scan_state: str = response_body_dict.get("state") if response_body_dict else None
-                scan_cloud_url: str = response_body_dict.get("cloudUrl") if response_body_dict else None
+                soda_cloud_scan_url: Optional[str] = response_body_dict.get("cloudUrl") if response_body_dict else None
 
-                self.logs.info(f"Scan {scan_id} is finished with state'{scan_state}'. See {scan_cloud_url}")
+                self.logs.info(f"Scan {scan_id} is finished with state'{scan_state}'")
 
                 if scan_state in REMOTE_SCAN_FINAL_STATES:
-                    return True
+                    return True, soda_cloud_scan_url
 
                 if attempt < max_retry:
                     time_to_wait_in_seconds: float = 5
@@ -490,7 +500,7 @@ class SodaCloud:
                 self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Failed to poll remote scan status. "
                                 f"Response: {response}")
 
-        return False
+        return False, None
 
     def _get_scan_status(self, scan_id: str) -> Response:
         return self._execute_rest_get(
