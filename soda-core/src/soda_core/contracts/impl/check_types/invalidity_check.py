@@ -198,8 +198,8 @@ class InvalidReferenceCountQuery(Query):
         referenced_alias: str = "R"
 
         # The variant to get the failed rows is:
-        # SELECT(STAR().IN("REFERENCING")),
-        # which should translate to SELECT REFERENCING.*
+        # SELECT(STAR().IN("C")),
+        # which should translate to SELECT C.*
 
         self.sql = self.data_source.sql_dialect.build_select_sql([
             SELECT(COUNT(STAR())),
@@ -208,8 +208,21 @@ class InvalidReferenceCountQuery(Query):
                 .ON(EQ(COLUMN(referencing_column_name).IN(referencing_alias),
                        COLUMN(referenced_column).IN(referenced_alias)))
                 .AS(referenced_alias),
-            WHERE(AND([IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
-                       NOT(IS_NULL(COLUMN(referencing_column_name).IN(referencing_alias)))])),
+            WHERE(AND([
+                NOT(metric_impl.missing_and_validity.get_missing_count_condition(
+                        COLUMN(referencing_column_name).IN(referencing_alias))
+                ),
+                IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
+            # If you want to combine other validity constraints, replace
+            # IS_NULL(COLUMN(referenced_column).IN(referenced_alias)) as follows:
+            # OR(
+            #     IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
+            #     metric_impl.missing_and_validity.get_invalid_count_condition(
+            #         COLUMN(referencing_column_name).IN(referencing_alias)
+            #     )
+            # )
+            # Don't forget to update function get_non_reference_configurations in contract_yaml.py
+            ])),
         ])
 
     def execute(self) -> list[Measurement]:

@@ -231,7 +231,7 @@ class MissingAndValidityYaml:
             if non_reference_configurations:
                 yaml_object.logs.error(
                     f"{Emoticons.POLICE_CAR_LIGHT} 'valid_reference_data' is mutually exclusive with other "
-                    f"missing and validity configurations: {non_reference_configurations}"
+                    f"validity configurations: {non_reference_configurations}"
                 )
 
         self.has_valid_configuration_error: bool = (
@@ -251,8 +251,9 @@ class MissingAndValidityYaml:
 
     def get_non_reference_configurations(self) -> list[str]:
         non_reference_configurations: list[str] = [
-            "missing_values" if self.missing_values is not None else None,
-            "missing_regex_sql" if self.missing_regex_sql is not None else None,
+            # Combining missing values with reference data validity is allowed!
+            # "missing_values" if self.missing_values is not None else None,
+            # "missing_regex_sql" if self.missing_regex_sql is not None else None,
             "invalid_values" if self.invalid_values is not None else None,
             "invalid_format" if self.invalid_format is not None else None,
             "invalid_regex_sql" if self.invalid_regex_sql is not None else None,

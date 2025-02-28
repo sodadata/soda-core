@@ -59,3 +59,27 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
     assert isinstance(diagnostic, NumericDiagnostic)
     assert "invalid_count" == diagnostic.name
     assert 3 == diagnostic.value
+
+
+def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelper):
+
+    referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
+    referenced_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+        test_table=referencing_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                valid_reference_data:
+                  dataset: {referenced_table.unique_name}
+                  column: country_code
+                missing_values: [XX]
+                checks:
+                  - invalid:
+        """
+    )
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 0 == diagnostic.value
