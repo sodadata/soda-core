@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import blake2b
 from numbers import Number
+from typing import Optional
 
 
 class ConsistentHashBuilder:
@@ -17,7 +18,7 @@ class ConsistentHashBuilder:
             self.blake2b = blake2b(digest_size=int(self.hash_string_length / 2))
         return self.blake2b
 
-    def add(self, value: object | None) -> ConsistentHashBuilder:
+    def add(self, value: Optional[object]) -> ConsistentHashBuilder:
         if value is not None:
             if isinstance(value, str):
                 self.__get_blake2b().update(value.encode("utf-8"))
@@ -33,7 +34,7 @@ class ConsistentHashBuilder:
                 raise AssertionError(f"Unsupported hash value type {value} ({type(value).__name__})")
         return self
 
-    def add_property(self, key: str, value: object | None) -> ConsistentHashBuilder:
+    def add_property(self, key: str, value: Optional[object]) -> ConsistentHashBuilder:
         if value is not None:
             self.add(key)
             self.add(value)

@@ -35,7 +35,7 @@ class YamlSource:
 
     @abstractmethod
     def parse_yaml_file_content(
-        self, file_type: str | None = None, variables: dict | None = None, logs: Logs = None
+        self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Logs = None
     ) -> YamlFileContent:
         pass
 
@@ -49,15 +49,15 @@ class FileYamlSource(YamlSource):
     def __str__(self) -> str:
         return self.yaml_file_path
 
-    def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Optional[Logs] = None) -> YamlFileContent:
         logs = logs if logs else Logs()
         yaml_source_description: str = (f"{file_type} file '{self.yaml_file_path}'" if file_type
                                         else f"'{self.yaml_file_path}'")
-        yaml_str: str | None = YamlFileContent.read_yaml_file(
+        yaml_str: Optional[str] = YamlFileContent.read_yaml_file(
             file_path=self.yaml_file_path, yaml_source_description=yaml_source_description, logs=logs
         )
         yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=yaml_str, variables=variables)
-        yaml_dict: dict | None = YamlFileContent.parse_yaml_dict(
+        yaml_dict: Optional[dict] = YamlFileContent.parse_yaml_dict(
             yaml_str=yaml_str_resolved, yaml_file_path=self.yaml_file_path,
             yaml_source_description=yaml_source_description, logs=logs
         )
@@ -73,19 +73,19 @@ class FileYamlSource(YamlSource):
 
 class StrYamlSource(YamlSource):
 
-    def __init__(self, yaml_str: str, file_path: str | None = None):
+    def __init__(self, yaml_str: str, file_path: Optional[str] = None):
         super().__init__()
         self.yaml_str: str = yaml_str
-        self.file_path: str | None = file_path
+        self.file_path: Optional[str] = file_path
 
     def __str__(self) -> str:
         return self.file_path if isinstance(self.file_path, str) else "yaml_str"
 
-    def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Optional[Logs] = None) -> YamlFileContent:
         logs = logs if logs else Logs()
         yaml_source_description: str = f"{file_type} yaml string" if file_type else "yaml string"
         yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=self.yaml_str, variables=variables)
-        yaml_dict: dict | None = YamlFileContent.parse_yaml_dict(
+        yaml_dict: Optional[dict] = YamlFileContent.parse_yaml_dict(
             yaml_str=yaml_str_resolved, yaml_file_path=yaml_source_description,
             yaml_source_description=yaml_source_description, logs=logs
         )
@@ -101,15 +101,15 @@ class StrYamlSource(YamlSource):
 
 class DictYamlSource(YamlSource):
 
-    def __init__(self, yaml_dict: dict, file_path: str | None = None):
+    def __init__(self, yaml_dict: dict, file_path: Optional[str] = None):
         super().__init__()
         self.yaml_dict: dict = yaml_dict
-        self.file_path: str | None = file_path
+        self.file_path: Optional[str] = file_path
 
     def __str__(self) -> str:
         return self.file_path if isinstance(self.file_path, str) else "yaml_dict"
 
-    def parse_yaml_file_content(self, file_type: str | None = None, variables: dict | None = None, logs: Logs | None = None) -> YamlFileContent:
+    def parse_yaml_file_content(self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Optional[Logs] = None) -> YamlFileContent:
         logs = logs if logs else Logs()
         yaml_source_description: str = f"{file_type} yaml dict" if file_type else "yaml dict"
         return YamlFileContent(
@@ -128,22 +128,22 @@ class YamlFileContent:
 
     def __init__(
         self,
-        yaml_file_path: str | None,
-        yaml_source_description: str | None,
-        yaml_str_source: str | None,
-        yaml_str_resolved: str | None,
-        yaml_dict: dict | None,
+        yaml_file_path: Optional[str],
+        yaml_source_description: Optional[str],
+        yaml_str_source: Optional[str],
+        yaml_str_resolved: Optional[str],
+        yaml_dict: Optional[dict],
         logs: Logs,
     ):
-        self.yaml_file_path: str | None = yaml_file_path
-        self.yaml_source_description: str | None = yaml_source_description
-        self.yaml_str_source: str | None = yaml_str_source
-        self.yaml_str_resolved: str | None = yaml_str_resolved
-        self.yaml_dict: dict | None = yaml_dict
+        self.yaml_file_path: Optional[str] = yaml_file_path
+        self.yaml_source_description: Optional[str] = yaml_source_description
+        self.yaml_str_source: Optional[str] = yaml_str_source
+        self.yaml_str_resolved: Optional[str] = yaml_str_resolved
+        self.yaml_dict: Optional[dict] = yaml_dict
         self.logs: Logs = logs
 
     @classmethod
-    def read_yaml_file(cls, file_path: str, yaml_source_description: str, logs: Logs) -> str | None:
+    def read_yaml_file(cls, file_path: str, yaml_source_description: str, logs: Logs) -> Optional[str]:
         if isinstance(file_path, str):
             try:
                 with open(file_path) as f:
@@ -165,11 +165,11 @@ class YamlFileContent:
                     )
 
     @classmethod
-    def resolve_yaml_str(cls, yaml_str: str, variables: dict | None) -> str | None:
+    def resolve_yaml_str(cls, yaml_str: str, variables: Optional[dict]) -> Optional[str]:
         return VariableResolver.resolve(source_text_with_variables=yaml_str, variables=variables)
 
     @classmethod
-    def parse_yaml_dict(cls, yaml_str: str, yaml_file_path: str | None, yaml_source_description: str, logs: Logs) -> any:
+    def parse_yaml_dict(cls, yaml_str: str, yaml_file_path: Optional[str], yaml_source_description: str, logs: Logs) -> any:
         if isinstance(yaml_str, str):
             try:
                 root_yaml_object: any = cls.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
@@ -224,7 +224,7 @@ class YamlValue:
         return value
 
     @classmethod
-    def yaml_unwrap(cls, o) -> object | None:
+    def yaml_unwrap(cls, o) -> Optional[object]:
         if isinstance(o, YamlObject):
             return {k: cls.yaml_unwrap(v) for k, v in o.items()}
         if isinstance(o, YamlList):
@@ -232,7 +232,7 @@ class YamlValue:
         return o
 
 
-def get_location(yaml_value: any, yaml_file_path: str | None) -> Location | None:
+def get_location(yaml_value: any, yaml_file_path: Optional[str]) -> Optional[Location]:
     if isinstance(yaml_value, CommentedMap) or isinstance(yaml_value, CommentedSeq):
         return Location(
             file_path=yaml_file_path,
@@ -246,7 +246,7 @@ class YamlObject(YamlValue):
     def __init__(self, yaml_file_content: YamlFileContent, yaml_dict: dict) -> None:
         super().__init__(yaml_file_content)
         self.yaml_dict: dict = yaml_dict
-        self.location: Location | None = get_location(self.yaml_dict, yaml_file_content.yaml_file_path)
+        self.location: Optional[Location] = get_location(self.yaml_dict, yaml_file_content.yaml_file_path)
 
     def items(self) -> list[tuple]:
         return [(k,self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
@@ -257,26 +257,26 @@ class YamlObject(YamlValue):
     def __iter__(self) -> iter:
         return iter(self.yaml_dict.keys())
 
-    def read_object(self, key: str) -> YamlObject | None:
+    def read_object(self, key: str) -> Optional[YamlObject]:
         """
         An error is generated if the value is missing or not a YAML object.
         :return: a dict if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
-    def read_object_opt(self, key: str, default_value: Optional[dict] = None) -> YamlObject | None:
+    def read_object_opt(self, key: str, default_value: Optional[dict] = None) -> Optional[YamlObject]:
         """
         An error is generated if the value is present and not a YAML object.
         :return: a dict if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(key=key, expected_type=dict, required=False, default_value=default_value)
 
-    def read_list(self, key: str, expected_element_type: type | None = None, required: bool = True) -> YamlList | None:
+    def read_list(self, key: str, expected_element_type: Optional[type] = None, required: bool = True) -> Optional[YamlList]:
         """
         An error is generated if the value is missing or not a YAML list.
         :return: a list if the value for the key is a YAML list, otherwise None.
         """
-        list_value: YamlList | None = self.read_value(key=key, expected_type=list, required=required, default_value=None)
+        list_value: Optional[YamlList] = self.read_value(key=key, expected_type=list, required=required, default_value=None)
         if isinstance(list_value, YamlList):
             filtered_list: list = []
             if isinstance(expected_element_type, type):
@@ -293,18 +293,18 @@ class YamlObject(YamlValue):
             list_value.yaml_list = filtered_list
         return list_value
 
-    def read_list_opt(self, key: str) -> YamlList | None:
+    def read_list_opt(self, key: str) -> Optional[YamlList]:
         """
         An error is generated if the value is present and not a YAML list.
         :return: a list if the value for the key is a YAML list, otherwise None.
         """
         return self.read_value(key=key, expected_type=list, required=False, default_value=None)
 
-    def read_list_of_objects_opt(self, key: str) -> YamlList | None:
+    def read_list_of_objects_opt(self, key: str) -> Optional[YamlList]:
         return self.read_list_of_objects(key) if key in self.yaml_dict else None
 
-    def read_list_of_objects(self, key: str) -> YamlList | None:
-        list_value: YamlList | None = self.read_list(key=key, expected_element_type=YamlObject)
+    def read_list_of_objects(self, key: str) -> Optional[YamlList]:
+        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject)
         if isinstance(list_value, YamlList):
             for i in range(0, len(list_value.yaml_list)):
                 element = list_value.yaml_list[i]
@@ -325,14 +325,14 @@ class YamlObject(YamlValue):
         l = self.read_list(key, expected_element_type=str, required=False)
         return l.to_list() if isinstance(l, YamlList) else None
 
-    def read_string(self, key: str, env_var: str | None = None) -> str | None:
+    def read_string(self, key: str, env_var: Optional[str] = None) -> Optional[str]:
         """
         An error is generated if the value is missing or not a string.
         :return: a str if the value for the key is a YAML string, otherwise None.
         """
         return self.read_value(key=key, env_var=env_var, expected_type=str, required=True, default_value=None)
 
-    def read_string_opt(self, key: str, env_var: str | None = None, default_value: str | None = None) -> str | None:
+    def read_string_opt(self, key: str, env_var: Optional[str] = None, default_value: Optional[str] = None) -> Optional[str]:
         """
         An error is generated if the value is present and not a string.
         :return: a str if the value for the key is a string, otherwise None.
@@ -341,28 +341,28 @@ class YamlObject(YamlValue):
             key=key, env_var=env_var, expected_type=str, required=False, default_value=default_value
         )
 
-    def read_bool(self, key: str) -> bool | None:
+    def read_bool(self, key: str) -> Optional[bool]:
         """
         An appropriate error log is generated if the value is not a bool or if the key is missing
         :return: a bool if the value for the key is a YAML boolean, otherwise None.
         """
         return self.read_value(key=key, expected_type=bool, required=True, default_value=None)
 
-    def read_bool_opt(self, key: str, default_value: bool | None = None) -> bool | None:
+    def read_bool_opt(self, key: str, default_value: Optional[bool] = None) -> Optional[bool]:
         """
         An appropriate error log is generated if the value is not a bool.
         :return: a bool if the value for the key is a YAML boolean, otherwise None.
         """
         return self.read_value(key=key, expected_type=bool, required=False, default_value=default_value)
 
-    def read_number(self, key: str) -> Number | None:
+    def read_number(self, key: str) -> Optional[Number]:
         """
         An appropriate error log is generated if the value is not a number or if the key is missing
         :return: a bool if the value for the key is a YAML number, otherwise None.
         """
         return self.read_value(key=key, expected_type=Number, required=True, default_value=None)
 
-    def read_number_opt(self, key: str, default_value: Number | None = None) -> Number | None:
+    def read_number_opt(self, key: str, default_value: Optional[Number] = None) -> Optional[Number]:
         """
         An appropriate error log is generated if the value is not a number.
         :return: a Number if the value for the key is a YAML number, otherwise None.
@@ -372,11 +372,11 @@ class YamlObject(YamlValue):
     def read_value(
         self,
         key: str,
-        env_var: str | None = None,
+        env_var: Optional[str] = None,
         expected_type: type = None,
         required: bool = False,
         default_value=None,
-    ) -> object | None:
+    ) -> Optional[object]:
         key_description: str = f"YAML key '{key}'"
         if env_var is not None and env_var in os.environ:
             key_description = f"Env var '{env_var}'"
@@ -408,7 +408,7 @@ class YamlObject(YamlValue):
 
         return self._yaml_wrap(value)
 
-    def create_location_from_yaml_dict_key(self, key) -> Location | None:
+    def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
             if key in self.yaml_dict:
                 ruamel_location = self.yaml_dict.lc.value(key)
@@ -425,7 +425,7 @@ class YamlList(YamlValue, Iterable):
     def __init__(self, yaml_file_content: YamlFileContent, yaml_list: list) -> None:
         super().__init__(yaml_file_content)
         self.yaml_list: list = [self._yaml_wrap(element) for element in yaml_list]
-        self.location: Location | None = get_location(yaml_list, yaml_file_content.yaml_file_path)
+        self.location: Optional[Location] = get_location(yaml_list, yaml_file_content.yaml_file_path)
 
     def __iter__(self) -> iter:
         return iter(self.yaml_list)
@@ -437,7 +437,7 @@ class YamlList(YamlValue, Iterable):
 class VariableResolver:
 
     @classmethod
-    def resolve(cls, source_text_with_variables: str, variables: dict[str, str] | None = None) -> str:
+    def resolve(cls, source_text_with_variables: str, variables: Optional[dict[str, str]] = None) -> str:
         if isinstance(source_text_with_variables, str):
             return re.sub(
                 pattern=r"\$\{ *([a-zA-Z_][a-zA-Z_0-9]*)\ *}",
@@ -452,7 +452,7 @@ class VariableResolver:
         return cls.get_variable(variables=variables, variable=variable, default=f"${{{variable}}}")
 
     @classmethod
-    def get_variable(cls, variables: dict[str, str], variable: str, default: str | None = None) -> str | None:
+    def get_variable(cls, variables: dict[str, str], variable: str, default: Optional[str] = None) -> Optional[str]:
         if isinstance(variables, dict) and variable in variables:
             return variables[variable]
         if variable in os.environ:

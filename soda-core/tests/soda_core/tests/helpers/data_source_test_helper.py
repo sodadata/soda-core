@@ -77,7 +77,7 @@ class DataSourceTestHelper:
 
         # Test table names that are present in the data source.
         # None means the data source is not queried
-        self.existing_test_table_names: list[str] | None = None
+        self.existing_test_table_names: Optional[list[str]] = None
 
         # Maps TestTable to their unique_name property
         # (that is the the full table name composed of "SODATEST_" prefix, table purpose & test table hash)
@@ -130,13 +130,13 @@ class DataSourceTestHelper:
         schema_name: str = self._create_schema_name()
         return [database_name, schema_name]
 
-    def _create_database_name(self) -> str | None:
+    def _create_database_name(self) -> Optional[str]:
         """
         Called in constructor to initialized self.database_name
         """
         return "soda_test"
 
-    def _create_schema_name(self) -> str | None:
+    def _create_schema_name(self) -> Optional[str]:
         """
         Called in constructor to initialized self.schema_name
         """
@@ -245,7 +245,7 @@ class DataSourceTestHelper:
             self.drop_test_schema_if_exists()
         self.create_test_schema_if_not_exists()
 
-    def end_test_session(self, exception: Exception | None) -> None:
+    def end_test_session(self, exception: Optional[Exception]) -> None:
         self.end_test_session_drop_schema()
         self.end_test_session_close_connection()
 
@@ -421,7 +421,7 @@ class DataSourceTestHelper:
         return "\n".join([str(e) for e in errors])
 
     def assert_contract_error(
-        self, contract_yaml_str: str, variables: dict[str, str] | None = None
+        self, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
     ) -> ContractVerificationResult:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
         contract_verification_result: ContractVerificationResult = (
@@ -436,7 +436,7 @@ class DataSourceTestHelper:
         return contract_verification_result
 
     def assert_contract_pass(
-        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None
+        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self._verify_contract(
             contract_yaml_str=contract_yaml_str,
@@ -448,7 +448,7 @@ class DataSourceTestHelper:
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
-        self, test_table: TestTable, contract_yaml_str: str, variables: dict[str, str] | None = None,
+        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None,
         soda_cloud = None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self._verify_contract(

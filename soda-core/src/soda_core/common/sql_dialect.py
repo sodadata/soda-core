@@ -22,7 +22,7 @@ class SqlDialect:
     def _get_default_quote_char(self) -> str:
         return '"'
 
-    def quote_default(self, identifier: str | None) -> str | None:
+    def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
             f"{self.default_quote_char}{identifier}{self.default_quote_char}"
             if isinstance(identifier, str) and len(identifier) > 0
@@ -267,7 +267,7 @@ class SqlDialect:
 
         return " ".join(from_parts)
 
-    def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: list[str] | None) -> str:
+    def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
         name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
         name_parts.append(dataset_name)
         quoted_name_parts: list[str] = [

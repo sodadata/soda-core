@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 
@@ -40,9 +40,9 @@ class TestTableSpecificationBuilder:
     __names = []
 
     def __init__(self):
-        self._table_purpose: str | None = None
+        self._table_purpose: Optional[str] = None
         self._columns: list[TestColumnSpecification] = []
-        self._rows: list[tuple] | None = None
+        self._rows: Optional[list[tuple]] = None
 
     def table_purpose(self, table_purpose: str) -> TestTableSpecificationBuilder:
         """
@@ -163,10 +163,10 @@ class TestTableSpecification:
     def builder() -> TestTableSpecificationBuilder:
         return TestTableSpecificationBuilder()
 
-    name: str | None
+    name: Optional[str]
     columns: list[TestColumnSpecification]
-    row_values: list[tuple] | None
-    unique_name: str | None
+    row_values: Optional[list[tuple]]
+    unique_name: Optional[str]
 
 
 class TestTable:
@@ -179,7 +179,7 @@ class TestTable:
                  unique_name: str,
                  qualified_name: str,
                  columns: list[TestColumn],
-                 row_values: list[tuple] | None
+                 row_values: Optional[list[tuple]]
                  ):
         self.data_source_name: str = data_source_name
         self.dataset_prefix: list[str] = dataset_prefix
@@ -192,7 +192,7 @@ class TestTable:
         self.columns: dict[str, TestColumn] = {
             column.name: column for column in columns
         }
-        self.row_values: list[tuple] | None = row_values
+        self.row_values: Optional[list[tuple]] = row_values
 
     def data_type(self, column_name: str) -> str:
         return self.columns[column_name].contract_data_type

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 import pytest
 from dotenv import load_dotenv
@@ -29,7 +30,7 @@ def data_source_test_helper(data_source_test_helper_session: DataSourceTestHelpe
 def data_source_test_helper_session() -> DataSourceTestHelper:
     data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create()
     data_source_test_helper.start_test_session()
-    exception: Exception | None = None
+    exception: Optional[Exception] = None
     try:
         yield data_source_test_helper
     except Exception as e:

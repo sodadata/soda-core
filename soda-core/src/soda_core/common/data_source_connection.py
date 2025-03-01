@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod, ABC
 from importlib.util import find_spec
+from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logs import Logs, Emoticons
@@ -19,7 +20,7 @@ class DataSourceConnection(ABC):
         self.connection_properties: dict = connection_properties
         self.logs: Logs = logs
         self.is_tabulate_available: bool = bool(find_spec(name="tabulate"))
-        self.connection: object | None = None
+        self.connection: Optional[object] = None
         # Auto-open on creation.  See DataSource.open_connection()
         self.open_connection()
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, CheckYamlParser, MissingAncValidityCheckYaml
@@ -14,9 +16,9 @@ class InvalidCheckYamlParser(CheckYamlParser):
         self,
         check_type_name: str,
         check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
+        column_yaml: Optional[ColumnYaml],
         logs: Logs
-    ) -> CheckYaml | None:
+    ) -> Optional[CheckYaml]:
         return InvalidCheckYaml(
             type_name=check_type_name,
             check_yaml_object=check_yaml_object,

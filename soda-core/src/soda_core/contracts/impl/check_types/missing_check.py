@@ -19,9 +19,9 @@ class MissingCheckParser(CheckParser):
     def parse_check(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: MissingCheckYaml,
-    ) -> CheckImpl | None:
+    ) -> Optional[CheckImpl]:
         return MissingCheck(
             contract_impl=contract_impl,
             column_impl=column_impl,

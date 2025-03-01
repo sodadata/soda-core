@@ -16,9 +16,9 @@ class MissingCheckYamlParser(CheckYamlParser):
         self,
         check_type_name: str,
         check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
+        column_yaml: Optional[ColumnYaml],
         logs: Logs
-    ) -> CheckYaml | None:
+    ) -> Optional[CheckYaml]:
         return MissingCheckYaml(
             type_name=check_type_name,
             check_yaml_object=check_yaml_object,

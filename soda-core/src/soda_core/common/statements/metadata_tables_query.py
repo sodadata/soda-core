@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_ast import *
@@ -25,10 +27,10 @@ class MetadataTablesQuery:
 
     def execute(
         self,
-        database_name: str | None = None,
-        schema_name: str | None = None,
-        include_table_name_like_filters: list[str] | None = None,
-        exclude_table_name_like_filters: list[str] | None = None,
+        database_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        include_table_name_like_filters: Optional[list[str]] = None,
+        exclude_table_name_like_filters: Optional[list[str]] = None,
     ) -> list[FullyQualifiedTableName]:
         select_statement: list = self.build_sql_statement(
             database_name=database_name,
@@ -42,10 +44,10 @@ class MetadataTablesQuery:
 
     def build_sql_statement(
         self,
-        database_name: str | None = None,
-        schema_name: str | None = None,
-        include_table_name_like_filters: list[str] | None = None,
-        exclude_table_name_like_filters: list[str] | None = None,
+        database_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        include_table_name_like_filters: Optional[list[str]] = None,
+        exclude_table_name_like_filters: Optional[list[str]] = None,
     ) -> list:
         """
         Builds the full SQL query statement to query table names from the data source metadata.
@@ -56,13 +58,13 @@ class MetadataTablesQuery:
         ]
 
         if database_name:
-            database_column_name: str | None = self._column_table_catalog()
+            database_column_name: Optional[str] = self._column_table_catalog()
             if database_column_name:
                 database_name_lower: str = database_name.lower()
                 select.append(WHERE(EQ(LOWER(database_column_name), LITERAL(database_name_lower))))
 
         if schema_name:
-            schema_column_name: str | None = self._column_table_schema()
+            schema_column_name: Optional[str] = self._column_table_schema()
             if schema_column_name:
                 schema_name_lower: str = schema_name.lower()
                 select.append(WHERE(EQ(LOWER(schema_column_name), LITERAL(schema_name_lower))))

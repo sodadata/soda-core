@@ -24,9 +24,9 @@ class InvalidCheckParser(CheckParser):
     def parse_check(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: InvalidCheckYaml,
-    ) -> CheckImpl | None:
+    ) -> Optional[CheckImpl]:
         return InvalidCheck(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -63,7 +63,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             else f"{check_yaml.type_name} (invalid threshold)"
         )
 
-        self.invalid_count_metric_impl: MetricImpl | None = None
+        self.invalid_count_metric_impl: Optional[MetricImpl] = None
         if self.missing_and_validity.has_reference_data():
             # noinspection PyTypeChecker
             self.invalid_count_metric_impl = self._resolve_metric(InvalidReferenceCountMetricImpl(
@@ -182,13 +182,13 @@ class InvalidReferenceCountQuery(Query):
         valid_reference_data: ValidReferenceData = metric_impl.missing_and_validity.valid_reference_data
 
         referencing_dataset_name: str = metric_impl.contract_impl.dataset_name
-        referencing_dataset_prefix: str | None = metric_impl.contract_impl.dataset_prefix
+        referencing_dataset_prefix: Optional[str] = metric_impl.contract_impl.dataset_prefix
         referencing_column_name: str = metric_impl.column_impl.column_yaml.name
         # C stands for the 'C'ontract dataset
         referencing_alias: str = "C"
 
         referenced_dataset_name: str = valid_reference_data.dataset_name
-        referenced_dataset_prefix: list[str] | None = (
+        referenced_dataset_prefix: Optional[list[str]] = (
             valid_reference_data.dataset_prefix
             if valid_reference_data.dataset_prefix is not None
             else metric_impl.contract_impl.dataset_prefix

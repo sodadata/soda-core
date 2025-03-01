@@ -4,6 +4,7 @@ import logging
 import traceback
 from datetime import datetime, timezone
 from logging import getLevelName, ERROR, WARNING, INFO, DEBUG, Logger
+from typing import Optional
 
 
 class Emoticons:
@@ -23,13 +24,13 @@ class Location:
 
     def __init__(
             self,
-            file_path: str | None,
-            line: int | None,
-            column: int | None
+            file_path: Optional[str],
+            line: Optional[int],
+            column: Optional[int]
     ):
-        self.file_path: str | None = file_path
-        self.line: int | None = line
-        self.column: int | None = column
+        self.file_path: Optional[str] = file_path
+        self.line: Optional[int] = line
+        self.column: Optional[int] = column
 
     def __str__(self) -> str:
         src_description: str = self.file_path if self.file_path else "source file position "
@@ -52,19 +53,19 @@ class Log:
         self,
         level: int,
         message: str,
-        timestamp: datetime | None = None,
-        exception: BaseException | None = None,
-        location: Location | None = None,
-        doc: str | None = None,
-        index: int | None = None
+        timestamp: Optional[datetime] = None,
+        exception: Optional[BaseException] = None,
+        location: Optional[Location] = None,
+        doc: Optional[str] = None,
+        index: Optional[int] = None
     ):
         self.level: int = level
         self.message: str = message
         self.timestamp: datetime = timestamp if isinstance(timestamp, datetime) else datetime.now(tz=timezone.utc)
-        self.exception: BaseException | None = exception
-        self.location: Location | None = location
-        self.doc: str | None = doc
-        self.index: int | None = index
+        self.exception: Optional[BaseException] = exception
+        self.location: Optional[Location] = location
+        self.doc: Optional[str] = doc
+        self.index: Optional[int] = index
 
     def __str__(self):
         location_str = f" | {self.location}" if self.location else ""
@@ -95,11 +96,11 @@ class Logs:
     def error(
             self,
             message: str,
-            timestamp: datetime | None = None,
-            exception: BaseException | None = None,
-            location: Location | None = None,
-            doc: str | None = None,
-            index: int | None = None
+            timestamp: Optional[datetime] = None,
+            exception: Optional[BaseException] = None,
+            location: Optional[Location] = None,
+            doc: Optional[str] = None,
+            index: Optional[int] = None
             ) -> None:
         self.log(
             Log(
@@ -111,11 +112,11 @@ class Logs:
     def warning(
             self,
             message: str,
-            timestamp: datetime | None = None,
-            exception: BaseException | None = None,
-            location: Location | None = None,
-            doc: str | None = None,
-            index: int | None = None
+            timestamp: Optional[datetime] = None,
+            exception: Optional[BaseException] = None,
+            location: Optional[Location] = None,
+            doc: Optional[str] = None,
+            index: Optional[int] = None
             ) -> None:
         self.log(
             Log(
@@ -127,11 +128,11 @@ class Logs:
     def info(
             self,
             message: str,
-            timestamp: datetime | None = None,
-            exception: BaseException | None = None,
-            location: Location | None = None,
-            doc: str | None = None,
-            index: int | None = None
+            timestamp: Optional[datetime] = None,
+            exception: Optional[BaseException] = None,
+            location: Optional[Location] = None,
+            doc: Optional[str] = None,
+            index: Optional[int] = None
             ) -> None:
         self.log(
             Log(
@@ -143,11 +144,11 @@ class Logs:
     def debug(
             self,
             message: str,
-            timestamp: datetime | None = None,
-            exception: BaseException | None = None,
-            location: Location | None = None,
-            doc: str | None = None,
-            index: int | None = None
+            timestamp: Optional[datetime] = None,
+            exception: Optional[BaseException] = None,
+            location: Optional[Location] = None,
+            doc: Optional[str] = None,
+            index: Optional[int] = None
     ) -> None:
         self.log(
             Log(

@@ -42,15 +42,15 @@ class ContractYaml:
     """
 
     @classmethod
-    def parse(cls, contract_yaml_source: YamlSource, variables: dict[str, str] | None = None,
-              logs: Logs | None = None) -> ContractYaml | None:
+    def parse(cls, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]] = None,
+              logs: Optional[Logs] = None) -> Optional[ContractYaml]:
         logs = logs if logs else Logs()
 
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
            register_check_types()
 
-        contract_yaml_file_content: YamlFileContent | None = (
+        contract_yaml_file_content: Optional[YamlFileContent] = (
             contract_yaml_source.parse_yaml_file_content(file_type="Contract", variables=variables, logs=logs)
         )
         if contract_yaml_file_content and contract_yaml_file_content.has_yaml_object():
@@ -79,10 +79,10 @@ class ContractYaml:
     def _parse_columns(self, contract_yaml_object: YamlObject) -> Optional[list[Optional[ColumnYaml]]]:
         columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
-            column_yaml_objects: YamlList | None = contract_yaml_object.read_list_of_objects_opt("columns")
+            column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
-                column_locations_by_name: dict[str, list[Location | None]] = {}
+                column_locations_by_name: dict[str, list[Optional[Location]]] = {}
                 for column_yaml_object in column_yaml_objects:
                     if isinstance(column_yaml_object, YamlObject):
                         column_yaml: ColumnYaml = ColumnYaml(
@@ -118,7 +118,7 @@ class ContractYaml:
     def _parse_checks(
         self,
         checks_containing_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None = None
+        column_yaml: Optional[ColumnYaml] = None
     ) -> Optional[list[Optional[CheckYaml]]]:
         checks: Optional[list[Optional[CheckYaml]]] = None
 
@@ -155,7 +155,7 @@ class ContractYaml:
                             )
                             check_body_yaml_object.location = checks_containing_yaml_object.location
 
-                        check_yaml: CheckYaml | None = CheckYaml.parse_check_yaml(
+                        check_yaml: Optional[CheckYaml] = CheckYaml.parse_check_yaml(
                             check_type_name=check_type_name,
                             check_body_yaml_object=check_body_yaml_object,
                             column_yaml=column_yaml,
@@ -182,7 +182,7 @@ class ValidReferenceDataYaml:
         dataset: any = valid_reference_data_yaml.read_value("dataset")
         is_list_str: bool = isinstance(dataset, list) and all(isinstance(e, str) for e in dataset)
         self.dataset: str | list[str] | None = dataset if isinstance(dataset, str) or is_list_str else None
-        self.column: str | None = valid_reference_data_yaml.read_string("column")
+        self.column: Optional[str] = valid_reference_data_yaml.read_string("column")
 
         cfg_keys = valid_reference_data_yaml.yaml_dict.keys()
         self.has_configuration_error: bool = (
@@ -202,8 +202,8 @@ class ValidReferenceDataYaml:
 class MissingAndValidityYaml:
 
     def __init__(self, yaml_object: YamlObject):
-        self.missing_values: list | None = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
-        self.missing_regex_sql: str | None = yaml_object.read_string_opt("missing_regex_sql")
+        self.missing_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
+        self.missing_regex_sql: Optional[str] = yaml_object.read_string_opt("missing_regex_sql")
 
         cfg_keys = yaml_object.yaml_dict.keys()
         self.has_missing_configuration_error: bool = (
@@ -211,20 +211,20 @@ class MissingAndValidityYaml:
             or ("missing_regex_sql" in cfg_keys and self.missing_regex_sql is None)
         )
 
-        self.invalid_values: list | None = yaml_object.read_list_opt("invalid_values")
-        self.invalid_format: str | None = yaml_object.read_string_opt("invalid_format")
-        self.invalid_regex_sql: str | None = yaml_object.read_string_opt("invalid_regex_sql")
-        self.valid_values: list | None = YamlValue.yaml_unwrap(yaml_object.read_list_opt("valid_values"))
-        self.valid_format: str | None = yaml_object.read_string_opt("valid_format")
-        self.valid_regex_sql: str | None = yaml_object.read_string_opt("valid_regex_sql")
-        self.valid_min: Number | None = yaml_object.read_number_opt("valid_min")
-        self.valid_max: Number | None = yaml_object.read_number_opt("valid_max")
-        self.valid_length: int | None = yaml_object.read_number_opt("valid_length")
-        self.valid_min_length: int | None = yaml_object.read_number_opt("valid_min_length")
-        self.valid_max_length: int | None = yaml_object.read_number_opt("valid_max_length")
+        self.invalid_values: Optional[list] = yaml_object.read_list_opt("invalid_values")
+        self.invalid_format: Optional[str] = yaml_object.read_string_opt("invalid_format")
+        self.invalid_regex_sql: Optional[str] = yaml_object.read_string_opt("invalid_regex_sql")
+        self.valid_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("valid_values"))
+        self.valid_format: Optional[str] = yaml_object.read_string_opt("valid_format")
+        self.valid_regex_sql: Optional[str] = yaml_object.read_string_opt("valid_regex_sql")
+        self.valid_min: Optional[Number] = yaml_object.read_number_opt("valid_min")
+        self.valid_max: Optional[Number] = yaml_object.read_number_opt("valid_max")
+        self.valid_length: Optional[int] = yaml_object.read_number_opt("valid_length")
+        self.valid_min_length: Optional[int] = yaml_object.read_number_opt("valid_min_length")
+        self.valid_max_length: Optional[int] = yaml_object.read_number_opt("valid_max_length")
 
-        self.valid_reference_data: ValidReferenceDataYaml | None = None
-        valid_reference_data_yaml: YamlObject | None = yaml_object.read_object_opt("valid_reference_data")
+        self.valid_reference_data: Optional[ValidReferenceDataYaml] = None
+        valid_reference_data_yaml: Optional[YamlObject] = yaml_object.read_object_opt("valid_reference_data")
         if valid_reference_data_yaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
             non_reference_configurations: list[str] = self.get_non_reference_configurations()
@@ -275,11 +275,11 @@ class ColumnYaml(MissingAndValidityYaml):
 
     def __init__(self, contract_yaml: ContractYaml, column_yaml_object: YamlObject):
         self.column_yaml_object: YamlObject = column_yaml_object
-        self.name: str | None = column_yaml_object.read_string("name")
-        self.data_type: str | None = column_yaml_object.read_string_opt("data_type")
+        self.name: Optional[str] = column_yaml_object.read_string("name")
+        self.data_type: Optional[str] = column_yaml_object.read_string_opt("data_type")
         self.character_maximum_length: Optional[int] = column_yaml_object.read_number_opt("character_maximum_length")
         super().__init__(column_yaml_object)
-        self.check_yamls: list[CheckYaml] | None = contract_yaml._parse_checks(
+        self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object,
             column_yaml=self
         )
@@ -295,11 +295,11 @@ class RangeYaml:
         self.upper_bound: Number= upper_bound
 
     @classmethod
-    def read_opt(cls, check_yaml_object: YamlObject, key: str) -> RangeYaml | None:
+    def read_opt(cls, check_yaml_object: YamlObject, key: str) -> Optional[RangeYaml]:
         range_yaml_list: YamlList = check_yaml_object.read_list_opt(key)
         if range_yaml_list:
-            lower_bound: Number | None = None
-            upper_bound: Number | None = None
+            lower_bound: Optional[Number] = None
+            upper_bound: Optional[Number] = None
             range_list: list = range_yaml_list.to_list()
             if len(range_list) > 0 and isinstance(range_list[0], Number):
                 lower_bound = range_list[0]
@@ -319,9 +319,9 @@ class CheckYamlParser(ABC):
         self,
         check_type_name: str,
         check_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
+        column_yaml: Optional[ColumnYaml],
         logs: Logs
-    ) -> CheckYaml | None:
+    ) -> Optional[CheckYaml]:
         pass
 
 
@@ -343,11 +343,11 @@ class CheckYaml(ABC):
         cls,
         check_type_name: str,
         check_body_yaml_object: YamlObject,
-        column_yaml: ColumnYaml | None,
+        column_yaml: Optional[ColumnYaml],
         logs: Logs
-    ) -> CheckYaml | None:
+    ) -> Optional[CheckYaml]:
         if isinstance(check_type_name, str):
-            check_yaml_parser: CheckYamlParser | None = cls.check_yaml_parsers.get(check_type_name)
+            check_yaml_parser: Optional[CheckYamlParser] = cls.check_yaml_parsers.get(check_type_name)
             if check_yaml_parser:
                 return check_yaml_parser.parse_check_yaml(
                     check_type_name=check_type_name,

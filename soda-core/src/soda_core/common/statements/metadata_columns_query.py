@@ -26,9 +26,9 @@ class MetadataColumnsQuery:
 
     def build_sql(
         self,
-        dataset_prefix: list[str] | None,
+        dataset_prefix: Optional[list[str]],
         dataset_name: str
-    ) -> str | None:
+    ) -> Optional[str]:
         """
         Builds the full SQL query to query table names from the data source metadata.
         """

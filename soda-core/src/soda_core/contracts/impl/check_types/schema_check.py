@@ -22,9 +22,9 @@ class SchemaCheckParser(CheckParser):
     def parse_check(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: SchemaCheckYaml,
-    ) -> CheckImpl | None:
+    ) -> Optional[CheckImpl]:
         return SchemaCheckImpl(
             contract_impl=contract_impl,
             check_yaml=check_yaml,
@@ -179,7 +179,7 @@ class SchemaQuery(Query):
 
     def __init__(
         self,
-        dataset_prefix: list[str] | None,
+        dataset_prefix: Optional[list[str]],
         dataset_name: str,
         schema_metric_impl: SchemaMetricImpl,
         data_source: DataSource
@@ -235,7 +235,7 @@ class SchemaCheckResult(CheckResult):
     def log_summary(self, logs: Logs) -> None:
         super().log_summary(logs)
 
-        def opt_data_type(data_type: str | None) -> str:
+        def opt_data_type(data_type: Optional[str]) -> str:
             if isinstance(data_type, str):
                 return f"[{data_type}]"
             else:

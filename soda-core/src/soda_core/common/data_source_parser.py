@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from soda_core.common.data_source import DataSource
 from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.yaml import YamlObject, YamlFileContent
@@ -10,13 +12,13 @@ class DataSourceParser:
     def __init__(
             self,
             data_source_yaml_file_content: YamlFileContent,
-            spark_session: object | None = None
+            spark_session: Optional[object] = None
     ):
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
         self.logs: Logs = data_source_yaml_file_content.logs
         self.spark_session: object = spark_session
 
-    def parse(self) -> DataSource | None:
+    def parse(self) -> Optional[DataSource]:
         if not self.data_source_yaml_file_content:
             return None
 
@@ -25,10 +27,10 @@ class DataSourceParser:
             return None
 
         data_source_type_name: str = data_source_yaml.read_string("type")
-        data_source_name: str | None = data_source_yaml.read_string("name")
+        data_source_name: Optional[str] = data_source_yaml.read_string("name")
 
         connection_yaml: YamlObject = data_source_yaml.read_object_opt("connection")
-        connection_properties: dict | None = None
+        connection_properties: Optional[dict] = None
         if connection_yaml:
             connection_properties = connection_yaml.to_dict()
         elif self.spark_session is None:

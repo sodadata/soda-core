@@ -37,9 +37,9 @@ class ContractVerificationImpl:
     def __init__(
             self,
             contract_yaml_sources: list[YamlSource],
-            data_source: DataSource | None,
+            data_source: Optional[DataSource],
             data_source_yaml_source: Optional[YamlSource],
-            soda_cloud: 'SodaCloud' | None,
+            soda_cloud: Optional['SodaCloud'],
             soda_cloud_yaml_source: Optional[YamlSource],
             variables: dict[str, str],
             skip_publish: bool,
@@ -50,7 +50,7 @@ class ContractVerificationImpl:
         self.skip_publish: bool = skip_publish
         self.use_agent: bool = use_agent
 
-        self.data_source: DataSource | None = None
+        self.data_source: Optional[DataSource] = None
         if not use_agent:
             if data_source is not None:
                 self.data_source = data_source
@@ -70,7 +70,7 @@ class ContractVerificationImpl:
                 f"a data source should not be configured"
             )
 
-        self.soda_cloud: SodaCloud | None = soda_cloud
+        self.soda_cloud: Optional[SodaCloud] = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
                 file_type="soda cloud",
@@ -197,7 +197,7 @@ class ContractImpl:
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
         # self.data_timestamp can be None if the user specified a DATA_TS variable that is not in the correct format
-        self.data_timestamp: datetime | None = self._get_data_timestamp(
+        self.data_timestamp: Optional[datetime] = self._get_data_timestamp(
             variables=variables, default=self.started_timestamp
         )
 
@@ -226,7 +226,7 @@ class ContractImpl:
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries()
 
-    def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> datetime | None:
+    def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
         now_variable_name: str = "DATA_TS"
         now_variable_timestamp_text = VariableResolver.get_variable(variables=variables, variable=now_variable_name)
         if isinstance(now_variable_timestamp_text, str):
@@ -378,7 +378,7 @@ class ContractImpl:
     def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl], logs: Logs):
         checks_by_identity: dict[str, CheckImpl] = {}
         for check_impl in all_check_impls:
-            existing_check_impl: CheckImpl | None = checks_by_identity.get(check_impl.identity)
+            existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
             if existing_check_impl:
                 # TODO distill better diagnostic error message: which check in which column on which lines in the file
                 logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Duplicate identity ({check_impl.identity})")
@@ -418,36 +418,36 @@ class ColumnImpl:
 class ValidReferenceData:
 
     def __init__(self, valid_reference_data_yaml: ValidReferenceDataYaml):
-        self.dataset_name: str | None = None
+        self.dataset_name: Optional[str] = None
         self.dataset_prefix: str | list[str] | None = None
         if isinstance(valid_reference_data_yaml.dataset, str):
             self.dataset_name = valid_reference_data_yaml.dataset
         if isinstance(valid_reference_data_yaml.dataset, list) and len(valid_reference_data_yaml.dataset) > 0:
             self.dataset_name = valid_reference_data_yaml.dataset[-1]
             self.dataset_prefix = valid_reference_data_yaml.dataset[1:]
-        self.column: str | None = valid_reference_data_yaml.column
+        self.column: Optional[str] = valid_reference_data_yaml.column
 
 
 class MissingAndValidity:
 
     def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml, data_source: DataSource):
-        self.missing_values: list | None = missing_and_validity_yaml.missing_values
-        self.missing_regex_sql: str | None = missing_and_validity_yaml.missing_regex_sql
+        self.missing_values: Optional[list] = missing_and_validity_yaml.missing_values
+        self.missing_regex_sql: Optional[str] = missing_and_validity_yaml.missing_regex_sql
 
-        self.invalid_values: list | None = missing_and_validity_yaml.invalid_values
-        self.invalid_format: str | None = missing_and_validity_yaml.invalid_format
-        self.invalid_format_regex: str | None = data_source.get_format_regex(self.invalid_format)
-        self.invalid_regex_sql: str | None = missing_and_validity_yaml.invalid_regex_sql
-        self.valid_values: list | None = missing_and_validity_yaml.valid_values
-        self.valid_format: str | None = missing_and_validity_yaml.valid_format
-        self.valid_format_regex: str | None = data_source.get_format_regex(self.valid_format)
-        self.valid_regex_sql: str | None = missing_and_validity_yaml.valid_regex_sql
-        self.valid_min: Number | None = missing_and_validity_yaml.valid_min
-        self.valid_max: Number | None = missing_and_validity_yaml.valid_max
-        self.valid_length: int | None = missing_and_validity_yaml.valid_length
-        self.valid_min_length: int | None = missing_and_validity_yaml.valid_min_length
-        self.valid_max_length: int | None = missing_and_validity_yaml.valid_max_length
-        self.valid_reference_data: ValidReferenceData | None = (
+        self.invalid_values: Optional[list] = missing_and_validity_yaml.invalid_values
+        self.invalid_format: Optional[str] = missing_and_validity_yaml.invalid_format
+        self.invalid_format_regex: Optional[str] = data_source.get_format_regex(self.invalid_format)
+        self.invalid_regex_sql: Optional[str] = missing_and_validity_yaml.invalid_regex_sql
+        self.valid_values: Optional[list] = missing_and_validity_yaml.valid_values
+        self.valid_format: Optional[str] = missing_and_validity_yaml.valid_format
+        self.valid_format_regex: Optional[str] = data_source.get_format_regex(self.valid_format)
+        self.valid_regex_sql: Optional[str] = missing_and_validity_yaml.valid_regex_sql
+        self.valid_min: Optional[Number] = missing_and_validity_yaml.valid_min
+        self.valid_max: Optional[Number] = missing_and_validity_yaml.valid_max
+        self.valid_length: Optional[int] = missing_and_validity_yaml.valid_length
+        self.valid_min_length: Optional[int] = missing_and_validity_yaml.valid_min_length
+        self.valid_max_length: Optional[int] = missing_and_validity_yaml.valid_max_length
+        self.valid_reference_data: Optional[ValidReferenceData] = (
             ValidReferenceData(missing_and_validity_yaml.valid_reference_data)
             if missing_and_validity_yaml.valid_reference_data
             else None
@@ -557,7 +557,7 @@ class MetricsResolver:
         self.metrics: list[MetricImpl] = []
 
     def resolve_metric(self, metric_impl: MetricImpl) -> MetricImpl:
-        existing_metric_impl: MetricImpl | None = next((m for m in self.metrics if m == metric_impl), None)
+        existing_metric_impl: Optional[MetricImpl] = next((m for m in self.metrics if m == metric_impl), None)
         if existing_metric_impl:
             return existing_metric_impl
         else:
@@ -577,7 +577,7 @@ class ThresholdType(Enum):
 class ThresholdImpl:
 
     @classmethod
-    def create(cls, threshold_yaml: ThresholdYaml, logs: Logs,  default_threshold: ThresholdImpl | None = None) -> ThresholdImpl | None:
+    def create(cls, threshold_yaml: ThresholdYaml, logs: Logs,  default_threshold: Optional[ThresholdImpl] = None) -> Optional[ThresholdImpl]:
         if threshold_yaml is None:
             if default_threshold:
                 return default_threshold
@@ -671,20 +671,20 @@ class ThresholdImpl:
 
     def __init__(self,
                  type: ThresholdType,
-                 must_be_greater_than: Number | None = None,
-                 must_be_greater_than_or_equal: Number | None = None,
-                 must_be_less_than: Number | None = None,
-                 must_be_less_than_or_equal: Number | None = None,
-                 must_be: Number | None = None,
-                 must_not_be: Number | None = None
+                 must_be_greater_than: Optional[Number] = None,
+                 must_be_greater_than_or_equal: Optional[Number] = None,
+                 must_be_less_than: Optional[Number] = None,
+                 must_be_less_than_or_equal: Optional[Number] = None,
+                 must_be: Optional[Number] = None,
+                 must_not_be: Optional[Number] = None
                  ):
         self.type: ThresholdType = type
-        self.must_be_greater_than: Number | None = must_be_greater_than
-        self.must_be_greater_than_or_equal: Number | None = must_be_greater_than_or_equal
-        self.must_be_less_than: Number | None = must_be_less_than
-        self.must_be_less_than_or_equal: Number | None = must_be_less_than_or_equal
-        self.must_be: Number | None = must_be
-        self.must_not_be: Number | None = must_not_be
+        self.must_be_greater_than: Optional[Number] = must_be_greater_than
+        self.must_be_greater_than_or_equal: Optional[Number] = must_be_greater_than_or_equal
+        self.must_be_less_than: Optional[Number] = must_be_less_than
+        self.must_be_less_than_or_equal: Optional[Number] = must_be_less_than_or_equal
+        self.must_be: Optional[Number] = must_be
+        self.must_not_be: Optional[Number] = must_not_be
 
     def to_threshold_info(self) -> Threshold:
         if self.must_be is None and self.must_not_be is None:
@@ -706,7 +706,7 @@ class ThresholdImpl:
             )
 
     @classmethod
-    def get_metric_name(cls, metric_name: str, column_impl: ColumnImpl | None) -> str:
+    def get_metric_name(cls, metric_name: str, column_impl: Optional[ColumnImpl]) -> str:
         if column_impl:
             return f"{metric_name}({column_impl.column_yaml.name})"
         else:
@@ -772,9 +772,9 @@ class CheckParser(ABC):
     def parse_check(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
-    ) -> CheckImpl | None:
+    ) -> Optional[CheckImpl]:
         pass
 
 
@@ -795,10 +795,10 @@ class CheckImpl:
         cls,
         contract_impl: ContractImpl,
         check_yaml: CheckYaml,
-        column_impl: ColumnImpl | None = None,
-    ) -> CheckImpl | None:
+        column_impl: Optional[ColumnImpl] = None,
+    ) -> Optional[CheckImpl]:
         if isinstance(check_yaml.type_name, str):
-            check_parser: CheckParser | None = cls.check_parsers.get(check_yaml.type_name)
+            check_parser: Optional[CheckParser] = cls.check_parsers.get(check_yaml.type_name)
             if check_parser:
                 return check_parser.parse_check(
                     contract_impl=contract_impl,
@@ -811,16 +811,16 @@ class CheckImpl:
     def __init__(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
     ):
         self.logs: Logs = contract_impl.logs
 
         self.contract_impl: ContractImpl = contract_impl
         self.check_yaml: CheckYaml = check_yaml
-        self.column_impl: ColumnImpl | None = column_impl
+        self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
-        self.name: str | None = None
+        self.name: Optional[str] = None
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -857,9 +857,9 @@ class CheckImpl:
     def _build_identity(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_type: str,
-        qualifier: str | None
+        qualifier: Optional[str]
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
         identity_hash_builder.add_property("fp", contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path)
@@ -875,13 +875,13 @@ class CheckImpl:
         text_stream.seek(0)
         return text_stream.read()
 
-    def _build_threshold(self) -> Threshold | None:
+    def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
 
 
 class MissingAndValidityCheckImpl(CheckImpl):
 
-    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl | None, check_yaml: MissingAncValidityCheckYaml):
+    def __init__(self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml):
         super().__init__(contract_impl, column_impl, check_yaml)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
             missing_and_validity_yaml=check_yaml,
@@ -896,13 +896,13 @@ class MetricImpl:
         self,
         contract_impl: ContractImpl,
         metric_type: str,
-        column_impl: ColumnImpl | None = None,
+        column_impl: Optional[ColumnImpl] = None,
     ):
         # TODO id of a metric will have to be extended to include check configuration parameters that
         #      influence the metric identity
         self.id: str = self.create_metric_id(contract_impl, metric_type, column_impl)
         self.contract_impl: ContractImpl = contract_impl
-        self.column_impl: ColumnImpl | None = column_impl
+        self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
 
     @classmethod
@@ -910,7 +910,7 @@ class MetricImpl:
         cls,
         contract_impl: ContractImpl,
         metric_type: str,
-        column_impl: ColumnImpl | None = None,
+        column_impl: Optional[ColumnImpl] = None,
     ):
         id_parts: list[str] = [contract_impl.data_source.name]
         if contract_impl.dataset_prefix:
@@ -932,7 +932,7 @@ class AggregationMetricImpl(MetricImpl):
         self,
         contract_impl: ContractImpl,
         metric_type: str,
-        column_impl: ColumnImpl | None = None,
+        column_impl: Optional[ColumnImpl] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -985,11 +985,11 @@ class Query(ABC):
         self,
         data_source: DataSource,
         metrics: list[MetricImpl],
-        sql: str | None = None
+        sql: Optional[str] = None
     ):
         self.data_source: DataSource = data_source
         self.metrics: list[MetricImpl] = metrics
-        self.sql: str | None = sql
+        self.sql: Optional[str] = sql
 
     def build_sql(self) -> str:
         """
@@ -1008,7 +1008,7 @@ class AggregationQuery(Query):
         self,
         dataset_prefix: list[str],
         dataset_name: str,
-        filter_condition: str | None,
+        filter_condition: Optional[str],
         data_source: DataSource
     ):
         super().__init__(data_source=data_source, metrics=[])

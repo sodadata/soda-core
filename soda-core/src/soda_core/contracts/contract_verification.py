@@ -242,9 +242,9 @@ class SodaException(Exception):
     """
 
     def __init__(
-        self, message: str | None = None, contract_verification_result: ContractVerificationResult | None = None
+        self, message: Optional[str] = None, contract_verification_result: Optional[ContractVerificationResult] = None
     ):
-        self.contract_verification_result: ContractVerificationResult | None = contract_verification_result
+        self.contract_verification_result: Optional[ContractVerificationResult] = contract_verification_result
         super().__init__(message)
 
 
@@ -256,10 +256,10 @@ class CheckOutcome(Enum):
 
 @dataclass
 class YamlFileContentInfo:
-    source_content_str: str | None
-    local_file_path: str | None
-    git_repo: str | None = None # Aspirational, not used yet
-    soda_cloud_file_id: str | None = None
+    source_content_str: Optional[str]
+    local_file_path: Optional[str]
+    git_repo: Optional[str] = None # Aspirational, not used yet
+    soda_cloud_file_id: Optional[str] = None
 
 
 @dataclass
@@ -280,23 +280,23 @@ class DataSourceInfo:
 
 @dataclass
 class Threshold:
-    must_be_greater_than: Number | None = None
-    must_be_greater_than_or_equal: Number | None = None
-    must_be_less_than: Number | None = None
-    must_be_less_than_or_equal: Number | None = None
+    must_be_greater_than: Optional[Number] = None
+    must_be_greater_than_or_equal: Optional[Number] = None
+    must_be_less_than: Optional[Number] = None
+    must_be_less_than_or_equal: Optional[Number] = None
 
 
 @dataclass
 class Check:
-    column_name: str | None
+    column_name: Optional[str]
     type: str
     name: str # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
     identity: str
     definition: str
-    column_name: str | None
+    column_name: Optional[str]
     contract_file_line: int
     contract_file_column: int
-    threshold: Threshold | None
+    threshold: Optional[Threshold]
 
 
 class CheckResult(ABC):
@@ -305,13 +305,13 @@ class CheckResult(ABC):
         self,
         contract: Contract,
         check: Check,
-        metric_value: Number | None,
+        metric_value: Optional[Number],
         outcome: CheckOutcome,
         diagnostics: list[Diagnostic]
     ):
         self.contract: Contract = contract
         self.check: Check = check
-        self.metric_value: Number | None = metric_value
+        self.metric_value: Optional[Number] = metric_value
         self.outcome: CheckOutcome = outcome
         self.diagnostics: list[Diagnostic] = diagnostics
 
@@ -328,9 +328,9 @@ class CheckResult(ABC):
 
 class Measurement:
 
-    def __init__(self, metric_id: str, value: any, metric_name: str | None):
+    def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):
         self.metric_id: str = metric_id
-        self.metric_name: str | None = metric_name
+        self.metric_name: Optional[str] = metric_name
         self.value: any = value
 
 
@@ -363,7 +363,7 @@ class ContractResult:
             self,
             contract: Contract,
             data_source_info: DataSourceInfo,
-            data_timestamp: datetime | None,
+            data_timestamp: Optional[datetime],
             started_timestamp: datetime,
             ended_timestamp: datetime,
             measurements: list[Measurement],
@@ -373,7 +373,7 @@ class ContractResult:
         self.contract: Contract = contract
         self.data_source_info: DataSourceInfo = data_source_info
 
-        self.data_timestamp: datetime | None = data_timestamp
+        self.data_timestamp: Optional[datetime] = data_timestamp
         self.started_timestamp: datetime = started_timestamp
         self.ended_timestamp: datetime = ended_timestamp
         self.measurements: list[Measurement] = measurements

@@ -16,9 +16,9 @@ class RowCountCheckParser(CheckParser):
     def parse_check(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: RowCountCheckYaml,
-    ) -> CheckImpl | None:
+    ) -> Optional[CheckImpl]:
         return RowCountCheckImpl(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -31,7 +31,7 @@ class RowCountCheckImpl(CheckImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl | None,
+        column_impl: Optional[ColumnImpl],
         check_yaml: RowCountCheckYaml,
     ):
         super().__init__(

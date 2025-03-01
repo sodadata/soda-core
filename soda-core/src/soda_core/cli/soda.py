@@ -168,9 +168,9 @@ class CLI:
 
     def _verify_contract(
         self,
-        contract_file_paths: list[str] | None,
-        data_source_file_path: str | None,
-        soda_cloud_file_path: str | None,
+        contract_file_paths: Optional[list[str]],
+        data_source_file_path: Optional[str],
+        soda_cloud_file_path: Optional[str],
         skip_publish: bool,
         use_agent: bool
     ):
@@ -201,7 +201,7 @@ class CLI:
 
     def _publish_contract(
         self,
-        contract_file_paths: list[str] | None
+        contract_file_paths: Optional[list[str]]
     ):
         print(
             f"Publishing contracts {contract_file_paths}"

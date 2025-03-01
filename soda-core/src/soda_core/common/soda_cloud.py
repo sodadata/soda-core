@@ -55,7 +55,7 @@ class SodaCloud:
     CSV_TEXT_MAX_LENGTH = 1500
 
     @classmethod
-    def from_file(cls, soda_cloud_file_content: YamlFileContent) -> SodaCloud | None:
+    def from_file(cls, soda_cloud_file_content: YamlFileContent) -> Optional[SodaCloud]:
 
         logs = soda_cloud_file_content.logs
 
@@ -69,7 +69,7 @@ class SodaCloud:
 
         soda_cloud_yaml_root_object: YamlObject = soda_cloud_file_content.get_yaml_object()
 
-        soda_cloud_yaml_object: YamlObject | None = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
+        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
         if not soda_cloud_yaml_object:
             logs.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
 
@@ -108,10 +108,10 @@ class SodaCloud:
         host: str,
         api_key_id: str,
         api_key_secret: str,
-        token: str | None,
-        port: str | None,
+        token: Optional[str],
+        port: Optional[str],
         logs: Logs,
-        scheme: str | None,
+        scheme: Optional[str],
     ):
         self.host = host
         self.port = f":{port}" if port else ""
@@ -119,7 +119,7 @@ class SodaCloud:
         self.api_url = f"{self.scheme}://{self.host}{self.port}/api"
         self.api_key_id = api_key_id
         self.api_key_secret = api_key_secret
-        self.token: str | None = token
+        self.token: Optional[str] = token
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.logs = logs
         self.soda_cloud_trace_ids = {}
@@ -129,7 +129,7 @@ class SodaCloud:
         contract_yaml_source_str = contract_result.contract.source.source_content_str
         self.logs.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
         soda_cloud_file_path : str = f"{contract_result.contract.soda_qualified_dataset_name.lower()}.yml"
-        file_id: str | None = self._upload_contract(
+        file_id: Optional[str] = self._upload_contract(
             yaml_str_source=contract_yaml_source_str,
             soda_cloud_file_path=soda_cloud_file_path
         )
@@ -282,7 +282,7 @@ class SodaCloud:
             "index": index,
         }
 
-    def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> str | None:
+    def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
         """
         Returns a Soda Cloud fileId or None if something is wrong.
         """
@@ -345,7 +345,7 @@ class SodaCloud:
 
         contract_yaml: ContractYaml = contract_yamls[0]
         contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
-        contract_local_file_path: str | None = contract_yaml.contract_yaml_file_content.yaml_file_path
+        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
         data_source_name = contract_yaml.data_source
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
@@ -353,7 +353,7 @@ class SodaCloud:
         soda_cloud_file_path : str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
-        file_id: str | None = self._upload_contract(
+        file_id: Optional[str] = self._upload_contract(
             yaml_str_source=contract_yaml_source_str,
             soda_cloud_file_path=soda_cloud_file_path
         )

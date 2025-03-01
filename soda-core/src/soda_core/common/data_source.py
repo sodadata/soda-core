@@ -47,8 +47,8 @@ class DataSource(ABC):
         self.name: str = name
         self.type_name: str = type_name
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
-        self.connection_properties: dict | None = connection_properties
-        self.data_source_connection: DataSourceConnection | None = None
+        self.connection_properties: Optional[dict] = connection_properties
+        self.data_source_connection: Optional[DataSourceConnection] = None
         self.format_regexes: dict[str, str] = format_regexes
 
     def __str__(self) -> str:
@@ -153,12 +153,12 @@ class DataSource(ABC):
             data_type = f"{data_type}({column_metadata.character_maximum_length})"
         return data_type
 
-    def get_format_regex(self, format: str) -> str | None:
+    def get_format_regex(self, format: str) -> Optional[str]:
         if format is None:
             return None
         if self.format_regexes is None:
             self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} 'format_regexes' not configured in data source")
-        format_regex: str | None = self.format_regexes.get(format)
+        format_regex: Optional[str] = self.format_regexes.get(format)
         if format_regex is None:
             self.logs.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} Validity format regex '{format}' not configured "
@@ -167,7 +167,7 @@ class DataSource(ABC):
         return format_regex
 
     @classmethod
-    def from_file(cls, data_source_file_path: str) -> DataSource | None:
+    def from_file(cls, data_source_file_path: str) -> Optional[DataSource]:
         data_source_yaml_source: YamlSource = YamlSource.from_file_path(data_source_file_path)
         logs: Logs = Logs()
         data_source_yaml_file_content: YamlFileContent = (

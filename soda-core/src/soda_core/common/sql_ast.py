@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -11,8 +12,8 @@ class SELECT:
 @dataclass
 class FROM:
     table_name: str
-    table_prefix: list[str] | None = None
-    alias: str | None = None
+    table_prefix: Optional[list[str]] = None
+    alias: Optional[str] = None
 
     def AS(self, alias: str) -> FROM:
         self.alias = alias
@@ -25,7 +26,7 @@ class FROM:
 
 @dataclass
 class LEFT_INNER_JOIN(FROM):
-    on_condition: SqlExpression | None = None
+    on_condition: Optional[SqlExpression] = None
 
     def ON(self, on_condition: SqlExpression) -> FROM:
         self.on_condition = on_condition
@@ -93,8 +94,8 @@ class LENGTH(SqlExpression):
 @dataclass
 class COLUMN(SqlExpression):
     name: str
-    table_alias: str | None = None
-    field_alias: str | None = None
+    table_alias: Optional[str] = None
+    field_alias: Optional[str] = None
 
     def IN(self, table_alias: str) -> COLUMN:
         return COLUMN(name=self.name, table_alias=table_alias, field_alias=self.field_alias)
