@@ -277,6 +277,7 @@ class ColumnYaml(MissingAndValidityYaml):
         self.column_yaml_object: YamlObject = column_yaml_object
         self.name: str | None = column_yaml_object.read_string("name")
         self.data_type: str | None = column_yaml_object.read_string_opt("data_type")
+        self.character_maximum_length: Optional[int] = column_yaml_object.read_number_opt("character_maximum_length")
         super().__init__(column_yaml_object)
         self.check_yamls: list[CheckYaml] | None = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object,

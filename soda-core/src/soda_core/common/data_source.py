@@ -115,20 +115,42 @@ class DataSource(ABC):
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def is_data_type_equal(self, expected_data_type: str, actual_column_metadata: ColumnMetadata) -> bool:
-        expected_data_type_lower: str = expected_data_type.lower()
-        expected_data_type_lower = expected_data_type_lower.replace("character varying", "varchar")
-        expected_data_type_lower = expected_data_type_lower.replace("integer", "int")
-        has_length: bool = bool(re.match(r"^[a-zA-Z0-9 ]+\(\d+\)$", expected_data_type_lower))
-        actual_data_type = self.get_data_type_text(column_metadata=actual_column_metadata, include_length=has_length)
-        return expected_data_type_lower == actual_data_type
+    def is_different_data_type(self, expected_column: ColumnMetadata, actual_column_metadata: ColumnMetadata) -> bool:
+        canonical_expected_data_type: str = self.get_canonical_data_type(expected_column.data_type)
+        canonical_actual_data_type: str = self.get_canonical_data_type(actual_column_metadata.data_type)
+
+        if canonical_expected_data_type != canonical_actual_data_type:
+            return True
+
+        if (isinstance(expected_column.character_maximum_length, int)
+            and expected_column.character_maximum_length != actual_column_metadata.character_maximum_length):
+            return True
+
+        return False
+
+    def get_canonical_data_type(self, data_type: str) -> str:
+        canonical_data_type: str = data_type.lower()
+        canonical_data_type_mappings: dict = self.get_canonical_data_type_mappings()
+        if canonical_data_type in canonical_data_type_mappings:
+            canonical_data_type = canonical_data_type_mappings.get(canonical_data_type)
+        return canonical_data_type
+
+    def get_canonical_data_type_mappings(self) -> dict:
+        return {
+            "character varying": "varchar",
+            "integer": "int"
+        }
+
+        # has_length: bool = bool(re.match(r"^[a-zA-Z0-9 ]+\(\d+\)$", expected_data_type_lower))
+        # actual_data_type = self.get_data_type_text(column_metadata=actual_column_metadata, include_length=has_length)
+        # return expected_data_type_lower == actual_data_type
 
     def get_data_type_text(self, column_metadata: ColumnMetadata, include_length: bool = True) -> str:
         data_type: str = column_metadata.data_type
         data_type = data_type.replace("character varying", "varchar")
         data_type = data_type.replace("integer", "int")
-        if include_length and isinstance(column_metadata.max_length, int):
-            data_type = f"{data_type}({column_metadata.max_length})"
+        if include_length and isinstance(column_metadata.character_maximum_length, int):
+            data_type = f"{data_type}({column_metadata.character_maximum_length})"
         return data_type
 
     def get_format_regex(self, format: str) -> str | None:

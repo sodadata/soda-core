@@ -195,7 +195,7 @@ class TestTable:
         self.row_values: list[tuple] | None = row_values
 
     def data_type(self, column_name: str) -> str:
-        return self.columns[column_name].data_type
+        return self.columns[column_name].contract_data_type
 
 
 class TestColumn:
@@ -204,7 +204,8 @@ class TestColumn:
     def __init__(self,
                  name: str,
                  test_data_type: str,
-                 data_type: str
+                 create_table_data_type: str,
+                 contract_data_type: str
                  ):
         self.name: str = name
 
@@ -212,4 +213,5 @@ class TestColumn:
         self.test_data_type: str = test_data_type
 
         # The data_type is data source specific data type
-        self.data_type: str = data_type
+        self.create_table_data_type: str = create_table_data_type
+        self.contract_data_type: str = contract_data_type

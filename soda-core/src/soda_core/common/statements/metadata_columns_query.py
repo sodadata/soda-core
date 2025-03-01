@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
@@ -9,7 +11,7 @@ from soda_core.common.sql_dialect import *
 class ColumnMetadata:
     column_name: str
     data_type: str
-    max_length: int | None
+    character_maximum_length: Optional[int]
 
 
 class MetadataColumnsQuery:
@@ -50,9 +52,9 @@ class MetadataColumnsQuery:
             ColumnMetadata(
                 column_name=column_name,
                 data_type=data_type,
-                max_length=max_length
+                character_maximum_length=character_maximum_length
             )
-            for column_name, data_type, max_length in query_result.rows
+            for column_name, data_type, character_maximum_length in query_result.rows
         ]
 
     def _schema_information_schema(self) -> str:

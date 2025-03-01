@@ -198,7 +198,7 @@ class DataSourceTestHelper:
         to customize the get_schema_check_sql_type behavior
         """
         return {
-            TestDataType.TEXT: "character varying",
+            TestDataType.TEXT: "varchar",
             TestDataType.INTEGER: "integer",
             TestDataType.DECIMAL: "double precision",
             TestDataType.DATE: "date",
@@ -325,7 +325,8 @@ class DataSourceTestHelper:
             test_column: TestColumn = TestColumn(
                 name=test_column_specification.name,
                 test_data_type=contract_data_type,
-                data_type=self.get_create_table_sql_type(test_column_specification.test_data_type)
+                create_table_data_type=self.get_create_table_sql_type(test_column_specification.test_data_type),
+                contract_data_type=self.get_contract_data_type(test_column_specification.test_data_type)
             )
             columns.append(test_column)
 

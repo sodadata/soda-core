@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
@@ -31,16 +32,24 @@ class SchemaCheckParser(CheckParser):
 
 
 @dataclass
-class ExpectedColumn:
-    column_name: str
-    data_type: str | None
-
-
-@dataclass
 class ColumnDataTypeMismatch:
     column: str
     expected_data_type: str
+    expected_character_maximum_length: Optional[int]
     actual_data_type: str
+    actual_character_maximum_length: Optional[int]
+
+    def get_expected(self) -> str:
+        return f"{self.expected_data_type}{self.get_optional_length_str(self.expected_character_maximum_length)}"
+
+    def get_actual(self) -> str:
+        return f"{self.actual_data_type}{self.get_optional_length_str(self.actual_character_maximum_length)}"
+
+    @classmethod
+    def get_optional_length_str(cls, character_maximum_length: Optional[int]) -> str:
+        return (f"({character_maximum_length})"
+                if isinstance(character_maximum_length, int)
+                else "")
 
 
 class SchemaCheckImpl(CheckImpl):
@@ -59,10 +68,11 @@ class SchemaCheckImpl(CheckImpl):
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
         self.name = check_yaml.name if check_yaml.name else "schema"
 
-        self.expected_columns: list[ExpectedColumn] = [
-            ExpectedColumn(
+        self.expected_columns: list[ColumnMetadata] = [
+            ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
-                data_type=column_impl.column_yaml.data_type
+                data_type=column_impl.column_yaml.data_type,
+                character_maximum_length=column_impl.column_yaml.character_maximum_length
             )
             for column_impl in contract_impl.column_impls
         ]
@@ -107,19 +117,20 @@ class SchemaCheckImpl(CheckImpl):
                     actual_column_names_not_expected.append(actual_column_name)
 
             for expected_column in self.expected_columns:
-                expected_data_type: str | None = expected_column.data_type
                 actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
 
-                if (actual_column_metadata is not None
-                    and expected_data_type
-                    and not self.contract_impl.data_source.is_data_type_equal(expected_data_type, actual_column_metadata)
-                ):
-                    data_type_str: str = self.contract_impl.data_source.get_data_type_text(actual_column_metadata)
+                if (actual_column_metadata
+                    and expected_column.data_type
+                    and self.contract_impl.data_source.is_different_data_type(
+                        expected_column=expected_column, actual_column_metadata=actual_column_metadata
+                    )):
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
-                            expected_data_type=expected_data_type,
-                            actual_data_type=data_type_str,
+                            expected_data_type=expected_column.data_type,
+                            expected_character_maximum_length=expected_column.character_maximum_length,
+                            actual_data_type=actual_column_metadata.data_type,
+                            actual_character_maximum_length=actual_column_metadata.character_maximum_length
                         )
                     )
 
@@ -200,7 +211,7 @@ class SchemaCheckResult(CheckResult):
                  contract: Contract,
                  check: Check,
                  outcome: CheckOutcome,
-                 expected_columns: list[ExpectedColumn],
+                 expected_columns: list[ColumnMetadata],
                  actual_columns: list[ColumnMetadata],
                  expected_column_names_not_actual: list[str],
                  actual_column_names_not_expected: list[str],
@@ -215,7 +226,7 @@ class SchemaCheckResult(CheckResult):
                           len(column_data_type_mismatches)),
             diagnostics=[]
         )
-        self.expected_columns: list[ExpectedColumn] = expected_columns
+        self.expected_columns: list[ColumnMetadata] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected
@@ -252,8 +263,8 @@ class SchemaCheckResult(CheckResult):
 
         for data_type_mismatch in self.column_data_type_mismatches:
             logs.info(
-                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.expected_data_type}', "
-                f"but was '{data_type_mismatch.actual_data_type}'"
+                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.get_expected()}', "
+                f"but was '{data_type_mismatch.get_actual()}'"
             )
 
     def dataset_does_not_exists(self) -> bool:
