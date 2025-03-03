@@ -3,18 +3,34 @@ from __future__ import annotations
 from typing import Optional
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Contract, Diagnostic, NumericDiagnostic
+from soda_core.contracts.contract_verification import (
+    CheckOutcome,
+    CheckResult,
+    Contract,
+    Diagnostic,
+    NumericDiagnostic,
+)
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
-from soda_core.contracts.impl.contract_verification_impl import MetricsResolver, CheckImpl, AggregationMetricImpl, ThresholdImpl, \
-    ThresholdType, DerivedPercentageMetricImpl, CheckParser, ContractImpl, ColumnImpl, MissingAndValidity, MissingAndValidityCheckImpl, \
-    MetricImpl, MeasurementValues
+from soda_core.contracts.impl.contract_verification_impl import (
+    AggregationMetricImpl,
+    CheckImpl,
+    CheckParser,
+    ColumnImpl,
+    ContractImpl,
+    DerivedPercentageMetricImpl,
+    MeasurementValues,
+    MetricImpl,
+    MissingAndValidity,
+    MissingAndValidityCheckImpl,
+    ThresholdImpl,
+    ThresholdType,
+)
 
 
 class MissingCheckParser(CheckParser):
-
     def get_check_type_names(self) -> list[str]:
-        return ['missing']
+        return ["missing"]
 
     def parse_check(
         self,
@@ -30,7 +46,6 @@ class MissingCheckParser(CheckParser):
 
 
 class MissingCheck(MissingAndValidityCheckImpl):
-
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -45,33 +60,38 @@ class MissingCheck(MissingAndValidityCheckImpl):
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
             logs=self.logs,
-            default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0)
+            default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
 
         self.metric_name = "missing_percent" if check_yaml.metric == "percent" else "missing_count"
         metric_name: str = ThresholdImpl.get_metric_name(self.metric_name, column_impl=column_impl)
-        self.name = check_yaml.name if check_yaml.name else (
-            self.threshold.get_assertion_summary(metric_name=metric_name) if self.threshold
-            else f"{check_yaml.type_name} (invalid threshold)"
+        self.name = (
+            check_yaml.name
+            if check_yaml.name
+            else (
+                self.threshold.get_assertion_summary(metric_name=metric_name)
+                if self.threshold
+                else f"{check_yaml.type_name} (invalid threshold)"
+            )
         )
 
-        self.missing_count_metric = self._resolve_metric(MissingCountMetric(
-            contract_impl=contract_impl,
-            column_impl=column_impl,
-            check_impl=self
-        ))
+        self.missing_count_metric = self._resolve_metric(
+            MissingCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+        )
 
-        self.row_count_metric_impl: MetricImpl = self._resolve_metric(RowCountMetric(
-            contract_impl=contract_impl,
-        ))
+        self.row_count_metric_impl: MetricImpl = self._resolve_metric(
+            RowCountMetric(
+                contract_impl=contract_impl,
+            )
+        )
 
         self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
             DerivedPercentageMetricImpl(
                 metric_type="missing_percent",
                 fraction_metric_impl=self.missing_count_metric,
-                total_metric_impl=self.row_count_metric_impl
+                total_metric_impl=self.row_count_metric_impl,
             )
         )
 
@@ -79,9 +99,7 @@ class MissingCheck(MissingAndValidityCheckImpl):
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
-        diagnostics: list[Diagnostic] = [
-            NumericDiagnostic(name="missing_count", value=missing_count)
-        ]
+        diagnostics: list[Diagnostic] = [NumericDiagnostic(name="missing_count", value=missing_count)]
 
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
@@ -101,12 +119,11 @@ class MissingCheck(MissingAndValidityCheckImpl):
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,
-            diagnostics=diagnostics
+            diagnostics=diagnostics,
         )
 
 
 class MissingCountMetric(AggregationMetricImpl):
-
     def __init__(
         self,
         contract_impl: ContractImpl,

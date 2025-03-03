@@ -1,4 +1,4 @@
-Verify there are no missing values in the column 
+Verify there are no missing values in the column
 ```yaml
 dataset: dim_employee
 columns:

@@ -1,5 +1,4 @@
-from soda_core.contracts.contract_verification import ContractResult, CheckResult, CheckOutcome, \
-    ContractVerificationResult
+from soda_core.contracts.contract_verification import CheckOutcome, ContractResult
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -7,11 +6,13 @@ test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("row_count")
     .column_text("id")
-    .rows(rows=[
-        ("1",),
-        ("2",),
-        ("3",),
-    ])
+    .rows(
+        rows=[
+            ("1",),
+            ("2",),
+            ("3",),
+        ]
+    )
     .build()
 )
 
@@ -24,7 +25,7 @@ def test_row_count(data_source_test_helper: DataSourceTestHelper):
         contract_yaml_str=f"""
             checks:
               - row_count:
-        """
+        """,
     )
 
 
@@ -76,12 +77,11 @@ def test_row_count_thresholds_pass(data_source_test_helper: DataSourceTestHelper
                   threshold:
                   must_be_greater_than_or_equal: 3
                   must_be_less_than: 4
-        """
+        """,
     )
 
 
 def test_row_count_thresholds_fail(data_source_test_helper: DataSourceTestHelper):
-
     # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/f089d7ef-559a-47ea-aa14-a648823c1f9e/checks
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
@@ -141,7 +141,7 @@ def test_row_count_thresholds_fail(data_source_test_helper: DataSourceTestHelper
                   threshold:
                     must_be_greater_than: 3
                     must_be_less_than: 4
-        """
+        """,
     )
     for i in range(0, len(contract_result.check_results)):
         assert contract_result.check_results[i].outcome == CheckOutcome.FAILED

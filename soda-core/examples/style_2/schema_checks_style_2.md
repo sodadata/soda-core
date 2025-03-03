@@ -8,7 +8,7 @@ columns:
       data_type: VARCHAR
     - name: size
     - name: age
-checks: 
+checks:
   - schema:
 ```
 
@@ -17,7 +17,7 @@ Schema check verifying that at least the specified column names are present and 
 dataset: DS
 columns:
     - name: id
-checks: 
+checks:
   - schema:
       unexpected_columns_allowed: True
 ```
@@ -28,17 +28,17 @@ dataset: DS
 columns:
     - name: id
       data_type: VARCHAR(255)
-checks: 
+checks:
   - schema:
       data_types_required: True
 ```
 
-Also verify the order/index of the columns 
+Also verify the order/index of the columns
 ```yaml
 dataset: DS
 columns:
     - name: id
-checks: 
+checks:
   - schema:
       verify_column_order: True
 ```

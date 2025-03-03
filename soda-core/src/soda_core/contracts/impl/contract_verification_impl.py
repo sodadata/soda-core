@@ -1,29 +1,44 @@
 from __future__ import annotations
 
-import os
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from typing import Optional
 
 from ruamel.yaml import YAML, StringIO
-
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logs import Logs, Emoticons
+from soda_core.common.logs import Emoticons, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
-    CheckResult, Measurement, Threshold, Contract, Check, YamlFileContentInfo, DataSourceInfo, CheckOutcome
-from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
-    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml, ThresholdYaml
+from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
+from soda_core.contracts.contract_verification import (
+    Check,
+    CheckOutcome,
+    CheckResult,
+    Contract,
+    ContractResult,
+    ContractVerificationResult,
+    DataSourceInfo,
+    Measurement,
+    Threshold,
+    YamlFileContentInfo,
+)
+from soda_core.contracts.impl.contract_yaml import (
+    CheckYaml,
+    ColumnYaml,
+    ContractYaml,
+    MissingAncValidityCheckYaml,
+    MissingAndValidityYaml,
+    RangeYaml,
+    ThresholdYaml,
+    ValidReferenceDataYaml,
+)
 
 
 class DataSourceContracts:
-
     def __init__(self, data_source: DataSource):
         self.data_source: DataSource = data_source
         self.contract_impls: list[ContractImpl] = []
@@ -33,18 +48,17 @@ class DataSourceContracts:
 
 
 class ContractVerificationImpl:
-
     def __init__(
-            self,
-            contract_yaml_sources: list[YamlSource],
-            data_source: Optional[DataSource],
-            data_source_yaml_source: Optional[YamlSource],
-            soda_cloud: Optional['SodaCloud'],
-            soda_cloud_yaml_source: Optional[YamlSource],
-            variables: dict[str, str],
-            skip_publish: bool,
-            use_agent: bool,
-            logs: Logs = Logs(),
+        self,
+        contract_yaml_sources: list[YamlSource],
+        data_source: Optional[DataSource],
+        data_source_yaml_source: Optional[YamlSource],
+        soda_cloud: Optional["SodaCloud"],
+        soda_cloud_yaml_source: Optional[YamlSource],
+        variables: dict[str, str],
+        skip_publish: bool,
+        use_agent: bool,
+        logs: Logs = Logs(),
     ):
         self.logs: Logs = logs
         self.skip_publish: bool = skip_publish
@@ -56,9 +70,7 @@ class ContractVerificationImpl:
                 self.data_source = data_source
             elif data_source_yaml_source is not None:
                 data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                    file_type="data source",
-                    variables=variables,
-                    logs=logs
+                    file_type="data source", variables=variables, logs=logs
                 )
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
                 self.data_source = data_source_parser.parse()
@@ -73,9 +85,7 @@ class ContractVerificationImpl:
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-                file_type="soda cloud",
-                variables=variables,
-                logs=logs
+                file_type="soda cloud", variables=variables, logs=logs
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
 
@@ -86,21 +96,16 @@ class ContractVerificationImpl:
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source,
-                    variables=variables,
-                    logs=logs
+                    contract_yaml_source=contract_yaml_source, variables=variables, logs=logs
                 )
                 self.contract_yamls.append(contract_yaml)
         if self.data_source:
             for contract_yaml in self.contract_yamls:
-                if (isinstance(contract_yaml, ContractYaml)
-                    and self.data_source.is_valid_dataset_prefix(contract_yaml.dataset_prefix)
+                if isinstance(contract_yaml, ContractYaml) and self.data_source.is_valid_dataset_prefix(
+                    contract_yaml.dataset_prefix
                 ):
                     contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml,
-                        data_source=self.data_source,
-                        variables=variables,
-                        logs=logs
+                        contract_yaml=contract_yaml, data_source=self.data_source, variables=variables, logs=logs
                     )
                     if contract_impl:
                         self.contract_impls.append(contract_impl)
@@ -113,24 +118,17 @@ class ContractVerificationImpl:
         elif self.data_source:
             contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
 
-        return ContractVerificationResult(
-            logs=self.logs,
-            contract_results=contract_results
-        )
+        return ContractVerificationResult(logs=self.logs, contract_results=contract_results)
 
     def verify_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
         if self.soda_cloud and isinstance(contract_yamls, list) and len(contract_yamls) > 0:
             return self.soda_cloud.execute_contracts_on_agent(contract_yamls)
         else:
-            self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Using the agent requires a Soda Cloud configuration"
-            )
+            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Using the agent requires a Soda Cloud configuration")
             return []
 
     def verify_contracts_locally(
-        self,
-        contract_impls: list[ContractImpl],
-        data_source: DataSource
+        self, contract_impls: list[ContractImpl], data_source: DataSource
     ) -> list[ContractResult]:
         contract_results: list[ContractResult] = []
         if self.data_source and isinstance(contract_impls, list) and len(contract_impls) > 0:
@@ -168,8 +166,10 @@ class ContractVerificationImpl:
 
         error_count: int = len(self.logs.get_errors())
 
-        not_evaluated_count: int = sum(1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
-                                       for check_result in contract_result.check_results)
+        not_evaluated_count: int = sum(
+            1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
+            for check_result in contract_result.check_results
+        )
 
         if failed_count + error_count + not_evaluated_count == 0:
             self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
@@ -182,14 +182,7 @@ class ContractVerificationImpl:
 
 
 class ContractImpl:
-
-    def __init__(
-        self,
-        contract_yaml: ContractYaml,
-        data_source: DataSource,
-        variables: dict[str, str],
-        logs: Logs
-    ):
+    def __init__(self, contract_yaml: ContractYaml, data_source: DataSource, variables: dict[str, str], logs: Logs):
         self.logs: Logs = logs
         self.data_source: DataSource = data_source
         self.contract_yaml: ContractYaml = contract_yaml
@@ -205,13 +198,10 @@ class ContractImpl:
         self.dataset_name: Optional[str] = contract_yaml.dataset
 
         self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
-            data_source_name=self.data_source.name,
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name
+            data_source_name=self.data_source.name, dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
         )
         self.sql_qualified_dataset_name: str = data_source.sql_dialect.qualify_dataset_name(
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name
+            dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
         )
         self.metrics_resolver: MetricsResolver = MetricsResolver()
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
@@ -246,10 +236,7 @@ class ContractImpl:
 
     @classmethod
     def create_soda_qualified_dataset_name(
-        cls,
-        data_source_name: str,
-        dataset_prefix: list[str],
-        dataset_name: str
+        cls, data_source_name: str, dataset_prefix: list[str], dataset_name: str
     ) -> str:
         soda_name_parts: list[str] = [data_source_name]
         if dataset_prefix:
@@ -258,18 +245,12 @@ class ContractImpl:
         soda_name_parts = [str(p) for p in soda_name_parts]
         return "/" + "/".join(soda_name_parts)
 
-    def _parse_checks(
-        self,
-        contract_yaml: ContractYaml
-    ) -> list[CheckImpl]:
+    def _parse_checks(self, contract_yaml: ContractYaml) -> list[CheckImpl]:
         check_impls: list[CheckImpl] = []
         if contract_yaml.checks:
             for check_yaml in contract_yaml.checks:
                 if check_yaml:
-                    check = CheckImpl.parse_check(
-                        contract_impl=self,
-                        check_yaml=check_yaml
-                    )
+                    check = CheckImpl.parse_check(contract_impl=self, check_yaml=check_yaml)
                     check_impls.append(check)
         return check_impls
 
@@ -285,6 +266,7 @@ class ContractImpl:
                 aggregation_metrics.append(metric)
 
         from soda_core.contracts.impl.check_types.schema_check import SchemaQuery
+
         schema_queries: list[SchemaQuery] = []
         other_queries: list[SchemaQuery] = []
         for query in queries:
@@ -296,12 +278,14 @@ class ContractImpl:
         aggregation_queries: list[AggregationQuery] = []
         for aggregation_metric in aggregation_metrics:
             if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
-                aggregation_queries.append(AggregationQuery(
-                    dataset_prefix=self.dataset_prefix,
-                    dataset_name=self.dataset_name,
-                    filter_condition=None,
-                    data_source=self.data_source
-                ))
+                aggregation_queries.append(
+                    AggregationQuery(
+                        dataset_prefix=self.dataset_prefix,
+                        dataset_name=self.dataset_name,
+                        filter_condition=None,
+                        data_source=self.data_source,
+                    )
+                )
             last_aggregation_query: AggregationQuery = aggregation_queries[-1]
             last_aggregation_query.append_aggregation_metric(aggregation_metric)
 
@@ -312,15 +296,14 @@ class ContractImpl:
         if contract_yaml.columns:
             for column_yaml in contract_yaml.columns:
                 if column_yaml:
-                    column = ColumnImpl(
-                        contract_impl=self,
-                        column_yaml=column_yaml
-                    )
+                    column = ColumnImpl(contract_impl=self, column_yaml=column_yaml)
                     columns.append(column)
         return columns
 
     def verify(self) -> ContractResult:
-        self.logs.info(f"Verifying {Emoticons.SCROLL} contract {self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}")
+        self.logs.info(
+            f"Verifying {Emoticons.SCROLL} contract {self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
+        )
 
         measurements: list[Measurement] = []
         # Executing the queries will set the value of the metrics linked to queries
@@ -330,8 +313,7 @@ class ContractImpl:
 
         # Triggering the derived metrics to initialize their value based on their dependencies
         derived_metric_impls: list[DerivedPercentageMetricImpl] = [
-            derived_metric for derived_metric in self.metrics
-            if isinstance(derived_metric, DerivedPercentageMetricImpl)
+            derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedPercentageMetricImpl)
         ]
         measurement_values: MeasurementValues = MeasurementValues(measurements)
         for derived_metric_impl in derived_metric_impls:
@@ -346,8 +328,7 @@ class ContractImpl:
         check_results: list[CheckResult] = []
         for check_impl in self.all_check_impls:
             check_result: CheckResult = check_impl.evaluate(
-                measurement_values=measurement_values,
-                contract_info=contract_info
+                measurement_values=measurement_values, contract_info=contract_info
             )
             check_results.append(check_result)
 
@@ -359,7 +340,7 @@ class ContractImpl:
             ended_timestamp=datetime.now(tz=timezone.utc),
             measurements=measurements,
             check_results=check_results,
-            logs=self.logs
+            logs=self.logs,
         )
 
     def build_contract_info(self) -> Contract:
@@ -371,7 +352,7 @@ class ContractImpl:
             source=YamlFileContentInfo(
                 source_content_str=self.contract_yaml.contract_yaml_file_content.yaml_str_source,
                 local_file_path=self.contract_yaml.contract_yaml_file_content.yaml_file_path,
-            )
+            ),
         )
 
     @classmethod
@@ -388,8 +369,7 @@ class ContractImpl:
 class MeasurementValues:
     def __init__(self, measurements: list[Measurement]):
         self.measurement_values_by_metric_id: dict[str, any] = {
-            measurement.metric_id: measurement.value
-            for measurement in measurements
+            measurement.metric_id: measurement.value for measurement in measurements
         }
 
     def get_value(self, metric_impl: MetricImpl) -> any:
@@ -400,8 +380,7 @@ class ColumnImpl:
     def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
         self.column_yaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=column_yaml,
-            data_source=contract_impl.data_source
+            missing_and_validity_yaml=column_yaml, data_source=contract_impl.data_source
         )
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
@@ -416,7 +395,6 @@ class ColumnImpl:
 
 
 class ValidReferenceData:
-
     def __init__(self, valid_reference_data_yaml: ValidReferenceDataYaml):
         self.dataset_name: Optional[str] = None
         self.dataset_prefix: str | list[str] | None = None
@@ -429,7 +407,6 @@ class ValidReferenceData:
 
 
 class MissingAndValidity:
-
     def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml, data_source: DataSource):
         self.missing_values: Optional[list] = missing_and_validity_yaml.missing_values
         self.missing_regex_sql: Optional[str] = missing_and_validity_yaml.missing_regex_sql
@@ -528,25 +505,28 @@ class MissingAndValidity:
         self.valid_length = self.valid_length if check_has_validity else column_defaults.valid_length
         self.valid_min_length = self.valid_min_length if check_has_validity else column_defaults.valid_min_length
         self.valid_max_length = self.valid_max_length if check_has_validity else column_defaults.valid_max_length
-        self.valid_reference_data = self.valid_reference_data if check_has_validity else column_defaults.valid_reference_data
+        self.valid_reference_data = (
+            self.valid_reference_data if check_has_validity else column_defaults.valid_reference_data
+        )
 
     def _has_missing_configurations(self) -> bool:
-        return (self.missing_values is not None
-                or self.missing_regex_sql is not None)
+        return self.missing_values is not None or self.missing_regex_sql is not None
 
     def _has_validity_configurations(self) -> bool:
-        return (self.invalid_values is not None
-                or self.invalid_format is not None
-                or self.invalid_regex_sql  is not None
-                or self.valid_values is not None
-                or self.valid_format is not None
-                or self.valid_regex_sql is not None
-                or self.valid_min is not None
-                or self.valid_max is not None
-                or self.valid_length is not None
-                or self.valid_min_length is not None
-                or self.valid_max_length is not None
-                or self.valid_reference_data is not None)
+        return (
+            self.invalid_values is not None
+            or self.invalid_format is not None
+            or self.invalid_regex_sql is not None
+            or self.valid_values is not None
+            or self.valid_format is not None
+            or self.valid_regex_sql is not None
+            or self.valid_min is not None
+            or self.valid_max is not None
+            or self.valid_length is not None
+            or self.valid_min_length is not None
+            or self.valid_max_length is not None
+            or self.valid_reference_data is not None
+        )
 
     def has_reference_data(self) -> bool:
         return isinstance(self.valid_reference_data, ValidReferenceData)
@@ -575,9 +555,10 @@ class ThresholdType(Enum):
 
 
 class ThresholdImpl:
-
     @classmethod
-    def create(cls, threshold_yaml: ThresholdYaml, logs: Logs,  default_threshold: Optional[ThresholdImpl] = None) -> Optional[ThresholdImpl]:
+    def create(
+        cls, threshold_yaml: ThresholdYaml, logs: Logs, default_threshold: Optional[ThresholdImpl] = None
+    ) -> Optional[ThresholdImpl]:
         if threshold_yaml is None:
             if default_threshold:
                 return default_threshold
@@ -585,10 +566,18 @@ class ThresholdImpl:
                 logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
                 return None
 
-        total_config_count: int = cls.__config_count([
-            threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal, threshold_yaml.must_be_less_than,
-            threshold_yaml.must_be_less_than_or_equal, threshold_yaml.must_be, threshold_yaml.must_not_be,
-            threshold_yaml.must_be_between, threshold_yaml.must_be_not_between])
+        total_config_count: int = cls.__config_count(
+            [
+                threshold_yaml.must_be_greater_than,
+                threshold_yaml.must_be_greater_than_or_equal,
+                threshold_yaml.must_be_less_than,
+                threshold_yaml.must_be_less_than_or_equal,
+                threshold_yaml.must_be,
+                threshold_yaml.must_not_be,
+                threshold_yaml.must_be_between,
+                threshold_yaml.must_be_not_between,
+            ]
+        )
 
         if total_config_count == 0:
             if default_threshold:
@@ -596,9 +585,20 @@ class ThresholdImpl:
             logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
             return None
 
-        if total_config_count == 1 and cls.__config_count([
-            threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal, threshold_yaml.must_be_less_than,
-            threshold_yaml.must_be_less_than_or_equal, threshold_yaml.must_be, threshold_yaml.must_not_be]) == 1:
+        if (
+            total_config_count == 1
+            and cls.__config_count(
+                [
+                    threshold_yaml.must_be_greater_than,
+                    threshold_yaml.must_be_greater_than_or_equal,
+                    threshold_yaml.must_be_less_than,
+                    threshold_yaml.must_be_less_than_or_equal,
+                    threshold_yaml.must_be,
+                    threshold_yaml.must_not_be,
+                ]
+            )
+            == 1
+        ):
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
                 must_be_greater_than=threshold_yaml.must_be_greater_than,
@@ -610,8 +610,9 @@ class ThresholdImpl:
             )
 
         elif total_config_count == 1 and isinstance(threshold_yaml.must_be_between, RangeYaml):
-            if (isinstance(threshold_yaml.must_be_between.lower_bound, Number)
-               and isinstance(threshold_yaml.must_be_between.upper_bound, Number)):
+            if isinstance(threshold_yaml.must_be_between.lower_bound, Number) and isinstance(
+                threshold_yaml.must_be_between.upper_bound, Number
+            ):
                 if threshold_yaml.must_be_between.lower_bound < threshold_yaml.must_be_between.upper_bound:
                     return ThresholdImpl(
                         type=ThresholdType.INNER_RANGE,
@@ -626,8 +627,9 @@ class ThresholdImpl:
                     return None
 
         elif total_config_count == 1 and isinstance(threshold_yaml.must_be_not_between, RangeYaml):
-            if (isinstance(threshold_yaml.must_be_not_between.lower_bound, Number)
-               and isinstance(threshold_yaml.must_be_not_between.upper_bound, Number)):
+            if isinstance(threshold_yaml.must_be_not_between.lower_bound, Number) and isinstance(
+                threshold_yaml.must_be_not_between.upper_bound, Number
+            ):
                 if threshold_yaml.must_be_not_between.lower_bound < threshold_yaml.must_be_not_between.upper_bound:
                     return ThresholdImpl(
                         type=ThresholdType.OUTER_RANGE,
@@ -641,11 +643,23 @@ class ThresholdImpl:
                     )
                     return None
         else:
-            lower_bound_count = cls.__config_count([threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal])
-            upper_bound_count = cls.__config_count([threshold_yaml.must_be_less_than, threshold_yaml.must_be_less_than_or_equal])
+            lower_bound_count = cls.__config_count(
+                [threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal]
+            )
+            upper_bound_count = cls.__config_count(
+                [threshold_yaml.must_be_less_than, threshold_yaml.must_be_less_than_or_equal]
+            )
             if lower_bound_count == 1 and upper_bound_count == 1:
-                lower_bound = threshold_yaml.must_be_greater_than if threshold_yaml.must_be_greater_than is not None else threshold_yaml.must_be_greater_than_or_equal
-                upper_bound = threshold_yaml.must_be_less_than if threshold_yaml.must_be_less_than is not None else threshold_yaml.must_be_less_than_or_equal
+                lower_bound = (
+                    threshold_yaml.must_be_greater_than
+                    if threshold_yaml.must_be_greater_than is not None
+                    else threshold_yaml.must_be_greater_than_or_equal
+                )
+                upper_bound = (
+                    threshold_yaml.must_be_less_than
+                    if threshold_yaml.must_be_less_than is not None
+                    else threshold_yaml.must_be_less_than_or_equal
+                )
                 if lower_bound < upper_bound:
                     return ThresholdImpl(
                         type=ThresholdType.INNER_RANGE,
@@ -665,19 +679,18 @@ class ThresholdImpl:
 
     @classmethod
     def __config_count(cls, members: list[any]) -> int:
-        return sum([
-            0 if v is None else 1
-            for v in members])
+        return sum([0 if v is None else 1 for v in members])
 
-    def __init__(self,
-                 type: ThresholdType,
-                 must_be_greater_than: Optional[Number] = None,
-                 must_be_greater_than_or_equal: Optional[Number] = None,
-                 must_be_less_than: Optional[Number] = None,
-                 must_be_less_than_or_equal: Optional[Number] = None,
-                 must_be: Optional[Number] = None,
-                 must_not_be: Optional[Number] = None
-                 ):
+    def __init__(
+        self,
+        type: ThresholdType,
+        must_be_greater_than: Optional[Number] = None,
+        must_be_greater_than_or_equal: Optional[Number] = None,
+        must_be_less_than: Optional[Number] = None,
+        must_be_less_than_or_equal: Optional[Number] = None,
+        must_be: Optional[Number] = None,
+        must_not_be: Optional[Number] = None,
+    ):
         self.type: ThresholdType = type
         self.must_be_greater_than: Optional[Number] = must_be_greater_than
         self.must_be_greater_than_or_equal: Optional[Number] = must_be_greater_than_or_equal
@@ -692,18 +705,12 @@ class ThresholdImpl:
                 must_be_greater_than=self.must_be_greater_than,
                 must_be_greater_than_or_equal=self.must_be_greater_than_or_equal,
                 must_be_less_than=self.must_be_less_than,
-                must_be_less_than_or_equal=self.must_be_less_than_or_equal
+                must_be_less_than_or_equal=self.must_be_less_than_or_equal,
             )
         elif self.must_be is not None:
-            return Threshold(
-                must_be_greater_than_or_equal=self.must_be,
-                must_be_less_than_or_equal=self.must_be
-            )
+            return Threshold(must_be_greater_than_or_equal=self.must_be, must_be_less_than_or_equal=self.must_be)
         elif self.must_not_be is not None:
-            return Threshold(
-                must_be_greater_than=self.must_not_be,
-                must_be_less_than=self.must_not_be
-            )
+            return Threshold(must_be_greater_than=self.must_not_be, must_be_less_than=self.must_not_be)
 
     @classmethod
     def get_metric_name(cls, metric_name: str, column_impl: Optional[ColumnImpl]) -> str:
@@ -732,24 +739,28 @@ class ThresholdImpl:
                 return f"{metric_name} != {self.must_not_be}"
         elif self.type == ThresholdType.INNER_RANGE or self.type == ThresholdType.OUTER_RANGE:
             gt_comparator: str = " < " if isinstance(self.must_be_greater_than, Number) else " <= "
-            gt_bound: str = (str(self.must_be_greater_than) if isinstance(self.must_be_greater_than, Number)
-                                else str(self.must_be_greater_than_or_equal))
+            gt_bound: str = (
+                str(self.must_be_greater_than)
+                if isinstance(self.must_be_greater_than, Number)
+                else str(self.must_be_greater_than_or_equal)
+            )
             lt_comparator: str = " < " if isinstance(self.must_be_less_than, Number) else " <= "
-            lt_bound: str = (str(self.must_be_less_than) if isinstance(self.must_be_less_than, Number)
-                                else str(self.must_be_less_than_or_equal))
+            lt_bound: str = (
+                str(self.must_be_less_than)
+                if isinstance(self.must_be_less_than, Number)
+                else str(self.must_be_less_than_or_equal)
+            )
             if self.type == ThresholdType.INNER_RANGE:
                 return f"{gt_bound}{gt_comparator}{metric_name}{lt_comparator}{lt_bound}"
             else:
                 return f"{metric_name}{lt_comparator}{lt_bound} or {gt_bound}{gt_comparator}{metric_name}"
 
     def passes(self, value: Number) -> bool:
-        is_greater_than_ok: bool = (
-                (self.must_be_greater_than is None or value > self.must_be_greater_than)
-                and (self.must_be_greater_than_or_equal is None or value >= self.must_be_greater_than_or_equal)
+        is_greater_than_ok: bool = (self.must_be_greater_than is None or value > self.must_be_greater_than) and (
+            self.must_be_greater_than_or_equal is None or value >= self.must_be_greater_than_or_equal
         )
-        is_less_than_ok: bool = (
-                (self.must_be_less_than is None or value < self.must_be_less_than)
-                and (self.must_be_less_than_or_equal is None or value <= self.must_be_less_than_or_equal)
+        is_less_than_ok: bool = (self.must_be_less_than is None or value < self.must_be_less_than) and (
+            self.must_be_less_than_or_equal is None or value <= self.must_be_less_than_or_equal
         )
         if self.type == ThresholdType.OUTER_RANGE:
             return is_greater_than_ok or is_less_than_ok
@@ -758,12 +769,14 @@ class ThresholdImpl:
                 is_greater_than_ok
                 and is_less_than_ok
                 and (not (isinstance(self.must_be, Number) or isinstance(self.must_be, str)) or value == self.must_be)
-                and (not (isinstance(self.must_not_be, Number) or isinstance(self.must_not_be, str)) or value != self.must_not_be)
+                and (
+                    not (isinstance(self.must_not_be, Number) or isinstance(self.must_not_be, str))
+                    or value != self.must_not_be
+                )
             )
 
 
 class CheckParser(ABC):
-
     @abstractmethod
     def get_check_type_names(self) -> list[str]:
         pass
@@ -825,7 +838,7 @@ class CheckImpl:
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_type=check_yaml.type_name,
-            qualifier=check_yaml.qualifier
+            qualifier=check_yaml.qualifier,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -851,15 +864,11 @@ class CheckImpl:
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,
             contract_file_line=self.check_yaml.check_yaml_object.location.line,
             contract_file_column=self.check_yaml.check_yaml_object.location.column,
-            threshold=self._build_threshold()
+            threshold=self._build_threshold(),
         )
 
     def _build_identity(
-        self,
-        contract_impl: ContractImpl,
-        column_impl: Optional[ColumnImpl],
-        check_type: str,
-        qualifier: Optional[str]
+        self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
         identity_hash_builder.add_property("fp", contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path)
@@ -880,18 +889,17 @@ class CheckImpl:
 
 
 class MissingAndValidityCheckImpl(CheckImpl):
-
-    def __init__(self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml):
+    def __init__(
+        self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml
+    ):
         super().__init__(contract_impl, column_impl, check_yaml)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=check_yaml,
-            data_source=contract_impl.data_source
+            missing_and_validity_yaml=check_yaml, data_source=contract_impl.data_source
         )
         self.missing_and_validity.apply_column_defaults(column_impl)
 
 
 class MetricImpl:
-
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -927,7 +935,6 @@ class MetricImpl:
 
 
 class AggregationMetricImpl(MetricImpl):
-
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -951,18 +958,12 @@ class AggregationMetricImpl(MetricImpl):
         return self.type
 
 
-
 class DerivedPercentageMetricImpl(MetricImpl):
-    def __init__(
-        self,
-        metric_type: str,
-        fraction_metric_impl: MetricImpl,
-        total_metric_impl: MetricImpl
-    ):
+    def __init__(self, metric_type: str, fraction_metric_impl: MetricImpl, total_metric_impl: MetricImpl):
         super().__init__(
             contract_impl=fraction_metric_impl.contract_impl,
             column_impl=fraction_metric_impl.column_impl,
-            metric_type=metric_type
+            metric_type=metric_type,
         )
         self.fraction_metric_impl: MetricImpl = fraction_metric_impl
         self.total_metric_impl: MetricImpl = total_metric_impl
@@ -972,21 +973,11 @@ class DerivedPercentageMetricImpl(MetricImpl):
         total: Number = measurement_values.get_value(self.total_metric_impl)
         if isinstance(fraction, Number) and isinstance(total, Number):
             value: float = (fraction * 100 / total) if total != 0 else 0
-            return Measurement(
-                metric_id=self.id,
-                value=value,
-                metric_name=self.type
-            )
+            return Measurement(metric_id=self.id, value=value, metric_name=self.type)
 
 
 class Query(ABC):
-
-    def __init__(
-        self,
-        data_source: DataSource,
-        metrics: list[MetricImpl],
-        sql: Optional[str] = None
-    ):
+    def __init__(self, data_source: DataSource, metrics: list[MetricImpl], sql: Optional[str] = None):
         self.data_source: DataSource = data_source
         self.metrics: list[MetricImpl] = metrics
         self.sql: Optional[str] = sql
@@ -1003,13 +994,8 @@ class Query(ABC):
 
 
 class AggregationQuery(Query):
-
     def __init__(
-        self,
-        dataset_prefix: list[str],
-        dataset_name: str,
-        filter_condition: Optional[str],
-        data_source: DataSource
+        self, dataset_prefix: list[str], dataset_name: str, filter_condition: Optional[str], data_source: DataSource
     ):
         super().__init__(data_source=data_source, metrics=[])
         self.dataset_prefix: list[str] = dataset_prefix
@@ -1029,10 +1015,7 @@ class AggregationQuery(Query):
 
     def build_sql(self) -> str:
         field_expressions: list[SqlExpression] = self.build_field_expressions()
-        select = [
-            SELECT(field_expressions),
-            FROM(self.dataset_name, self.dataset_prefix)
-        ]
+        select = [SELECT(field_expressions), FROM(self.dataset_name, self.dataset_prefix)]
         if self.filter_condition:
             select.append(WHERE(SqlExpressionStr(self.filter_condition)))
         self.sql = self.data_source.sql_dialect.build_select_sql(select)
@@ -1042,10 +1025,7 @@ class AggregationQuery(Query):
         if len(self.aggregation_metrics) == 0:
             # This is to get the initial query length in the constructor
             return [COUNT(STAR())]
-        return [
-            aggregation_metric.sql_expression()
-            for aggregation_metric in self.aggregation_metrics
-        ]
+        return [aggregation_metric.sql_expression() for aggregation_metric in self.aggregation_metrics]
 
     def execute(self) -> list[Measurement]:
         measurements: list[Measurement] = []
@@ -1055,9 +1035,11 @@ class AggregationQuery(Query):
         for i in range(0, len(self.aggregation_metrics)):
             aggregation_metric_impl: AggregationMetricImpl = self.aggregation_metrics[i]
             measurement_value = aggregation_metric_impl.convert_db_value(row[i])
-            measurements.append(Measurement(
-                metric_id=aggregation_metric_impl.id,
-                value=measurement_value,
-                metric_name=aggregation_metric_impl.get_short_description()
-            ))
+            measurements.append(
+                Measurement(
+                    metric_id=aggregation_metric_impl.id,
+                    value=measurement_value,
+                    metric_name=aggregation_metric_impl.get_short_description(),
+                )
+            )
         return measurements
