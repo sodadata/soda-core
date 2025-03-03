@@ -27,10 +27,20 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 
     env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
 
-    data_source_test_helper.enable_soda_cloud_mock([MockResponse(
-        status_code=200,
-        json_object={"fileId": "777ggg"}
-    )])
+    data_source_test_helper.enable_soda_cloud_mock([
+        MockResponse(
+            status_code=200,
+            json_object={
+              "canCreateDatasourceAndDataset": True,
+              "executeContracts": True,
+              "publishContracts": True
+            }
+        ),
+        MockResponse(
+            status_code=200,
+            json_object={"fileId": "777ggg"}
+        )
+    ])
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -45,8 +55,17 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
         """
     )
 
-    request_body: dict = data_source_test_helper.soda_cloud.requests[1].json
-    assert "env_var_scan_id" == request_body["scanId"]
+    request_0: MockRequest = data_source_test_helper.soda_cloud.requests[0]
+    assert request_0.url.endswith("api/query")
+    assert request_0.json["type"] == "sodaCoreContractDatasetResponsibilities"
+
+    request_1: MockRequest = data_source_test_helper.soda_cloud.requests[1]
+    assert request_1.url.endswith("api/scan/upload")
+
+    request_2: MockRequest = data_source_test_helper.soda_cloud.requests[2]
+    assert request_2.url.endswith("api/command")
+    assert request_2.json["type"] == "sodaCoreInsertScanResults"
+    assert "env_var_scan_id" == request_2.json["scanId"]
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
