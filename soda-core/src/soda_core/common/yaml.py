@@ -257,6 +257,9 @@ class YamlObject(YamlValue):
     def __iter__(self) -> iter:
         return iter(self.yaml_dict.keys())
 
+    def has_key(self, key: str) -> bool:
+        return key in self.yaml_dict
+
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
         An error is generated if the value is missing or not a YAML object.

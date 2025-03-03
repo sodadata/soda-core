@@ -65,6 +65,13 @@ class ContractYaml:
             self.contract_yaml_object.read_string_opt("data_source")
             if self.contract_yaml_object else None
         )
+        if self.contract_yaml_object.has_key("datasource") and not self.contract_yaml_object.has_key("data_source"):
+            self.logs.error(
+                message=(f"{Emoticons.POLICE_CAR_LIGHT} Key `datasource` must be 2 words. "
+                         "Please change to `data_source`."),
+                location=self.contract_yaml_object.create_location_from_yaml_dict_key("datasource")
+            )
+
         self.dataset_prefix: Optional[list[str]] = (
             self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix")
             if self.contract_yaml_object else None
