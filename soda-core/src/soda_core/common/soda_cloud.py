@@ -338,6 +338,35 @@ class SodaCloud:
         else:
             return None
 
+    def has_verify_permission(
+            self,
+            data_source_name: str,
+            dataset_prefix: list[str],
+            dataset_name: str) -> bool:
+        dataset_responsibilities_query: dict = {
+          "type": "sodaCoreContractDatasetResponsibilities",
+          "contract": {
+            "dataset": {
+              "datasource": data_source_name,
+              "prefixes": dataset_prefix,
+              "name": dataset_name,
+            }
+          }
+        }
+        response: Response = self._execute_query(
+            query_json_dict=dataset_responsibilities_query,
+            request_log_name="query_dataset_responsibilities"
+        )
+        if not response.status_code == 200:
+            return False
+        response_json: dict = response.json()
+        if not isinstance(response_json, dict):
+            return False
+        can_create_data_source_and_dataset : bool = response_json.get("canCreateDatasourceAndDataset", False)
+        execute_contracts: bool = response_json.get("executeContracts", False)
+        publish_contracts: bool = response_json.get("publishContracts", False)
+        return can_create_data_source_and_dataset and execute_contracts and publish_contracts
+
     def execute_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
         if not isinstance(contract_yamls, list) or len(contract_yamls) == 0:
             self.logs.info(f"No contracts to execute on Soda Agent")

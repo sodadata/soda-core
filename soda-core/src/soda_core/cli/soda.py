@@ -10,6 +10,7 @@ from textwrap import dedent
 from typing import Optional
 
 from soda_core.common.logs import Logs, Emoticons
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
     ContractVerificationResult
