@@ -356,7 +356,7 @@ class DataSourceTestHelper:
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         columns_sql: str = ",\n".join(
             [
-                f"  {column.name} {column.data_type}"
+                f"  {column.name} {column.create_table_data_type}"
                 for column in test_table.columns.values()
             ]
         )
