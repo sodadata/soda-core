@@ -19,7 +19,6 @@ RUN apt-get update && \
     libpq-dev \
     libssl-dev libffi-dev \
     python3.9 python3.9-dev python3.9-venv libpython3.9-dev libpython3.9 \
-    python3.9-distutils \
     unixodbc-dev git lsb-release \
     alien odbcinst
 
