@@ -44,13 +44,15 @@ values themselves are considered valid values as well.
 must_be_not_between: [10, 25]
 ```
 
-The check metric value must be greater than 10 and less than or equal to 25
+Custom inner range with including and excluding boundaries.  
+The check metric value must be greater than 10 and less than or equal to 25:
 ```
 must_be_greater_than: 10
 must_be_less_than_or_equal: 25
 ```
 
-The check metric value must be less than or equal to 10 or greater than 25
+Custom outer range with including and excluding boundaries.  
+The check metric value must be less than or equal to 10 or greater than 25:
 ```
 must_be_less_than_or_equal: 10
 must_be_greater_than: 25

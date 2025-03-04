@@ -2,14 +2,14 @@
 
 ### Basic schema check
 
-To verify the schema, add a check with `type: schema` to the list of checks.
+To verify the schema, add a check with `schema:` to the list of checks.
 This is the most common check. The list of column must be exact as 
 specified in the contract.  No extra nor missing columns are allowed.  
 Column names are case sensitive.
 
 For example:
 
-```
+```yaml
 dataset: dim_employee
 columns:
   - name: id
@@ -19,7 +19,7 @@ columns:
   - name: address_line1
 
 checks:
-  - type: schema
+  - schema:
 ```
 
 The above check will verify that the table `dim_employee` has exact 
@@ -36,16 +36,32 @@ the column, the data type is checked as part of the schema check.
 
 Data types specified in the contract will be checked case insensitive.
 
-Data types may support synonyms.  Consult the specific data source 
-for details (TODO).  Like eg in postgres, `data_type: varchar` will be equal 
-to a column with metadata type `character varying`. 
+### Data type synonyms
+Data types may support synonyms.  Eg on postgres, `data_type: varchar` will be equal 
+to a column with metadata type `data_type: character varying`. 
 
-Data sources may support max lengths like `data_type: varchar(255)`.  
-Lengths are considered optional.  They are only checked if specified in the 
-contract with round brackets.  So for a column with data type `data_type: varchar`
-the length will not be checked.
+### Specify and verify character maximum length
 
-### Schema check roadmap features
+Data sources may support the optional column key `character_maximum_length`.
+If specified in the contract on the column level, the schema check will 
+verify it.  This is mostly for `varchar` data types that have been created with 
+for example `varchar(255)`
+
+```yaml
+dataset: dim_employee
+columns:
+  - name: id
+    data_type: varchar
+    character_maximum_length: 255
+  - name: address_line1
+
+checks:
+  - schema:
+```
+
+
+### Roadmap features
 
 * Allow for optional columns
 * Allow for extra columns not in the list
+* Column ordering

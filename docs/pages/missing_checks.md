@@ -14,44 +14,65 @@ dataset: dim_employee
 columns:
   - name: id
     checks:
-      - type: missing_count
+      - missing:
 ```
 
-> The default threshold requires that `missing_count` must be 0.
+> The default metric used is `count`
 
-### Configure values that are considered as missing
+> The default threshold requires that missing `count` must be 0.
+
+> The metrics missing `count`, missing `percent` and `row_count` will be added 
+> as diagnostic metrics for each evaluation. 
+
+### Configure a different missing metric
+
+```yaml
+dataset: dim_employee
+columns:
+  - name: id
+    checks:
+      - missing:
+          metric: percent
+```
+
+### Configure extra missing values
+
+##### Configure a list of extra missing values
 
 NULL is always considered a missing value.  Only configure the extra 
 non-NULL values that must be considered as missing. Typical examples are 
 '-', 'No value', 'N/A', 'None', 'null', -1, 999
 
-##### Specify a list of extra values that apart from NULL, are also considered as missing values:
 
 ```yaml
 dataset: dim_employee
 columns:
   - name: id
-    missing_values: ['N/A', '-']
     checks:
-      - type: missing_count
+      - missing:
+          missing_values: ['N/A', '-']
 ```
 
 `missing_values` is a list of values.  All strings or all numeric values are supported.
 
-> Note `missing_values` is on the column level. That's because of 2 reasons:
+> Note for now, we only recommend `missing_values` is on the check level. We may consider 
+> to configure missing and validity configurations on the column level because 
+> of 2 reasons:
 > * Multiple checks will use the missing values configuration.  This way you don't have to 
 >   repeat the missing values configuration and maintain the duplicate configurations. 
-> * It separates the metadata (information describing the column) from the actual check. 
+> * It separates the metadata (information describing the column) from the actual check.
+> The engine already supports the configurations on the column level, but the editor not yet. 
+> All feedback welcome.
 
-##### Specify a regex that apart from NULL, matches with values that are also considered as missing:
+### Configure a regular expression to specify missing values
 
 ```yaml
 dataset: dim_employee
 columns:
   - name: id
-    missing_regex_sql: ^[-]+$
     checks:
-      - type: missing_count
+      - missing:
+          missing_regex_sql: ^[-]+$
 ```
 
 `missing_regex_sql` is interpreted by the data source warehouse SQL engine.
@@ -67,8 +88,9 @@ dataset: dim_employee
 columns:
   - name: id
     checks:
-      - type: missing_count
-        must_be_less_than: 25
+      - missing:
+          threshold:
+            must_be_less_than: 25
 ```
 
 Verify there are between 0 and 1 % missing values in a column:
@@ -78,41 +100,27 @@ dataset: dim_employee
 columns:
   - name: id
     checks:
-      - type: missing_percent
-        must_be_between: [0, 1]
+      - missing:
+          metric: percent
+          threshold:
+            must_be_between: [0, 1]
 ```
 
-The metric used in this check type is `missing_percent`, which is calculated 
+The metric used in this check type is missing `percent`, which is calculated 
 as: `missing_count` x `100` / `row_count`
 
-> Pro tip: It can be more informative to use missing_percent as the diagnostic 
-> information for this check will include the actual row_count, missing_count and 
-> missing_percentage values.
-
-> Warning: A `missing_percent` check can only be evaluated if there are rows.
-> That's because division by zero is not possible.  A `missing_percent` check 
-> will have an outcome value of UNEVALUATED in case there are no rows. This 
-> will cause the contract verification to fail while there are no rows with 
-> missing values.   
+> Note: If there are no rows, to check, a missing `percent` check avoids the 
+> division by zero and concludes there are 0 % missing values.  
 
 For more details on threshold, see [Thresholds](thresholds.md) 
 
-### List of missing value configuration keys
+### List of missing check keys
 
-There are missing value configuration keys 
+There are missing check configuration keys 
 
 | Key                 | Description                                           | Examples                               |
 |---------------------|-------------------------------------------------------|----------------------------------------|
+| `metric`            | `count` or `percent`                                  | `percent`                              |
 | `missing_values`    | A list of values that represent missing data          | ['N/A', '-', 'No value']<br/>[-1, 999] |
 | `missing_regex_sql` | A warehouse SQL regex that matches for missing values | ^(-)+$                                 |
-
-### List of checks supporting the missing configuration keys
-
-These check types support the missing configuration keys:
-
-* `missing_count`
-* `missing_percent`
-* `invalid_count`
-* `invalid_percent`
-* `nok_count`
-* `nok_percent`
+| `threshold`         | The threshold for the metric value                    |                                        |

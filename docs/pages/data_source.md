@@ -6,8 +6,16 @@ This page explains how to configure the connection and other data source details
 
 To configure a connection to a postgres database, use this YAML
 ```yaml
-name: your_data_source_name
 type: postgres
+name: postgres_ds
+connection:
+  host: localhost
+  user: ${POSTGRES_USERNAME}
+  password: ${POSTGRES_PASSWORD}
+  database: your_postgres_db
+format_regexes:
+  # Example named regex format
+  single_digit_test_format: ^[0-9]$
 ```
 
 ### Format regexes

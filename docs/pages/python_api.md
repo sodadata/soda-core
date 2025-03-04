@@ -1,19 +1,8 @@
 # Soda Core Python API
 
-### Installation
+### Install Soda Core in a virtual environment
 
-We recommend to start in a directory without a `.venv` directory.  
-
-To create a new Python virtual environment use this sequence of command line instructions: 
-```
-virtualenv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install soda-postgres>4.0a0
-```
-
-After installation, the virtual environment can be activated with `source .venv/bin/activate` 
-and deactivated with `deactivate`
+See [Install Soda Core in a Python virtual environment](./install.md)
 
 ### Basic API usage
 

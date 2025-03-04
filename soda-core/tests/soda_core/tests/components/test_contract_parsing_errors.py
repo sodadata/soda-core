@@ -15,7 +15,7 @@ def test_parsing_error_wrong_type(data_source_test_helper: DataSourceTestHelper)
               - name: id
                 valid_values: ['1', '2', '3']
                 checks:
-                  - type: invalid_count
+                  - invalid:
               - name: age
             checks:
               - type: schema

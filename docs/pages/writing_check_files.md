@@ -4,25 +4,32 @@
 
 Example contract YAML file:
 ```
+data_source: postgres_adventureworks
+dataset_prefix: [adventureworks, advw]
 dataset: dim_employee
+
 columns:
   - name: id
     checks:
-      - type: missing_count
+      - missing:
   - name: last_name
     checks:
-      - type: missing_percent
-        must_be_less_than: 10
+      - missing:
+          metric: percent
+          threshold:
+            must_be_less_than: 10
   - name: address_line1
-    missing_values: ['N/A', 'No value', '-']
     checks:
-      - type: missing_count
-        must_be_between: [0, 10]
+      - missing:
+          missing_values: ['N/A', 'No value', '-']
+          threshold:
+            must_be_between: [0, 10]
 
 checks:
-  - type: schema
-  - type: row_count
-    must_be_between: [10, 100]
+  - schema:
+  - row_count:
+      threshold:
+        must_be_between: [10, 100]
 ```
 
 ### Linking contracts to the data source

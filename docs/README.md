@@ -2,8 +2,11 @@
 
 Table of contents
 
+* [Install](pages/install.md)
+* [Using the CLI](pages/cli.md)
 * [Using the Python API](pages/python_api.md)
 * [Writing check files](pages/writing_check_files.md)
+* [Differences compared to SodaCL](pages/sodacl_diffs.md)
 * Check types
   * [Schema check](pages/schema_check.md)
   * [Row count check](pages/row_count_check.md)
