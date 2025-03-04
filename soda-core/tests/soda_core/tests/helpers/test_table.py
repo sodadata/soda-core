@@ -10,6 +10,7 @@ class TestDataType:
     """
     TestDataTypes contains data source-neutral constants for referring to the basic, common column data types.
     """
+
     __test__ = False
 
     TEXT = "text"
@@ -34,6 +35,7 @@ class TestTableSpecificationBuilder:
     """
     See TestTableSpecification for documentation
     """
+
     __test__ = False
 
     # All test table names to verify that every test table name is used only once in the whole test suite.
@@ -103,16 +105,13 @@ class TestTableSpecificationBuilder:
         if name_lower in self.__names:
             raise AssertionError(
                 f"Duplicate test table purpose detected: {self._table_purpose}.  In the codebase, the table_purpose "
-                f"of every test table should be unique.  Search for .table_purpose(\"{self._table_purpose}\") and you "
+                f'of every test table should be unique.  Search for .table_purpose("{self._table_purpose}") and you '
                 f"should find multiple places in the test codebase where the same table_purpose is created."
             )
         self.__names.append(name_lower)
         unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
         return TestTableSpecification(
-            name=self._table_purpose,
-            columns=self._columns,
-            row_values=self._rows,
-            unique_name=unique_name
+            name=self._table_purpose, columns=self._columns, row_values=self._rows, unique_name=unique_name
         )
 
     def __test_table_hash(self) -> str:
@@ -157,6 +156,7 @@ class TestTableSpecification:
     test file use 1 test table specification.  That way, reusing the same table for multiple tests is still supported
     and the impact of changing a test table specification is limited to the file you're working in.
     """
+
     __test__ = False
 
     @staticmethod
@@ -172,15 +172,16 @@ class TestTableSpecification:
 class TestTable:
     __test__ = False
 
-    def __init__(self,
-                 data_source_name: str,
-                 dataset_prefix: list[str],
-                 code_name: str,
-                 unique_name: str,
-                 qualified_name: str,
-                 columns: list[TestColumn],
-                 row_values: Optional[list[tuple]]
-                 ):
+    def __init__(
+        self,
+        data_source_name: str,
+        dataset_prefix: list[str],
+        code_name: str,
+        unique_name: str,
+        qualified_name: str,
+        columns: list[TestColumn],
+        row_values: Optional[list[tuple]],
+    ):
         self.data_source_name: str = data_source_name
         self.dataset_prefix: list[str] = dataset_prefix
         # Name of the test table in the code.
@@ -189,9 +190,7 @@ class TestTable:
         self.unique_name: str = unique_name
         # Fully qualified SQL name of the table
         self.qualified_name: str = qualified_name
-        self.columns: dict[str, TestColumn] = {
-            column.name: column for column in columns
-        }
+        self.columns: dict[str, TestColumn] = {column.name: column for column in columns}
         self.row_values: Optional[list[tuple]] = row_values
 
     def data_type(self, column_name: str) -> str:
@@ -201,12 +200,7 @@ class TestTable:
 class TestColumn:
     __test__ = False
 
-    def __init__(self,
-                 name: str,
-                 test_data_type: str,
-                 create_table_data_type: str,
-                 contract_data_type: str
-                 ):
+    def __init__(self, name: str, test_data_type: str, create_table_data_type: str, contract_data_type: str):
         self.name: str = name
 
         # The test_data_type is the abstract data type as specified in the test code (data source neutral)

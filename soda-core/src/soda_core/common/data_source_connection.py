@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from importlib.util import find_spec
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Logs, Emoticons
+from soda_core.common.logs import Emoticons, Logs
 
 
 class DataSourceConnection(ABC):
-
-    def __init__(
-            self,
-            name: str,
-            connection_properties: dict,
-            logs: Logs
-    ):
+    def __init__(self, name: str, connection_properties: dict, logs: Logs):
         self.name: str = name
         self.connection_properties: dict = connection_properties
         self.logs: Logs = logs
@@ -50,8 +44,7 @@ class DataSourceConnection(ABC):
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
                 self.logs.error(
-                    message=f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to '{self.name}': {e}",
-                    exception=e
+                    message=f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to '{self.name}': {e}", exception=e
                 )
 
     def _log_connection_properties_excl_pwd(self, connection_yaml_dict: dict):
@@ -72,10 +65,7 @@ class DataSourceConnection(ABC):
                 # noinspection PyUnresolvedReferences
                 self.connection.close()
             except Exception as e:
-                self.logs.warning(
-                    message=f"Could not close the DBAPI connection",
-                    exception=e
-                )
+                self.logs.warning(message=f"Could not close the DBAPI connection", exception=e)
             finally:
                 self.connection = None
 
@@ -91,6 +81,7 @@ class DataSourceConnection(ABC):
             rows = cursor.fetchall()
             if self.is_tabulate_available:
                 from tabulate import tabulate
+
                 table_text: str = tabulate(rows, headers=[c.name for c in cursor.description])
                 self.logs.debug(f"SQL query result:\n{table_text}")
             else:

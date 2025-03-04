@@ -1,16 +1,18 @@
 import logging
 import os
 
-from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlFileContent
+from soda_core.common.yaml import YamlFileContent, YamlList, YamlObject, YamlSource
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def test_yaml_api():
-    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
-        """
+    yaml_source: YamlSource = YamlSource.from_str(
+        yaml_str=dedent_and_strip(
+            """
         dataset: lskdjflks
         """
-    ))
+        )
+    )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     assert not yaml_file_content.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
@@ -19,11 +21,13 @@ def test_yaml_api():
 
 def test_yaml_resolve_env_vars(env_vars: dict):
     env_vars["DS"] = "thedataset"
-    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
-        """
+    yaml_source: YamlSource = YamlSource.from_str(
+        yaml_str=dedent_and_strip(
+            """
         dataset: ${DS}
         """
-    ))
+        )
+    )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     assert not yaml_file_content.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
@@ -50,12 +54,14 @@ def test_yaml_error_file_not_found():
 
 
 def test_yaml_error_invalid_top_level_element():
-    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
-        """
+    yaml_source: YamlSource = YamlSource.from_str(
+        yaml_str=dedent_and_strip(
+            """
         - one
         - two
         """
-    ))
+        )
+    )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     errors_str = yaml_file_content.logs.get_errors_str()
     assert "Root YAML in yaml string must be an object, but was a list" in errors_str
@@ -73,14 +79,16 @@ def test_yaml_error_empty_yaml_str():
 
 
 def test_yaml_nested_level():
-    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip(
-        """
+    yaml_source: YamlSource = YamlSource.from_str(
+        yaml_str=dedent_and_strip(
+            """
         level_one:
           level_two:
             - type: item
               name: entry
         """
-    ))
+        )
+    )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
     assert not yaml_file_content.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
@@ -97,7 +105,8 @@ def test_yaml_nested_level():
 
 
 def test_yaml_locations():
-    yaml_str: str = dedent_and_strip("""
+    yaml_str: str = dedent_and_strip(
+        """
         one:
           one_two:
             - type: item
@@ -105,7 +114,8 @@ def test_yaml_locations():
         two:
           two_one: a
           two_two: b
-        """)
+        """
+    )
     logging.debug(f"\n=== YAML string ============\n{yaml_str}\n============================")
     yaml_source: YamlSource = YamlSource.from_str(yaml_str=yaml_str)
     root_object: YamlObject = yaml_source.parse_yaml_file_content().get_yaml_object()

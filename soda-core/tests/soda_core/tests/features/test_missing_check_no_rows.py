@@ -1,18 +1,13 @@
-from soda_core.contracts.contract_verification import ContractResult, CheckOutcome
+from soda_core.contracts.contract_verification import CheckOutcome, ContractResult
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
-
 missing_no_rows_specification = (
-    TestTableSpecification.builder()
-    .table_purpose("missing_no_rows")
-    .column_text("id")
-    .build()
+    TestTableSpecification.builder().table_purpose("missing_no_rows").column_text("id").build()
 )
 
 
 def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
@@ -23,14 +18,13 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
                 checks:
                   - missing:
                       metric: percent
-        """
+        """,
     )
 
     assert contract_result.check_results[0].outcome == CheckOutcome.PASSED
 
 
 def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
-
     # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/dbd4e3da-62f4-4cdc-a347-f777118e5aeb/checks
 
     test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
@@ -42,7 +36,7 @@ def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
               - name: id
                 checks:
                   - missing:
-        """
+        """,
     )
 
     assert contract_result.check_results[0].outcome == CheckOutcome.PASSED

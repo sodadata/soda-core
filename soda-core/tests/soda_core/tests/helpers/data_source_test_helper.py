@@ -8,17 +8,26 @@ import string
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.logs import Logs, Log
+from soda_core.common.logs import Log, Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.statements.metadata_tables_query import (
+    FullyQualifiedTableName,
+    MetadataTablesQuery,
+)
+from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import (
+    ContractResult,
     ContractVerification,
     ContractVerificationBuilder,
-    ContractVerificationResult, ContractResult,
+    ContractVerificationResult,
 )
-from soda_core.tests.helpers.mock_soda_cloud import MockSodaCloud, MockResponse
-from soda_core.tests.helpers.test_table import TestDataType, TestTable, TestTableSpecification, TestColumn
+from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from soda_core.tests.helpers.test_table import (
+    TestColumn,
+    TestDataType,
+    TestTable,
+    TestTableSpecification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +35,9 @@ logger = logging.getLogger(__name__)
 class TestContractVerificationBuilder(ContractVerificationBuilder):
     __test__ = False
 
-    def __init__(
-        self,
-        data_source: Optional['DataSource'] = None,
-        soda_cloud: Optional[SodaCloud] = None
-    ):
+    def __init__(self, data_source: Optional["DataSource"] = None, soda_cloud: Optional[SodaCloud] = None):
         super().__init__()
-        self.data_source: Optional['DataSource'] = data_source # initialized in _initialize_data_source below
+        self.data_source: Optional["DataSource"] = data_source  # initialized in _initialize_data_source below
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
 
     def build(self) -> TestContractVerification:
@@ -44,9 +49,7 @@ class TestContractVerification(ContractVerification):
 
     @classmethod
     def builder(
-        cls,
-        data_source: 'DataSource' | None = None,
-        soda_cloud: Optional[SodaCloud] = None
+        cls, data_source: "DataSource" | None = None, soda_cloud: Optional[SodaCloud] = None
     ) -> TestContractVerificationBuilder:
         return TestContractVerificationBuilder(data_source=data_source, soda_cloud=soda_cloud)
 
@@ -58,16 +61,18 @@ class TestContractVerification(ContractVerification):
 
 
 class DataSourceTestHelper:
-
     @classmethod
     def create(cls) -> DataSourceTestHelper:
-        from soda_postgres.contracts.impl.data_sources.postgres_data_source_test_helper import PostgresDataSourceTestHelper
+        from soda_postgres.contracts.impl.data_sources.postgres_data_source_test_helper import (
+            PostgresDataSourceTestHelper,
+        )
+
         return PostgresDataSourceTestHelper()
 
     def __init__(self):
         super().__init__()
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
-        self.data_source: 'DataSource' = self._create_data_source()
+        self.data_source: "DataSource" = self._create_data_source()
         if self.data_source.logs.has_errors():
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
@@ -101,7 +106,7 @@ class DataSourceTestHelper:
     def enable_soda_cloud_mock(self, responses: list[MockResponse]):
         self.soda_cloud = MockSodaCloud(responses)
 
-    def _create_data_source(self) -> 'DataSource':
+    def _create_data_source(self) -> "DataSource":
         """
         Called in constructor to initialized self.data_source
         """
@@ -109,12 +114,12 @@ class DataSourceTestHelper:
         test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
         data_source_yaml_file = YamlSource.from_dict(yaml_dict=test_data_source_yaml_dict)
         data_source_yaml_file_content: YamlFileContent = data_source_yaml_file.parse_yaml_file_content(
-            file_type="data source",
-            logs=logs
+            file_type="data source", logs=logs
         )
         from soda_core.common.data_source_parser import DataSourceParser
+
         data_source_parser = DataSourceParser(data_source_yaml_file_content)
-        data_source: 'DataSource' = data_source_parser.parse()
+        data_source: "DataSource" = data_source_parser.parse()
         assert not logs.has_errors()
         return data_source
 
@@ -326,7 +331,7 @@ class DataSourceTestHelper:
                 name=test_column_specification.name,
                 test_data_type=contract_data_type,
                 create_table_data_type=self.get_create_table_sql_type(test_column_specification.test_data_type),
-                contract_data_type=self.get_contract_data_type(test_column_specification.test_data_type)
+                contract_data_type=self.get_contract_data_type(test_column_specification.test_data_type),
             )
             columns.append(test_column)
 
@@ -342,7 +347,7 @@ class DataSourceTestHelper:
                 dataset_name=test_table_specification.unique_name,
             ),
             columns=columns,
-            row_values=test_table_specification.row_values
+            row_values=test_table_specification.row_values,
         )
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
@@ -355,10 +360,7 @@ class DataSourceTestHelper:
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         columns_sql: str = ",\n".join(
-            [
-                f"  {column.name} {column.create_table_data_type}"
-                for column in test_table.columns.values()
-            ]
+            [f"  {column.name} {column.create_table_data_type}" for column in test_table.columns.values()]
         )
         return self._create_test_table_sql_statement(test_table.qualified_name, columns_sql)
 
@@ -372,25 +374,16 @@ class DataSourceTestHelper:
 
     def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
-            def literalize_row(row: tuple) -> list[str]:
-                return [
-                    self.data_source.sql_dialect.literal(value)
-                    for value in row
-                ]
 
-            literal_row_values = [
-                literalize_row(row_values)
-                for row_values in test_table.row_values
-            ]
+            def literalize_row(row: tuple) -> list[str]:
+                return [self.data_source.sql_dialect.literal(value) for value in row]
+
+            literal_row_values = [literalize_row(row_values) for row_values in test_table.row_values]
 
             def format_literal_row_values(row: list[str]) -> str:
                 return ",".join(row)
 
-            rows_sql = ",\n".join(
-                [
-                    f"  ({format_literal_row_values(row)})" for row in literal_row_values
-                ]
-            )
+            rows_sql = ",\n".join([f"  ({format_literal_row_values(row)})" for row in literal_row_values])
 
             return self._insert_test_table_rows_sql_statement(test_table.qualified_name, rows_sql)
 
@@ -403,8 +396,7 @@ class DataSourceTestHelper:
 
     def _drop_test_table_sql(self, table_name) -> str:
         table_name_qualified_quoted: str = self.data_source.sql_dialect.qualify_dataset_name(
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=table_name
+            dataset_prefix=self.dataset_prefix, dataset_name=table_name
         )
         return self._drop_test_table_sql_statement(table_name_qualified_quoted)
 
@@ -439,22 +431,19 @@ class DataSourceTestHelper:
         self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self._verify_contract(
-            contract_yaml_str=contract_yaml_str,
-            test_table=test_table,
-            variables=variables
+            contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
         if not contract_verification_result.is_ok():
-            raise AssertionError(f"Expected contract verification passed, but was: {contract_verification_result.get_logs_str()}")
+            raise AssertionError(
+                f"Expected contract verification passed, but was: {contract_verification_result.get_logs_str()}"
+            )
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
-        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None,
-        soda_cloud = None
+        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None, soda_cloud=None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self._verify_contract(
-            contract_yaml_str=contract_yaml_str,
-            test_table=test_table,
-            variables=variables
+            contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
         if not contract_verification_result.failed():
             raise AssertionError(
@@ -463,18 +452,12 @@ class DataSourceTestHelper:
         return contract_verification_result.contract_results[0]
 
     def _verify_contract(
-        self,
-        contract_yaml_str: str,
-        test_table: TestTable,
-        variables: Optional[dict]
+        self, contract_yaml_str: str, test_table: TestTable, variables: Optional[dict]
     ) -> ContractVerificationResult:
         full_contract_yaml_str = self._prepend_dataset_to_contract(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{full_contract_yaml_str}")
         test_contract_verification_builder: TestContractVerificationBuilder = (
-            self.create_test_verification_builder()
-            .with_contract_yaml_str(
-                contract_yaml_str=full_contract_yaml_str
-            )
+            self.create_test_verification_builder().with_contract_yaml_str(contract_yaml_str=full_contract_yaml_str)
         )
         if isinstance(variables, dict):
             test_contract_verification_builder.with_variables(variables)

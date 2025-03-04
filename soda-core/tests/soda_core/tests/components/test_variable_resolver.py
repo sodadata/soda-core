@@ -4,27 +4,33 @@ from soda_core.common.yaml import VariableResolver
 
 
 def test_variable():
-    src=dedent("""
+    src = dedent(
+        """
         host: ${HOST}
-    """).strip()
+    """
+    ).strip()
 
     result = VariableResolver.resolve(source_text_with_variables=src, variables={"HOST": "test.soda.io"})
     assert "host: test.soda.io" == result
 
 
 def test_variable_with_spaces():
-    src=dedent("""
+    src = dedent(
+        """
         host: ${  HOST }
-    """).strip()
+    """
+    ).strip()
 
     result = VariableResolver.resolve(source_text_with_variables=src, variables={"HOST": "test.soda.io"})
     assert "host: test.soda.io" == result
 
 
 def test_variable_env_var(env_vars: dict):
-    src=dedent("""
+    src = dedent(
+        """
         host: ${HOST}
-    """).strip()
+    """
+    ).strip()
 
     env_vars["HOST"] = "test.soda.io"
 
@@ -33,9 +39,11 @@ def test_variable_env_var(env_vars: dict):
 
 
 def test_variable_not_found():
-    src=dedent("""
+    src = dedent(
+        """
         host: ${HOST}
-    """).strip()
+    """
+    ).strip()
 
     result = VariableResolver.resolve(source_text_with_variables=src)
     assert "host: ${HOST}" == result

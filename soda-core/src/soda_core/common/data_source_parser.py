@@ -3,17 +3,12 @@ from __future__ import annotations
 from typing import Optional
 
 from soda_core.common.data_source import DataSource
-from soda_core.common.logs import Logs, Emoticons
-from soda_core.common.yaml import YamlObject, YamlFileContent
+from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.yaml import YamlFileContent, YamlObject
 
 
 class DataSourceParser:
-
-    def __init__(
-            self,
-            data_source_yaml_file_content: YamlFileContent,
-            spark_session: Optional[object] = None
-    ):
+    def __init__(self, data_source_yaml_file_content: YamlFileContent, spark_session: Optional[object] = None):
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
         self.logs: Logs = data_source_yaml_file_content.logs
         self.spark_session: object = spark_session
@@ -49,8 +44,8 @@ class DataSourceParser:
                 else:
                     self.logs.error(
                         message=f"{Emoticons.POLICE_CAR_LIGHT} Invalid regex value in 'format_regexes', "
-                                f"expected string, was '{v}'",
-                        location=format_regexes_yaml.location
+                        f"expected string, was '{v}'",
+                        location=format_regexes_yaml.location,
                     )
 
         return DataSource.create(

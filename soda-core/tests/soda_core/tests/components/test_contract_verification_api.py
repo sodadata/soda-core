@@ -1,7 +1,9 @@
 import pytest
-
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerification, SodaException
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationResult,
+    SodaException,
+)
 
 
 def test_contract_verification_file_api():
@@ -13,8 +15,7 @@ def test_contract_verification_file_api():
     )
 
     assert (
-        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in
-        contract_verification_result.get_logs_str()
+        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in contract_verification_result.get_logs_str()
     )
 
 
@@ -38,11 +39,13 @@ def test_contract_provided_and_configured():
     """
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
-        .with_contract_yaml_str(f"""
+        .with_contract_yaml_str(
+            f"""
           dataset: CUSTOMERS
           columns:
             - name: id
-        """)
+        """
+        )
         .with_variables({"env": "test"})
         .execute()
     )

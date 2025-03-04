@@ -6,18 +6,33 @@ from typing import Optional
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
-from soda_core.contracts.contract_verification import CheckResult, CheckOutcome, Measurement, Check, Contract, \
-    Threshold
+from soda_core.common.statements.metadata_columns_query import (
+    ColumnMetadata,
+    MetadataColumnsQuery,
+)
+from soda_core.contracts.contract_verification import (
+    Check,
+    CheckOutcome,
+    CheckResult,
+    Contract,
+    Measurement,
+    Threshold,
+)
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
-from soda_core.contracts.impl.contract_verification_impl import MetricImpl, CheckImpl, MetricsResolver, Query, CheckParser, \
-    ContractImpl, ColumnImpl, MeasurementValues
+from soda_core.contracts.impl.contract_verification_impl import (
+    CheckImpl,
+    CheckParser,
+    ColumnImpl,
+    ContractImpl,
+    MeasurementValues,
+    MetricImpl,
+    Query,
+)
 
 
 class SchemaCheckParser(CheckParser):
-
     def get_check_type_names(self) -> list[str]:
-        return ['schema']
+        return ["schema"]
 
     def parse_check(
         self,
@@ -47,13 +62,10 @@ class ColumnDataTypeMismatch:
 
     @classmethod
     def get_optional_length_str(cls, character_maximum_length: Optional[int]) -> str:
-        return (f"({character_maximum_length})"
-                if isinstance(character_maximum_length, int)
-                else "")
+        return f"({character_maximum_length})" if isinstance(character_maximum_length, int) else ""
 
 
 class SchemaCheckImpl(CheckImpl):
-
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -72,20 +84,22 @@ class SchemaCheckImpl(CheckImpl):
             ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
                 data_type=column_impl.column_yaml.data_type,
-                character_maximum_length=column_impl.column_yaml.character_maximum_length
+                character_maximum_length=column_impl.column_yaml.character_maximum_length,
             )
             for column_impl in contract_impl.column_impls
         ]
 
-        self.schema_metric = self._resolve_metric(SchemaMetricImpl(
-            contract_impl=contract_impl,
-        ))
+        self.schema_metric = self._resolve_metric(
+            SchemaMetricImpl(
+                contract_impl=contract_impl,
+            )
+        )
 
         schema_query: Query = SchemaQuery(
             dataset_prefix=contract_impl.dataset_prefix,
             dataset_name=contract_impl.dataset_name,
             schema_metric_impl=self.schema_metric,
-            data_source=contract_impl.data_source
+            data_source=contract_impl.data_source,
         )
         self.queries.append(schema_query)
 
@@ -98,9 +112,7 @@ class SchemaCheckImpl(CheckImpl):
 
         actual_columns: list[ColumnMetadata] = measurement_values.get_value(self.schema_metric)
         if actual_columns:
-            actual_column_names: list[str] = [
-                actual_column.column_name for actual_column in actual_columns
-            ]
+            actual_column_names: list[str] = [actual_column.column_name for actual_column in actual_columns]
             actual_column_metadata_by_name: [str, ColumnMetadata] = {
                 actual_column.column_name: actual_column for actual_column in actual_columns
             }
@@ -119,18 +131,20 @@ class SchemaCheckImpl(CheckImpl):
             for expected_column in self.expected_columns:
                 actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
 
-                if (actual_column_metadata
+                if (
+                    actual_column_metadata
                     and expected_column.data_type
                     and self.contract_impl.data_source.is_different_data_type(
                         expected_column=expected_column, actual_column_metadata=actual_column_metadata
-                    )):
+                    )
+                ):
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
                             expected_data_type=expected_column.data_type,
                             expected_character_maximum_length=expected_column.character_maximum_length,
                             actual_data_type=actual_column_metadata.data_type,
-                            actual_character_maximum_length=actual_column_metadata.character_maximum_length
+                            actual_character_maximum_length=actual_column_metadata.character_maximum_length,
                         )
                     )
 
@@ -138,11 +152,13 @@ class SchemaCheckImpl(CheckImpl):
             # schema_column_index_mismatches = {}
 
             outcome = (
-                CheckOutcome.PASSED if (
+                CheckOutcome.PASSED
+                if (
                     len(expected_column_names_not_actual)
                     + len(actual_column_names_not_expected)
                     + len(column_data_type_mismatches)
-                ) == 0
+                )
+                == 0
                 else CheckOutcome.FAILED
             )
 
@@ -158,36 +174,26 @@ class SchemaCheckImpl(CheckImpl):
         )
 
     def _build_threshold(self) -> Threshold:
-        return Threshold(
-            must_be_less_than_or_equal=0
-        )
+        return Threshold(must_be_less_than_or_equal=0)
 
 
 class SchemaMetricImpl(MetricImpl):
-
     def __init__(
         self,
         contract_impl: ContractImpl,
     ):
-        super().__init__(
-            contract_impl=contract_impl,
-            metric_type="schema"
-        )
+        super().__init__(contract_impl=contract_impl, metric_type="schema")
 
 
 class SchemaQuery(Query):
-
     def __init__(
         self,
         dataset_prefix: Optional[list[str]],
         dataset_name: str,
         schema_metric_impl: SchemaMetricImpl,
-        data_source: DataSource
+        data_source: DataSource,
     ):
-        super().__init__(
-            data_source=data_source,
-            metrics=[schema_metric_impl]
-        )
+        super().__init__(data_source=data_source, metrics=[schema_metric_impl])
         self.metadata_columns_query_builder: MetadataColumnsQuery = data_source.create_metadata_columns_query()
         self.sql = self.metadata_columns_query_builder.build_sql(
             dataset_prefix=dataset_prefix,
@@ -198,33 +204,33 @@ class SchemaQuery(Query):
         query_result: QueryResult = self.data_source.execute_query(self.sql)
         metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
         schema_metric_impl: MetricImpl = self.metrics[0]
-        return [Measurement(
-            metric_id=schema_metric_impl.id,
-            value=metadata_columns,
-            metric_name=schema_metric_impl.type
-        )]
+        return [
+            Measurement(metric_id=schema_metric_impl.id, value=metadata_columns, metric_name=schema_metric_impl.type)
+        ]
 
 
 class SchemaCheckResult(CheckResult):
-
-    def __init__(self,
-                 contract: Contract,
-                 check: Check,
-                 outcome: CheckOutcome,
-                 expected_columns: list[ColumnMetadata],
-                 actual_columns: list[ColumnMetadata],
-                 expected_column_names_not_actual: list[str],
-                 actual_column_names_not_expected: list[str],
-                 column_data_type_mismatches: list[ColumnDataTypeMismatch],
-                 ):
+    def __init__(
+        self,
+        contract: Contract,
+        check: Check,
+        outcome: CheckOutcome,
+        expected_columns: list[ColumnMetadata],
+        actual_columns: list[ColumnMetadata],
+        expected_column_names_not_actual: list[str],
+        actual_column_names_not_expected: list[str],
+        column_data_type_mismatches: list[ColumnDataTypeMismatch],
+    ):
         super().__init__(
             contract=contract,
             check=check,
             outcome=outcome,
-            metric_value=(len(expected_column_names_not_actual) +
-                          len(actual_column_names_not_expected) +
-                          len(column_data_type_mismatches)),
-            diagnostics=[]
+            metric_value=(
+                len(expected_column_names_not_actual)
+                + len(actual_column_names_not_expected)
+                + len(column_data_type_mismatches)
+            ),
+            diagnostics=[],
         )
         self.expected_columns: list[ColumnMetadata] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns
@@ -249,10 +255,9 @@ class SchemaCheckResult(CheckResult):
         )
         logs.info(f"  Expected schema: {expected_columns_str}")
 
-        actual_columns_str: str = ", ".join([
-            f"{actual_column.column_name}({actual_column.data_type})"
-            for actual_column in self.actual_columns
-        ])
+        actual_columns_str: str = ", ".join(
+            [f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns]
+        )
         logs.info(f"  Actual schema: {actual_columns_str}")
 
         for column in self.actual_column_names_not_expected:

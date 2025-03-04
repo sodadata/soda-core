@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import traceback
 from datetime import datetime, timezone
-from logging import getLevelName, ERROR, WARNING, INFO, DEBUG, Logger
+from logging import DEBUG, ERROR, INFO, WARNING, Logger
 from typing import Optional
 
 
@@ -21,13 +21,7 @@ class Emoticons:
 
 
 class Location:
-
-    def __init__(
-            self,
-            file_path: Optional[str],
-            line: Optional[int],
-            column: Optional[int]
-    ):
+    def __init__(self, file_path: Optional[str], line: Optional[int], column: Optional[int]):
         self.file_path: Optional[str] = file_path
         self.line: Optional[int] = line
         self.column: Optional[int] = column
@@ -40,15 +34,10 @@ class Location:
         return hash((self.line, self.column))
 
     def get_dict(self) -> dict:
-        return {
-            "file_path": self.file_path,
-            "line": self.line,
-            "column": self.column
-        }
+        return {"file_path": self.file_path, "line": self.line, "column": self.column}
 
 
 class Log:
-
     def __init__(
         self,
         level: int,
@@ -57,7 +46,7 @@ class Log:
         exception: Optional[BaseException] = None,
         location: Optional[Location] = None,
         doc: Optional[str] = None,
-        index: Optional[int] = None
+        index: Optional[int] = None,
     ):
         self.level: int = level
         self.message: str = message
@@ -86,7 +75,6 @@ class Log:
 
 
 class Logs:
-
     logger: Logger = logging.getLogger("soda.contracts")
 
     def __init__(self):
@@ -94,66 +82,86 @@ class Logs:
         self.logs: list[Log] = []
 
     def error(
-            self,
-            message: str,
-            timestamp: Optional[datetime] = None,
-            exception: Optional[BaseException] = None,
-            location: Optional[Location] = None,
-            doc: Optional[str] = None,
-            index: Optional[int] = None
-            ) -> None:
+        self,
+        message: str,
+        timestamp: Optional[datetime] = None,
+        exception: Optional[BaseException] = None,
+        location: Optional[Location] = None,
+        doc: Optional[str] = None,
+        index: Optional[int] = None,
+    ) -> None:
         self.log(
             Log(
-                level=ERROR, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
-                index=index
+                level=ERROR,
+                message=message,
+                timestamp=timestamp,
+                exception=exception,
+                location=location,
+                doc=doc,
+                index=index,
             )
         )
 
     def warning(
-            self,
-            message: str,
-            timestamp: Optional[datetime] = None,
-            exception: Optional[BaseException] = None,
-            location: Optional[Location] = None,
-            doc: Optional[str] = None,
-            index: Optional[int] = None
-            ) -> None:
+        self,
+        message: str,
+        timestamp: Optional[datetime] = None,
+        exception: Optional[BaseException] = None,
+        location: Optional[Location] = None,
+        doc: Optional[str] = None,
+        index: Optional[int] = None,
+    ) -> None:
         self.log(
             Log(
-                level=WARNING, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
-                index=index
+                level=WARNING,
+                message=message,
+                timestamp=timestamp,
+                exception=exception,
+                location=location,
+                doc=doc,
+                index=index,
             )
         )
 
     def info(
-            self,
-            message: str,
-            timestamp: Optional[datetime] = None,
-            exception: Optional[BaseException] = None,
-            location: Optional[Location] = None,
-            doc: Optional[str] = None,
-            index: Optional[int] = None
-            ) -> None:
+        self,
+        message: str,
+        timestamp: Optional[datetime] = None,
+        exception: Optional[BaseException] = None,
+        location: Optional[Location] = None,
+        doc: Optional[str] = None,
+        index: Optional[int] = None,
+    ) -> None:
         self.log(
             Log(
-                level=INFO, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
-                index=index
+                level=INFO,
+                message=message,
+                timestamp=timestamp,
+                exception=exception,
+                location=location,
+                doc=doc,
+                index=index,
             )
         )
 
     def debug(
-            self,
-            message: str,
-            timestamp: Optional[datetime] = None,
-            exception: Optional[BaseException] = None,
-            location: Optional[Location] = None,
-            doc: Optional[str] = None,
-            index: Optional[int] = None
+        self,
+        message: str,
+        timestamp: Optional[datetime] = None,
+        exception: Optional[BaseException] = None,
+        location: Optional[Location] = None,
+        doc: Optional[str] = None,
+        index: Optional[int] = None,
     ) -> None:
         self.log(
             Log(
-                level=DEBUG, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
-                index=index
+                level=DEBUG,
+                message=message,
+                timestamp=timestamp,
+                exception=exception,
+                location=location,
+                doc=doc,
+                index=index,
             )
         )
 

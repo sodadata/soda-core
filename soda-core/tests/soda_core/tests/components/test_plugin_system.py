@@ -1,6 +1,6 @@
-import pytest
 from importlib.metadata import entry_points
 
+import pytest
 from soda_core.contracts.impl.instantiator import instantiate
 
 
@@ -9,13 +9,14 @@ def test_plugin():
     console_script_entry_points = entry_points()["soda_cli_plugins"]
     print(console_script_entry_points)
 
-    epv = next(entry_point.value for entry_point in console_script_entry_points if entry_point.name == 'premium')
+    epv = next(entry_point.value for entry_point in console_script_entry_points if entry_point.name == "premium")
 
-    parts = epv.split(':')
+    parts = epv.split(":")
     module_name = parts[0]
     class_name = parts[1]
     plugin = instantiate(module_name=module_name, class_name=class_name, constructor_args=None)
     print(plugin)
+
 
 #     @classmethod
 #     def discover(cls, plugin_name: str) -> list:

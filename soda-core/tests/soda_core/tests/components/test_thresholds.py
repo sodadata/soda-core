@@ -1,13 +1,15 @@
-from soda_core.common.yaml import YamlSource, YamlObject
-from soda_core.contracts.impl.contract_verification_impl import ThresholdImpl, ColumnImpl
-from soda_core.contracts.impl.contract_yaml import CheckYaml, ThresholdCheckYaml, ThresholdYaml
+from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.contracts.impl.contract_verification_impl import ThresholdImpl
+from soda_core.contracts.impl.contract_yaml import ThresholdYaml
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def test_threshold_must_be():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be: 0
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "m = 0"
     assert not threshold.passes(-1)
@@ -16,9 +18,11 @@ def test_threshold_must_be():
 
 
 def test_threshold_must_not_be():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_not_be: 0
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "m != 0"
     assert threshold.passes(-1)
@@ -27,9 +31,11 @@ def test_threshold_must_not_be():
 
 
 def test_threshold_greater_than():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_greater_than: 0
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "0 < m"
     assert not threshold.passes(-1)
@@ -38,9 +44,11 @@ def test_threshold_greater_than():
 
 
 def test_threshold_greater_than_or_equal():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_greater_than_or_equal: 0
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "0 <= m"
     assert not threshold.passes(-1)
@@ -49,9 +57,11 @@ def test_threshold_greater_than_or_equal():
 
 
 def test_threshold_less_than():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_less_than: 0
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "m < 0"
     assert threshold.passes(-1)
@@ -60,9 +70,11 @@ def test_threshold_less_than():
 
 
 def test_threshold_less_than_or_equal():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_less_than_or_equal: 0
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "m <= 0"
     assert threshold.passes(-1)
@@ -71,9 +83,11 @@ def test_threshold_less_than_or_equal():
 
 
 def test_threshold_between():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_between: [0, 1]
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "0 <= m <= 1"
     assert not threshold.passes(-1)
@@ -83,9 +97,11 @@ def test_threshold_between():
 
 
 def test_threshold_not_between():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_not_between: [0, 2]
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "m <= 0 or 2 <= m"
     assert threshold.passes(-1)
@@ -96,10 +112,12 @@ def test_threshold_not_between():
 
 
 def test_threshold_custom_inner():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_greater_than: 0
         must_be_less_than_or_equal: 2
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "0 < m <= 2"
     assert not threshold.passes(-1)
@@ -110,10 +128,12 @@ def test_threshold_custom_inner():
 
 
 def test_threshold_custom_outer():
-    threshold: ThresholdImpl = parse_threshold("""
+    threshold: ThresholdImpl = parse_threshold(
+        """
         must_be_less_than_or_equal: 0
         must_be_greater_than: 2
-    """)
+    """
+    )
 
     assert threshold.get_assertion_summary("m") == "m <= 0 or 2 < m"
     assert threshold.passes(-1)
