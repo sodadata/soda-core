@@ -125,30 +125,28 @@ class SodaCloud:
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
-    def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
-        contract_yaml_source_str = contract_result.contract.source.source_content_str
+    def upload_contract_file(self, contract: Contract):
+        contract_yaml_source_str = contract.source.source_content_str
         self.logs.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
-        soda_cloud_file_path : str = f"{contract_result.contract.soda_qualified_dataset_name.lower()}.yml"
+        soda_cloud_file_path : str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         file_id: Optional[str] = self._upload_contract(
             yaml_str_source=contract_yaml_source_str,
             soda_cloud_file_path=soda_cloud_file_path
         )
         if file_id:
-            contract_result.contract.source.soda_cloud_file_id = file_id
-            contract_result = self._build_contract_result_json(
-                contract_result=contract_result, skip_publish=skip_publish
-            )
-            contract_result["type"] = "sodaCoreInsertScanResults"
-            response: Response = self._execute_command(
-                command_json_dict=contract_result,
-                request_log_name="send_contract_verification_results"
-            )
-            if response.status_code == 200:
-                self.logs.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
-        else:
-            self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
-                f"sending the results to Soda Cloud")
+            contract.source.soda_cloud_file_id = file_id
+
+    def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
+        contract_result = self._build_contract_result_json(
+            contract_result=contract_result, skip_publish=skip_publish
+        )
+        contract_result["type"] = "sodaCoreInsertScanResults"
+        response: Response = self._execute_command(
+            command_json_dict=contract_result,
+            request_log_name="send_contract_verification_results"
+        )
+        if response.status_code == 200:
+            self.logs.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
 
     def _build_contract_result_json(self, contract_result: ContractResult, skip_publish: bool) -> dict:
         check_result_cloud_json_dicts = [
@@ -344,7 +342,7 @@ class SodaCloud:
             dataset_prefix: list[str],
             dataset_name: str) -> bool:
         dataset_responsibilities_query: dict = {
-          "type": "sodaCoreContractDatasetResponsibilities",
+          "type": "sodaCoreContractCanBePublished",
           "contract": {
             "dataset": {
               "datasource": data_source_name,
@@ -355,24 +353,31 @@ class SodaCloud:
         }
         response: Response = self._execute_query(
             query_json_dict=dataset_responsibilities_query,
-            request_log_name="query_dataset_responsibilities"
+            request_log_name="can_contract_be_published"
         )
         if not response.status_code == 200:
             return False
         response_json: dict = response.json()
         if not isinstance(response_json, dict):
             return False
-        can_create_data_source_and_dataset : bool = response_json.get("canCreateDatasourceAndDataset", False)
-        execute_contracts: bool = response_json.get("executeContracts", False)
-        publish_contracts: bool = response_json.get("publishContracts", False)
-        return can_create_data_source_and_dataset and execute_contracts and publish_contracts
+        allowed : bool = response_json.get("allowed", False)
+        if not allowed:
+            reason: Optional[str] = response_json.get("reason", None)
+            reason_text: str = ""
+            if reason == "missingCanCreateDatasourceAndDataset":
+                reason_text = ("The contract doesn’t exist and the user can’t create new contract since it would "
+                               "demand creation of dataset and datasource, but that permission is not available")
+            elif reason == "missingPublishContracts":
+                reason_text = ("The contract is different compared to the one on the cloud, but the user can’t "
+                               "release new version of the contract")
+            elif reason == "missingExecuteContracts":
+                reason_text = ("Even though the contract exists on the cloud and it has identical contents to the "
+                               "local copy - the user is not allowed to run the scan")
+            self.logs.error(f"Skipping contract execution because of permissions. {reason_text}")
+            return False
+        return True
 
-    def execute_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
-        if not isinstance(contract_yamls, list) or len(contract_yamls) == 0:
-            self.logs.info(f"No contracts to execute on Soda Agent")
-            return []
-
-        contract_yaml: ContractYaml = contract_yamls[0]
+    def execute_contracts_on_agent(self, contract_yaml: ContractYaml) -> ContractResult:
         contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
         data_source_name = contract_yaml.data_source
@@ -465,7 +470,7 @@ class SodaCloud:
         if soda_cloud_scan_url:
             self.logs.info(f"See contract verification results on Soda Cloud: {soda_cloud_scan_url}")
 
-        return [ContractResult(
+        return ContractResult(
             contract=Contract(
                 data_source_name=data_source_name,
                 dataset_prefix=dataset_prefix,
@@ -482,7 +487,7 @@ class SodaCloud:
                 # TODO
             ],
             logs=self.logs
-        )]
+        )
 
     def _poll_remote_scan_finished(self, scan_id: str, max_retry: int = 5) -> tuple[bool, Optional[str]]:
         """

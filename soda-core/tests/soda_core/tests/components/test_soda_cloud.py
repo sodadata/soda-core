@@ -31,9 +31,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
         MockResponse(
             status_code=200,
             json_object={
-              "canCreateDatasourceAndDataset": True,
-              "executeContracts": True,
-              "publishContracts": True
+              "allowed": True,
             }
         ),
         MockResponse(
@@ -57,7 +55,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 
     request_0: MockRequest = data_source_test_helper.soda_cloud.requests[0]
     assert request_0.url.endswith("api/query")
-    assert request_0.json["type"] == "sodaCoreContractDatasetResponsibilities"
+    assert request_0.json["type"] == "sodaCoreContractCanBePublished"
 
     request_1: MockRequest = data_source_test_helper.soda_cloud.requests[1]
     assert request_1.url.endswith("api/scan/upload")
@@ -73,6 +71,12 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock([
+        MockResponse(
+            status_code=200,
+            json_object={
+              "allowed": True,
+            }
+        ),
         MockResponse(
             method=MockHttpMethod.POST,
             status_code=200,

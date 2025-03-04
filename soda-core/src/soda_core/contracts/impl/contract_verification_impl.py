@@ -120,17 +120,22 @@ class ContractVerificationImpl:
 
     def verify_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
         if self.soda_cloud and isinstance(contract_yamls, list) and len(contract_yamls) > 0:
-            if not self.soda_cloud.has_verify_permission(
-                data_source_name=contract_impl.data_source.name,
-                dataset_prefix=contract_impl.dataset_prefix,
-                dataset_name=contract_impl.dataset_name
-            ):
-                self.logs.error(
-                    f"{Emoticons.POLICE_CAR_LIGHT} Skipping contract "
-                    f"{contract_impl.soda_qualified_dataset_name}"
-                    "because API key user has no verify permission")
-            else:
-                return self.soda_cloud.execute_contracts_on_agent(contract_yamls)
+            contract_yamls_with_permission: list[ContractYaml] = []
+            for contract_yaml in contract_yamls:
+                if self.soda_cloud.has_verify_permission(
+                    data_source_name=contract_yaml.data_source,
+                    dataset_prefix=contract_yaml.dataset_prefix,
+                    dataset_name=contract_yaml.dataset
+                ):
+                    contract_yamls_with_permission.append(contract_yaml)
+
+            contract_results: list[ContractResult] = []
+            for contract_yaml_with_permission in contract_yamls_with_permission:
+                contract_result: ContractResult = self.soda_cloud.execute_contracts_on_agent(
+                     contract_yaml_with_permission)
+                contract_results.append(contract_result)
+            return contract_results
+
         else:
             self.logs.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} Using the agent requires a Soda Cloud configuration"
@@ -149,24 +154,19 @@ class ContractVerificationImpl:
                 data_source.open_connection()
             try:
                 for contract_impl in contract_impls:
-                    if self.soda_cloud and not self.soda_cloud.has_verify_permission(
+                    if not self.soda_cloud or self.soda_cloud.has_verify_permission(
                         data_source_name=contract_impl.data_source.name,
                         dataset_prefix=contract_impl.dataset_prefix,
                         dataset_name=contract_impl.dataset_name
                     ):
-                        self.logs.error(
-                            f"{Emoticons.POLICE_CAR_LIGHT} Skipping contract "
-                            f"{contract_impl.soda_qualified_dataset_name}"
-                            "because API key user has no verify permission")
-                    else:
                         contract_result: ContractResult = contract_impl.verify()
                         contract_results.append(contract_result)
                         self._log_summary(contract_result)
                         if self.soda_cloud:
+                            self.soda_cloud.upload_contract_file(contract_result.contract)
                             self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
                         else:
                             self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
-
             finally:
                 if open_close:
                     data_source.close_connection()
