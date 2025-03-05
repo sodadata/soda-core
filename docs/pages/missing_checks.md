@@ -72,10 +72,12 @@ columns:
   - name: id
     checks:
       - missing:
-          missing_regex_sql: ^[-]+$
+          missing_format:
+            name: All dashes
+            regex: ^[-]+$
 ```
 
-`missing_regex_sql` is interpreted by the data source warehouse SQL engine.
+`missing_format.regex` is interpreted by the data source warehouse SQL engine.
 
 For the full list of options, see [the Reference list of missing value configuration keys below](#list-of-missing-value-configuration-keys) 
 
@@ -118,9 +120,9 @@ For more details on threshold, see [Thresholds](thresholds.md)
 
 There are missing check configuration keys 
 
-| Key                 | Description                                           | Examples                               |
-|---------------------|-------------------------------------------------------|----------------------------------------|
-| `metric`            | `count` or `percent`                                  | `percent`                              |
-| `missing_values`    | A list of values that represent missing data          | ['N/A', '-', 'No value']<br/>[-1, 999] |
-| `missing_regex_sql` | A warehouse SQL regex that matches for missing values | ^(-)+$                                 |
-| `threshold`         | The threshold for the metric value                    |                                        |
+| Key              | Description                                  | Examples                               |
+|------------------|----------------------------------------------|----------------------------------------|
+| `metric`         | `count` or `percent`                         | `percent`                              |
+| `missing_values` | A list of values that represent missing data | ['N/A', '-', 'No value']<br/>[-1, 999] |
+| `missing_format` | A regex format                               |                                        |
+| `threshold`      | The threshold for the metric value           |                                        |

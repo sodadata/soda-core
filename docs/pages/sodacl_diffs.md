@@ -71,6 +71,8 @@ columns:
 
 #### Metadata vs checks
 
+> Note: This shows a potential direction.  For now, check configurations are local and not yet reusable on the column level. 
+
 ```yaml
 dataset: employees
 columns:
@@ -92,7 +94,9 @@ columns:
   - name: id
     not_null: true
     missing_values: ["N/A", ""]
-    valid_regex: ^XX[0-9]{4}$
+    valid_format:
+      regex: ^XX[0-9]{4}$
+      name: XX-number
     checks:
       - missing:
       - invalid:

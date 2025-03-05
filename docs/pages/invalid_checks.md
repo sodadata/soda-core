@@ -52,24 +52,10 @@ columns:
           valid_values: ['S', 'M', 'L']
 ```
 
-##### Verify values are in a named format
-
-```yaml
-dataset: dim_employee
-columns:
-  - name: email_address
-    checks:
-      - invalid:
-          valid_format: email
-```
-
-The valid format name `email` in the example above must be configured in [the data source configuration file](data_source.md#format-regexes).
-
-On Soda Cloud, the editor will help by showing the full list of options. 
-
 ##### Verify valid values with a regex 
 
 Configure a regular expression to identify valid values.  It leverages the regex syntax of the SQL engine in the data source.
+Every time you use a regex, a human readable name has to be provided as well.
 
 ```yaml
 dataset: dim_employee
@@ -77,8 +63,12 @@ columns:
   - name: job_code
     checks:
       - invalid:
-          valid_regex_sql: ^XX[0-9]{4}$
+          valid_format:
+            name: XX_something 
+            regex: ^XX[0-9]{4}$
 ```
+
+See also these [example regexes](example_regexes.md) for inspiration
 
 > Note: The regex expression is passed on as-is in the SQL query so the syntax has to match 
 > with the regex syntax used by the data source SQL engine. 
@@ -169,8 +159,12 @@ columns:
   - name: desk
     checks:
       - invalid:
-          invalid_regex_sql: ^a[16]z$
+          invalid_format:
+            name: a1z or a6z 
+            regex: ^a[16]z$
 ```
+
+See also these [example regexes](example_regexes.md) for inspiration
 
 ### Allow some invalid values to occur, up to a threshold
 
@@ -210,53 +204,6 @@ as: `invalid_count` x `100` / `row_count`
 
 For more details on threshold, see [Thresholds](thresholds.md) 
 
-[//]: # (### Verify more specific validity on a subset of the data)
-
-[//]: # ()
-[//]: # (Overwrite the column validity on a validity check)
-
-[//]: # (```)
-
-[//]: # (dataset: dim_employee)
-
-[//]: # (columns:)
-
-[//]: # (  - name: zip)
-
-[//]: # (  )
-[//]: # (    # Specifies the default column validity:)
-
-[//]: # (    valid_regex_sql: ^[0-9A-Z ]{4,10}$)
-
-[//]: # (    )
-[//]: # (    checks:)
-
-[//]: # ()
-[//]: # (      # Check the generic column validity on all data:)
-
-[//]: # (      - invalid:)
-
-[//]: # ()
-[//]: # (      # Check the specific validity only on the slice for Belgium:)
-
-[//]: # (      - invalid:)
-
-[//]: # (          valid_regex_sql: ^[0-9]{4,4}$)
-
-[//]: # (          data_filter_sql: country = 'BE' )
-
-[//]: # (```)
-
-[//]: # ()
-[//]: # (> Note: Once a check overwrites any validity configuration, none of the validity keys in the column are taken into account.)
-
-[//]: # (> If you overwrite the `valid_min_length` in the check, you also have to overwrite the `valid_min_max`.  Similarly, )
-
-[//]: # (> if you configure a `valid_values` in the checks, any other valid configuration on the column level like )
-
-[//]: # (> eg `valid_regex_sql` is ignored. )
-
-
 ### Missing values are excluded
 
 All the missing values configurations mentioned in [missing the values check](missing_checks.md#configure-extra-missing-values)
@@ -269,17 +216,15 @@ Same reasoning: `missing_percent` + `invalid_percent` + `valid_percent` = 100
 
 ### List of valid & invalid value configuration keys
 
-| Key                     | Description                                                                                                                                      | Examples         |
-|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
-| `invalid_values`        | A list of values considered invalid                                                                                                              | ['X', 'ERROR']   |
-| `invalid_format`        | A format name that represents invalid values. [Formats are configured in the data source](data_source#format-regexes) | email            |
-| `invalid_regex_sql`     | A regex that matches invalid values. The regex is interpreted by the data source SQL engine.                                                     | ^X[a-Z]*$        |
-| `valid_values`          | A list of the valid values.                                                                                                                      | ['S', 'M', 'L']  |
-| `valid_format`          | A format name that represents valid values. [Format are configured in the data source](data_source#format-regexes)    |                  |
-| `valid_regex_sql`       | A regex that matches valid values. The regex is interpreted by the data source SQL engine.                                                       | ^X[a-Z]*$        |
-| `valid_min`             | The minimum valid value for the column                                                                                                           |                  |
-| `valid_max`             | The maximum valid value for the column                                                                                                           |                  |
-| `valid_length`          |                                                                                                                                                  |                  |
-| `valid_min_length`      |                                                                                                                                                  |                  |
-| `valid_max_length`      |                                                                                                                                                  |                  |
-| `valid_reference_data`  |                                                                                                                                                  |                  |
+| Key                     | Description                            | Examples        |
+|-------------------------|----------------------------------------|-----------------|
+| `invalid_values`        | A list of values considered invalid    | ['X', 'ERROR']  |
+| `invalid_format`        | A regex format                         |                 |
+| `valid_values`          | A list of the valid values.            | ['S', 'M', 'L'] |
+| `valid_format`          | A regex format                         |                 |
+| `valid_min`             | The minimum valid value for the column |                 |
+| `valid_max`             | The maximum valid value for the column |                 |
+| `valid_length`          | TODO                                   |                 |
+| `valid_min_length`      |                                        |                 |
+| `valid_max_length`      |                                        |                 |
+| `valid_reference_data`  |                                        |                 |

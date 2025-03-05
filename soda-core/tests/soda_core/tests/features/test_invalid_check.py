@@ -46,7 +46,9 @@ def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHe
         contract_yaml_str=f"""
             columns:
               - name: id
-                valid_regex_sql: ^[123]$
+                valid_format:
+                  regex: ^[123]$
+                  name: one-two-threes
                 checks:
                   - invalid:
         """
@@ -87,7 +89,9 @@ def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTest
         contract_yaml_str=f"""
             columns:
               - name: id
-                invalid_regex_sql: ^[X]$
+                invalid_format:
+                  regex: ^[X]$
+                  name: all X-es
                 checks:
                   - invalid:
         """
@@ -115,7 +119,9 @@ def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelpe
         contract_yaml_str=f"""
             columns:
               - name: id
-                valid_format: single_digit_test_format
+                valid_format:
+                  regex: ^[0-9]$
+                  name: single_digit_test_format
                 checks:
                   - invalid:
         """

@@ -19,7 +19,8 @@ from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult, Measurement, Threshold, Contract, Check, YamlFileContentInfo, DataSourceInfo, CheckOutcome
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
-    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml, ThresholdYaml
+    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml, ThresholdYaml, \
+    RegexFormat
 
 
 class DataSourceContracts:
@@ -452,16 +453,12 @@ class MissingAndValidity:
 
     def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml, data_source: DataSource):
         self.missing_values: Optional[list] = missing_and_validity_yaml.missing_values
-        self.missing_regex_sql: Optional[str] = missing_and_validity_yaml.missing_regex_sql
+        self.missing_format: Optional[RegexFormat] = missing_and_validity_yaml.missing_format
 
         self.invalid_values: Optional[list] = missing_and_validity_yaml.invalid_values
-        self.invalid_format: Optional[str] = missing_and_validity_yaml.invalid_format
-        self.invalid_format_regex: Optional[str] = data_source.get_format_regex(self.invalid_format)
-        self.invalid_regex_sql: Optional[str] = missing_and_validity_yaml.invalid_regex_sql
+        self.invalid_format: Optional[RegexFormat] = missing_and_validity_yaml.invalid_format
         self.valid_values: Optional[list] = missing_and_validity_yaml.valid_values
-        self.valid_format: Optional[str] = missing_and_validity_yaml.valid_format
-        self.valid_format_regex: Optional[str] = data_source.get_format_regex(self.valid_format)
-        self.valid_regex_sql: Optional[str] = missing_and_validity_yaml.valid_regex_sql
+        self.valid_format: Optional[RegexFormat] = missing_and_validity_yaml.valid_format
         self.valid_min: Optional[Number] = missing_and_validity_yaml.valid_min
         self.valid_max: Optional[Number] = missing_and_validity_yaml.valid_max
         self.valid_length: Optional[int] = missing_and_validity_yaml.valid_length
@@ -478,8 +475,8 @@ class MissingAndValidity:
         if isinstance(self.missing_values, list):
             literal_values = [LITERAL(value) for value in self.missing_values]
             is_missing_clauses.append(IN(column_name, literal_values))
-        if isinstance(self.missing_regex_sql, str):
-            is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_regex_sql))
+        if isinstance(self.missing_format, RegexFormat) and isinstance(self.missing_format.regex, str):
+            is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_format.regex))
         return OR(is_missing_clauses)
 
     def get_sum_missing_count_expr(self, column_name: str) -> SqlExpression:
@@ -491,18 +488,14 @@ class MissingAndValidity:
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values]
             invalid_clauses.append(NOT(IN(column_name, literal_values)))
-        if isinstance(self.valid_regex_sql, str):
-            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_regex_sql)))
-        if isinstance(self.valid_format_regex, str):
-            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_format_regex)))
+        if isinstance(self.valid_format, RegexFormat) and isinstance(self.valid_format.regex, str):
+            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_format.regex)))
         if isinstance(self.valid_min, Number) or isinstance(self.valid_min, str):
             invalid_clauses.append(LT(column_name, LITERAL(self.valid_min)))
         if isinstance(self.valid_max, Number) or isinstance(self.valid_max, str):
             invalid_clauses.append(GT(column_name, LITERAL(self.valid_max)))
-        if isinstance(self.invalid_regex_sql, str):
-            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_regex_sql))
-        if isinstance(self.invalid_format_regex, str):
-            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_format_regex))
+        if isinstance(self.invalid_format, RegexFormat) and isinstance(self.invalid_format.regex, str):
+            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_format.regex))
         if isinstance(self.valid_length, int):
             invalid_clauses.append(NEQ(LENGTH(column_name), LITERAL(self.valid_length)))
         if isinstance(self.valid_min_length, int):
@@ -532,17 +525,13 @@ class MissingAndValidity:
 
         check_has_missing: bool = self._has_missing_configurations()
         self.missing_values = self.missing_values if check_has_missing else column_defaults.missing_values
-        self.missing_regex_sql = self.missing_regex_sql if check_has_missing else column_defaults.missing_regex_sql
+        self.missing_format = self.missing_format if check_has_missing else column_defaults.missing_format
 
         check_has_validity: bool = self._has_validity_configurations()
         self.invalid_values = self.invalid_values if check_has_validity else column_defaults.invalid_values
         self.invalid_format = self.invalid_format if check_has_validity else column_defaults.invalid_format
-        self.invalid_format_regex = self.invalid_format if check_has_validity else column_defaults.invalid_format_regex
-        self.invalid_regex_sql = self.invalid_regex_sql if check_has_validity else column_defaults.invalid_regex_sql
         self.valid_values = self.valid_values if check_has_validity else column_defaults.valid_values
         self.valid_format = self.valid_format if check_has_validity else column_defaults.valid_format
-        self.valid_format_regex = self.valid_format if check_has_validity else column_defaults.valid_format_regex
-        self.valid_regex_sql = self.valid_regex_sql if check_has_validity else column_defaults.valid_regex_sql
         self.valid_min = self.valid_min if check_has_validity else column_defaults.valid_min
         self.valid_max = self.valid_max if check_has_validity else column_defaults.valid_max
         self.valid_length = self.valid_length if check_has_validity else column_defaults.valid_length
@@ -552,15 +541,13 @@ class MissingAndValidity:
 
     def _has_missing_configurations(self) -> bool:
         return (self.missing_values is not None
-                or self.missing_regex_sql is not None)
+                or self.missing_format is not None)
 
     def _has_validity_configurations(self) -> bool:
         return (self.invalid_values is not None
                 or self.invalid_format is not None
-                or self.invalid_regex_sql  is not None
                 or self.valid_values is not None
                 or self.valid_format is not None
-                or self.valid_regex_sql is not None
                 or self.valid_min is not None
                 or self.valid_max is not None
                 or self.valid_length is not None

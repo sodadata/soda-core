@@ -13,4 +13,5 @@ Table of contents
   * [Missing checks](pages/missing_checks.md)
   * [Invalid checks](pages/invalid_checks.md)
 * [Thresholds](pages/thresholds.md)
+* [Example regexes](pages/example_regexes)
 * [Data sources configuration reference](pages/data_source.md) 

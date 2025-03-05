@@ -96,7 +96,9 @@ def test_missing_count_overwrite_missing_values_on_check(data_source_test_helper
         contract_yaml_str=f"""
             columns:
               - name: id
-                missing_regex_sql: ^xxx$
+                missing_format:
+                  regex: ^xxx$
+                  name: 3 x-es
                 checks:
                   - missing:
                       missing_values: ['X', 'Y']

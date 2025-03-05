@@ -422,7 +422,7 @@ class SodaCloud:
         response_json: dict = response.json()
         scan_id: str = response_json.get("scanId")
 
-        scan_is_finished: bool
+        scan_is_ed: bool
         soda_cloud_scan_url: Optional[str]
         scan_is_finished, soda_cloud_scan_url = self._poll_remote_scan_finished(scan_id=scan_id)
 
@@ -507,7 +507,7 @@ class SodaCloud:
                 scan_state: str = response_body_dict.get("state") if response_body_dict else None
                 soda_cloud_scan_url: Optional[str] = response_body_dict.get("cloudUrl") if response_body_dict else None
 
-                self.logs.info(f"Scan {scan_id} is finished with state'{scan_state}'")
+                self.logs.info(f"Scan {scan_id} has state '{scan_state}'")
 
                 if scan_state in REMOTE_SCAN_FINAL_STATES:
                     return True, soda_cloud_scan_url

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from numbers import Number
 from typing import Optional
 
@@ -206,24 +207,38 @@ class ValidReferenceDataYaml:
             )
 
 
+@dataclass
+class RegexFormat:
+    regex: str
+    name: Optional[str]
+
+    @classmethod
+    def read(cls, yaml_object: YamlObject, key: str) -> Optional[RegexFormat]:
+        regex_format_yaml_object: Optional[YamlObject] = yaml_object.read_object_opt(key)
+        if regex_format_yaml_object:
+            regex: Optional[str] = regex_format_yaml_object.read_string("regex")
+            name: Optional[str] = regex_format_yaml_object.read_string("name")
+            if isinstance(regex, str):
+                return RegexFormat(regex=regex, name=name)
+        return None
+
+
 class MissingAndValidityYaml:
 
     def __init__(self, yaml_object: YamlObject):
         self.missing_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
-        self.missing_regex_sql: Optional[str] = yaml_object.read_string_opt("missing_regex_sql")
+        self.missing_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="missing_format")
 
         cfg_keys = yaml_object.yaml_dict.keys()
         self.has_missing_configuration_error: bool = (
             ("missing_values" in cfg_keys and self.missing_values is None)
-            or ("missing_regex_sql" in cfg_keys and self.missing_regex_sql is None)
+            or ("missing_regex_sql" in cfg_keys and self.missing_regex is None)
         )
 
         self.invalid_values: Optional[list] = yaml_object.read_list_opt("invalid_values")
-        self.invalid_format: Optional[str] = yaml_object.read_string_opt("invalid_format")
-        self.invalid_regex_sql: Optional[str] = yaml_object.read_string_opt("invalid_regex_sql")
+        self.invalid_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="invalid_format")
         self.valid_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("valid_values"))
-        self.valid_format: Optional[str] = yaml_object.read_string_opt("valid_format")
-        self.valid_regex_sql: Optional[str] = yaml_object.read_string_opt("valid_regex_sql")
+        self.valid_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="valid_format")
         self.valid_min: Optional[Number] = yaml_object.read_number_opt("valid_min")
         self.valid_max: Optional[Number] = yaml_object.read_number_opt("valid_max")
         self.valid_length: Optional[int] = yaml_object.read_number_opt("valid_length")
@@ -244,10 +259,8 @@ class MissingAndValidityYaml:
         self.has_valid_configuration_error: bool = (
             ("invalid_values" in cfg_keys and self.invalid_values is None)
             or ("invalid_format" in cfg_keys and self.invalid_format is None)
-            or ("invalid_regex_sql" in cfg_keys and self.invalid_regex_sql is None)
             or ("valid_values" in cfg_keys and self.valid_values is None)
             or ("valid_format" in cfg_keys and self.valid_format is None)
-            or ("valid_regex_sql" in cfg_keys and self.valid_regex_sql is None)
             or ("valid_min" in cfg_keys and self.valid_min is None)
             or ("valid_max" in cfg_keys and self.valid_max is None)
             or ("valid_length" in cfg_keys and self.valid_length is None)
@@ -263,10 +276,8 @@ class MissingAndValidityYaml:
             # "missing_regex_sql" if self.missing_regex_sql is not None else None,
             "invalid_values" if self.invalid_values is not None else None,
             "invalid_format" if self.invalid_format is not None else None,
-            "invalid_regex_sql" if self.invalid_regex_sql is not None else None,
             "valid_values" if self.valid_values is not None else None,
             "valid_format" if self.valid_format is not None else None,
-            "valid_regex_sql" if self.valid_regex_sql is not None else None,
             "valid_min" if self.valid_min is not None else None,
             "valid_max" if self.valid_max is not None else None,
             "valid_length" if self.valid_length is not None else None,
