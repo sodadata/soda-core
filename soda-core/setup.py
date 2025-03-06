@@ -18,6 +18,9 @@ requires = [
     "requests>=2.32.3,<2.33.0"
 ]
 
+if sys.version_info < (3, 11):
+    requires.append("typing_extensions>=4.3.0,<5.0")
+
 setup(
     name=package_name,
     version=package_version,
