@@ -23,6 +23,7 @@ class ContractVerificationBuilder:
         self.variables: dict[str, str] = {}
         self.soda_cloud_skip_publish: bool = False
         self.use_agent: bool = False
+        self.blocking_timeout_in_minutes: Optional[int] = None
         self.logs: Logs = Logs()
         self.logs.debug("Contract verification...")
 
@@ -126,9 +127,10 @@ class ContractVerificationBuilder:
         self.soda_cloud = soda_cloud
         return self
 
-    def with_execution_on_soda_agent(self) -> ContractVerificationBuilder:
+    def with_execution_on_soda_agent(self, blocking_timeout_in_minutes: Optional[int] = None) -> ContractVerificationBuilder:
         self.logs.debug(f"  ...with execution on Soda Agent")
         self.use_agent = True
+        self.blocking_timeout_in_minutes = blocking_timeout_in_minutes
         return self
 
     def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
@@ -189,6 +191,7 @@ class ContractVerification:
             variables=contract_verification_builder.variables,
             skip_publish=contract_verification_builder.soda_cloud_skip_publish,
             use_agent=contract_verification_builder.use_agent,
+            blocking_timeout_in_minutes=contract_verification_builder.blocking_timeout_in_minutes,
             logs=contract_verification_builder.logs,
         )
 

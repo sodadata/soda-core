@@ -462,7 +462,9 @@ class SodaCloud:
             return False
         return True
 
-    def execute_contracts_on_agent(self, contract_yaml: ContractYaml) -> ContractResult:
+    def execute_contracts_on_agent(
+            self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
+    ) -> ContractResult:
         contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
         data_source_name = contract_yaml.data_source
@@ -509,7 +511,10 @@ class SodaCloud:
 
         scan_is_ed: bool
         soda_cloud_scan_url: Optional[str]
-        scan_is_finished, soda_cloud_scan_url = self._poll_remote_scan_finished(scan_id=scan_id)
+        scan_is_finished, soda_cloud_scan_url = self._poll_remote_scan_finished(
+            scan_id=scan_id,
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes
+        )
 
         self.logs.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
@@ -574,17 +579,22 @@ class SodaCloud:
             logs=self.logs
         )
 
-    def _poll_remote_scan_finished(self, scan_id: str, max_retry: int = 5) -> tuple[bool, Optional[str]]:
+    def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
         """
         Returns a tuple of 2 values:
         * A boolean indicating if the scan finished (true means scan finished. false means there was a timeout or retry exceeded)
         * The Soda Cloud URL that navigates to the scan.  If it was obtained from Soda Cloud.
         """
-        attempt = 0
-        while attempt < max_retry:
-            attempt += 1
 
-            self.logs.debug(f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}/{max_retry}.")
+        blocking_timeout = datetime.now() + timedelta(minutes=blocking_timeout_in_minutes)
+        attempt = 0
+        while datetime.now() < blocking_timeout:
+            attempt += 1
+            max_wait: timedelta = blocking_timeout - datetime.now()
+            self.logs.debug(
+                f"Asking Soda Cloud if scan {scan_id} is already completed. "
+                f"Attempt {attempt}. Max wait: {max_wait}"
+            )
             response = self._get_scan_status(scan_id)
             self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
             if response:
@@ -597,24 +607,23 @@ class SodaCloud:
                 if scan_state in REMOTE_SCAN_FINAL_STATES:
                     return True, soda_cloud_scan_url
 
-                if attempt < max_retry:
-                    time_to_wait_in_seconds: float = 5
-                    next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
-                    if next_poll_time_str:
-                        self.logs.debug(
-                            f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
-                            f"via header X-Soda-Next-Poll-Time"
-                        )
-                        next_poll_time: datetime = self.convert_str_to_datetime(next_poll_time_str)
-                        now = datetime.now(timezone.utc)
-                        time_to_wait = next_poll_time - now
-                        time_to_wait_in_seconds = time_to_wait.total_seconds()
-                    if time_to_wait_in_seconds > 0:
-                        self.logs.debug(
-                            f"Sleeping {time_to_wait_in_seconds} seconds before asking "
-                            f"Soda Cloud scan {scan_id} status again in ."
-                        )
-                        sleep(time_to_wait_in_seconds)
+                time_to_wait_in_seconds: float = 5
+                next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+                if next_poll_time_str:
+                    self.logs.debug(
+                        f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
+                        f"via header X-Soda-Next-Poll-Time"
+                    )
+                    next_poll_time: datetime = self.convert_str_to_datetime(next_poll_time_str)
+                    now = datetime.now(timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                if time_to_wait_in_seconds > 0:
+                    self.logs.debug(
+                        f"Sleeping {time_to_wait_in_seconds} seconds before asking "
+                        f"Soda Cloud scan {scan_id} status again in ."
+                    )
+                    sleep(time_to_wait_in_seconds)
             else:
                 self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Failed to poll remote scan status. "
                                 f"Response: {response}")

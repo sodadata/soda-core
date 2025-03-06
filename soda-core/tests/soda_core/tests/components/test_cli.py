@@ -33,7 +33,8 @@ class CLI4Test(CLI):
         data_source_file_path: Optional[str],
         soda_cloud_file_path: Optional[str],
         skip_publish: bool,
-        use_agent: bool
+        use_agent: bool,
+        blocking_timeout_in_minutes: int
     ):
         self.contract_file_paths = contract_file_paths
         self.data_source_file_path = data_source_file_path
@@ -42,7 +43,12 @@ class CLI4Test(CLI):
         self.use_agent = use_agent
 
         self.contract_verification_result = super()._verify_contract(
-            contract_file_paths, data_source_file_path, soda_cloud_file_path, skip_publish, use_agent
+            contract_file_paths=contract_file_paths,
+            data_source_file_path=data_source_file_path,
+            soda_cloud_file_path=soda_cloud_file_path,
+            skip_publish=skip_publish,
+            use_agent=use_agent,
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
 
     def _configure_logging(self, verbose: bool):

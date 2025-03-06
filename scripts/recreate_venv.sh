@@ -4,7 +4,7 @@ set -e
 
 rm -rf .venv
 
-python -m venv .venv
+pyenv virtualenv .venv
 # shellcheck disable=SC1091
 source .venv/bin/activate
 pip install --upgrade pip

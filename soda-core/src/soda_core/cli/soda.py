@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import signal
 import sys
 import traceback
 from argparse import ArgumentParser
@@ -25,6 +26,8 @@ class CLI:
                 \__ \ (   |   | _ \\
                 ____/\___/___/_/  _\\ CLI 4.0.0.dev??
             """).strip("\n"))
+
+            signal.signal(signal.SIGINT, self.handle_ctrl_c)
 
             cli_parser = self._create_argument_parser("Run 'soda {command} -h' for help on a particular soda command")
 
@@ -53,6 +56,13 @@ class CLI:
                 action='store_const',
                 default=False,
                 help="Executes contract verification on Soda Agent instead of locally in this library."
+            )
+            verify_parser.add_argument(
+                "-btm", "--blocking-timeout-in-minutes",
+                type=int,
+                default=60,
+                help="Max time in minutes that the CLI should wait for the contract "
+                     "verification to complete on Soda Agent.  Default is 60 minutes."
             )
             verify_parser.add_argument(
                 "-sp", "--skip-publish",
@@ -140,7 +150,12 @@ class CLI:
 
             if args.command == "verify":
                 self._verify_contract(
-                    args.contract, args.data_source, args.soda_cloud, args.skip_publish, args.use_agent
+                    contract_file_paths=args.contract,
+                    data_source_file_path=args.data_source,
+                    soda_cloud_file_path=args.soda_cloud,
+                    skip_publish=args.skip_publish,
+                    use_agent=args.use_agent,
+                    blocking_timeout_in_minutes=args.blocking_timeout_in_minutes
                 )
             elif args.command == "publish":
                 self._publish_contract(args.contract, args.soda_cloud)
@@ -188,7 +203,8 @@ class CLI:
         data_source_file_path: Optional[str],
         soda_cloud_file_path: Optional[str],
         skip_publish: bool,
-        use_agent: bool
+        use_agent: bool,
+        blocking_timeout_in_minutes: int
     ):
         contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
 
@@ -199,7 +215,9 @@ class CLI:
             contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
 
         if use_agent:
-            contract_verification_builder.with_execution_on_soda_agent()
+            contract_verification_builder.with_execution_on_soda_agent(
+                blocking_timeout_in_minutes=blocking_timeout_in_minutes
+            )
 
         if soda_cloud_file_path:
             contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
@@ -324,6 +342,11 @@ class CLI:
 
     def _create_argument_parser(self, epilog: str) -> ArgumentParser:
         return ArgumentParser(epilog="Run 'soda {command} -h' for help on a particular soda command")
+
+    def handle_ctrl_c(self, sig, frame):
+        print()
+        print(f"CTRL+C detected")
+        sys.exit(1)
 
 
 def main():

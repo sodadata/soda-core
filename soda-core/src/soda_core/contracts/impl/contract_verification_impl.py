@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import os
 from abc import abstractmethod, ABC
 from datetime import timezone
 from enum import Enum
-from typing import Optional
+from io import StringIO
 
-from ruamel.yaml import YAML, StringIO
+from ruamel.yaml import YAML
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
@@ -19,7 +18,7 @@ from soda_core.common.yaml import YamlSource, VariableResolver, YamlFileContent
 from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult, \
     CheckResult, Measurement, Threshold, Contract, Check, YamlFileContentInfo, DataSourceInfo, CheckOutcome
 from soda_core.contracts.impl.contract_yaml import ContractYaml, CheckYaml, ColumnYaml, RangeYaml, \
-    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdCheckYaml, ThresholdYaml, \
+    MissingAndValidityYaml, ValidReferenceDataYaml, MissingAncValidityCheckYaml, ThresholdYaml, \
     RegexFormat
 
 
@@ -45,11 +44,15 @@ class ContractVerificationImpl:
             variables: dict[str, str],
             skip_publish: bool,
             use_agent: bool,
+            blocking_timeout_in_minutes: int,
             logs: Logs = Logs(),
     ):
         self.logs: Logs = logs
         self.skip_publish: bool = skip_publish
         self.use_agent: bool = use_agent
+        self.blocking_timeout_in_minutes = (
+            blocking_timeout_in_minutes if isinstance(blocking_timeout_in_minutes, int) else 60
+        )
 
         self.data_source: Optional[DataSource] = None
         if not use_agent:
@@ -133,7 +136,9 @@ class ContractVerificationImpl:
             contract_results: list[ContractResult] = []
             for contract_yaml_with_permission in contract_yamls_with_permission:
                 contract_result: ContractResult = self.soda_cloud.execute_contracts_on_agent(
-                     contract_yaml_with_permission)
+                    contract_yaml=contract_yaml_with_permission,
+                    blocking_timeout_in_minutes=self.blocking_timeout_in_minutes
+                )
                 contract_results.append(contract_result)
             return contract_results
 
