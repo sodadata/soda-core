@@ -104,7 +104,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             },
             json_object={
                 "scanId": "ssscanid",
-                "state": "running"
+                "state": "running",
             }
         ),
         MockResponse(
@@ -112,7 +112,9 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             status_code=200,
             json_object={
                 "scanId": "ssscanid",
-                "state": "completed"
+                "state": "completed",
+                "cloudUrl": "https://the-scan-url",
+                "contractDatasetCloudUrl": "https://the-contract-dataset-url",
             }
         ),
         MockResponse(
