@@ -8,7 +8,8 @@
     "properties": {
       "dataset": {
         "description": "The name of the dataset",
-        "type": "string"
+        "type": "string",
+        "x-schema-key": "special-key"
       },
       "dataset_prefix": {
         "description": "The prefix of the dataset",
@@ -134,7 +135,7 @@
                                     "type": "string"
                                   },
                                   "missing_values": {
-                                    "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead. Implies a missing_count check in Soda.",
+                                    "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead.",
                                     "type": "array",
                                     "items": {
                                       "type": [
@@ -143,9 +144,22 @@
                                       ]
                                     }
                                   },
-                                  "missing_regex_sql": {
-                                    "description": "Customized SQL regex to identify missing values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified. Implies a missing_count check in Soda.",
-                                    "type": "string"
+                                  "missing_format": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "regex", "name"
+                                    ],
+                                    "properties": {
+                                      "regex": {
+                                        "description": "Customized regex to identify missing values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "description": "Name that describes the regex pattern.",
+                                        "type": "string"
+                                      }
+                                    }
                                   }
                                 }
                               },
@@ -184,13 +198,22 @@
                                       ]
                                     }
                                   },
-                                  "valid_regex": {
-                                    "description": "A SQL regular expression that matches valid values. Implies a valid_count check in Soda. All (in)valid_* configs are combined in a single invalid_count check.",
-                                    "type": "string"
-                                  },
                                   "valid_format": {
-                                    "description": "A named regular expression that specifies valid values.",
-                                    "$ref": "#/$defs/format"
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "regex", "name"
+                                    ],
+                                    "properties": {
+                                      "regex": {
+                                        "description": "Customized regex to identify valid values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "description": "Name that describes the regex pattern.",
+                                        "type": "string"
+                                      }
+                                    }
                                   },
                                   "invalid_values": {
                                     "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
@@ -202,13 +225,22 @@
                                       ]
                                     }
                                   },
-                                  "invalid_regex": {
-                                    "description": "A regular expression that specifies valid values.",
-                                    "type": "string"
-                                  },
                                   "invalid_format": {
-                                    "description": "A named regular expression that specifies invalid values.",
-                                    "$ref": "#/$defs/format"
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "regex", "name"
+                                    ],
+                                    "properties": {
+                                      "regex": {
+                                        "description": "Customized regex to identify invalid values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "description": "Name that describes the regex pattern.",
+                                        "type": "string"
+                                      }
+                                    }
                                   }
                                 }
                               },
