@@ -1,7 +1,13 @@
+import sys
+
 from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.yaml import YamlSource
 from typing import Optional, Dict
-from typing_extensions import Self
+
+if sys.version_info >= (3, 11):
+    from typing import Self  # noqa: F401
+else:
+    from typing_extensions import Self  # noqa: F401
 
 
 class ContractCommandBuilder:
