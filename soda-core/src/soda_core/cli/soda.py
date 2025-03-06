@@ -232,9 +232,6 @@ class CLI:
                     user: ${POSTGRES_USERNAME}
                     password: ${POSTGRES_PASSWORD}
                     database: your_postgres_db
-                format_regexes:
-                  # Example named regex format
-                  single_digit_test_format: ^[0-9]$
                 """
             ).strip())
         print(f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'")

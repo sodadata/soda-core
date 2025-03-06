@@ -341,6 +341,9 @@ class SodaCloud:
             data_source_name: str,
             dataset_prefix: list[str],
             dataset_name: str) -> bool:
+        return True
+        # TODO re-enable after server implementation is released
+
         dataset_responsibilities_query: dict = {
           "type": "sodaCoreContractCanBePublished",
           "contract": {

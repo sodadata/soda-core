@@ -41,7 +41,7 @@ Multiple configurations can be combined.
 
 This allows the user to define a fixed list of values to define validity. 
 
-> Limitation: It can be either a list of strings or a list of numbers.  So only text and numeric columns are supported for now.
+> Limitation: It can be either a list of strings or a list of numbers.  So only ~~~~text and numeric columns are supported for now.
 
 ```yaml
 dataset: dim_employee

@@ -73,7 +73,7 @@ class FileYamlSource(YamlSource):
 
 class StrYamlSource(YamlSource):
 
-    def __init__(self, yaml_str: str, file_path: Optional[str] = None):
+    def __init__(self, yaml_str: str, file_path: Optional[str] = "yaml_string.yml"):
         super().__init__()
         self.yaml_str: str = yaml_str
         self.file_path: Optional[str] = file_path
@@ -101,7 +101,7 @@ class StrYamlSource(YamlSource):
 
 class DictYamlSource(YamlSource):
 
-    def __init__(self, yaml_dict: dict, file_path: Optional[str] = None):
+    def __init__(self, yaml_dict: dict, file_path: Optional[str] = "yaml_dict.yml"):
         super().__init__()
         self.yaml_dict: dict = yaml_dict
         self.file_path: Optional[str] = file_path
@@ -113,7 +113,7 @@ class DictYamlSource(YamlSource):
         logs = logs if logs else Logs()
         yaml_source_description: str = f"{file_type} yaml dict" if file_type else "yaml dict"
         return YamlFileContent(
-            yaml_file_path=None,
+            yaml_file_path=self.file_path,
             yaml_source_description=yaml_source_description,
             yaml_str_source=None,
             yaml_str_resolved=None,

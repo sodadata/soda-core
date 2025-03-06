@@ -12,7 +12,7 @@ If not, these instruction may help you to get one running on your machine:
 Copy this docker compose file locally: https://github.com/sodadata/soda-core/blob/v4/soda-postgres/docker-compose.yml
 Or copy the content here:
 
-```json
+```yaml
 version: "3.7"
 services:
   soda-sql-postgres:
@@ -22,10 +22,13 @@ services:
     volumes:
       - ./.postgres/:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=soda_test
-      - POSTGRES_DB=soda_test
+      - POSTGRES_USER=***
+      - POSTGRES_DB=***
       - POSTGRES_HOST_AUTH_METHOD=trust
 ```
+
+In this file, replace the credentials `***` with values of your choice.  You'll need to configure those 
+values in the data source configuration later, preferably via environment variables.  
 
 To start the postgres database with the above docker file, use command
 ```
@@ -34,7 +37,7 @@ docker-compose -f soda-postgres/docker-compose.yml up --remove-orphans
 
 ### Step 3: Create a table in the postgres db
 
-```json
+```yaml
 CREATE SCHEMA IF NOT EXISTS clitest AUTHORIZATION CURRENT_USER;
 CREATE TABLE "soda_test"."clitest"."dim_employees" (
   id VARCHAR(255),
@@ -55,7 +58,7 @@ Use the Soda CLI to create a skeleton data source configuration file
 
 Expected command output
 
-```plaintext
+```
   __|  _ \|  \   \
 \__ \ (   |   | _ \
 ____/\___/___/_/  _\ CLI 4.0.0.dev??
@@ -71,7 +74,7 @@ Update the information in the generated file
 
 Expected command output
 
-```plaintext
+```
   __|  _ \|  \   \
 \__ \ (   |   | _ \
 ____/\___/___/_/  _\ CLI 4.0.0.dev??
@@ -85,7 +88,7 @@ Testing data source configuration file ds.yml
 
 Expected command output
 
-```plaintext
+```
   __|  _ \|  \   \
 \__ \ (   |   | _ \
 ____/\___/___/_/  _\ CLI 4.0.0.dev??
@@ -111,7 +114,7 @@ To get credentials:
 
 Expected command output:
 
-```plaintext
+```
   __|  _ \|  \   \
 \__ \ (   |   | _ \
 ____/\___/___/_/  _\ CLI 4.0.0.dev??
@@ -125,7 +128,7 @@ Create contract file `c.yml` with the contents below
 
 The parser still has to be updated to the new language as we agreed. But for now, it's this syntax.
 
-```json
+```yaml
 # new version
 data_source: postgres_ds
 dataset_prefix: [benjaminpirotte, sh]

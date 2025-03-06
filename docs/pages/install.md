@@ -19,7 +19,7 @@ Open a command prompt in the project directory
 1. Verify that you're in an empty directory with `ls -al`
 2. Create a virtual environment with these commands
 
-```json
+```
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
