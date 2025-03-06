@@ -13,6 +13,7 @@ from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationBuilder, \
     ContractVerificationResult
+from soda_core.contracts.contract_publication import ContractPublication
 
 
 class CLI:
@@ -77,6 +78,21 @@ class CLI:
                 help="One or more contract file paths."
             )
 
+            publish_parser.add_argument(
+                "-sc", "--soda-cloud",
+                type=str,
+                help="A Soda Cloud configuration file path.",
+                required=True,
+            )
+
+            publish_parser.add_argument(
+                "-v", "--verbose",
+                const=True,
+                action='store_const',
+                default=False,
+                help="Show more detailed logs on the console."
+            )
+
             create_data_source_parser = sub_parsers.add_parser(
                 name="create-data-source",
                 help="Create a data source YAML configuration file"
@@ -127,7 +143,7 @@ class CLI:
                     args.contract, args.data_source, args.soda_cloud, args.skip_publish, args.use_agent
                 )
             elif args.command == "publish":
-                self._publish_contract(args.contract)
+                self._publish_contract(args.contract, args.soda_cloud)
             elif args.command == "create-data-source":
                 self._create_data_source(args.file, args.type)
             elif args.command == "test-data-source":
@@ -201,11 +217,24 @@ class CLI:
 
     def _publish_contract(
         self,
-        contract_file_paths: Optional[list[str]]
+        contract_file_paths: Optional[list[str]],
+        soda_cloud_file_path: Optional[str],
     ):
-        print(
-            f"Publishing contracts {contract_file_paths}"
-        )
+        contract_publication_builder = ContractPublication.builder()
+
+        for contract_file_path in contract_file_paths:
+            contract_publication_builder.with_contract_yaml_file(contract_file_path)
+
+        if soda_cloud_file_path:
+            contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
+
+        contract_publication_result = contract_publication_builder.build().execute()
+
+        if contract_publication_result.has_errors():
+            return self._end_with_exit_code(3)
+
+        return contract_publication_result
+
 
     def _create_data_source(
         self,

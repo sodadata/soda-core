@@ -19,7 +19,8 @@ from soda_core.common.logs import Logs, Log, Emoticons
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_verification import ContractResult, \
-    CheckResult, CheckOutcome, Threshold, Contract
+    CheckResult, CheckOutcome, Threshold, Contract, YamlFileContentInfo
+from soda_core.contracts.contract_publication import ContractPublicationResult, ContractPublicationResultList
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
@@ -335,6 +336,87 @@ class SodaCloud:
             return self.logs.get_errors_str()
         else:
             return None
+
+    def publish_contract(self, contract_yaml: Optional[ContractYaml]) -> ContractPublicationResult:
+        # result = ContractPublicationResultList(
+        #     logs=self.logs, items=[ContractPublicationResult(logs=self.logs, contract=None)]
+        # )
+        #
+        # if not isinstance(contract_yamls, list) or len(contract_yamls) == 0:
+        #     self.logs.info(f"No contracts to publish to Soda Cloud")
+        #     return ContractPublicationResultList(logs=self.logs, items=[])
+
+        if not contract_yaml:
+            return ContractPublicationResult(logs=self.logs, contract=None)
+
+        self.logs.info(
+            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_file_content.yaml_file_path} "
+            f"{Emoticons.FINGERS_CROSSED}")
+        contract_yaml_source_str = contract_yaml.contract_yaml_file_content.yaml_str_source
+        contract_local_file_path = contract_yaml.contract_yaml_file_content.yaml_file_path
+        data_source_name = contract_yaml.data_source
+        dataset_prefix = contract_yaml.dataset_prefix
+        dataset_name = contract_yaml.dataset
+
+        soda_cloud_file_path: str = (
+            contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
+        )
+        file_id: Optional[str] = self._upload_contract(
+            yaml_str_source=contract_yaml_source_str,
+            soda_cloud_file_path=soda_cloud_file_path
+        )
+        if not file_id:
+            self.logs.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
+                "sending the results to Soda Cloud"
+            )
+            return ContractPublicationResult(logs=self.logs, contract=None)
+
+        publish_contract_command: dict = {
+            "type": "sodaCorePublishContract",
+            "contract": {
+                "fileId": file_id,
+                "dataset": {
+                    "datasource": data_source_name,
+                    "prefixes": dataset_prefix,
+                    "name": dataset_name
+                },
+                "metadata": {
+                    "source": {
+                        "type": "local",
+                        "filePath": contract_local_file_path
+                    }
+                }
+            }
+        }
+        response: Response = self._execute_command(
+            command_json_dict=publish_contract_command,
+            request_log_name="publish_contract"
+        )
+
+        if response.status_code == 200:
+            self.logs.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
+        else:
+            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Failed ot publish on Soda Cloud")
+
+        response_json = response.json()
+        source_metadata = response_json['metadata']['source'] if 'metadata' in response_json and 'source' in response_json['metadata'] else {}
+        yaml_file_path = source_metadata['filePath'] if 'filePath' in source_metadata else None
+
+        return ContractPublicationResult(
+            logs=self.logs,
+            contract=Contract(
+                data_source_name=data_source_name,
+                dataset_prefix=dataset_prefix,
+                dataset_name=dataset_name,
+                source=YamlFileContentInfo(
+                    local_file_path=yaml_file_path,
+                    source_content_str=None,
+                    soda_cloud_file_id=response_json.get('fileId', None)
+                ),
+                soda_qualified_dataset_name=None,
+            )
+        )
 
     def has_verify_permission(
             self,

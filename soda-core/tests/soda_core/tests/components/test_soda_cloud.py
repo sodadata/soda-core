@@ -1,9 +1,12 @@
 from datetime import datetime
+from soda_core.common.yaml import YamlSource
+from soda_core.contracts.contract_publication import ContractPublicationResultList, ContractPublicationResult
+from soda_core.contracts.impl.contract_yaml import ContractYaml
 from unittest import skip
 
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod, MockRequest
+from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod, MockRequest, MockSodaCloud
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
 test_table_specification = (
@@ -154,3 +157,48 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
                         must_be_less_than_or_equal: 2
         """
     )
+
+
+def test_publish_contract():
+    responses = [
+        MockResponse(
+            method=MockHttpMethod.POST,
+            status_code=200,
+            json_object={"fileId": "fake_file_id"}
+        ),
+        MockResponse(
+            method=MockHttpMethod.POST,
+            json_object={
+                'publishedContract': {
+                    'checksum': 'check',
+                    'fileId': 'fake_file_id',
+                },
+                'metadata': {
+                    'source': {
+                        'filePath': 'yaml_string.yml',
+                        'type': 'local'
+                    }
+                }
+            }
+        )
+    ]
+    mock_cloud = MockSodaCloud(responses)
+    res = mock_cloud.publish_contract(
+        ContractYaml.parse(YamlSource.from_str(f"""
+            dataset: CUSTOMERS
+            dataset_prefix: [some, schema]
+            data_source: test
+            columns:
+            - name: id
+        """))
+    )
+
+    assert isinstance(res, ContractPublicationResult)
+
+    assert res.logs
+    assert res.contract.dataset_name == 'CUSTOMERS'
+    assert res.contract.data_source_name == 'test'
+    assert res.contract.dataset_prefix == ['some', 'schema']
+    assert res.contract.source.local_file_path == 'yaml_string.yml'
+
+
