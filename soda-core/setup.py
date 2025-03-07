@@ -13,13 +13,7 @@ package_name = "soda-core"
 package_version = "4.0.0b1"
 description = "Soda Core V4"
 
-requires = [
-    "ruamel.yaml>=0.17.0,<0.18.0",
-    "requests>=2.32.3,<2.33.0"
-]
-
-if sys.version_info < (3, 11):
-    requires.append("typing_extensions>=4.3.0,<5.0")
+requires = ["ruamel.yaml>=0.17.0,<0.18.0", "requests>=2.32.3,<2.33.0"]
 
 setup(
     name=package_name,
@@ -44,5 +38,5 @@ setup(
         "console_scripts": [
             "soda=soda_core.cli.soda:main",
         ]
-    }
+    },
 )
