@@ -8,12 +8,14 @@ description = "Soda Core Spark Dataframe Package"
 
 requires = [
     f"soda-core-spark=={package_version}",
-    "pyspark>=3.4.0",
 ]
+extras = {"pyspark": ["pyspark>=3.4.0"]}
+
 # TODO Fix the params
 setup(
     name=package_name,
     version=package_version,
     install_requires=requires,
+    extras_require=extras,
     packages=find_namespace_packages(include=["soda*"]),
 )
