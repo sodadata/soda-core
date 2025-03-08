@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import Row
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame, SparkSession
+    from pyspark.sql.types import Row
 
 
 class SparkDfCursor:
