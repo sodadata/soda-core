@@ -2,9 +2,16 @@
 	"name": "soda-core",
 	"dockerComposeFile": [
 		"docker-compose.yml",
-		"../soda/postgres/docker-compose.yml"
+		"../soda/postgres/docker-compose.yml",
+		"../soda/spark/tests/docker/docker-compose.yml",
+		"../soda/vertica/docker-compose.yml"
 	],
 	"service": "devcontainer",
+	"features": {
+		"docker-in-docker": {
+			"version": "latest"
+		}
+	},
 	"postStartCommand": "./.devcontainer/initialize.sh",
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"customizations": {
@@ -13,7 +20,8 @@
 				"ms-python.python",
 				"ms-python.mypy-type-checker",
 				"ms-python.black-formatter",
-				"ms-python.isort"
+				"ms-python.isort",
+				"ms-azuretools.vscode-docker"
 			],
 			"settings": {
 				"editor.formatOnSave": true,
