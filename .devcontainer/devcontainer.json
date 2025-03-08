@@ -1,0 +1,52 @@
+{
+	"name": "soda-core",
+	"dockerComposeFile": [
+		"docker-compose.yml",
+		"../soda/postgres/docker-compose.yml",
+		"../soda/spark/tests/docker/docker-compose.yml",
+		"../soda/vertica/docker-compose.yml"
+	],
+	"service": "devcontainer",
+	"features": {
+		"docker-in-docker": {
+			"version": "latest"
+		}
+	},
+	"postStartCommand": "./.devcontainer/initialize.sh",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.mypy-type-checker",
+				"ms-python.black-formatter",
+				"ms-python.isort",
+				"ms-azuretools.vscode-docker"
+			],
+			"settings": {
+				"editor.formatOnSave": true,
+				"editor.formatOnType": true,
+				"files.exclude": {
+					".mypy_cache": true,
+					".venv": true,
+					".pytest_cache": true,
+					"**/*.egg-info": true,
+					"**/__pycache__": true,
+					"soda/*/build": true
+				},
+				"python.analysis.enablePytestSupport": true,
+				"python.defaultInterpreterPath": ".venv/bin/python",
+				"python.testing.pytestEnabled": true,
+				"python.testing.pytestPath": "soda/core/tests/",
+				"python.languageServer": "Pylance",
+				"[python]": {
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.codeActionsOnSave": {
+						"source.organizeImports": "always",
+						"source.fixAll": "always"
+					}
+				}
+			}
+		}
+	}
+}
