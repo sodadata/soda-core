@@ -313,12 +313,12 @@ class SodaCloud:
                 if isinstance(upload_response_json, dict) and "fileId" in upload_response_json:
                     return upload_response_json.get("fileId")
                 else:
-                    self.logs.error(
+                    self.logs.critical(
                         f"{Emoticons.POLICE_CAR_LIGHT} No fileId received in response: {upload_response_json}"
                     )
                     return None
         except Exception as e:
-            self.logs.error(
+            self.logs.critical(
                 message=f"{Emoticons.POLICE_CAR_LIGHT} Soda cloud error: Could not upload contract "
                         f"to Soda Cloud: {e}",
                 exception=e
@@ -366,10 +366,7 @@ class SodaCloud:
             soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
-            self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
-                "sending the results to Soda Cloud"
-            )
+            self.logs.critical("Uploading the contract file failed")
             return ContractPublicationResult(logs=self.logs, contract=None)
 
         publish_contract_command: dict = {
@@ -397,7 +394,7 @@ class SodaCloud:
         if response.status_code == 200:
             self.logs.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
         else:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Failed ot publish on Soda Cloud")
+            self.logs.critical(f"{Emoticons.POLICE_CAR_LIGHT} Failed ot publish on Soda Cloud")
 
         response_json = response.json()
         source_metadata = response_json['metadata']['source'] if 'metadata' in response_json and 'source' in response_json['metadata'] else {}
@@ -440,7 +437,7 @@ class SodaCloud:
             query_json_dict=dataset_responsibilities_query,
             request_log_name="can_contract_be_published"
         )
-        if not response.status_code == 200:
+        if not response.status_code == 200:  # TODO: should this also not be a critical issue causing the scan to fail?
             return False
         response_json: dict = response.json()
         if not isinstance(response_json, dict):
@@ -479,7 +476,7 @@ class SodaCloud:
             soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
-            self.logs.error(
+            self.logs.critical(
                 f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
                 "sending the results to Soda Cloud"
             )
@@ -698,7 +695,7 @@ class SodaCloud:
                     is_retry=False
                 )
             elif response.status_code != 200:
-                self.logs.error(
+                self.logs.critical(
                     f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
@@ -709,7 +706,7 @@ class SodaCloud:
 
             return response
         except Exception as e:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Error while executing Soda Cloud {request_type} {request_log_name}", exception=e)
+            self.logs.critical(f"{Emoticons.POLICE_CAR_LIGHT} Error while executing Soda Cloud {request_type} {request_log_name}", exception=e)
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
@@ -752,7 +749,7 @@ class SodaCloud:
                 is_retry=False
             )
         elif response.status_code != 200:
-            self.logs.error(
+            self.logs.critical(
                 f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
             )

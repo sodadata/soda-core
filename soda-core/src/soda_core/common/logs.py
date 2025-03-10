@@ -89,9 +89,25 @@ class Logs:
 
     logger: Logger = logging.getLogger("soda.contracts")
 
-    def __init__(self):
+    def __init__(self, logs: list[Log] = None):
         # Stores all logs above debug level to be sent to soda cloud and for testing logs in the test suite.
-        self.logs: list[Log] = []
+        self.logs: list[Log] = logs or []
+
+    def critical(
+            self,
+            message: str,
+            timestamp: Optional[datetime] = None,
+            exception: Optional[BaseException] = None,
+            location: Optional[Location] = None,
+            doc: Optional[str] = None,
+            index: Optional[int] = None
+            ) -> None:
+        self.log(
+            Log(
+                level=logging.CRITICAL, message=message, timestamp=timestamp, exception=exception, location=location, doc=doc,
+                index=index
+            )
+        )
 
     def error(
             self,
@@ -159,6 +175,9 @@ class Logs:
 
     def __str__(self) -> str:
         return super().__str__() + "\n".join([str(log) for log in self.logs])
+
+    def has_critical(self) -> bool:
+        return any(log.level == logging.CRITICAL for log in self.logs)
 
     def has_errors(self) -> bool:
         return any(log.level == ERROR for log in self.logs)

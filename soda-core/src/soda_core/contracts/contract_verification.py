@@ -217,13 +217,20 @@ class ContractVerificationResult:
         """
         Returns True if there are no execution errors and no check failures.
         """
-        return not self.logs.has_errors() and all(contract_result.passed() for contract_result in self.contract_results)
+        return (
+            not self.logs.has_critical() and
+            not self.logs.has_errors() and
+            all(contract_result.passed() for contract_result in self.contract_results)
+        )
 
     def has_errors(self) -> bool:
         return self.logs.has_errors()
 
     def has_failures(self) -> bool:
         return any(contract_result.failed() for contract_result in self.contract_results)
+
+    def has_critical(self) -> bool:
+        return self.logs.has_critical()
 
     def is_ok(self) -> bool:
         return not self.has_errors() and not self.has_failures()

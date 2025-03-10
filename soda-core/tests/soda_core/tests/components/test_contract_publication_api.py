@@ -1,6 +1,11 @@
+import pytest
+
+from logging import INFO, ERROR, CRITICAL, WARN
+from soda_core.common.logs import Logs, Log
 from soda_core.contracts.contract_publication import ContractPublication, ContractPublicationResultList, \
     ContractPublicationResult
 from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockHttpMethod, MockSodaCloud
+from unittest.mock import Mock
 
 
 def test_contract_publication_fails_on_missing_soda_cloud_config():
@@ -109,3 +114,15 @@ def test_contract_publication_returns_result_for_each_added_contract():
 
     assert contract_publication_result[0].contract.data_source_name == 'test'
     assert contract_publication_result[1].contract.data_source_name == 'test2'
+
+
+@pytest.mark.parametrize('logs, has_critical, has_errors', [
+    (Logs([Log(level=CRITICAL, message="critical")]), True, False),
+    (Logs([Log(level=ERROR, message="error")]), False, True),
+    (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), True, True),
+    (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), False, False),
+])
+def test_contract_publication_log_levels(logs, has_critical, has_errors):
+    result = ContractPublicationResultList(logs=logs, items=[ContractPublicationResult(contract=Mock(), logs=logs)])
+    assert result.has_critical() is has_critical
+    assert result.has_errors() is has_errors

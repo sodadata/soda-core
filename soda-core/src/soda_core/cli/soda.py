@@ -226,10 +226,12 @@ class CLI:
             contract_verification_builder.with_soda_cloud_skip_publish()
 
         contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-        if contract_verification_result.has_failures():
-            self._end_with_exit_code(2)
+        if contract_verification_result.has_critical():
+            self._end_with_exit_code(4)
         elif contract_verification_result.has_errors():
             self._end_with_exit_code(3)
+        elif contract_verification_result.has_failures():
+            self._end_with_exit_code(2)
 
         return contract_verification_result
 
@@ -248,8 +250,10 @@ class CLI:
 
         contract_publication_result = contract_publication_builder.build().execute()
 
-        if contract_publication_result.has_errors():
-            return self._end_with_exit_code(3)
+        if contract_publication_result.has_critical():
+            self._end_with_exit_code(4)
+        elif contract_publication_result.has_errors():
+            self._end_with_exit_code(3)
 
         return contract_publication_result
 

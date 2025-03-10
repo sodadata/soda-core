@@ -1,7 +1,10 @@
 import pytest
 
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerification, SodaException
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
+from logging import CRITICAL, ERROR, WARN, INFO
+from soda_core.common.logs import Logs, Log
+from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerification, SodaException, \
+    ContractResult, CheckResult
+from unittest.mock import Mock
 
 
 def test_contract_verification_file_api():
@@ -48,3 +51,24 @@ def test_contract_provided_and_configured():
     )
 
     assert "No data source configured" in contract_verification_result.get_logs_str()
+
+
+@pytest.mark.parametrize('logs, contract_failed, has_critical, has_errors, has_failures', [
+    (Logs([Log(level=CRITICAL, message="critical")]), False, True, False, False),
+    (Logs([Log(level=ERROR, message="error")]), False, False, True, False),
+    (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), False, True, True, False),
+    (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), False, False, False, False),
+    (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), True, False, False, True),
+    (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), True, True, True, True),
+
+])
+def test_contract_verification_log_levels(logs, contract_failed, has_critical, has_errors, has_failures):
+    mock_contract_result = Mock(spec=ContractResult)
+    mock_contract_result.logs = logs
+    mock_contract_result.failed.return_value = contract_failed
+
+    result = ContractVerificationResult(logs=logs, contract_results=[mock_contract_result])
+
+    assert result.has_critical() is has_critical
+    assert result.has_errors() is has_errors
+    assert result.has_failures() is has_failures

@@ -1,5 +1,3 @@
-import sys
-
 from soda_core.common.logs import Logs, Emoticons
 from soda_core.common.yaml import YamlSource
 from typing import Optional, Dict, TypeVar
