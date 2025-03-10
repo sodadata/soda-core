@@ -130,6 +130,64 @@ def test_column_configured_invalid_and_missing_values(data_source_fixture: DataS
     scan.assert_all_checks_pass()
 
 
+def test_invalid_values_and_max_length(data_source_fixture: DataSourceFixture):
+    # There are 5 nulls but these are excluded from metric value, no value offending the valid max length, one offending the invalid values list
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - invalid_count(cat) = 1:
+                invalid values: ["LOW"]
+                valid max length: 6
+
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_invalid_values_and_max_length_one_failing_row(data_source_fixture: DataSourceFixture):
+    # There are 5 nulls but these are excluded from metric value, one offending the valid max length, one offending the invalid values list
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - invalid_count(cat) = 2:
+                invalid values: ["LOW"]
+                valid max length: 5
+
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
+def test_invalid_values_and_max_length_one_failing_row_include_null(data_source_fixture: DataSourceFixture):
+    # There are 5 nulls, one offending the valid max length, one offending the invalid values list
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+
+    scan = data_source_fixture.create_test_scan()
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for {table_name}:
+            - invalid_count(cat) = 6:
+                invalid values: ["LOW"]
+                valid max length: 6
+                include null: True
+
+        """
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+
+
 def test_valid_length(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
