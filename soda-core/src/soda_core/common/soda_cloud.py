@@ -295,7 +295,7 @@ class SodaCloud:
 
                 headers = {
                     "Authorization": self._get_token(),
-                    "Content-Type": "application/octet-stream",
+                    "Content-Type": "application/yaml",
                     "Is-V3": "true",
                     "File-Path": soda_cloud_file_path,
                 }
@@ -723,8 +723,6 @@ class SodaCloud:
 
         headers = {
             "Authorization": f"Basic {credentials_encoded}",
-            "Content-Type": "application/octet-stream", # Probably not needed
-            "Is-V3": "true", # Probably not needed
             "Accept": "application/json",
         }
 
