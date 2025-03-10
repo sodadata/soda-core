@@ -72,7 +72,9 @@ class NumericQueryMetric(QueryMetric):
                 valid_condition = self.build_valid_condition()
                 invalid_condition = self.build_invalid_condition()
                 include_null = self.build_include_null()
-                if valid_condition:
+                if valid_condition and invalid_condition:
+                    condition = f"NOT ({missing_condition}) AND (NOT ({valid_condition}) OR ({invalid_condition})){include_null}"
+                elif valid_condition:
                     condition = f"NOT ({missing_condition}) AND NOT ({valid_condition}){include_null}"
                 elif invalid_condition:
                     condition = f"NOT ({missing_condition}) AND ({invalid_condition}){include_null}"
