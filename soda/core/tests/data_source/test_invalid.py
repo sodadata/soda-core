@@ -131,15 +131,15 @@ def test_column_configured_invalid_and_missing_values(data_source_fixture: DataS
 
 
 def test_invalid_values_and_max_length(data_source_fixture: DataSourceFixture):
-    # There are 5 nulls but these are excluded from metric value, and no value offending the valid max length or invalid values list
+    # There are 5 nulls but these are excluded from metric value, no value offending the valid max length, one offending the invalid values list
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - invalid_count(cat) = 0:
-                invalid values: ["error", "No value"]
+            - invalid_count(cat) = 1:
+                invalid values: ["LOW"]
                 valid max length: 6
 
         """
@@ -150,15 +150,15 @@ def test_invalid_values_and_max_length(data_source_fixture: DataSourceFixture):
 
 
 def test_invalid_values_and_max_length_one_failing_row(data_source_fixture: DataSourceFixture):
-    # There are 5 nulls but these are excluded from metric value, and 1 value offending the valid max length
+    # There are 5 nulls but these are excluded from metric value, one offending the valid max length, one offending the invalid values list
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
     scan.add_sodacl_yaml_str(
         f"""
           checks for {table_name}:
-            - invalid_count(cat) = 1:
-                invalid values: ["error", "No value"]
+            - invalid_count(cat) = 2:
+                invalid values: ["LOW"]
                 valid max length: 5
 
         """
@@ -169,7 +169,7 @@ def test_invalid_values_and_max_length_one_failing_row(data_source_fixture: Data
 
 
 def test_invalid_values_and_max_length_one_failing_row_include_null(data_source_fixture: DataSourceFixture):
-    # There are 5 nulls and 1 value offending the valid max length
+    # There are 5 nulls, one offending the valid max length, one offending the invalid values list
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
@@ -177,8 +177,8 @@ def test_invalid_values_and_max_length_one_failing_row_include_null(data_source_
         f"""
           checks for {table_name}:
             - invalid_count(cat) = 6:
-                invalid values: ["error", "No value"]
-                valid max length: 5
+                invalid values: ["LOW"]
+                valid max length: 6
                 include null: True
 
         """
