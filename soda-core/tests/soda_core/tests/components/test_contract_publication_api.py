@@ -56,16 +56,8 @@ def test_contract_publication_fails_on_missing_contract_file():
 
 def test_contract_publication_returns_result_for_each_added_contract():
     responses = [
-        MockResponse(
-            method=MockHttpMethod.POST,
-            status_code=200,
-            json_object={"fileId": "fake_file_id"}
-        ),
-        MockResponse(
-            method=MockHttpMethod.POST,
-            status_code=200,
-            json_object={"allowed": "true"}
-        ),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id"}),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": "true"}),
         MockResponse(
             method=MockHttpMethod.POST,
             json_object={
@@ -76,16 +68,8 @@ def test_contract_publication_returns_result_for_each_added_contract():
                 "metadata": {"source": {"filePath": "contract1.yml", "type": "local"}},
             },
         ),
-        MockResponse(
-            method=MockHttpMethod.POST,
-            status_code=200,
-            json_object={"fileId": "fake_file_id2"}
-        ),
-        MockResponse(
-            method=MockHttpMethod.POST,
-            status_code=200,
-            json_object={"allowed": "true"}
-        ),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id2"}),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": "true"}),
         MockResponse(
             method=MockHttpMethod.POST,
             json_object={

@@ -394,11 +394,11 @@ class SodaCloud:
 
     CONTRACT_PERMISSION_REASON_TEXTS = {
         "missingCanCreateDatasourceAndDataset": "The contract doesn’t exist and the user can’t create new contract "
-                                                "since it would demand creation of dataset and datasource, but that permission is not available",
+        "since it would demand creation of dataset and datasource, but that permission is not available",
         "missingPublishContracts": "The contract is different compared to the one on the cloud, "
-                                   "but the user can’t release new version of the contract",
+        "but the user can’t release new version of the contract",
         "missingExecuteContracts": "Even though the contract exists on the cloud and it has identical contents "
-                                   "to the local copy - the user is not allowed to run the scan"
+        "to the local copy - the user is not allowed to run the scan",
     }
 
     def has_publish_permission(
@@ -450,8 +450,8 @@ class SodaCloud:
                     "datasource": data_source_name,
                     "prefixes": dataset_prefix,
                     "name": dataset_name,
-                }
-            }
+                },
+            },
         }
         response: Response = self._execute_query(
             query_json_dict=dataset_responsibilities_query, request_log_name="can_contract_be_published"
@@ -465,7 +465,6 @@ class SodaCloud:
         reason: Optional[str] = response_json.get("reason", None)
 
         return allowed, reason
-
 
     def execute_contracts_on_agent(
         self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int

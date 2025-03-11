@@ -156,16 +156,12 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
 
 def test_publish_contract():
     responses = [
-        MockResponse(
-            method=MockHttpMethod.POST,
-            status_code=200,
-            json_object={"fileId": "fake_file_id"}
-        ),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id"}),
         MockResponse(
             status_code=200,
             json_object={
-              "allowed": True,
-            }
+                "allowed": True,
+            },
         ),
         MockResponse(
             method=MockHttpMethod.POST,
