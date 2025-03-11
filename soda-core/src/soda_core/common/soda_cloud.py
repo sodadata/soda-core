@@ -10,7 +10,7 @@ from decimal import Decimal
 from enum import Enum
 from tempfile import TemporaryFile
 from time import sleep
-from typing import Optional
+from typing import Optional, Tuple
 
 import requests
 from requests import Response
@@ -115,7 +115,7 @@ class SodaCloud:
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
-    def upload_contract_file(self, contract: Contract):
+    def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
         self.logs.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
         soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
@@ -124,6 +124,8 @@ class SodaCloud:
         )
         if file_id:
             contract.source.soda_cloud_file_id = file_id
+
+        return file_id
 
     def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
         contract_result = self._build_contract_result_json(contract_result=contract_result, skip_publish=skip_publish)
@@ -322,14 +324,6 @@ class SodaCloud:
             return None
 
     def publish_contract(self, contract_yaml: Optional[ContractYaml]) -> ContractPublicationResult:
-        # result = ContractPublicationResultList(
-        #     logs=self.logs, items=[ContractPublicationResult(logs=self.logs, contract=None)]
-        # )
-        #
-        # if not isinstance(contract_yamls, list) or len(contract_yamls) == 0:
-        #     self.logs.info(f"No contracts to publish to Soda Cloud")
-        #     return ContractPublicationResultList(logs=self.logs, items=[])
-
         if not contract_yaml:
             return ContractPublicationResult(logs=self.logs, contract=None)
 
@@ -351,6 +345,11 @@ class SodaCloud:
         )
         if not file_id:
             self.logs.critical("Uploading the contract file failed")
+            return ContractPublicationResult(logs=self.logs, contract=None)
+
+        can_publish, reason = self.has_publish_permission(data_source_name, dataset_prefix, dataset_name, file_id)
+        if not can_publish:
+            self.logs.error(f"Skipping contract publication because of insufficient permissions: {reason}")
             return ContractPublicationResult(logs=self.logs, contract=None)
 
         publish_contract_command: dict = {
@@ -393,50 +392,80 @@ class SodaCloud:
             ),
         )
 
-    def has_verify_permission(self, data_source_name: str, dataset_prefix: list[str], dataset_name: str) -> bool:
-        return True
-        # TODO re-enable after server implementation is released
+    CONTRACT_PERMISSION_REASON_TEXTS = {
+        "missingCanCreateDatasourceAndDataset": "The contract doesn’t exist and the user can’t create new contract "
+                                                "since it would demand creation of dataset and datasource, but that permission is not available",
+        "missingPublishContracts": "The contract is different compared to the one on the cloud, "
+                                   "but the user can’t release new version of the contract",
+        "missingExecuteContracts": "Even though the contract exists on the cloud and it has identical contents "
+                                   "to the local copy - the user is not allowed to run the scan"
+    }
 
+    def has_publish_permission(
+        self,
+        data_source_name: str,
+        dataset_prefix: list[str],
+        dataset_name: str,
+        file_id: str,
+    ) -> Tuple[bool, Optional[str]]:
+        allowed, reason = self._get_contract_permissions(data_source_name, dataset_prefix, dataset_name, file_id)
+        if not allowed and reason == "missingExecuteContracts":
+            return True, self.CONTRACT_PERMISSION_REASON_TEXTS.get(reason, None)
+        else:
+            if reason and not reason in self.CONTRACT_PERMISSION_REASON_TEXTS.keys():
+                self.logs.critical(f"Received unknown contract permission reason: {reason}")
+
+            return allowed, self.CONTRACT_PERMISSION_REASON_TEXTS.get(reason, None)
+
+    def has_verify_permission(
+        self,
+        data_source_name: str,
+        dataset_prefix: list[str],
+        dataset_name: str,
+        file_id: str,
+    ) -> bool:
+        # TODO: review this after contract permission simplifications
+        # allowed, reason = self._get_contract_permissions(data_source_name, dataset_prefix, dataset_name, file_id)
+        # if reason and not reason in self.CONTRACT_PERMISSION_REASON_TEXTS.keys():
+        #     self.logs.critical(f"Received unknown contract permission reason: {reason}")
+        #
+        # if not allowed:
+        #     self.logs.error("Skipping contract execution because of permissions. "
+        #                     f"{self.CONTRACT_PERMISSION_REASON_TEXTS.get(reason, None)}")
+        #     return False
+        return True
+
+    def _get_contract_permissions(
+        self,
+        data_source_name: str,
+        dataset_prefix: list[str],
+        dataset_name: str,
+        file_id: str,
+    ) -> Tuple[bool, Optional[str]]:
         dataset_responsibilities_query: dict = {
             "type": "sodaCoreContractCanBePublished",
             "contract": {
+                "fileId": file_id,
                 "dataset": {
                     "datasource": data_source_name,
                     "prefixes": dataset_prefix,
                     "name": dataset_name,
                 }
-            },
+            }
         }
         response: Response = self._execute_query(
             query_json_dict=dataset_responsibilities_query, request_log_name="can_contract_be_published"
         )
         if not response.status_code == 200:  # TODO: should this also not be a critical issue causing the scan to fail?
-            return False
+            return False, None
         response_json: dict = response.json()
         if not isinstance(response_json, dict):
-            return False
+            return False, None
         allowed: bool = response_json.get("allowed", False)
-        if not allowed:
-            reason: Optional[str] = response_json.get("reason", None)
-            reason_text: str = ""
-            if reason == "missingCanCreateDatasourceAndDataset":
-                reason_text = (
-                    "The contract doesn’t exist and the user can’t create new contract since it would "
-                    "demand creation of dataset and datasource, but that permission is not available"
-                )
-            elif reason == "missingPublishContracts":
-                reason_text = (
-                    "The contract is different compared to the one on the cloud, but the user can’t "
-                    "release new version of the contract"
-                )
-            elif reason == "missingExecuteContracts":
-                reason_text = (
-                    "Even though the contract exists on the cloud and it has identical contents to the "
-                    "local copy - the user is not allowed to run the scan"
-                )
-            self.logs.error(f"Skipping contract execution because of permissions. {reason_text}")
-            return False
-        return True
+        reason: Optional[str] = response_json.get("reason", None)
+
+        return allowed, reason
+
 
     def execute_contracts_on_agent(
         self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
@@ -555,7 +584,7 @@ class SodaCloud:
             attempt += 1
             max_wait: timedelta = blocking_timeout - datetime.now()
             self.logs.debug(
-                f"Asking Soda Cloud if scan {scan_id} is already completed. " f"Attempt {attempt}. Max wait: {max_wait}"
+                f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}. Max wait: {max_wait}"
             )
             response = self._get_scan_status(scan_id)
             self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
