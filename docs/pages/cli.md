@@ -129,18 +129,6 @@ Create contract file `c.yml` with the contents below
 The parser still has to be updated to the new language as we agreed. But for now, it's this syntax.
 
 ```yaml
-# new version
-data_source: postgres_ds
-dataset_prefix: [benjaminpirotte, sh]
-dataset: customers
-columns:
-  - name: id
-    checks:
-      - missing:
-  - name: age
-checks:
-  - schema:
-
 datasource: postgres_ds
 dataset: dim_employees
 dataset_prefix: [soda_test, clitest]
@@ -151,11 +139,7 @@ columns:
       - invalid:
   - name: age
 checks:
-  - type: schema
-
-
-
-
+  - schema:
 ```
 
 For more contract YAML examples, see
