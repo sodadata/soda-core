@@ -173,10 +173,15 @@ def databricks_connection_function(host: str, http_path: str, token: str, databa
     if not token and not auth_method:
         from databricks.sdk.core import Config, oauth_service_principal
 
-        def credential_provider():
-            config = Config(
+        config = Config(
                 **kwargs.get("configuration", {})
             )
+
+        if not host:
+            host = config.hostname
+
+        def credential_provider():
+
             return oauth_service_principal(config)
 
         credentials_provider = credential_provider
