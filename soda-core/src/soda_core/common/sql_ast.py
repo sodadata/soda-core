@@ -76,6 +76,11 @@ class IS_NULL(SqlExpression):
 
 
 @dataclass
+class IS_NOT_NULL(SqlExpression):
+    expression: SqlExpression | str
+
+
+@dataclass
 class IN(SqlExpression):
     expression: SqlExpression | str
     list_expression: list[SqlExpression]

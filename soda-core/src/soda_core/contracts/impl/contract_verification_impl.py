@@ -491,8 +491,27 @@ class MissingAndValidity:
     def get_invalid_count_condition(self, column_name: str) -> SqlExpression:
         invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
-            literal_values = [LITERAL(value) for value in self.valid_values]
-            invalid_clauses.append(NOT(IN(column_name, literal_values)))
+            literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
+            if None in self.valid_values:
+                invalid_clauses.append(
+                    AND([
+                        NOT(IN(column_name, literal_values)),
+                        IS_NOT_NULL(column_name)
+                    ])
+                )
+            else:
+                invalid_clauses.append(NOT(IN(column_name, literal_values)))
+        if isinstance(self.invalid_values, list):
+            literal_values = [LITERAL(value) for value in self.invalid_values if value is not None]
+            if None in self.invalid_values:
+                invalid_clauses.append(
+                    AND([
+                        IN(column_name, literal_values),
+                        IS_NULL(column_name)
+                    ])
+                )
+            else:
+                invalid_clauses.append(IN(column_name, literal_values))
         if isinstance(self.valid_format, RegexFormat) and isinstance(self.valid_format.regex, str):
             invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_format.regex)))
         if isinstance(self.valid_min, Number) or isinstance(self.valid_min, str):

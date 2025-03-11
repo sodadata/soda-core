@@ -17,7 +17,7 @@ test_table_specification = (
 )
 
 
-def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
+def test_valid_count(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -27,6 +27,46 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 valid_values: ['1', '2', '3']
+                checks:
+                  - invalid:
+        """
+    )
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
+
+
+def test_valid_values_with_null(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                valid_values: ['1', '2', '3', null]
+                checks:
+                  - invalid:
+        """
+    )
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
+
+
+def test_invalid_values(data_source_test_helper: DataSourceTestHelper):
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                invalid_values: ['X']
                 checks:
                   - invalid:
         """

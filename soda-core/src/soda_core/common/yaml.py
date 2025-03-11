@@ -383,6 +383,8 @@ class YamlObject(YamlValue):
         key_description: str = f"YAML key '{key}'"
         if env_var is not None and env_var in os.environ:
             key_description = f"Env var '{env_var}'"
+            if key in self.yaml_dict:
+                self.logs.debug(f"Using environment var '{env_var}' instead of configuration key '{key}'")
             value = os.environ[env_var]
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)

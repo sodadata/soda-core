@@ -235,7 +235,7 @@ class MissingAndValidityYaml:
             or ("missing_regex_sql" in cfg_keys and self.missing_regex is None)
         )
 
-        self.invalid_values: Optional[list] = yaml_object.read_list_opt("invalid_values")
+        self.invalid_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("invalid_values"))
         self.invalid_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="invalid_format")
         self.valid_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("valid_values"))
         self.valid_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="valid_format")

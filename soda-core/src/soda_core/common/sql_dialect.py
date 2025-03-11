@@ -153,6 +153,8 @@ class SqlDialect:
             return self._build_case_when_sql(expression)
         elif isinstance(expression, IS_NULL):
             return self._build_is_null_sql(expression)
+        elif isinstance(expression, IS_NOT_NULL):
+            return self._build_is_not_null_sql(expression)
         elif isinstance(expression, REGEX_LIKE):
             return self._build_regex_like_sql(expression)
         elif isinstance(expression, LIKE):
@@ -332,6 +334,9 @@ class SqlDialect:
 
     def _build_is_null_sql(self, is_null: IS_NULL) -> str:
         return f"{self.build_expression_sql(is_null.expression)} IS NULL"
+
+    def _build_is_not_null_sql(self, is_null: IS_NOT_NULL) -> str:
+        return f"{self.build_expression_sql(is_null.expression)} IS NOT NULL"
 
     def _build_in_sql(self, in_: IN) -> str:
         list_expressions: str = ", ".join([self.build_expression_sql(element) for element in in_.list_expression])
