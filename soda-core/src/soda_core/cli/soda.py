@@ -294,13 +294,16 @@ class CLI:
         print(f"Testing data source configuration file {data_source_file_path}")
         from soda_core.common.data_source import DataSource
         data_source: DataSource = DataSource.from_file(data_source_file_path)
-        error_message: Optional[str] = data_source.test_connection_error_message()
+        error_message: Optional[str] = (
+            data_source.test_connection_error_message()
+            if data_source else "Data source could not be created. See logs above. Or re-run with -v"
+        )
         if error_message:
-            print(f"Could not connect {Emoticons.POLICE_CAR_LIGHT} using data source '{data_source_file_path}': "
+            print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect using data source '{data_source_file_path}': "
                   f"{error_message}")
             exit(2)
         else:
-            print(f"Success! Connection in '{data_source_file_path}' tested ok. {Emoticons.WHITE_CHECK_MARK}")
+            print(f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok.")
 
     def _create_soda_cloud(
         self,
@@ -334,7 +337,10 @@ class CLI:
             file_type="soda_cloud", variables={}, logs=Logs()
         )
         soda_cloud: SodaCloud = SodaCloud.from_file(soda_cloud_file_content)
-        error_msg = soda_cloud.test_connection()
+        error_msg = (
+            soda_cloud.test_connection()
+            if soda_cloud else "Soda Cloud connection could not be created. See logs above. Or re-run with -v"
+        )
         if error_msg:
             print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
             exit(3)

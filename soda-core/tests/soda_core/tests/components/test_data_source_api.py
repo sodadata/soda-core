@@ -37,3 +37,15 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
             f"SELECT * FROM {test_table.qualified_name}"
         )
         assert query_result.rows[0][0] == "1"
+
+
+def test_empty_data_source_file():
+    logs: Logs = Logs()
+    data_source_yaml_source: YamlSource = YamlSource.from_str("")
+    data_source_yaml_file_content: YamlFileContent = (
+        data_source_yaml_source.parse_yaml_file_content(file_type="data source", variables={}, logs=logs)
+    )
+    data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
+    data_source_parser.parse()
+
+    assert "Root YAML in data source yaml string must be an object, but was empty" in logs.get_errors_str()
