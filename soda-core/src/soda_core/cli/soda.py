@@ -103,6 +103,22 @@ class CLI:
                 help="Show more detailed logs on the console."
             )
 
+            test_contract_parser = sub_parsers.add_parser(
+                name='test-contract',
+                help='Test a contract syntax without executing it'
+            )
+            test_contract_parser.add_argument(
+                "-c", "--contract",
+                type=str,
+                nargs='+',
+                help="One or more contract file paths."
+            )
+            test_contract_parser.add_argument(
+                "-ds", "--data-source",
+                type=str,
+                help="The data source configuration file."
+            )
+
             create_data_source_parser = sub_parsers.add_parser(
                 name="create-data-source",
                 help="Create a data source YAML configuration file"
@@ -156,6 +172,11 @@ class CLI:
                     skip_publish=args.skip_publish,
                     use_agent=args.use_agent,
                     blocking_timeout_in_minutes=args.blocking_timeout_in_minutes
+                )
+            elif args.command == "test-contract":
+                self._test_contract(
+                    contract_file_paths=args.contract,
+                    data_source_file_path = args.data_source,
                 )
             elif args.command == "publish":
                 self._publish_contract(args.contract, args.soda_cloud)
@@ -234,6 +255,24 @@ class CLI:
             self._end_with_exit_code(2)
 
         return contract_verification_result
+
+    def _test_contract(
+        self,
+        contract_file_paths: Optional[list[str]],
+        data_source_file_path: Optional[str],
+    ):
+
+        contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
+
+        for contract_file_path in contract_file_paths:
+            contract_verification_builder.logs.info(f"Testing contract '{contract_file_path}' YAML syntax")
+            contract_verification_builder.with_contract_yaml_file(contract_file_path)
+
+        contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
+
+        contract_verification_builder.build()
+        if not contract_verification_builder.logs.has_errors():
+            contract_verification_builder.logs.info(f"{Emoticons.WHITE_CHECK_MARK} All provided contracts are valid")
 
     def _publish_contract(
         self,

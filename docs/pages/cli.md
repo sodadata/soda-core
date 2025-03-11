@@ -147,7 +147,22 @@ For more contract YAML examples, see
 * https://github.com/sodadata/soda-core/blob/v4/docs/README.md
 * And the test suite https://github.com/sodadata/soda-core/tree/v4/soda-core/tests/soda\_core/tests/features
 
-### Step 9: Verify the contract locally
+### Step 9: Test the contract YAML syntax
+
+`soda test-contract --data-source ds.yml --contract c.yml`
+
+`soda test-contract -ds ds.yml -c c.yml`
+
+Expected command output:
+```text
+  __|  _ \|  \   \
+\__ \ (   |   | _ \
+____/\___/___/_/  _\ CLI 4.0.0.dev??
+Testing contract 'c.yml' YAML syntax
+✅ All provided contracts are valid
+```
+
+### Step 10: Verify the contract locally
 
 **a) Verifying locally**
 
@@ -183,7 +198,7 @@ This command will
 
 > Later might add command options to skip contract publication or sending the results to Soda Cloud when a Soda Cloud configuration is provided.
 
-### Step 10: Verify the contract on Soda Agent
+### Step 11: Verify the contract on Soda Agent
 
 Prerequisites:
 
