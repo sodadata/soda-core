@@ -173,9 +173,7 @@ def databricks_connection_function(host: str, http_path: str, token: str, databa
     if not token and not auth_method:
         from databricks.sdk.core import Config, oauth_service_principal
 
-        config = Config(
-                **kwargs.get("configuration", {})
-            )
+        config = Config(**kwargs.get("configuration", {}))
 
         if not host:
             host = config.hostname
