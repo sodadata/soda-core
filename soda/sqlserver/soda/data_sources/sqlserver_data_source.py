@@ -25,24 +25,24 @@ from soda.execution.data_type import DataType
 logger = logging.getLogger(__name__)
 
 
-_AZURE_AUTH_FUNCTION_TYPE = Callable[..., AccessToken]
+_AZURE_AUTH_FUNCTION_TYPE = Callable[[str], AccessToken]
 _SQL_COPT_SS_ACCESS_TOKEN = 1256
 _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME = 300
 _AZURE_CREDENTIAL_SCOPE = "https://database.windows.net//.default"
-_SYNAPSE_SPARK_CREDENTIAL_SCOPE = "DW"
-_FABRIC_SPARK_CREDENTIAL_SCOPE = "https://analysis.windows.net/powerbi/api"
+_SYNAPSE_CREDENTIAL_SCOPE = "DW"
+_FABRIC_CREDENTIAL_SCOPE = "https://analysis.windows.net/powerbi/api"
 
 
-def _get_auto_access_token() -> AccessToken:
-    return DefaultAzureCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+def _get_auto_access_token(scope: str) -> AccessToken:
+    return DefaultAzureCredential().get_token(scope)
 
 
-def _get_environment_access_token() -> AccessToken:
-    return EnvironmentCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+def _get_environment_access_token(scope: str) -> AccessToken:
+    return EnvironmentCredential().get_token(scope)
 
 
-def _get_azure_cli_access_token() -> AccessToken:
-    return AzureCliCredential().get_token(_AZURE_CREDENTIAL_SCOPE)
+def _get_azure_cli_access_token(scope: str) -> AccessToken:
+    return AzureCliCredential().get_token(scope)
 
 
 def _get_mssparkutils_access_token(scope: str) -> AccessToken:
@@ -57,12 +57,25 @@ def _get_mssparkutils_access_token(scope: str) -> AccessToken:
     return token
 
 
-def _get_synapse_spark_access_token() -> AccessToken:
-    return _get_mssparkutils_access_token(_SYNAPSE_SPARK_CREDENTIAL_SCOPE)
+def _get_synapse_spark_access_token(scope: str) -> AccessToken:
+    return _get_mssparkutils_access_token(scope)
 
 
-def _get_fabric_spark_access_token() -> AccessToken:
-    return _get_mssparkutils_access_token(_FABRIC_SPARK_CREDENTIAL_SCOPE)
+def _get_fabric_spark_access_token(scope: str) -> AccessToken:
+    return _get_mssparkutils_access_token(scope)
+
+def _derive_scope(authentication_method: str, hostname: str) -> str:
+    if "azuresynapse.net" in hostname:
+        return _SYNAPSE_CREDENTIAL_SCOPE
+    if "fabric.microsoft.com" in hostname:
+        return _FABRIC_CREDENTIAL_SCOPE
+    if "database.windows.net" in hostname:
+        return _AZURE_CREDENTIAL_SCOPE
+    if "synapse" in authentication_method:
+        return _SYNAPSE_CREDENTIAL_SCOPE
+    if "fabric" in authentication_method:
+        return _FABRIC_CREDENTIAL_SCOPE
+    return _AZURE_CREDENTIAL_SCOPE
 
 
 _AZURE_AUTH_FUNCTIONS: Mapping[str, _AZURE_AUTH_FUNCTION_TYPE] = {
@@ -84,7 +97,7 @@ def convert_access_token_to_mswindows_byte_string(token):
     return convert_bytes_to_mswindows_byte_string(value)
 
 
-def get_pyodbc_attrs(authentication_method: str):
+def get_pyodbc_attrs(authentication_method: str, scope: str|None, host: str):
     if not authentication_method.lower() in _AZURE_AUTH_FUNCTIONS:
         return None
 
@@ -97,7 +110,8 @@ def get_pyodbc_attrs(authentication_method: str):
             _azure_access_token = None
 
     if not _azure_access_token:
-        _azure_access_token = _AZURE_AUTH_FUNCTIONS[authentication_method.lower()]()
+        scope = scope or _derive_scope(authentication_method.lower(), host.lower())
+        _azure_access_token = _AZURE_AUTH_FUNCTIONS[authentication_method.lower()](scope)
 
     token_bytes = convert_access_token_to_mswindows_byte_string(_azure_access_token)
     return {_SQL_COPT_SS_ACCESS_TOKEN: token_bytes}
@@ -154,6 +168,7 @@ class SQLServerDataSource(DataSource):
         self.port = data_source_properties.get("port", 1433)
         self.driver = data_source_properties.get("driver", "ODBC Driver 18 for SQL Server")
         self.authentication = data_source_properties.get("authentication", "SQL")
+        self.scope = data_source_properties.get("scope", None)
         self.username = data_source_properties.get("username", None)
         self.password = data_source_properties.get("password", None)
         self.client_id = data_source_properties.get("client_id", None)
@@ -279,7 +294,7 @@ class SQLServerDataSource(DataSource):
         try:
             self.connection = pyodbc.connect(
                 build_connection_string(),
-                attrs_before=get_pyodbc_attrs(self.authentication),
+                attrs_before=get_pyodbc_attrs(self.authentication, self.scope, self.host),
                 timeout=int(self.login_timeout),
             )
 
