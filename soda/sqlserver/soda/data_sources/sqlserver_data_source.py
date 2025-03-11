@@ -64,6 +64,7 @@ def _get_synapse_spark_access_token(scope: str) -> AccessToken:
 def _get_fabric_spark_access_token(scope: str) -> AccessToken:
     return _get_mssparkutils_access_token(scope)
 
+
 def _derive_scope(authentication_method: str, hostname: str) -> str:
     if "azuresynapse.net" in hostname:
         return _SYNAPSE_CREDENTIAL_SCOPE
@@ -97,7 +98,7 @@ def convert_access_token_to_mswindows_byte_string(token):
     return convert_bytes_to_mswindows_byte_string(value)
 
 
-def get_pyodbc_attrs(authentication_method: str, scope: str|None, host: str):
+def get_pyodbc_attrs(authentication_method: str, scope: str | None, host: str):
     if not authentication_method.lower() in _AZURE_AUTH_FUNCTIONS:
         return None
 
