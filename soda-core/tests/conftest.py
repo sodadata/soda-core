@@ -1,8 +1,6 @@
 import logging
 import sys
 
-from soda_core.tests.helpers.test_fixtures import *
-
 
 def pytest_sessionstart(session) -> None:
     configure_logging()
