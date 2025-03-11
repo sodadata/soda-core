@@ -1,10 +1,14 @@
-import pytest
-
-from logging import CRITICAL, ERROR, WARN, INFO
-from soda_core.common.logs import Logs, Log
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractVerification, SodaException, \
-    ContractResult, CheckResult
+from logging import CRITICAL, ERROR, INFO, WARN
 from unittest.mock import Mock
+
+import pytest
+from soda_core.common.logs import Log, Logs
+from soda_core.contracts.contract_verification import (
+    ContractResult,
+    ContractVerification,
+    ContractVerificationResult,
+    SodaException,
+)
 
 
 def test_contract_verification_file_api():
@@ -16,8 +20,7 @@ def test_contract_verification_file_api():
     )
 
     assert (
-        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in
-        contract_verification_result.get_logs_str()
+        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in contract_verification_result.get_logs_str()
     )
 
 
@@ -41,11 +44,13 @@ def test_contract_provided_and_configured():
     """
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
-        .with_contract_yaml_str(f"""
+        .with_contract_yaml_str(
+            f"""
           dataset: CUSTOMERS
           columns:
             - name: id
-        """)
+        """
+        )
         .with_variables({"env": "test"})
         .execute()
     )
@@ -53,15 +58,17 @@ def test_contract_provided_and_configured():
     assert "No data source configured" in contract_verification_result.get_logs_str()
 
 
-@pytest.mark.parametrize('logs, contract_failed, has_critical, has_errors, has_failures', [
-    (Logs([Log(level=CRITICAL, message="critical")]), False, True, False, False),
-    (Logs([Log(level=ERROR, message="error")]), False, False, True, False),
-    (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), False, True, True, False),
-    (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), False, False, False, False),
-    (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), True, False, False, True),
-    (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), True, True, True, True),
-
-])
+@pytest.mark.parametrize(
+    "logs, contract_failed, has_critical, has_errors, has_failures",
+    [
+        (Logs([Log(level=CRITICAL, message="critical")]), False, True, False, False),
+        (Logs([Log(level=ERROR, message="error")]), False, False, True, False),
+        (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), False, True, True, False),
+        (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), False, False, False, False),
+        (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), True, False, False, True),
+        (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), True, True, True, True),
+    ],
+)
 def test_contract_verification_log_levels(logs, contract_failed, has_critical, has_errors, has_failures):
     mock_contract_result = Mock(spec=ContractResult)
     mock_contract_result.logs = logs

@@ -8,8 +8,7 @@ from io import BytesIO
 from tempfile import TemporaryFile
 from typing import Optional
 
-from requests import Response, Request
-
+from requests import Response
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 
@@ -20,13 +19,12 @@ class MockHttpMethod(Enum):
 
 
 class MockResponse(Response):
-
     def __init__(
         self,
         method: MockHttpMethod = MockHttpMethod.POST,
         status_code: int = 200,
         headers: Optional[dict[str, str]] = None,
-        json_object: any = None
+        json_object: any = None,
     ):
         super().__init__()
         self.method: MockHttpMethod = method
@@ -40,15 +38,14 @@ class MockResponse(Response):
 
 @dataclass
 class MockRequest:
-    request_log_name: str = None,
-    url: Optional[str] = None,
-    headers: dict[str, str] = None,
-    json: Optional[dict] = None,
+    request_log_name: str = (None,)
+    url: Optional[str] = (None,)
+    headers: dict[str, str] = (None,)
+    json: Optional[dict] = (None,)
     data: Optional[TemporaryFile] = None
 
 
 class MockSodaCloud(SodaCloud):
-
     def __init__(self, responses: Optional[list[Optional[MockResponse]]] = None):
         super().__init__(
             host="mock.soda.io",
@@ -68,30 +65,18 @@ class MockSodaCloud(SodaCloud):
         url: Optional[str] = None,
         headers: dict[str, str] = None,
         json: Optional[dict] = None,
-        data: Optional[TemporaryFile] = None
+        data: Optional[TemporaryFile] = None,
     ) -> Response:
-        return self._http_handle(
-            method=MockHttpMethod.POST,
-            url=url,
-            headers=headers,
-            json=json,
-            data=data
-        )
+        return self._http_handle(method=MockHttpMethod.POST, url=url, headers=headers, json=json, data=data)
 
     def _http_get(
         self,
         url: Optional[str] = None,
         headers: dict[str, str] = None,
         json: Optional[dict] = None,
-        data: Optional[TemporaryFile] = None
+        data: Optional[TemporaryFile] = None,
     ) -> Response:
-        return self._http_handle(
-            method=MockHttpMethod.GET,
-            url=url,
-            headers=headers,
-            json=json,
-            data=data
-        )
+        return self._http_handle(method=MockHttpMethod.GET, url=url, headers=headers, json=json, data=data)
 
     def _http_handle(
         self,
@@ -99,14 +84,9 @@ class MockSodaCloud(SodaCloud):
         url: Optional[str],
         headers: dict[str, str],
         json: Optional[dict],
-        data: Optional[TemporaryFile]
+        data: Optional[TemporaryFile],
     ) -> Response:
-        self.requests.append(MockRequest(
-            url=url,
-            headers=headers,
-            json=json,
-            data=data
-        ))
+        self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
         if self.responses:
             response = self.responses.pop(0)
             if isinstance(response, MockResponse):
@@ -115,8 +95,4 @@ class MockSodaCloud(SodaCloud):
                 logging.debug(f"MockSodaCloud responds to {method} {url} with provided response")
                 return response
         logging.debug(f"MockSodaCloud responds to {method} {url} with default empty 200 OK response")
-        return MockResponse(
-            status_code=200,
-            headers={},
-            json_object={}
-        )
+        return MockResponse(status_code=200, headers={}, json_object={})

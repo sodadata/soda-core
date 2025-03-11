@@ -5,7 +5,6 @@ from typing import Optional
 
 import pytest
 from dotenv import load_dotenv
-
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 
 project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/helpers/test_fixtures.py")]

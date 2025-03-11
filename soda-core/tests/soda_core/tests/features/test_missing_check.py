@@ -6,18 +6,19 @@ test_table_specification = (
     .table_purpose("missing")
     .column_text("id")
     .column_integer("age")
-    .rows(rows=[
-        ("1",  1),
-        (None, -1),
-        ("3",  None),
-        ("X",  2),
-    ])
+    .rows(
+        rows=[
+            ("1", 1),
+            (None, -1),
+            ("3", None),
+            ("X", 2),
+        ]
+    )
     .build()
 )
 
 
 def test_missing_count(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_fail(
@@ -29,12 +30,11 @@ def test_missing_count(data_source_test_helper: DataSourceTestHelper):
                   - missing
                     # Expected check to fail because...
                     # must_be: 0 is the default threshold
-        """
+        """,
     )
 
 
 def test_missing_count_custom_missing_values(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_pass(
@@ -47,12 +47,11 @@ def test_missing_count_custom_missing_values(data_source_test_helper: DataSource
                   - missing:
                       threshold:
                         must_be: 2
-        """
+        """,
     )
 
 
 def test_missing_count_custom_missing_values_int_on_column(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_pass(
@@ -65,12 +64,11 @@ def test_missing_count_custom_missing_values_int_on_column(data_source_test_help
                   - missing:
                       threshold:
                         must_be: 2
-        """
+        """,
     )
 
 
 def test_missing_count_missing_values_on_check(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_pass(
@@ -83,12 +81,11 @@ def test_missing_count_missing_values_on_check(data_source_test_helper: DataSour
                       missing_values: ['X', 'Y']
                       threshold:
                         must_be: 2
-        """
+        """,
     )
 
 
 def test_missing_count_overwrite_missing_values_on_check(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_pass(
@@ -104,12 +101,11 @@ def test_missing_count_overwrite_missing_values_on_check(data_source_test_helper
                       missing_values: ['X', 'Y']
                       threshold:
                         must_be: 2
-        """
+        """,
     )
 
 
 def test_missing_percent(data_source_test_helper: DataSourceTestHelper):
-
     # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/dc3321b2-d147-4c84-a965-9019ad6ad55d/checks
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
@@ -124,5 +120,5 @@ def test_missing_percent(data_source_test_helper: DataSourceTestHelper):
                       metric: percent
                       threshold:
                         must_be_between: [24, 26]
-        """
+        """,
     )

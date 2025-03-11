@@ -5,31 +5,52 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Logs, Location, Emoticons
-from soda_core.common.yaml import YamlSource, YamlObject, YamlList, YamlValue, YamlFileContent
+from soda_core.common.logs import Emoticons, Location, Logs
+from soda_core.common.yaml import (
+    YamlFileContent,
+    YamlList,
+    YamlObject,
+    YamlSource,
+    YamlValue,
+)
 
 
 def register_check_types() -> None:
+    from soda_core.contracts.impl.check_types.schema_check_yaml import (
+        SchemaCheckYamlParser,
+    )
     from soda_core.contracts.impl.contract_verification_impl import CheckImpl
 
-    from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYamlParser
     CheckYaml.register(SchemaCheckYamlParser())
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckParser
+
     CheckImpl.register(SchemaCheckParser())
 
-    from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYamlParser
+    from soda_core.contracts.impl.check_types.missing_check_yaml import (
+        MissingCheckYamlParser,
+    )
+
     CheckYaml.register(MissingCheckYamlParser())
     from soda_core.contracts.impl.check_types.missing_check import MissingCheckParser
+
     CheckImpl.register(MissingCheckParser())
 
-    from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYamlParser
+    from soda_core.contracts.impl.check_types.invalidity_check_yaml import (
+        InvalidCheckYamlParser,
+    )
+
     CheckYaml.register(InvalidCheckYamlParser())
     from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckParser
+
     CheckImpl.register(InvalidCheckParser())
 
-    from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYamlParser
+    from soda_core.contracts.impl.check_types.row_count_check_yaml import (
+        RowCountCheckYamlParser,
+    )
+
     CheckYaml.register(RowCountCheckYamlParser())
     from soda_core.contracts.impl.check_types.row_count_check import RowCountCheckParser
+
     CheckImpl.register(RowCountCheckParser())
 
 
@@ -43,16 +64,17 @@ class ContractYaml:
     """
 
     @classmethod
-    def parse(cls, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]] = None,
-              logs: Optional[Logs] = None) -> Optional[ContractYaml]:
+    def parse(
+        cls, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]] = None, logs: Optional[Logs] = None
+    ) -> Optional[ContractYaml]:
         logs = logs if logs else Logs()
 
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
-           register_check_types()
+            register_check_types()
 
-        contract_yaml_file_content: Optional[YamlFileContent] = (
-            contract_yaml_source.parse_yaml_file_content(file_type="Contract", variables=variables, logs=logs)
+        contract_yaml_file_content: Optional[YamlFileContent] = contract_yaml_source.parse_yaml_file_content(
+            file_type="Contract", variables=variables, logs=logs
         )
         if contract_yaml_file_content and contract_yaml_file_content.has_yaml_object():
             return ContractYaml(contract_yaml_file_content=contract_yaml_file_content)
@@ -63,23 +85,21 @@ class ContractYaml:
         self.contract_yaml_object: Optional[YamlObject] = self.contract_yaml_file_content.get_yaml_object()
 
         self.data_source: Optional[str] = (
-            self.contract_yaml_object.read_string_opt("data_source")
-            if self.contract_yaml_object else None
+            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
         )
         if self.contract_yaml_object.has_key("datasource") and not self.contract_yaml_object.has_key("data_source"):
             self.logs.error(
-                message=(f"{Emoticons.POLICE_CAR_LIGHT} Key `datasource` must be 2 words. "
-                         "Please change to `data_source`."),
-                location=self.contract_yaml_object.create_location_from_yaml_dict_key("datasource")
+                message=(
+                    f"{Emoticons.POLICE_CAR_LIGHT} Key `datasource` must be 2 words. " "Please change to `data_source`."
+                ),
+                location=self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
             )
 
         self.dataset_prefix: Optional[list[str]] = (
-            self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix")
-            if self.contract_yaml_object else None
+            self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix") if self.contract_yaml_object else None
         )
         self.dataset: Optional[str] = (
-            self.contract_yaml_object.read_string("dataset")
-            if self.contract_yaml_object else None
+            self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
         )
         self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
@@ -93,30 +113,25 @@ class ContractYaml:
                 column_locations_by_name: dict[str, list[Optional[Location]]] = {}
                 for column_yaml_object in column_yaml_objects:
                     if isinstance(column_yaml_object, YamlObject):
-                        column_yaml: ColumnYaml = ColumnYaml(
-                            contract_yaml=self,
-                            column_yaml_object=column_yaml_object
-                        )
+                        column_yaml: ColumnYaml = ColumnYaml(contract_yaml=self, column_yaml_object=column_yaml_object)
                         columns.append(column_yaml)
                         if isinstance(column_yaml.name, str):
-                            (column_locations_by_name
-                             .setdefault(column_yaml.name, [])
-                             .append(column_yaml_object.location))
+                            (
+                                column_locations_by_name.setdefault(column_yaml.name, []).append(
+                                    column_yaml_object.location
+                                )
+                            )
                 for column_name, locations in column_locations_by_name.items():
                     if len(locations) > 1:
-                        locations_message: str = ", ".join([
-                            f"[{location.line},{location.column}]" for location in locations
-                            if location is not None
-                        ])
+                        locations_message: str = ", ".join(
+                            [f"[{location.line},{location.column}]" for location in locations if location is not None]
+                        )
                         file_location = (
                             f" In {self.contract_yaml_file_content.yaml_file_path} at: "
                             if self.contract_yaml_file_content.yaml_file_path
                             else "At file locations: "
                         )
-                        locations_message = (
-                            f": {file_location}{locations_message}"
-                            if locations_message else ""
-                        )
+                        locations_message = f": {file_location}{locations_message}" if locations_message else ""
                         self.logs.error(
                             f"{Emoticons.POLICE_CAR_LIGHT} Duplicate columns with "
                             f"name '{column_name}'{locations_message}"
@@ -124,9 +139,7 @@ class ContractYaml:
         return columns
 
     def _parse_checks(
-        self,
-        checks_containing_yaml_object: YamlObject,
-        column_yaml: Optional[ColumnYaml] = None
+        self, checks_containing_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml] = None
     ) -> Optional[list[Optional[CheckYaml]]]:
         checks: Optional[list[Optional[CheckYaml]]] = None
 
@@ -143,7 +156,7 @@ class ContractYaml:
                         if len(check_keys) != 1:
                             self.logs.error(
                                 message=f"{Emoticons.POLICE_CAR_LIGHT} Checks require 1 key to be the type",
-                                location=check_yaml_object.location
+                                location=check_yaml_object.location,
                             )
                         else:
                             check_type_name = check_keys.pop()
@@ -158,8 +171,7 @@ class ContractYaml:
                     if isinstance(check_type_name, str):
                         if check_body_yaml_object is None:
                             check_body_yaml_object = YamlObject(
-                                yaml_file_content=checks_containing_yaml_object.yaml_file_content,
-                                yaml_dict={}
+                                yaml_file_content=checks_containing_yaml_object.yaml_file_content, yaml_dict={}
                             )
                             check_body_yaml_object.location = checks_containing_yaml_object.location
 
@@ -167,7 +179,7 @@ class ContractYaml:
                             check_type_name=check_type_name,
                             check_body_yaml_object=check_body_yaml_object,
                             column_yaml=column_yaml,
-                            logs=self.logs
+                            logs=self.logs,
                         )
                         if check_yaml:
                             checks.append(check_yaml)
@@ -183,7 +195,6 @@ class ContractYaml:
 
 
 class ValidReferenceDataYaml:
-
     def __init__(self, valid_reference_data_yaml: YamlObject):
         logs = valid_reference_data_yaml.logs
 
@@ -193,17 +204,16 @@ class ValidReferenceDataYaml:
         self.column: Optional[str] = valid_reference_data_yaml.read_string("column")
 
         cfg_keys = valid_reference_data_yaml.yaml_dict.keys()
-        self.has_configuration_error: bool = (
-            ("dataset" in cfg_keys and self.dataset is None)
-            and ("column" in cfg_keys and self.column is None)
+        self.has_configuration_error: bool = ("dataset" in cfg_keys and self.dataset is None) and (
+            "column" in cfg_keys and self.column is None
         )
 
         if self.dataset is None:
             self.has_configuration_error = True
             logs.error(
                 message=f"{Emoticons.POLICE_CAR_LIGHT} 'dataset' is required. Must be the dataset name as a string "
-                        "or a list of strings representing the qualified name.",
-                location=valid_reference_data_yaml.location
+                "or a list of strings representing the qualified name.",
+                location=valid_reference_data_yaml.location,
             )
 
 
@@ -224,15 +234,13 @@ class RegexFormat:
 
 
 class MissingAndValidityYaml:
-
     def __init__(self, yaml_object: YamlObject):
         self.missing_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
         self.missing_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="missing_format")
 
         cfg_keys = yaml_object.yaml_dict.keys()
-        self.has_missing_configuration_error: bool = (
-            ("missing_values" in cfg_keys and self.missing_values is None)
-            or ("missing_regex_sql" in cfg_keys and self.missing_regex is None)
+        self.has_missing_configuration_error: bool = ("missing_values" in cfg_keys and self.missing_values is None) or (
+            "missing_regex_sql" in cfg_keys and self.missing_regex is None
         )
 
         self.invalid_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("invalid_values"))
@@ -284,13 +292,10 @@ class MissingAndValidityYaml:
             "valid_min_length" if self.valid_min_length is not None else None,
             "valid_max_length" if self.valid_max_length is not None else None,
         ]
-        return [
-            cfg for cfg in non_reference_configurations if cfg is not None
-        ]
+        return [cfg for cfg in non_reference_configurations if cfg is not None]
 
 
 class ColumnYaml(MissingAndValidityYaml):
-
     def __init__(self, contract_yaml: ContractYaml, column_yaml_object: YamlObject):
         self.column_yaml_object: YamlObject = column_yaml_object
         self.name: Optional[str] = column_yaml_object.read_string("name")
@@ -298,8 +303,7 @@ class ColumnYaml(MissingAndValidityYaml):
         self.character_maximum_length: Optional[int] = column_yaml_object.read_number_opt("character_maximum_length")
         super().__init__(column_yaml_object)
         self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
-            checks_containing_yaml_object=column_yaml_object,
-            column_yaml=self
+            checks_containing_yaml_object=column_yaml_object, column_yaml=self
         )
 
 
@@ -310,7 +314,7 @@ class RangeYaml:
 
     def __init__(self, lower_bound: Number, upper_bound: Number):
         self.lower_bound: Number = lower_bound
-        self.upper_bound: Number= upper_bound
+        self.upper_bound: Number = upper_bound
 
     @classmethod
     def read_opt(cls, check_yaml_object: YamlObject, key: str) -> Optional[RangeYaml]:
@@ -327,24 +331,18 @@ class RangeYaml:
 
 
 class CheckYamlParser(ABC):
-
     @abstractmethod
     def get_check_type_names(self) -> list[str]:
         pass
 
     @abstractmethod
     def parse_check_yaml(
-        self,
-        check_type_name: str,
-        check_yaml_object: YamlObject,
-        column_yaml: Optional[ColumnYaml],
-        logs: Logs
+        self, check_type_name: str, check_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml], logs: Logs
     ) -> Optional[CheckYaml]:
         pass
 
 
 class CheckYaml(ABC):
-
     check_yaml_parsers: dict[str, CheckYamlParser] = {}
 
     @classmethod
@@ -358,11 +356,7 @@ class CheckYaml(ABC):
 
     @classmethod
     def parse_check_yaml(
-        cls,
-        check_type_name: str,
-        check_body_yaml_object: YamlObject,
-        column_yaml: Optional[ColumnYaml],
-        logs: Logs
+        cls, check_type_name: str, check_body_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml], logs: Logs
     ) -> Optional[CheckYaml]:
         if isinstance(check_type_name, str):
             check_yaml_parser: Optional[CheckYamlParser] = cls.check_yaml_parsers.get(check_type_name)
@@ -371,7 +365,7 @@ class CheckYaml(ABC):
                     check_type_name=check_type_name,
                     check_yaml_object=check_body_yaml_object,
                     column_yaml=column_yaml,
-                    logs=logs
+                    logs=logs,
                 )
 
     def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
@@ -394,12 +388,15 @@ class ThresholdCheckYaml(CheckYaml):
 
 
 class ThresholdYaml:
-
     def __init__(self, threshold_yaml_object: YamlObject):
         self.must_be_greater_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than")
-        self.must_be_greater_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_greater_than_or_equal")
+        self.must_be_greater_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt(
+            "must_be_greater_than_or_equal"
+        )
         self.must_be_less_than: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_less_than")
-        self.must_be_less_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt("must_be_less_than_or_equal")
+        self.must_be_less_than_or_equal: Optional[Number] = threshold_yaml_object.read_number_opt(
+            "must_be_less_than_or_equal"
+        )
         self.must_be: Optional[Number] = threshold_yaml_object.read_number_opt("must_be")
         self.must_not_be: Optional[Number] = threshold_yaml_object.read_number_opt("must_not_be")
         self.must_be_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_between")

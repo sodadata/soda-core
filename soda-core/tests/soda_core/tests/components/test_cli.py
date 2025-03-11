@@ -4,14 +4,16 @@ from argparse import ArgumentParser
 from typing import Optional
 
 from soda_core.cli.soda import CLI
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult
+from soda_core.contracts.contract_verification import (
+    ContractResult,
+    ContractVerificationResult,
+)
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
 
 class CLI4Test(CLI):
-
     def __init__(self, argv: list[str]):
         super().__init__()
         self.contract_file_paths: Optional[list[str]] = None
@@ -34,7 +36,7 @@ class CLI4Test(CLI):
         soda_cloud_file_path: Optional[str],
         skip_publish: bool,
         use_agent: bool,
-        blocking_timeout_in_minutes: int
+        blocking_timeout_in_minutes: int,
     ):
         self.contract_file_paths = contract_file_paths
         self.data_source_file_path = data_source_file_path
@@ -48,7 +50,7 @@ class CLI4Test(CLI):
             soda_cloud_file_path=soda_cloud_file_path,
             skip_publish=skip_publish,
             use_agent=use_agent,
-            blocking_timeout_in_minutes=blocking_timeout_in_minutes
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
         )
 
     def _configure_logging(self, verbose: bool):
@@ -62,7 +64,6 @@ class CLI4Test(CLI):
 
 
 class ArgumentParser4Test(ArgumentParser):
-
     def exit(self, status=0, message=None):
         print(f"Skipping exit in unit test status={status}, message={message}")
 
@@ -71,11 +72,13 @@ test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("cli")
     .column_text("id")
-    .rows(rows=[
-        ("1",),
-        ("2",),
-        ("3",),
-    ])
+    .rows(
+        rows=[
+            ("1",),
+            ("2",),
+            ("3",),
+        ]
+    )
     .build()
 )
 
@@ -83,7 +86,8 @@ test_table_specification = (
 def test_cli(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    contract_yaml_str: str = dedent_and_strip(f"""
+    contract_yaml_str: str = dedent_and_strip(
+        f"""
         data_source: postgres_test_ds
         dataset: {test_table.unique_name}
         dataset_prefix: {data_source_test_helper.dataset_prefix}
@@ -94,23 +98,26 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
               threshold:
                 must_be: 3
           - schema:
-    """)
+    """
+    )
 
-    data_source_yaml_str: str = dedent_and_strip("""
+    data_source_yaml_str: str = dedent_and_strip(
+        """
         type: postgres
         name: postgres_test_ds
         connection:
           host: localhost
           user: soda_test
           database: soda_test
-    """)
+    """
+    )
 
     contract_tmp_file = tempfile.NamedTemporaryFile()
-    with open(contract_tmp_file.name, 'w') as f:
+    with open(contract_tmp_file.name, "w") as f:
         f.write(contract_yaml_str)
 
     data_source_tmp_file = tempfile.NamedTemporaryFile()
-    with open(data_source_tmp_file.name, 'w') as f:
+    with open(data_source_tmp_file.name, "w") as f:
         f.write(data_source_yaml_str)
 
     test_cli: CLI4Test = CLI4Test(["soda", "verify", "-ds", data_source_tmp_file.name, "-c", contract_tmp_file.name])
@@ -124,7 +131,8 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
 def test_cli_wrong_pwd(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    contract_yaml_str: str = dedent_and_strip(f"""
+    contract_yaml_str: str = dedent_and_strip(
+        f"""
         data_source: postgres_test_ds
         dataset: {test_table.unique_name}
         dataset_prefix: {data_source_test_helper.dataset_prefix}
@@ -135,23 +143,26 @@ def test_cli_wrong_pwd(data_source_test_helper: DataSourceTestHelper):
               threshold:
                 must_be: 3
           - schema:
-    """)
+    """
+    )
 
-    data_source_yaml_str: str = dedent_and_strip("""
+    data_source_yaml_str: str = dedent_and_strip(
+        """
         type: postgres
         name: postgres_test_ds
         connection:
           host: localhost
           user: wrongpwd!
           database: soda_test
-    """)
+    """
+    )
 
     contract_tmp_file = tempfile.NamedTemporaryFile()
-    with open(contract_tmp_file.name, 'w') as f:
+    with open(contract_tmp_file.name, "w") as f:
         f.write(contract_yaml_str)
 
     data_source_tmp_file = tempfile.NamedTemporaryFile()
-    with open(data_source_tmp_file.name, 'w') as f:
+    with open(data_source_tmp_file.name, "w") as f:
         f.write(data_source_yaml_str)
 
     test_cli: CLI4Test = CLI4Test(["soda", "verify", "-ds", data_source_tmp_file.name, "-c", contract_tmp_file.name])

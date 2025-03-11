@@ -1,9 +1,11 @@
 from textwrap import dedent
 
-from dotenv import load_dotenv
-
 from conftest import configure_logging
-from soda_core.contracts.contract_verification import ContractVerification, ContractVerificationResult
+from dotenv import load_dotenv
+from soda_core.contracts.contract_verification import (
+    ContractVerification,
+    ContractVerificationResult,
+)
 
 
 def main():
@@ -13,7 +15,8 @@ def main():
     project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/components/manual_test_agent_flow.py")]
     load_dotenv(f"{project_root_dir}/.env", override=True)
 
-    contract_yaml_str: str = dedent("""
+    contract_yaml_str: str = dedent(
+        """
         data_source: bus_nienu
         dataset_prefix: [nyc, public]
         dataset: bus_breakdown_and_delays
@@ -24,12 +27,15 @@ def main():
                   valid_values: [ 'Heavy Traffic', 'Other', 'Mechanical Problem', 'Won`t Start', 'Problem Run' ]
         checks:
           - schema:
-    """).strip()
+    """
+    ).strip()
 
-    soda_cloud_yaml_str = dedent("""
+    soda_cloud_yaml_str = dedent(
+        """
         soda_cloud:
           bla: bla
-    """).strip()
+    """
+    ).strip()
 
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()
@@ -37,7 +43,7 @@ def main():
         .with_contract_yaml_str(contract_yaml_str)
         .with_execution_on_soda_agent(blocking_timeout_in_minutes=55)
         .execute()
-     )
+    )
 
 
 if __name__ == "__main__":

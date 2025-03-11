@@ -16,12 +16,7 @@ class FullyQualifiedTableName:
 
 
 class MetadataTablesQuery:
-
-    def __init__(
-        self,
-        sql_dialect: SqlDialect,
-        data_source_connection: DataSourceConnection
-    ):
+    def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
         self.sql_dialect = sql_dialect
         self.data_source_connection: DataSourceConnection = data_source_connection
 
@@ -36,7 +31,7 @@ class MetadataTablesQuery:
             database_name=database_name,
             schema_name=schema_name,
             include_table_name_like_filters=include_table_name_like_filters,
-            exclude_table_name_like_filters=exclude_table_name_like_filters
+            exclude_table_name_like_filters=exclude_table_name_like_filters,
         )
         sql: str = self.sql_dialect.build_select_sql(select_statement)
         query_result: QueryResult = self.data_source_connection.execute_query(sql)
@@ -72,14 +67,22 @@ class MetadataTablesQuery:
         table_name_column = self._column_table_name()
 
         if include_table_name_like_filters:
-            select.append(WHERE(OR([
-                LIKE(LOWER(table_name_column), LITERAL(include_table_name_like_filter.lower()))
-                for include_table_name_like_filter in include_table_name_like_filters
-            ])))
+            select.append(
+                WHERE(
+                    OR(
+                        [
+                            LIKE(LOWER(table_name_column), LITERAL(include_table_name_like_filter.lower()))
+                            for include_table_name_like_filter in include_table_name_like_filters
+                        ]
+                    )
+                )
+            )
 
         if exclude_table_name_like_filters:
             for exclude_table_name_like_filter in exclude_table_name_like_filters:
-                select.append(WHERE(NOT_LIKE(LOWER(table_name_column), LITERAL(exclude_table_name_like_filter.lower()))))
+                select.append(
+                    WHERE(NOT_LIKE(LOWER(table_name_column), LITERAL(exclude_table_name_like_filter.lower())))
+                )
 
         return select
 

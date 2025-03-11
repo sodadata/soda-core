@@ -1,46 +1,50 @@
 from __future__ import annotations
 
-import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Logs, Emoticons
+from soda_core.common.logs import Emoticons, Logs
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery, ColumnMetadata
+from soda_core.common.statements.metadata_columns_query import (
+    ColumnMetadata,
+    MetadataColumnsQuery,
+)
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import DataSourceInfo
 
 
 class DataSource(ABC):
-
     @classmethod
     def create(
-            cls,
-            data_source_yaml_file_content: YamlFileContent,
-            name: str,
-            type_name: str,
-            connection_properties: dict,
-            format_regexes: dict[str, str]
+        cls,
+        data_source_yaml_file_content: YamlFileContent,
+        name: str,
+        type_name: str,
+        connection_properties: dict,
+        format_regexes: dict[str, str],
     ) -> DataSource:
-        from soda_core.common.data_sources.postgres_data_source import PostgresDataSource
+        from soda_core.common.data_sources.postgres_data_source import (
+            PostgresDataSource,
+        )
+
         return PostgresDataSource(
-                data_source_yaml_file_content=data_source_yaml_file_content,
-                name=name,
-                type_name=type_name,
-                connection_properties=connection_properties,
-                format_regexes=format_regexes
-            )
+            data_source_yaml_file_content=data_source_yaml_file_content,
+            name=name,
+            type_name=type_name,
+            connection_properties=connection_properties,
+            format_regexes=format_regexes,
+        )
 
     def __init__(
-            self,
-            data_source_yaml_file_content: YamlFileContent,
-            name: str,
-            type_name: str,
-            connection_properties: dict,
-            format_regexes: dict[str, str],
+        self,
+        data_source_yaml_file_content: YamlFileContent,
+        name: str,
+        type_name: str,
+        connection_properties: dict,
+        format_regexes: dict[str, str],
     ):
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
         self.logs: Logs = data_source_yaml_file_content.logs
@@ -60,10 +64,7 @@ class DataSource(ABC):
 
     @abstractmethod
     def _create_data_source_connection(
-            self,
-            name: str,
-            connection_properties: dict,
-            logs: Logs
+        self, name: str, connection_properties: dict, logs: Logs
     ) -> DataSourceConnection:
         pass
 
@@ -78,7 +79,7 @@ class DataSource(ABC):
         self.data_source_connection = self._create_data_source_connection(
             name=self.name,
             connection_properties=self.connection_properties,
-            logs=self.data_source_yaml_file_content.logs
+            logs=self.data_source_yaml_file_content.logs,
         )
 
     def has_open_connection(self) -> bool:
@@ -125,8 +126,10 @@ class DataSource(ABC):
         if canonical_expected_data_type != canonical_actual_data_type:
             return True
 
-        if (isinstance(expected_column.character_maximum_length, int)
-            and expected_column.character_maximum_length != actual_column_metadata.character_maximum_length):
+        if (
+            isinstance(expected_column.character_maximum_length, int)
+            and expected_column.character_maximum_length != actual_column_metadata.character_maximum_length
+        ):
             return True
 
         return False
@@ -139,10 +142,7 @@ class DataSource(ABC):
         return canonical_data_type
 
     def get_canonical_data_type_mappings(self) -> dict:
-        return {
-            "character varying": "varchar",
-            "integer": "int"
-        }
+        return {"character varying": "varchar", "integer": "int"}
 
         # has_length: bool = bool(re.match(r"^[a-zA-Z0-9 ]+\(\d+\)$", expected_data_type_lower))
         # actual_data_type = self.get_data_type_text(column_metadata=actual_column_metadata, include_length=has_length)
@@ -173,28 +173,24 @@ class DataSource(ABC):
     def from_file(cls, data_source_file_path: str) -> Optional[DataSource]:
         data_source_yaml_source: YamlSource = YamlSource.from_file_path(data_source_file_path)
         logs: Logs = Logs()
-        data_source_yaml_file_content: YamlFileContent = (
-            data_source_yaml_source.parse_yaml_file_content(file_type="data source", variables={}, logs=logs)
+        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
+            file_type="data source", variables={}, logs=logs
         )
         from soda_core.common.data_source_parser import DataSourceParser
+
         data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
         return data_source_parser.parse()
 
     def test_connection_error_message(self) -> Optional[str]:
         try:
             with self:
-                query_result: QueryResult = self.data_source_connection.execute_query(
-                    f"SELECT 1"
-                )
+                query_result: QueryResult = self.data_source_connection.execute_query(f"SELECT 1")
                 return None
         except Exception as e:
             return str(e)
 
     def build_data_source_info(self) -> DataSourceInfo:
-        return DataSourceInfo(
-            name=self.name,
-            type=self.type_name
-        )
+        return DataSourceInfo(name=self.name, type=self.type_name)
 
     def is_valid_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> bool:
         if not isinstance(dataset_prefix, list):

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from soda_core.common.logs import Logs, Emoticons
+from typing import List, Optional
+
+from soda_core.common.logs import Emoticons, Logs
 from soda_core.contracts.contract_command_builder import ContractCommandBuilder
 from soda_core.contracts.contract_verification import Contract, YamlFileContentInfo
-from typing import List, Optional
 
 
 class ContractPublicationBuilder(ContractCommandBuilder):
@@ -18,9 +19,13 @@ class ContractPublicationBuilder(ContractCommandBuilder):
 class ContractPublication:
     def __init__(self, contract_publication_builder: ContractPublicationBuilder) -> None:
         if not contract_publication_builder.soda_cloud and not contract_publication_builder.soda_cloud_yaml_source:
-            contract_publication_builder.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} cannot publish without a Soda Cloud configuration")
+            contract_publication_builder.logs.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} cannot publish without a Soda Cloud configuration"
+            )
 
-        from soda_core.contracts.impl.contract_publication_impl import ContractPublicationImpl
+        from soda_core.contracts.impl.contract_publication_impl import (
+            ContractPublicationImpl,
+        )
 
         self.contract_publication_impl: ContractPublicationImpl = ContractPublicationImpl(
             contract_yaml_sources=contract_publication_builder.contract_yaml_sources,
@@ -46,6 +51,7 @@ class Contract:
     soda_qualified_dataset_name: str
     source: YamlFileContentInfo
     id: str
+
 
 @dataclass(frozen=True)
 class ContractPublicationResultList:
@@ -75,5 +81,3 @@ class ContractPublicationResult:
 
     def has_errors(self) -> bool:
         return self.logs.has_errors()
-
-

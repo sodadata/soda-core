@@ -26,7 +26,4 @@ def test_error_no_dataset(data_source_test_helper: DataSourceTestHelper):
         """
     )
 
-    assert (
-        "'dataset' is required"
-        in contract_verification_result.get_logs_str()
-    )
+    assert "'dataset' is required" in contract_verification_result.get_logs_str()

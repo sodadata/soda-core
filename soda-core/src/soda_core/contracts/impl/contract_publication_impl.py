@@ -1,10 +1,11 @@
-from soda_core.common.logs import Logs, Emoticons
+from typing import Optional
+
+from soda_core.common.logs import Emoticons, Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResultList
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from typing import Optional
 
 
 class ContractPublicationImpl:
@@ -18,12 +19,10 @@ class ContractPublicationImpl:
     ):
         self.logs: Logs = logs
 
-        self.soda_cloud: Optional[SodaCloud] =  soda_cloud
+        self.soda_cloud: Optional[SodaCloud] = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-                file_type="soda cloud",
-                variables=variables,
-                logs=logs
+                file_type="soda cloud", variables=variables, logs=logs
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
 
@@ -34,9 +33,7 @@ class ContractPublicationImpl:
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source,
-                    variables=variables,
-                    logs=logs
+                    contract_yaml_source=contract_yaml_source, variables=variables, logs=logs
                 )
                 self.contract_yamls.append(contract_yaml)
 
@@ -46,6 +43,5 @@ class ContractPublicationImpl:
             return ContractPublicationResultList(items=[], logs=self.logs)
         return ContractPublicationResultList(
             logs=self.logs,
-            items = [self.soda_cloud.publish_contract(contract_yaml) for contract_yaml in self.contract_yamls]
+            items=[self.soda_cloud.publish_contract(contract_yaml) for contract_yaml in self.contract_yamls],
         )
-

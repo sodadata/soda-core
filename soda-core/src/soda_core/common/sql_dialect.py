@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from numbers import Number
-from shlex import quote
-from smtplib import quotedata
 
 from soda_core.common.sql_ast import *
 
@@ -32,9 +30,7 @@ class SqlDialect:
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
 
-    def qualify_dataset_name(
-        self, dataset_prefix: list[str], dataset_name: str
-    ) -> str:
+    def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
         """
         Creates a fully qualified table name, optionally quoting the table name
         """
@@ -186,10 +182,7 @@ class SqlDialect:
             return self.build_expression_sql(or_expr.clauses[0])
         if isinstance(or_expr.clauses, str) or isinstance(or_expr.clauses, SqlExpression):
             return self.build_expression_sql(or_expr.clauses)
-        or_clauses_sql: str = " OR ".join(
-            self.build_expression_sql(or_clause)
-            for or_clause in or_expr.clauses
-        )
+        or_clauses_sql: str = " OR ".join(self.build_expression_sql(or_clause) for or_clause in or_expr.clauses)
         return f"({or_clauses_sql})"
 
     def _build_not_sql(self, not_expr: NOT) -> str:
@@ -201,10 +194,7 @@ class SqlDialect:
             return self.build_expression_sql(and_expr.clauses[0])
         if isinstance(and_expr.clauses, str) or isinstance(and_expr.clauses, SqlExpression):
             return self.build_expression_sql(and_expr.clauses)
-        return " AND ".join(
-            self.build_expression_sql(and_clause)
-            for and_clause in and_expr.clauses
-        )
+        return " AND ".join(self.build_expression_sql(and_clause) for and_clause in and_expr.clauses)
 
     def _build_from_sql_lines(self, select_elements: list) -> list[str]:
         sql_lines: list[str] = []
@@ -214,9 +204,7 @@ class SqlDialect:
         # For now, we opt for SELECT statement readability...
 
         from_elements: list[FROM] = [
-            select_element
-            for select_element in select_elements
-            if isinstance(select_element, FROM)
+            select_element for select_element in select_elements if isinstance(select_element, FROM)
         ]
 
         from_sql_line: str = "FROM "
@@ -238,8 +226,7 @@ class SqlDialect:
 
         from_parts: list[str] = [
             self._build_qualified_quoted_dataset_name(
-                dataset_name=from_part.table_name,
-                dataset_prefix=from_part.table_prefix
+                dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
             )
         ]
 
@@ -256,10 +243,11 @@ class SqlDialect:
         if isinstance(left_inner_join, LEFT_INNER_JOIN):
             from_parts.append("LEFT JOIN")
 
-        from_parts.append(self._build_qualified_quoted_dataset_name(
-            dataset_name=left_inner_join.table_name,
-            dataset_prefix=left_inner_join.table_prefix
-        ))
+        from_parts.append(
+            self._build_qualified_quoted_dataset_name(
+                dataset_name=left_inner_join.table_name, dataset_prefix=left_inner_join.table_prefix
+            )
+        )
 
         if isinstance(left_inner_join.alias, str):
             from_parts.append(f"AS {self.quote_default(left_inner_join.alias)}")
@@ -272,10 +260,7 @@ class SqlDialect:
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
         name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
         name_parts.append(dataset_name)
-        quoted_name_parts: list[str] = [
-            self.quote_default(name_part)
-            for name_part in name_parts
-        ]
+        quoted_name_parts: list[str] = [self.quote_default(name_part) for name_part in name_parts]
         return ".".join(quoted_name_parts)
 
     def _build_operator_sql(self, operator: Operator) -> str:
@@ -299,10 +284,7 @@ class SqlDialect:
             elif isinstance(select_element, AND):
                 and_expressions.extend(select_element._get_clauses_as_list())
 
-        where_parts: list[str] = [
-            self.build_expression_sql(and_expression)
-            for and_expression in and_expressions
-        ]
+        where_parts: list[str] = [self.build_expression_sql(and_expression) for and_expression in and_expressions]
 
         where_sql_lines: list[str] = []
         for i in range(0, len(where_parts)):
@@ -315,10 +297,7 @@ class SqlDialect:
 
     def _build_function_sql(self, function: FUNCTION) -> str:
         args: list[SqlExpression | str] = [function.args] if not isinstance(function.args, list) else function.args
-        args_sqls: list[str] = [
-            self.build_expression_sql(arg)
-            for arg in args
-        ]
+        args_sqls: list[str] = [self.build_expression_sql(arg) for arg in args]
         if function.name in ["+", "-", "/", "*"]:
             operators: str = f" {function.name} ".join(args_sqls)
             return f"({operators})"
@@ -359,6 +338,8 @@ class SqlDialect:
         return f"LENGTH({self.build_expression_sql(length.expression)})"
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
-        return (f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
-                f"THEN {self.build_expression_sql(case_when.if_expression)} "
-                f"ELSE {self.build_expression_sql(case_when.else_expression)} END")
+        return (
+            f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
+            f"THEN {self.build_expression_sql(case_when.if_expression)} "
+            f"ELSE {self.build_expression_sql(case_when.else_expression)} END"
+        )

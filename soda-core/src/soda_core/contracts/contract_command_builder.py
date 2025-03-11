@@ -1,6 +1,7 @@
-from soda_core.common.logs import Logs, Emoticons
+from typing import Dict, Optional, TypeVar
+
+from soda_core.common.logs import Emoticons, Logs
 from soda_core.common.yaml import YamlSource
-from typing import Optional, Dict, TypeVar
 
 T = TypeVar("T", bound="ContractCommandBuilder")
 
@@ -17,9 +18,7 @@ class ContractCommandBuilder:
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> T:
         if isinstance(contract_yaml_file_path, str):
             self.logs.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
-            self.contract_yaml_sources.append(
-                YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path)
-            )
+            self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         else:
             self.logs.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
@@ -30,9 +29,7 @@ class ContractCommandBuilder:
     def with_contract_yaml_str(self, contract_yaml_str: str) -> T:
         if isinstance(contract_yaml_str, str):
             self.logs.debug(f"  ...with contract YAML str [{len(contract_yaml_str)}]")
-            self.contract_yaml_sources.append(
-                YamlSource.from_str(yaml_str=contract_yaml_str)
-            )
+            self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
         else:
             self.logs.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
@@ -43,17 +40,13 @@ class ContractCommandBuilder:
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> T:
         if isinstance(soda_cloud_yaml_file_path, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(
-                    f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'"
-                )
+                self.logs.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
             else:
                 self.logs.debug(
                     f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
-            self.soda_cloud_yaml_source = YamlSource.from_file_path(
-                yaml_file_path=soda_cloud_yaml_file_path
-            )
+            self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
         else:
             self.logs.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
@@ -64,17 +57,13 @@ class ContractCommandBuilder:
     def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> T:
         if isinstance(soda_cloud_yaml_str, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(
-                    f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]"
-                )
+                self.logs.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
             else:
                 self.logs.debug(
                     f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
-            self.soda_cloud_yaml_source = YamlSource.from_str(
-                yaml_str=soda_cloud_yaml_str
-            )
+            self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         else:
             self.logs.error(
                 f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
@@ -104,9 +93,7 @@ class ContractCommandBuilder:
             self.variables.update(variables)
         elif variables is None:
             if isinstance(self.variables, dict) and len(self.variables) > 1:
-                self.logs.debug(
-                    f"  ...removing variables {list(self.variables.keys())} because variables set to None"
-                )
+                self.logs.debug(f"  ...removing variables {list(self.variables.keys())} because variables set to None")
             self.variables = None
         else:
             self.logs.error(

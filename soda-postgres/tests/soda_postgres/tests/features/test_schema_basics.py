@@ -13,7 +13,6 @@ test_table_specification = (
 
 
 def test_postgres_schema_pass(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_pass(
@@ -30,12 +29,11 @@ def test_postgres_schema_pass(data_source_test_helper: DataSourceTestHelper):
                 data_type: character varying
               - name: destroyed
                 data_type: character varying(255)
-        """
+        """,
     )
 
 
 def test_postgres_schema_fail(data_source_test_helper: DataSourceTestHelper):
-
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_fail(
@@ -50,5 +48,5 @@ def test_postgres_schema_fail(data_source_test_helper: DataSourceTestHelper):
                 data_type: character varying(16)
               - name: created
               - name: destroyed
-        """
+        """,
     )

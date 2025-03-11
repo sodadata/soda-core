@@ -1,24 +1,23 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from logging import ERROR
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Logs, Emoticons
+from soda_core.common.logs import Emoticons, Logs
 from soda_core.common.yaml import YamlSource
 
 
 class ContractVerificationBuilder:
-
     def __init__(self):
         self.contract_yaml_sources: list[YamlSource] = []
-        self.data_source: Optional['DataSource'] = None
+        self.data_source: Optional["DataSource"] = None
         self.data_source_yaml_source: Optional[YamlSource] = None
-        self.soda_cloud: Optional['SodaCloud'] = None
+        self.soda_cloud: Optional["SodaCloud"] = None
         self.soda_cloud_yaml_source: Optional[YamlSource] = None
         self.variables: dict[str, str] = {}
         self.soda_cloud_skip_publish: bool = False
@@ -127,7 +126,9 @@ class ContractVerificationBuilder:
         self.soda_cloud = soda_cloud
         return self
 
-    def with_execution_on_soda_agent(self, blocking_timeout_in_minutes: Optional[int] = None) -> ContractVerificationBuilder:
+    def with_execution_on_soda_agent(
+        self, blocking_timeout_in_minutes: Optional[int] = None
+    ) -> ContractVerificationBuilder:
         self.logs.debug(f"  ...with execution on Soda Agent")
         self.use_agent = True
         self.blocking_timeout_in_minutes = blocking_timeout_in_minutes
@@ -175,13 +176,15 @@ class ContractVerificationBuilder:
 
 
 class ContractVerification:
-
     @classmethod
     def builder(cls) -> ContractVerificationBuilder:
         return ContractVerificationBuilder()
 
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
-        from soda_core.contracts.impl.contract_verification_impl import ContractVerificationImpl
+        from soda_core.contracts.impl.contract_verification_impl import (
+            ContractVerificationImpl,
+        )
+
         self.contract_verification_impl: ContractVerificationImpl = ContractVerificationImpl(
             contract_yaml_sources=contract_verification_builder.contract_yaml_sources,
             data_source=contract_verification_builder.data_source,
@@ -218,9 +221,9 @@ class ContractVerificationResult:
         Returns True if there are no execution errors and no check failures.
         """
         return (
-            not self.logs.has_critical() and
-            not self.logs.has_errors() and
-            all(contract_result.passed() for contract_result in self.contract_results)
+            not self.logs.has_critical()
+            and not self.logs.has_errors()
+            and all(contract_result.passed() for contract_result in self.contract_results)
         )
 
     def has_errors(self) -> bool:
@@ -268,7 +271,7 @@ class CheckOutcome(Enum):
 class YamlFileContentInfo:
     source_content_str: Optional[str]
     local_file_path: Optional[str]
-    git_repo: Optional[str] = None # Aspirational, not used yet
+    git_repo: Optional[str] = None  # Aspirational, not used yet
     soda_cloud_file_id: Optional[str] = None
 
 
@@ -300,7 +303,7 @@ class Threshold:
 class Check:
     column_name: Optional[str]
     type: str
-    name: str # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
+    name: str  # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
     identity: str
     definition: str
     column_name: Optional[str]
@@ -310,14 +313,13 @@ class Check:
 
 
 class CheckResult(ABC):
-
     def __init__(
         self,
         contract: Contract,
         check: Check,
         metric_value: Optional[Number],
         outcome: CheckOutcome,
-        diagnostics: list[Diagnostic]
+        diagnostics: list[Diagnostic],
     ):
         self.contract: Contract = contract
         self.check: Check = check
@@ -327,8 +329,10 @@ class CheckResult(ABC):
 
     def log_summary(self, logs: Logs) -> None:
         outcome_emoticon: str = (
-            Emoticons.WHITE_CHECK_MARK if self.outcome == CheckOutcome.PASSED
-            else Emoticons.POLICE_CAR_LIGHT if self.outcome == CheckOutcome.FAILED
+            Emoticons.WHITE_CHECK_MARK
+            if self.outcome == CheckOutcome.PASSED
+            else Emoticons.POLICE_CAR_LIGHT
+            if self.outcome == CheckOutcome.FAILED
             else Emoticons.SEE_NO_EVIL
         )
         logs.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
@@ -337,7 +341,6 @@ class CheckResult(ABC):
 
 
 class Measurement:
-
     def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):
         self.metric_id: str = metric_id
         self.metric_name: Optional[str] = metric_name
@@ -346,7 +349,6 @@ class Measurement:
 
 @dataclass
 class Diagnostic:
-
     name: str
 
     @abstractmethod
@@ -356,7 +358,6 @@ class Diagnostic:
 
 @dataclass
 class NumericDiagnostic(Diagnostic):
-
     value: float
 
     def log_line(self) -> str:
@@ -370,15 +371,15 @@ class ContractResult:
     """
 
     def __init__(
-            self,
-            contract: Contract,
-            data_source_info: DataSourceInfo,
-            data_timestamp: Optional[datetime],
-            started_timestamp: datetime,
-            ended_timestamp: datetime,
-            measurements: list[Measurement],
-            check_results: list[CheckResult],
-            logs: Logs
+        self,
+        contract: Contract,
+        data_source_info: DataSourceInfo,
+        data_timestamp: Optional[datetime],
+        started_timestamp: datetime,
+        ended_timestamp: datetime,
+        measurements: list[Measurement],
+        check_results: list[CheckResult],
+        logs: Logs,
     ):
         self.contract: Contract = contract
         self.data_source_info: DataSourceInfo = data_source_info

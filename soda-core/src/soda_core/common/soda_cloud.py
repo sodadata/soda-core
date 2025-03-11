@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import re
-from datetime import date, datetime, timedelta, timezone, time
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from tempfile import TemporaryFile
@@ -14,13 +14,18 @@ from typing import Optional
 
 import requests
 from requests import Response
-
-from soda_core.common.logs import Logs, Log, Emoticons
+from soda_core.common.logs import Emoticons, Log, Logs
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
-from soda_core.contracts.contract_verification import ContractResult, \
-    CheckResult, CheckOutcome, Threshold, Contract, YamlFileContentInfo
-from soda_core.contracts.contract_publication import ContractPublicationResult, ContractPublicationResultList
+from soda_core.contracts.contract_publication import ContractPublicationResult
+from soda_core.contracts.contract_verification import (
+    CheckOutcome,
+    CheckResult,
+    Contract,
+    ContractResult,
+    Threshold,
+    YamlFileContentInfo,
+)
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
@@ -50,14 +55,12 @@ REMOTE_SCAN_FINAL_STATES = [
 
 
 class SodaCloud:
-
     # Constants
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
     CSV_TEXT_MAX_LENGTH = 1500
 
     @classmethod
     def from_file(cls, soda_cloud_file_content: YamlFileContent) -> Optional[SodaCloud]:
-
         logs = soda_cloud_file_content.logs
 
         if not isinstance(soda_cloud_file_content, YamlFileContent):
@@ -76,30 +79,16 @@ class SodaCloud:
 
         return SodaCloud(
             host=soda_cloud_yaml_object.read_string_opt(
-                key="host",
-                env_var="SODA_CLOUD_HOST",
-                default_value="cloud.soda.io"
+                key="host", env_var="SODA_CLOUD_HOST", default_value="cloud.soda.io"
             ),
-            api_key_id=soda_cloud_yaml_object.read_string(
-                key="api_key_id",
-                env_var="SODA_CLOUD_API_KEY_ID"
-            ),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", env_var="SODA_CLOUD_API_KEY_ID"),
             api_key_secret=soda_cloud_yaml_object.read_string(
-                key="api_key_secret",
-                env_var="SODA_CLOUD_API_KEY_SECRET"
+                key="api_key_secret", env_var="SODA_CLOUD_API_KEY_SECRET"
             ),
-            token=soda_cloud_yaml_object.read_string_opt(
-                key="token",
-                env_var="SODA_CLOUD_TOKEN"
-            ),
-            port=soda_cloud_yaml_object.read_string_opt(
-                key="port",
-                env_var="SODA_CLOUD_PORT"
-            ),
+            token=soda_cloud_yaml_object.read_string_opt(key="token", env_var="SODA_CLOUD_TOKEN"),
+            port=soda_cloud_yaml_object.read_string_opt(key="port", env_var="SODA_CLOUD_PORT"),
             scheme=soda_cloud_yaml_object.read_string_opt(
-                key="scheme",
-                env_var="SODA_CLOUD_SCHEME",
-                default_value="https"
+                key="scheme", env_var="SODA_CLOUD_SCHEME", default_value="https"
             ),
             logs=logs,
         )
@@ -129,22 +118,18 @@ class SodaCloud:
     def upload_contract_file(self, contract: Contract):
         contract_yaml_source_str = contract.source.source_content_str
         self.logs.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
-        soda_cloud_file_path : str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
+        soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str,
-            soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
         )
         if file_id:
             contract.source.soda_cloud_file_id = file_id
 
     def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
-        contract_result = self._build_contract_result_json(
-            contract_result=contract_result, skip_publish=skip_publish
-        )
+        contract_result = self._build_contract_result_json(contract_result=contract_result, skip_publish=skip_publish)
         contract_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
-            command_json_dict=contract_result,
-            request_log_name="send_contract_verification_results"
+            command_json_dict=contract_result, request_log_name="send_contract_verification_results"
         )
         if response.status_code == 200:
             self.logs.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
@@ -181,9 +166,7 @@ class SodaCloud:
             {
                 "definitionName": contract_result.contract.soda_qualified_dataset_name,
                 "defaultDataSource": contract_result.data_source_info.name,
-                "defaultDataSourceProperties": {
-                    "type": contract_result.data_source_info.type
-                },
+                "defaultDataSourceProperties": {"type": contract_result.data_source_info.type},
                 # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
                 # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
                 "dataTimestamp": contract_result.data_timestamp,
@@ -211,16 +194,13 @@ class SodaCloud:
                     "dataset": {
                         "datasource": contract_result.contract.data_source_name,
                         "prefixes": contract_result.contract.dataset_prefix,
-                        "name": contract_result.contract.dataset_name
+                        "name": contract_result.contract.dataset_name,
                     },
                     "metadata": {
-                        "source": {
-                            "type": "local",
-                            "filePath": contract_result.contract.source.local_file_path
-                        }
-                    }
+                        "source": {"type": "local", "filePath": contract_result.contract.source.local_file_path}
+                    },
                 },
-                "skipPublish": skip_publish
+                "skipPublish": skip_publish,
             }
         )
         soda_scan_id: Optional[str] = os.environ.get("SODA_SCAN_ID")
@@ -237,28 +217,29 @@ class SodaCloud:
 
     def _build_check_result_cloud_dict(self, check_result: CheckResult) -> dict:
         check_result_cloud_dict: dict = {
-            "identities": {
-                "vc1": check_result.check.identity
-            },
+            "identities": {"vc1": check_result.check.identity},
             "name": check_result.check.name,
             "type": "generic",
             "definition": check_result.check.definition,
-            "resourceAttributes": [], # TODO
+            "resourceAttributes": [],  # TODO
             "location": {
-                "filePath": (check_result.contract.source.local_file_path
-                             if isinstance(check_result.contract.source.local_file_path, str) else "yamlstr.yml"),
+                "filePath": (
+                    check_result.contract.source.local_file_path
+                    if isinstance(check_result.contract.source.local_file_path, str)
+                    else "yamlstr.yml"
+                ),
                 "line": check_result.check.contract_file_line,
-                "col": check_result.check.contract_file_column
+                "col": check_result.check.contract_file_column,
             },
             "dataSource": check_result.contract.data_source_name,
             "table": check_result.contract.dataset_name,
-            "datasetPrefix" : check_result.contract.dataset_prefix,
+            "datasetPrefix": check_result.contract.dataset_prefix,
             "column": check_result.check.column_name,
-                # "metrics": [
-                #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
-                # ],
+            # "metrics": [
+            #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
+            # ],
             "outcome": self._translate_check_outcome_for_soda_cloud(check_result.outcome),
-            "source": "soda-contract"
+            "source": "soda-contract",
         }
         if check_result.metric_value is not None and check_result.check.threshold is not None:
             t: Threshold = check_result.check.threshold
@@ -274,7 +255,7 @@ class SodaCloud:
             check_result_cloud_dict["diagnostics"] = {
                 "blocks": [],
                 "value": check_result.metric_value,
-                "fail": fail_threshold
+                "fail": fail_threshold,
             }
         return check_result_cloud_dict
 
@@ -325,17 +306,15 @@ class SodaCloud:
         except Exception as e:
             self.logs.critical(
                 message=f"{Emoticons.POLICE_CAR_LIGHT} Soda cloud error: Could not upload contract "
-                        f"to Soda Cloud: {e}",
-                exception=e
+                f"to Soda Cloud: {e}",
+                exception=e,
             )
 
     def test_connection(self) -> Optional[str]:
         """
         Returns an error message or None if the connection test is successful
         """
-        query: dict = {
-            "type": "whoAmI"
-        }
+        query: dict = {"type": "whoAmI"}
         self._execute_query(query_json_dict=query, request_log_name="who_am_i")
         if self.logs.has_errors():
             return self.logs.get_errors_str()
@@ -356,7 +335,8 @@ class SodaCloud:
 
         self.logs.info(
             f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_file_content.yaml_file_path} "
-            f"{Emoticons.FINGERS_CROSSED}")
+            f"{Emoticons.FINGERS_CROSSED}"
+        )
         contract_yaml_source_str = contract_yaml.contract_yaml_file_content.yaml_str_source
         contract_local_file_path = contract_yaml.contract_yaml_file_content.yaml_file_path
         data_source_name = contract_yaml.data_source
@@ -367,8 +347,7 @@ class SodaCloud:
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str,
-            soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             self.logs.critical("Uploading the contract file failed")
@@ -378,22 +357,12 @@ class SodaCloud:
             "type": "sodaCorePublishContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {
-                    "datasource": data_source_name,
-                    "prefixes": dataset_prefix,
-                    "name": dataset_name
-                },
-                "metadata": {
-                    "source": {
-                        "type": "local",
-                        "filePath": contract_local_file_path
-                    }
-                }
-            }
+                "dataset": {"datasource": data_source_name, "prefixes": dataset_prefix, "name": dataset_name},
+                "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
+            },
         }
         response: Response = self._execute_command(
-            command_json_dict=publish_contract_command,
-            request_log_name="publish_contract"
+            command_json_dict=publish_contract_command, request_log_name="publish_contract"
         )
 
         if response.status_code == 200:
@@ -402,8 +371,12 @@ class SodaCloud:
             self.logs.critical(f"{Emoticons.POLICE_CAR_LIGHT} Failed ot publish on Soda Cloud")
 
         response_json = response.json()
-        source_metadata = response_json['metadata']['source'] if 'metadata' in response_json and 'source' in response_json['metadata'] else {}
-        yaml_file_path = source_metadata['filePath'] if 'filePath' in source_metadata else None
+        source_metadata = (
+            response_json["metadata"]["source"]
+            if "metadata" in response_json and "source" in response_json["metadata"]
+            else {}
+        )
+        yaml_file_path = source_metadata["filePath"] if "filePath" in source_metadata else None
 
         return ContractPublicationResult(
             logs=self.logs,
@@ -414,58 +387,59 @@ class SodaCloud:
                 source=YamlFileContentInfo(
                     local_file_path=yaml_file_path,
                     source_content_str=None,
-                    soda_cloud_file_id=response_json.get('fileId', None)
+                    soda_cloud_file_id=response_json.get("fileId", None),
                 ),
                 soda_qualified_dataset_name=None,
-            )
+            ),
         )
 
-    def has_verify_permission(
-            self,
-            data_source_name: str,
-            dataset_prefix: list[str],
-            dataset_name: str) -> bool:
+    def has_verify_permission(self, data_source_name: str, dataset_prefix: list[str], dataset_name: str) -> bool:
         return True
         # TODO re-enable after server implementation is released
 
         dataset_responsibilities_query: dict = {
-          "type": "sodaCoreContractCanBePublished",
-          "contract": {
-            "dataset": {
-              "datasource": data_source_name,
-              "prefixes": dataset_prefix,
-              "name": dataset_name,
-            }
-          }
+            "type": "sodaCoreContractCanBePublished",
+            "contract": {
+                "dataset": {
+                    "datasource": data_source_name,
+                    "prefixes": dataset_prefix,
+                    "name": dataset_name,
+                }
+            },
         }
         response: Response = self._execute_query(
-            query_json_dict=dataset_responsibilities_query,
-            request_log_name="can_contract_be_published"
+            query_json_dict=dataset_responsibilities_query, request_log_name="can_contract_be_published"
         )
         if not response.status_code == 200:  # TODO: should this also not be a critical issue causing the scan to fail?
             return False
         response_json: dict = response.json()
         if not isinstance(response_json, dict):
             return False
-        allowed : bool = response_json.get("allowed", False)
+        allowed: bool = response_json.get("allowed", False)
         if not allowed:
             reason: Optional[str] = response_json.get("reason", None)
             reason_text: str = ""
             if reason == "missingCanCreateDatasourceAndDataset":
-                reason_text = ("The contract doesn’t exist and the user can’t create new contract since it would "
-                               "demand creation of dataset and datasource, but that permission is not available")
+                reason_text = (
+                    "The contract doesn’t exist and the user can’t create new contract since it would "
+                    "demand creation of dataset and datasource, but that permission is not available"
+                )
             elif reason == "missingPublishContracts":
-                reason_text = ("The contract is different compared to the one on the cloud, but the user can’t "
-                               "release new version of the contract")
+                reason_text = (
+                    "The contract is different compared to the one on the cloud, but the user can’t "
+                    "release new version of the contract"
+                )
             elif reason == "missingExecuteContracts":
-                reason_text = ("Even though the contract exists on the cloud and it has identical contents to the "
-                               "local copy - the user is not allowed to run the scan")
+                reason_text = (
+                    "Even though the contract exists on the cloud and it has identical contents to the "
+                    "local copy - the user is not allowed to run the scan"
+                )
             self.logs.error(f"Skipping contract execution because of permissions. {reason_text}")
             return False
         return True
 
     def execute_contracts_on_agent(
-            self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
+        self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
     ) -> ContractResult:
         contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
@@ -473,12 +447,11 @@ class SodaCloud:
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
 
-        soda_cloud_file_path : str = (
+        soda_cloud_file_path: str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str,
-            soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             self.logs.critical(
@@ -491,22 +464,12 @@ class SodaCloud:
             "type": "sodaCoreVerifyContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {
-                    "datasource": data_source_name,
-                    "prefixes": dataset_prefix,
-                    "name": dataset_name
-                },
-                "metadata": {
-                    "source": {
-                        "type": "local",
-                        "filePath": contract_local_file_path
-                    }
-                }
-            }
+                "dataset": {"datasource": data_source_name, "prefixes": dataset_prefix, "name": dataset_name},
+                "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
+            },
         }
         response: Response = self._execute_command(
-            command_json_dict=verify_contract_command,
-            request_log_name="verify_contract"
+            command_json_dict=verify_contract_command, request_log_name="verify_contract"
         )
         response_json: dict = response.json()
         scan_id: str = response_json.get("scanId")
@@ -514,8 +477,7 @@ class SodaCloud:
         scan_is_ed: bool
         soda_cloud_scan_url: Optional[str]
         scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
-            scan_id=scan_id,
-            blocking_timeout_in_minutes=blocking_timeout_in_minutes
+            scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
 
         self.logs.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
@@ -542,10 +504,8 @@ class SodaCloud:
                     timestamp_str: str = log.get("timestamp")
                     timestamp: datetime = self.convert_str_to_datetime(timestamp_str)
                     self.logs.log(
-                        Log(level=logging_level,
-                            message=log.get("message"),
-                            timestamp=timestamp,
-                            index=log.get("index")
+                        Log(
+                            level=logging_level, message=log.get("message"), timestamp=timestamp, index=log.get("index")
                         )
                     )
                 else:
@@ -556,8 +516,9 @@ class SodaCloud:
             self.logs.debug(f"Expected dict for logs, but was {type(logs).__name__}")
 
         if not scan_is_finished:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Max retries exceeded. "
-                            f"Contract verification did not finish yet.")
+            self.logs.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Max retries exceeded. " f"Contract verification did not finish yet."
+            )
 
         if contract_dataset_cloud_url:
             self.logs.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
@@ -568,7 +529,7 @@ class SodaCloud:
                 dataset_prefix=dataset_prefix,
                 dataset_name=dataset_name,
                 soda_qualified_dataset_name=None,
-                source=None
+                source=None,
             ),
             data_source_info=None,
             data_timestamp=None,
@@ -578,7 +539,7 @@ class SodaCloud:
             check_results=[
                 # TODO
             ],
-            logs=self.logs
+            logs=self.logs,
         )
 
     def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
@@ -594,15 +555,16 @@ class SodaCloud:
             attempt += 1
             max_wait: timedelta = blocking_timeout - datetime.now()
             self.logs.debug(
-                f"Asking Soda Cloud if scan {scan_id} is already completed. "
-                f"Attempt {attempt}. Max wait: {max_wait}"
+                f"Asking Soda Cloud if scan {scan_id} is already completed. " f"Attempt {attempt}. Max wait: {max_wait}"
             )
             response = self._get_scan_status(scan_id)
             self.logs.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
             if response:
                 response_body_dict: Optional[dict] = response.json() if response else None
                 scan_state: str = response_body_dict.get("state") if response_body_dict else None
-                contract_dataset_cloud_url: Optional[str] = response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
+                contract_dataset_cloud_url: Optional[str] = (
+                    response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
+                )
 
                 self.logs.info(f"Scan {scan_id} has state '{scan_state}'")
 
@@ -627,8 +589,9 @@ class SodaCloud:
                     )
                     sleep(time_to_wait_in_seconds)
             else:
-                self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Failed to poll remote scan status. "
-                                f"Response: {response}")
+                self.logs.error(
+                    f"{Emoticons.POLICE_CAR_LIGHT} Failed to poll remote scan status. " f"Response: {response}"
+                )
 
         return False, None
 
@@ -646,42 +609,35 @@ class SodaCloud:
 
     def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
         return self._execute_cqrs_request(
-            request_type="query",
-            request_log_name=request_log_name,
-            request_body=query_json_dict,
-            is_retry=True
+            request_type="query", request_log_name=request_log_name, request_body=query_json_dict, is_retry=True
         )
 
     def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Response:
         return self._execute_cqrs_request(
-            request_type="command",
-            request_log_name=request_log_name,
-            request_body=command_json_dict,
-            is_retry=True
+            request_type="command", request_log_name=request_log_name, request_body=command_json_dict, is_retry=True
         )
 
     def _execute_cqrs_request(
-        self,
-        request_type: str,
-        request_log_name: str,
-        request_body: dict,
-        is_retry: bool
+        self, request_type: str, request_log_name: str, request_body: dict, is_retry: bool
     ) -> Response:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(self.to_jsonnable(request_body), indent=2)
             self.logs.debug(f"Sending {request_type} {request_log_name} to Soda Cloud with body: {log_body_text}")
             response: Response = self._http_post(
-                url=f"{self.api_url}/{request_type}", headers=self.headers, json=request_body, request_log_name=request_log_name
+                url=f"{self.api_url}/{request_type}",
+                headers=self.headers,
+                json=request_body,
+                request_log_name=request_log_name,
             )
 
             trace_id: str = response.headers.get("X-Soda-Trace-Id")
-                # TODO let m1no check if this is still needed...
-                # if request_name:
-                #     trace_id = response.headers.get("X-Soda-Trace-Id")
-                #
-                #     if trace_id:
-                #         self.soda_cloud_trace_ids[request_name] = trace_id
+            # TODO let m1no check if this is still needed...
+            # if request_name:
+            #     trace_id = response.headers.get("X-Soda-Trace-Id")
+            #
+            #     if trace_id:
+            #         self.soda_cloud_trace_ids[request_name] = trace_id
 
             if response.status_code == 401 and is_retry:
                 self.logs.debug(
@@ -693,7 +649,7 @@ class SodaCloud:
                     request_type=request_type,
                     request_log_name=request_log_name,
                     request_body=request_body,
-                    is_retry=False
+                    is_retry=False,
                 )
             elif response.status_code != 200:
                 self.logs.critical(
@@ -707,18 +663,15 @@ class SodaCloud:
 
             return response
         except Exception as e:
-            self.logs.critical(f"{Emoticons.POLICE_CAR_LIGHT} Error while executing Soda Cloud {request_type} {request_log_name}", exception=e)
+            self.logs.critical(
+                f"{Emoticons.POLICE_CAR_LIGHT} Error while executing Soda Cloud {request_type} {request_log_name}",
+                exception=e,
+            )
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
 
-    def _execute_rest_get(
-        self,
-        relative_url_path: str,
-        request_log_name: str,
-        is_retry: bool = True
-    ) -> Response:
-
+    def _execute_rest_get(self, relative_url_path: str, request_log_name: str, is_retry: bool = True) -> Response:
         credentials_plain = f"{self.api_key_id}:{self.api_key_secret}"
         credentials_encoded = base64.b64encode(credentials_plain.encode()).decode()
 
@@ -729,10 +682,7 @@ class SodaCloud:
 
         url: str = f"{self.api_url}/v1/{relative_url_path}"
         self.logs.debug(f"Sending GET {url} request to Soda Cloud")
-        response: Response = self._http_get(
-            url=url,
-            headers=headers
-        )
+        response: Response = self._http_get(url=url, headers=headers)
 
         trace_id: str = response.headers.get("X-Soda-Trace-Id")
 
@@ -743,9 +693,7 @@ class SodaCloud:
             )
             self.token = None
             response = self._execute_rest_get(
-                relative_url_path=relative_url_path,
-                request_log_name=request_log_name,
-                is_retry=False
+                relative_url_path=relative_url_path, request_log_name=request_log_name, is_retry=False
             )
         elif response.status_code != 200:
             self.logs.critical(
@@ -753,9 +701,7 @@ class SodaCloud:
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
             )
         else:
-            self.logs.debug(
-                f"{Emoticons.OK_HAND} Soda Cloud {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
-            )
+            self.logs.debug(f"{Emoticons.OK_HAND} Soda Cloud {request_log_name} OK | X-Soda-Trace-Id:{trace_id}")
 
         return response
 
