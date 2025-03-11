@@ -422,7 +422,7 @@ class SodaCloud:
         data_source_name: str,
         dataset_prefix: list[str],
         dataset_name: str,
-        file_id: str,
+        # file_id: str,
     ) -> bool:
         # TODO: review this after contract permission simplifications
         # allowed, reason = self._get_contract_permissions(data_source_name, dataset_prefix, dataset_name, file_id)
