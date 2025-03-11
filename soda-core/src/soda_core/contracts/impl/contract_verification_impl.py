@@ -111,11 +111,13 @@ class ContractVerificationImpl:
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
-
-        if self.use_agent:
-            contract_results = self.verify_contracts_on_agent(self.contract_yamls)
-        elif self.data_source:
-            contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
+        try:
+            if self.use_agent:
+                contract_results = self.verify_contracts_on_agent(self.contract_yamls)
+            elif self.data_source:
+                contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
+        except Exception as e:
+            self.logs.error(str(e), exception=e)
 
         return ContractVerificationResult(
             logs=self.logs,
@@ -159,20 +161,21 @@ class ContractVerificationImpl:
             if open_close:
                 data_source.open_connection()
             try:
-                for contract_impl in contract_impls:
-                    if not self.soda_cloud or self.soda_cloud.has_verify_permission(
-                        data_source_name=contract_impl.data_source.name,
-                        dataset_prefix=contract_impl.dataset_prefix,
-                        dataset_name=contract_impl.dataset_name
-                    ):
-                        contract_result: ContractResult = contract_impl.verify()
-                        contract_results.append(contract_result)
-                        self._log_summary(contract_result)
-                        if self.soda_cloud:
-                            self.soda_cloud.upload_contract_file(contract_result.contract)
-                            self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
-                        else:
-                            self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+                if data_source.has_open_connection():
+                    for contract_impl in contract_impls:
+                        if not self.soda_cloud or self.soda_cloud.has_verify_permission(
+                            data_source_name=contract_impl.data_source.name,
+                            dataset_prefix=contract_impl.dataset_prefix,
+                            dataset_name=contract_impl.dataset_name
+                        ):
+                            contract_result: ContractResult = contract_impl.verify()
+                            contract_results.append(contract_result)
+                            self._log_summary(contract_result)
+                            if self.soda_cloud:
+                                self.soda_cloud.upload_contract_file(contract_result.contract)
+                                self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
+                            else:
+                                self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
             finally:
                 if open_close:
                     data_source.close_connection()

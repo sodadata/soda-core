@@ -199,6 +199,5 @@ class Logs:
         self.logger.log(
             level=log.level,
             msg=str(log),
-            exc_info=log.exception,
-            stack_info=log.exception is not None,
+            exc_info=log.exception if self.logger.isEnabledFor(DEBUG) else None
         )

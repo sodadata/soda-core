@@ -103,8 +103,6 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
           host: localhost
           user: soda_test
           database: soda_test
-        format_regexes:
-          single_digit_test_format: ^[0-9]$
     """)
 
     contract_tmp_file = tempfile.NamedTemporaryFile()
@@ -121,3 +119,40 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
     assert test_cli.contract_verification_result.is_ok()
     contract_result: ContractResult = test_cli.contract_verification_result.contract_results[0]
     assert len(contract_result.check_results) == 2
+
+
+def test_cli_wrong_pwd(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_yaml_str: str = dedent_and_strip(f"""
+        data_source: postgres_test_ds
+        dataset: {test_table.unique_name}
+        dataset_prefix: {data_source_test_helper.dataset_prefix}
+        columns:
+          - name: id
+        checks:
+          - row_count:
+              threshold:
+                must_be: 3
+          - schema:
+    """)
+
+    data_source_yaml_str: str = dedent_and_strip("""
+        type: postgres
+        name: postgres_test_ds
+        connection:
+          host: localhost
+          user: wrongpwd!
+          database: soda_test
+    """)
+
+    contract_tmp_file = tempfile.NamedTemporaryFile()
+    with open(contract_tmp_file.name, 'w') as f:
+        f.write(contract_yaml_str)
+
+    data_source_tmp_file = tempfile.NamedTemporaryFile()
+    with open(data_source_tmp_file.name, 'w') as f:
+        f.write(data_source_yaml_str)
+
+    test_cli: CLI4Test = CLI4Test(["soda", "verify", "-ds", data_source_tmp_file.name, "-c", contract_tmp_file.name])
+    test_cli.execute()

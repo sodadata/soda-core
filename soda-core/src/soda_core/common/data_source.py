@@ -82,7 +82,10 @@ class DataSource(ABC):
         )
 
     def has_open_connection(self) -> bool:
-        return isinstance(self.data_source_connection, DataSourceConnection)
+        return (
+            isinstance(self.data_source_connection, DataSourceConnection)
+            and self.data_source_connection.connection is not None
+        )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_connection()
