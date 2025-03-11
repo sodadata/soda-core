@@ -18,7 +18,7 @@ def test_parsing_error_wrong_type(data_source_test_helper: DataSourceTestHelper)
                   - invalid:
               - name: age
             checks:
-              - type: schema
+              - schema:
     """))
 
     logs_str = contract_verification_result.get_logs_str()
