@@ -4,15 +4,4 @@ python-dotenv~=1.0
 tox~=4.12
 tox-docker~=5.0
 tbump~=6.11
-
-# pytest-html~=3.1
-# pytest-cov~=3.0
-# faker~=13.3
-# black==22.6.0
-# typing_extensions>=4.3.0,<5
-# urllib3~=1.26
-# pygments~=2.11
-# readme-renderer~=32.0
-# certifi>=2022.12.07
-# wheel>=0.38.1
-# requests>=2.32.3
+pre-commit~=4.1.0
