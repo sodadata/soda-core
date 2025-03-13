@@ -20,7 +20,7 @@ class ContractPublication:
     def __init__(self, contract_publication_builder: ContractPublicationBuilder) -> None:
         if not contract_publication_builder.soda_cloud and not contract_publication_builder.soda_cloud_yaml_source:
             contract_publication_builder.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} cannot publish without a Soda Cloud configuration"
+                f"Cannot publish without a Soda Cloud configuration"
             )
 
         from soda_core.contracts.impl.contract_publication_impl import (
@@ -58,9 +58,6 @@ class ContractPublicationResultList:
     items: List[ContractPublicationResult]
     logs: Logs
 
-    def has_critical(self) -> bool:
-        return any([r.has_critical() for r in self.items]) or self.logs.has_critical()
-
     def has_errors(self) -> bool:
         return any([r.has_errors() for r in self.items]) or self.logs.has_errors()
 
@@ -75,9 +72,6 @@ class ContractPublicationResultList:
 class ContractPublicationResult:
     logs: Logs
     contract: Optional[Contract]
-
-    def has_critical(self) -> bool:
-        return self.logs.has_critical()
 
     def has_errors(self) -> bool:
         return self.logs.has_errors()

@@ -68,6 +68,12 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
+        if not self.missing_and_validity.has_validity_configurations():
+            self.logs.error(
+                message="Invalid check does not have any valid or invalid configurations",
+                location=self.check_yaml.check_yaml_object.location
+            )
+
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
 
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
@@ -118,16 +124,19 @@ class InvalidCheck(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
+        diagnostics: list[Diagnostic] = []
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
-        diagnostics: list[Diagnostic] = [NumericDiagnostic(name="invalid_count", value=invalid_count)]
+        if isinstance(invalid_count, Number):
+            diagnostics.append(NumericDiagnostic(name="invalid_count", value=invalid_count))
 
         row_count: int = measurement_values.get_value(self.row_count_metric)
-        diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
-
         invalid_percent: float = 0
-        if row_count > 0:
-            invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
-        diagnostics.append(NumericDiagnostic(name="invalid_percent", value=invalid_percent))
+        if isinstance(row_count, Number):
+            diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
+
+            if row_count > 0:
+                invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
+            diagnostics.append(NumericDiagnostic(name="invalid_percent", value=invalid_percent))
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 

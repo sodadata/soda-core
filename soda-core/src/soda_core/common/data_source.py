@@ -160,11 +160,11 @@ class DataSource(ABC):
         if format is None:
             return None
         if self.format_regexes is None:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} 'format_regexes' not configured in data source")
+            self.logs.error(f"'format_regexes' not configured in data source")
         format_regex: Optional[str] = self.format_regexes.get(format)
         if format_regex is None:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Validity format regex '{format}' not configured "
+                f"Validity format regex '{format}' not configured "
                 f"in data source 'format_regexes'"
             )
         return format_regex

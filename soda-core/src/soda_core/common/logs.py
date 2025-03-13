@@ -4,6 +4,7 @@ import logging
 import traceback
 from datetime import datetime, timezone
 from logging import DEBUG, ERROR, INFO, WARNING, Logger
+from traceback import TracebackException
 from typing import Optional
 
 
@@ -193,7 +194,7 @@ class Logs:
         return any(log.level == logging.CRITICAL for log in self.logs)
 
     def has_errors(self) -> bool:
-        return any(log.level == ERROR for log in self.logs)
+        return any(log.level >= ERROR for log in self.logs)
 
     def get_errors_str(self) -> str:
         error_logs: list[Log] = self.get_errors()
@@ -205,10 +206,27 @@ class Logs:
         return [log for log in self.logs if log.level == ERROR]
 
     def log(self, log: Log) -> None:
+        if log.level >= ERROR:
+            log.message = f"{Emoticons.POLICE_CAR_LIGHT} {log.message}"
         self.logs.append(log)
         self.__log_to_python_logging(log)
 
     def __log_to_python_logging(self, log: Log) -> None:
+        extra: dict = {}
+        if isinstance(log.location, Location):
+            extra["location"] = {
+                "file": log.location.file_path,
+                "line": log.location.line,
+                "column": log.location.column
+            }
+        if isinstance(log.doc, str):
+            extra["doc"] = log.doc
+
+        if log.exception and self.logger.isEnabledFor(DEBUG):
+            extra["exception"] = ''.join(TracebackException.from_exception(log.exception).format()).strip()
+
         self.logger.log(
-            level=log.level, msg=str(log), exc_info=log.exception if self.logger.isEnabledFor(DEBUG) else None
+            level=log.level,
+            msg=log.message,
+            extra=extra if extra else None
         )

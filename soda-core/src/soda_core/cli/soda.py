@@ -11,6 +11,7 @@ from textwrap import dedent
 from typing import Optional
 
 from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
@@ -21,6 +22,14 @@ from soda_core.contracts.contract_verification import (
 
 
 class CLI:
+
+    # https://docs.soda.io/soda-library/programmatic.html#scan-exit-codes
+    EXIT_CODE_0_ALL_IS_GOOD = 0
+    EXIT_CODE_1_CHECK_FAILURES_OCCURRED = 1
+    EXIT_CODE_2_LOG_WARNINGS_OCCURRED = 2
+    EXIT_CODE_3_LOG_ERRORS_OCCURRED = 3
+    EXIT_CODE_4_RESULTS_NOT_SENT_TO_CLOUD = 4
+
     def execute(self) -> None:
         try:
             print(
@@ -174,30 +183,13 @@ class CLI:
 
         except Exception as e:
             traceback.print_exc()
-            self._end_with_exit_code(3)
+            self._exit_with_code(3)
 
-    def _configure_logging(self, verbose: bool):
-        sys.stderr = sys.stdout
-        logging.getLogger("urllib3").setLevel(logging.WARNING)
-        logging.getLogger("botocore").setLevel(logging.WARNING)
-        logging.getLogger("pyathena").setLevel(logging.WARNING)
-        logging.getLogger("faker").setLevel(logging.ERROR)
-        logging.getLogger("snowflake").setLevel(logging.WARNING)
-        logging.getLogger("matplotlib").setLevel(logging.WARNING)
-        logging.getLogger("pyspark").setLevel(logging.ERROR)
-        logging.getLogger("pyhive").setLevel(logging.ERROR)
-        logging.getLogger("py4j").setLevel(logging.INFO)
-        logging.getLogger("segment").setLevel(logging.WARNING)
-
-        default_logging_level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(
-            level=default_logging_level,
-            force=True,  # Override any previously set handlers.
-            # https://docs.python.org/3/library/logging.html#logrecord-attributes
-            # %(name)s
-            format="%(message)s",
-            handlers=[logging.StreamHandler(sys.stdout)],
-        )
+    def _configure_logging(self, verbose: bool) -> None:
+        """
+        Purpose of this method is to enable override in test environment
+        """
+        configure_logging(verbose=verbose)
 
     def _verify_contract(
         self,
@@ -207,7 +199,7 @@ class CLI:
         skip_publish: bool,
         use_agent: bool,
         blocking_timeout_in_minutes: int,
-    ):
+    ) -> ContractVerificationResult:
         contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
 
         for contract_file_path in contract_file_paths:
@@ -228,12 +220,10 @@ class CLI:
             contract_verification_builder.with_soda_cloud_skip_publish()
 
         contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-        if contract_verification_result.has_critical():
-            self._end_with_exit_code(4)
-        elif contract_verification_result.has_errors():
-            self._end_with_exit_code(3)
+        if contract_verification_result.has_errors():
+            self._exit_with_code(4)
         elif contract_verification_result.has_failures():
-            self._end_with_exit_code(2)
+            self._exit_with_code(2)
 
         return contract_verification_result
 
@@ -269,10 +259,8 @@ class CLI:
 
         contract_publication_result = contract_publication_builder.build().execute()
 
-        if contract_publication_result.has_critical():
-            self._end_with_exit_code(4)
-        elif contract_publication_result.has_errors():
-            self._end_with_exit_code(3)
+        if contract_publication_result.has_errors():
+            self._exit_with_code(self.EXIT_CODE_4_RESULTS_NOT_SENT_TO_CLOUD)
 
         return contract_publication_result
 
@@ -320,7 +308,7 @@ class CLI:
                 f"{Emoticons.POLICE_CAR_LIGHT} Could not connect using data source '{data_source_file_path}': "
                 f"{error_message}"
             )
-            exit(2)
+            self._exit_with_code(self.EXIT_CODE_3_USER_ERRORS_OCCURRED)
         else:
             print(f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok.")
 
@@ -362,11 +350,12 @@ class CLI:
         )
         if error_msg:
             print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
-            exit(3)
+            self._exit_with_code(3)
         else:
             print(f"{Emoticons.WHITE_CHECK_MARK} Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
 
-    def _end_with_exit_code(self, exit_code: int):
+    def _exit_with_code(self, exit_code: int):
+        print(f"Exiting with code {exit_code}")
         exit(exit_code)
 
     def _create_argument_parser(self, epilog: str) -> ArgumentParser:
@@ -375,7 +364,7 @@ class CLI:
     def handle_ctrl_c(self, sig, frame):
         print()
         print(f"CTRL+C detected")
-        sys.exit(1)
+        self._exit_with_code(1)
 
 
 def main():

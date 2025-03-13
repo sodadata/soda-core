@@ -30,7 +30,7 @@ def test_contract_publication_fails_on_missing_soda_cloud_config():
     )
 
     assert contract_publication_result.has_errors()
-    assert "cannot publish without a Soda Cloud configuration" in str(contract_publication_result.logs)
+    assert "Cannot publish without a Soda Cloud configuration" in str(contract_publication_result.logs)
     assert "skipping publication because of missing Soda Cloud configuration" in str(contract_publication_result.logs)
 
 
@@ -117,15 +117,14 @@ def test_contract_publication_returns_result_for_each_added_contract():
 
 
 @pytest.mark.parametrize(
-    "logs, has_critical, has_errors",
+    "logs, has_errors",
     [
-        (Logs([Log(level=CRITICAL, message="critical")]), True, False),
-        (Logs([Log(level=ERROR, message="error")]), False, True),
-        (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), True, True),
-        (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), False, False),
+        (Logs([Log(level=CRITICAL, message="critical")]), True),
+        (Logs([Log(level=ERROR, message="error")]), True),
+        (Logs([Log(level=ERROR, message="error"), Log(level=CRITICAL, message="critical")]), True),
+        (Logs([Log(level=WARN, message="warn"), Log(level=INFO, message="info")]), False),
     ],
 )
-def test_contract_publication_log_levels(logs, has_critical, has_errors):
+def test_contract_publication_log_levels(logs, has_errors):
     result = ContractPublicationResultList(logs=logs, items=[ContractPublicationResult(contract=Mock(), logs=logs)])
-    assert result.has_critical() is has_critical
     assert result.has_errors() is has_errors

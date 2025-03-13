@@ -21,7 +21,7 @@ class ContractCommandBuilder:
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
+                f"...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
                 f"Expected string, but was {contract_yaml_file_path.__class__.__name__}."
             )
         return self
@@ -32,7 +32,7 @@ class ContractCommandBuilder:
             self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
+                f"...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
                 f"Expected string, but was {contract_yaml_str.__class__.__name__}"
             )
         return self
@@ -43,13 +43,13 @@ class ContractCommandBuilder:
                 self.logs.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
             else:
                 self.logs.debug(
-                    f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
+                    f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
+                f"...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                 f"Expected string, but was {soda_cloud_yaml_file_path.__class__.__name__}"
             )
         return self
@@ -60,13 +60,13 @@ class ContractCommandBuilder:
                 self.logs.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
             else:
                 self.logs.debug(
-                    f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
+                    f"  ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
+                f"...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                 f"Expected string, but was {soda_cloud_yaml_str.__class__.__name__}"
             )
         return self
@@ -82,7 +82,7 @@ class ContractCommandBuilder:
             self.variables[key] = value
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid variable '{key}'. "
+                f"Ignoring invalid variable '{key}'. "
                 f"Expected key str and value string"
             )
         return self
@@ -97,7 +97,7 @@ class ContractCommandBuilder:
             self.variables = None
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid variables '{variables}'. "
+                f"Ignoring invalid variables '{variables}'. "
                 f"Expected dict, but was {variables.__class__.__name__}"
             )
         return self

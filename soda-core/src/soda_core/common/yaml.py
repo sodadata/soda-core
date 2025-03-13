@@ -155,16 +155,16 @@ class YamlFileContent:
                     if len(file_content_str) > 0:
                         return file_content_str
                     else:
-                        logs.error(message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} is empty")
+                        logs.error(message=f"{yaml_source_description} is empty")
 
             except OSError as e:
                 if not os.path.exists(file_path):
-                    logs.error(message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} does not exist")
+                    logs.error(message=f"{yaml_source_description} does not exist")
                 elif not os.path.isdir(file_path):
-                    logs.error(message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} is a directory")
+                    logs.error(message=f"{yaml_source_description} is a directory")
                 else:
                     logs.error(
-                        message=f"{Emoticons.POLICE_CAR_LIGHT} {yaml_source_description} can't be read", exception=e
+                        message=f"{yaml_source_description} can't be read", exception=e
                     )
 
     @classmethod
@@ -290,7 +290,7 @@ class YamlObject(YamlValue):
                         filtered_list.append(element)
                     else:
                         self.logs.error(
-                            message=f"{Emoticons.POLICE_CAR_LIGHT} YAML key '{key}' expects a "
+                            message=f"YAML key '{key}' expects a "
                             f"list of {expected_element_type.__name__}. "
                             f"But element {index} was {type(element).__name__}",
                             location=self.create_location_from_yaml_dict_key(key),
@@ -315,7 +315,7 @@ class YamlObject(YamlValue):
                 element = list_value.yaml_list[i]
                 if not isinstance(element, YamlObject):
                     self.logs.error(
-                        message=f"{Emoticons.POLICE_CAR_LIGHT} YAML key '{key}' expected list of objects.  "
+                        message=f"YAML key '{key}' expected list of objects.  "
                         f"But element {i} was {type(element).__name__}",
                         location=self.create_location_from_yaml_dict_key(key),
                     )
@@ -393,7 +393,7 @@ class YamlObject(YamlValue):
         else:
             if required:
                 self.logs.error(
-                    message=f"{Emoticons.POLICE_CAR_LIGHT} {key_description} is required", location=self.location
+                    message=f"{key_description} is required", location=self.location
                 )
             value = default_value
 
@@ -406,7 +406,7 @@ class YamlObject(YamlValue):
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
             self.logs.error(
-                message=f"{Emoticons.POLICE_CAR_LIGHT} {key_description} expected a {expected_type.__name__}, "
+                message=f"{key_description} expected a {expected_type.__name__}, "
                 f"but was {actual_type_str}",
                 location=self.create_location_from_yaml_dict_key(key),
             )

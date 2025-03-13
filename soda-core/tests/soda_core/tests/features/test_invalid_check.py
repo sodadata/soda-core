@@ -1,3 +1,5 @@
+import pytest
+
 from soda_core.contracts.contract_verification import (
     ContractResult,
     Diagnostic,
@@ -23,7 +25,40 @@ test_table_specification = (
 )
 
 
-def test_valid_count(data_source_test_helper: DataSourceTestHelper):
+@pytest.mark.parametrize(
+    "contract_yaml_str",
+    [
+        """
+        columns:
+          - name: id
+            valid_values: ['1', '2', '3']
+            checks:
+              - invalid:
+        """,
+
+        """
+        columns:
+          - name: id
+            checks:
+              - invalid:
+                  valid_values: ['1', '2', '3']
+        """,
+    ],
+)
+def test_valid_count(data_source_test_helper: DataSourceTestHelper, contract_yaml_str: str):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=contract_yaml_str
+    )
+    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 1 == diagnostic.value
+
+
+def test_valid_values_not_configured(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
@@ -31,15 +66,11 @@ def test_valid_count(data_source_test_helper: DataSourceTestHelper):
         contract_yaml_str=f"""
             columns:
               - name: id
-                valid_values: ['1', '2', '3']
                 checks:
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, NumericDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert "Invalid check does not have any valid or invalid configurations" in contract_result.logs.get_errors_str()
 
 
 def test_valid_values_with_null(data_source_test_helper: DataSourceTestHelper):

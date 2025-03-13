@@ -80,10 +80,10 @@ class ContractVerificationImpl:
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
                 self.data_source = data_source_parser.parse()
             if self.data_source is None:
-                self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} No data source configured")
+                self.logs.error(f"No data source configured")
         elif data_source is not None or data_source_yaml_source is not None:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} When executing the contract verification on Soda Agent, "
+                f"When executing the contract verification on Soda Agent, "
                 f"a data source should not be configured"
             )
 
@@ -97,7 +97,7 @@ class ContractVerificationImpl:
         self.contract_yamls: list[ContractYaml] = []
         self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} No contracts configured")
+            self.logs.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -110,7 +110,8 @@ class ContractVerificationImpl:
                     contract_yaml.dataset_prefix
                 ):
                     contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml, data_source=self.data_source, variables=variables, logs=logs
+                        contract_yaml=contract_yaml, data_source=self.data_source, variables=variables, logs=logs,
+                        soda_cloud=self.soda_cloud, skip_publish=self.skip_publish
                     )
                     if contract_impl:
                         self.contract_impls.append(contract_impl)
@@ -148,7 +149,7 @@ class ContractVerificationImpl:
             return contract_results
 
         else:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Using the agent requires a Soda Cloud configuration")
+            self.logs.error(f"Using the agent requires a Soda Cloud configuration")
             return []
 
     def verify_contracts_locally(
@@ -169,54 +170,28 @@ class ContractVerificationImpl:
                         ):
                             contract_result: ContractResult = contract_impl.verify()
                             contract_results.append(contract_result)
-                            self._log_summary(contract_result)
-                            if self.soda_cloud:
-                                self.soda_cloud.upload_contract_file(contract_result.contract)
-                                self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
-                            else:
-                                self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
             finally:
                 if open_close:
                     data_source.close_connection()
         return contract_results
 
-    def _log_summary(self, contract_result: ContractResult):
-        self.logs.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
-        failed_count: int = 0
-        not_evaluated_count: int = 0
-        passed_count: int = 0
-        for check_result in contract_result.check_results:
-            check_result.log_summary(self.logs)
-            if check_result.outcome == CheckOutcome.FAILED:
-                failed_count += 1
-            elif check_result.outcome == CheckOutcome.NOT_EVALUATED:
-                not_evaluated_count += 1
-            elif check_result.outcome == CheckOutcome.PASSED:
-                passed_count += 1
-
-        error_count: int = len(self.logs.get_errors())
-
-        not_evaluated_count: int = sum(
-            1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
-            for check_result in contract_result.check_results
-        )
-
-        if failed_count + error_count + not_evaluated_count == 0:
-            self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
-        else:
-            self.logs.info(
-                f"Contract summary: Ouch! {failed_count} checks failures, "
-                f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
-                f"and {error_count} errors."
-            )
-
 
 class ContractImpl:
-    def __init__(self, contract_yaml: ContractYaml, data_source: DataSource, variables: dict[str, str], logs: Logs):
+    def __init__(
+        self,
+        contract_yaml: ContractYaml,
+        data_source: DataSource,
+        variables: dict[str, str],
+        logs: Logs,
+        soda_cloud: Optional[SodaCloud],
+        skip_publish: bool
+    ):
         self.logs: Logs = logs
         self.data_source: DataSource = data_source
         self.contract_yaml: ContractYaml = contract_yaml
         self.variables: dict[str, str] = variables
+        self.soda_cloud: Optional[SodaCloud] = soda_cloud
+        self.skip_publish: bool = skip_publish
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
         # self.data_timestamp can be None if the user specified a DATA_TS variable that is not in the correct format
@@ -257,7 +232,7 @@ class ContractImpl:
             except:
                 pass
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Could not parse variable {now_variable_name} "
+                f"Could not parse variable {now_variable_name} "
                 f"as a timestamp: {now_variable_timestamp_text}"
             )
         else:
@@ -314,6 +289,7 @@ class ContractImpl:
                         dataset_name=self.dataset_name,
                         filter_condition=None,
                         data_source=self.data_source,
+                        logs=self.logs
                     )
                 )
             last_aggregation_query: AggregationQuery = aggregation_queries[-1]
@@ -348,7 +324,8 @@ class ContractImpl:
         measurement_values: MeasurementValues = MeasurementValues(measurements)
         for derived_metric_impl in derived_metric_impls:
             derived_measurement: Measurement = derived_metric_impl.create_derived_measurement(measurement_values)
-            measurements.append(derived_measurement)
+            if isinstance(derived_measurement, Measurement):
+                measurements.append(derived_measurement)
 
         contract_info: Contract = self.build_contract_info()
         data_source_info: DataSourceInfo = self.data_source.build_data_source_info()
@@ -362,7 +339,7 @@ class ContractImpl:
             )
             check_results.append(check_result)
 
-        return ContractResult(
+        contract_result: ContractResult = ContractResult(
             contract=contract_info,
             data_source_info=data_source_info,
             data_timestamp=self.data_timestamp,
@@ -370,8 +347,53 @@ class ContractImpl:
             ended_timestamp=datetime.now(tz=timezone.utc),
             measurements=measurements,
             check_results=check_results,
+            sending_results_to_soda_cloud_failed=False,
             logs=self.logs,
         )
+
+        self.log_summary(contract_result)
+
+        if self.soda_cloud:
+            # upload_contract_file fills in contract.source.soda_cloud_file_id if all goes well
+            self.soda_cloud.upload_contract_file(contract_result.contract)
+            # send_contract_result will use contract.source.soda_cloud_file_id
+            response_ok: bool = self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
+            if not response_ok:
+                contract_result.sending_results_to_soda_cloud_failed = True
+        else:
+            self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+
+        return contract_result
+
+    def log_summary(self, contract_result: ContractResult):
+        self.logs.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
+        failed_count: int = 0
+        not_evaluated_count: int = 0
+        passed_count: int = 0
+        for check_result in contract_result.check_results:
+            check_result.log_summary(self.logs)
+            if check_result.outcome == CheckOutcome.FAILED:
+                failed_count += 1
+            elif check_result.outcome == CheckOutcome.NOT_EVALUATED:
+                not_evaluated_count += 1
+            elif check_result.outcome == CheckOutcome.PASSED:
+                passed_count += 1
+
+        error_count: int = len(self.logs.get_errors())
+
+        not_evaluated_count: int = sum(
+            1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
+            for check_result in contract_result.check_results
+        )
+
+        if failed_count + error_count + not_evaluated_count == 0:
+            self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
+        else:
+            self.logs.info(
+                f"Contract summary: Ouch! {failed_count} checks failures, "
+                f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
+                f"and {error_count} errors."
+            )
 
     def build_contract_info(self) -> Contract:
         return Contract(
@@ -392,7 +414,7 @@ class ContractImpl:
             existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
             if existing_check_impl:
                 # TODO distill better diagnostic error message: which check in which column on which lines in the file
-                logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Duplicate identity ({check_impl.identity})")
+                logs.error(f"Duplicate identity ({check_impl.identity})")
             checks_by_identity[check_impl.identity] = check_impl
 
 
@@ -518,11 +540,11 @@ class MissingAndValidity:
         if not column_defaults:
             return
 
-        check_has_missing: bool = self._has_missing_configurations()
+        check_has_missing: bool = self.has_missing_configurations()
         self.missing_values = self.missing_values if check_has_missing else column_defaults.missing_values
         self.missing_format = self.missing_format if check_has_missing else column_defaults.missing_format
 
-        check_has_validity: bool = self._has_validity_configurations()
+        check_has_validity: bool = self.has_validity_configurations()
         self.invalid_values = self.invalid_values if check_has_validity else column_defaults.invalid_values
         self.invalid_format = self.invalid_format if check_has_validity else column_defaults.invalid_format
         self.valid_values = self.valid_values if check_has_validity else column_defaults.valid_values
@@ -536,21 +558,16 @@ class MissingAndValidity:
             self.valid_reference_data if check_has_validity else column_defaults.valid_reference_data
         )
 
-    def _has_missing_configurations(self) -> bool:
+    def has_missing_configurations(self) -> bool:
         return self.missing_values is not None or self.missing_format is not None
 
-    def _has_validity_configurations(self) -> bool:
-        return (
-            self.invalid_values is not None
-            or self.invalid_format is not None
-            or self.valid_values is not None
-            or self.valid_format is not None
-            or self.valid_min is not None
-            or self.valid_max is not None
-            or self.valid_length is not None
-            or self.valid_min_length is not None
-            or self.valid_max_length is not None
-            or self.valid_reference_data is not None
+    def has_validity_configurations(self) -> bool:
+        return any(
+            cfg is not None for cfg in [
+                self.invalid_values, self.invalid_format, self.valid_values, self.valid_format, self.valid_min,
+                self.valid_max, self.valid_length, self.valid_min_length, self.valid_max_length,
+                self.valid_reference_data
+            ]
         )
 
     def has_reference_data(self) -> bool:
@@ -588,7 +605,7 @@ class ThresholdImpl:
             if default_threshold:
                 return default_threshold
             else:
-                logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
+                logs.error(f"Threshold required, but not specified")
                 return None
 
         total_config_count: int = cls.__config_count(
@@ -607,7 +624,7 @@ class ThresholdImpl:
         if total_config_count == 0:
             if default_threshold:
                 return default_threshold
-            logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Threshold required, but not specified")
+            logs.error(f"Threshold required, but not specified")
             return None
 
         if (
@@ -646,7 +663,7 @@ class ThresholdImpl:
                     )
                 else:
                     logs.error(
-                        f"{Emoticons.POLICE_CAR_LIGHT} Threshold must_be_between range: "
+                        f"Threshold must_be_between range: "
                         "first value must be less than the second value"
                     )
                     return None
@@ -663,7 +680,7 @@ class ThresholdImpl:
                     )
                 else:
                     logs.error(
-                        f"{Emoticons.POLICE_CAR_LIGHT} Threshold must_be_not_between range: "
+                        f"Threshold must_be_not_between range: "
                         "first value must be less than the second value"
                     )
                     return None
@@ -844,7 +861,7 @@ class CheckImpl:
                     check_yaml=check_yaml,
                 )
             else:
-                contract_impl.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Unknown check type '{check_yaml.type_name}'")
+                contract_impl.logs.error(f"Unknown check type '{check_yaml.type_name}'")
 
     def __init__(
         self,
@@ -1020,7 +1037,8 @@ class Query(ABC):
 
 class AggregationQuery(Query):
     def __init__(
-        self, dataset_prefix: list[str], dataset_name: str, filter_condition: Optional[str], data_source: DataSource
+        self, dataset_prefix: list[str], dataset_name: str, filter_condition: Optional[str], data_source: DataSource,
+        logs: Logs
     ):
         super().__init__(data_source=data_source, metrics=[])
         self.dataset_prefix: list[str] = dataset_prefix
@@ -1029,6 +1047,7 @@ class AggregationQuery(Query):
         self.aggregation_metrics: list[AggregationMetricImpl] = []
         self.data_source: DataSource = data_source
         self.query_size: int = len(self.build_sql())
+        self.logs: Logs = logs
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
         sql_expression: SqlExpression = aggregation_metric_impl.sql_expression()
@@ -1053,9 +1072,14 @@ class AggregationQuery(Query):
         return [aggregation_metric.sql_expression() for aggregation_metric in self.aggregation_metrics]
 
     def execute(self) -> list[Measurement]:
-        measurements: list[Measurement] = []
         sql = self.build_sql()
-        query_result: QueryResult = self.data_source.execute_query(sql)
+        try:
+            query_result: QueryResult = self.data_source.execute_query(sql)
+        except Exception as e:
+            self.logs.error(f"Could not execute aggregation query {sql}: {e}", exception=e)
+            return []
+
+        measurements: list[Measurement] = []
         row: tuple = query_result.rows[0]
         for i in range(0, len(self.aggregation_metrics)):
             aggregation_metric_impl: AggregationMetricImpl = self.aggregation_metrics[i]

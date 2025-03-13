@@ -90,7 +90,7 @@ class ContractYaml:
         if self.contract_yaml_object.has_key("datasource") and not self.contract_yaml_object.has_key("data_source"):
             self.logs.error(
                 message=(
-                    f"{Emoticons.POLICE_CAR_LIGHT} Key `datasource` must be 2 words. " "Please change to `data_source`."
+                    f"Key `datasource` must be 2 words. " "Please change to `data_source`."
                 ),
                 location=self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
             )
@@ -133,7 +133,7 @@ class ContractYaml:
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
                         self.logs.error(
-                            f"{Emoticons.POLICE_CAR_LIGHT} Duplicate columns with "
+                            f"Duplicate columns with "
                             f"name '{column_name}'{locations_message}"
                         )
         return columns
@@ -155,7 +155,7 @@ class ContractYaml:
                         check_keys: set[str] = check_yaml_object.keys()
                         if len(check_keys) != 1:
                             self.logs.error(
-                                message=f"{Emoticons.POLICE_CAR_LIGHT} Checks require 1 key to be the type",
+                                message=f"Checks require 1 key to be the type",
                                 location=check_yaml_object.location,
                             )
                         else:
@@ -185,11 +185,11 @@ class ContractYaml:
                             checks.append(check_yaml)
                         else:
                             self.logs.error(
-                                f"{Emoticons.POLICE_CAR_LIGHT} Invalid check type '{check_type_name}'. "
+                                f"Invalid check type '{check_type_name}'. "
                                 f"Existing check types: {CheckYaml.get_check_type_names()}"
                             )
                     else:
-                        self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} Checks must have a YAML object structure.")
+                        self.logs.error(f"Checks must have a YAML object structure.")
 
         return checks
 
@@ -211,7 +211,7 @@ class ValidReferenceDataYaml:
         if self.dataset is None:
             self.has_configuration_error = True
             logs.error(
-                message=f"{Emoticons.POLICE_CAR_LIGHT} 'dataset' is required. Must be the dataset name as a string "
+                message=f"'dataset' is required. Must be the dataset name as a string "
                 "or a list of strings representing the qualified name.",
                 location=valid_reference_data_yaml.location,
             )
@@ -238,10 +238,10 @@ class MissingAndValidityYaml:
         self.missing_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("missing_values"))
         self.missing_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="missing_format")
 
-        cfg_keys = yaml_object.yaml_dict.keys()
-        self.has_missing_configuration_error: bool = ("missing_values" in cfg_keys and self.missing_values is None) or (
-            "missing_regex_sql" in cfg_keys and self.missing_regex is None
-        )
+        # cfg_keys = yaml_object.yaml_dict.keys()
+        # self.has_missing_configuration_error: bool = ("missing_values" in cfg_keys and self.missing_values is None) or (
+        #     "missing_regex_sql" in cfg_keys and self.missing_regex is None
+        # )
 
         self.invalid_values: Optional[list] = YamlValue.yaml_unwrap(yaml_object.read_list_opt("invalid_values"))
         self.invalid_format: Optional[RegexFormat] = RegexFormat.read(yaml_object=yaml_object, key="invalid_format")
@@ -257,42 +257,19 @@ class MissingAndValidityYaml:
         valid_reference_data_yaml: Optional[YamlObject] = yaml_object.read_object_opt("valid_reference_data")
         if valid_reference_data_yaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
-            non_reference_configurations: list[str] = self.get_non_reference_configurations()
-            if non_reference_configurations:
-                yaml_object.logs.error(
-                    f"{Emoticons.POLICE_CAR_LIGHT} 'valid_reference_data' is mutually exclusive with other "
-                    f"validity configurations: {non_reference_configurations}"
-                )
 
-        self.has_valid_configuration_error: bool = (
-            ("invalid_values" in cfg_keys and self.invalid_values is None)
-            or ("invalid_format" in cfg_keys and self.invalid_format is None)
-            or ("valid_values" in cfg_keys and self.valid_values is None)
-            or ("valid_format" in cfg_keys and self.valid_format is None)
-            or ("valid_min" in cfg_keys and self.valid_min is None)
-            or ("valid_max" in cfg_keys and self.valid_max is None)
-            or ("valid_length" in cfg_keys and self.valid_length is None)
-            or ("valid_min_length" in cfg_keys and self.valid_min_length is None)
-            or ("valid_max_length" in cfg_keys and self.valid_max_length is None)
-            or ("valid_reference_data" in cfg_keys and self.valid_reference_data.has_configuration_error)
-        )
-
-    def get_non_reference_configurations(self) -> list[str]:
-        non_reference_configurations: list[str] = [
-            # Combining missing values with reference data validity is allowed!
-            # "missing_values" if self.missing_values is not None else None,
-            # "missing_regex_sql" if self.missing_regex_sql is not None else None,
-            "invalid_values" if self.invalid_values is not None else None,
-            "invalid_format" if self.invalid_format is not None else None,
-            "valid_values" if self.valid_values is not None else None,
-            "valid_format" if self.valid_format is not None else None,
-            "valid_min" if self.valid_min is not None else None,
-            "valid_max" if self.valid_max is not None else None,
-            "valid_length" if self.valid_length is not None else None,
-            "valid_min_length" if self.valid_min_length is not None else None,
-            "valid_max_length" if self.valid_max_length is not None else None,
-        ]
-        return [cfg for cfg in non_reference_configurations if cfg is not None]
+        # self.has_valid_configuration_error: bool = (
+        #     ("invalid_values" in cfg_keys and self.invalid_values is None)
+        #     or ("invalid_format" in cfg_keys and self.invalid_format is None)
+        #     or ("valid_values" in cfg_keys and self.valid_values is None)
+        #     or ("valid_format" in cfg_keys and self.valid_format is None)
+        #     or ("valid_min" in cfg_keys and self.valid_min is None)
+        #     or ("valid_max" in cfg_keys and self.valid_max is None)
+        #     or ("valid_length" in cfg_keys and self.valid_length is None)
+        #     or ("valid_min_length" in cfg_keys and self.valid_min_length is None)
+        #     or ("valid_max_length" in cfg_keys and self.valid_max_length is None)
+        #     or ("valid_reference_data" in cfg_keys and self.valid_reference_data.has_configuration_error)
+        # )
 
 
 class ColumnYaml(MissingAndValidityYaml):

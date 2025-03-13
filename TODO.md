@@ -1,8 +1,11 @@
 # TODOs
 
-* [ ] Precommit
+* [ ] Move logs to standard python logging
+* [ ] Verify exception handling around all query executions. Measurements should not be created.  Check results must be created, but with outcome not-evaluated
+* [ ] Renamings 
+  * ContractVerificationResult to ContractVerificationSession
+  * ContractResult to ContractVerificationResult
 * [ ] License headers
-* [ ] Consider how to split up logs by contract.  Which logs are shared (like data source and soda cloud).  And which are contract specific.  How should this reflect in sending to cloud?
 * [ ] Define and test naming restrictions. What are the data source naming restrictions?  Same for the qualifiers.  All to ensure we can generate consistent check identities.
 * [ ] Create a release procedure in [README.md](README.md#creating-a-new-release)
 * [ ] Test & document doc links

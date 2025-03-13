@@ -53,10 +53,10 @@ class CLI4Test(CLI):
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
         )
 
-    def _configure_logging(self, verbose: bool):
+    def _configure_logging(self, verbose: bool) -> None:
         pass
 
-    def _end_with_exit_code(self, exit_code: int) -> None:
+    def _exit_with_code(self, exit_code: int) -> None:
         self.exit_code = exit_code
 
     def _create_argument_parser(self, epilog: str) -> ArgumentParser:

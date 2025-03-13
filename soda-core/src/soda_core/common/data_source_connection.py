@@ -44,7 +44,7 @@ class DataSourceConnection(ABC):
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
                 self.logs.error(
-                    message=f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to '{self.name}': {e}", exception=e
+                    message=f"Could not connect to '{self.name}': {e}", exception=e
                 )
 
     def _log_connection_properties_excl_pwd(self, connection_yaml_dict: dict):

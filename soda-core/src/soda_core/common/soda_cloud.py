@@ -127,7 +127,10 @@ class SodaCloud:
 
         return file_id
 
-    def send_contract_result(self, contract_result: ContractResult, skip_publish: bool):
+    def send_contract_result(self, contract_result: ContractResult, skip_publish: bool) -> bool:
+        """
+        Returns True if a 200 OK was received, False otherwise
+        """
         contract_result = self._build_contract_result_json(contract_result=contract_result, skip_publish=skip_publish)
         contract_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -140,6 +143,9 @@ class SodaCloud:
                 cloud_url: Optional[str] = response_json.get("cloudUrl")
                 if isinstance(cloud_url, str):
                     self.logs.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
+            return True
+        else:
+            return False
 
     def _build_contract_result_json(self, contract_result: ContractResult, skip_publish: bool) -> dict:
         check_result_cloud_json_dicts = [
@@ -302,12 +308,12 @@ class SodaCloud:
                     return upload_response_json.get("fileId")
                 else:
                     self.logs.critical(
-                        f"{Emoticons.POLICE_CAR_LIGHT} No fileId received in response: {upload_response_json}"
+                        f"No fileId received in response: {upload_response_json}"
                     )
                     return None
         except Exception as e:
             self.logs.critical(
-                message=f"{Emoticons.POLICE_CAR_LIGHT} Soda cloud error: Could not upload contract "
+                message=f"Soda cloud error: Could not upload contract "
                 f"to Soda Cloud: {e}",
                 exception=e,
             )
@@ -367,7 +373,7 @@ class SodaCloud:
         if response.status_code == 200:
             self.logs.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
         else:
-            self.logs.critical(f"{Emoticons.POLICE_CAR_LIGHT} Failed ot publish on Soda Cloud")
+            self.logs.critical(f"Failed ot publish on Soda Cloud")
 
         response_json = response.json()
         source_metadata = (
@@ -483,7 +489,7 @@ class SodaCloud:
         )
         if not file_id:
             self.logs.critical(
-                f"{Emoticons.POLICE_CAR_LIGHT} Contract wasn't uploaded so skipping "
+                f"Contract wasn't uploaded so skipping "
                 "sending the results to Soda Cloud"
             )
             return []
@@ -545,7 +551,7 @@ class SodaCloud:
 
         if not scan_is_finished:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Max retries exceeded. " f"Contract verification did not finish yet."
+                f"Max retries exceeded. " f"Contract verification did not finish yet."
             )
 
         if contract_dataset_cloud_url:
@@ -567,6 +573,7 @@ class SodaCloud:
             check_results=[
                 # TODO
             ],
+            sending_results_to_soda_cloud_failed=True,
             logs=self.logs,
         )
 
@@ -618,7 +625,7 @@ class SodaCloud:
                     sleep(time_to_wait_in_seconds)
             else:
                 self.logs.error(
-                    f"{Emoticons.POLICE_CAR_LIGHT} Failed to poll remote scan status. " f"Response: {response}"
+                    f"Failed to poll remote scan status. " f"Response: {response}"
                 )
 
         return False, None
@@ -681,7 +688,7 @@ class SodaCloud:
                 )
             elif response.status_code != 200:
                 self.logs.critical(
-                    f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
+                    f"Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
             else:
@@ -692,7 +699,7 @@ class SodaCloud:
             return response
         except Exception as e:
             self.logs.critical(
-                f"{Emoticons.POLICE_CAR_LIGHT} Error while executing Soda Cloud {request_type} {request_log_name}",
+                f"Error while executing Soda Cloud {request_type} {request_log_name}",
                 exception=e,
             )
 
@@ -725,7 +732,7 @@ class SodaCloud:
             )
         elif response.status_code != 200:
             self.logs.critical(
-                f"{Emoticons.POLICE_CAR_LIGHT} Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
+                f"Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
             )
         else:

@@ -29,7 +29,7 @@ class ContractPublicationImpl:
         self.contract_yamls: list[ContractYaml] = []
         self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"{Emoticons.POLICE_CAR_LIGHT} No contracts configured")
+            self.logs.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(

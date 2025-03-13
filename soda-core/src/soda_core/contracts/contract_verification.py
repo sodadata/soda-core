@@ -32,7 +32,7 @@ class ContractVerificationBuilder:
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
+                f"Ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
                 f"Expected string, but was {contract_yaml_file_path.__class__.__name__}."
             )
         return self
@@ -43,7 +43,7 @@ class ContractVerificationBuilder:
             self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
+                f"Ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
                 f"Expected string, but was {contract_yaml_str.__class__.__name__}"
             )
         return self
@@ -54,13 +54,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'")
             else:
                 self.logs.debug(
-                    f"{Emoticons.POLICE_CAR_LIGHT} ...with data_source_yaml_file_path '{data_source_yaml_file_path}'. "
-                    f"Ignoring previously configured data source '{self.data_source_yaml_source}'"
+                    f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'. "
+                    f"(Ignoring previously configured data source '{self.data_source_yaml_source}')"
                 )
             self.data_source_yaml_source = YamlSource.from_file_path(yaml_file_path=data_source_yaml_file_path)
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid data_source_yaml_file_path  '{data_source_yaml_file_path}'.  "
+                f"Ignoring invalid data_source_yaml_file_path  '{data_source_yaml_file_path}'.  "
                 f"Expected string, but was {data_source_yaml_file_path.__class__.__name__}"
             )
         return self
@@ -71,13 +71,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with data_source_yaml_str '{data_source_yaml_str}'")
             else:
                 self.logs.debug(
-                    f"{Emoticons.POLICE_CAR_LIGHT} ...with data_source_yaml_str '{data_source_yaml_str}'. "
-                    f"Ignoring previously configured data source '{self.data_source_yaml_source}'"
+                    f"  ...with data_source_yaml_str '{data_source_yaml_str}'. "
+                    f"(Ignoring previously configured data source '{self.data_source_yaml_source}')"
                 )
             self.data_source_yaml_source = YamlSource.from_str(yaml_str=data_source_yaml_str)
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid data_source_yaml_str '{data_source_yaml_str}'. "
+                f"Ignoring invalid data_source_yaml_str '{data_source_yaml_str}'. "
                 f"Expected string, but was {data_source_yaml_str.__class__.__name__}"
             )
         return self
@@ -93,13 +93,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
             else:
                 self.logs.debug(
-                    f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
-                    f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
+                    f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
+                    f"(Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}')"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
+                f"Ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                 f"Expected string, but was {soda_cloud_yaml_file_path.__class__.__name__}"
             )
         return self
@@ -110,13 +110,13 @@ class ContractVerificationBuilder:
                 self.logs.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
             else:
                 self.logs.debug(
-                    f"{Emoticons.POLICE_CAR_LIGHT} ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
-                    f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
+                    f"  ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
+                    f"(Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}')"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
+                f"Ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                 f"Expected string, but was {soda_cloud_yaml_str.__class__.__name__}"
             )
         return self
@@ -140,7 +140,7 @@ class ContractVerificationBuilder:
             self.variables[key] = value
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid variable '{key}'. "
+                f"Ignoring invalid variable '{key}'. "
                 f"Expected key str and value string"
             )
         return self
@@ -155,7 +155,7 @@ class ContractVerificationBuilder:
             self.variables = None
         else:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} ...ignoring invalid variables '{variables}'. "
+                f"Ignoring invalid variables '{variables}'. "
                 f"Expected dict, but was {variables.__class__.__name__}"
             )
         return self
@@ -221,8 +221,7 @@ class ContractVerificationResult:
         Returns True if there are no execution errors and no check failures.
         """
         return (
-            not self.logs.has_critical()
-            and not self.logs.has_errors()
+            not self.logs.has_errors()
             and all(contract_result.passed() for contract_result in self.contract_results)
         )
 
@@ -231,9 +230,6 @@ class ContractVerificationResult:
 
     def has_failures(self) -> bool:
         return any(contract_result.failed() for contract_result in self.contract_results)
-
-    def has_critical(self) -> bool:
-        return self.logs.has_critical()
 
     def is_ok(self) -> bool:
         return not self.has_errors() and not self.has_failures()
@@ -379,6 +375,7 @@ class ContractResult:
         ended_timestamp: datetime,
         measurements: list[Measurement],
         check_results: list[CheckResult],
+        sending_results_to_soda_cloud_failed: bool,
         logs: Logs,
     ):
         self.contract: Contract = contract
@@ -389,11 +386,14 @@ class ContractResult:
         self.ended_timestamp: datetime = ended_timestamp
         self.measurements: list[Measurement] = measurements
         self.check_results: list[CheckResult] = check_results
+        self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.logs: Logs = logs
 
     def failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
+        False is returned if there are no check results.
+        Only looks at check results.
         Ignores execution errors in the logs.
         """
         return any(check_result.outcome == CheckOutcome.FAILED for check_result in self.check_results)

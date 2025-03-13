@@ -30,7 +30,7 @@ class DataSourceParser:
             connection_properties = connection_yaml.to_dict()
         elif self.spark_session is None:
             self.logs.error(
-                f"{Emoticons.POLICE_CAR_LIGHT} Key 'connection' containing an object of data source connection "
+                f"Key 'connection' containing an object of data source connection "
                 f"configurations is required"
             )
 
@@ -43,7 +43,7 @@ class DataSourceParser:
                     format_regexes[k] = v
                 else:
                     self.logs.error(
-                        message=f"{Emoticons.POLICE_CAR_LIGHT} Invalid regex value in 'format_regexes', "
+                        message=f"Invalid regex value in 'format_regexes', "
                         f"expected string, was '{v}'",
                         location=format_regexes_yaml.location,
                     )
