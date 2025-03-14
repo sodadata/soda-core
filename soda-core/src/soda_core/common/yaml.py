@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from abc import abstractmethod
@@ -9,6 +10,11 @@ from typing import Iterable, Optional
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
 from soda_core.common.logs import Emoticons, Location, Logs
+
+
+SODA_LOGGER_NAME = "soda"
+SODA_LOG_EXTRA_LOCATION = "location"
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class YamlParser:
@@ -289,11 +295,15 @@ class YamlObject(YamlValue):
                     if isinstance(element, expected_element_type):
                         filtered_list.append(element)
                     else:
-                        self.logs.error(
-                            message=f"YAML key '{key}' expects a "
-                            f"list of {expected_element_type.__name__}. "
-                            f"But element {index} was {type(element).__name__}",
-                            location=self.create_location_from_yaml_dict_key(key),
+                        logger.error(
+                            msg=(
+                                f"YAML key '{key}' expects a "
+                                f"list of {expected_element_type.__name__}. "
+                                f"But element {index} was {type(element).__name__}"
+                            ),
+                            extra={
+                                SODA_LOG_EXTRA_LOCATION: self.create_location_from_yaml_dict_key(key),
+                            }
                         )
             list_value.yaml_list = filtered_list
         return list_value
@@ -314,10 +324,14 @@ class YamlObject(YamlValue):
             for i in range(0, len(list_value.yaml_list)):
                 element = list_value.yaml_list[i]
                 if not isinstance(element, YamlObject):
-                    self.logs.error(
-                        message=f"YAML key '{key}' expected list of objects.  "
-                        f"But element {i} was {type(element).__name__}",
-                        location=self.create_location_from_yaml_dict_key(key),
+                    logger.error(
+                        msg=(
+                            f"YAML key '{key}' expected list of objects.  "
+                            f"But element {i} was {type(element).__name__}"
+                        ),
+                        extra={
+                            SODA_LOG_EXTRA_LOCATION: self.create_location_from_yaml_dict_key(key),
+                        }
                     )
                     list_value.yaml_list[i] = None
         return list_value
@@ -386,14 +400,17 @@ class YamlObject(YamlValue):
         if env_var is not None and env_var in os.environ:
             key_description = f"Env var '{env_var}'"
             if key in self.yaml_dict:
-                self.logs.debug(f"Using environment var '{env_var}' instead of configuration key '{key}'")
+                logger.debug(f"Using environment var '{env_var}' instead of configuration key '{key}'")
             value = os.environ[env_var]
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)
         else:
             if required:
-                self.logs.error(
-                    message=f"{key_description} is required", location=self.location
+                logger.error(
+                    msg=f"{key_description} is required",
+                    extra={
+                        SODA_LOG_EXTRA_LOCATION: self.location,
+                    }
                 )
             value = default_value
 
@@ -405,10 +422,14 @@ class YamlObject(YamlValue):
                 actual_type_str = "YAML object"
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
-            self.logs.error(
-                message=f"{key_description} expected a {expected_type.__name__}, "
-                f"but was {actual_type_str}",
-                location=self.create_location_from_yaml_dict_key(key),
+            logger.error(
+                msg=(
+                    f"{key_description} expected a {expected_type.__name__}, "
+                    f"but was {actual_type_str}"
+                ),
+                extra={
+                    SODA_LOG_EXTRA_LOCATION: self.create_location_from_yaml_dict_key(key),
+                }
             )
             value = None
 
