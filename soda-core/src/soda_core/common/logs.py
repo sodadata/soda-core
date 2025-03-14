@@ -209,7 +209,10 @@ class Logs:
         )
 
     def __str__(self) -> str:
-        return super().__str__() + "\n".join([str(log) for log in self.logs])
+        return self.get_log_messages_str()
+
+    def get_log_messages_str(self):
+        return "\n".join([log.message for log in self.logs])
 
     def has_critical(self) -> bool:
         return any(log.level == logging.CRITICAL for log in self.logs)
