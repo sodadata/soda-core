@@ -285,7 +285,7 @@ class YamlObject(YamlValue):
         if isinstance(list_value, YamlList):
             filtered_list: list = []
             if isinstance(expected_element_type, type):
-                for index, element in enumerate(list_value.yaml_list):
+                for index, element in enumerate(iter(list_value)):
                     if isinstance(element, expected_element_type):
                         filtered_list.append(element)
                     else:
@@ -423,20 +423,27 @@ class YamlObject(YamlValue):
                 return Location(file_path=self.yaml_file_content.yaml_file_path, line=line, column=column)
 
     def to_dict(self) -> dict:
-        return YamlValue.yaml_unwrap(self)
+        return self.yaml_dict
 
 
 class YamlList(YamlValue, Iterable):
     def __init__(self, yaml_file_content: YamlFileContent, yaml_list: list) -> None:
         super().__init__(yaml_file_content)
-        self.yaml_list: list = [self._yaml_wrap(element) for element in yaml_list]
+        self.yaml_list: list = yaml_list
         self.location: Optional[Location] = get_location(yaml_list, yaml_file_content.yaml_file_path)
 
     def __iter__(self) -> iter:
-        return iter(self.yaml_list)
+        return iter([self._yaml_wrap(element) for element in self.yaml_list])
 
     def to_list(self) -> list:
-        return YamlValue.yaml_unwrap(self)
+        return self.yaml_list
+
+    def create_location_from_yaml_list_index(self, index) -> Optional[Location]:
+        if index < len(self.yaml_list):
+            ruamel_location = self.yaml_list.lc.item(index)
+            line: int = ruamel_location[0]
+            column: int = ruamel_location[1]
+            return Location(file_path=self.yaml_file_content.yaml_file_path, line=line, column=column)
 
 
 class VariableResolver:

@@ -414,23 +414,23 @@ class DataSourceTestHelper:
 
     def assert_contract_error(
         self, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
-    ) -> ContractVerificationResult:
+    ) -> str:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
-        contract_verification_result: ContractVerificationResult = (
+        contract_verification: ContractVerification = (
             self.create_test_verification_builder()
             .with_contract_yaml_str(contract_yaml_str)
             .with_variables(variables)
-            .execute()
+            .build()
         )
-        logs_text = "\n".join([str(l) for l in contract_verification_result.logs.logs])
-        if not contract_verification_result.has_errors():
-            raise AssertionError(f"Expected contract execution errors, but got none. Logs:\n{logs_text}")
-        return contract_verification_result
+        errors_str = contract_verification.contract_verification_impl.logs.get_errors_str()
+        if not errors_str:
+            raise AssertionError(f"Expected contract execution errors, but got none")
+        return errors_str
 
     def assert_contract_pass(
         self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
     ) -> ContractResult:
-        contract_verification_result: ContractVerificationResult = self._verify_contract(
+        contract_verification_result: ContractVerificationResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
         if not contract_verification_result.is_ok():
@@ -442,7 +442,7 @@ class DataSourceTestHelper:
     def assert_contract_fail(
         self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None, soda_cloud=None
     ) -> ContractResult:
-        contract_verification_result: ContractVerificationResult = self._verify_contract(
+        contract_verification_result: ContractVerificationResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
         if not contract_verification_result.failed():
@@ -451,8 +451,8 @@ class DataSourceTestHelper:
             )
         return contract_verification_result.contract_results[0]
 
-    def _verify_contract(
-        self, contract_yaml_str: str, test_table: TestTable, variables: Optional[dict]
+    def verify_contract(
+        self, contract_yaml_str: str, test_table: Optional[TestTable] = None, variables: Optional[dict] = None
     ) -> ContractVerificationResult:
         full_contract_yaml_str = self._prepend_dataset_to_contract(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{full_contract_yaml_str}")

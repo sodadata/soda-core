@@ -10,7 +10,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logs import Emoticons, Logs, Location
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
@@ -106,15 +106,18 @@ class ContractVerificationImpl:
                 self.contract_yamls.append(contract_yaml)
         if self.data_source:
             for contract_yaml in self.contract_yamls:
-                if isinstance(contract_yaml, ContractYaml) and self.data_source.is_valid_dataset_prefix(
-                    contract_yaml.dataset_prefix
-                ):
-                    contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml, data_source=self.data_source, variables=variables, logs=logs,
-                        soda_cloud=self.soda_cloud, skip_publish=self.skip_publish
-                    )
-                    if contract_impl:
-                        self.contract_impls.append(contract_impl)
+                if isinstance(contract_yaml, ContractYaml):
+                    if self.data_source.is_valid_dataset_prefix(
+                        contract_yaml.dataset_prefix
+                    ):
+                        contract_impl: ContractImpl = ContractImpl(
+                            contract_yaml=contract_yaml, data_source=self.data_source, variables=variables, logs=logs,
+                            soda_cloud=self.soda_cloud, skip_publish=self.skip_publish
+                        )
+                        if contract_impl:
+                            self.contract_impls.append(contract_impl)
+                    else:
+                        self.logs.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
@@ -413,8 +416,14 @@ class ContractImpl:
         for check_impl in all_check_impls:
             existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
             if existing_check_impl:
-                # TODO distill better diagnostic error message: which check in which column on which lines in the file
-                logs.error(f"Duplicate identity ({check_impl.identity})")
+                original_location: Optional[Location] = existing_check_impl.check_yaml.check_yaml_object.location
+                original_location_str: str = f" Original({original_location})" if original_location else ""
+                duplicate_location: Optional[Location] = check_impl.check_yaml.check_yaml_object.location
+                duplicate_location_str: str = f" Duplicate({duplicate_location})" if duplicate_location else ""
+                logs.error(
+                    f"Duplicate identity {check_impl.build_identity_path()}."
+                    f"{original_location_str}{duplicate_location_str}"
+                )
             checks_by_identity[check_impl.identity] = check_impl
 
 
@@ -909,8 +918,9 @@ class CheckImpl:
             threshold=self._build_threshold(),
         )
 
+    @classmethod
     def _build_identity(
-        self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
+        cls, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
         identity_hash_builder.add_property("fp", contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path)
@@ -918,6 +928,16 @@ class CheckImpl:
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
         return identity_hash_builder.get_hash()
+
+    def build_identity_path(self) -> str:
+        parts: list[Optional[str]] = [
+            self.contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path,
+            self.column_impl.column_yaml.name if self.column_impl else None,
+            self.type,
+            self.check_yaml.qualifier if self.check_yaml else None
+        ]
+        parts = [p for p in parts if p is not None]
+        return "/".join(parts)
 
     def _build_definition(self) -> str:
         text_stream = StringIO()

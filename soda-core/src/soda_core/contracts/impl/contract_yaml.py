@@ -127,7 +127,7 @@ class ContractYaml:
                             [f"[{location.line},{location.column}]" for location in locations if location is not None]
                         )
                         file_location = (
-                            f" In {self.contract_yaml_file_content.yaml_file_path} at: "
+                            f"In {self.contract_yaml_file_content.yaml_file_path} at: "
                             if self.contract_yaml_file_content.yaml_file_path
                             else "At file locations: "
                         )
@@ -147,7 +147,7 @@ class ContractYaml:
             checks_yaml_list: YamlList = checks_containing_yaml_object.read_list_opt("checks")
             if checks_yaml_list:
                 checks = []
-                for check_yaml_object in checks_yaml_list:
+                for check_index, check_yaml_object in enumerate(checks_yaml_list):
                     check_type_name: Optional[str] = None
                     check_body_yaml_object: Optional[YamlObject] = None
 
@@ -173,7 +173,7 @@ class ContractYaml:
                             check_body_yaml_object = YamlObject(
                                 yaml_file_content=checks_containing_yaml_object.yaml_file_content, yaml_dict={}
                             )
-                            check_body_yaml_object.location = checks_containing_yaml_object.location
+                            check_body_yaml_object.location = checks_yaml_list.create_location_from_yaml_list_index(index=check_index)
 
                         check_yaml: Optional[CheckYaml] = CheckYaml.parse_check_yaml(
                             check_type_name=check_type_name,
