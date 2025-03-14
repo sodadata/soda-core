@@ -183,7 +183,7 @@ class CLI:
 
         except Exception as e:
             traceback.print_exc()
-            self._exit_with_code(3)
+            self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
 
     def _configure_logging(self, verbose: bool) -> None:
         """
@@ -220,12 +220,20 @@ class CLI:
             contract_verification_builder.with_soda_cloud_skip_publish()
 
         contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-        if contract_verification_result.has_errors():
-            self._exit_with_code(4)
+        if self.contract_verification_is_not_sent_to_cloud(contract_verification_result):
+            self._exit_with_code(self.EXIT_CODE_4_RESULTS_NOT_SENT_TO_CLOUD)
+        elif contract_verification_result.has_errors():
+            self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
         elif contract_verification_result.has_failures():
-            self._exit_with_code(2)
+            self._exit_with_code(self.EXIT_CODE_1_CHECK_FAILURES_OCCURRED)
 
         return contract_verification_result
+
+    def contract_verification_is_not_sent_to_cloud(
+        self,
+        contract_verification_result: ContractVerificationResult
+    ) -> bool:
+        return any(cr.sending_results_to_soda_cloud_failed for cr in contract_verification_result.contract_results)
 
     def _test_contract(
         self,
@@ -350,7 +358,7 @@ class CLI:
         )
         if error_msg:
             print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
-            self._exit_with_code(3)
+            self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
         else:
             print(f"{Emoticons.WHITE_CHECK_MARK} Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
 
