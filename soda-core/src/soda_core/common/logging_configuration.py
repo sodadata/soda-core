@@ -21,17 +21,17 @@ def configure_logging(
         level=soda_log_level,
         force=True,  # Override any previously set handlers.
         # https://docs.python.org/3/library/logging.html#logrecord-attributes
-        handlers=[SodaTextHandler()],
+        handlers=[SodaConsoleHandler()],
     )
 
 
-class SodaTextHandler(StreamHandler):
+class SodaConsoleHandler(StreamHandler):
     def __init__(self):
         super().__init__(sys.stdout)
-        self.setFormatter(SodaTextFormatter())
+        self.setFormatter(SodaConsoleFormatter())
 
 
-class SodaTextFormatter(Formatter):
+class SodaConsoleFormatter(Formatter):
     def __init__(self):
         super().__init__()
 
@@ -43,11 +43,11 @@ class SodaTextFormatter(Formatter):
 
         # In log formatters that send to cloud, consider truncating max log length
 
-        if hasattr(record, 'location'):
+        if hasattr(record, "location"):
             message = f"{message} | {record.location}"
-        if hasattr(record, 'doc'):
+        if hasattr(record, "doc"):
             message = f"{message} | {record.doc}"
-        if hasattr(record, 'exception'):
+        if hasattr(record, "exception"):
             message = f"{message} | Exception stack trace: {record.exception}"
 
         return message

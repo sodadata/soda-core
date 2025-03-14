@@ -454,10 +454,10 @@ class DataSourceTestHelper:
     def verify_contract(
         self, contract_yaml_str: str, test_table: Optional[TestTable] = None, variables: Optional[dict] = None
     ) -> ContractVerificationResult:
-        full_contract_yaml_str = self._prepend_dataset_to_contract(contract_yaml_str, test_table)
-        logger.debug(f"Contract:\n{full_contract_yaml_str}")
+        contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
+        logger.debug(f"Contract:\n{contract_yaml_str}")
         test_contract_verification_builder: TestContractVerificationBuilder = (
-            self.create_test_verification_builder().with_contract_yaml_str(contract_yaml_str=full_contract_yaml_str)
+            self.create_test_verification_builder().with_contract_yaml_str(contract_yaml_str=contract_yaml_str)
         )
         if isinstance(variables, dict):
             test_contract_verification_builder.with_variables(variables)
@@ -465,15 +465,16 @@ class DataSourceTestHelper:
             test_contract_verification_builder.with_execution_on_soda_agent()
         return test_contract_verification_builder.execute()
 
-    def _prepend_dataset_to_contract(self, contract_yaml_str: str, test_table: TestTable):
-        header_contract_yaml_str: str = (
-            f"data_source: the_test_ds\n"
-            f"dataset: {test_table.unique_name}\n"
-            f"dataset_prefix: {self.dataset_prefix}\n"
-        )
+    def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
-        full_contract_yaml_str: str = header_contract_yaml_str + checks_contract_yaml_str
-        return full_contract_yaml_str
+        if test_table:
+            header_contract_yaml_str: str = (
+                f"data_source: the_test_ds\n"
+                f"dataset: {test_table.unique_name}\n"
+                f"dataset_prefix: {self.dataset_prefix}\n"
+            )
+            checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
+        return checks_contract_yaml_str
 
     def create_test_verification_builder(self) -> TestContractVerificationBuilder:
         test_verification_builder: TestContractVerificationBuilder = TestContractVerification.builder()

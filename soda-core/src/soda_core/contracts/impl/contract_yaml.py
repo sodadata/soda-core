@@ -133,8 +133,8 @@ class ContractYaml:
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
                         self.logs.error(
-                            f"Duplicate columns with "
-                            f"name '{column_name}'{locations_message}"
+                            f"Duplicate columns with name "
+                            f"'{column_name}'{locations_message}"
                         )
         return columns
 

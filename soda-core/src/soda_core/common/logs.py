@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import threading
 import traceback
 from datetime import datetime, timezone
-from logging import DEBUG, ERROR, INFO, WARNING, Logger
+from logging import DEBUG, ERROR, INFO, WARNING, Logger, LogRecord, Handler
 from traceback import TracebackException
 from typing import Optional
 
@@ -75,12 +76,32 @@ class Log:
         }
 
 
+class LogCapturer(Handler):
+    """
+    Captures logging records for the current thread and stores them in the given records list
+    """
+    def __init__(self, records: list[LogRecord]):
+        super().__init__()
+        self.records: list[LogRecord] = records
+        self.threading_ident: int = threading.get_ident()
+        logging.root.addHandler(self)
+
+    def stop(self) -> None:
+        logging.root.removeHandler(self)
+
+    def emit(self, record: LogRecord):
+        if self.threading_ident == record.thread:
+            self.records.append(record)
+
+
 class Logs:
     logger: Logger = logging.getLogger("soda.contracts")
 
     def __init__(self, logs: list[Log] = None):
         # Stores all logs above debug level to be sent to soda cloud and for testing logs in the test suite.
         self.logs: list[Log] = logs or []
+        self.records: list[LogRecord] = []
+        self.log_capturer: LogCapturer = LogCapturer(self.records)
 
     def critical(
         self,

@@ -11,6 +11,14 @@ project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/helpers/tes
 load_dotenv(f"{project_root_dir}/.env", override=True)
 
 
+@pytest.fixture(autouse=True)
+def clear_caplog_before_test(request):
+    # Clears caplog before each test runs, but only if caplog is used as a fixture in the test.
+    if 'caplog' in request.fixturenames:
+        caplog = request.getfixturevalue('caplog')
+        caplog.clear()
+
+
 @pytest.fixture(scope="function")
 def env_vars() -> dict:
     original_env_vars = dict(os.environ)
