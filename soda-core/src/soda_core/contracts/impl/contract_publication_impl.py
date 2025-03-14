@@ -1,11 +1,15 @@
+import logging
 from typing import Optional
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import YamlFileContent, YamlSource
+from soda_core.common.yaml import YamlFileContent, YamlSource, SODA_LOGGER_NAME
 from soda_core.contracts.contract_publication import ContractPublicationResultList
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
+
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class ContractPublicationImpl:
@@ -29,7 +33,7 @@ class ContractPublicationImpl:
         self.contract_yamls: list[ContractYaml] = []
         self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"No contracts configured")
+            logger.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -39,7 +43,7 @@ class ContractPublicationImpl:
 
     def execute(self) -> ContractPublicationResultList:
         if not self.soda_cloud:
-            self.logs.warning("skipping publication because of missing Soda Cloud configuration")
+            logger.warning("skipping publication because of missing Soda Cloud configuration")
             return ContractPublicationResultList(items=[], logs=self.logs)
         return ContractPublicationResultList(
             logs=self.logs,

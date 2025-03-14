@@ -339,9 +339,9 @@ class CheckResult(ABC):
             if self.outcome == CheckOutcome.FAILED
             else Emoticons.SEE_NO_EVIL
         )
-        logs.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
+        logger.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
         for diagnostic in self.diagnostics:
-            logs.info(f"  {diagnostic.log_line()}")
+            logger.info(f"  {diagnostic.log_line()}")
 
 
 class Measurement:

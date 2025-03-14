@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
@@ -16,7 +17,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Measurement,
-    Threshold,
+    Threshold, SODA_LOGGER_NAME,
 )
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -28,6 +29,9 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MetricImpl,
     Query,
 )
+
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class SchemaCheckParser(CheckParser):
@@ -253,21 +257,21 @@ class SchemaCheckResult(CheckResult):
                 for expected_column in self.expected_columns
             ]
         )
-        logs.info(f"  Expected schema: {expected_columns_str}")
+        logger.info(f"  Expected schema: {expected_columns_str}")
 
         actual_columns_str: str = ", ".join(
             [f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns]
         )
-        logs.info(f"  Actual schema: {actual_columns_str}")
+        logger.info(f"  Actual schema: {actual_columns_str}")
 
         for column in self.actual_column_names_not_expected:
-            logs.info(f"  Column '{column}' was present and not allowed")
+            logger.info(f"  Column '{column}' was present and not allowed")
 
         for column in self.expected_column_names_not_actual:
-            logs.info(f"  Column '{column}' was missing")
+            logger.info(f"  Column '{column}' was missing")
 
         for data_type_mismatch in self.column_data_type_mismatches:
-            logs.info(
+            logger.info(
                 f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.get_expected()}', "
                 f"but was '{data_type_mismatch.get_actual()}'"
             )

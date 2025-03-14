@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import List, Optional
 
 from soda_core.common.logs import Emoticons, Logs
 from soda_core.contracts.contract_command_builder import ContractCommandBuilder
-from soda_core.contracts.contract_verification import Contract, YamlFileContentInfo
+from soda_core.contracts.contract_verification import Contract, YamlFileContentInfo, SODA_LOGGER_NAME
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class ContractPublicationBuilder(ContractCommandBuilder):
@@ -19,7 +22,7 @@ class ContractPublicationBuilder(ContractCommandBuilder):
 class ContractPublication:
     def __init__(self, contract_publication_builder: ContractPublicationBuilder) -> None:
         if not contract_publication_builder.soda_cloud and not contract_publication_builder.soda_cloud_yaml_source:
-            contract_publication_builder.logs.error(
+            logger.error(
                 f"Cannot publish without a Soda Cloud configuration"
             )
 

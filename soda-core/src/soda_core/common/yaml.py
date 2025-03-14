@@ -161,17 +161,15 @@ class YamlFileContent:
                     if len(file_content_str) > 0:
                         return file_content_str
                     else:
-                        logs.error(message=f"{yaml_source_description} is empty")
+                        logger.error(f"{yaml_source_description} is empty")
 
             except OSError as e:
                 if not os.path.exists(file_path):
-                    logs.error(message=f"{yaml_source_description} does not exist")
+                    logger.error(f"{yaml_source_description} does not exist")
                 elif not os.path.isdir(file_path):
-                    logs.error(message=f"{yaml_source_description} is a directory")
+                    logger.error(f"{yaml_source_description} is a directory")
                 else:
-                    logs.error(
-                        message=f"{yaml_source_description} can't be read", exception=e
-                    )
+                    logger.error(f"{yaml_source_description} can't be read", exc_info=True)
 
     @classmethod
     def resolve_yaml_str(cls, yaml_str: str, variables: Optional[dict]) -> Optional[str]:
@@ -190,9 +188,11 @@ class YamlFileContent:
                     location = Location(file_path=yaml_file_path, line=0, column=0)
                     yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
                     yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
-                    logs.error(
-                        message=f"Root YAML in {yaml_source_description} must be an object, " f"but was {yaml_type}",
-                        location=location,
+                    logger.error(
+                        msg=f"Root YAML in {yaml_source_description} must be an object, " f"but was {yaml_type}",
+                        extra={
+                            SODA_LOG_EXTRA_LOCATION: location,
+                        }
                     )
                     return None
 
@@ -201,7 +201,13 @@ class YamlFileContent:
                 line = mark.line + 1
                 col = mark.column + 1
                 location = Location(file_path=yaml_file_path, line=line, column=col)
-                logs.error(message=f"YAML syntax error in {yaml_source_description}", exception=e, location=location)
+                logger.error(
+                    msg=f"YAML syntax error in {yaml_source_description}",
+                    exc_info=True,
+                    extra={
+                        SODA_LOG_EXTRA_LOCATION: location
+                    }
+                )
 
     def get_yaml_object(self) -> Optional[YamlObject]:
         return YamlObject(self, self.yaml_dict) if isinstance(self.yaml_dict, dict) else None

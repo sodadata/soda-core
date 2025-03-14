@@ -8,7 +8,7 @@ import string
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.logs import Log, Logs
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -242,8 +242,7 @@ class DataSourceTestHelper:
     def start_test_session_open_connection(self) -> None:
         self.data_source.open_connection()
         if self.data_source.logs.has_errors():
-            e = next((l.exception for l in reversed(self.data_source.logs.logs) if l.exception), None)
-            raise AssertionError(f"Connection creation has errors: {self.data_source.logs}") from e
+            raise AssertionError(f"Connection creation has errors. See logs.")
 
     def start_test_session_ensure_schema(self) -> None:
         if self.is_cicd:

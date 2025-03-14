@@ -8,13 +8,14 @@ import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
+from logging import LogRecord
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional, Tuple
 
 import requests
 from requests import Response
-from soda_core.common.logs import Emoticons, Log, Logs
+from soda_core.common.logs import Emoticons, Logs, Location
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -24,7 +25,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractResult,
     Threshold,
-    YamlFileContentInfo, SODA_LOGGER_NAME,
+    YamlFileContentInfo, SODA_LOGGER_NAME, SODA_LOG_EXTRA_LOCATION,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
@@ -161,8 +162,8 @@ class SodaCloud:
         ]
 
         log_cloud_json_dicts: list[dict] = [
-            self._build_log_cloud_json_dict(log, index)
-            for index, log in enumerate(contract_result.logs.logs)
+            self._build_log_cloud_json_dict(log_record, index)
+            for index, log_record in enumerate(contract_result.logs.records)
             # TODO ask m1no if this should be ported
             # if check.check_type == CheckType.CLOUD
             # and (check.outcome is not None or check.force_send_results_to_cloud is True)
@@ -270,12 +271,15 @@ class SodaCloud:
             }
         return check_result_cloud_dict
 
-    def _build_log_cloud_json_dict(self, log: Log, index: int) -> dict:
+    def _build_log_cloud_json_dict(self, log_record: LogRecord, index: int) -> dict:
         return {
-            "level": logging.getLevelName(log.level).lower(),
-            "message": log.message,
-            "timestamp": log.timestamp,
+            "level": log_record.levelname.lower(),
+            "message": log_record.msg,
+            "timestamp": datetime.fromtimestamp(log_record.created / 1000),
             "index": index,
+            "doc": log_record.doc if hasattr(log_record, "doc") else None,
+            "exception": log_record.exception if hasattr(log_record, "exception") else None,
+            "location": log_record.location.get_dict() if hasattr(log_record, SODA_LOG_EXTRA_LOCATION) and isinstance(log_record.location, Location) else None,
         }
 
     def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
