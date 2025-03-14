@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
@@ -24,7 +25,7 @@ from soda_core.contracts.contract_verification import (
     DataSourceInfo,
     Measurement,
     Threshold,
-    YamlFileContentInfo,
+    YamlFileContentInfo, SODA_LOGGER_NAME,
 )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
@@ -37,6 +38,9 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
+
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class DataSourceContracts:
@@ -80,9 +84,9 @@ class ContractVerificationImpl:
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
                 self.data_source = data_source_parser.parse()
             if self.data_source is None:
-                self.logs.error(f"No data source configured")
+                logger.error(f"No data source configured")
         elif data_source is not None or data_source_yaml_source is not None:
-            self.logs.error(
+            logger.error(
                 f"When executing the contract verification on Soda Agent, "
                 f"a data source should not be configured"
             )
@@ -97,7 +101,7 @@ class ContractVerificationImpl:
         self.contract_yamls: list[ContractYaml] = []
         self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"No contracts configured")
+            logger.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
@@ -117,7 +121,7 @@ class ContractVerificationImpl:
                         if contract_impl:
                             self.contract_impls.append(contract_impl)
                     else:
-                        self.logs.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
+                        logger.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
@@ -127,7 +131,7 @@ class ContractVerificationImpl:
             elif self.data_source:
                 contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
         except Exception as e:
-            self.logs.error(str(e), exception=e)
+            logger.error(msg=str(e), exc_info=True)
 
         return ContractVerificationResult(logs=self.logs, contract_results=contract_results)
 
@@ -152,7 +156,7 @@ class ContractVerificationImpl:
             return contract_results
 
         else:
-            self.logs.error(f"Using the agent requires a Soda Cloud configuration")
+            logger.error(f"Using the agent requires a Soda Cloud configuration")
             return []
 
     def verify_contracts_locally(
@@ -234,7 +238,7 @@ class ContractImpl:
                     return now_variable_timestamp
             except:
                 pass
-            self.logs.error(
+            logger.error(
                 f"Could not parse variable {now_variable_name} "
                 f"as a timestamp: {now_variable_timestamp_text}"
             )
@@ -310,8 +314,9 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractResult:
-        self.logs.info(
-            f"Verifying {Emoticons.SCROLL} contract {self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
+        logger.info(
+            f"Verifying {Emoticons.SCROLL} contract "
+            f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
         measurements: list[Measurement] = []
@@ -364,12 +369,12 @@ class ContractImpl:
             if not response_ok:
                 contract_result.sending_results_to_soda_cloud_failed = True
         else:
-            self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+            logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         return contract_result
 
     def log_summary(self, contract_result: ContractResult):
-        self.logs.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
+        logger.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
@@ -390,9 +395,9 @@ class ContractImpl:
         )
 
         if failed_count + error_count + not_evaluated_count == 0:
-            self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
+            logger.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
         else:
-            self.logs.info(
+            logger.info(
                 f"Contract summary: Ouch! {failed_count} checks failures, "
                 f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
                 f"and {error_count} errors."
@@ -1099,7 +1104,10 @@ class AggregationQuery(Query):
         try:
             query_result: QueryResult = self.data_source.execute_query(sql)
         except Exception as e:
-            self.logs.error(f"Could not execute aggregation query {sql}: {e}", exception=e)
+            logger.error(
+                msg=f"Could not execute aggregation query {sql}: {e}",
+                exc_info=True
+            )
             return []
 
         measurements: list[Measurement] = []

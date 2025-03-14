@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numbers import Number
@@ -13,6 +14,10 @@ from soda_core.common.yaml import (
     YamlSource,
     YamlValue,
 )
+from soda_core.contracts.contract_verification import SODA_LOGGER_NAME, SODA_LOG_EXTRA_LOCATION
+
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 def register_check_types() -> None:
@@ -88,11 +93,11 @@ class ContractYaml:
             self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
         )
         if self.contract_yaml_object.has_key("datasource") and not self.contract_yaml_object.has_key("data_source"):
-            self.logs.error(
-                message=(
-                    f"Key `datasource` must be 2 words. " "Please change to `data_source`."
-                ),
-                location=self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
+            logger.error(
+                msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
+                extra={
+                    SODA_LOG_EXTRA_LOCATION: self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
+                }
             )
 
         self.dataset_prefix: Optional[list[str]] = (
@@ -132,7 +137,7 @@ class ContractYaml:
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
-                        self.logs.error(
+                        logger.error(
                             f"Duplicate columns with name "
                             f"'{column_name}'{locations_message}"
                         )
@@ -154,16 +159,18 @@ class ContractYaml:
                     if isinstance(check_yaml_object, YamlObject):
                         check_keys: set[str] = check_yaml_object.keys()
                         if len(check_keys) != 1:
-                            self.logs.error(
-                                message=f"Checks require 1 key to be the type",
-                                location=check_yaml_object.location,
+                            logging.error(
+                                msg=f"Checks require 1 key to be the type",
+                                extra={
+                                    SODA_LOG_EXTRA_LOCATION:check_yaml_object.location,
+                                }
                             )
                         else:
                             check_type_name = check_keys.pop()
                             check_body_yaml_object = check_yaml_object.read_object_opt(key=check_type_name)
                     elif isinstance(check_yaml_object, str):
                         check_type_name = check_yaml_object
-                        self.logs.error(
+                        logger.error(
                             f"{Emoticons.PINCHED_FINGERS} Mama Mia! You forgot the "
                             f"colon ':' behind the check '{check_type_name}'. For this once I'll "
                             f"still execute it {Emoticons.SEE_NO_EVIL}"
@@ -184,12 +191,12 @@ class ContractYaml:
                         if check_yaml:
                             checks.append(check_yaml)
                         else:
-                            self.logs.error(
+                            logger.error(
                                 f"Invalid check type '{check_type_name}'. "
                                 f"Existing check types: {CheckYaml.get_check_type_names()}"
                             )
                     else:
-                        self.logs.error(f"Checks must have a YAML object structure.")
+                        logger.error(f"Checks must have a YAML object structure.")
 
         return checks
 

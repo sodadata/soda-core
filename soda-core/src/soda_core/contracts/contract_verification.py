@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from logging import ERROR, Logger
 from numbers import Number
 from typing import Optional
 
@@ -13,7 +12,9 @@ from soda_core.common.logs import Emoticons, Logs
 from soda_core.common.yaml import YamlSource
 
 
-logger: Logger = logging.getLogger("soda")
+SODA_LOGGER_NAME: str = "soda"
+SODA_LOG_EXTRA_LOCATION: str = "location"
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class ContractVerificationBuilder:
@@ -239,14 +240,17 @@ class ContractVerificationResult:
         return not self.has_errors() and not self.has_failures()
 
     def assert_ok(self) -> ContractVerificationResult:
-        has_error: bool = self.logs.has_errors()
+        has_errors: bool = self.logs.has_errors()
         has_check_failures: bool = any(contract_result.failed() for contract_result in self.contract_results)
-        if has_error or has_check_failures:
-            raise SodaException(message=self.get_logs_str(), contract_verification_result=self)
+        if has_errors or has_check_failures:
+            raise SodaException(
+                message=self.logs.get_logs_str(),
+                contract_verification_result=self
+            )
         return self
 
     def get_logs_str(self) -> str:
-        return self.logs.get_log_messages_str()
+        return self.logs.get_logs_str()
 
 
 class SodaException(Exception):

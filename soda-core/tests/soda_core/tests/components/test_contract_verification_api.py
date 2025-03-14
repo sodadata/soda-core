@@ -20,13 +20,13 @@ def test_contract_verification_file_api():
     )
 
     assert (
-        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in contract_verification_result.get_logs_str()
+        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in contract_verification_result.logs.get_errors_str()
     )
 
 
 def test_contract_verification_file_api_exception_on_error():
     with pytest.raises(SodaException) as e:
-        ContractVerificationResult = (
+        (
             ContractVerification.builder()
             .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
             .with_variables({"env": "test"})
@@ -55,7 +55,7 @@ def test_contract_provided_and_configured():
         .execute()
     )
 
-    assert "No data source configured" in contract_verification_result.get_logs_str()
+    assert "No data source configured" in contract_verification_result.logs.get_errors_str()
 
 
 @pytest.mark.parametrize(

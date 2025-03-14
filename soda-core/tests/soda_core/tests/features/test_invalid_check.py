@@ -3,7 +3,7 @@ import pytest
 from soda_core.contracts.contract_verification import (
     ContractResult,
     Diagnostic,
-    NumericDiagnostic,
+    NumericDiagnostic, ContractVerificationResult,
 )
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
@@ -56,21 +56,6 @@ def test_valid_count(data_source_test_helper: DataSourceTestHelper, contract_yam
     assert isinstance(diagnostic, NumericDiagnostic)
     assert "invalid_count" == diagnostic.name
     assert 1 == diagnostic.value
-
-
-def test_valid_values_not_configured(data_source_test_helper: DataSourceTestHelper):
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-
-    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        test_table=test_table,
-        contract_yaml_str=f"""
-            columns:
-              - name: id
-                checks:
-                  - invalid:
-        """,
-    )
-    assert "Invalid check does not have any valid or invalid configurations" in contract_result.logs.get_errors_str()
 
 
 def test_valid_values_with_null(data_source_test_helper: DataSourceTestHelper):

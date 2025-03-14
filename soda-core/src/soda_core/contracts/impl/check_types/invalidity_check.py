@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from soda_core.common.data_source import DataSource
@@ -11,7 +12,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     Diagnostic,
     Measurement,
-    NumericDiagnostic,
+    NumericDiagnostic, SODA_LOGGER_NAME, SODA_LOG_EXTRA_LOCATION,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
@@ -31,6 +32,9 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ThresholdType,
     ValidReferenceData,
 )
+
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class InvalidCheckParser(CheckParser):
@@ -69,9 +73,11 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         )
 
         if not self.missing_and_validity.has_validity_configurations():
-            self.logs.error(
-                message="Invalid check does not have any valid or invalid configurations",
-                location=self.check_yaml.check_yaml_object.location
+            logger.error(
+                msg="Invalid check does not have any valid or invalid configurations",
+                extra={
+                    SODA_LOG_EXTRA_LOCATION: self.check_yaml.check_yaml_object.location,
+                }
             )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls

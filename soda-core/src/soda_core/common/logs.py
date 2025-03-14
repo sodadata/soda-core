@@ -209,25 +209,29 @@ class Logs:
         )
 
     def __str__(self) -> str:
-        return self.get_log_messages_str()
+        return self.get_logs_str()
 
-    def get_log_messages_str(self):
-        return "\n".join([log.message for log in self.logs])
+    def get_logs(self) -> list[str]:
+        logs: list[str] = [log.message for log in self.logs]
+        logs.extend([r.msg for r in self.records])
+        return logs
+
+    def get_logs_str(self):
+        return "\n".join(self.get_logs())
+
+    def get_errors_str(self) -> str:
+        return "\n".join(self.get_errors())
+
+    def get_errors(self) -> list[str]:
+        errors: list[str] = [log.message for log in self.logs if log.level >= ERROR]
+        errors.extend([r.msg for r in self.records if r.levelno >= ERROR])
+        return errors
 
     def has_critical(self) -> bool:
         return any(log.level == logging.CRITICAL for log in self.logs)
 
     def has_errors(self) -> bool:
         return any(log.level >= ERROR for log in self.logs)
-
-    def get_errors_str(self) -> str:
-        error_logs: list[Log] = self.get_errors()
-        if len(error_logs) == 0:
-            return ""
-        return "\n".join([str(log) for log in error_logs])
-
-    def get_errors(self) -> list[Log]:
-        return [log for log in self.logs if log.level == ERROR]
 
     def log(self, log: Log) -> None:
         if log.level >= ERROR:

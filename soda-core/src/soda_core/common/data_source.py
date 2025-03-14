@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -13,7 +14,10 @@ from soda_core.common.statements.metadata_columns_query import (
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlFileContent, YamlSource
-from soda_core.contracts.contract_verification import DataSourceInfo
+from soda_core.contracts.contract_verification import DataSourceInfo, SODA_LOGGER_NAME
+
+
+logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
 
 
 class DataSource(ABC):
@@ -160,10 +164,10 @@ class DataSource(ABC):
         if format is None:
             return None
         if self.format_regexes is None:
-            self.logs.error(f"'format_regexes' not configured in data source")
+            logger.error(f"'format_regexes' not configured in data source")
         format_regex: Optional[str] = self.format_regexes.get(format)
         if format_regex is None:
-            self.logs.error(
+            logger.error(
                 f"Validity format regex '{format}' not configured "
                 f"in data source 'format_regexes'"
             )
