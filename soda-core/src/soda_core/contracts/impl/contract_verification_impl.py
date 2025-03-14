@@ -421,8 +421,11 @@ class ContractImpl:
                 duplicate_location: Optional[Location] = check_impl.check_yaml.check_yaml_object.location
                 duplicate_location_str: str = f" Duplicate({duplicate_location})" if duplicate_location else ""
                 logs.error(
-                    f"Duplicate identity {check_impl.build_identity_path()}."
-                    f"{original_location_str}{duplicate_location_str}"
+                    message=(
+                        f"Duplicate identity {check_impl.build_identity_path()}."
+                        f"{original_location_str}{duplicate_location_str}"
+                    ),
+                    location=duplicate_location
                 )
             checks_by_identity[check_impl.identity] = check_impl
 
