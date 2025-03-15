@@ -1,22 +1,23 @@
 import logging
 from typing import Dict, Optional, TypeVar
 
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource, SODA_LOGGER_NAME
+from soda_core.common.yaml import YamlSource
 
 T = TypeVar("T", bound="ContractCommandBuilder")
 
 
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class ContractCommandBuilder:
-    def __init__(self):
+    def __init__(self, logs: Optional[Logs] = None):
         self.contract_yaml_sources: list[YamlSource] = []
         self.soda_cloud: Optional["SodaCloud"] = None
         self.soda_cloud_yaml_source: Optional[YamlSource] = None
         self.variables: Optional[Dict[str, str]] = {}
-        self.logs: Logs = Logs()
+        self.logs: Logs = logs if logs else Logs()
         logger.debug("Publishing contract...")
 
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> T:

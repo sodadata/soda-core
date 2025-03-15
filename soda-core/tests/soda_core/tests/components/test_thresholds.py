@@ -151,4 +151,4 @@ def parse_threshold(threshold_yaml: str) -> ThresholdImpl:
     threshold_yaml: ThresholdYaml = ThresholdYaml(
         threshold_yaml_object=yaml_object,
     )
-    return ThresholdImpl.create(threshold_yaml=threshold_yaml, logs=yaml_file_content.logs)
+    return ThresholdImpl.create(threshold_yaml=threshold_yaml)

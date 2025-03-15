@@ -4,16 +4,17 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.contracts.contract_command_builder import ContractCommandBuilder
-from soda_core.contracts.contract_verification import Contract, YamlFileContentInfo, SODA_LOGGER_NAME
+from soda_core.contracts.contract_verification import Contract, YamlFileContentInfo
 
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class ContractPublicationBuilder(ContractCommandBuilder):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, logs: Optional[Logs] = None):
+        super().__init__(logs=logs)
 
     def build(self) -> ContractPublication:
         return ContractPublication(contract_publication_builder=self)
@@ -39,8 +40,8 @@ class ContractPublication:
         )
 
     @classmethod
-    def builder(cls) -> ContractPublicationBuilder:
-        return ContractPublicationBuilder()
+    def builder(cls, logs: Optional[Logs] = None) -> ContractPublicationBuilder:
+        return ContractPublicationBuilder(logs)
 
     def execute(self) -> ContractPublicationResultList:
         return self.contract_publication_impl.execute()
@@ -62,7 +63,7 @@ class ContractPublicationResultList:
     logs: Logs
 
     def has_errors(self) -> bool:
-        return any([r.has_errors() for r in self.items]) or self.logs.has_errors()
+        return self.logs.has_errors()
 
     def __len__(self):
         return len(self.items)
@@ -73,8 +74,4 @@ class ContractPublicationResultList:
 
 @dataclass(frozen=True)
 class ContractPublicationResult:
-    logs: Logs
     contract: Optional[Contract]
-
-    def has_errors(self) -> bool:
-        return self.logs.has_errors()

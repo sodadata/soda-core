@@ -27,9 +27,9 @@ class PostgresDataSource(DataSource):
         return PostgresSqlDialect()
 
     def _create_data_source_connection(
-        self, name: str, connection_properties: dict, logs: Logs
+        self, name: str, connection_properties: dict
     ) -> DataSourceConnection:
-        return PostgresDataSourceConnection(name=name, connection_properties=connection_properties, logs=logs)
+        return PostgresDataSourceConnection(name=name, connection_properties=connection_properties)
 
 
 class PostgresSqlDialect(SqlDialect):

@@ -6,19 +6,6 @@ from logging import ERROR, Logger, LogRecord, Handler
 from typing import Optional
 
 
-class Emoticons:
-    CROSS_MARK: str = "\u274C"
-    WHITE_CHECK_MARK: str = "\u2705"
-    CLOUD: str = "\u2601"
-    OK_HAND: str = "\U0001F44C"
-    SCROLL: str = "\U0001F4DC"
-    FINGERS_CROSSED: str = "\U0001F91E"
-    EXPLODING_HEAD: str = "\U0001F92F"
-    POLICE_CAR_LIGHT: str = "\U0001F6A8"
-    SEE_NO_EVIL: str = "\U0001F648"
-    PINCHED_FINGERS: str = "\U0001F90C"
-
-
 class Location:
     def __init__(self, file_path: Optional[str], line: Optional[int], column: Optional[int]):
         self.file_path: Optional[str] = file_path
@@ -46,7 +33,7 @@ class LogCapturer(Handler):
         self.threading_ident: int = threading.get_ident()
         logging.root.addHandler(self)
 
-    def stop(self) -> None:
+    def remove_from_root_logger(self) -> None:
         logging.root.removeHandler(self)
 
     def emit(self, record: LogRecord):
@@ -57,11 +44,14 @@ class LogCapturer(Handler):
 class Logs:
     logger: Logger = logging.getLogger("soda.contracts")
 
-    def __init__(self, logs: list[Log] = None):
+    def __init__(self):
         # Stores all logs above debug level to be sent to soda cloud and for testing logs in the test suite.
         # self.logs: list[Log] = logs or []
         self.records: list[LogRecord] = []
         self.log_capturer: LogCapturer = LogCapturer(self.records)
+
+    def remove_from_root_logger(self) -> None:
+        self.log_capturer.remove_from_root_logger()
 
     def __str__(self) -> str:
         return self.get_logs_str()

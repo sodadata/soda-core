@@ -8,17 +8,15 @@ from enum import Enum
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
 
-
-SODA_LOGGER_NAME: str = "soda"
-SODA_LOG_EXTRA_LOCATION: str = "location"
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class ContractVerificationBuilder:
-    def __init__(self):
+    def __init__(self, logs: Optional[Logs] = None):
         self.contract_yaml_sources: list[YamlSource] = []
         self.data_source: Optional["DataSource"] = None
         self.data_source_yaml_source: Optional[YamlSource] = None
@@ -28,7 +26,7 @@ class ContractVerificationBuilder:
         self.soda_cloud_skip_publish: bool = False
         self.use_agent: bool = False
         self.blocking_timeout_in_minutes: Optional[int] = None
-        self.logs: Logs = Logs()
+        self.logs: Logs = logs if logs else Logs()
         logger.debug("Contract verification...")
 
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> ContractVerificationBuilder:
@@ -182,8 +180,8 @@ class ContractVerificationBuilder:
 
 class ContractVerification:
     @classmethod
-    def builder(cls) -> ContractVerificationBuilder:
-        return ContractVerificationBuilder()
+    def builder(cls, logs: Optional[Logs] = None) -> ContractVerificationBuilder:
+        return ContractVerificationBuilder(logs)
 
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         from soda_core.contracts.impl.contract_verification_impl import (

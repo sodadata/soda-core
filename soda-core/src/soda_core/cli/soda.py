@@ -10,7 +10,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logs import Logs
+from soda_core.common.logging_constants import Emoticons
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication

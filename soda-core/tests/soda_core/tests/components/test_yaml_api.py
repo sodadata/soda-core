@@ -1,11 +1,12 @@
 import logging
 import os
 
+from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFileContent, YamlList, YamlObject, YamlSource
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
-def test_yaml_api():
+def test_yaml_api(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
@@ -14,12 +15,12 @@ def test_yaml_api():
         )
     )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    assert not yaml_file_content.has_errors()
+    assert not logs.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
     assert yaml_object.read_string("dataset") == "lskdjflks"
 
 
-def test_yaml_resolve_env_vars(env_vars: dict):
+def test_yaml_resolve_env_vars(env_vars: dict, logs: Logs):
     env_vars["DS"] = "thedataset"
     yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
@@ -29,31 +30,31 @@ def test_yaml_resolve_env_vars(env_vars: dict):
         )
     )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    assert not yaml_file_content.has_errors()
+    assert not logs.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
     assert yaml_object.read_string("dataset") == "thedataset"
 
 
-def test_yaml_file():
+def test_yaml_file(logs: Logs):
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/test_yaml_api_file.yml"
     yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=test_yaml_api_file_path)
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    assert not yaml_file_content.has_errors()
+    assert not logs.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
     assert yaml_object.read_string("name") == "thename"
 
 
-def test_yaml_error_file_not_found():
+def test_yaml_error_file_not_found(logs: Logs):
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/unexisting.yml"
     yaml_source: YamlSource = YamlSource.from_file_path(yaml_file_path=test_yaml_api_file_path)
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    errors_str = yaml_file_content.logs.get_errors_str()
+    errors_str = logs.get_errors_str()
     assert "unexisting.yml' does not exist" in errors_str
-    assert yaml_file_content.has_errors()
+    assert logs.has_errors()
     assert yaml_file_content.get_yaml_object() is None
 
 
-def test_yaml_error_invalid_top_level_element():
+def test_yaml_error_invalid_top_level_element(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
@@ -63,22 +64,22 @@ def test_yaml_error_invalid_top_level_element():
         )
     )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    errors_str = yaml_file_content.logs.get_errors_str()
+    errors_str = logs.get_errors_str()
     assert "Root YAML in yaml string must be an object, but was a list" in errors_str
-    assert yaml_file_content.has_errors()
+    assert logs.has_errors()
     assert yaml_file_content.get_yaml_object() is None
 
 
-def test_yaml_error_empty_yaml_str():
+def test_yaml_error_empty_yaml_str(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(yaml_str="")
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    errors_str = yaml_file_content.logs.get_errors_str()
+    errors_str = logs.get_errors_str()
     assert "Root YAML in yaml string must be an object, but was empty" in errors_str
-    assert yaml_file_content.has_errors()
+    assert logs.has_errors()
     assert yaml_file_content.get_yaml_object() is None
 
 
-def test_yaml_nested_level():
+def test_yaml_nested_level(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
@@ -90,7 +91,7 @@ def test_yaml_nested_level():
         )
     )
     yaml_file_content: YamlFileContent = yaml_source.parse_yaml_file_content()
-    assert not yaml_file_content.has_errors()
+    assert not logs.has_errors()
     yaml_object: YamlObject = yaml_file_content.get_yaml_object()
 
     level_one_object = yaml_object.read_object("level_one")

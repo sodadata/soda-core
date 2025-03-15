@@ -7,11 +7,13 @@ from enum import Enum
 from io import StringIO
 
 from ruamel.yaml import YAML
+
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logs import Emoticons, Logs, Location
+from soda_core.common.logging_constants import Emoticons, soda_logger, ExtraKeys
+from soda_core.common.logs import Logs, Location
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
@@ -25,8 +27,7 @@ from soda_core.contracts.contract_verification import (
     DataSourceInfo,
     Measurement,
     Threshold,
-    YamlFileContentInfo, SODA_LOGGER_NAME,
-)
+    YamlFileContentInfo, )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -39,8 +40,7 @@ from soda_core.contracts.impl.contract_yaml import (
     ValidReferenceDataYaml,
 )
 
-
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class DataSourceContracts:
@@ -64,7 +64,7 @@ class ContractVerificationImpl:
         skip_publish: bool,
         use_agent: bool,
         blocking_timeout_in_minutes: int,
-        logs: Logs = Logs(),
+        logs: Logs,
     ):
         self.logs: Logs = logs
         self.skip_publish: bool = skip_publish
@@ -79,7 +79,7 @@ class ContractVerificationImpl:
                 self.data_source = data_source
             elif data_source_yaml_source is not None:
                 data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                    file_type="data source", variables=variables, logs=logs
+                    file_type="data source", variables=variables
                 )
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
                 self.data_source = data_source_parser.parse()
@@ -94,7 +94,7 @@ class ContractVerificationImpl:
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-                file_type="soda cloud", variables=variables, logs=logs
+                file_type="soda cloud", variables=variables
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
 
@@ -105,7 +105,7 @@ class ContractVerificationImpl:
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, variables=variables, logs=logs
+                    contract_yaml_source=contract_yaml_source, variables=variables
                 )
                 self.contract_yamls.append(contract_yaml)
         if self.data_source:
@@ -223,7 +223,7 @@ class ContractImpl:
         for column_impl in self.column_impls:
             self.all_check_impls.extend(column_impl.check_impls)
 
-        self._verify_duplicate_identities(self.all_check_impls, self.logs)
+        self._verify_duplicate_identities(self.all_check_impls)
 
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries()
@@ -416,7 +416,7 @@ class ContractImpl:
         )
 
     @classmethod
-    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl], logs: Logs):
+    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl]):
         checks_by_identity: dict[str, CheckImpl] = {}
         for check_impl in all_check_impls:
             existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
@@ -431,7 +431,7 @@ class ContractImpl:
                         f"{original_location_str}{duplicate_location_str}"
                     ),
                     extra={
-                        SODA_LOGGER_NAME: duplicate_location,
+                        ExtraKeys.LOCATION: duplicate_location,
                     }
                 )
             checks_by_identity[check_impl.identity] = check_impl
@@ -451,7 +451,7 @@ class ColumnImpl:
     def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
         self.column_yaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=column_yaml, data_source=contract_impl.data_source
+            missing_and_validity_yaml=column_yaml
         )
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
@@ -478,7 +478,7 @@ class ValidReferenceData:
 
 
 class MissingAndValidity:
-    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml, data_source: DataSource):
+    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml):
         self.missing_values: Optional[list] = missing_and_validity_yaml.missing_values
         self.missing_format: Optional[RegexFormat] = missing_and_validity_yaml.missing_format
 
@@ -618,13 +618,13 @@ class ThresholdType(Enum):
 class ThresholdImpl:
     @classmethod
     def create(
-        cls, threshold_yaml: ThresholdYaml, logs: Logs, default_threshold: Optional[ThresholdImpl] = None
+        cls, threshold_yaml: ThresholdYaml, default_threshold: Optional[ThresholdImpl] = None
     ) -> Optional[ThresholdImpl]:
         if threshold_yaml is None:
             if default_threshold:
                 return default_threshold
             else:
-                logs.error(f"Threshold required, but not specified")
+                logger.error(f"Threshold required, but not specified")
                 return None
 
         total_config_count: int = cls.__config_count(
@@ -643,7 +643,7 @@ class ThresholdImpl:
         if total_config_count == 0:
             if default_threshold:
                 return default_threshold
-            logs.error(f"Threshold required, but not specified")
+            logger.error(f"Threshold required, but not specified")
             return None
 
         if (
@@ -681,7 +681,7 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
                     )
                 else:
-                    logs.error(
+                    logger.error(
                         f"Threshold must_be_between range: "
                         "first value must be less than the second value"
                     )
@@ -698,7 +698,7 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=threshold_yaml.must_be_not_between.lower_bound,
                     )
                 else:
-                    logs.error(
+                    logger.error(
                         f"Threshold must_be_not_between range: "
                         "first value must be less than the second value"
                     )
@@ -966,7 +966,7 @@ class MissingAndValidityCheckImpl(CheckImpl):
     ):
         super().__init__(contract_impl, column_impl, check_yaml)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=check_yaml, data_source=contract_impl.data_source
+            missing_and_validity_yaml=check_yaml
         )
         self.missing_and_validity.apply_column_defaults(column_impl)
 

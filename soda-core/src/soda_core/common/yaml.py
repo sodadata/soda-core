@@ -9,12 +9,11 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
-from soda_core.common.logs import Emoticons, Location, Logs
 
+from soda_core.common.logging_constants import soda_logger, ExtraKeys
+from soda_core.common.logs import Location, Logs
 
-SODA_LOGGER_NAME = "soda"
-SODA_LOG_EXTRA_LOCATION = "location"
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class YamlParser:
@@ -38,7 +37,7 @@ class YamlSource:
 
     @abstractmethod
     def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Logs = None
+        self, file_type: Optional[str] = None, variables: Optional[dict] = None
     ) -> YamlFileContent:
         pass
 
@@ -52,21 +51,19 @@ class FileYamlSource(YamlSource):
         return self.yaml_file_path
 
     def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Optional[Logs] = None
+        self, file_type: Optional[str] = None, variables: Optional[dict] = None
     ) -> YamlFileContent:
-        logs = logs if logs else Logs()
         yaml_source_description: str = (
             f"{file_type} file '{self.yaml_file_path}'" if file_type else f"'{self.yaml_file_path}'"
         )
         yaml_str: Optional[str] = YamlFileContent.read_yaml_file(
-            file_path=self.yaml_file_path, yaml_source_description=yaml_source_description, logs=logs
+            file_path=self.yaml_file_path, yaml_source_description=yaml_source_description
         )
         yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=yaml_str, variables=variables)
         yaml_dict: Optional[dict] = YamlFileContent.parse_yaml_dict(
             yaml_str=yaml_str_resolved,
             yaml_file_path=self.yaml_file_path,
             yaml_source_description=yaml_source_description,
-            logs=logs,
         )
         return YamlFileContent(
             yaml_file_path=self.yaml_file_path,
@@ -74,7 +71,6 @@ class FileYamlSource(YamlSource):
             yaml_str_source=yaml_str,
             yaml_str_resolved=yaml_str_resolved,
             yaml_dict=yaml_dict,
-            logs=logs,
         )
 
 
@@ -88,16 +84,14 @@ class StrYamlSource(YamlSource):
         return self.file_path if isinstance(self.file_path, str) else "yaml_str"
 
     def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Optional[Logs] = None
+        self, file_type: Optional[str] = None, variables: Optional[dict] = None
     ) -> YamlFileContent:
-        logs = logs if logs else Logs()
         yaml_source_description: str = f"{file_type} yaml string" if file_type else "yaml string"
         yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=self.yaml_str, variables=variables)
         yaml_dict: Optional[dict] = YamlFileContent.parse_yaml_dict(
             yaml_str=yaml_str_resolved,
             yaml_file_path=yaml_source_description,
             yaml_source_description=yaml_source_description,
-            logs=logs,
         )
         return YamlFileContent(
             yaml_file_path=self.file_path,
@@ -105,7 +99,6 @@ class StrYamlSource(YamlSource):
             yaml_str_source=self.yaml_str,
             yaml_str_resolved=yaml_str_resolved,
             yaml_dict=yaml_dict,
-            logs=logs,
         )
 
 
@@ -119,9 +112,8 @@ class DictYamlSource(YamlSource):
         return self.file_path if isinstance(self.file_path, str) else "yaml_dict"
 
     def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None, logs: Optional[Logs] = None
+        self, file_type: Optional[str] = None, variables: Optional[dict] = None
     ) -> YamlFileContent:
-        logs = logs if logs else Logs()
         yaml_source_description: str = f"{file_type} yaml dict" if file_type else "yaml dict"
         return YamlFileContent(
             yaml_file_path=self.file_path,
@@ -129,7 +121,6 @@ class DictYamlSource(YamlSource):
             yaml_str_source=None,
             yaml_str_resolved=None,
             yaml_dict=self.yaml_dict,
-            logs=logs,
         )
 
 
@@ -143,17 +134,15 @@ class YamlFileContent:
         yaml_str_source: Optional[str],
         yaml_str_resolved: Optional[str],
         yaml_dict: Optional[dict],
-        logs: Logs,
     ):
         self.yaml_file_path: Optional[str] = yaml_file_path
         self.yaml_source_description: Optional[str] = yaml_source_description
         self.yaml_str_source: Optional[str] = yaml_str_source
         self.yaml_str_resolved: Optional[str] = yaml_str_resolved
         self.yaml_dict: Optional[dict] = yaml_dict
-        self.logs: Logs = logs
 
     @classmethod
-    def read_yaml_file(cls, file_path: str, yaml_source_description: str, logs: Logs) -> Optional[str]:
+    def read_yaml_file(cls, file_path: str, yaml_source_description: str) -> Optional[str]:
         if isinstance(file_path, str):
             try:
                 with open(file_path) as f:
@@ -177,8 +166,7 @@ class YamlFileContent:
 
     @classmethod
     def parse_yaml_dict(
-        cls, yaml_str: str, yaml_file_path: Optional[str], yaml_source_description: str, logs: Logs
-    ) -> any:
+        cls, yaml_str: str, yaml_file_path: Optional[str], yaml_source_description: str) -> any:
         if isinstance(yaml_str, str):
             try:
                 root_yaml_object: any = cls.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
@@ -191,7 +179,7 @@ class YamlFileContent:
                     logger.error(
                         msg=f"Root YAML in {yaml_source_description} must be an object, " f"but was {yaml_type}",
                         extra={
-                            SODA_LOG_EXTRA_LOCATION: location,
+                            ExtraKeys.LOCATION: location,
                         }
                     )
                     return None
@@ -205,7 +193,7 @@ class YamlFileContent:
                     msg=f"YAML syntax error in {yaml_source_description}",
                     exc_info=True,
                     extra={
-                        SODA_LOG_EXTRA_LOCATION: location
+                        ExtraKeys.LOCATION: location
                     }
                 )
 
@@ -215,13 +203,6 @@ class YamlFileContent:
     def has_yaml_object(self) -> bool:
         return isinstance(self.yaml_dict, dict)
 
-    def has_errors(self) -> bool:
-        return self.logs.has_errors()
-
-    def assert_no_errors(self) -> None:
-        if self.logs.has_errors():
-            raise AssertionError(f"{self.yaml_source_description} has errors: {self.logs}")
-
     def __str__(self) -> str:
         return self.yaml_source_description
 
@@ -229,7 +210,6 @@ class YamlFileContent:
 class YamlValue:
     def __init__(self, yaml_file_content: YamlFileContent) -> None:
         self.yaml_file_content: YamlFileContent = yaml_file_content
-        self.logs: Logs = yaml_file_content.logs
 
     def _yaml_wrap(self, value):
         if isinstance(value, dict):
@@ -308,7 +288,7 @@ class YamlObject(YamlValue):
                                 f"But element {index} was {type(element).__name__}"
                             ),
                             extra={
-                                SODA_LOG_EXTRA_LOCATION: self.create_location_from_yaml_dict_key(key),
+                                ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
                             }
                         )
             list_value.yaml_list = filtered_list
@@ -336,7 +316,7 @@ class YamlObject(YamlValue):
                             f"But element {i} was {type(element).__name__}"
                         ),
                         extra={
-                            SODA_LOG_EXTRA_LOCATION: self.create_location_from_yaml_dict_key(key),
+                            ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
                         }
                     )
                     list_value.yaml_list[i] = None
@@ -415,7 +395,7 @@ class YamlObject(YamlValue):
                 logger.error(
                     msg=f"{key_description} is required",
                     extra={
-                        SODA_LOG_EXTRA_LOCATION: self.location,
+                        ExtraKeys.LOCATION: self.location,
                     }
                 )
             value = default_value
@@ -434,7 +414,7 @@ class YamlObject(YamlValue):
                     f"but was {actual_type_str}"
                 ),
                 extra={
-                    SODA_LOG_EXTRA_LOCATION: self.create_location_from_yaml_dict_key(key),
+                    ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
                 }
             )
             value = None

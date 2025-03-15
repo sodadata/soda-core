@@ -6,6 +6,7 @@ from typing import Optional
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
@@ -17,8 +18,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Measurement,
-    Threshold, SODA_LOGGER_NAME,
-)
+    Threshold, )
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     CheckImpl,
@@ -30,8 +30,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     Query,
 )
 
-
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class SchemaCheckParser(CheckParser):

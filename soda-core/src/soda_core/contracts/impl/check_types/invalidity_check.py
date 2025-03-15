@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
@@ -12,8 +12,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     Diagnostic,
     Measurement,
-    NumericDiagnostic, SODA_LOGGER_NAME, SODA_LOG_EXTRA_LOCATION,
-)
+    NumericDiagnostic, )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -34,7 +33,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
 )
 
 
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class InvalidCheckParser(CheckParser):
@@ -68,7 +67,6 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         )
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
-            logs=self.logs,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
@@ -76,7 +74,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             logger.error(
                 msg="Invalid check does not have any valid or invalid configurations",
                 extra={
-                    SODA_LOG_EXTRA_LOCATION: self.check_yaml.check_yaml_object.location,
+                    ExtraKeys.LOCATION: self.check_yaml.check_yaml_object.location,
                 }
             )
 

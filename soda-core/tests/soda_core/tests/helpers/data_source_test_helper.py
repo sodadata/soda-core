@@ -70,10 +70,11 @@ class DataSourceTestHelper:
         return PostgresDataSourceTestHelper()
 
     def __init__(self):
-        super().__init__()
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
+        logs: Logs = Logs()
         self.data_source: "DataSource" = self._create_data_source()
-        if self.data_source.logs.has_errors():
+        logs.remove_from_root_logger()
+        if logs.has_errors():
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
@@ -114,7 +115,7 @@ class DataSourceTestHelper:
         test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
         data_source_yaml_file = YamlSource.from_dict(yaml_dict=test_data_source_yaml_dict)
         data_source_yaml_file_content: YamlFileContent = data_source_yaml_file.parse_yaml_file_content(
-            file_type="data source", logs=logs
+            file_type="data source"
         )
         from soda_core.common.data_source_parser import DataSourceParser
 
@@ -240,8 +241,10 @@ class DataSourceTestHelper:
         self.start_test_session_ensure_schema()
 
     def start_test_session_open_connection(self) -> None:
+        logs: Logs = Logs()
         self.data_source.open_connection()
-        if self.data_source.logs.has_errors():
+        logs.remove_from_root_logger()
+        if logs.has_errors():
             raise AssertionError(f"Connection creation has errors. See logs.")
 
     def start_test_session_ensure_schema(self) -> None:
@@ -438,7 +441,7 @@ class DataSourceTestHelper:
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
-        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None, soda_cloud=None
+        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
     ) -> ContractResult:
         contract_verification_result: ContractVerificationResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables

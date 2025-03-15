@@ -6,18 +6,15 @@ from importlib.util import find_spec
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Logs
-from soda_core.contracts.contract_verification import SODA_LOGGER_NAME
+from soda_core.common.logging_constants import soda_logger
 
-
-logger: logging.Logger = logging.getLogger(SODA_LOGGER_NAME)
+logger: logging.Logger = soda_logger
 
 
 class DataSourceConnection(ABC):
-    def __init__(self, name: str, connection_properties: dict, logs: Logs):
+    def __init__(self, name: str, connection_properties: dict):
         self.name: str = name
         self.connection_properties: dict = connection_properties
-        self.logs: Logs = logs
         self.is_tabulate_available: bool = bool(find_spec(name="tabulate"))
         self.connection: Optional[object] = None
         # Auto-open on creation.  See DataSource.open_connection()

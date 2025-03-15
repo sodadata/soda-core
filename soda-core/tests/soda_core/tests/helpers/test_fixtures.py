@@ -5,6 +5,8 @@ from typing import Optional
 
 import pytest
 from dotenv import load_dotenv
+
+from soda_core.common.logs import Logs
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 
 project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/helpers/test_fixtures.py")]
@@ -23,6 +25,15 @@ def env_vars() -> dict:
 def data_source_test_helper(data_source_test_helper_session: DataSourceTestHelper) -> DataSourceTestHelper:
     yield data_source_test_helper_session
     data_source_test_helper_session.test_method_ended()
+
+
+@pytest.fixture(scope="function")
+def logs() -> Logs:
+    logs: Logs = Logs()
+    try:
+        yield logs
+    finally:
+        logs.remove_from_root_logger()
 
 
 @pytest.fixture(scope="session")
