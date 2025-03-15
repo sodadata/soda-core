@@ -880,7 +880,7 @@ class CheckImpl:
                     check_yaml=check_yaml,
                 )
             else:
-                contract_impl.logs.error(f"Unknown check type '{check_yaml.type_name}'")
+                logger.error(f"Unknown check type '{check_yaml.type_name}'")
 
     def __init__(
         self,
