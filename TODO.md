@@ -1,6 +1,5 @@
 # TODOs
 
-* [ ] Clean up log constants SODA_LOGGER_NAME, SODA_LOGGER_NAME
 * [ ] Add test for log messages to Soda Cloud with docs, exceptions and location
 * [ ] Verify exception handling around all query executions. Measurements should not be created.  Check results must be created, but with outcome not-evaluated
 * [ ] Renamings
