@@ -20,7 +20,7 @@ test_table_specification = (
 def test_row_count(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+    data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:

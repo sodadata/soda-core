@@ -1,9 +1,9 @@
 # TODOs
 
-* [ ] Fix / review exit codes.  Connect 4 to soda cloud response
-* [ ] Move logs to standard python logging
-* [ ] Verify exception handling around all query executions. Measurements should not be created.  Check results must be created, but with outcome not-evaluated
-* [ ] Renamings 
+* [ ] Add test for log messages to Soda Cloud with docs, exceptions and location
+* [ ] Renamings
+  * DataSource -> DataSourceImpl
+  * DataSourceInfo -> DataSource
   * ContractVerificationResult to ContractVerificationSession
   * ContractResult to ContractVerificationResult
 * [ ] License headers

@@ -53,7 +53,6 @@ class RowCountCheckImpl(CheckImpl):
 
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
-            logs=self.logs,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be_greater_than=0),
         )
 

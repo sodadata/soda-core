@@ -23,7 +23,7 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     data_source_yaml_dict: dict = data_source_test_helper._create_data_source_yaml_dict()
     data_source_yaml_source: YamlSource = YamlSource.from_dict(yaml_dict=data_source_yaml_dict)
     data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-        file_type="data source", variables={}, logs=logs
+        file_type="data source", variables={}
     )
     data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
     data_source: DataSource = data_source_parser.parse()
@@ -39,7 +39,7 @@ def test_empty_data_source_file():
     logs: Logs = Logs()
     data_source_yaml_source: YamlSource = YamlSource.from_str("")
     data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-        file_type="data source", variables={}, logs=logs
+        file_type="data source", variables={}
     )
     data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
     data_source_parser.parse()

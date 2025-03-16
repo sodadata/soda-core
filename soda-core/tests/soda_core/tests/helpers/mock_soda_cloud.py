@@ -54,7 +54,6 @@ class MockSodaCloud(SodaCloud):
             token="mock-token",
             port="9999",
             scheme="https",
-            logs=Logs(),
         )
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []

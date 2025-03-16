@@ -5,8 +5,8 @@ from soda_core.common.logs import Logs
 
 
 class PostgresDataSourceConnection(DataSourceConnection):
-    def __init__(self, name: str, connection_properties: dict, logs: Logs):
-        super().__init__(name, connection_properties, logs)
+    def __init__(self, name: str, connection_properties: dict):
+        super().__init__(name, connection_properties)
 
     def _create_connection(self, connection_yaml_dict: dict) -> object:
         import psycopg2

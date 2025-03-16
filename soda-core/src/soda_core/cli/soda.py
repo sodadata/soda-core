@@ -10,7 +10,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logs import Logs
+from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
@@ -19,6 +20,9 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationBuilder,
     ContractVerificationResult,
 )
+
+
+logger: logging.Logger = soda_logger
 
 
 class CLI:
@@ -243,14 +247,14 @@ class CLI:
         contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
 
         for contract_file_path in contract_file_paths:
-            contract_verification_builder.logs.info(f"Testing contract '{contract_file_path}' YAML syntax")
+            logger.info(f"Testing contract '{contract_file_path}' YAML syntax")
             contract_verification_builder.with_contract_yaml_file(contract_file_path)
 
         contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
 
         contract_verification_builder.build()
         if not contract_verification_builder.logs.has_errors():
-            contract_verification_builder.logs.info(f"{Emoticons.WHITE_CHECK_MARK} All provided contracts are valid")
+            logger.info(f"{Emoticons.WHITE_CHECK_MARK} All provided contracts are valid")
 
     def _publish_contract(
         self,

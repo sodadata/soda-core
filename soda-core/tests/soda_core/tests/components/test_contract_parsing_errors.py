@@ -70,3 +70,18 @@ def test_error_no_dataset(data_source_test_helper: DataSourceTestHelper):
     )
 
     assert "'dataset' is required" in errors_str
+
+
+def test_valid_values_not_configured(data_source_test_helper: DataSourceTestHelper):
+    error: str = data_source_test_helper.assert_contract_error(
+        contract_yaml_str=f"""
+            data_source: the_test_ds
+            dataset: TBLE
+            dataset_prefix: [a, b]
+            columns:
+              - name: id
+                checks:
+                  - invalid:
+        """,
+    )
+    assert "Invalid check does not have any valid or invalid configurations" in error

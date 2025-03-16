@@ -17,11 +17,11 @@ class InvalidCheckYamlParser(CheckYamlParser):
         return ["invalid"]
 
     def parse_check_yaml(
-        self, check_type_name: str, check_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml], logs: Logs
+        self, check_type_name: str, check_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml]
     ) -> Optional[CheckYaml]:
-        return InvalidCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object, logs=logs)
+        return InvalidCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
 
 
 class InvalidCheckYaml(MissingAncValidityCheckYaml):
-    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
-        super().__init__(type_name=type_name, check_yaml_object=check_yaml_object, logs=logs)
+    def __init__(self, type_name: str, check_yaml_object: YamlObject):
+        super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)

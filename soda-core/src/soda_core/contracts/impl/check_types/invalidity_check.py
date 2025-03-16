@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional
+import logging
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
@@ -11,8 +12,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     Diagnostic,
     Measurement,
-    NumericDiagnostic,
-)
+    NumericDiagnostic, )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -31,6 +31,9 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ThresholdType,
     ValidReferenceData,
 )
+
+
+logger: logging.Logger = soda_logger
 
 
 class InvalidCheckParser(CheckParser):
@@ -64,14 +67,15 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         )
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
-            logs=self.logs,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
         if not self.missing_and_validity.has_validity_configurations():
-            self.logs.error(
-                message="Invalid check does not have any valid or invalid configurations",
-                location=self.check_yaml.check_yaml_object.location
+            logger.error(
+                msg="Invalid check does not have any valid or invalid configurations",
+                extra={
+                    ExtraKeys.LOCATION: self.check_yaml.check_yaml_object.location,
+                }
             )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
@@ -254,7 +258,15 @@ class InvalidReferenceCountQuery(Query):
         )
 
     def execute(self) -> list[Measurement]:
-        query_result: QueryResult = self.data_source.execute_query(self.sql)
+        try:
+            query_result: QueryResult = self.data_source.execute_query(self.sql)
+        except Exception as e:
+            logger.error(
+                msg=f"Could not execute invalid reference query {self.sql}: {e}",
+                exc_info=True
+            )
+            return []
+
         metric_value = query_result.rows[0][0]
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]

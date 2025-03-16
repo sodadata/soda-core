@@ -1,26 +1,31 @@
+import logging
 from typing import Dict, Optional, TypeVar
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
 
 T = TypeVar("T", bound="ContractCommandBuilder")
 
 
+logger: logging.Logger = soda_logger
+
+
 class ContractCommandBuilder:
-    def __init__(self):
+    def __init__(self, logs: Optional[Logs] = None):
         self.contract_yaml_sources: list[YamlSource] = []
         self.soda_cloud: Optional["SodaCloud"] = None
         self.soda_cloud_yaml_source: Optional[YamlSource] = None
         self.variables: Optional[Dict[str, str]] = {}
-        self.logs: Logs = Logs()
-        self.logs.debug("Publishing contract...")
+        self.logs: Logs = logs if logs else Logs()
+        logger.debug("Publishing contract...")
 
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> T:
         if isinstance(contract_yaml_file_path, str):
-            self.logs.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
+            logger.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         else:
-            self.logs.error(
+            logger.error(
                 f"...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
                 f"Expected string, but was {contract_yaml_file_path.__class__.__name__}."
             )
@@ -28,10 +33,10 @@ class ContractCommandBuilder:
 
     def with_contract_yaml_str(self, contract_yaml_str: str) -> T:
         if isinstance(contract_yaml_str, str):
-            self.logs.debug(f"  ...with contract YAML str [{len(contract_yaml_str)}]")
+            logger.debug(f"  ...with contract YAML str [{len(contract_yaml_str)}]")
             self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
         else:
-            self.logs.error(
+            logger.error(
                 f"...ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
                 f"Expected string, but was {contract_yaml_str.__class__.__name__}"
             )
@@ -40,15 +45,15 @@ class ContractCommandBuilder:
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> T:
         if isinstance(soda_cloud_yaml_file_path, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
+                logger.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
             else:
-                self.logs.debug(
+                logger.debug(
                     f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
         else:
-            self.logs.error(
+            logger.error(
                 f"...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                 f"Expected string, but was {soda_cloud_yaml_file_path.__class__.__name__}"
             )
@@ -57,31 +62,31 @@ class ContractCommandBuilder:
     def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> T:
         if isinstance(soda_cloud_yaml_str, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
+                logger.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
             else:
-                self.logs.debug(
+                logger.debug(
                     f"  ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         else:
-            self.logs.error(
+            logger.error(
                 f"...ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                 f"Expected string, but was {soda_cloud_yaml_str.__class__.__name__}"
             )
         return self
 
     def with_soda_cloud(self, soda_cloud: object) -> T:
-        self.logs.debug(f"  ...with provided soda_cloud '{soda_cloud}'")
+        logger.debug(f"  ...with provided soda_cloud '{soda_cloud}'")
         self.soda_cloud = soda_cloud
         return self
 
     def with_variable(self, key: str, value: str) -> T:
         if isinstance(key, str) and isinstance(value, str):
-            self.logs.debug(f"  ...with variable '{key}'")
+            logger.debug(f"  ...with variable '{key}'")
             self.variables[key] = value
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid variable '{key}'. "
                 f"Expected key str and value string"
             )
@@ -89,14 +94,14 @@ class ContractCommandBuilder:
 
     def with_variables(self, variables: dict[str, str]) -> T:
         if isinstance(variables, dict):
-            self.logs.debug(f"  ...with variables {list(variables.keys())}")
+            logger.debug(f"  ...with variables {list(variables.keys())}")
             self.variables.update(variables)
         elif variables is None:
             if isinstance(self.variables, dict) and len(self.variables) > 1:
-                self.logs.debug(f"  ...removing variables {list(self.variables.keys())} because variables set to None")
+                logger.debug(f"  ...removing variables {list(self.variables.keys())} because variables set to None")
             self.variables = None
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid variables '{variables}'. "
                 f"Expected dict, but was {variables.__class__.__name__}"
             )

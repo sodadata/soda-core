@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from soda_core.common.data_source import DataSource
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.yaml import YamlFileContent, YamlObject
+
+logger: logging.Logger = soda_logger
 
 
 class DataSourceParser:
     def __init__(self, data_source_yaml_file_content: YamlFileContent, spark_session: Optional[object] = None):
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
-        self.logs: Logs = data_source_yaml_file_content.logs
         self.spark_session: object = spark_session
 
     def parse(self) -> Optional[DataSource]:
@@ -29,7 +31,7 @@ class DataSourceParser:
         if connection_yaml:
             connection_properties = connection_yaml.to_dict()
         elif self.spark_session is None:
-            self.logs.error(
+            logger.error(
                 f"Key 'connection' containing an object of data source connection "
                 f"configurations is required"
             )
@@ -42,10 +44,12 @@ class DataSourceParser:
                 if isinstance(k, str) and isinstance(v, str):
                     format_regexes[k] = v
                 else:
-                    self.logs.error(
-                        message=f"Invalid regex value in 'format_regexes', "
-                        f"expected string, was '{v}'",
-                        location=format_regexes_yaml.location,
+                    logger.error(
+                        msg=f"Invalid regex value in 'format_regexes', "
+                            f"expected string, was '{v}'",
+                        extra={
+                            ExtraKeys.LOCATION: format_regexes_yaml.location
+                        },
                     )
 
         return DataSource.create(

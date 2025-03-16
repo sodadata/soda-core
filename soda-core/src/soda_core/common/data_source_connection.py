@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from importlib.util import find_spec
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import soda_logger
+
+logger: logging.Logger = soda_logger
 
 
 class DataSourceConnection(ABC):
-    def __init__(self, name: str, connection_properties: dict, logs: Logs):
+    def __init__(self, name: str, connection_properties: dict):
         self.name: str = name
         self.connection_properties: dict = connection_properties
-        self.logs: Logs = logs
         self.is_tabulate_available: bool = bool(find_spec(name="tabulate"))
         self.connection: Optional[object] = None
         # Auto-open on creation.  See DataSource.open_connection()
@@ -43,8 +45,9 @@ class DataSourceConnection(ABC):
                 self._log_connection_properties_excl_pwd(self.connection_properties)
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
-                self.logs.error(
-                    message=f"Could not connect to '{self.name}': {e}", exception=e
+                logger.error(
+                    msg=f"Could not connect to '{self.name}': {e}",
+                    exc_info=True
                 )
 
     def _log_connection_properties_excl_pwd(self, connection_yaml_dict: dict):
@@ -53,7 +56,7 @@ class DataSourceConnection(ABC):
             for k, v in connection_yaml_dict.items()
             if not "password" in k and not "pwd" in k and not "key" in k and not "secret" in k
         }
-        self.logs.debug(f"{self.name} connection properties: {dict_without_pwd}")
+        logger.debug(f"{self.name} connection properties: {dict_without_pwd}")
 
     def close_connection(self) -> None:
         """
@@ -65,7 +68,10 @@ class DataSourceConnection(ABC):
                 # noinspection PyUnresolvedReferences
                 self.connection.close()
             except Exception as e:
-                self.logs.warning(message=f"Could not close the DBAPI connection", exception=e)
+                logger.warning(
+                    msg=f"Could not close the DBAPI connection",
+                    exc_info=True
+                )
             finally:
                 self.connection = None
 
@@ -76,16 +82,16 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            self.logs.debug(f"SQL query fetchall: \n{sql}")
+            logger.debug(f"SQL query fetchall: \n{sql}")
             cursor.execute(sql)
             rows = cursor.fetchall()
             if self.is_tabulate_available:
                 from tabulate import tabulate
 
                 table_text: str = tabulate(rows, headers=[c.name for c in cursor.description])
-                self.logs.debug(f"SQL query result:\n{table_text}")
+                logger.debug(f"SQL query result:\n{table_text}")
             else:
-                self.logs.debug(f"SQL query result: {len(rows)} rows")
+                logger.debug(f"SQL query result: {len(rows)} rows")
             return QueryResult(rows=rows, columns=cursor.description)
         finally:
             cursor.close()
@@ -94,7 +100,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            self.logs.debug(f"SQL update: \n{sql}")
+            logger.debug(f"SQL update: \n{sql}")
             updates = cursor.execute(sql)
             self.commit()
             return updates

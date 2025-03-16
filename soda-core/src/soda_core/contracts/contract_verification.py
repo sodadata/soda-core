@@ -1,19 +1,22 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from logging import ERROR
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
+
+logger: logging.Logger = soda_logger
 
 
 class ContractVerificationBuilder:
-    def __init__(self):
+    def __init__(self, logs: Optional[Logs] = None):
         self.contract_yaml_sources: list[YamlSource] = []
         self.data_source: Optional["DataSource"] = None
         self.data_source_yaml_source: Optional[YamlSource] = None
@@ -23,15 +26,15 @@ class ContractVerificationBuilder:
         self.soda_cloud_skip_publish: bool = False
         self.use_agent: bool = False
         self.blocking_timeout_in_minutes: Optional[int] = None
-        self.logs: Logs = Logs()
-        self.logs.debug("Contract verification...")
+        self.logs: Logs = logs if logs else Logs()
+        logger.debug("Contract verification...")
 
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> ContractVerificationBuilder:
         if isinstance(contract_yaml_file_path, str):
-            self.logs.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
+            logger.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
                 f"Expected string, but was {contract_yaml_file_path.__class__.__name__}."
             )
@@ -39,10 +42,10 @@ class ContractVerificationBuilder:
 
     def with_contract_yaml_str(self, contract_yaml_str: str) -> ContractVerificationBuilder:
         if isinstance(contract_yaml_str, str):
-            self.logs.debug(f"  ...with contract YAML str [{len(contract_yaml_str)}]")
+            logger.debug(f"  ...with contract YAML str [{len(contract_yaml_str)}]")
             self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid contract_yaml_str '{contract_yaml_str}'.  "
                 f"Expected string, but was {contract_yaml_str.__class__.__name__}"
             )
@@ -51,15 +54,15 @@ class ContractVerificationBuilder:
     def with_data_source_yaml_file(self, data_source_yaml_file_path: str) -> ContractVerificationBuilder:
         if isinstance(data_source_yaml_file_path, str):
             if self.data_source_yaml_source is None:
-                self.logs.debug(f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'")
+                logger.debug(f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'")
             else:
-                self.logs.debug(
+                logger.debug(
                     f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'. "
                     f"(Ignoring previously configured data source '{self.data_source_yaml_source}')"
                 )
             self.data_source_yaml_source = YamlSource.from_file_path(yaml_file_path=data_source_yaml_file_path)
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid data_source_yaml_file_path  '{data_source_yaml_file_path}'.  "
                 f"Expected string, but was {data_source_yaml_file_path.__class__.__name__}"
             )
@@ -68,37 +71,37 @@ class ContractVerificationBuilder:
     def with_data_source_yaml_str(self, data_source_yaml_str: str) -> ContractVerificationBuilder:
         if isinstance(data_source_yaml_str, str):
             if self.data_source_yaml_source is None:
-                self.logs.debug(f"  ...with data_source_yaml_str '{data_source_yaml_str}'")
+                logger.debug(f"  ...with data_source_yaml_str '{data_source_yaml_str}'")
             else:
-                self.logs.debug(
+                logger.debug(
                     f"  ...with data_source_yaml_str '{data_source_yaml_str}'. "
                     f"(Ignoring previously configured data source '{self.data_source_yaml_source}')"
                 )
             self.data_source_yaml_source = YamlSource.from_str(yaml_str=data_source_yaml_str)
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid data_source_yaml_str '{data_source_yaml_str}'. "
                 f"Expected string, but was {data_source_yaml_str.__class__.__name__}"
             )
         return self
 
     def with_data_source(self, data_source: object) -> ContractVerificationBuilder:
-        self.logs.debug(f"  ...with provided data_source '{data_source}'")
+        logger.debug(f"  ...with provided data_source '{data_source}'")
         self.data_source = data_source
         return self
 
     def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
         if isinstance(soda_cloud_yaml_file_path, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
+                logger.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
             else:
-                self.logs.debug(
+                logger.debug(
                     f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                     f"(Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}')"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                 f"Expected string, but was {soda_cloud_yaml_file_path.__class__.__name__}"
             )
@@ -107,39 +110,39 @@ class ContractVerificationBuilder:
     def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
         if isinstance(soda_cloud_yaml_str, str):
             if self.soda_cloud_yaml_source is None:
-                self.logs.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
+                logger.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
             else:
-                self.logs.debug(
+                logger.debug(
                     f"  ...with soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                     f"(Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}')"
                 )
             self.soda_cloud_yaml_source = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid soda_cloud_yaml_str '{soda_cloud_yaml_str}'. "
                 f"Expected string, but was {soda_cloud_yaml_str.__class__.__name__}"
             )
         return self
 
     def with_soda_cloud(self, soda_cloud: object) -> ContractVerificationBuilder:
-        self.logs.debug(f"  ...with provided soda_cloud '{soda_cloud}'")
+        logger.debug(f"  ...with provided soda_cloud '{soda_cloud}'")
         self.soda_cloud = soda_cloud
         return self
 
     def with_execution_on_soda_agent(
         self, blocking_timeout_in_minutes: Optional[int] = None
     ) -> ContractVerificationBuilder:
-        self.logs.debug(f"  ...with execution on Soda Agent")
+        logger.debug(f"  ...with execution on Soda Agent")
         self.use_agent = True
         self.blocking_timeout_in_minutes = blocking_timeout_in_minutes
         return self
 
     def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
         if isinstance(key, str) and isinstance(value, str):
-            self.logs.debug(f"  ...with variable '{key}'")
+            logger.debug(f"  ...with variable '{key}'")
             self.variables[key] = value
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid variable '{key}'. "
                 f"Expected key str and value string"
             )
@@ -147,14 +150,14 @@ class ContractVerificationBuilder:
 
     def with_variables(self, variables: dict[str, str]) -> ContractVerificationBuilder:
         if isinstance(variables, dict):
-            self.logs.debug(f"  ...with variables {list(variables.keys())}")
+            logger.debug(f"  ...with variables {list(variables.keys())}")
             self.variables.update(variables)
         elif variables is None:
             if isinstance(self.variables, dict) and len(self.variables) > 1:
-                self.logs.debug(f"  ...removing variables {list(self.variables.keys())} because variables set to None")
+                logger.debug(f"  ...removing variables {list(self.variables.keys())} because variables set to None")
             self.variables = None
         else:
-            self.logs.error(
+            logger.error(
                 f"Ignoring invalid variables '{variables}'. "
                 f"Expected dict, but was {variables.__class__.__name__}"
             )
@@ -177,8 +180,8 @@ class ContractVerificationBuilder:
 
 class ContractVerification:
     @classmethod
-    def builder(cls) -> ContractVerificationBuilder:
-        return ContractVerificationBuilder()
+    def builder(cls, logs: Optional[Logs] = None) -> ContractVerificationBuilder:
+        return ContractVerificationBuilder(logs)
 
     def __init__(self, contract_verification_builder: ContractVerificationBuilder):
         from soda_core.contracts.impl.contract_verification_impl import (
@@ -235,14 +238,17 @@ class ContractVerificationResult:
         return not self.has_errors() and not self.has_failures()
 
     def assert_ok(self) -> ContractVerificationResult:
-        has_error: bool = any(log.level >= ERROR for log in self.logs.logs)
+        has_errors: bool = self.logs.has_errors()
         has_check_failures: bool = any(contract_result.failed() for contract_result in self.contract_results)
-        if has_error or has_check_failures:
-            raise SodaException(message=self.get_logs_str(), contract_verification_result=self)
+        if has_errors or has_check_failures:
+            raise SodaException(
+                message=self.logs.get_logs_str(),
+                contract_verification_result=self
+            )
         return self
 
     def get_logs_str(self) -> str:
-        return "/n".join([log.message for log in self.logs.logs])
+        return self.logs.get_logs_str()
 
 
 class SodaException(Exception):
@@ -331,9 +337,9 @@ class CheckResult(ABC):
             if self.outcome == CheckOutcome.FAILED
             else Emoticons.SEE_NO_EVIL
         )
-        logs.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
+        logger.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
         for diagnostic in self.diagnostics:
-            logs.info(f"  {diagnostic.log_line()}")
+            logger.info(f"  {diagnostic.log_line()}")
 
 
 class Measurement:

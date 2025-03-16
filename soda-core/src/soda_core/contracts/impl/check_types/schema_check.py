@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
@@ -16,8 +18,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Measurement,
-    Threshold,
-)
+    Threshold, )
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     CheckImpl,
@@ -28,6 +29,8 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MetricImpl,
     Query,
 )
+
+logger: logging.Logger = soda_logger
 
 
 class SchemaCheckParser(CheckParser):
@@ -201,7 +204,14 @@ class SchemaQuery(Query):
         )
 
     def execute(self) -> list[Measurement]:
-        query_result: QueryResult = self.data_source.execute_query(self.sql)
+        try:
+            query_result: QueryResult = self.data_source.execute_query(self.sql)
+        except Exception as e:
+            logger.error(
+                msg=f"Could not execute schema query {self.sql}: {e}",
+                exc_info=True
+            )
+            return []
         metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
@@ -253,21 +263,21 @@ class SchemaCheckResult(CheckResult):
                 for expected_column in self.expected_columns
             ]
         )
-        logs.info(f"  Expected schema: {expected_columns_str}")
+        logger.info(f"  Expected schema: {expected_columns_str}")
 
         actual_columns_str: str = ", ".join(
             [f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns]
         )
-        logs.info(f"  Actual schema: {actual_columns_str}")
+        logger.info(f"  Actual schema: {actual_columns_str}")
 
         for column in self.actual_column_names_not_expected:
-            logs.info(f"  Column '{column}' was present and not allowed")
+            logger.info(f"  Column '{column}' was present and not allowed")
 
         for column in self.expected_column_names_not_actual:
-            logs.info(f"  Column '{column}' was missing")
+            logger.info(f"  Column '{column}' was missing")
 
         for data_type_mismatch in self.column_data_type_mismatches:
-            logs.info(
+            logger.info(
                 f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.get_expected()}', "
                 f"but was '{data_type_mismatch.get_actual()}'"
             )

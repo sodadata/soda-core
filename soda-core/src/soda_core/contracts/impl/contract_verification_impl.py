@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from io import StringIO
 
 from ruamel.yaml import YAML
+
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logs import Emoticons, Logs, Location
+from soda_core.common.logging_constants import Emoticons, soda_logger, ExtraKeys
+from soda_core.common.logs import Logs, Location
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
@@ -24,8 +27,7 @@ from soda_core.contracts.contract_verification import (
     DataSourceInfo,
     Measurement,
     Threshold,
-    YamlFileContentInfo,
-)
+    YamlFileContentInfo, )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -37,6 +39,8 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
+
+logger: logging.Logger = soda_logger
 
 
 class DataSourceContracts:
@@ -60,7 +64,7 @@ class ContractVerificationImpl:
         skip_publish: bool,
         use_agent: bool,
         blocking_timeout_in_minutes: int,
-        logs: Logs = Logs(),
+        logs: Logs,
     ):
         self.logs: Logs = logs
         self.skip_publish: bool = skip_publish
@@ -75,14 +79,14 @@ class ContractVerificationImpl:
                 self.data_source = data_source
             elif data_source_yaml_source is not None:
                 data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                    file_type="data source", variables=variables, logs=logs
+                    file_type="data source", variables=variables
                 )
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
                 self.data_source = data_source_parser.parse()
             if self.data_source is None:
-                self.logs.error(f"No data source configured")
+                logger.error(f"No data source configured")
         elif data_source is not None or data_source_yaml_source is not None:
-            self.logs.error(
+            logger.error(
                 f"When executing the contract verification on Soda Agent, "
                 f"a data source should not be configured"
             )
@@ -90,18 +94,18 @@ class ContractVerificationImpl:
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-                file_type="soda cloud", variables=variables, logs=logs
+                file_type="soda cloud", variables=variables
             )
             self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
 
         self.contract_yamls: list[ContractYaml] = []
         self.contract_impls: list[ContractImpl] = []
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            self.logs.error(f"No contracts configured")
+            logger.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, variables=variables, logs=logs
+                    contract_yaml_source=contract_yaml_source, variables=variables
                 )
                 self.contract_yamls.append(contract_yaml)
         if self.data_source:
@@ -117,7 +121,7 @@ class ContractVerificationImpl:
                         if contract_impl:
                             self.contract_impls.append(contract_impl)
                     else:
-                        self.logs.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
+                        logger.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
 
     def execute(self) -> ContractVerificationResult:
         contract_results: list[ContractResult] = []
@@ -127,7 +131,7 @@ class ContractVerificationImpl:
             elif self.data_source:
                 contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
         except Exception as e:
-            self.logs.error(str(e), exception=e)
+            logger.error(msg=str(e), exc_info=True)
 
         return ContractVerificationResult(logs=self.logs, contract_results=contract_results)
 
@@ -152,7 +156,7 @@ class ContractVerificationImpl:
             return contract_results
 
         else:
-            self.logs.error(f"Using the agent requires a Soda Cloud configuration")
+            logger.error(f"Using the agent requires a Soda Cloud configuration")
             return []
 
     def verify_contracts_locally(
@@ -219,7 +223,7 @@ class ContractImpl:
         for column_impl in self.column_impls:
             self.all_check_impls.extend(column_impl.check_impls)
 
-        self._verify_duplicate_identities(self.all_check_impls, self.logs)
+        self._verify_duplicate_identities(self.all_check_impls)
 
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries()
@@ -234,7 +238,7 @@ class ContractImpl:
                     return now_variable_timestamp
             except:
                 pass
-            self.logs.error(
+            logger.error(
                 f"Could not parse variable {now_variable_name} "
                 f"as a timestamp: {now_variable_timestamp_text}"
             )
@@ -310,8 +314,9 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractResult:
-        self.logs.info(
-            f"Verifying {Emoticons.SCROLL} contract {self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
+        logger.info(
+            f"Verifying {Emoticons.SCROLL} contract "
+            f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
         measurements: list[Measurement] = []
@@ -364,12 +369,12 @@ class ContractImpl:
             if not response_ok:
                 contract_result.sending_results_to_soda_cloud_failed = True
         else:
-            self.logs.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+            logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         return contract_result
 
     def log_summary(self, contract_result: ContractResult):
-        self.logs.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
+        logger.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
@@ -390,9 +395,9 @@ class ContractImpl:
         )
 
         if failed_count + error_count + not_evaluated_count == 0:
-            self.logs.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
+            logger.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
         else:
-            self.logs.info(
+            logger.info(
                 f"Contract summary: Ouch! {failed_count} checks failures, "
                 f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
                 f"and {error_count} errors."
@@ -411,7 +416,7 @@ class ContractImpl:
         )
 
     @classmethod
-    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl], logs: Logs):
+    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl]):
         checks_by_identity: dict[str, CheckImpl] = {}
         for check_impl in all_check_impls:
             existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
@@ -420,12 +425,14 @@ class ContractImpl:
                 original_location_str: str = f" Original({original_location})" if original_location else ""
                 duplicate_location: Optional[Location] = check_impl.check_yaml.check_yaml_object.location
                 duplicate_location_str: str = f" Duplicate({duplicate_location})" if duplicate_location else ""
-                logs.error(
-                    message=(
+                logger.error(
+                    msg=(
                         f"Duplicate identity {check_impl.build_identity_path()}."
                         f"{original_location_str}{duplicate_location_str}"
                     ),
-                    location=duplicate_location
+                    extra={
+                        ExtraKeys.LOCATION: duplicate_location,
+                    }
                 )
             checks_by_identity[check_impl.identity] = check_impl
 
@@ -444,7 +451,7 @@ class ColumnImpl:
     def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
         self.column_yaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=column_yaml, data_source=contract_impl.data_source
+            missing_and_validity_yaml=column_yaml
         )
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
@@ -471,7 +478,7 @@ class ValidReferenceData:
 
 
 class MissingAndValidity:
-    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml, data_source: DataSource):
+    def __init__(self, missing_and_validity_yaml: MissingAndValidityYaml):
         self.missing_values: Optional[list] = missing_and_validity_yaml.missing_values
         self.missing_format: Optional[RegexFormat] = missing_and_validity_yaml.missing_format
 
@@ -611,13 +618,13 @@ class ThresholdType(Enum):
 class ThresholdImpl:
     @classmethod
     def create(
-        cls, threshold_yaml: ThresholdYaml, logs: Logs, default_threshold: Optional[ThresholdImpl] = None
+        cls, threshold_yaml: ThresholdYaml, default_threshold: Optional[ThresholdImpl] = None
     ) -> Optional[ThresholdImpl]:
         if threshold_yaml is None:
             if default_threshold:
                 return default_threshold
             else:
-                logs.error(f"Threshold required, but not specified")
+                logger.error(f"Threshold required, but not specified")
                 return None
 
         total_config_count: int = cls.__config_count(
@@ -636,7 +643,7 @@ class ThresholdImpl:
         if total_config_count == 0:
             if default_threshold:
                 return default_threshold
-            logs.error(f"Threshold required, but not specified")
+            logger.error(f"Threshold required, but not specified")
             return None
 
         if (
@@ -674,7 +681,7 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
                     )
                 else:
-                    logs.error(
+                    logger.error(
                         f"Threshold must_be_between range: "
                         "first value must be less than the second value"
                     )
@@ -691,7 +698,7 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=threshold_yaml.must_be_not_between.lower_bound,
                     )
                 else:
-                    logs.error(
+                    logger.error(
                         f"Threshold must_be_not_between range: "
                         "first value must be less than the second value"
                     )
@@ -873,7 +880,7 @@ class CheckImpl:
                     check_yaml=check_yaml,
                 )
             else:
-                contract_impl.logs.error(f"Unknown check type '{check_yaml.type_name}'")
+                logger.error(f"Unknown check type '{check_yaml.type_name}'")
 
     def __init__(
         self,
@@ -959,7 +966,7 @@ class MissingAndValidityCheckImpl(CheckImpl):
     ):
         super().__init__(contract_impl, column_impl, check_yaml)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=check_yaml, data_source=contract_impl.data_source
+            missing_and_validity_yaml=check_yaml
         )
         self.missing_and_validity.apply_column_defaults(column_impl)
 
@@ -1099,7 +1106,10 @@ class AggregationQuery(Query):
         try:
             query_result: QueryResult = self.data_source.execute_query(sql)
         except Exception as e:
-            self.logs.error(f"Could not execute aggregation query {sql}: {e}", exception=e)
+            logger.error(
+                msg=f"Could not execute aggregation query {sql}: {e}",
+                exc_info=True
+            )
             return []
 
         measurements: list[Measurement] = []

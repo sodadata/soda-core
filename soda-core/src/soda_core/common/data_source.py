@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logs import Emoticons, Logs
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
@@ -14,6 +16,8 @@ from soda_core.common.statements.metadata_columns_query import (
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import DataSourceInfo
+
+logger: logging.Logger = soda_logger
 
 
 class DataSource(ABC):
@@ -47,7 +51,6 @@ class DataSource(ABC):
         format_regexes: dict[str, str],
     ):
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
-        self.logs: Logs = data_source_yaml_file_content.logs
         self.name: str = name
         self.type_name: str = type_name
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
@@ -64,7 +67,7 @@ class DataSource(ABC):
 
     @abstractmethod
     def _create_data_source_connection(
-        self, name: str, connection_properties: dict, logs: Logs
+        self, name: str, connection_properties: dict
     ) -> DataSourceConnection:
         pass
 
@@ -79,7 +82,6 @@ class DataSource(ABC):
         self.data_source_connection = self._create_data_source_connection(
             name=self.name,
             connection_properties=self.connection_properties,
-            logs=self.data_source_yaml_file_content.logs,
         )
 
     def has_open_connection(self) -> bool:
@@ -160,10 +162,10 @@ class DataSource(ABC):
         if format is None:
             return None
         if self.format_regexes is None:
-            self.logs.error(f"'format_regexes' not configured in data source")
+            logger.error(f"'format_regexes' not configured in data source")
         format_regex: Optional[str] = self.format_regexes.get(format)
         if format_regex is None:
-            self.logs.error(
+            logger.error(
                 f"Validity format regex '{format}' not configured "
                 f"in data source 'format_regexes'"
             )
@@ -184,7 +186,7 @@ class DataSource(ABC):
     def test_connection_error_message(self) -> Optional[str]:
         try:
             with self:
-                query_result: QueryResult = self.data_source_connection.execute_query(f"SELECT 1")
+                self.data_source_connection.execute_query(f"SELECT 1")
                 return None
         except Exception as e:
             return str(e)

@@ -38,7 +38,7 @@ def main():
     """
     ).strip()
 
-    contract_verification_result: ContractVerificationResult = (
+    (
         ContractVerification.builder()
         .with_soda_cloud_yaml_str(soda_cloud_yaml_str)
         .with_contract_yaml_str(contract_yaml_str)

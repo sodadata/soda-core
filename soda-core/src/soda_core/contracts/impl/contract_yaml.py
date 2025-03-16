@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.logs import Emoticons, Location, Logs
+from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
+from soda_core.common.logs import Location, Logs
 from soda_core.common.yaml import (
     YamlFileContent,
     YamlList,
@@ -13,6 +15,8 @@ from soda_core.common.yaml import (
     YamlSource,
     YamlValue,
 )
+
+logger: logging.Logger = soda_logger
 
 
 def register_check_types() -> None:
@@ -65,22 +69,19 @@ class ContractYaml:
 
     @classmethod
     def parse(
-        cls, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]] = None, logs: Optional[Logs] = None
+        cls, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]] = None
     ) -> Optional[ContractYaml]:
-        logs = logs if logs else Logs()
-
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
 
         contract_yaml_file_content: Optional[YamlFileContent] = contract_yaml_source.parse_yaml_file_content(
-            file_type="Contract", variables=variables, logs=logs
+            file_type="Contract", variables=variables
         )
         if contract_yaml_file_content and contract_yaml_file_content.has_yaml_object():
             return ContractYaml(contract_yaml_file_content=contract_yaml_file_content)
 
     def __init__(self, contract_yaml_file_content: YamlFileContent):
-        self.logs: Logs = contract_yaml_file_content.logs
         self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
         self.contract_yaml_object: Optional[YamlObject] = self.contract_yaml_file_content.get_yaml_object()
 
@@ -88,11 +89,11 @@ class ContractYaml:
             self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
         )
         if self.contract_yaml_object.has_key("datasource") and not self.contract_yaml_object.has_key("data_source"):
-            self.logs.error(
-                message=(
-                    f"Key `datasource` must be 2 words. " "Please change to `data_source`."
-                ),
-                location=self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
+            logger.error(
+                msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
+                extra={
+                    ExtraKeys.LOCATION: self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
+                }
             )
 
         self.dataset_prefix: Optional[list[str]] = (
@@ -132,9 +133,9 @@ class ContractYaml:
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
-                        self.logs.error(
-                            f"Duplicate columns with "
-                            f"name '{column_name}'{locations_message}"
+                        logger.error(
+                            f"Duplicate columns with name "
+                            f"'{column_name}'{locations_message}"
                         )
         return columns
 
@@ -154,16 +155,18 @@ class ContractYaml:
                     if isinstance(check_yaml_object, YamlObject):
                         check_keys: set[str] = check_yaml_object.keys()
                         if len(check_keys) != 1:
-                            self.logs.error(
-                                message=f"Checks require 1 key to be the type",
-                                location=check_yaml_object.location,
+                            logging.error(
+                                msg=f"Checks require 1 key to be the type",
+                                extra={
+                                    ExtraKeys.LOCATION: check_yaml_object.location,
+                                }
                             )
                         else:
                             check_type_name = check_keys.pop()
                             check_body_yaml_object = check_yaml_object.read_object_opt(key=check_type_name)
                     elif isinstance(check_yaml_object, str):
                         check_type_name = check_yaml_object
-                        self.logs.error(
+                        logger.error(
                             f"{Emoticons.PINCHED_FINGERS} Mama Mia! You forgot the "
                             f"colon ':' behind the check '{check_type_name}'. For this once I'll "
                             f"still execute it {Emoticons.SEE_NO_EVIL}"
@@ -179,25 +182,22 @@ class ContractYaml:
                             check_type_name=check_type_name,
                             check_body_yaml_object=check_body_yaml_object,
                             column_yaml=column_yaml,
-                            logs=self.logs,
                         )
                         if check_yaml:
                             checks.append(check_yaml)
                         else:
-                            self.logs.error(
+                            logger.error(
                                 f"Invalid check type '{check_type_name}'. "
                                 f"Existing check types: {CheckYaml.get_check_type_names()}"
                             )
                     else:
-                        self.logs.error(f"Checks must have a YAML object structure.")
+                        logger.error(f"Checks must have a YAML object structure.")
 
         return checks
 
 
 class ValidReferenceDataYaml:
     def __init__(self, valid_reference_data_yaml: YamlObject):
-        logs = valid_reference_data_yaml.logs
-
         dataset: any = valid_reference_data_yaml.read_value("dataset")
         is_list_str: bool = isinstance(dataset, list) and all(isinstance(e, str) for e in dataset)
         self.dataset: str | list[str] | None = dataset if isinstance(dataset, str) or is_list_str else None
@@ -210,10 +210,14 @@ class ValidReferenceDataYaml:
 
         if self.dataset is None:
             self.has_configuration_error = True
-            logs.error(
-                message=f"'dataset' is required. Must be the dataset name as a string "
-                "or a list of strings representing the qualified name.",
-                location=valid_reference_data_yaml.location,
+            logger.error(
+                msg=(
+                    f"'dataset' is required. Must be the dataset name as a string "
+                    "or a list of strings representing the qualified name."
+                ),
+                extra={
+                    ExtraKeys.LOCATION: valid_reference_data_yaml.location,
+                }
             )
 
 
@@ -314,7 +318,7 @@ class CheckYamlParser(ABC):
 
     @abstractmethod
     def parse_check_yaml(
-        self, check_type_name: str, check_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml], logs: Logs
+        self, check_type_name: str, check_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml]
     ) -> Optional[CheckYaml]:
         pass
 
@@ -333,7 +337,7 @@ class CheckYaml(ABC):
 
     @classmethod
     def parse_check_yaml(
-        cls, check_type_name: str, check_body_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml], logs: Logs
+        cls, check_type_name: str, check_body_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml]
     ) -> Optional[CheckYaml]:
         if isinstance(check_type_name, str):
             check_yaml_parser: Optional[CheckYamlParser] = cls.check_yaml_parsers.get(check_type_name)
@@ -342,12 +346,10 @@ class CheckYaml(ABC):
                     check_type_name=check_type_name,
                     check_yaml_object=check_body_yaml_object,
                     column_yaml=column_yaml,
-                    logs=logs,
                 )
 
-    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
+    def __init__(self, type_name: str, check_yaml_object: YamlObject):
         self.check_yaml_object: YamlObject = check_yaml_object
-        self.logs: Logs = logs
         self.type_name: str = type_name
         self.name: Optional[str] = check_yaml_object.read_string_opt("name") if check_yaml_object else None
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
@@ -355,8 +357,8 @@ class CheckYaml(ABC):
 
 
 class ThresholdCheckYaml(CheckYaml):
-    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
-        super().__init__(type_name=type_name, check_yaml_object=check_yaml_object, logs=logs)
+    def __init__(self, type_name: str, check_yaml_object: YamlObject):
+        super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
         self.metric: Optional[str] = check_yaml_object.read_string_opt("metric")
         self.threshold: Optional[ThresholdYaml] = None
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
@@ -381,6 +383,6 @@ class ThresholdYaml:
 
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):
-    def __init__(self, type_name: str, check_yaml_object: YamlObject, logs: Logs):
-        ThresholdCheckYaml.__init__(self, type_name=type_name, check_yaml_object=check_yaml_object, logs=logs)
+    def __init__(self, type_name: str, check_yaml_object: YamlObject):
+        ThresholdCheckYaml.__init__(self, type_name=type_name, check_yaml_object=check_yaml_object)
         MissingAndValidityYaml.__init__(self, yaml_object=check_yaml_object)
