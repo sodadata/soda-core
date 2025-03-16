@@ -15,9 +15,8 @@ from typing import Optional, Tuple
 
 import requests
 from requests import Response
-
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
-from soda_core.common.logs import Logs, Location
+from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlFileContent, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -27,9 +26,9 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractResult,
     Threshold,
-    YamlFileContentInfo, )
+    YamlFileContentInfo,
+)
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-
 
 logger: logging.Logger = soda_logger
 
@@ -283,7 +282,9 @@ class SodaCloud:
             "index": index,
             "doc": log_record.doc if hasattr(log_record, "doc") else None,
             "exception": log_record.exception if hasattr(log_record, "exception") else None,
-            "location": log_record.location.get_dict() if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location) else None,
+            "location": log_record.location.get_dict()
+            if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
+            else None,
         }
 
     def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
@@ -318,14 +319,11 @@ class SodaCloud:
                 if isinstance(upload_response_json, dict) and "fileId" in upload_response_json:
                     return upload_response_json.get("fileId")
                 else:
-                    logger.critical(
-                        f"No fileId received in response: {upload_response_json}"
-                    )
+                    logger.critical(f"No fileId received in response: {upload_response_json}")
                     return None
         except Exception as e:
             logger.critical(
-                msg=f"Soda cloud error: Could not upload contract "
-                    f"to Soda Cloud: {e}",
+                msg=f"Soda cloud error: Could not upload contract " f"to Soda Cloud: {e}",
                 exc_info=True,
             )
 
@@ -498,10 +496,7 @@ class SodaCloud:
             yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
-            logger.critical(
-                f"Contract wasn't uploaded so skipping "
-                "sending the results to Soda Cloud"
-            )
+            logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
             return []
 
         verify_contract_command: dict = {
@@ -544,12 +539,10 @@ class SodaCloud:
         #   "first": true
         # }
         if isinstance(soda_cloud_log_dicts, list):
-
             # For explanation, see TimestampToCreatedLoggingFilter
             logging_filter: TimestampToCreatedLoggingFilter = TimestampToCreatedLoggingFilter()
             logger.addFilter(logging_filter)
             try:
-
                 for soda_cloud_log_dict in soda_cloud_log_dicts:
                     if isinstance(soda_cloud_log_dict, dict):
                         extra: dict = {}
@@ -559,8 +552,8 @@ class SodaCloud:
 
                         timestamp_cloud: str = soda_cloud_log_dict.get("timestamp")
                         timestamp_datetime: datetime = self.convert_str_to_datetime(timestamp_cloud)
-                        timestamp_logrecord: float = (
-                            timestamp_datetime.timestamp() + (timestamp_datetime.microsecond / 1000000)
+                        timestamp_logrecord: float = timestamp_datetime.timestamp() + (
+                            timestamp_datetime.microsecond / 1000000
                         )
                         # For explanation, see TimestampToCreatedLoggingFilter
                         extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
@@ -570,7 +563,7 @@ class SodaCloud:
                             extra[ExtraKeys.LOCATION] = Location(
                                 file_path=location_dict.get("filePath"),
                                 line=location_dict.get("line"),
-                                column=location_dict.get("col")
+                                column=location_dict.get("col"),
                             )
 
                         doc: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.DOC)
@@ -581,13 +574,11 @@ class SodaCloud:
                         if doc:
                             extra[ExtraKeys.EXCEPTION] = exception
 
-                        logger.log(
-                            level=level_logrecord,
-                            msg=soda_cloud_log_dict.get("message"),
-                            extra=extra
-                        )
+                        logger.log(level=level_logrecord, msg=soda_cloud_log_dict.get("message"), extra=extra)
                     else:
-                        logger.debug(f"Expected dict for logs list element, but was {type(soda_cloud_log_dict).__name__}")
+                        logger.debug(
+                            f"Expected dict for logs list element, but was {type(soda_cloud_log_dict).__name__}"
+                        )
             finally:
                 logger.removeFilter(logging_filter)
 
@@ -597,9 +588,7 @@ class SodaCloud:
             logger.debug(f"Expected dict for logs, but was {type(soda_cloud_log_dicts).__name__}")
 
         if not scan_is_finished:
-            logger.error(
-                f"Max retries exceeded. " f"Contract verification did not finish yet."
-            )
+            logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
 
         if contract_dataset_cloud_url:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
@@ -673,9 +662,7 @@ class SodaCloud:
                     )
                     sleep(time_to_wait_in_seconds)
             else:
-                logger.error(
-                    f"Failed to poll remote scan status. " f"Response: {response}"
-                )
+                logger.error(f"Failed to poll remote scan status. " f"Response: {response}")
 
         return False, None
 

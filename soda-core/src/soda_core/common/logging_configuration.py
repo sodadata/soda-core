@@ -1,10 +1,19 @@
 import logging
 import sys
 from datetime import datetime
-from logging import ERROR, StreamHandler, DEBUG, WARNING, Formatter, LogRecord, getLevelName, CRITICAL, INFO
+from logging import (
+    CRITICAL,
+    DEBUG,
+    ERROR,
+    INFO,
+    WARNING,
+    Formatter,
+    LogRecord,
+    StreamHandler,
+)
 from typing import Optional
 
-from soda_core.common.logging_constants import ExtraKeys, Emoticons
+from soda_core.common.logging_constants import Emoticons, ExtraKeys
 
 
 def configure_logging(
@@ -15,7 +24,16 @@ def configure_logging(
     """
     sys.stderr = sys.stdout
     for logger_to_mute in [
-        "urllib3", "botocore", "pyathena", "faker", "snowflake", "matplotlib", "pyspark", "pyhive", "py4j", "segment"
+        "urllib3",
+        "botocore",
+        "pyathena",
+        "faker",
+        "snowflake",
+        "matplotlib",
+        "pyspark",
+        "pyhive",
+        "py4j",
+        "segment",
     ]:
         logging.getLogger(logger_to_mute).setLevel(ERROR)
 
@@ -46,16 +64,16 @@ class SodaConsoleFormatter(Formatter):
             self.format_message(record),
             self.format_location(record),
             self.format_doc(record),
-            self.format_exception(record)
+            self.format_exception(record),
         ]
         return " | ".join(part for part in parts if part is not None)
 
     level_names: dict[int, str] = {
-        CRITICAL: 'CRI',
-        ERROR: 'ERR',
-        WARNING: 'WAR',
-        INFO: 'INF',
-        DEBUG: 'DEB',
+        CRITICAL: "CRI",
+        ERROR: "ERR",
+        WARNING: "WAR",
+        INFO: "INF",
+        DEBUG: "DEB",
     }
 
     def format_level(self, record: LogRecord) -> Optional[str]:
@@ -70,7 +88,7 @@ class SodaConsoleFormatter(Formatter):
     def format_timestamp(self, record: LogRecord) -> Optional[str]:
         timestamp: datetime = datetime.fromtimestamp(record.created)
         # Format the time part (without milliseconds)
-        time_part = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        time_part = timestamp.strftime("%Y-%m-%d %H:%M:%S")
         # Add milliseconds with comma as separator
         milliseconds = timestamp.microsecond // 1000  # Convert microseconds to milliseconds
         return f"{time_part},{milliseconds:03d}"

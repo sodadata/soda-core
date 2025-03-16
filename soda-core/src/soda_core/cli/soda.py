@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import signal
-import sys
 import traceback
 from argparse import ArgumentParser
 from os.path import dirname, exists
@@ -10,9 +9,9 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.common.logs import Logs
-from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logging_configuration import configure_logging
+from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
@@ -21,12 +20,10 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
 )
 
-
 logger: logging.Logger = soda_logger
 
 
 class CLI:
-
     # https://docs.soda.io/soda-library/programmatic.html#scan-exit-codes
     EXIT_CODE_0_ALL_IS_GOOD = 0
     EXIT_CODE_1_CHECK_FAILURES_OCCURRED = 1
@@ -36,15 +33,9 @@ class CLI:
 
     def execute(self) -> None:
         try:
-            print(
-                dedent(
-                    """
-                  __|  _ \|  \   \\
-                \__ \ (   |   | _ \\
-                ____/\___/___/_/  _\\ CLI 4.0.0.dev??
-            """
-                ).strip("\n")
-            )
+            print("  __|  _ \|  \   \\")
+            print("\__ \ (   |   | _ \\")
+            print("____/\___/___/_/  _\\ CLI 4.0.0.dev??")
 
             signal.signal(signal.SIGINT, self.handle_ctrl_c)
 
@@ -234,8 +225,7 @@ class CLI:
         return contract_verification_result
 
     def contract_verification_is_not_sent_to_cloud(
-        self,
-        contract_verification_result: ContractVerificationResult
+        self, contract_verification_result: ContractVerificationResult
     ) -> bool:
         return any(cr.sending_results_to_soda_cloud_failed for cr in contract_verification_result.contract_results)
 

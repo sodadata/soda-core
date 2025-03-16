@@ -26,7 +26,10 @@ def test_contract_publication_fails_on_missing_soda_cloud_config():
 
     assert contract_publication_result.has_errors()
     assert "Cannot publish without a Soda Cloud configuration" in contract_publication_result.logs.get_logs_str()
-    assert "skipping publication because of missing Soda Cloud configuration" in contract_publication_result.logs.get_logs_str()
+    assert (
+        "skipping publication because of missing Soda Cloud configuration"
+        in contract_publication_result.logs.get_logs_str()
+    )
 
 
 def test_contract_publication_fails_on_missing_contract_file():
@@ -46,7 +49,10 @@ def test_contract_publication_fails_on_missing_contract_file():
     )
 
     assert contract_publication_result.has_errors()
-    assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in contract_publication_result.logs.get_errors_str()
+    assert (
+        "Contract file '../soda/mydb/myschema/table.yml' does not exist"
+        in contract_publication_result.logs.get_errors_str()
+    )
 
 
 def test_contract_publication_returns_result_for_each_added_contract():

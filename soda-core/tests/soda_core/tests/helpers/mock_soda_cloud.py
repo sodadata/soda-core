@@ -9,7 +9,6 @@ from tempfile import TemporaryFile
 from typing import Optional
 
 from requests import Response
-from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 
 

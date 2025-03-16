@@ -1,9 +1,8 @@
 import pytest
-
 from soda_core.contracts.contract_verification import (
     ContractResult,
     Diagnostic,
-    NumericDiagnostic, ContractVerificationResult,
+    NumericDiagnostic,
 )
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
@@ -35,7 +34,6 @@ test_table_specification = (
             checks:
               - invalid:
         """,
-
         """
         columns:
           - name: id
@@ -49,8 +47,7 @@ def test_valid_count(data_source_test_helper: DataSourceTestHelper, contract_yam
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
-        test_table=test_table,
-        contract_yaml_str=contract_yaml_str
+        test_table=test_table, contract_yaml_str=contract_yaml_str
     )
     diagnostic: Diagnostic = contract_result.check_results[0].diagnostics[0]
     assert isinstance(diagnostic, NumericDiagnostic)

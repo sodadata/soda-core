@@ -7,7 +7,7 @@ from numbers import Number
 from typing import Optional
 
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
-from soda_core.common.logs import Location, Logs
+from soda_core.common.logs import Location
 from soda_core.common.yaml import (
     YamlFileContent,
     YamlList,
@@ -93,7 +93,7 @@ class ContractYaml:
                 msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
                 extra={
                     ExtraKeys.LOCATION: self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
-                }
+                },
             )
 
         self.dataset_prefix: Optional[list[str]] = (
@@ -133,10 +133,7 @@ class ContractYaml:
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
-                        logger.error(
-                            f"Duplicate columns with name "
-                            f"'{column_name}'{locations_message}"
-                        )
+                        logger.error(f"Duplicate columns with name " f"'{column_name}'{locations_message}")
         return columns
 
     def _parse_checks(
@@ -159,7 +156,7 @@ class ContractYaml:
                                 msg=f"Checks require 1 key to be the type",
                                 extra={
                                     ExtraKeys.LOCATION: check_yaml_object.location,
-                                }
+                                },
                             )
                         else:
                             check_type_name = check_keys.pop()
@@ -176,7 +173,9 @@ class ContractYaml:
                             check_body_yaml_object = YamlObject(
                                 yaml_file_content=checks_containing_yaml_object.yaml_file_content, yaml_dict={}
                             )
-                            check_body_yaml_object.location = checks_yaml_list.create_location_from_yaml_list_index(index=check_index)
+                            check_body_yaml_object.location = checks_yaml_list.create_location_from_yaml_list_index(
+                                index=check_index
+                            )
 
                         check_yaml: Optional[CheckYaml] = CheckYaml.parse_check_yaml(
                             check_type_name=check_type_name,
@@ -217,7 +216,7 @@ class ValidReferenceDataYaml:
                 ),
                 extra={
                     ExtraKeys.LOCATION: valid_reference_data_yaml.location,
-                }
+                },
             )
 
 

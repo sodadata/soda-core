@@ -66,9 +66,7 @@ class DataSource(ABC):
         pass
 
     @abstractmethod
-    def _create_data_source_connection(
-        self, name: str, connection_properties: dict
-    ) -> DataSourceConnection:
+    def _create_data_source_connection(self, name: str, connection_properties: dict) -> DataSourceConnection:
         pass
 
     @abstractmethod
@@ -165,10 +163,7 @@ class DataSource(ABC):
             logger.error(f"'format_regexes' not configured in data source")
         format_regex: Optional[str] = self.format_regexes.get(format)
         if format_regex is None:
-            logger.error(
-                f"Validity format regex '{format}' not configured "
-                f"in data source 'format_regexes'"
-            )
+            logger.error(f"Validity format regex '{format}' not configured " f"in data source 'format_regexes'")
         return format_regex
 
     @classmethod

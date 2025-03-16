@@ -1,6 +1,5 @@
 import pytest
 from soda_core.contracts.contract_verification import (
-    ContractResult,
     ContractVerification,
     ContractVerificationResult,
     SodaException,
@@ -16,7 +15,8 @@ def test_contract_verification_file_api():
     )
 
     assert (
-        "Contract file '../soda/mydb/myschema/table.yml' does not exist" in contract_verification_result.logs.get_errors_str()
+        "Contract file '../soda/mydb/myschema/table.yml' does not exist"
+        in contract_verification_result.logs.get_errors_str()
     )
 
 

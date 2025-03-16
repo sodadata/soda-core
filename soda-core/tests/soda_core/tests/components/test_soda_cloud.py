@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult

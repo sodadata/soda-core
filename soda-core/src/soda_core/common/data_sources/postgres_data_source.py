@@ -1,6 +1,5 @@
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.logs import Logs
 from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import YamlFileContent
@@ -26,9 +25,7 @@ class PostgresDataSource(DataSource):
     def _create_sql_dialect(self) -> SqlDialect:
         return PostgresSqlDialect()
 
-    def _create_data_source_connection(
-        self, name: str, connection_properties: dict
-    ) -> DataSourceConnection:
+    def _create_data_source_connection(self, name: str, connection_properties: dict) -> DataSourceConnection:
         return PostgresDataSourceConnection(name=name, connection_properties=connection_properties)
 
 

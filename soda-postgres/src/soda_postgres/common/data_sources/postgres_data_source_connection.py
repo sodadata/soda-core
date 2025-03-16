@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.logs import Logs
 
 
 class PostgresDataSourceConnection(DataSourceConnection):

@@ -45,10 +45,7 @@ class DataSourceConnection(ABC):
                 self._log_connection_properties_excl_pwd(self.connection_properties)
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
-                logger.error(
-                    msg=f"Could not connect to '{self.name}': {e}",
-                    exc_info=True
-                )
+                logger.error(msg=f"Could not connect to '{self.name}': {e}", exc_info=True)
 
     def _log_connection_properties_excl_pwd(self, connection_yaml_dict: dict):
         dict_without_pwd = {
@@ -68,10 +65,7 @@ class DataSourceConnection(ABC):
                 # noinspection PyUnresolvedReferences
                 self.connection.close()
             except Exception as e:
-                logger.warning(
-                    msg=f"Could not close the DBAPI connection",
-                    exc_info=True
-                )
+                logger.warning(msg=f"Could not close the DBAPI connection", exc_info=True)
             finally:
                 self.connection = None
 

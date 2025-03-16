@@ -9,9 +9,8 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
-
-from soda_core.common.logging_constants import soda_logger, ExtraKeys
-from soda_core.common.logs import Location, Logs
+from soda_core.common.logging_constants import ExtraKeys, soda_logger
+from soda_core.common.logs import Location
 
 logger: logging.Logger = soda_logger
 
@@ -165,8 +164,7 @@ class YamlFileContent:
         return VariableResolver.resolve(source_text_with_variables=yaml_str, variables=variables)
 
     @classmethod
-    def parse_yaml_dict(
-        cls, yaml_str: str, yaml_file_path: Optional[str], yaml_source_description: str) -> any:
+    def parse_yaml_dict(cls, yaml_str: str, yaml_file_path: Optional[str], yaml_source_description: str) -> any:
         if isinstance(yaml_str, str):
             try:
                 root_yaml_object: any = cls.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
@@ -180,7 +178,7 @@ class YamlFileContent:
                         msg=f"Root YAML in {yaml_source_description} must be an object, " f"but was {yaml_type}",
                         extra={
                             ExtraKeys.LOCATION: location,
-                        }
+                        },
                     )
                     return None
 
@@ -192,9 +190,7 @@ class YamlFileContent:
                 logger.error(
                     msg=f"YAML syntax error in {yaml_source_description}",
                     exc_info=True,
-                    extra={
-                        ExtraKeys.LOCATION: location
-                    }
+                    extra={ExtraKeys.LOCATION: location},
                 )
 
     def get_yaml_object(self) -> Optional[YamlObject]:
@@ -289,7 +285,7 @@ class YamlObject(YamlValue):
                             ),
                             extra={
                                 ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
-                            }
+                            },
                         )
             list_value.yaml_list = filtered_list
         return list_value
@@ -317,7 +313,7 @@ class YamlObject(YamlValue):
                         ),
                         extra={
                             ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
-                        }
+                        },
                     )
                     list_value.yaml_list[i] = None
         return list_value
@@ -396,7 +392,7 @@ class YamlObject(YamlValue):
                     msg=f"{key_description} is required",
                     extra={
                         ExtraKeys.LOCATION: self.location,
-                    }
+                    },
                 )
             value = default_value
 
@@ -409,13 +405,10 @@ class YamlObject(YamlValue):
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
             logger.error(
-                msg=(
-                    f"{key_description} expected a {expected_type.__name__}, "
-                    f"but was {actual_type_str}"
-                ),
+                msg=(f"{key_description} expected a {expected_type.__name__}, " f"but was {actual_type_str}"),
                 extra={
                     ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
-                }
+                },
             )
             value = None
 

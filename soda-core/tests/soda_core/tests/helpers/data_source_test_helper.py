@@ -413,9 +413,7 @@ class DataSourceTestHelper:
         contract_verification = contract_verification_builder.build()
         return contract_verification.logs.get_errors_str()
 
-    def assert_contract_error(
-        self, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
-    ) -> str:
+    def assert_contract_error(self, contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> str:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
         contract_verification: ContractVerification = (
             self.create_test_verification_builder()
@@ -435,9 +433,7 @@ class DataSourceTestHelper:
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
         if not contract_verification_result.is_ok():
-            raise AssertionError(
-                f"Expected contract verification passed"
-            )
+            raise AssertionError(f"Expected contract verification passed")
         return contract_verification_result.contract_results[0]
 
     def assert_contract_fail(
@@ -447,9 +443,7 @@ class DataSourceTestHelper:
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
         if not contract_verification_result.failed():
-            raise AssertionError(
-                f"Expected contract verification failed"
-            )
+            raise AssertionError(f"Expected contract verification failed")
         return contract_verification_result.contract_results[0]
 
     def verify_contract(

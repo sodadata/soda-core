@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from logging import ERROR, Logger, LogRecord, Handler
+from logging import ERROR, Handler, Logger, LogRecord
 from typing import Optional
 
 
@@ -27,6 +27,7 @@ class LogCapturer(Handler):
     """
     Captures logging records for the current thread and stores them in the given records list
     """
+
     def __init__(self, records: list[LogRecord]):
         super().__init__()
         self.records: list[LogRecord] = records

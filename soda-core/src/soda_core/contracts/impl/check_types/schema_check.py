@@ -18,7 +18,8 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Measurement,
-    Threshold, )
+    Threshold,
+)
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     CheckImpl,
@@ -207,10 +208,7 @@ class SchemaQuery(Query):
         try:
             query_result: QueryResult = self.data_source.execute_query(self.sql)
         except Exception as e:
-            logger.error(
-                msg=f"Could not execute schema query {self.sql}: {e}",
-                exc_info=True
-            )
+            logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
         metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
         schema_metric_impl: MetricImpl = self.metrics[0]

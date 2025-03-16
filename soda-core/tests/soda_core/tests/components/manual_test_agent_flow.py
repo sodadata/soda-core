@@ -1,12 +1,8 @@
 from textwrap import dedent
 
 from dotenv import load_dotenv
-
 from soda_core.common.logging_configuration import configure_logging
-from soda_core.contracts.contract_verification import (
-    ContractVerification,
-    ContractVerificationResult,
-)
+from soda_core.contracts.contract_verification import ContractVerification
 
 
 def main():

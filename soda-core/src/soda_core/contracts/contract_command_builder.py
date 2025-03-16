@@ -86,10 +86,7 @@ class ContractCommandBuilder:
             logger.debug(f"  ...with variable '{key}'")
             self.variables[key] = value
         else:
-            logger.error(
-                f"Ignoring invalid variable '{key}'. "
-                f"Expected key str and value string"
-            )
+            logger.error(f"Ignoring invalid variable '{key}'. " f"Expected key str and value string")
         return self
 
     def with_variables(self, variables: dict[str, str]) -> T:
@@ -102,7 +99,6 @@ class ContractCommandBuilder:
             self.variables = None
         else:
             logger.error(
-                f"Ignoring invalid variables '{variables}'. "
-                f"Expected dict, but was {variables.__class__.__name__}"
+                f"Ignoring invalid variables '{variables}'. " f"Expected dict, but was {variables.__class__.__name__}"
             )
         return self

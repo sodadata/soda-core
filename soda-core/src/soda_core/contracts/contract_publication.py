@@ -23,9 +23,7 @@ class ContractPublicationBuilder(ContractCommandBuilder):
 class ContractPublication:
     def __init__(self, contract_publication_builder: ContractPublicationBuilder) -> None:
         if not contract_publication_builder.soda_cloud and not contract_publication_builder.soda_cloud_yaml_source:
-            logger.error(
-                f"Cannot publish without a Soda Cloud configuration"
-            )
+            logger.error(f"Cannot publish without a Soda Cloud configuration")
 
         from soda_core.contracts.impl.contract_publication_impl import (
             ContractPublicationImpl,

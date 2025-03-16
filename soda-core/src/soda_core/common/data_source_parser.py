@@ -32,8 +32,7 @@ class DataSourceParser:
             connection_properties = connection_yaml.to_dict()
         elif self.spark_session is None:
             logger.error(
-                f"Key 'connection' containing an object of data source connection "
-                f"configurations is required"
+                f"Key 'connection' containing an object of data source connection " f"configurations is required"
             )
 
         format_regexes: dict[str, str] = {}
@@ -45,11 +44,8 @@ class DataSourceParser:
                     format_regexes[k] = v
                 else:
                     logger.error(
-                        msg=f"Invalid regex value in 'format_regexes', "
-                            f"expected string, was '{v}'",
-                        extra={
-                            ExtraKeys.LOCATION: format_regexes_yaml.location
-                        },
+                        msg=f"Invalid regex value in 'format_regexes', " f"expected string, was '{v}'",
+                        extra={ExtraKeys.LOCATION: format_regexes_yaml.location},
                     )
 
         return DataSource.create(

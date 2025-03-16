@@ -7,13 +7,12 @@ from enum import Enum
 from io import StringIO
 
 from ruamel.yaml import YAML
-
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.logging_constants import Emoticons, soda_logger, ExtraKeys
-from soda_core.common.logs import Logs, Location
+from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
+from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
@@ -27,7 +26,8 @@ from soda_core.contracts.contract_verification import (
     DataSourceInfo,
     Measurement,
     Threshold,
-    YamlFileContentInfo, )
+    YamlFileContentInfo,
+)
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -87,8 +87,7 @@ class ContractVerificationImpl:
                 logger.error(f"No data source configured")
         elif data_source is not None or data_source_yaml_source is not None:
             logger.error(
-                f"When executing the contract verification on Soda Agent, "
-                f"a data source should not be configured"
+                f"When executing the contract verification on Soda Agent, " f"a data source should not be configured"
             )
 
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
@@ -111,12 +110,14 @@ class ContractVerificationImpl:
         if self.data_source:
             for contract_yaml in self.contract_yamls:
                 if isinstance(contract_yaml, ContractYaml):
-                    if self.data_source.is_valid_dataset_prefix(
-                        contract_yaml.dataset_prefix
-                    ):
+                    if self.data_source.is_valid_dataset_prefix(contract_yaml.dataset_prefix):
                         contract_impl: ContractImpl = ContractImpl(
-                            contract_yaml=contract_yaml, data_source=self.data_source, variables=variables, logs=logs,
-                            soda_cloud=self.soda_cloud, skip_publish=self.skip_publish
+                            contract_yaml=contract_yaml,
+                            data_source=self.data_source,
+                            variables=variables,
+                            logs=logs,
+                            soda_cloud=self.soda_cloud,
+                            skip_publish=self.skip_publish,
                         )
                         if contract_impl:
                             self.contract_impls.append(contract_impl)
@@ -191,7 +192,7 @@ class ContractImpl:
         variables: dict[str, str],
         logs: Logs,
         soda_cloud: Optional[SodaCloud],
-        skip_publish: bool
+        skip_publish: bool,
     ):
         self.logs: Logs = logs
         self.data_source: DataSource = data_source
@@ -239,8 +240,7 @@ class ContractImpl:
             except:
                 pass
             logger.error(
-                f"Could not parse variable {now_variable_name} "
-                f"as a timestamp: {now_variable_timestamp_text}"
+                f"Could not parse variable {now_variable_name} " f"as a timestamp: {now_variable_timestamp_text}"
             )
         else:
             return default
@@ -296,7 +296,7 @@ class ContractImpl:
                         dataset_name=self.dataset_name,
                         filter_condition=None,
                         data_source=self.data_source,
-                        logs=self.logs
+                        logs=self.logs,
                     )
                 )
             last_aggregation_query: AggregationQuery = aggregation_queries[-1]
@@ -432,7 +432,7 @@ class ContractImpl:
                     ),
                     extra={
                         ExtraKeys.LOCATION: duplicate_location,
-                    }
+                    },
                 )
             checks_by_identity[check_impl.identity] = check_impl
 
@@ -450,9 +450,7 @@ class MeasurementValues:
 class ColumnImpl:
     def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
         self.column_yaml = column_yaml
-        self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=column_yaml
-        )
+        self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=column_yaml)
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
             for check_yaml in column_yaml.check_yamls:
@@ -582,10 +580,18 @@ class MissingAndValidity:
 
     def has_validity_configurations(self) -> bool:
         return any(
-            cfg is not None for cfg in [
-                self.invalid_values, self.invalid_format, self.valid_values, self.valid_format, self.valid_min,
-                self.valid_max, self.valid_length, self.valid_min_length, self.valid_max_length,
-                self.valid_reference_data
+            cfg is not None
+            for cfg in [
+                self.invalid_values,
+                self.invalid_format,
+                self.valid_values,
+                self.valid_format,
+                self.valid_min,
+                self.valid_max,
+                self.valid_length,
+                self.valid_min_length,
+                self.valid_max_length,
+                self.valid_reference_data,
             ]
         )
 
@@ -681,10 +687,7 @@ class ThresholdImpl:
                         must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
                     )
                 else:
-                    logger.error(
-                        f"Threshold must_be_between range: "
-                        "first value must be less than the second value"
-                    )
+                    logger.error(f"Threshold must_be_between range: " "first value must be less than the second value")
                     return None
 
         elif total_config_count == 1 and isinstance(threshold_yaml.must_be_not_between, RangeYaml):
@@ -699,8 +702,7 @@ class ThresholdImpl:
                     )
                 else:
                     logger.error(
-                        f"Threshold must_be_not_between range: "
-                        "first value must be less than the second value"
+                        f"Threshold must_be_not_between range: " "first value must be less than the second value"
                     )
                     return None
         else:
@@ -944,7 +946,7 @@ class CheckImpl:
             self.contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
-            self.check_yaml.qualifier if self.check_yaml else None
+            self.check_yaml.qualifier if self.check_yaml else None,
         ]
         parts = [p for p in parts if p is not None]
         return "/".join(parts)
@@ -965,9 +967,7 @@ class MissingAndValidityCheckImpl(CheckImpl):
         self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml
     ):
         super().__init__(contract_impl, column_impl, check_yaml)
-        self.missing_and_validity: MissingAndValidity = MissingAndValidity(
-            missing_and_validity_yaml=check_yaml
-        )
+        self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=check_yaml)
         self.missing_and_validity.apply_column_defaults(column_impl)
 
 
@@ -1067,8 +1067,12 @@ class Query(ABC):
 
 class AggregationQuery(Query):
     def __init__(
-        self, dataset_prefix: list[str], dataset_name: str, filter_condition: Optional[str], data_source: DataSource,
-        logs: Logs
+        self,
+        dataset_prefix: list[str],
+        dataset_name: str,
+        filter_condition: Optional[str],
+        data_source: DataSource,
+        logs: Logs,
     ):
         super().__init__(data_source=data_source, metrics=[])
         self.dataset_prefix: list[str] = dataset_prefix
@@ -1106,10 +1110,7 @@ class AggregationQuery(Query):
         try:
             query_result: QueryResult = self.data_source.execute_query(sql)
         except Exception as e:
-            logger.error(
-                msg=f"Could not execute aggregation query {sql}: {e}",
-                exc_info=True
-            )
+            logger.error(msg=f"Could not execute aggregation query {sql}: {e}", exc_info=True)
             return []
 
         measurements: list[Measurement] = []

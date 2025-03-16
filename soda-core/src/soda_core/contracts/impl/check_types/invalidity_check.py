@@ -12,7 +12,8 @@ from soda_core.contracts.contract_verification import (
     Contract,
     Diagnostic,
     Measurement,
-    NumericDiagnostic, )
+    NumericDiagnostic,
+)
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -31,7 +32,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ThresholdType,
     ValidReferenceData,
 )
-
 
 logger: logging.Logger = soda_logger
 
@@ -75,7 +75,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
                 msg="Invalid check does not have any valid or invalid configurations",
                 extra={
                     ExtraKeys.LOCATION: self.check_yaml.check_yaml_object.location,
-                }
+                },
             )
 
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
@@ -261,10 +261,7 @@ class InvalidReferenceCountQuery(Query):
         try:
             query_result: QueryResult = self.data_source.execute_query(self.sql)
         except Exception as e:
-            logger.error(
-                msg=f"Could not execute invalid reference query {self.sql}: {e}",
-                exc_info=True
-            )
+            logger.error(msg=f"Could not execute invalid reference query {self.sql}: {e}", exc_info=True)
             return []
 
         metric_value = query_result.rows[0][0]

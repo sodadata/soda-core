@@ -1,4 +1,3 @@
-from soda_core.contracts.contract_verification import ContractVerificationResult, ContractResult
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 
@@ -28,7 +27,7 @@ def test_parsing_error_wrong_type(data_source_test_helper: DataSourceTestHelper)
 
 
 def test_duplicate_identity_error(data_source_test_helper: DataSourceTestHelper):
-    errors_str: str= data_source_test_helper.assert_contract_error(
+    errors_str: str = data_source_test_helper.assert_contract_error(
         contract_yaml_str="""
             data_source: the_test_ds
             dataset: TBLE
@@ -42,8 +41,10 @@ def test_duplicate_identity_error(data_source_test_helper: DataSourceTestHelper)
         """
     )
 
-    assert ("Duplicate identity yaml_string.yml/id/missing. "
-            "Original(yaml_string.yml[6,8]) Duplicate(yaml_string.yml[8,10])") in errors_str
+    assert (
+        "Duplicate identity yaml_string.yml/id/missing. "
+        "Original(yaml_string.yml[6,8]) Duplicate(yaml_string.yml[8,10])"
+    ) in errors_str
 
 
 def test_error_duplicate_column_names(data_source_test_helper: DataSourceTestHelper):

@@ -142,10 +142,7 @@ class ContractVerificationBuilder:
             logger.debug(f"  ...with variable '{key}'")
             self.variables[key] = value
         else:
-            logger.error(
-                f"Ignoring invalid variable '{key}'. "
-                f"Expected key str and value string"
-            )
+            logger.error(f"Ignoring invalid variable '{key}'. " f"Expected key str and value string")
         return self
 
     def with_variables(self, variables: dict[str, str]) -> ContractVerificationBuilder:
@@ -158,8 +155,7 @@ class ContractVerificationBuilder:
             self.variables = None
         else:
             logger.error(
-                f"Ignoring invalid variables '{variables}'. "
-                f"Expected dict, but was {variables.__class__.__name__}"
+                f"Ignoring invalid variables '{variables}'. " f"Expected dict, but was {variables.__class__.__name__}"
             )
         return self
 
@@ -223,10 +219,7 @@ class ContractVerificationResult:
         """
         Returns True if there are no execution errors and no check failures.
         """
-        return (
-            not self.logs.has_errors()
-            and all(contract_result.passed() for contract_result in self.contract_results)
-        )
+        return not self.logs.has_errors() and all(contract_result.passed() for contract_result in self.contract_results)
 
     def has_errors(self) -> bool:
         return self.logs.has_errors()
@@ -241,10 +234,7 @@ class ContractVerificationResult:
         has_errors: bool = self.logs.has_errors()
         has_check_failures: bool = any(contract_result.failed() for contract_result in self.contract_results)
         if has_errors or has_check_failures:
-            raise SodaException(
-                message=self.logs.get_logs_str(),
-                contract_verification_result=self
-            )
+            raise SodaException(message=self.logs.get_logs_str(), contract_verification_result=self)
         return self
 
     def get_logs_str(self) -> str:

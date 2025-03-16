@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,

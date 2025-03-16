@@ -40,7 +40,8 @@ def test_parse_relative_complete_contract():
 def test_parse_minimal_contract():
     logs: Logs = Logs()
     ContractYaml.parse(
-        contract_yaml_source=YamlSource.from_str("""
+        contract_yaml_source=YamlSource.from_str(
+            """
             dataset: dsname
         """
         )
