@@ -24,7 +24,7 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    ContractResult,
+    ContractVerificationResult,
     Threshold,
     YamlFileContentInfo,
 )
@@ -138,14 +138,18 @@ class SodaCloud:
 
         return file_id
 
-    def send_contract_result(self, contract_result: ContractResult, skip_publish: bool) -> bool:
+    def send_contract_result(
+        self, contract_verification_result: ContractVerificationResult, skip_publish: bool
+    ) -> bool:
         """
         Returns True if a 200 OK was received, False otherwise
         """
-        contract_result = self._build_contract_result_json(contract_result=contract_result, skip_publish=skip_publish)
-        contract_result["type"] = "sodaCoreInsertScanResults"
+        contract_verification_result = self._build_contract_result_json(
+            contract_verification_result=contract_verification_result, skip_publish=skip_publish
+        )
+        contract_verification_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
-            command_json_dict=contract_result, request_log_name="send_contract_verification_results"
+            command_json_dict=contract_verification_result, request_log_name="send_contract_verification_results"
         )
         if response.status_code == 200:
             logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
@@ -158,10 +162,12 @@ class SodaCloud:
         else:
             return False
 
-    def _build_contract_result_json(self, contract_result: ContractResult, skip_publish: bool) -> dict:
+    def _build_contract_result_json(
+        self, contract_verification_result: ContractVerificationResult, skip_publish: bool
+    ) -> dict:
         check_result_cloud_json_dicts = [
             self._build_check_result_cloud_dict(check_result)
-            for check_result in contract_result.check_results
+            for check_result in contract_verification_result.check_results
             # TODO ask m1no if this should be ported
             # if check.check_type == CheckType.CLOUD
             # and (check.outcome is not None or check.force_send_results_to_cloud is True)
@@ -170,7 +176,7 @@ class SodaCloud:
 
         log_cloud_json_dicts: list[dict] = [
             self._build_log_cloud_json_dict(log_record, index)
-            for index, log_record in enumerate(contract_result.logs.records)
+            for index, log_record in enumerate(contract_verification_result.logs.records)
             # TODO ask m1no if this should be ported
             # if check.check_type == CheckType.CLOUD
             # and (check.outcome is not None or check.force_send_results_to_cloud is True)
@@ -179,19 +185,19 @@ class SodaCloud:
 
         contract_result_json: dict = self.to_jsonnable(  # type: ignore
             {
-                "definitionName": contract_result.contract.soda_qualified_dataset_name,
-                "defaultDataSource": contract_result.data_source_info.name,
-                "defaultDataSourceProperties": {"type": contract_result.data_source_info.type},
+                "definitionName": contract_verification_result.contract.soda_qualified_dataset_name,
+                "defaultDataSource": contract_verification_result.data_source.name,
+                "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
                 # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
                 # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
-                "dataTimestamp": contract_result.data_timestamp,
+                "dataTimestamp": contract_verification_result.data_timestamp,
                 # scanStartTimestamp is the actual time when the scan started.
-                "scanStartTimestamp": contract_result.started_timestamp,
+                "scanStartTimestamp": contract_verification_result.started_timestamp,
                 # scanEndTimestamp is the actual time when scan ended.
-                "scanEndTimestamp": contract_result.ended_timestamp,
-                "hasErrors": contract_result.logs.has_errors(),
+                "scanEndTimestamp": contract_verification_result.ended_timestamp,
+                "hasErrors": contract_verification_result.logs.has_errors(),
                 "hasWarnings": False,
-                "hasFailures": contract_result.failed(),
+                "hasFailures": contract_verification_result.failed(),
                 # "metrics": [metric.get_cloud_dict() for metric in contract_result._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": check_result_cloud_json_dicts,
@@ -205,14 +211,17 @@ class SodaCloud:
                 "logs": log_cloud_json_dicts,
                 "sourceOwner": "soda-core",
                 "contract": {
-                    "fileId": contract_result.contract.source.soda_cloud_file_id,
+                    "fileId": contract_verification_result.contract.source.soda_cloud_file_id,
                     "dataset": {
-                        "datasource": contract_result.contract.data_source_name,
-                        "prefixes": contract_result.contract.dataset_prefix,
-                        "name": contract_result.contract.dataset_name,
+                        "datasource": contract_verification_result.contract.data_source_name,
+                        "prefixes": contract_verification_result.contract.dataset_prefix,
+                        "name": contract_verification_result.contract.dataset_name,
                     },
                     "metadata": {
-                        "source": {"type": "local", "filePath": contract_result.contract.source.local_file_path}
+                        "source": {
+                            "type": "local",
+                            "filePath": contract_verification_result.contract.source.local_file_path,
+                        }
                     },
                 },
                 "skipPublish": skip_publish,
@@ -480,9 +489,9 @@ class SodaCloud:
 
         return allowed, reason
 
-    def execute_contracts_on_agent(
+    def execute_contract_on_agent(
         self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
-    ) -> ContractResult:
+    ) -> ContractVerificationResult:
         contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
         data_source_name = contract_yaml.data_source
@@ -595,7 +604,7 @@ class SodaCloud:
 
         logs.remove_from_root_logger()
 
-        return ContractResult(
+        return ContractVerificationResult(
             contract=Contract(
                 data_source_name=data_source_name,
                 dataset_prefix=dataset_prefix,
@@ -603,7 +612,7 @@ class SodaCloud:
                 soda_qualified_dataset_name=None,
                 source=None,
             ),
-            data_source_info=None,
+            data_source=None,
             data_timestamp=None,
             started_timestamp=None,
             ended_timestamp=None,

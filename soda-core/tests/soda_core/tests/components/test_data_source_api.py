@@ -1,4 +1,4 @@
-from soda_core.common.data_source import DataSource
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
@@ -26,10 +26,10 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
         file_type="data source", variables={}
     )
     data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-    data_source: DataSource = data_source_parser.parse()
+    data_source_impl: DataSourceImpl = data_source_parser.parse()
 
-    with data_source:
-        query_result: QueryResult = data_source.data_source_connection.execute_query(
+    with data_source_impl:
+        query_result: QueryResult = data_source_impl.data_source_connection.execute_query(
             f"SELECT * FROM {test_table.qualified_name}"
         )
         assert query_result.rows[0][0] == "1"

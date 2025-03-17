@@ -1,4 +1,7 @@
-from soda_core.contracts.contract_verification import CheckOutcome, ContractResult
+from soda_core.contracts.contract_verification import (
+    CheckOutcome,
+    ContractVerificationResult,
+)
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -86,7 +89,7 @@ def test_row_count_thresholds_fail(data_source_test_helper: DataSourceTestHelper
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -143,5 +146,5 @@ def test_row_count_thresholds_fail(data_source_test_helper: DataSourceTestHelper
                     must_be_less_than: 4
         """,
     )
-    for i in range(0, len(contract_result.check_results)):
-        assert contract_result.check_results[i].outcome == CheckOutcome.FAILED
+    for i in range(0, len(contract_verification_result.check_results)):
+        assert contract_verification_result.check_results[i].outcome == CheckOutcome.FAILED

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from soda_core.common.data_source import DataSource
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.yaml import YamlFileContent, YamlObject
 
@@ -15,7 +15,7 @@ class DataSourceParser:
         self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
         self.spark_session: object = spark_session
 
-    def parse(self) -> Optional[DataSource]:
+    def parse(self) -> Optional[DataSourceImpl]:
         if not self.data_source_yaml_file_content:
             return None
 
@@ -48,7 +48,7 @@ class DataSourceParser:
                         extra={ExtraKeys.LOCATION: format_regexes_yaml.location},
                     )
 
-        return DataSource.create(
+        return DataSourceImpl.create(
             data_source_yaml_file_content=self.data_source_yaml_file_content,
             name=data_source_name,
             type_name=data_source_type_name,

@@ -15,10 +15,10 @@ from soda_core.common.yaml import YamlSource
 logger: logging.Logger = soda_logger
 
 
-class ContractVerificationBuilder:
+class ContractVerificationSessionBuilder:
     def __init__(self, logs: Optional[Logs] = None):
         self.contract_yaml_sources: list[YamlSource] = []
-        self.data_source: Optional["DataSource"] = None
+        self.data_source_impl: Optional["DataSourceImpl"] = None
         self.data_source_yaml_source: Optional[YamlSource] = None
         self.soda_cloud: Optional["SodaCloud"] = None
         self.soda_cloud_yaml_source: Optional[YamlSource] = None
@@ -29,7 +29,7 @@ class ContractVerificationBuilder:
         self.logs: Logs = logs if logs else Logs()
         logger.debug("Contract verification...")
 
-    def with_contract_yaml_file(self, contract_yaml_file_path: str) -> ContractVerificationBuilder:
+    def with_contract_yaml_file(self, contract_yaml_file_path: str) -> ContractVerificationSessionBuilder:
         if isinstance(contract_yaml_file_path, str):
             logger.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
             self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
@@ -40,7 +40,7 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_contract_yaml_str(self, contract_yaml_str: str) -> ContractVerificationBuilder:
+    def with_contract_yaml_str(self, contract_yaml_str: str) -> ContractVerificationSessionBuilder:
         if isinstance(contract_yaml_str, str):
             logger.debug(f"  ...with contract YAML str [{len(contract_yaml_str)}]")
             self.contract_yaml_sources.append(YamlSource.from_str(yaml_str=contract_yaml_str))
@@ -51,7 +51,7 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_data_source_yaml_file(self, data_source_yaml_file_path: str) -> ContractVerificationBuilder:
+    def with_data_source_yaml_file(self, data_source_yaml_file_path: str) -> ContractVerificationSessionBuilder:
         if isinstance(data_source_yaml_file_path, str):
             if self.data_source_yaml_source is None:
                 logger.debug(f"  ...with data_source_yaml_file_path '{data_source_yaml_file_path}'")
@@ -68,7 +68,7 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_data_source_yaml_str(self, data_source_yaml_str: str) -> ContractVerificationBuilder:
+    def with_data_source_yaml_str(self, data_source_yaml_str: str) -> ContractVerificationSessionBuilder:
         if isinstance(data_source_yaml_str, str):
             if self.data_source_yaml_source is None:
                 logger.debug(f"  ...with data_source_yaml_str '{data_source_yaml_str}'")
@@ -85,12 +85,12 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_data_source(self, data_source: object) -> ContractVerificationBuilder:
-        logger.debug(f"  ...with provided data_source '{data_source}'")
-        self.data_source = data_source
+    def with_data_source(self, data_source_impl: "DataSourceImpl") -> ContractVerificationSessionBuilder:
+        logger.debug(f"  ...with provided data_source '{data_source_impl}'")
+        self.data_source_impl = data_source_impl
         return self
 
-    def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationBuilder:
+    def with_soda_cloud_yaml_file(self, soda_cloud_yaml_file_path: str) -> ContractVerificationSessionBuilder:
         if isinstance(soda_cloud_yaml_file_path, str):
             if self.soda_cloud_yaml_source is None:
                 logger.debug(f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'")
@@ -107,7 +107,7 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationBuilder:
+    def with_soda_cloud_yaml_str(self, soda_cloud_yaml_str: str) -> ContractVerificationSessionBuilder:
         if isinstance(soda_cloud_yaml_str, str):
             if self.soda_cloud_yaml_source is None:
                 logger.debug(f"  ...with soda_cloud_yaml_str [{len(soda_cloud_yaml_str)}]")
@@ -124,20 +124,20 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_soda_cloud(self, soda_cloud: object) -> ContractVerificationBuilder:
+    def with_soda_cloud(self, soda_cloud: object) -> ContractVerificationSessionBuilder:
         logger.debug(f"  ...with provided soda_cloud '{soda_cloud}'")
         self.soda_cloud = soda_cloud
         return self
 
     def with_execution_on_soda_agent(
         self, blocking_timeout_in_minutes: Optional[int] = None
-    ) -> ContractVerificationBuilder:
+    ) -> ContractVerificationSessionBuilder:
         logger.debug(f"  ...with execution on Soda Agent")
         self.use_agent = True
         self.blocking_timeout_in_minutes = blocking_timeout_in_minutes
         return self
 
-    def with_variable(self, key: str, value: str) -> ContractVerificationBuilder:
+    def with_variable(self, key: str, value: str) -> ContractVerificationSessionBuilder:
         if isinstance(key, str) and isinstance(value, str):
             logger.debug(f"  ...with variable '{key}'")
             self.variables[key] = value
@@ -145,7 +145,7 @@ class ContractVerificationBuilder:
             logger.error(f"Ignoring invalid variable '{key}'. " f"Expected key str and value string")
         return self
 
-    def with_variables(self, variables: dict[str, str]) -> ContractVerificationBuilder:
+    def with_variables(self, variables: dict[str, str]) -> ContractVerificationSessionBuilder:
         if isinstance(variables, dict):
             logger.debug(f"  ...with variables {list(variables.keys())}")
             self.variables.update(variables)
@@ -159,55 +159,55 @@ class ContractVerificationBuilder:
             )
         return self
 
-    def with_soda_cloud_skip_publish(self) -> ContractVerificationBuilder:
+    def with_soda_cloud_skip_publish(self) -> ContractVerificationSessionBuilder:
         """
         Skips contract publication on Soda Cloud.
         """
         self.soda_cloud_skip_publish = True
         return self
 
-    def build(self) -> ContractVerification:
-        return ContractVerification(contract_verification_builder=self)
+    def build(self) -> ContractVerificationSession:
+        return ContractVerificationSession(contract_verification_session_builder=self)
 
-    def execute(self) -> ContractVerificationResult:
-        contract_verification: ContractVerification = self.build()
-        return contract_verification.execute()
+    def execute(self) -> ContractVerificationSessionResult:
+        contract_verification_session: ContractVerificationSession = self.build()
+        return contract_verification_session.execute()
 
 
-class ContractVerification:
+class ContractVerificationSession:
     @classmethod
-    def builder(cls, logs: Optional[Logs] = None) -> ContractVerificationBuilder:
-        return ContractVerificationBuilder(logs)
+    def builder(cls, logs: Optional[Logs] = None) -> ContractVerificationSessionBuilder:
+        return ContractVerificationSessionBuilder(logs)
 
-    def __init__(self, contract_verification_builder: ContractVerificationBuilder):
+    def __init__(self, contract_verification_session_builder: ContractVerificationSessionBuilder):
         from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationImpl,
+            ContractVerificationSessionImpl,
         )
 
-        self.contract_verification_impl: ContractVerificationImpl = ContractVerificationImpl(
-            contract_yaml_sources=contract_verification_builder.contract_yaml_sources,
-            data_source=contract_verification_builder.data_source,
-            data_source_yaml_source=contract_verification_builder.data_source_yaml_source,
-            soda_cloud=contract_verification_builder.soda_cloud,
-            soda_cloud_yaml_source=contract_verification_builder.soda_cloud_yaml_source,
-            variables=contract_verification_builder.variables,
-            skip_publish=contract_verification_builder.soda_cloud_skip_publish,
-            use_agent=contract_verification_builder.use_agent,
-            blocking_timeout_in_minutes=contract_verification_builder.blocking_timeout_in_minutes,
-            logs=contract_verification_builder.logs,
+        self.contract_verification_session_impl: ContractVerificationSessionImpl = ContractVerificationSessionImpl(
+            contract_yaml_sources=contract_verification_session_builder.contract_yaml_sources,
+            data_source_impl=contract_verification_session_builder.data_source_impl,
+            data_source_yaml_source=contract_verification_session_builder.data_source_yaml_source,
+            soda_cloud=contract_verification_session_builder.soda_cloud,
+            soda_cloud_yaml_source=contract_verification_session_builder.soda_cloud_yaml_source,
+            variables=contract_verification_session_builder.variables,
+            skip_publish=contract_verification_session_builder.soda_cloud_skip_publish,
+            use_agent=contract_verification_session_builder.use_agent,
+            blocking_timeout_in_minutes=contract_verification_session_builder.blocking_timeout_in_minutes,
+            logs=contract_verification_session_builder.logs,
         )
 
     def __str__(self) -> str:
-        return str(self.contract_verification_impl.logs)
+        return str(self.contract_verification_session_impl.logs)
 
-    def execute(self) -> ContractVerificationResult:
-        return self.contract_verification_impl.execute()
+    def execute(self) -> ContractVerificationSessionResult:
+        return self.contract_verification_session_impl.execute()
 
 
-class ContractVerificationResult:
-    def __init__(self, logs: Logs, contract_results: list[ContractResult]):
+class ContractVerificationSessionResult:
+    def __init__(self, logs: Logs, contract_results: list[ContractVerificationResult]):
         self.logs: Logs = logs
-        self.contract_results: list[ContractResult] = contract_results
+        self.contract_results: list[ContractVerificationResult] = contract_results
 
     def failed(self) -> bool:
         """
@@ -230,7 +230,7 @@ class ContractVerificationResult:
     def is_ok(self) -> bool:
         return not self.has_errors() and not self.has_failures()
 
-    def assert_ok(self) -> ContractVerificationResult:
+    def assert_ok(self) -> ContractVerificationSessionResult:
         has_errors: bool = self.logs.has_errors()
         has_check_failures: bool = any(contract_result.failed() for contract_result in self.contract_results)
         if has_errors or has_check_failures:
@@ -247,9 +247,11 @@ class SodaException(Exception):
     """
 
     def __init__(
-        self, message: Optional[str] = None, contract_verification_result: Optional[ContractVerificationResult] = None
+        self,
+        message: Optional[str] = None,
+        contract_verification_result: Optional[ContractVerificationSessionResult] = None,
     ):
-        self.contract_verification_result: Optional[ContractVerificationResult] = contract_verification_result
+        self.contract_verification_result: Optional[ContractVerificationSessionResult] = contract_verification_result
         super().__init__(message)
 
 
@@ -277,8 +279,7 @@ class Contract:
 
 
 @dataclass
-class DataSourceInfo:
-    # TODO rename to DataSource (but first rename DataSource to DataSourceImpl?)
+class DataSource:
     name: str
     type: str
 
@@ -356,7 +357,7 @@ class NumericDiagnostic(Diagnostic):
         return f"Actual {self.name} was {self.value}"
 
 
-class ContractResult:
+class ContractVerificationResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
     This includes any potential execution errors as well as the results of all the checks performed.
@@ -365,7 +366,7 @@ class ContractResult:
     def __init__(
         self,
         contract: Contract,
-        data_source_info: DataSourceInfo,
+        data_source: DataSource,
         data_timestamp: Optional[datetime],
         started_timestamp: datetime,
         ended_timestamp: datetime,
@@ -375,7 +376,7 @@ class ContractResult:
         logs: Logs,
     ):
         self.contract: Contract = contract
-        self.data_source_info: DataSourceInfo = data_source_info
+        self.data_source: DataSource = data_source
 
         self.data_timestamp: Optional[datetime] = data_timestamp
         self.started_timestamp: datetime = started_timestamp

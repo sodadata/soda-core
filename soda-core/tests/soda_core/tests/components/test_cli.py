@@ -5,8 +5,8 @@ from typing import Optional
 
 from soda_core.cli.soda import CLI
 from soda_core.contracts.contract_verification import (
-    ContractResult,
     ContractVerificationResult,
+    ContractVerificationSessionResult,
 )
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_functions import dedent_and_strip
@@ -23,7 +23,7 @@ class CLI4Test(CLI):
         self.use_agent: Optional[bool] = None
         self.exit_code: int = 0
         self.argv: list[str] = argv
-        self.contract_verification_result: Optional[ContractVerificationResult] = None
+        self.contract_verification_result: Optional[ContractVerificationSessionResult] = None
 
     def execute(self) -> None:
         sys.argv = self.argv
@@ -124,8 +124,8 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
     test_cli.execute()
     assert test_cli.exit_code == 0
     assert test_cli.contract_verification_result.is_ok()
-    contract_result: ContractResult = test_cli.contract_verification_result.contract_results[0]
-    assert len(contract_result.check_results) == 2
+    contract_verification_result: ContractVerificationResult = test_cli.contract_verification_result.contract_results[0]
+    assert len(contract_verification_result.check_results) == 2
 
 
 def test_cli_wrong_pwd(data_source_test_helper: DataSourceTestHelper):

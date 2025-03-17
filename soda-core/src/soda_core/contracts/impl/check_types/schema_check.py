@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from soda_core.common.data_source import DataSource
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
@@ -103,7 +103,7 @@ class SchemaCheckImpl(CheckImpl):
             dataset_prefix=contract_impl.dataset_prefix,
             dataset_name=contract_impl.dataset_name,
             schema_metric_impl=self.schema_metric,
-            data_source=contract_impl.data_source,
+            data_source_impl=contract_impl.data_source_impl,
         )
         self.queries.append(schema_query)
 
@@ -138,7 +138,7 @@ class SchemaCheckImpl(CheckImpl):
                 if (
                     actual_column_metadata
                     and expected_column.data_type
-                    and self.contract_impl.data_source.is_different_data_type(
+                    and self.contract_impl.data_source_impl.is_different_data_type(
                         expected_column=expected_column, actual_column_metadata=actual_column_metadata
                     )
                 ):
@@ -195,10 +195,10 @@ class SchemaQuery(Query):
         dataset_prefix: Optional[list[str]],
         dataset_name: str,
         schema_metric_impl: SchemaMetricImpl,
-        data_source: DataSource,
+        data_source_impl: DataSourceImpl,
     ):
-        super().__init__(data_source=data_source, metrics=[schema_metric_impl])
-        self.metadata_columns_query_builder: MetadataColumnsQuery = data_source.create_metadata_columns_query()
+        super().__init__(data_source_impl=data_source_impl, metrics=[schema_metric_impl])
+        self.metadata_columns_query_builder: MetadataColumnsQuery = data_source_impl.create_metadata_columns_query()
         self.sql = self.metadata_columns_query_builder.build_sql(
             dataset_prefix=dataset_prefix,
             dataset_name=dataset_name,
@@ -206,7 +206,7 @@ class SchemaQuery(Query):
 
     def execute(self) -> list[Measurement]:
         try:
-            query_result: QueryResult = self.data_source.execute_query(self.sql)
+            query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
         except Exception as e:
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []

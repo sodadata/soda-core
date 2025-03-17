@@ -1,14 +1,14 @@
 import pytest
 from soda_core.contracts.contract_verification import (
-    ContractVerification,
-    ContractVerificationResult,
+    ContractVerificationSession,
+    ContractVerificationSessionResult,
     SodaException,
 )
 
 
 def test_contract_verification_file_api():
-    contract_verification_result: ContractVerificationResult = (
-        ContractVerification.builder()
+    contract_verification_session_result: ContractVerificationSessionResult = (
+        ContractVerificationSession.builder()
         .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
         .with_variables({"env": "test"})
         .execute()
@@ -16,14 +16,14 @@ def test_contract_verification_file_api():
 
     assert (
         "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-        in contract_verification_result.logs.get_errors_str()
+        in contract_verification_session_result.logs.get_errors_str()
     )
 
 
 def test_contract_verification_file_api_exception_on_error():
     with pytest.raises(SodaException) as e:
         (
-            ContractVerification.builder()
+            ContractVerificationSession.builder()
             .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
             .with_variables({"env": "test"})
             .execute()
@@ -38,8 +38,8 @@ def test_contract_provided_and_configured():
     """
     If there is no default data source configured and there is none provided in the contract, an error has to be logged
     """
-    contract_verification_result: ContractVerificationResult = (
-        ContractVerification.builder()
+    contract_verification_session_result: ContractVerificationSessionResult = (
+        ContractVerificationSession.builder()
         .with_contract_yaml_str(
             f"""
           dataset: CUSTOMERS
@@ -51,7 +51,7 @@ def test_contract_provided_and_configured():
         .execute()
     )
 
-    assert "No data source configured" in contract_verification_result.logs.get_errors_str()
+    assert "No data source configured" in contract_verification_session_result.logs.get_errors_str()
 
 
 # TODO @Niels: To be evaluated if still needed refactored after rework

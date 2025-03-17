@@ -1,5 +1,5 @@
-from soda_core.common.data_source import DataSource
 from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import YamlFileContent
@@ -8,7 +8,7 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import (
 )
 
 
-class PostgresDataSource(DataSource):
+class PostgresDataSourceImpl(DataSourceImpl):
     def __init__(
         self,
         data_source_yaml_file_content: YamlFileContent,

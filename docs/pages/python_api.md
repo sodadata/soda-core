@@ -7,8 +7,8 @@ See [Install Soda Core in a Python virtual environment](./install.md)
 ### Basic API usage
 
 ```
-contract_verification_result: ContractVerificationResult = (
-    ContractVerification.builder()
+contract_verification_session_result: ContractVerificationSessionResult = (
+    ContractVerificationSession.builder()
     .with_contract_yaml_file("../soda/mydb/myschema/mydataset.yml")
     .with_variables({"MY_VAR": "somevalue"})
     .execute()
@@ -26,11 +26,11 @@ the contracts for the same data source. Typically, there will be only contracts 
 
 If you don't want to use the default file structure to organize your Soda configuration YAML files, you can 
 specify a data source programmatically.  Either by referencing the file path or an actual data source in 
-the `ContractVerification.builder`
+the `ContractVerificationSession.builder`
 
 ```
-contract_verification_result: ContractVerificationResult = (
-    ContractVerification.builder()
+contract_verification_session_result: ContractVerificationSessionResult = (
+    ContractVerificationSession.builder()
     .with_contract_yaml_file("../soda/mydb/myschema/mydataset.yml")
     .with_data_source_yaml_file("../soda/my_postgres_ds.yml")
     .with_variables({"MY_VAR": "somevalue"})
@@ -53,7 +53,7 @@ Variable are resolved case sensitive.
 
 Example to provide variable values through the API.
 ```
-contract_verification_result: ContractVerificationResult = (
+contract_verification_session_result: ContractVerificationSessionResult = (
     ContractVerification.builder()
     .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
     .with_variables({"VAR_NAME":"value"})

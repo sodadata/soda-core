@@ -15,9 +15,9 @@ from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
-    ContractVerification,
-    ContractVerificationBuilder,
-    ContractVerificationResult,
+    ContractVerificationSession,
+    ContractVerificationSessionBuilder,
+    ContractVerificationSessionResult,
 )
 
 logger: logging.Logger = soda_logger
@@ -33,9 +33,9 @@ class CLI:
 
     def execute(self) -> None:
         try:
-            print("  __|  _ \|  \   \\")
-            print("\__ \ (   |   | _ \\")
-            print("____/\___/___/_/  _\\ CLI 4.0.0.dev??")
+            print(r"  __|  _ \|  \   \\")
+            print(r"\__ \ (   |   | _ \\")
+            print(r"____/\___/___/_/  _\\ CLI 4.0.0.dev??")
 
             signal.signal(signal.SIGINT, self.handle_ctrl_c)
 
@@ -194,56 +194,64 @@ class CLI:
         skip_publish: bool,
         use_agent: bool,
         blocking_timeout_in_minutes: int,
-    ) -> ContractVerificationResult:
-        contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
+    ) -> ContractVerificationSessionResult:
+        contract_verification_session_builder: ContractVerificationSessionBuilder = (
+            ContractVerificationSession.builder()
+        )
 
         for contract_file_path in contract_file_paths:
-            contract_verification_builder.with_contract_yaml_file(contract_file_path)
+            contract_verification_session_builder.with_contract_yaml_file(contract_file_path)
 
         if data_source_file_path:
-            contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
+            contract_verification_session_builder.with_data_source_yaml_file(data_source_file_path)
 
         if use_agent:
-            contract_verification_builder.with_execution_on_soda_agent(
+            contract_verification_session_builder.with_execution_on_soda_agent(
                 blocking_timeout_in_minutes=blocking_timeout_in_minutes
             )
 
         if soda_cloud_file_path:
-            contract_verification_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
+            contract_verification_session_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
 
         if skip_publish:
-            contract_verification_builder.with_soda_cloud_skip_publish()
+            contract_verification_session_builder.with_soda_cloud_skip_publish()
 
-        contract_verification_result: ContractVerificationResult = contract_verification_builder.execute()
-        if self.contract_verification_is_not_sent_to_cloud(contract_verification_result):
+        contract_verification_session_result: ContractVerificationSessionResult = (
+            contract_verification_session_builder.execute()
+        )
+        if self.contract_verification_is_not_sent_to_cloud(contract_verification_session_result):
             self._exit_with_code(self.EXIT_CODE_4_RESULTS_NOT_SENT_TO_CLOUD)
-        elif contract_verification_result.has_errors():
+        elif contract_verification_session_result.has_errors():
             self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
-        elif contract_verification_result.has_failures():
+        elif contract_verification_session_result.has_failures():
             self._exit_with_code(self.EXIT_CODE_1_CHECK_FAILURES_OCCURRED)
 
-        return contract_verification_result
+        return contract_verification_session_result
 
     def contract_verification_is_not_sent_to_cloud(
-        self, contract_verification_result: ContractVerificationResult
+        self, contract_verification_session_result: ContractVerificationSessionResult
     ) -> bool:
-        return any(cr.sending_results_to_soda_cloud_failed for cr in contract_verification_result.contract_results)
+        return any(
+            cr.sending_results_to_soda_cloud_failed for cr in contract_verification_session_result.contract_results
+        )
 
     def _test_contract(
         self,
         contract_file_paths: Optional[list[str]],
         data_source_file_path: Optional[str],
     ):
-        contract_verification_builder: ContractVerificationBuilder = ContractVerification.builder()
+        contract_verification_session_builder: ContractVerificationSessionBuilder = (
+            ContractVerificationSession.builder()
+        )
 
         for contract_file_path in contract_file_paths:
             logger.info(f"Testing contract '{contract_file_path}' YAML syntax")
-            contract_verification_builder.with_contract_yaml_file(contract_file_path)
+            contract_verification_session_builder.with_contract_yaml_file(contract_file_path)
 
-        contract_verification_builder.with_data_source_yaml_file(data_source_file_path)
+        contract_verification_session_builder.with_data_source_yaml_file(data_source_file_path)
 
-        contract_verification_builder.build()
-        if not contract_verification_builder.logs.has_errors():
+        contract_verification_session_builder.build()
+        if not contract_verification_session_builder.logs.has_errors():
             logger.info(f"{Emoticons.WHITE_CHECK_MARK} All provided contracts are valid")
 
     def _publish_contract(
@@ -297,12 +305,12 @@ class CLI:
 
     def _test_data_source(self, data_source_file_path: str):
         print(f"Testing data source configuration file {data_source_file_path}")
-        from soda_core.common.data_source import DataSource
+        from soda_core.common.data_source_impl import DataSourceImpl
 
-        data_source: DataSource = DataSource.from_file(data_source_file_path)
+        data_source_impl: DataSourceImpl = DataSourceImpl.from_file(data_source_file_path)
         error_message: Optional[str] = (
-            data_source.test_connection_error_message()
-            if data_source
+            data_source_impl.test_connection_error_message()
+            if data_source_impl
             else "Data source could not be created. See logs above. Or re-run with -v"
         )
         if error_message:

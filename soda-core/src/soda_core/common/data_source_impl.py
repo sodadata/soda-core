@@ -15,12 +15,12 @@ from soda_core.common.statements.metadata_columns_query import (
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import YamlFileContent, YamlSource
-from soda_core.contracts.contract_verification import DataSourceInfo
+from soda_core.contracts.contract_verification import DataSource
 
 logger: logging.Logger = soda_logger
 
 
-class DataSource(ABC):
+class DataSourceImpl(ABC):
     @classmethod
     def create(
         cls,
@@ -29,12 +29,12 @@ class DataSource(ABC):
         type_name: str,
         connection_properties: dict,
         format_regexes: dict[str, str],
-    ) -> DataSource:
+    ) -> DataSourceImpl:
         from soda_core.common.data_sources.postgres_data_source import (
-            PostgresDataSource,
+            PostgresDataSourceImpl,
         )
 
-        return PostgresDataSource(
+        return PostgresDataSourceImpl(
             data_source_yaml_file_content=data_source_yaml_file_content,
             name=name,
             type_name=type_name,
@@ -167,7 +167,7 @@ class DataSource(ABC):
         return format_regex
 
     @classmethod
-    def from_file(cls, data_source_file_path: str) -> Optional[DataSource]:
+    def from_file(cls, data_source_file_path: str) -> Optional[DataSourceImpl]:
         data_source_yaml_source: YamlSource = YamlSource.from_file_path(data_source_file_path)
         logs: Logs = Logs()
         data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
@@ -186,8 +186,8 @@ class DataSource(ABC):
         except Exception as e:
             return str(e)
 
-    def build_data_source_info(self) -> DataSourceInfo:
-        return DataSourceInfo(name=self.name, type=self.type_name)
+    def build_data_source(self) -> DataSource:
+        return DataSource(name=self.name, type=self.type_name)
 
     def is_valid_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> bool:
         if not isinstance(dataset_prefix, list):

@@ -8,7 +8,7 @@ from io import StringIO
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
-from soda_core.common.data_source import DataSource
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
@@ -21,9 +21,9 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    ContractResult,
     ContractVerificationResult,
-    DataSourceInfo,
+    ContractVerificationSessionResult,
+    DataSource,
     Measurement,
     Threshold,
     YamlFileContentInfo,
@@ -43,20 +43,11 @@ from soda_core.contracts.impl.contract_yaml import (
 logger: logging.Logger = soda_logger
 
 
-class DataSourceContracts:
-    def __init__(self, data_source: DataSource):
-        self.data_source: DataSource = data_source
-        self.contract_impls: list[ContractImpl] = []
-
-    def add_contract(self, contract_impl: ContractImpl) -> None:
-        self.contract_impls.append(contract_impl)
-
-
-class ContractVerificationImpl:
+class ContractVerificationSessionImpl:
     def __init__(
         self,
         contract_yaml_sources: list[YamlSource],
-        data_source: Optional[DataSource],
+        data_source_impl: Optional[DataSourceImpl],
         data_source_yaml_source: Optional[YamlSource],
         soda_cloud: Optional["SodaCloud"],
         soda_cloud_yaml_source: Optional[YamlSource],
@@ -73,19 +64,19 @@ class ContractVerificationImpl:
             blocking_timeout_in_minutes if isinstance(blocking_timeout_in_minutes, int) else 60
         )
 
-        self.data_source: Optional[DataSource] = None
+        self.data_source_impl: Optional[DataSourceImpl] = None
         if not use_agent:
-            if data_source is not None:
-                self.data_source = data_source
+            if data_source_impl is not None:
+                self.data_source_impl = data_source_impl
             elif data_source_yaml_source is not None:
                 data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
                     file_type="data source", variables=variables
                 )
                 data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-                self.data_source = data_source_parser.parse()
-            if self.data_source is None:
+                self.data_source_impl = data_source_parser.parse()
+            if self.data_source_impl is None:
                 logger.error(f"No data source configured")
-        elif data_source is not None or data_source_yaml_source is not None:
+        elif data_source_impl is not None or data_source_yaml_source is not None:
             logger.error(
                 f"When executing the contract verification on Soda Agent, " f"a data source should not be configured"
             )
@@ -107,13 +98,13 @@ class ContractVerificationImpl:
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )
                 self.contract_yamls.append(contract_yaml)
-        if self.data_source:
+        if self.data_source_impl:
             for contract_yaml in self.contract_yamls:
                 if isinstance(contract_yaml, ContractYaml):
-                    if self.data_source.is_valid_dataset_prefix(contract_yaml.dataset_prefix):
+                    if self.data_source_impl.is_valid_dataset_prefix(contract_yaml.dataset_prefix):
                         contract_impl: ContractImpl = ContractImpl(
                             contract_yaml=contract_yaml,
-                            data_source=self.data_source,
+                            data_source_impl=self.data_source_impl,
                             variables=variables,
                             logs=logs,
                             soda_cloud=self.soda_cloud,
@@ -124,19 +115,19 @@ class ContractVerificationImpl:
                     else:
                         logger.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
 
-    def execute(self) -> ContractVerificationResult:
-        contract_results: list[ContractResult] = []
+    def execute(self) -> ContractVerificationSessionResult:
+        contract_results: list[ContractVerificationResult] = []
         try:
             if self.use_agent:
                 contract_results = self.verify_contracts_on_agent(self.contract_yamls)
-            elif self.data_source:
-                contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source)
+            elif self.data_source_impl:
+                contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source_impl)
         except Exception as e:
             logger.error(msg=str(e), exc_info=True)
 
-        return ContractVerificationResult(logs=self.logs, contract_results=contract_results)
+        return ContractVerificationSessionResult(logs=self.logs, contract_results=contract_results)
 
-    def verify_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractResult]:
+    def verify_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractVerificationResult]:
         if self.soda_cloud and isinstance(contract_yamls, list) and len(contract_yamls) > 0:
             contract_yamls_with_permission: list[ContractYaml] = []
             for contract_yaml in contract_yamls:
@@ -147,40 +138,40 @@ class ContractVerificationImpl:
                 ):
                     contract_yamls_with_permission.append(contract_yaml)
 
-            contract_results: list[ContractResult] = []
+            contract_verification_results: list[ContractVerificationResult] = []
             for contract_yaml_with_permission in contract_yamls_with_permission:
-                contract_result: ContractResult = self.soda_cloud.execute_contracts_on_agent(
+                contract_verification_result: ContractVerificationResult = self.soda_cloud.execute_contract_on_agent(
                     contract_yaml=contract_yaml_with_permission,
                     blocking_timeout_in_minutes=self.blocking_timeout_in_minutes,
                 )
-                contract_results.append(contract_result)
-            return contract_results
+                contract_verification_results.append(contract_verification_result)
+            return contract_verification_results
 
         else:
             logger.error(f"Using the agent requires a Soda Cloud configuration")
             return []
 
     def verify_contracts_locally(
-        self, contract_impls: list[ContractImpl], data_source: DataSource
-    ) -> list[ContractResult]:
-        contract_results: list[ContractResult] = []
-        if self.data_source and isinstance(contract_impls, list) and len(contract_impls) > 0:
-            open_close: bool = not data_source.has_open_connection()
+        self, contract_impls: list[ContractImpl], data_source_impl: DataSourceImpl
+    ) -> list[ContractVerificationResult]:
+        contract_results: list[ContractVerificationResult] = []
+        if self.data_source_impl and isinstance(contract_impls, list) and len(contract_impls) > 0:
+            open_close: bool = not data_source_impl.has_open_connection()
             if open_close:
-                data_source.open_connection()
+                data_source_impl.open_connection()
             try:
-                if data_source.has_open_connection():
+                if data_source_impl.has_open_connection():
                     for contract_impl in contract_impls:
                         if not self.soda_cloud or self.soda_cloud.has_verify_permission(
-                            data_source_name=contract_impl.data_source.name,
+                            data_source_name=contract_impl.data_source_impl.name,
                             dataset_prefix=contract_impl.dataset_prefix,
                             dataset_name=contract_impl.dataset_name,
                         ):
-                            contract_result: ContractResult = contract_impl.verify()
-                            contract_results.append(contract_result)
+                            contract_verification_result: ContractVerificationResult = contract_impl.verify()
+                            contract_results.append(contract_verification_result)
             finally:
                 if open_close:
-                    data_source.close_connection()
+                    data_source_impl.close_connection()
         return contract_results
 
 
@@ -188,14 +179,14 @@ class ContractImpl:
     def __init__(
         self,
         contract_yaml: ContractYaml,
-        data_source: DataSource,
+        data_source_impl: DataSourceImpl,
         variables: dict[str, str],
         logs: Logs,
         soda_cloud: Optional[SodaCloud],
         skip_publish: bool,
     ):
         self.logs: Logs = logs
-        self.data_source: DataSource = data_source
+        self.data_source_impl: DataSourceImpl = data_source_impl
         self.contract_yaml: ContractYaml = contract_yaml
         self.variables: dict[str, str] = variables
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
@@ -211,9 +202,11 @@ class ContractImpl:
         self.dataset_name: Optional[str] = contract_yaml.dataset
 
         self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
-            data_source_name=self.data_source.name, dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
+            data_source_name=self.data_source_impl.name,
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=self.dataset_name,
         )
-        self.sql_qualified_dataset_name: str = data_source.sql_dialect.qualify_dataset_name(
+        self.sql_qualified_dataset_name: str = data_source_impl.sql_dialect.qualify_dataset_name(
             dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
         )
         self.metrics_resolver: MetricsResolver = MetricsResolver()
@@ -295,7 +288,7 @@ class ContractImpl:
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
                         filter_condition=None,
-                        data_source=self.data_source,
+                        data_source_impl=self.data_source_impl,
                         logs=self.logs,
                     )
                 )
@@ -313,7 +306,7 @@ class ContractImpl:
                     columns.append(column)
         return columns
 
-    def verify(self) -> ContractResult:
+    def verify(self) -> ContractVerificationResult:
         logger.info(
             f"Verifying {Emoticons.SCROLL} contract "
             f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
@@ -336,7 +329,7 @@ class ContractImpl:
                 measurements.append(derived_measurement)
 
         contract_info: Contract = self.build_contract_info()
-        data_source_info: DataSourceInfo = self.data_source.build_data_source_info()
+        data_source: DataSource = self.data_source_impl.build_data_source()
 
         # Evaluate the checks
         measurement_values = MeasurementValues(measurements)
@@ -347,9 +340,9 @@ class ContractImpl:
             )
             check_results.append(check_result)
 
-        contract_result: ContractResult = ContractResult(
+        contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=contract_info,
-            data_source_info=data_source_info,
+            data_source=data_source,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),
@@ -359,26 +352,26 @@ class ContractImpl:
             logs=self.logs,
         )
 
-        self.log_summary(contract_result)
+        self.log_summary(contract_verification_result)
 
         if self.soda_cloud:
             # upload_contract_file fills in contract.source.soda_cloud_file_id if all goes well
-            self.soda_cloud.upload_contract_file(contract_result.contract)
+            self.soda_cloud.upload_contract_file(contract_verification_result.contract)
             # send_contract_result will use contract.source.soda_cloud_file_id
-            response_ok: bool = self.soda_cloud.send_contract_result(contract_result, self.skip_publish)
+            response_ok: bool = self.soda_cloud.send_contract_result(contract_verification_result, self.skip_publish)
             if not response_ok:
-                contract_result.sending_results_to_soda_cloud_failed = True
+                contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        return contract_result
+        return contract_verification_result
 
-    def log_summary(self, contract_result: ContractResult):
-        logger.info(f"### Contract results for {contract_result.contract.soda_qualified_dataset_name}")
+    def log_summary(self, contract_verification_result: ContractVerificationResult):
+        logger.info(f"### Contract results for {contract_verification_result.contract.soda_qualified_dataset_name}")
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
-        for check_result in contract_result.check_results:
+        for check_result in contract_verification_result.check_results:
             check_result.log_summary(self.logs)
             if check_result.outcome == CheckOutcome.FAILED:
                 failed_count += 1
@@ -391,7 +384,7 @@ class ContractImpl:
 
         not_evaluated_count: int = sum(
             1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
-            for check_result in contract_result.check_results
+            for check_result in contract_verification_result.check_results
         )
 
         if failed_count + error_count + not_evaluated_count == 0:
@@ -405,7 +398,7 @@ class ContractImpl:
 
     def build_contract_info(self) -> Contract:
         return Contract(
-            data_source_name=self.data_source.name,
+            data_source_name=self.data_source_impl.name,
             dataset_prefix=self.dataset_prefix,
             dataset_name=self.dataset_name,
             soda_qualified_dataset_name=self.soda_qualified_dataset_name,
@@ -992,7 +985,7 @@ class MetricImpl:
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
     ):
-        id_parts: list[str] = [contract_impl.data_source.name]
+        id_parts: list[str] = [contract_impl.data_source_impl.name]
         if contract_impl.dataset_prefix:
             id_parts.extend(contract_impl.dataset_prefix)
         if column_impl:
@@ -1049,8 +1042,8 @@ class DerivedPercentageMetricImpl(MetricImpl):
 
 
 class Query(ABC):
-    def __init__(self, data_source: DataSource, metrics: list[MetricImpl], sql: Optional[str] = None):
-        self.data_source: DataSource = data_source
+    def __init__(self, data_source_impl: DataSourceImpl, metrics: list[MetricImpl], sql: Optional[str] = None):
+        self.data_source_impl: DataSourceImpl = data_source_impl
         self.metrics: list[MetricImpl] = metrics
         self.sql: Optional[str] = sql
 
@@ -1071,22 +1064,22 @@ class AggregationQuery(Query):
         dataset_prefix: list[str],
         dataset_name: str,
         filter_condition: Optional[str],
-        data_source: DataSource,
+        data_source_impl: DataSourceImpl,
         logs: Logs,
     ):
-        super().__init__(data_source=data_source, metrics=[])
+        super().__init__(data_source_impl=data_source_impl, metrics=[])
         self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
         self.filter_condition: str = filter_condition
         self.aggregation_metrics: list[AggregationMetricImpl] = []
-        self.data_source: DataSource = data_source
+        self.data_source_impl: DataSourceImpl = data_source_impl
         self.query_size: int = len(self.build_sql())
         self.logs: Logs = logs
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
         sql_expression: SqlExpression = aggregation_metric_impl.sql_expression()
-        sql_expression_str: str = self.data_source.sql_dialect.build_expression_sql(sql_expression)
-        return self.query_size + len(sql_expression_str) < self.data_source.get_max_aggregation_query_length()
+        sql_expression_str: str = self.data_source_impl.sql_dialect.build_expression_sql(sql_expression)
+        return self.query_size + len(sql_expression_str) < self.data_source_impl.get_max_aggregation_query_length()
 
     def append_aggregation_metric(self, aggregation_metric_impl: AggregationMetricImpl) -> None:
         self.aggregation_metrics.append(aggregation_metric_impl)
@@ -1096,7 +1089,7 @@ class AggregationQuery(Query):
         select = [SELECT(field_expressions), FROM(self.dataset_name, self.dataset_prefix)]
         if self.filter_condition:
             select.append(WHERE(SqlExpressionStr(self.filter_condition)))
-        self.sql = self.data_source.sql_dialect.build_select_sql(select)
+        self.sql = self.data_source_impl.sql_dialect.build_select_sql(select)
         return self.sql
 
     def build_field_expressions(self) -> list[SqlExpression]:
@@ -1108,7 +1101,7 @@ class AggregationQuery(Query):
     def execute(self) -> list[Measurement]:
         sql = self.build_sql()
         try:
-            query_result: QueryResult = self.data_source.execute_query(sql)
+            query_result: QueryResult = self.data_source_impl.execute_query(sql)
         except Exception as e:
             logger.error(msg=f"Could not execute aggregation query {sql}: {e}", exc_info=True)
             return []

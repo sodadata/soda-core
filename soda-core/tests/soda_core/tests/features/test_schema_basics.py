@@ -1,4 +1,4 @@
-from soda_core.contracts.contract_verification import ContractResult
+from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
@@ -34,7 +34,7 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
 def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    contract_result: ContractResult = data_source_test_helper.assert_contract_fail(
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -49,7 +49,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
         """,
     )
 
-    schema_check_result: SchemaCheckResult = contract_result.check_results[0]
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert 2 == len(schema_check_result.column_data_type_mismatches)
 
     length_mismatch = schema_check_result.column_data_type_mismatches[0]

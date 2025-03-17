@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from soda_core.common.data_source import DataSource
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
@@ -103,7 +103,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             )
             self.queries.append(
                 InvalidReferenceCountQuery(
-                    metric_impl=self.invalid_count_metric_impl, data_source=contract_impl.data_source
+                    metric_impl=self.invalid_count_metric_impl, data_source_impl=contract_impl.data_source_impl
                 )
             )
         else:
@@ -195,8 +195,8 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
 
 
 class InvalidReferenceCountQuery(Query):
-    def __init__(self, metric_impl: InvalidReferenceCountMetricImpl, data_source: DataSource):
-        super().__init__(data_source=data_source, metrics=[metric_impl])
+    def __init__(self, metric_impl: InvalidReferenceCountMetricImpl, data_source_impl: DataSourceImpl):
+        super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
 
         valid_reference_data: ValidReferenceData = metric_impl.missing_and_validity.valid_reference_data
 
@@ -220,7 +220,7 @@ class InvalidReferenceCountQuery(Query):
         # SELECT(STAR().IN("C")),
         # which should translate to SELECT C.*
 
-        self.sql = self.data_source.sql_dialect.build_select_sql(
+        self.sql = self.data_source_impl.sql_dialect.build_select_sql(
             [
                 SELECT(COUNT(STAR())),
                 FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(referencing_alias),
@@ -259,7 +259,7 @@ class InvalidReferenceCountQuery(Query):
 
     def execute(self) -> list[Measurement]:
         try:
-            query_result: QueryResult = self.data_source.execute_query(self.sql)
+            query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
         except Exception as e:
             logger.error(msg=f"Could not execute invalid reference query {self.sql}: {e}", exc_info=True)
             return []

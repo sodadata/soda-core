@@ -1,4 +1,7 @@
-from soda_core.contracts.contract_verification import CheckOutcome, ContractResult
+from soda_core.contracts.contract_verification import (
+    CheckOutcome,
+    ContractVerificationResult,
+)
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.test_table import TestTableSpecification
 
@@ -10,7 +13,7 @@ missing_no_rows_specification = (
 def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
 
-    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
@@ -21,7 +24,7 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
         """,
     )
 
-    assert contract_result.check_results[0].outcome == CheckOutcome.PASSED
+    assert contract_verification_result.check_results[0].outcome == CheckOutcome.PASSED
 
 
 def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
@@ -29,7 +32,7 @@ def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
 
     test_table = data_source_test_helper.ensure_test_table(missing_no_rows_specification)
 
-    contract_result: ContractResult = data_source_test_helper.assert_contract_pass(
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
@@ -39,4 +42,4 @@ def test_missing_count_no_rows(data_source_test_helper: DataSourceTestHelper):
         """,
     )
 
-    assert contract_result.check_results[0].outcome == CheckOutcome.PASSED
+    assert contract_verification_result.check_results[0].outcome == CheckOutcome.PASSED
