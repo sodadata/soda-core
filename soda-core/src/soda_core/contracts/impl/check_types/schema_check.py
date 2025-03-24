@@ -99,13 +99,14 @@ class SchemaCheckImpl(CheckImpl):
             )
         )
 
-        schema_query: Query = SchemaQuery(
-            dataset_prefix=contract_impl.dataset_prefix,
-            dataset_name=contract_impl.dataset_name,
-            schema_metric_impl=self.schema_metric,
-            data_source_impl=contract_impl.data_source_impl,
-        )
-        self.queries.append(schema_query)
+        if contract_impl.data_source_impl:
+            schema_query: Query = SchemaQuery(
+                dataset_prefix=contract_impl.dataset_prefix,
+                dataset_name=contract_impl.dataset_name,
+                schema_metric_impl=self.schema_metric,
+                data_source_impl=contract_impl.data_source_impl,
+            )
+            self.queries.append(schema_query)
 
     def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
@@ -195,7 +196,7 @@ class SchemaQuery(Query):
         dataset_prefix: Optional[list[str]],
         dataset_name: str,
         schema_metric_impl: SchemaMetricImpl,
-        data_source_impl: DataSourceImpl,
+        data_source_impl: Optional[DataSourceImpl],
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[schema_metric_impl])
         self.metadata_columns_query_builder: MetadataColumnsQuery = data_source_impl.create_metadata_columns_query()

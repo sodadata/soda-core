@@ -88,7 +88,7 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
 
     contract_yaml_str: str = dedent_and_strip(
         f"""
-        data_source: postgres_test_ds
+        data_source: {data_source_test_helper.data_source_impl.name}
         dataset: {test_table.unique_name}
         dataset_prefix: {data_source_test_helper.dataset_prefix}
         columns:
@@ -124,7 +124,7 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
     test_cli.execute()
     assert test_cli.exit_code == 0
     assert test_cli.contract_verification_result.is_ok()
-    contract_verification_result: ContractVerificationResult = test_cli.contract_verification_result.contract_results[0]
+    contract_verification_result: ContractVerificationResult = test_cli.contract_verification_result.contract_verification_results[0]
     assert len(contract_verification_result.check_results) == 2
 
 

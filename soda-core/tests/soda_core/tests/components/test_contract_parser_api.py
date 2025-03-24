@@ -42,10 +42,11 @@ def test_parse_minimal_contract():
     ContractYaml.parse(
         contract_yaml_source=YamlSource.from_str(
             """
+            data_source: abc
             dataset: dsname
         """
         )
     )
     logs.remove_from_root_logger()
 
-    assert not logs.has_errors()
+    assert not logs.get_errors_str()

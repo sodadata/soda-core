@@ -74,21 +74,22 @@ class ContractYaml:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
-
         contract_yaml_file_content: Optional[YamlFileContent] = contract_yaml_source.parse_yaml_file_content(
             file_type="Contract", variables=variables
         )
-        if contract_yaml_file_content and contract_yaml_file_content.has_yaml_object():
-            return ContractYaml(contract_yaml_file_content=contract_yaml_file_content)
+        return ContractYaml(contract_yaml_file_content=contract_yaml_file_content)
 
     def __init__(self, contract_yaml_file_content: YamlFileContent):
         self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
         self.contract_yaml_object: Optional[YamlObject] = self.contract_yaml_file_content.get_yaml_object()
 
         self.data_source: Optional[str] = (
-            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
+            self.contract_yaml_object.read_string("data_source") if self.contract_yaml_object else None
         )
-        if self.contract_yaml_object.has_key("datasource") and not self.contract_yaml_object.has_key("data_source"):
+        if (self.contract_yaml_object
+            and self.contract_yaml_object.has_key("datasource")
+            and not self.contract_yaml_object.has_key("data_source")
+        ):
             logger.error(
                 msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
                 extra={
