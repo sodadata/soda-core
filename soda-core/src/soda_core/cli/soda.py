@@ -16,7 +16,6 @@ from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
-    ContractVerificationSessionBuilder,
     ContractVerificationSessionResult,
 )
 

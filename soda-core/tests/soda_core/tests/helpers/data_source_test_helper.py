@@ -18,7 +18,6 @@ from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSession,
-    ContractVerificationSessionBuilder,
     ContractVerificationSessionResult,
 )
 from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockSodaCloud
