@@ -39,7 +39,7 @@ def main():
         contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
         soda_cloud_yaml_source=YamlSource.from_str(soda_cloud_yaml_str),
         soda_cloud_use_agent=True,
-        soda_cloud_use_agent_blocking_timeout_in_minutes=55
+        soda_cloud_use_agent_blocking_timeout_in_minutes=55,
     )
 
 

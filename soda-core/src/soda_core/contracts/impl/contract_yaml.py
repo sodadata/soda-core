@@ -86,7 +86,8 @@ class ContractYaml:
         self.data_source: Optional[str] = (
             self.contract_yaml_object.read_string("data_source") if self.contract_yaml_object else None
         )
-        if (self.contract_yaml_object
+        if (
+            self.contract_yaml_object
             and self.contract_yaml_object.has_key("datasource")
             and not self.contract_yaml_object.has_key("data_source")
         ):

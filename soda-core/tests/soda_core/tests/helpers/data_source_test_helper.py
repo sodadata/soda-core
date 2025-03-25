@@ -379,8 +379,7 @@ class DataSourceTestHelper:
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
         contract_verification_session_result = ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
-            only_validate_without_execute=True
+            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)], only_validate_without_execute=True
         )
         return contract_verification_session_result.get_errors_str()
 

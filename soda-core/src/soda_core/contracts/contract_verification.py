@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from logging import LogRecord, ERROR
+from logging import ERROR, LogRecord
 from numbers import Number
 from typing import Optional
 
@@ -17,7 +17,6 @@ logger: logging.Logger = soda_logger
 
 
 class ContractVerificationSession:
-
     @classmethod
     def execute(
         cls,
@@ -46,7 +45,7 @@ class ContractVerificationSession:
             soda_cloud_yaml_source=soda_cloud_yaml_source,
             soda_cloud_skip_publish=soda_cloud_skip_publish,
             soda_cloud_use_agent=soda_cloud_use_agent,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes
+            soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
         )
 
 
@@ -102,8 +101,7 @@ class ContractVerificationSessionResult:
 
     def is_ok(self) -> bool:
         return all(
-            contract_verification_result.is_ok()
-            for contract_verification_result in self.contract_verification_results
+            contract_verification_result.is_ok() for contract_verification_result in self.contract_verification_results
         )
 
     def assert_ok(self) -> ContractVerificationSessionResult:

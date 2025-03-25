@@ -1,5 +1,4 @@
 import pytest
-
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,

@@ -196,20 +196,15 @@ class CLI:
     ) -> ContractVerificationSessionResult:
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
             contract_yaml_sources=[
-                YamlSource.from_file_path(contract_file_path)
-                for contract_file_path in contract_file_paths
+                YamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths
             ],
             data_source_yaml_sources=(
-                [YamlSource.from_file_path(data_source_file_path)]
-                if data_source_file_path else []
+                [YamlSource.from_file_path(data_source_file_path)] if data_source_file_path else []
             ),
-            soda_cloud_yaml_source=(
-                YamlSource.from_file_path(soda_cloud_file_path)
-                if soda_cloud_file_path else None
-            ),
+            soda_cloud_yaml_source=(YamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None),
             soda_cloud_skip_publish=skip_publish,
             soda_cloud_use_agent=use_agent,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes
+            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
         )
         if self.contract_verification_is_not_sent_to_cloud(contract_verification_session_result):
             self._exit_with_code(self.EXIT_CODE_4_RESULTS_NOT_SENT_TO_CLOUD)
@@ -224,7 +219,8 @@ class CLI:
         self, contract_verification_session_result: ContractVerificationSessionResult
     ) -> bool:
         return any(
-            cr.sending_results_to_soda_cloud_failed for cr in contract_verification_session_result.contract_verification_results
+            cr.sending_results_to_soda_cloud_failed
+            for cr in contract_verification_session_result.contract_verification_results
         )
 
     def _validate_contract(
@@ -234,8 +230,7 @@ class CLI:
     ):
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
             contract_yaml_sources=[
-                YamlSource.from_file_path(contract_file_path)
-                for contract_file_path in contract_file_paths
+                YamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths
             ],
             data_source_yaml_sources=[YamlSource.from_file_path(data_source_file_path)],
             only_validate_without_execute=True,

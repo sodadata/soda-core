@@ -124,7 +124,9 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
     test_cli.execute()
     assert test_cli.exit_code == 0
     assert test_cli.contract_verification_result.is_ok()
-    contract_verification_result: ContractVerificationResult = test_cli.contract_verification_result.contract_verification_results[0]
+    contract_verification_result: ContractVerificationResult = (
+        test_cli.contract_verification_result.contract_verification_results[0]
+    )
     assert len(contract_verification_result.check_results) == 2
 
 

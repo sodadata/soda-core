@@ -195,11 +195,7 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
 
 
 class InvalidReferenceCountQuery(Query):
-    def __init__(
-        self,
-        metric_impl: InvalidReferenceCountMetricImpl,
-        data_source_impl: Optional[DataSourceImpl]
-    ):
+    def __init__(self, metric_impl: InvalidReferenceCountMetricImpl, data_source_impl: Optional[DataSourceImpl]):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
 
         valid_reference_data: ValidReferenceData = metric_impl.missing_and_validity.valid_reference_data
