@@ -37,7 +37,7 @@ def configure_logging(
     ]:
         logging.getLogger(logger_to_mute).setLevel(ERROR)
 
-    soda_log_level: int = DEBUG if verbose else WARNING
+    soda_log_level: int = DEBUG if verbose else INFO
 
     logging.basicConfig(
         level=soda_log_level,
