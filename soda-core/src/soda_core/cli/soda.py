@@ -337,17 +337,24 @@ class CLI:
     def _test_soda_cloud(self, soda_cloud_file_path: str):
         from soda_core.common.soda_cloud import SodaCloud
 
+        # Start capturing logs
+        logs: Logs = Logs()
+
         print(f"Testing soda cloud file {soda_cloud_file_path}")
         soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
         soda_cloud_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-            file_type="soda_cloud", variables={}, logs=Logs()
+            file_type="soda_cloud", variables={}
         )
         soda_cloud: SodaCloud = SodaCloud.from_file(soda_cloud_file_content)
-        error_msg = (
+
+        error_msg: Optional[str] = None
+        if soda_cloud:
             soda_cloud.test_connection()
-            if soda_cloud
-            else "Soda Cloud connection could not be created. See logs above. Or re-run with -v"
-        )
+            if logs.has_errors():
+                error_msg = logs.get_errors_str()
+        else:
+            error_msg = "Soda Cloud connection could not be created. See logs above. Or re-run with -v"
+
         if error_msg:
             print(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
             self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
