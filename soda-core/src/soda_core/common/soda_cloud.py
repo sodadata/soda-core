@@ -176,7 +176,7 @@ class SodaCloud:
 
         log_cloud_json_dicts: list[dict] = [
             self._build_log_cloud_json_dict(log_record, index)
-            for index, log_record in enumerate(contract_verification_result.logs.records)
+            for index, log_record in enumerate(contract_verification_result.log_records)
             # TODO ask m1no if this should be ported
             # if check.check_type == CheckType.CLOUD
             # and (check.outcome is not None or check.force_send_results_to_cloud is True)
@@ -195,9 +195,9 @@ class SodaCloud:
                 "scanStartTimestamp": contract_verification_result.started_timestamp,
                 # scanEndTimestamp is the actual time when scan ended.
                 "scanEndTimestamp": contract_verification_result.ended_timestamp,
-                "hasErrors": contract_verification_result.logs.has_errors(),
+                "hasErrors": contract_verification_result.has_errors(),
                 "hasWarnings": False,
-                "hasFailures": contract_verification_result.failed(),
+                "hasFailures": contract_verification_result.is_failed(),
                 # "metrics": [metric.get_cloud_dict() for metric in contract_result._metrics],
                 # If archetype is not None, it means that check is automated monitoring
                 "checks": check_result_cloud_json_dicts,
@@ -621,7 +621,7 @@ class SodaCloud:
                 # TODO
             ],
             sending_results_to_soda_cloud_failed=True,
-            logs=logs,
+            log_records=logs.records,
         )
 
     def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:

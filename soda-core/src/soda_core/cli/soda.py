@@ -16,7 +16,6 @@ from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
-    ContractVerificationSessionBuilder,
     ContractVerificationSessionResult,
 )
 
@@ -159,7 +158,7 @@ class CLI:
                     blocking_timeout_in_minutes=args.blocking_timeout_in_minutes,
                 )
             elif args.command == "test-contract":
-                self._test_contract(
+                self._validate_contract(
                     contract_file_paths=args.contract,
                     data_source_file_path=args.data_source,
                 )
@@ -195,35 +194,28 @@ class CLI:
         use_agent: bool,
         blocking_timeout_in_minutes: int,
     ) -> ContractVerificationSessionResult:
-        contract_verification_session_builder: ContractVerificationSessionBuilder = (
-            ContractVerificationSession.builder()
-        )
-
-        for contract_file_path in contract_file_paths:
-            contract_verification_session_builder.with_contract_yaml_file(contract_file_path)
-
-        if data_source_file_path:
-            contract_verification_session_builder.with_data_source_yaml_file(data_source_file_path)
-
-        if use_agent:
-            contract_verification_session_builder.with_execution_on_soda_agent(
-                blocking_timeout_in_minutes=blocking_timeout_in_minutes
-            )
-
-        if soda_cloud_file_path:
-            contract_verification_session_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
-
-        if skip_publish:
-            contract_verification_session_builder.with_soda_cloud_skip_publish()
-
-        contract_verification_session_result: ContractVerificationSessionResult = (
-            contract_verification_session_builder.execute()
+        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+            contract_yaml_sources=[
+                YamlSource.from_file_path(contract_file_path)
+                for contract_file_path in contract_file_paths
+            ],
+            data_source_yaml_sources=(
+                [YamlSource.from_file_path(data_source_file_path)]
+                if data_source_file_path else []
+            ),
+            soda_cloud_yaml_source=(
+                YamlSource.from_file_path(soda_cloud_file_path)
+                if soda_cloud_file_path else None
+            ),
+            soda_cloud_skip_publish=skip_publish,
+            soda_cloud_use_agent=use_agent,
+            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
         if self.contract_verification_is_not_sent_to_cloud(contract_verification_session_result):
             self._exit_with_code(self.EXIT_CODE_4_RESULTS_NOT_SENT_TO_CLOUD)
         elif contract_verification_session_result.has_errors():
             self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
-        elif contract_verification_session_result.has_failures():
+        elif contract_verification_session_result.is_failed():
             self._exit_with_code(self.EXIT_CODE_1_CHECK_FAILURES_OCCURRED)
 
         return contract_verification_session_result
@@ -232,26 +224,24 @@ class CLI:
         self, contract_verification_session_result: ContractVerificationSessionResult
     ) -> bool:
         return any(
-            cr.sending_results_to_soda_cloud_failed for cr in contract_verification_session_result.contract_results
+            cr.sending_results_to_soda_cloud_failed for cr in contract_verification_session_result.contract_verification_results
         )
 
-    def _test_contract(
+    def _validate_contract(
         self,
         contract_file_paths: Optional[list[str]],
         data_source_file_path: Optional[str],
     ):
-        contract_verification_session_builder: ContractVerificationSessionBuilder = (
-            ContractVerificationSession.builder()
+        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+            contract_yaml_sources=[
+                YamlSource.from_file_path(contract_file_path)
+                for contract_file_path in contract_file_paths
+            ],
+            data_source_yaml_sources=[YamlSource.from_file_path(data_source_file_path)],
+            only_validate_without_execute=True,
         )
 
-        for contract_file_path in contract_file_paths:
-            logger.info(f"Testing contract '{contract_file_path}' YAML syntax")
-            contract_verification_session_builder.with_contract_yaml_file(contract_file_path)
-
-        contract_verification_session_builder.with_data_source_yaml_file(data_source_file_path)
-
-        contract_verification_session_builder.build()
-        if not contract_verification_session_builder.logs.has_errors():
+        if not contract_verification_session_result.has_errors():
             logger.info(f"{Emoticons.WHITE_CHECK_MARK} All provided contracts are valid")
 
     def _publish_contract(

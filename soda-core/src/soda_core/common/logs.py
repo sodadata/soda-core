@@ -71,3 +71,8 @@ class Logs:
 
     def has_errors(self) -> bool:
         return len(self.get_errors()) > 0
+
+    def pop_log_records(self) -> list[LogRecord]:
+        log_records: list[LogRecord] = self.records
+        self.records = []
+        return log_records
