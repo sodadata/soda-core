@@ -1,18 +1,10 @@
-import logging
-from textwrap import dedent
-
 from contracts.helpers.contract_data_source_test_helper import (
     ContractDataSourceTestHelper,
 )
 from helpers.test_table import TestTable
 from soda.execution.data_type import DataType
 
-from soda.contracts.check import SchemaCheckResult
-from soda.contracts.contract import CheckOutcome, ContractResult
-from soda.contracts.contract_verification import (
-    ContractVerification,
-    ContractVerificationResult,
-)
+from soda.contracts.contract import ContractResult
 
 contracts_attributes_test_table = TestTable(
     name="contracts_attributes",
