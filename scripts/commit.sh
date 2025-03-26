@@ -4,10 +4,11 @@ if [ $# -eq 1 ]; then
     set -e
     set -x
     . .venv/bin/activate
+    pre-commit run --all-files
     python -m pytest
     git status
     git add .
-    git commit -m $1
+    git commit -m "$1"
     git pull
     git status
     echo
