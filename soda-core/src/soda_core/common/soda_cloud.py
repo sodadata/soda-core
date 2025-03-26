@@ -418,6 +418,8 @@ class SodaCloud:
         "but the user can’t release new version of the contract",
         "missingExecuteContracts": "Even though the contract exists on the cloud and it has identical contents "
         "to the local copy - the user is not allowed to run the scan",
+        "missingManageContracts": "The user can't release a new version of the contract or run a scan - "
+        "they are not allowed to manage contracts",
     }
 
     def has_publish_permission(
