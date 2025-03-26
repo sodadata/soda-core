@@ -334,10 +334,15 @@ class AbstractCheck(Check, ABC):
             check_configs["identity_was"] = identity_was
         if self.filter_sql:
             check_configs["filter"] = self.filter_sql
+        if isinstance(self.check_yaml, dict) and "attributes" in self.check_yaml:
+            attributes = self.check_yaml.get("attributes")
+            if isinstance(attributes, dict):
+                check_configs["attributes"] = attributes
         if isinstance(check_specific_configs, dict):
             for key, value in check_specific_configs.items():
                 if value is not None:
                     check_configs[key] = value
+
         return check_configs
 
 
