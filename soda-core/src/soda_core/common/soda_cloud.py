@@ -336,16 +336,12 @@ class SodaCloud:
                 exc_info=True,
             )
 
-    def test_connection(self) -> Optional[str]:
+    def test_connection(self) -> None:
         """
         Returns an error message or None if the connection test is successful
         """
         query: dict = {"type": "whoAmI"}
         self._execute_query(query_json_dict=query, request_log_name="who_am_i")
-        if self.logs.has_errors():
-            return self.logs.get_errors_str()
-        else:
-            return None
 
     def publish_contract(self, contract_yaml: Optional[ContractYaml]) -> ContractPublicationResult:
         if not contract_yaml:

@@ -36,7 +36,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "soda=soda_core.cli.soda:main",
+            "soda=soda_core.cli.soda:execute",
         ]
     },
 )
