@@ -164,9 +164,7 @@ class ContractVerificationSessionImpl:
                         cls._get_data_source_impl(
                             contract_yaml.data_source, data_source_impls_by_name, opened_data_sources
                         )
-                        if (contract_yaml
-                            and contract_yaml.data_source
-                            and not only_validate_without_execute)
+                        if (contract_yaml and contract_yaml.data_source and not only_validate_without_execute)
                         else None
                     )
                     contract_impl: ContractImpl = ContractImpl(
@@ -455,7 +453,9 @@ class ContractImpl:
 
             # Triggering the derived metrics to initialize their value based on their dependencies
             derived_metric_impls: list[DerivedPercentageMetricImpl] = [
-                derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedPercentageMetricImpl)
+                derived_metric
+                for derived_metric in self.metrics
+                if isinstance(derived_metric, DerivedPercentageMetricImpl)
             ]
             measurement_values: MeasurementValues = MeasurementValues(measurements)
             for derived_metric_impl in derived_metric_impls:

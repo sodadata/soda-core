@@ -227,9 +227,11 @@ class CLI:
         contract_file_paths: Optional[list[str]],
     ):
         for contract_file_path in contract_file_paths:
-            contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-                contract_yaml_sources=[YamlSource.from_file_path(contract_file_path)],
-                only_validate_without_execute=True,
+            contract_verification_session_result: ContractVerificationSessionResult = (
+                ContractVerificationSession.execute(
+                    contract_yaml_sources=[YamlSource.from_file_path(contract_file_path)],
+                    only_validate_without_execute=True,
+                )
             )
             if not contract_verification_session_result.has_errors():
                 logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")
