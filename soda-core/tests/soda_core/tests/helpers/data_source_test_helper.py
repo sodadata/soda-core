@@ -420,7 +420,7 @@ class DataSourceTestHelper:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
-        if not contract_verification_session_result.is_failed():
+        if contract_verification_session_result.is_ok():
             raise AssertionError(f"Expected contract verification failed")
         return contract_verification_session_result.contract_verification_results[0]
 

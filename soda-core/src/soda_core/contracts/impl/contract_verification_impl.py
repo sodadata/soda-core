@@ -164,7 +164,9 @@ class ContractVerificationSessionImpl:
                         cls._get_data_source_impl(
                             contract_yaml.data_source, data_source_impls_by_name, opened_data_sources
                         )
-                        if contract_yaml
+                        if (contract_yaml
+                            and contract_yaml.data_source
+                            and not only_validate_without_execute)
                         else None
                     )
                     contract_impl: ContractImpl = ContractImpl(
@@ -428,10 +430,10 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractVerificationResult:
-        if isinstance(self.data_source_impl, DataSourceImpl) and not self.data_source_impl.is_valid_dataset_prefix(
-            self.contract_yaml.dataset_prefix
-        ):
-            logger.error(f"No valid dataset_prefix: {self.contract_yaml.dataset_prefix}")
+        contract: Contract = self.build_contract()
+        data_source: Optional[DataSource] = None
+        check_results: list[CheckResult] = []
+        measurements: list[Measurement] = []
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
@@ -439,40 +441,41 @@ class ContractImpl:
             f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
-        measurements: list[Measurement] = []
-        # Executing the queries will set the value of the metrics linked to queries
-        if not self.only_validate_without_execute:
-            for query in self.queries:
-                query_measurements: list[Measurement] = query.execute()
-                measurements.extend(query_measurements)
+        if not self.logs.has_errors():
+            if isinstance(self.data_source_impl, DataSourceImpl) and not self.data_source_impl.is_valid_dataset_prefix(
+                self.contract_yaml.dataset_prefix
+            ):
+                logger.error(f"No valid dataset_prefix: {self.contract_yaml.dataset_prefix}")
 
-        # Triggering the derived metrics to initialize their value based on their dependencies
-        derived_metric_impls: list[DerivedPercentageMetricImpl] = [
-            derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedPercentageMetricImpl)
-        ]
-        measurement_values: MeasurementValues = MeasurementValues(measurements)
-        for derived_metric_impl in derived_metric_impls:
-            derived_measurement: Measurement = derived_metric_impl.create_derived_measurement(measurement_values)
-            if isinstance(derived_measurement, Measurement):
-                measurements.append(derived_measurement)
+            # Executing the queries will set the value of the metrics linked to queries
+            if not self.only_validate_without_execute:
+                for query in self.queries:
+                    query_measurements: list[Measurement] = query.execute()
+                    measurements.extend(query_measurements)
 
-        contract_info: Contract = self.build_contract_info()
-
-        data_source: Optional[DataSource] = None
-        check_results: list[CheckResult] = []
-        if self.data_source_impl:
-            data_source = self.data_source_impl.build_data_source()
-
-            # Evaluate the checks
+            # Triggering the derived metrics to initialize their value based on their dependencies
+            derived_metric_impls: list[DerivedPercentageMetricImpl] = [
+                derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedPercentageMetricImpl)
+            ]
             measurement_values: MeasurementValues = MeasurementValues(measurements)
-            for check_impl in self.all_check_impls:
-                check_result: CheckResult = check_impl.evaluate(
-                    measurement_values=measurement_values, contract_info=contract_info
-                )
-                check_results.append(check_result)
+            for derived_metric_impl in derived_metric_impls:
+                derived_measurement: Measurement = derived_metric_impl.create_derived_measurement(measurement_values)
+                if isinstance(derived_measurement, Measurement):
+                    measurements.append(derived_measurement)
+
+            if self.data_source_impl:
+                data_source = self.data_source_impl.build_data_source()
+
+                # Evaluate the checks
+                measurement_values: MeasurementValues = MeasurementValues(measurements)
+                for check_impl in self.all_check_impls:
+                    check_result: CheckResult = check_impl.evaluate(
+                        measurement_values=measurement_values, contract=contract
+                    )
+                    check_results.append(check_result)
 
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
-            contract=contract_info,
+            contract=contract,
             data_source=data_source,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
@@ -480,10 +483,12 @@ class ContractImpl:
             measurements=measurements,
             check_results=check_results,
             sending_results_to_soda_cloud_failed=False,
-            log_records=self.logs.pop_log_records(),
         )
 
-        self.log_summary(contract_verification_result)
+        if not self.only_validate_without_execute:
+            self.log_summary(contract_verification_result)
+
+        contract_verification_result.log_records = self.logs.pop_log_records()
 
         if self.soda_cloud:
             # upload_contract_file fills in contract.source.soda_cloud_file_id if all goes well
@@ -527,7 +532,7 @@ class ContractImpl:
                 f"and {error_count} errors."
             )
 
-    def build_contract_info(self) -> Contract:
+    def build_contract(self) -> Contract:
         return Contract(
             data_source_name=self.data_source_impl.name if self.data_source_impl else None,
             dataset_prefix=self.dataset_prefix,
@@ -1039,7 +1044,7 @@ class CheckImpl:
         return resolved_metric_impl
 
     @abstractmethod
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         pass
 
     def _build_check_info(self) -> Check:

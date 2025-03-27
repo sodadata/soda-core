@@ -125,7 +125,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         diagnostics: list[Diagnostic] = []
@@ -151,7 +151,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract_info,
+            contract=contract,
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,

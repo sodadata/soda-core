@@ -160,7 +160,6 @@ class CLI:
             elif args.command == "test-contract":
                 self._validate_contract(
                     contract_file_paths=args.contract,
-                    data_source_file_path=args.data_source,
                 )
             elif args.command == "publish":
                 self._publish_contract(args.contract, args.soda_cloud)
@@ -226,18 +225,14 @@ class CLI:
     def _validate_contract(
         self,
         contract_file_paths: Optional[list[str]],
-        data_source_file_path: Optional[str],
     ):
-        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=[
-                YamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths
-            ],
-            data_source_yaml_sources=[YamlSource.from_file_path(data_source_file_path)],
-            only_validate_without_execute=True,
-        )
-
-        if not contract_verification_session_result.has_errors():
-            logger.info(f"{Emoticons.WHITE_CHECK_MARK} All provided contracts are valid")
+        for contract_file_path in contract_file_paths:
+            contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+                contract_yaml_sources=[YamlSource.from_file_path(contract_file_path)],
+                only_validate_without_execute=True,
+            )
+            if not contract_verification_session_result.has_errors():
+                logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")
 
     def _publish_contract(
         self,
@@ -303,7 +298,7 @@ class CLI:
                 f"{Emoticons.POLICE_CAR_LIGHT} Could not connect using data source '{data_source_file_path}': "
                 f"{error_message}"
             )
-            self._exit_with_code(self.EXIT_CODE_3_USER_ERRORS_OCCURRED)
+            self._exit_with_code(self.EXIT_CODE_3_LOG_ERRORS_OCCURRED)
         else:
             print(f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok.")
 

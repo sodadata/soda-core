@@ -80,7 +80,7 @@ class RowCountCheckImpl(CheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
         row_count: int = measurement_values.get_value(self.row_count_metric)
 
@@ -93,7 +93,7 @@ class RowCountCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = [NumericDiagnostic(name="row_count", value=row_count)]
 
         return CheckResult(
-            contract=contract_info,
+            contract=contract,
             check=self._build_check_info(),
             metric_value=row_count,
             outcome=outcome,

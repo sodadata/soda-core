@@ -242,7 +242,7 @@ class ContractVerificationResult:
         measurements: list[Measurement],
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
-        log_records: list[LogRecord],
+        log_records: Optional[list[LogRecord]] = None,
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
@@ -253,7 +253,7 @@ class ContractVerificationResult:
         self.measurements: list[Measurement] = measurements
         self.check_results: list[CheckResult] = check_results
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
-        self.log_records: list[LogRecord] = log_records
+        self.log_records: Optional[list[LogRecord]] = log_records
 
     def get_logs(self) -> list[str]:
         return [r.msg for r in self.log_records]

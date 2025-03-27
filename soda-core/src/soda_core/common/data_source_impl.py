@@ -169,9 +169,8 @@ class DataSourceImpl(ABC):
     @classmethod
     def from_file(cls, data_source_file_path: str) -> Optional[DataSourceImpl]:
         data_source_yaml_source: YamlSource = YamlSource.from_file_path(data_source_file_path)
-        logs: Logs = Logs()
         data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-            file_type="data source", variables={}, logs=logs
+            file_type="data source", variables={}
         )
         from soda_core.common.data_source_parser import DataSourceParser
 

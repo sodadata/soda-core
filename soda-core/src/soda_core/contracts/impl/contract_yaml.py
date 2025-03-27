@@ -167,8 +167,7 @@ class ContractYaml:
                         check_type_name = check_yaml_object
                         logger.error(
                             f"{Emoticons.PINCHED_FINGERS} Mama Mia! You forgot the "
-                            f"colon ':' behind the check '{check_type_name}'. For this once I'll "
-                            f"still execute it {Emoticons.SEE_NO_EVIL}"
+                            f"colon ':' behind the check '{check_type_name}'."
                         )
                     if isinstance(check_type_name, str):
                         if check_body_yaml_object is None:

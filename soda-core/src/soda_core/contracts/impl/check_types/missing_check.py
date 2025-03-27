@@ -94,7 +94,7 @@ class MissingCheck(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
@@ -114,7 +114,7 @@ class MissingCheck(MissingAndValidityCheckImpl):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract_info,
+            contract=contract,
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,
