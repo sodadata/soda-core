@@ -108,11 +108,9 @@ class ContractVerificationSessionImpl:
         if soda_cloud_use_agent:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
                 contract_yaml_sources=contract_yaml_sources,
-                only_validate_without_execute=only_validate_without_execute,
                 variables=variables,
                 soda_cloud_yaml_source=soda_cloud_yaml_source,
                 soda_cloud_impl=soda_cloud_impl,
-                soda_cloud_skip_publish=soda_cloud_skip_publish,
                 soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
             )
 
@@ -244,11 +242,9 @@ class ContractVerificationSessionImpl:
     def _execute_on_agent(
         cls,
         contract_yaml_sources: list[YamlSource],
-        only_validate_without_execute: bool,
         variables: Optional[dict[str, str]],
         soda_cloud_yaml_source: Optional[YamlSource],
         soda_cloud_impl: Optional[SodaCloud],
-        soda_cloud_skip_publish: bool,
         soda_cloud_use_agent_blocking_timeout_in_minutes,
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
@@ -263,16 +259,14 @@ class ContractVerificationSessionImpl:
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )
 
-                if soda_cloud_impl.has_verify_permission(
+                if soda_cloud_impl.can_publish_and_verify_contract(
                     data_source_name=contract_yaml.data_source,
                     dataset_prefix=contract_yaml.dataset_prefix,
                     dataset_name=contract_yaml.dataset,
                 ):
-                    contract_verification_result: ContractVerificationResult = (
-                        soda_cloud_impl.execute_contract_on_agent(
-                            contract_yaml=contract_yaml,
-                            blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
-                        )
+                    contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
+                        contract_yaml=contract_yaml,
+                        blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     )
                     contract_verification_results.append(contract_verification_result)
             except:
