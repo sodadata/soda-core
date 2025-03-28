@@ -33,6 +33,15 @@ def test_contract_publication_fails_on_missing_soda_cloud_config():
 
 
 def test_contract_publication_fails_on_missing_contract_file():
+    responses = [
+        MockResponse(
+            status_code=200,
+            json_object={
+                "allowed": True,
+            },
+        ),
+    ]
+    mock_cloud = MockSodaCloud(responses)
     contract_publication_result: ContractPublicationResult = (
         ContractPublication.builder()
         .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
@@ -44,6 +53,7 @@ def test_contract_publication_fails_on_missing_contract_file():
           api_key_secret: secret
         """
         )
+        .with_soda_cloud(mock_cloud)
         .build()
         .execute()
     )
@@ -57,8 +67,8 @@ def test_contract_publication_fails_on_missing_contract_file():
 
 def test_contract_publication_returns_result_for_each_added_contract():
     responses = [
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id"}),
         MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": "true"}),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id"}),
         MockResponse(
             method=MockHttpMethod.POST,
             json_object={
@@ -69,8 +79,8 @@ def test_contract_publication_returns_result_for_each_added_contract():
                 "metadata": {"source": {"filePath": "contract1.yml", "type": "local"}},
             },
         ),
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id2"}),
         MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": "true"}),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id2"}),
         MockResponse(
             method=MockHttpMethod.POST,
             json_object={
