@@ -85,8 +85,8 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             MockResponse(
                 status_code=200,
                 json_object={
-                  "allowed": True,
-                }
+                    "allowed": True,
+                },
             ),
             MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fffileid"}),
             MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"scanId": "ssscanid"}),
