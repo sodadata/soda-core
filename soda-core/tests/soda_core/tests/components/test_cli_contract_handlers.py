@@ -19,19 +19,17 @@ from unittest.mock import patch, MagicMock
     (False, False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
     (True, True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
 ])
-@patch.object(ContractVerificationSession, "builder")
-def test_handle_verify_contract_exit_codes(mock_builder, has_errors, has_failures, cloud_failed, expected_exit_code):
+@patch.object(ContractVerificationSession, "execute")
+def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failures, cloud_failed, expected_exit_code):
     mock_contract_result = MagicMock()
     mock_contract_result.sending_results_to_soda_cloud_failed = cloud_failed
 
     mock_result = MagicMock()
     mock_result.has_errors.return_value = has_errors
-    mock_result.has_failures.return_value = has_failures
-    mock_result.contract_results = [mock_contract_result]
+    mock_result.is_failed.return_value = has_failures
+    mock_result.contract_verification_results = [mock_contract_result]
 
-    mock_builder_instance = MagicMock()
-    mock_builder_instance.execute.return_value = mock_result
-    mock_builder.return_value = mock_builder_instance
+    mock_execute.return_value = mock_result
 
     exit_code = handle_verify_contract(
         contract_file_paths=["contract.yaml"],
@@ -77,15 +75,12 @@ def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_fail
     (False, ExitCode.OK),
     (True, ExitCode.LOG_ERRORS),
 ])
-@patch.object(ContractVerificationSession, "builder")
-def test_handle_test_contract_exit_codes(mock_builder, has_errors, expected_exit_code):
-    mock_logs = MagicMock()
-    mock_logs.has_errors.return_value = has_errors
+@patch.object(ContractVerificationSession, "execute")
+def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit_code):
+    mock_result = MagicMock()
+    mock_result.has_errors.return_value = has_errors
 
-    mock_builder_instance = MagicMock()
-    mock_builder_instance.logs = mock_logs
-
-    mock_builder.return_value = mock_builder_instance
+    mock_execute.return_value = mock_result
 
     exit_code = handle_test_contract(
         contract_file_paths=["contract.yaml"],
