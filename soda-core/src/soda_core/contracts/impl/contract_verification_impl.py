@@ -44,150 +44,257 @@ logger: logging.Logger = soda_logger
 
 
 class ContractVerificationSessionImpl:
-    def __init__(
-        self,
+    @classmethod
+    def execute(
+        cls,
         contract_yaml_sources: list[YamlSource],
-        data_source_impl: Optional[DataSourceImpl],
-        data_source_yaml_source: Optional[YamlSource],
-        soda_cloud: Optional["SodaCloud"],
-        soda_cloud_yaml_source: Optional[YamlSource],
-        variables: dict[str, str],
-        skip_publish: bool,
-        use_agent: bool,
-        blocking_timeout_in_minutes: int,
-        logs: Logs,
+        only_validate_without_execute: bool = False,
+        variables: Optional[dict[str, str]] = None,
+        data_source_impls: Optional[list[DataSourceImpl]] = None,
+        data_source_yaml_sources: Optional[list[YamlSource]] = None,
+        soda_cloud_yaml_source: Optional[YamlSource] = None,
+        soda_cloud_impl: Optional[SodaCloud] = None,
+        soda_cloud_skip_publish: bool = False,
+        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
     ):
-        self.logs: Logs = logs
-        self.skip_publish: bool = skip_publish
-        self.use_agent: bool = use_agent
-        self.blocking_timeout_in_minutes = (
-            blocking_timeout_in_minutes if isinstance(blocking_timeout_in_minutes, int) else 60
-        )
+        # Start capturing logs
+        logs: Logs = Logs()
 
-        self.data_source_impl: Optional[DataSourceImpl] = None
-        if not use_agent:
-            if data_source_impl is not None:
-                self.data_source_impl = data_source_impl
-            elif data_source_yaml_source is not None:
-                data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                    file_type="data source", variables=variables
-                )
-                data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-                self.data_source_impl = data_source_parser.parse()
-            if self.data_source_impl is None:
-                logger.error(f"No data source configured")
-        elif data_source_impl is not None or data_source_yaml_source is not None:
-            logger.error(
-                f"When executing the contract verification on Soda Agent, " f"a data source should not be configured"
+        # Validate input contract_yaml_sources
+        assert isinstance(contract_yaml_sources, list)
+        assert all(isinstance(contract_yaml_source, YamlSource) for contract_yaml_source in contract_yaml_sources)
+
+        # Validate input variables
+        if variables is None:
+            variables = {}
+        else:
+            assert isinstance(variables, dict)
+            assert all(isinstance(k, str) and isinstance(v, str) for k, v in variables.items())
+
+        # Validate input data_source_impls
+        if data_source_impls is None:
+            data_source_impls = []
+        else:
+            assert isinstance(data_source_impls, list)
+            assert all(isinstance(data_source_impl, DataSourceImpl) for data_source_impl in data_source_impls)
+
+        # Validate input data_source_yaml_sources
+        if data_source_yaml_sources is None:
+            data_source_yaml_sources = []
+        else:
+            assert isinstance(data_source_yaml_sources, list)
+            assert all(
+                isinstance(data_source_yaml_source, YamlSource) for data_source_yaml_source in data_source_yaml_sources
             )
 
-        self.soda_cloud: Optional[SodaCloud] = soda_cloud
-        if self.soda_cloud is None and soda_cloud_yaml_source is not None:
+        # Validate input soda_cloud_yaml_source
+        if soda_cloud_yaml_source is not None:
+            assert isinstance(soda_cloud_yaml_source, YamlSource)
+
+        # Validate input soda_cloud_impl
+        if soda_cloud_impl is not None:
+            assert isinstance(soda_cloud_impl, SodaCloud)
+
+        # Validate input soda_cloud_skip_publish
+        assert isinstance(soda_cloud_skip_publish, bool)
+
+        # Validate input soda_cloud_use_agent
+        assert isinstance(soda_cloud_use_agent, bool)
+
+        # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
+        assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
+
+        if soda_cloud_use_agent:
+            contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
+                contract_yaml_sources=contract_yaml_sources,
+                only_validate_without_execute=only_validate_without_execute,
+                variables=variables,
+                soda_cloud_yaml_source=soda_cloud_yaml_source,
+                soda_cloud_impl=soda_cloud_impl,
+                soda_cloud_skip_publish=soda_cloud_skip_publish,
+                soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            )
+
+        else:
+            contract_verification_results: list[ContractVerificationResult] = cls._execute_locally(
+                logs=logs,
+                contract_yaml_sources=contract_yaml_sources,
+                only_validate_without_execute=only_validate_without_execute,
+                variables=variables,
+                data_source_impls=data_source_impls,
+                data_source_yaml_sources=data_source_yaml_sources,
+                soda_cloud_yaml_source=soda_cloud_yaml_source,
+                soda_cloud_impl=soda_cloud_impl,
+                soda_cloud_skip_publish=soda_cloud_skip_publish,
+            )
+        return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
+
+    @classmethod
+    def _execute_locally(
+        cls,
+        logs: Logs,
+        contract_yaml_sources: list[YamlSource],
+        only_validate_without_execute: bool,
+        variables: dict[str, str],
+        data_source_impls: list[DataSourceImpl],
+        data_source_yaml_sources: list[YamlSource],
+        soda_cloud_yaml_source: Optional[YamlSource],
+        soda_cloud_impl: Optional[SodaCloud],
+        soda_cloud_skip_publish: bool,
+    ) -> list[ContractVerificationResult]:
+        contract_verification_results: list[ContractVerificationResult] = []
+
+        data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impl_by_name(
+            data_source_impls=data_source_impls, data_source_yaml_sources=data_source_yaml_sources, variables=variables
+        )
+
+        soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
+            soda_cloud_impl=soda_cloud_impl, soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables
+        )
+
+        opened_data_sources: list[DataSourceImpl] = []
+        try:
+            for contract_yaml_source in contract_yaml_sources:
+                try:
+                    contract_yaml: ContractYaml = ContractYaml.parse(
+                        contract_yaml_source=contract_yaml_source, variables=variables
+                    )
+                    data_source_impl: Optional[DataSourceImpl] = (
+                        cls._get_data_source_impl(
+                            contract_yaml.data_source, data_source_impls_by_name, opened_data_sources
+                        )
+                        if (contract_yaml and contract_yaml.data_source and not only_validate_without_execute)
+                        else None
+                    )
+                    contract_impl: ContractImpl = ContractImpl(
+                        contract_yaml=contract_yaml,
+                        only_validate_without_execute=only_validate_without_execute,
+                        data_source_impl=data_source_impl,
+                        variables=variables,
+                        soda_cloud=soda_cloud_impl,
+                        skip_publish=soda_cloud_skip_publish,
+                        logs=logs,
+                    )
+                    contract_verification_result: ContractVerificationResult = contract_impl.verify()
+                    contract_verification_results.append(contract_verification_result)
+                except:
+                    logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+        finally:
+            for data_source_impl in opened_data_sources:
+                data_source_impl.close_connection()
+        return contract_verification_results
+
+    @classmethod
+    def _build_data_source_impl_by_name(
+        cls,
+        data_source_impls: list[DataSourceImpl],
+        data_source_yaml_sources: list[YamlSource],
+        variables: dict[str, str],
+    ) -> dict[str, DataSourceImpl]:
+        data_source_impl_by_name: dict[str, DataSourceImpl] = (
+            {data_source_impl.name: data_source_impl for data_source_impl in data_source_impls}
+            if data_source_impls
+            else {}
+        )
+        for data_source_yaml_source in data_source_yaml_sources:
+            data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
+                file_type="data source", variables=variables
+            )
+            data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
+            data_source_impl = data_source_parser.parse()
+            data_source_impl_by_name[data_source_impl.name] = data_source_impl
+        return data_source_impl_by_name
+
+    @classmethod
+    def _build_soda_cloud_impl(
+        cls,
+        soda_cloud_impl: Optional[SodaCloud],
+        soda_cloud_yaml_source: Optional[YamlSource],
+        variables: dict[str, str],
+    ) -> Optional[SodaCloud]:
+        if soda_cloud_impl:
+            return soda_cloud_impl
+        if soda_cloud_yaml_source:
             soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
                 file_type="soda cloud", variables=variables
             )
-            self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
+            return SodaCloud.from_file(soda_cloud_yaml_file_content)
+        return None
 
-        self.contract_yamls: list[ContractYaml] = []
-        self.contract_impls: list[ContractImpl] = []
-        if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
-            logger.error(f"No contracts configured")
+    @classmethod
+    def _get_data_source_impl(
+        self,
+        data_source_name: Optional[str],
+        data_source_impl_by_name: dict[str, DataSourceImpl],
+        opened_data_sources: list[DataSourceImpl],
+    ) -> Optional[DataSourceImpl]:
+        if data_source_name is None:
+            return None
+        data_source_impl: Optional[DataSourceImpl] = data_source_impl_by_name.get(data_source_name)
+        if isinstance(data_source_impl, DataSourceImpl):
+            if not data_source_impl.has_open_connection():
+                data_source_impl.open_connection()
+                opened_data_sources.append(data_source_impl)
+            return data_source_impl
         else:
-            for contract_yaml_source in contract_yaml_sources:
+            logger.error(f"Data source '{data_source_name}' not found")
+
+    @classmethod
+    def _execute_on_agent(
+        cls,
+        contract_yaml_sources: list[YamlSource],
+        only_validate_without_execute: bool,
+        variables: Optional[dict[str, str]],
+        soda_cloud_yaml_source: Optional[YamlSource],
+        soda_cloud_impl: Optional[SodaCloud],
+        soda_cloud_skip_publish: bool,
+        soda_cloud_use_agent_blocking_timeout_in_minutes,
+    ) -> list[ContractVerificationResult]:
+        contract_verification_results: list[ContractVerificationResult] = []
+
+        soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
+            soda_cloud_impl=soda_cloud_impl, soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables
+        )
+
+        for contract_yaml_source in contract_yaml_sources:
+            try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )
-                self.contract_yamls.append(contract_yaml)
-        if self.data_source_impl:
-            for contract_yaml in self.contract_yamls:
-                if isinstance(contract_yaml, ContractYaml):
-                    if self.data_source_impl.is_valid_dataset_prefix(contract_yaml.dataset_prefix):
-                        contract_impl: ContractImpl = ContractImpl(
-                            contract_yaml=contract_yaml,
-                            data_source_impl=self.data_source_impl,
-                            variables=variables,
-                            logs=logs,
-                            soda_cloud=self.soda_cloud,
-                            skip_publish=self.skip_publish,
-                        )
-                        if contract_impl:
-                            self.contract_impls.append(contract_impl)
-                    else:
-                        logger.error(f"No valid dataset_prefix: {contract_yaml.dataset_prefix}")
 
-    def execute(self) -> ContractVerificationSessionResult:
-        contract_results: list[ContractVerificationResult] = []
-        try:
-            if self.use_agent:
-                contract_results = self.verify_contracts_on_agent(self.contract_yamls)
-            elif self.data_source_impl:
-                contract_results = self.verify_contracts_locally(self.contract_impls, self.data_source_impl)
-        except Exception as e:
-            logger.error(msg=str(e), exc_info=True)
-
-        return ContractVerificationSessionResult(logs=self.logs, contract_results=contract_results)
-
-    def verify_contracts_on_agent(self, contract_yamls: list[ContractYaml]) -> list[ContractVerificationResult]:
-        if self.soda_cloud and isinstance(contract_yamls, list) and len(contract_yamls) > 0:
-            contract_yamls_with_permission: list[ContractYaml] = []
-            for contract_yaml in contract_yamls:
-                if self.soda_cloud.has_verify_permission(
+                if soda_cloud_impl.has_verify_permission(
                     data_source_name=contract_yaml.data_source,
                     dataset_prefix=contract_yaml.dataset_prefix,
                     dataset_name=contract_yaml.dataset,
                 ):
-                    contract_yamls_with_permission.append(contract_yaml)
-
-            contract_verification_results: list[ContractVerificationResult] = []
-            for contract_yaml_with_permission in contract_yamls_with_permission:
-                contract_verification_result: ContractVerificationResult = self.soda_cloud.execute_contract_on_agent(
-                    contract_yaml=contract_yaml_with_permission,
-                    blocking_timeout_in_minutes=self.blocking_timeout_in_minutes,
-                )
-                contract_verification_results.append(contract_verification_result)
-            return contract_verification_results
-
-        else:
-            logger.error(f"Using the agent requires a Soda Cloud configuration")
-            return []
-
-    def verify_contracts_locally(
-        self, contract_impls: list[ContractImpl], data_source_impl: DataSourceImpl
-    ) -> list[ContractVerificationResult]:
-        contract_results: list[ContractVerificationResult] = []
-        if self.data_source_impl and isinstance(contract_impls, list) and len(contract_impls) > 0:
-            open_close: bool = not data_source_impl.has_open_connection()
-            if open_close:
-                data_source_impl.open_connection()
-            try:
-                if data_source_impl.has_open_connection():
-                    for contract_impl in contract_impls:
-                        if not self.soda_cloud or self.soda_cloud.has_verify_permission(
-                            data_source_name=contract_impl.data_source_impl.name,
-                            dataset_prefix=contract_impl.dataset_prefix,
-                            dataset_name=contract_impl.dataset_name,
-                        ):
-                            contract_verification_result: ContractVerificationResult = contract_impl.verify()
-                            contract_results.append(contract_verification_result)
-            finally:
-                if open_close:
-                    data_source_impl.close_connection()
-        return contract_results
+                    contract_verification_result: ContractVerificationResult = (
+                        soda_cloud_impl.execute_contract_on_agent(
+                            contract_yaml=contract_yaml,
+                            blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                        )
+                    )
+                    contract_verification_results.append(contract_verification_result)
+            except:
+                logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+        return contract_verification_results
 
 
 class ContractImpl:
     def __init__(
         self,
+        logs: Logs,
         contract_yaml: ContractYaml,
+        only_validate_without_execute: bool,
         data_source_impl: DataSourceImpl,
         variables: dict[str, str],
-        logs: Logs,
         soda_cloud: Optional[SodaCloud],
         skip_publish: bool,
     ):
         self.logs: Logs = logs
-        self.data_source_impl: DataSourceImpl = data_source_impl
         self.contract_yaml: ContractYaml = contract_yaml
+        self.only_validate_without_execute: bool = only_validate_without_execute
+        self.data_source_impl: DataSourceImpl = data_source_impl
         self.variables: dict[str, str] = variables
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.skip_publish: bool = skip_publish
@@ -201,15 +308,29 @@ class ContractImpl:
         self.dataset_prefix: Optional[list[str]] = contract_yaml.dataset_prefix
         self.dataset_name: Optional[str] = contract_yaml.dataset
 
-        self.soda_qualified_dataset_name: str = self.create_soda_qualified_dataset_name(
-            data_source_name=self.data_source_impl.name,
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name,
-        )
-        self.sql_qualified_dataset_name: str = data_source_impl.sql_dialect.qualify_dataset_name(
-            dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
-        )
         self.metrics_resolver: MetricsResolver = MetricsResolver()
+
+        self.column_impls: list[ColumnImpl] = []
+        self.check_impls: list[CheckImpl] = []
+
+        self.soda_qualified_dataset_name: Optional[str] = (
+            self.create_soda_qualified_dataset_name(
+                data_source_name=self.data_source_impl.name,
+                dataset_prefix=self.dataset_prefix,
+                dataset_name=self.dataset_name,
+            )
+            if data_source_impl
+            else None
+        )
+
+        self.sql_qualified_dataset_name: Optional[str] = (
+            data_source_impl.sql_dialect.qualify_dataset_name(
+                dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
+            )
+            if data_source_impl
+            else None
+        )
+
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
 
@@ -220,7 +341,7 @@ class ContractImpl:
         self._verify_duplicate_identities(self.all_check_impls)
 
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
-        self.queries: list[Query] = self._build_queries()
+        self.queries: list[Query] = self._build_queries() if data_source_impl else []
 
     def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
         now_variable_name: str = "DATA_TS"
@@ -307,41 +428,54 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractVerificationResult:
+        contract: Contract = self.build_contract()
+        data_source: Optional[DataSource] = None
+        check_results: list[CheckResult] = []
+        measurements: list[Measurement] = []
+
+        verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
-            f"Verifying {Emoticons.SCROLL} contract "
+            f"{verb} contract {Emoticons.SCROLL} "
             f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
-        measurements: list[Measurement] = []
-        # Executing the queries will set the value of the metrics linked to queries
-        for query in self.queries:
-            query_measurements: list[Measurement] = query.execute()
-            measurements.extend(query_measurements)
+        if not self.logs.has_errors():
+            if isinstance(self.data_source_impl, DataSourceImpl) and not self.data_source_impl.is_valid_dataset_prefix(
+                self.contract_yaml.dataset_prefix
+            ):
+                logger.error(f"No valid dataset_prefix: {self.contract_yaml.dataset_prefix}")
 
-        # Triggering the derived metrics to initialize their value based on their dependencies
-        derived_metric_impls: list[DerivedPercentageMetricImpl] = [
-            derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedPercentageMetricImpl)
-        ]
-        measurement_values: MeasurementValues = MeasurementValues(measurements)
-        for derived_metric_impl in derived_metric_impls:
-            derived_measurement: Measurement = derived_metric_impl.create_derived_measurement(measurement_values)
-            if isinstance(derived_measurement, Measurement):
-                measurements.append(derived_measurement)
+            # Executing the queries will set the value of the metrics linked to queries
+            if not self.only_validate_without_execute:
+                for query in self.queries:
+                    query_measurements: list[Measurement] = query.execute()
+                    measurements.extend(query_measurements)
 
-        contract_info: Contract = self.build_contract_info()
-        data_source: DataSource = self.data_source_impl.build_data_source()
+            # Triggering the derived metrics to initialize their value based on their dependencies
+            derived_metric_impls: list[DerivedPercentageMetricImpl] = [
+                derived_metric
+                for derived_metric in self.metrics
+                if isinstance(derived_metric, DerivedPercentageMetricImpl)
+            ]
+            measurement_values: MeasurementValues = MeasurementValues(measurements)
+            for derived_metric_impl in derived_metric_impls:
+                derived_measurement: Measurement = derived_metric_impl.create_derived_measurement(measurement_values)
+                if isinstance(derived_measurement, Measurement):
+                    measurements.append(derived_measurement)
 
-        # Evaluate the checks
-        measurement_values = MeasurementValues(measurements)
-        check_results: list[CheckResult] = []
-        for check_impl in self.all_check_impls:
-            check_result: CheckResult = check_impl.evaluate(
-                measurement_values=measurement_values, contract_info=contract_info
-            )
-            check_results.append(check_result)
+            if self.data_source_impl:
+                data_source = self.data_source_impl.build_data_source()
+
+                # Evaluate the checks
+                measurement_values: MeasurementValues = MeasurementValues(measurements)
+                for check_impl in self.all_check_impls:
+                    check_result: CheckResult = check_impl.evaluate(
+                        measurement_values=measurement_values, contract=contract
+                    )
+                    check_results.append(check_result)
 
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
-            contract=contract_info,
+            contract=contract,
             data_source=data_source,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
@@ -349,10 +483,12 @@ class ContractImpl:
             measurements=measurements,
             check_results=check_results,
             sending_results_to_soda_cloud_failed=False,
-            logs=self.logs,
         )
 
-        self.log_summary(contract_verification_result)
+        if not self.only_validate_without_execute:
+            self.log_summary(contract_verification_result)
+
+        contract_verification_result.log_records = self.logs.pop_log_records()
 
         if self.soda_cloud:
             # upload_contract_file fills in contract.source.soda_cloud_file_id if all goes well
@@ -396,9 +532,9 @@ class ContractImpl:
                 f"and {error_count} errors."
             )
 
-    def build_contract_info(self) -> Contract:
+    def build_contract(self) -> Contract:
         return Contract(
-            data_source_name=self.data_source_impl.name,
+            data_source_name=self.data_source_impl.name if self.data_source_impl else None,
             dataset_prefix=self.dataset_prefix,
             dataset_name=self.dataset_name,
             soda_qualified_dataset_name=self.soda_qualified_dataset_name,
@@ -908,7 +1044,7 @@ class CheckImpl:
         return resolved_metric_impl
 
     @abstractmethod
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         pass
 
     def _build_check_info(self) -> Check:
@@ -928,7 +1064,10 @@ class CheckImpl:
         cls, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
-        identity_hash_builder.add_property("fp", contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path)
+        if contract_impl.data_source_impl:
+            identity_hash_builder.add_property("dso", contract_impl.data_source_impl.name)
+        identity_hash_builder.add_property("pr", contract_impl.dataset_prefix)
+        identity_hash_builder.add_property("ds", contract_impl.dataset_name)
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
@@ -985,7 +1124,9 @@ class MetricImpl:
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
     ):
-        id_parts: list[str] = [contract_impl.data_source_impl.name]
+        id_parts: list[str] = []
+        if contract_impl.data_source_impl:
+            id_parts.append(contract_impl.data_source_impl.name)
         if contract_impl.dataset_prefix:
             id_parts.extend(contract_impl.dataset_prefix)
         if column_impl:
@@ -1042,7 +1183,9 @@ class DerivedPercentageMetricImpl(MetricImpl):
 
 
 class Query(ABC):
-    def __init__(self, data_source_impl: DataSourceImpl, metrics: list[MetricImpl], sql: Optional[str] = None):
+    def __init__(
+        self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], sql: Optional[str] = None
+    ):
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.metrics: list[MetricImpl] = metrics
         self.sql: Optional[str] = sql
@@ -1064,7 +1207,7 @@ class AggregationQuery(Query):
         dataset_prefix: list[str],
         dataset_name: str,
         filter_condition: Optional[str],
-        data_source_impl: DataSourceImpl,
+        data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])

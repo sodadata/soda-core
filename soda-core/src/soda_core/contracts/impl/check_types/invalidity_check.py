@@ -125,7 +125,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract_info: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         diagnostics: list[Diagnostic] = []
@@ -151,7 +151,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract_info,
+            contract=contract,
             check=self._build_check_info(),
             metric_value=threshold_value,
             outcome=outcome,
@@ -195,7 +195,7 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
 
 
 class InvalidReferenceCountQuery(Query):
-    def __init__(self, metric_impl: InvalidReferenceCountMetricImpl, data_source_impl: DataSourceImpl):
+    def __init__(self, metric_impl: InvalidReferenceCountMetricImpl, data_source_impl: Optional[DataSourceImpl]):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
 
         valid_reference_data: ValidReferenceData = metric_impl.missing_and_validity.valid_reference_data

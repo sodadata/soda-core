@@ -1,4 +1,5 @@
 import pytest
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
@@ -7,28 +8,23 @@ from soda_core.contracts.contract_verification import (
 
 
 def test_contract_verification_file_api():
-    contract_verification_session_result: ContractVerificationSessionResult = (
-        ContractVerificationSession.builder()
-        .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
-        .with_variables({"env": "test"})
-        .execute()
+    contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+        contract_yaml_sources=[YamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+        variables={"env": "test"},
     )
 
     assert (
         "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-        in contract_verification_session_result.logs.get_errors_str()
+        in contract_verification_session_result.get_errors_str()
     )
 
 
 def test_contract_verification_file_api_exception_on_error():
     with pytest.raises(SodaException) as e:
-        (
-            ContractVerificationSession.builder()
-            .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
-            .with_variables({"env": "test"})
-            .execute()
-            .assert_ok()
-        )
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[YamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+            variables={"env": "test"},
+        ).assert_ok()
 
     exception_string = str(e.value)
     assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in exception_string
@@ -38,20 +34,20 @@ def test_contract_provided_and_configured():
     """
     If there is no default data source configured and there is none provided in the contract, an error has to be logged
     """
-    contract_verification_session_result: ContractVerificationSessionResult = (
-        ContractVerificationSession.builder()
-        .with_contract_yaml_str(
-            f"""
-          dataset: CUSTOMERS
-          columns:
-            - name: id
-        """
-        )
-        .with_variables({"env": "test"})
-        .execute()
+    contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+        contract_yaml_sources=[
+            YamlSource.from_str(
+                f"""
+              data_source: abc
+              dataset: CUSTOMERS
+              columns:
+                - name: id
+            """
+            )
+        ],
     )
 
-    assert "No data source configured" in contract_verification_session_result.logs.get_errors_str()
+    assert "Data source 'abc' not found" in contract_verification_session_result.get_errors_str()
 
 
 # TODO @Niels: To be evaluated if still needed refactored after rework

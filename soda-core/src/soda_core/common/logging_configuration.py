@@ -59,8 +59,8 @@ class SodaConsoleFormatter(Formatter):
 
     def format(self, record) -> str:
         parts: list[str] = [
-            self.format_timestamp(record),
-            self.format_level(record),
+            # self.format_timestamp(record),
+            # self.format_level(record),
             self.format_message(record),
             self.format_location(record),
             self.format_doc(record),
@@ -106,7 +106,11 @@ class SodaConsoleFormatter(Formatter):
             return None
 
     def format_exception(self, record: LogRecord) -> Optional[str]:
+        if record.exc_info:
+            # Cache the traceback text to avoid converting it multiple times
+            # (it's constant anyway)
+            if not record.exc_text:
+                return self.formatException(record.exc_info)
+
         if hasattr(record, ExtraKeys.EXCEPTION):
             return record.exception
-        else:
-            return None

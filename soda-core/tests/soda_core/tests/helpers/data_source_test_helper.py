@@ -18,7 +18,6 @@ from soda_core.common.yaml import YamlFileContent, YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSession,
-    ContractVerificationSessionBuilder,
     ContractVerificationSessionResult,
 )
 from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockSodaCloud
@@ -30,38 +29,6 @@ from soda_core.tests.helpers.test_table import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class TestContractVerificationSessionBuilder(ContractVerificationSessionBuilder):
-    __test__ = False
-
-    def __init__(self, data_source_impl: Optional["DataSourceImpl"] = None, soda_cloud: Optional[SodaCloud] = None):
-        super().__init__()
-        self.data_source_impl: Optional[
-            "DataSourceImpl"
-        ] = data_source_impl  # initialized in _initialize_data_source below
-        self.soda_cloud: Optional[SodaCloud] = soda_cloud
-
-    def build(self) -> TestContractVerificationSession:
-        return TestContractVerificationSession(self)
-
-
-class TestContractVerificationSession(ContractVerificationSession):
-    __test__ = False
-
-    @classmethod
-    def builder(
-        cls, data_source_impl: "DataSourceImpl" | None = None, soda_cloud: Optional[SodaCloud] = None
-    ) -> TestContractVerificationSessionBuilder:
-        return TestContractVerificationSessionBuilder(data_source_impl=data_source_impl, soda_cloud=soda_cloud)
-
-    def __init__(self, test_contract_verification_builder: TestContractVerificationSessionBuilder):
-        super().__init__(contract_verification_session_builder=test_contract_verification_builder)
-
-    def _initialize_data_source(
-        self, contract_verification_session_builder: ContractVerificationSessionBuilder
-    ) -> None:
-        self.data_source_impl = contract_verification_session_builder.data_source_impl
 
 
 class DataSourceTestHelper:
@@ -96,7 +63,7 @@ class DataSourceTestHelper:
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
 
-        if os.environ.get("SODA_CLOUD") == "on":
+        if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
 
     def enable_soda_cloud(self):
@@ -410,22 +377,25 @@ class DataSourceTestHelper:
         return f"DROP TABLE {table_name_qualified_quoted};"
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
-        contract_yaml_str = dedent(contract_yaml_str).strip()
-        contract_verification_builder = ContractVerificationSession.builder().with_contract_yaml_str(
-            contract_yaml_str=contract_yaml_str
+        contract_yaml_str: str = dedent(contract_yaml_str).strip()
+        contract_verification_session_result = ContractVerificationSession.execute(
+            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)], only_validate_without_execute=True
         )
-        contract_verification = contract_verification_builder.build()
-        return contract_verification.logs.get_errors_str()
+        return contract_verification_session_result.get_errors_str()
 
     def assert_contract_error(self, contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> str:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
-        contract_verification_session: ContractVerificationSession = (
-            self.create_test_contract_verification_session_builder()
-            .with_contract_yaml_str(contract_yaml_str)
-            .with_variables(variables)
-            .build()
+
+        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
+            only_validate_without_execute=True,
+            variables=variables,
+            data_source_impls=[self.data_source_impl],
+            soda_cloud_impl=self.soda_cloud,
+            soda_cloud_use_agent=self.use_agent,
         )
-        errors_str = contract_verification_session.contract_verification_session_impl.logs.get_errors_str()
+
+        errors_str: str = contract_verification_session_result.get_errors_str()
         if not errors_str:
             raise AssertionError(f"Expected contract execution errors, but got none")
         return errors_str
@@ -436,9 +406,13 @@ class DataSourceTestHelper:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
+        if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
+            raise AssertionError(f"No contract verification result session")
         if not contract_verification_session_result.is_ok():
             raise AssertionError(f"Expected contract verification passed")
-        return contract_verification_session_result.contract_results[0]
+        if len(contract_verification_session_result.contract_verification_results) == 0:
+            raise AssertionError(f"No contract verification results")
+        return contract_verification_session_result.contract_verification_results[0]
 
     def assert_contract_fail(
         self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
@@ -446,44 +420,33 @@ class DataSourceTestHelper:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
         )
-        if not contract_verification_session_result.failed():
+        if contract_verification_session_result.is_ok():
             raise AssertionError(f"Expected contract verification failed")
-        return contract_verification_session_result.contract_results[0]
+        return contract_verification_session_result.contract_verification_results[0]
 
     def verify_contract(
         self, contract_yaml_str: str, test_table: Optional[TestTable] = None, variables: Optional[dict] = None
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
-        test_contract_verification_builder: TestContractVerificationSessionBuilder = (
-            self.create_test_contract_verification_session_builder().with_contract_yaml_str(
-                contract_yaml_str=contract_yaml_str
-            )
+        return ContractVerificationSession.execute(
+            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
+            variables=variables,
+            data_source_impls=[self.data_source_impl],
+            soda_cloud_impl=self.soda_cloud,
+            soda_cloud_use_agent=self.use_agent,
         )
-        if isinstance(variables, dict):
-            test_contract_verification_builder.with_variables(variables)
-        if self.use_agent:
-            test_contract_verification_builder.with_execution_on_soda_agent()
-        return test_contract_verification_builder.execute()
 
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
             header_contract_yaml_str: str = (
-                f"data_source: the_test_ds\n"
+                f"data_source: {self.data_source_impl.name}\n"
                 f"dataset: {test_table.unique_name}\n"
                 f"dataset_prefix: {self.dataset_prefix}\n"
             )
             checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
-
-    def create_test_contract_verification_session_builder(self) -> TestContractVerificationSessionBuilder:
-        test_verification_builder: TestContractVerificationSessionBuilder = TestContractVerificationSession.builder()
-        if not self.use_agent:
-            test_verification_builder.with_data_source(self.data_source_impl)
-        if self.soda_cloud:
-            test_verification_builder.with_soda_cloud(self.soda_cloud)
-        return test_verification_builder
 
     def test_method_ended(self) -> None:
         self.data_source_impl.data_source_connection.rollback()

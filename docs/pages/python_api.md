@@ -8,41 +8,46 @@ See [Install Soda Core in a Python virtual environment](./install.md)
 
 ```
 contract_verification_session_result: ContractVerificationSessionResult = (
-    ContractVerificationSession.builder()
-    .with_contract_yaml_file("../soda/mydb/myschema/mydataset.yml")
-    .with_variables({"MY_VAR": "somevalue"})
-    .execute()
-    .assert_ok()
-)
+    ContractVerificationSession.execute(
+        contract_yaml_sources=[YamlSource.from_file_path("soda/mydb/myschema/mytable.c.yml")],
+        data_source_yaml_sources=[YamlSource.from_file_path("soda/mydb.ds.yml")],
+        variables={"MY_VAR": "somevalue"},
+    )
 ```
 
-This API usage assumes a data source is configured via either a relative file path in the contract file 
-or using the default relative file path.
+You have to ensure that the data sources that are referred to in the contracts are available either to the 
+contract verification session. Contracts refer to data sources by name. 
 
 This API usage will group all the contract by data source and create a single data source connection to verify 
 the contracts for the same data source. Typically, there will be only contracts for a single data source passed. 
 
-### Programmatically specifying the data source file path
-
-If you don't want to use the default file structure to organize your Soda configuration YAML files, you can 
-specify a data source programmatically.  Either by referencing the file path or an actual data source in 
-the `ContractVerificationSession.builder`
+### Contract verification session execute full signature
 
 ```
-contract_verification_session_result: ContractVerificationSessionResult = (
-    ContractVerificationSession.builder()
-    .with_contract_yaml_file("../soda/mydb/myschema/mydataset.yml")
-    .with_data_source_yaml_file("../soda/my_postgres_ds.yml")
-    .with_variables({"MY_VAR": "somevalue"})
-    .execute()
-    .assert_ok()
-)
+class ContractVerificationSession:
+
+    @classmethod
+    def execute(
+        cls,
+        contract_yaml_sources: list[YamlSource],
+        only_validate_without_execute: bool = False,
+        variables: Optional[dict[str, str]] = None,
+        data_source_impls: Optional[list["DataSourceImpl"]] = None,
+        data_source_yaml_sources: Optional[list[YamlSource]] = None,
+        soda_cloud_impl: Optional["SodaCloud"] = None,
+        soda_cloud_yaml_source: Optional[YamlSource] = None,
+        soda_cloud_skip_publish: bool = False,
+        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+    ) -> ContractVerificationSessionResult:
 ```
+
+
 
 ### Variables
 
 Use the syntax `${VAR_NAME}` in Soda YAML configuration files like data source and contract files to add dynamic content.
-Those variables will be resolved from the variables passed in the API `.with_variables({"VAR_NAME":"value"})` and from 
+Those variables will be resolved from the variables passed in the API `variables={"MY_VAR": "somevalue"}` and from 
 the environment variables.
 
 It is highly recommended to use variables for credentials in data source YAML files.
@@ -50,14 +55,3 @@ It is highly recommended to use variables for credentials in data source YAML fi
 User defined variables specified in the API have precedence over environment variables. 
 
 Variable are resolved case sensitive.
-
-Example to provide variable values through the API.
-```
-contract_verification_session_result: ContractVerificationSessionResult = (
-    ContractVerification.builder()
-    .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
-    .with_variables({"VAR_NAME":"value"})
-    .execute()
-    .assert_ok()
-)
-```
