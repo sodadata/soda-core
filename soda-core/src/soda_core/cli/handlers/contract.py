@@ -13,7 +13,7 @@ def handle_verify_contract(
     contract_file_paths: Optional[list[str]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
-    skip_publish: bool,
+    publish: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
 ) -> ExitCode:
@@ -25,7 +25,7 @@ def handle_verify_contract(
             [YamlSource.from_file_path(data_source_file_path)] if data_source_file_path else []
         ),
         soda_cloud_yaml_source=(YamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None),
-        soda_cloud_skip_publish=skip_publish,
+        soda_cloud_publish_results=publish,
         soda_cloud_use_agent=use_agent,
         soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
     )

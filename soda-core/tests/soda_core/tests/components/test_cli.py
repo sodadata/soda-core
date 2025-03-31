@@ -31,7 +31,7 @@ def test_cli_argument_mapping_for_contract_verify_command(mock_handler):
         "-sc", "cloud.yaml",
         "-a",
         "-btm", "42",
-        "-sp",
+        "-p",
         "-v",
     ]
 

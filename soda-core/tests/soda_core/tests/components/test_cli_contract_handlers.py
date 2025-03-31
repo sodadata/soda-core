@@ -35,7 +35,7 @@ def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failure
         contract_file_paths=["contract.yaml"],
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
-        skip_publish=False,
+        publish=True,
         use_agent=False,
         blocking_timeout_in_minutes=10,
     )

@@ -96,13 +96,12 @@ def _setup_contract_verify_command(contract_parsers) -> None:
              "verification to complete on Soda Agent.  Default is 60 minutes.",
     )
     verify_parser.add_argument(
-        "-sp",
-        "--skip-publish",
+        "-p",
+        "--publish",
         const=True,
         action="store_const",
         default=False,
-        help="Skips publishing of the contract when sending results to Soda Cloud.  Precondition: The contract version "
-             "must already exist on Soda Cloud.",
+        help="Send the verification results to Soda Cloud.",
     )
     verify_parser.add_argument(
         "-v",
@@ -117,7 +116,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         contract_file_paths = args.contract
         data_source_file_path = args.data_source
         soda_cloud_file_path = args.soda_cloud
-        skip_publish = args.skip_publish
+        publish = args.publish
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
 
@@ -125,7 +124,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             contract_file_paths,
             data_source_file_path,
             soda_cloud_file_path,
-            skip_publish,
+            publish,
             use_agent,
             blocking_timeout_in_minutes,
         )

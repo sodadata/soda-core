@@ -139,13 +139,13 @@ class SodaCloud:
         return file_id
 
     def send_contract_result(
-        self, contract_verification_result: ContractVerificationResult, skip_publish: bool
+        self, contract_verification_result: ContractVerificationResult
     ) -> bool:
         """
         Returns True if a 200 OK was received, False otherwise
         """
         contract_verification_result = self._build_contract_result_json(
-            contract_verification_result=contract_verification_result, skip_publish=skip_publish
+            contract_verification_result=contract_verification_result
         )
         contract_verification_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -163,7 +163,7 @@ class SodaCloud:
             return False
 
     def _build_contract_result_json(
-        self, contract_verification_result: ContractVerificationResult, skip_publish: bool
+        self, contract_verification_result: ContractVerificationResult
     ) -> dict:
         check_result_cloud_json_dicts = [
             self._build_check_result_cloud_dict(check_result)
@@ -224,7 +224,6 @@ class SodaCloud:
                         }
                     },
                 },
-                "skipPublish": skip_publish,
             }
         )
         soda_scan_id: Optional[str] = os.environ.get("SODA_SCAN_ID")
