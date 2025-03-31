@@ -3,6 +3,7 @@ from datetime import datetime
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
+from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.mock_soda_cloud import (
@@ -196,3 +197,40 @@ def test_publish_contract():
     assert res.contract.data_source_name == "test"
     assert res.contract.dataset_prefix == ["some", "schema"]
     assert res.contract.source.local_file_path == "yaml_string.yml"
+
+
+def test_verify_contract_on_agent_permission_check():
+    responses = [
+        MockResponse(
+            status_code=200,
+            json_object={
+                "allowed": False,
+                "reason": "missingManageContracts",
+            },
+        ),
+    ]
+    mock_cloud = MockSodaCloud(responses)
+
+    res = mock_cloud.verify_contract_on_agent(
+        ContractYaml.parse(
+            YamlSource.from_str(
+                f"""
+            dataset: CUSTOMERS
+            dataset_prefix: [some, schema]
+            data_source: test
+            columns:
+            - name: id
+        """
+            )
+        ),
+        blocking_timeout_in_minutes=60,
+    )
+
+    assert isinstance(res, ContractVerificationResult)
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert res.contract.dataset_name == "CUSTOMERS"
+    assert res.contract.data_source_name == "test"
+    assert res.contract.dataset_prefix == ["some", "schema"]
+    assert res.check_results == []
+    assert res.measurements == []
+    assert res.log_records is None

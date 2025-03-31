@@ -268,6 +268,8 @@ class ContractVerificationResult:
         return "\n".join(self.get_errors())
 
     def has_errors(self) -> bool:
+        if self.log_records is None:
+            return False
         return any(r.levelno >= ERROR for r in self.log_records)
 
     def is_failed(self) -> bool:

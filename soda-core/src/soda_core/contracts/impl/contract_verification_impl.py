@@ -258,17 +258,11 @@ class ContractVerificationSessionImpl:
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )
-
-                if soda_cloud_impl.can_publish_and_verify_contract(
-                    data_source_name=contract_yaml.data_source,
-                    dataset_prefix=contract_yaml.dataset_prefix,
-                    dataset_name=contract_yaml.dataset,
-                ):
-                    contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
-                        contract_yaml=contract_yaml,
-                        blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
-                    )
-                    contract_verification_results.append(contract_verification_result)
+                contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
+                    contract_yaml=contract_yaml,
+                    blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                )
+                contract_verification_results.append(contract_verification_result)
             except:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         return contract_verification_results

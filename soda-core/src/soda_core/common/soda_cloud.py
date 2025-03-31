@@ -417,7 +417,7 @@ class SodaCloud:
         )
 
     CONTRACT_PERMISSION_REASON_TEXTS = {
-        "missingCanCreateDatasourceAndDataset": "The contract doesn’t exist and the user can’t create new contract "
+        "missingCanCreateDatasourceAndDataset": "The contract doesn't exist and the user can't create new contract "
         "since it would demand creation of dataset and datasource, but that permission is not available",
         "missingManageContracts": "The user can't release a new version of the contract or run a scan - "
         "they are not allowed to manage contracts",
@@ -470,6 +470,36 @@ class SodaCloud:
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
 
+        can_publish_and_verify, reason = self.can_publish_and_verify_contract(
+            data_source_name, dataset_prefix, dataset_name
+        )
+        if not can_publish_and_verify:
+            if reason is None:
+                logger.error(f"Skipping contract verification because of an error (see logs)")
+            else:
+                logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
+            return ContractVerificationResult(
+                contract=Contract(
+                    data_source_name=data_source_name,
+                    dataset_prefix=dataset_prefix,
+                    dataset_name=dataset_name,
+                    soda_qualified_dataset_name=None,
+                    source=YamlFileContentInfo(
+                        local_file_path=contract_local_file_path,
+                        source_content_str=contract_yaml_source_str,
+                        soda_cloud_file_id=None,
+                    ),
+                ),
+                data_source=None,
+                data_timestamp=None,
+                started_timestamp=None,
+                ended_timestamp=None,
+                measurements=[],
+                check_results=[],
+                sending_results_to_soda_cloud_failed=True,
+                log_records=None,
+            )
+
         soda_cloud_file_path: str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
@@ -496,7 +526,6 @@ class SodaCloud:
 
         log_records: Optional[list[LogRecord]] = None
         if response.status_code == 200 and scan_id:
-            soda_cloud_scan_url: Optional[str]
             scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
                 scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
             )
