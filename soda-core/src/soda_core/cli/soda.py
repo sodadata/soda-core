@@ -43,6 +43,7 @@ def execute() -> None:
         traceback.print_exc()
         exit_with_code(ExitCode.LOG_ERRORS)
 
+
 def _configure_logging(verbose: bool) -> None:
     """
     Purpose of this method is to enable override in test environment
@@ -76,7 +77,20 @@ def _setup_contract_resource(resource_parsers) -> None:
 def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser = contract_parsers.add_parser("verify", help="Verify a contract")
 
-    verify_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
+    verify_parser.add_argument(
+        "-c", "--contract",
+        type=str,
+        nargs="+",
+        help="One or more contract file paths. Use this to work with local contracts.",
+    )
+    verify_parser.add_argument(
+        "-d",
+        "--dataset",
+        type=str,
+        nargs="+",
+        help="Names of datasets to verify. Use this to work with remote contracts present in Soda Cloud.",
+    )
+
     verify_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
     verify_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
     verify_parser.add_argument(
@@ -114,6 +128,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
     def handle(args):
         contract_file_paths = args.contract
+        dataset_identifiers = args.dataset
         data_source_file_path = args.data_source
         soda_cloud_file_path = args.soda_cloud
         publish = args.publish
@@ -122,6 +137,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
         exit_code = handle_verify_contract(
             contract_file_paths,
+            dataset_identifiers,
             data_source_file_path,
             soda_cloud_file_path,
             publish,

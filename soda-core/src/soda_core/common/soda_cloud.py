@@ -9,6 +9,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
+from soda_core.contracts.contract import ContractIdentifier
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional
@@ -71,9 +72,36 @@ class TimestampToCreatedLoggingFilter(logging.Filter):
 
 
 class SodaCloud:
+    # Singleton instance
+    _instance = None
+
     # Constants
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
     CSV_TEXT_MAX_LENGTH = 1500
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(SodaCloud, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self, host: str = None, api_key_id: str = None, api_key_secret: str = None,
+                 token: Optional[str] = None, port: Optional[str] = None, scheme: Optional[str] = None):
+        # Only initialize once
+        if self._initialized:
+            return
+
+        self.host = host
+        self.port = f":{port}" if port else ""
+        self.scheme = scheme if scheme else "https"
+        self.api_url = f"{self.scheme}://{self.host}{self.port}/api"
+        self.api_key_id = api_key_id
+        self.api_key_secret = api_key_secret
+        self.token: Optional[str] = token
+        self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
+        self.soda_cloud_trace_ids = {}
+        self._organization_configuration = None
+        self._initialized = True
 
     @classmethod
     def from_file(cls, soda_cloud_file_content: YamlFileContent) -> Optional[SodaCloud]:
@@ -91,7 +119,7 @@ class SodaCloud:
         if not soda_cloud_yaml_object:
             logger.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
 
-        return SodaCloud(
+        return cls(
             host=soda_cloud_yaml_object.read_string_opt(
                 key="host", env_var="SODA_CLOUD_HOST", default_value="cloud.soda.io"
             ),
@@ -105,26 +133,6 @@ class SodaCloud:
                 key="scheme", env_var="SODA_CLOUD_SCHEME", default_value="https"
             ),
         )
-
-    def __init__(
-        self,
-        host: str,
-        api_key_id: str,
-        api_key_secret: str,
-        token: Optional[str],
-        port: Optional[str],
-        scheme: Optional[str],
-    ):
-        self.host = host
-        self.port = f":{port}" if port else ""
-        self.scheme = scheme if scheme else "https"
-        self.api_url = f"{self.scheme}://{self.host}{self.port}/api"
-        self.api_key_id = api_key_id
-        self.api_key_secret = api_key_secret
-        self.token: Optional[str] = token
-        self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
-        self.soda_cloud_trace_ids = {}
-        self._organization_configuration = None
 
     def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
@@ -416,7 +424,7 @@ class SodaCloud:
         )
 
     CONTRACT_PERMISSION_REASON_TEXTS = {
-        "missingCanCreateDatasourceAndDataset": "The contract doesn’t exist and the user can’t create new contract "
+        "missingCanCreateDatasourceAndDataset": "The contract doesn't exist and the user can't create new contract "
         "since it would demand creation of dataset and datasource, but that permission is not available",
         "missingManageContracts": "The user can't release a new version of the contract or run a scan - "
         "they are not allowed to manage contracts",
@@ -596,6 +604,33 @@ class SodaCloud:
             sending_results_to_soda_cloud_failed=True,
             log_records=log_records,
         )
+
+    def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
+        """Fetch the contract contents for the given dataset identifier.
+
+        Returns:
+            The contract content as a string, or None if:
+            - the data source or dataset does not exist
+            - no contract is linked to the dataset
+            - an unexpected response is received from the backend
+        """
+
+        logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset {dataset_identifier}")
+        parsed_identifier = ContractIdentifier.parse(dataset_identifier)
+        request = {"type": "sodaCoreContractFile", "dataset": {
+            "datasource": parsed_identifier.data_source,
+            "prefixes": parsed_identifier.prefixes,
+            "name": parsed_identifier.dataset,
+        }}
+        response = self._execute_query(request, request_log_name="get_contract_file")
+
+        if response.status_code != 200:
+            logger.error(f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'")
+            return None
+
+        response_dict = response.json()
+        return response_dict.get("contents")
+
 
     def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
         """

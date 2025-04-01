@@ -3,7 +3,7 @@ import sys
 import pytest
 
 import tempfile
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentError
 from soda_core.cli.exit_codes import ExitCode
 from typing import Optional, Callable
 
@@ -21,12 +21,69 @@ from unittest.mock import patch
 from soda_core.cli.soda import create_cli_parser
 
 
+@pytest.mark.parametrize("args, expected", [
+    (
+        [
+            "soda", "contract", "verify",
+            "-c", "a.yaml", "b.yaml",
+            "-d", "some/remote/dataset/identifier",
+            "-ds", "ds.yaml",
+            "-sc", "cloud.yaml",
+            "-a",
+            "-btm", "42",
+            "-p",
+            "-v",
+        ],
+        [
+            ["a.yaml", "b.yaml"],
+            ["some/remote/dataset/identifier"],
+            "ds.yaml",
+            "cloud.yaml",
+            True,
+            True,
+            42,
+        ]
+    ),
+    (
+        [
+            "soda", "contract", "verify",
+            "-d", "some-dataset",
+            "-ds", "ds.yaml",
+            "-sc", "cloud.yaml",
+            "-a",
+            "-btm", "42",
+            "-p",
+            "-v",
+        ],
+        [
+            None,
+            ["some-dataset"],
+            "ds.yaml",
+            "cloud.yaml",
+            True,
+            True,
+            42,
+        ]
+    )
+])
 @patch("soda_core.cli.soda.handle_verify_contract")
-def test_cli_argument_mapping_for_contract_verify_command(mock_handler):
+def test_cli_argument_mapping_for_contract_verify_command(mock_handler, args, expected):
     mock_handler.return_value = ExitCode.OK.value
+    sys.argv = args
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == 0
+
+    mock_handler.assert_called_once_with(*expected)
+
+def test_verify_command_raises_exception_when_none_of_contract_or_dataset_specified():
     sys.argv = [
         "soda", "contract", "verify",
-        "-c", "a.yaml", "b.yaml",
         "-ds", "ds.yaml",
         "-sc", "cloud.yaml",
         "-a",
@@ -37,21 +94,10 @@ def test_cli_argument_mapping_for_contract_verify_command(mock_handler):
 
     parser = create_cli_parser()
     args = parser.parse_args()
-
     with pytest.raises(SystemExit) as e:
-        args.handler_func(args)
+        _ = args.handler_func(args)
 
-    assert e.value.code == 0
-
-    mock_handler.assert_called_once_with(
-        ["a.yaml", "b.yaml"],
-        "ds.yaml",
-        "cloud.yaml",
-        True,
-        True,
-        42,
-    )
-
+    assert ExitCode.LOG_ERRORS == e.value.code
 
 @patch("soda_core.cli.soda.handle_publish_contract")
 def test_cli_argument_mapping_for_contract_publish_command(mock_handler):

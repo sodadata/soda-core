@@ -33,6 +33,7 @@ def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failure
 
     exit_code = handle_verify_contract(
         contract_file_paths=["contract.yaml"],
+        dataset_identifiers=None,
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
         publish=True,
@@ -41,6 +42,20 @@ def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failure
     )
 
     assert exit_code == expected_exit_code
+
+
+def test_handle_verify_contract_returns_exit_code_3_when_using_dataset_names_without_cloud_configuration():
+    exit_code = handle_verify_contract(
+        contract_file_paths=None,
+        dataset_identifiers=["some_dataset"],
+        data_source_file_path="ds.yaml",
+        soda_cloud_file_path=None,
+        publish=True,
+        use_agent=False,
+        blocking_timeout_in_minutes=10,
+    )
+
+    assert exit_code == ExitCode.LOG_ERRORS
 
 
 @pytest.mark.parametrize("has_errors, cloud_failed, expected_exit_code", [
