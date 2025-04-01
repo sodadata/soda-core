@@ -339,7 +339,11 @@ class ContractImpl:
 
     def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
         now_variable_name: str = "DATA_TS"
-        now_variable_timestamp_text = VariableResolver.get_variable(variables=variables, variable=now_variable_name)
+        now_variable_timestamp_text = VariableResolver.get_variable(
+            namespace="var",
+            variables=variables,
+            variable=now_variable_name
+        )
         if isinstance(now_variable_timestamp_text, str):
             try:
                 now_variable_timestamp = datetime.fromisoformat(now_variable_timestamp_text)

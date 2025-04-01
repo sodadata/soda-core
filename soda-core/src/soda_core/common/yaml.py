@@ -23,16 +23,12 @@ class YamlParser:
 
 class YamlSource:
     @classmethod
-    def from_str(cls, yaml_str: str) -> YamlSource:
-        return StrYamlSource(yaml_str=yaml_str)
+    def from_str(cls, yaml_str: str, file_path: Optional[str] = "yaml_string") -> YamlSource:
+        return StrYamlSource(yaml_str=yaml_str, file_path=file_path)
 
     @classmethod
     def from_file_path(cls, yaml_file_path: str) -> YamlSource:
         return FileYamlSource(yaml_file_path=yaml_file_path)
-
-    @classmethod
-    def from_dict(cls, yaml_dict: dict) -> YamlSource:
-        return DictYamlSource(yaml_dict=yaml_dict)
 
     @abstractmethod
     def parse_yaml_file_content(
@@ -74,7 +70,7 @@ class FileYamlSource(YamlSource):
 
 
 class StrYamlSource(YamlSource):
-    def __init__(self, yaml_str: str, file_path: Optional[str] = "yaml_string.yml"):
+    def __init__(self, yaml_str: str, file_path: Optional[str]):
         super().__init__()
         self.yaml_str: str = yaml_str
         self.file_path: Optional[str] = file_path
@@ -98,28 +94,6 @@ class StrYamlSource(YamlSource):
             yaml_str_source=self.yaml_str,
             yaml_str_resolved=yaml_str_resolved,
             yaml_dict=yaml_dict,
-        )
-
-
-class DictYamlSource(YamlSource):
-    def __init__(self, yaml_dict: dict, file_path: Optional[str] = "yaml_dict.yml"):
-        super().__init__()
-        self.yaml_dict: dict = yaml_dict
-        self.file_path: Optional[str] = file_path
-
-    def __str__(self) -> str:
-        return self.file_path if isinstance(self.file_path, str) else "yaml_dict"
-
-    def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None
-    ) -> YamlFileContent:
-        yaml_source_description: str = f"{file_type} yaml dict" if file_type else "yaml dict"
-        return YamlFileContent(
-            yaml_file_path=self.file_path,
-            yaml_source_description=yaml_source_description,
-            yaml_str_source=None,
-            yaml_str_resolved=None,
-            yaml_dict=self.yaml_dict,
         )
 
 
@@ -451,21 +425,32 @@ class VariableResolver:
     def resolve(cls, source_text_with_variables: str, variables: Optional[dict[str, str]] = None) -> str:
         if isinstance(source_text_with_variables, str):
             return re.sub(
-                pattern=r"\$\{ *([a-zA-Z_][a-zA-Z_0-9]*)\ *}",
-                repl=lambda m: cls._resolve_variable_pattern(variables=variables, variable=m.group(1).strip()),
+                pattern=r"\$\{ *(env|var)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}",
+                repl=lambda m: cls._resolve_variable_pattern(
+                    namespace=m.group(1).strip(),
+                    variables=variables,
+                    variable=m.group(2).strip()
+                ),
                 string=source_text_with_variables,
             )
         else:
             return source_text_with_variables
 
     @classmethod
-    def _resolve_variable_pattern(cls, variables: dict[str, str], variable: str) -> str:
-        return cls.get_variable(variables=variables, variable=variable, default=f"${{{variable}}}")
+    def _resolve_variable_pattern(cls, namespace: str, variables: dict[str, str], variable: str) -> str:
+        value: Optional[str] = cls.get_variable(
+            namespace=namespace,
+            variables=variables,
+            variable=variable
+        )
+        return value if isinstance(value, str) else f"${{{namespace}.{variable}}}"
 
     @classmethod
-    def get_variable(cls, variables: dict[str, str], variable: str, default: Optional[str] = None) -> Optional[str]:
-        if isinstance(variables, dict) and variable in variables:
-            return variables[variable]
-        if variable in os.environ:
-            return os.getenv(variable)
-        return default
+    def get_variable(
+        cls, namespace: str, variables: dict[str, str], variable: str
+    ) -> Optional[str]:
+        if namespace == "var":
+            return variables[variable] if isinstance(variables, dict) and variable in variables else None
+        elif namespace == "env":
+            return os.getenv(variable) if variable in os.environ else None
+        return None

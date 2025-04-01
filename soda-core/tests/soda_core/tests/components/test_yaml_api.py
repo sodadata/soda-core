@@ -25,7 +25,7 @@ def test_yaml_resolve_env_vars(env_vars: dict, logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
-        dataset: ${DS}
+        dataset: ${env.DS}
         """
         )
     )
@@ -121,7 +121,7 @@ def test_yaml_locations():
     yaml_source: YamlSource = YamlSource.from_str(yaml_str=yaml_str)
     root_object: YamlObject = yaml_source.parse_yaml_file_content().get_yaml_object()
     assert root_object.location is not None
-    assert root_object.location.file_path == "yaml_string.yml"
+    assert root_object.location.file_path == "yaml_string"
     assert root_object.location.line == 0
     assert root_object.location.column == 0
 

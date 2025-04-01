@@ -68,8 +68,11 @@ class DataSourceTestHelper:
 
     def enable_soda_cloud(self):
         logs: Logs = Logs()
-        soda_cloud_yaml_dict: dict = {"soda_cloud": {}}
-        soda_cloud_yaml_source: YamlSource = YamlSource.from_dict(soda_cloud_yaml_dict)
+        soda_cloud_yaml_str: str = """
+            soda_cloud:
+        """
+        soda_cloud_yaml_str = dedent(soda_cloud_yaml_str).strip()
+        soda_cloud_yaml_source: YamlSource = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(logs=logs)
         self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
         if logs.has_errors():
@@ -83,9 +86,8 @@ class DataSourceTestHelper:
         Called in constructor to initialized self.data_source
         """
         logs: Logs = Logs()
-        test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
-        data_source_yaml_file = YamlSource.from_dict(yaml_dict=test_data_source_yaml_dict)
-        data_source_yaml_file_content: YamlFileContent = data_source_yaml_file.parse_yaml_file_content(
+        data_source_yaml_source: YamlSource = self._create_data_source_yaml_source()
+        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
             file_type="data source"
         )
         from soda_core.common.data_source_parser import DataSourceParser
@@ -95,12 +97,17 @@ class DataSourceTestHelper:
         assert not logs.has_errors()
         return data_source_impl
 
-    def _create_data_source_yaml_dict(self) -> dict:
+    def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
-        return {}
+        return ""
+
+    def _create_data_source_yaml_source(self) -> YamlSource:
+        test_data_source_yaml_str: str = self._create_data_source_yaml_str()
+        test_data_source_yaml_str = dedent(test_data_source_yaml_str).strip()
+        return YamlSource.from_str(yaml_str=test_data_source_yaml_str)
 
     def _create_dataset_prefix(self) -> list[str]:
         database_name: str = self._create_database_name()

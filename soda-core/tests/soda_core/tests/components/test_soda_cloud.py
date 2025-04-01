@@ -170,7 +170,7 @@ def test_publish_contract():
                     "checksum": "check",
                     "fileId": "fake_file_id",
                 },
-                "metadata": {"source": {"filePath": "yaml_string.yml", "type": "local"}},
+                "metadata": {"source": {"filePath": "yaml_string", "type": "local"}},
             },
         ),
     ]
@@ -195,4 +195,4 @@ def test_publish_contract():
     assert res.contract.dataset_name == "CUSTOMERS"
     assert res.contract.data_source_name == "test"
     assert res.contract.dataset_prefix == ["some", "schema"]
-    assert res.contract.source.local_file_path == "yaml_string.yml"
+    assert res.contract.source.local_file_path == "yaml_string"

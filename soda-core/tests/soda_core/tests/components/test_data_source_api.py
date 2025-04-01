@@ -19,9 +19,7 @@ test_table_specification = (
 def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    logs: Logs = Logs()
-    data_source_yaml_dict: dict = data_source_test_helper._create_data_source_yaml_dict()
-    data_source_yaml_source: YamlSource = YamlSource.from_dict(yaml_dict=data_source_yaml_dict)
+    data_source_yaml_source: YamlSource = data_source_test_helper._create_data_source_yaml_source()
     data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
         file_type="data source", variables={}
     )

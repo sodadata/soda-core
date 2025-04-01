@@ -42,8 +42,8 @@ def test_duplicate_identity_error(data_source_test_helper: DataSourceTestHelper)
     )
 
     assert (
-        "Duplicate identity yaml_string.yml/id/missing. "
-        "Original(yaml_string.yml[6,8]) Duplicate(yaml_string.yml[8,10])"
+        "Duplicate identity yaml_string/id/missing. "
+        "Original(yaml_string[6,8]) Duplicate(yaml_string[8,10])"
     ) in errors_str
 
 
@@ -59,7 +59,7 @@ def test_error_duplicate_column_names(data_source_test_helper: DataSourceTestHel
         """
     )
 
-    assert "Duplicate columns with name 'id': In yaml_string.yml at: [4,4], [5,4]" in errors_str
+    assert "Duplicate columns with name 'id': In yaml_string at: [4,4], [5,4]" in errors_str
 
 
 def test_error_no_dataset(data_source_test_helper: DataSourceTestHelper):
