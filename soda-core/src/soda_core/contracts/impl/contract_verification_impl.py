@@ -9,7 +9,6 @@ from io import StringIO
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -196,11 +195,10 @@ class ContractVerificationSessionImpl:
             else {}
         )
         for data_source_yaml_source in data_source_yaml_sources:
-            data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                file_type="data source", variables=variables
+            data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
+                data_source_yaml_source=data_source_yaml_source,
+                variables=variables
             )
-            data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-            data_source_impl = data_source_parser.parse()
             data_source_impl_by_name[data_source_impl.name] = data_source_impl
         return data_source_impl_by_name
 

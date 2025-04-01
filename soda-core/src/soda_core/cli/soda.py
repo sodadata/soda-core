@@ -289,7 +289,8 @@ class CLI:
         print(f"Testing data source configuration file {data_source_file_path}")
         from soda_core.common.data_source_impl import DataSourceImpl
 
-        data_source_impl: DataSourceImpl = DataSourceImpl.from_file(data_source_file_path)
+        data_source_yaml_source = YamlSource.from_file_path(data_source_file_path)
+        data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
         error_message: Optional[str] = (
             data_source_impl.test_connection_error_message()
             if data_source_impl

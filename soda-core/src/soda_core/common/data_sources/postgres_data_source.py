@@ -15,9 +15,8 @@ class PostgresDataSourceImpl(DataSourceImpl):
         name: str,
         type_name: str,
         connection_properties: dict,
-        format_regexes: dict[str, str],
     ):
-        super().__init__(data_source_yaml_file_content, name, type_name, connection_properties, format_regexes)
+        super().__init__(data_source_yaml_file_content, name, type_name, connection_properties)
 
     def get_data_source_type_name(self) -> str:
         return "postgres"

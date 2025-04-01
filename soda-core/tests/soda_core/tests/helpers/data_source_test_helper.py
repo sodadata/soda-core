@@ -87,13 +87,8 @@ class DataSourceTestHelper:
         """
         logs: Logs = Logs()
         data_source_yaml_source: YamlSource = self._create_data_source_yaml_source()
-        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-            file_type="data source"
-        )
-        from soda_core.common.data_source_parser import DataSourceParser
-
-        data_source_parser = DataSourceParser(data_source_yaml_file_content)
-        data_source_impl: "DataSourceImpl" = data_source_parser.parse()
+        from soda_core.common.data_source_impl import DataSourceImpl
+        data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
         assert not logs.has_errors()
         return data_source_impl
 
