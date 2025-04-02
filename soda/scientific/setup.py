@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-scientific"
-package_version = "3.5.1"
+package_version = "3.5.2"
 description = "Soda Core Scientific Package"
 requires = [
     f"soda-core=={package_version}",
