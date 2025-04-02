@@ -14,7 +14,7 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
-from soda_core.common.yaml import YamlFileContent, YamlSource
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSession,
@@ -71,10 +71,11 @@ class DataSourceTestHelper:
         soda_cloud_yaml_str: str = """
             soda_cloud:
         """
-        soda_cloud_yaml_str = dedent(soda_cloud_yaml_str).strip()
         soda_cloud_yaml_source: YamlSource = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
-        soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(logs=logs)
-        self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
+        self.soda_cloud = SodaCloud.from_yaml_source(
+            soda_cloud_yaml_source=soda_cloud_yaml_source,
+            variables={}
+        )
         if logs.has_errors():
             raise AssertionError(str(logs))
 
@@ -389,7 +390,7 @@ class DataSourceTestHelper:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
 
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
+            contract_yaml_sources=[YamlSource.from_str(yaml_str=contract_yaml_str, file_path="yaml_string.yml")],
             only_validate_without_execute=True,
             variables=variables,
             data_source_impls=[self.data_source_impl],

@@ -18,7 +18,7 @@ from requests import Response
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
-from soda_core.common.yaml import YamlFileContent, YamlObject
+from soda_core.common.yaml import YamlObject, YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
@@ -76,16 +76,18 @@ class SodaCloud:
     CSV_TEXT_MAX_LENGTH = 1500
 
     @classmethod
-    def from_file(cls, soda_cloud_file_content: YamlFileContent) -> Optional[SodaCloud]:
-        if not isinstance(soda_cloud_file_content, YamlFileContent):
-            logger.error(f"soda_cloud_file_content is not a YamlFileContent: {type(soda_cloud_file_content)}")
-            return None
+    def from_yaml_source(
+        cls,
+        soda_cloud_yaml_source: YamlSource,
+        variables: Optional[dict[str, str]]
+    ) -> Optional[SodaCloud]:
+        soda_cloud_yaml_source.set_file_type("Soda Cloud")
+        soda_cloud_yaml_source.resolve(variables=variables)
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
 
-        if not soda_cloud_file_content.has_yaml_object():
+        if not soda_cloud_yaml_root_object:
             logger.error(f"Invalid Soda Cloud config file: No valid YAML object as file content")
             return None
-
-        soda_cloud_yaml_root_object: YamlObject = soda_cloud_file_content.get_yaml_object()
 
         soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
         if not soda_cloud_yaml_object:
@@ -348,11 +350,11 @@ class SodaCloud:
             return ContractPublicationResult(contract=None)
 
         logger.info(
-            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_file_content.yaml_file_path} "
+            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_source.file_path} "
             f"{Emoticons.FINGERS_CROSSED}"
         )
-        contract_yaml_source_str = contract_yaml.contract_yaml_file_content.yaml_str_source
-        contract_local_file_path = contract_yaml.contract_yaml_file_content.yaml_file_path
+        contract_yaml_str_original = contract_yaml.contract_yaml_source.yaml_str_original
+        contract_local_file_path = contract_yaml.contract_yaml_source.file_path
         data_source_name = contract_yaml.data_source
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
@@ -360,7 +362,7 @@ class SodaCloud:
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             data_source_name, dataset_prefix, dataset_name
         )
-        if not can_publish_and_verify:
+        if not can_publish_and_verify or not contract_yaml_str_original:
             if reason is None:
                 logger.error(f"Skipping contract publication because of an error (see logs)")
             else:
@@ -371,7 +373,7 @@ class SodaCloud:
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical("Uploading the contract file failed")
@@ -464,8 +466,8 @@ class SodaCloud:
     def verify_contract_on_agent(
         self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
     ) -> ContractVerificationResult:
-        contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
-        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
+        contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
+        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path
         data_source_name = contract_yaml.data_source
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
@@ -474,7 +476,7 @@ class SodaCloud:
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")

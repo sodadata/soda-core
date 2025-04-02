@@ -12,7 +12,7 @@ from typing import Optional
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlFileContent, YamlSource
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
@@ -335,10 +335,10 @@ class CLI:
 
         print(f"Testing soda cloud file {soda_cloud_file_path}")
         soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
-        soda_cloud_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-            file_type="soda_cloud", variables={}
+        soda_cloud: SodaCloud = SodaCloud.from_yaml_source(
+            soda_cloud_yaml_source=soda_cloud_yaml_source,
+            variables={}
         )
-        soda_cloud: SodaCloud = SodaCloud.from_file(soda_cloud_file_content)
 
         error_msg: Optional[str] = None
         if soda_cloud:

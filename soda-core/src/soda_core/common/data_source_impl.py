@@ -13,7 +13,7 @@ from soda_core.common.statements.metadata_columns_query import (
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlFileContent, YamlSource, YamlObject
+from soda_core.common.yaml import YamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 
 logger: logging.Logger = soda_logger
@@ -29,11 +29,9 @@ class DataSourceImpl(ABC):
     ) -> Optional[DataSourceImpl]:
         assert isinstance(data_source_yaml_source, YamlSource)
 
-        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-            file_type="data source", variables=variables
-        )
-
-        data_source_yaml: YamlObject = data_source_yaml_file_content.get_yaml_object()
+        data_source_yaml_source.set_file_type("Data source")
+        data_source_yaml_source.resolve(variables=variables)
+        data_source_yaml: YamlObject = data_source_yaml_source.parse()
         if not data_source_yaml:
             return None
 
@@ -46,7 +44,7 @@ class DataSourceImpl(ABC):
             connection_properties = connection_yaml.to_dict()
 
         return DataSourceImpl.create(
-            data_source_yaml_file_content=data_source_yaml_file_content,
+            data_source_yaml_source=data_source_yaml_source,
             name=data_source_name,
             type_name=data_source_type_name,
             connection_properties=connection_properties,
@@ -55,7 +53,7 @@ class DataSourceImpl(ABC):
     @classmethod
     def create(
         cls,
-        data_source_yaml_file_content: YamlFileContent,
+        data_source_yaml_source: YamlSource,
         name: str,
         type_name: str,
         connection_properties: dict,
@@ -65,7 +63,7 @@ class DataSourceImpl(ABC):
         )
 
         return PostgresDataSourceImpl(
-            data_source_yaml_file_content=data_source_yaml_file_content,
+            data_source_yaml_source=data_source_yaml_source,
             name=name,
             type_name=type_name,
             connection_properties=connection_properties,
@@ -73,12 +71,12 @@ class DataSourceImpl(ABC):
 
     def __init__(
         self,
-        data_source_yaml_file_content: YamlFileContent,
+        data_source_yaml_source: YamlSource,
         name: str,
         type_name: str,
         connection_properties: dict,
     ):
-        self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
+        self.data_source_yaml_source: YamlSource = data_source_yaml_source
         self.name: str = name
         self.type_name: str = type_name
         self.sql_dialect: SqlDialect = self._create_sql_dialect()

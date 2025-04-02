@@ -14,7 +14,7 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
+from soda_core.common.yaml import VariableResolver, YamlSource
 from soda_core.contracts.contract_verification import (
     Check,
     CheckOutcome,
@@ -212,10 +212,10 @@ class ContractVerificationSessionImpl:
         if soda_cloud_impl:
             return soda_cloud_impl
         if soda_cloud_yaml_source:
-            soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-                file_type="soda cloud", variables=variables
+            return SodaCloud.from_yaml_source(
+                soda_cloud_yaml_source=soda_cloud_yaml_source,
+                variables=variables
             )
-            return SodaCloud.from_file(soda_cloud_yaml_file_content)
         return None
 
     @classmethod
@@ -432,7 +432,7 @@ class ContractImpl:
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
             f"{verb} contract {Emoticons.SCROLL} "
-            f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
+            f"{self.contract_yaml.contract_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
         if not self.logs.has_errors():
@@ -535,8 +535,8 @@ class ContractImpl:
             dataset_name=self.dataset_name,
             soda_qualified_dataset_name=self.soda_qualified_dataset_name,
             source=YamlFileContentInfo(
-                source_content_str=self.contract_yaml.contract_yaml_file_content.yaml_str_source,
-                local_file_path=self.contract_yaml.contract_yaml_file_content.yaml_file_path,
+                source_content_str=self.contract_yaml.contract_yaml_source.yaml_str_original,
+                local_file_path=self.contract_yaml.contract_yaml_source.file_path,
             ),
         )
 
@@ -1071,7 +1071,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path,
+            self.contract_impl.contract_yaml.contract_yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,

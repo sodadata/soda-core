@@ -9,11 +9,10 @@ from typing import Optional
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
-    YamlFileContent,
     YamlList,
     YamlObject,
     YamlSource,
-    YamlValue,
+    YamlValue, VariableResolver,
 )
 
 logger: logging.Logger = soda_logger
@@ -74,14 +73,42 @@ class ContractYaml:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
-        contract_yaml_file_content: Optional[YamlFileContent] = contract_yaml_source.parse_yaml_file_content(
-            file_type="Contract", variables=variables
-        )
-        return ContractYaml(contract_yaml_file_content=contract_yaml_file_content)
+        return ContractYaml(
+            contract_yaml_source=contract_yaml_source,
+            variables=variables
 
-    def __init__(self, contract_yaml_file_content: YamlFileContent):
-        self.contract_yaml_file_content: YamlFileContent = contract_yaml_file_content
-        self.contract_yaml_object: Optional[YamlObject] = self.contract_yaml_file_content.get_yaml_object()
+        )
+
+    def __init__(self, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]]):
+        self.contract_yaml_source: YamlSource = contract_yaml_source
+        self.contract_yaml_source.set_file_type("Contract")
+
+        self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
+
+        variable_values: dict = variables.copy() if isinstance(variables, dict) else {}
+
+        if self.contract_yaml_object:
+
+            # parse variables and append variable values
+            variable_types: dict[str, str] = {}
+            variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
+            if variables_yaml_object:
+                for variable_name, variable_declaration in variables_yaml_object.items():
+                    variable_default: Optional[str] = None
+                    if isinstance(variable_declaration, YamlObject):
+                        variable_default = variable_declaration.read_string_opt("default")
+                        variable_type: Optional[str] = variable_declaration.read_string_opt("type")
+                        if variable_type:
+                            variable_types[variable_name] = variable_type
+                    if variable_name not in variable_values:
+                        variable_values[variable_name] = variable_default
+
+            resolved_declared_variable_values = self._resolve_variables(variable_values)
+
+            contract_yaml_source.resolve_on_read_value(
+                variables=resolved_declared_variable_values,
+                use_env_vars=True
+            )
 
         self.data_source: Optional[str] = (
             self.contract_yaml_object.read_string("data_source") if self.contract_yaml_object else None
@@ -130,8 +157,8 @@ class ContractYaml:
                             [f"[{location.line},{location.column}]" for location in locations if location is not None]
                         )
                         file_location = (
-                            f"In {self.contract_yaml_file_content.yaml_file_path} at: "
-                            if self.contract_yaml_file_content.yaml_file_path
+                            f"In {self.contract_yaml_source.file_path} at: "
+                            if self.contract_yaml_source.file_path
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
@@ -172,7 +199,7 @@ class ContractYaml:
                     if isinstance(check_type_name, str):
                         if check_body_yaml_object is None:
                             check_body_yaml_object = YamlObject(
-                                yaml_file_content=checks_containing_yaml_object.yaml_file_content, yaml_dict={}
+                                yaml_source=checks_containing_yaml_object.yaml_source, yaml_dict={}
                             )
                             check_body_yaml_object.location = checks_yaml_list.create_location_from_yaml_list_index(
                                 index=check_index
@@ -194,6 +221,63 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
+
+    @classmethod
+    def _resolve_variables(cls, variables: dict) -> dict:
+        """
+        Resolve all variables in the dictionary, replacing ${variable_name} expressions
+        with their corresponding values, while detecting circular dependencies.
+
+        Args:
+            variables (dict): Dictionary with string keys and string values
+                             containing ${variable_name} expressions
+
+        Returns:
+            dict: Dictionary with all variables resolved
+        """
+        # Create a copy of the input dict to avoid modifying the original
+        variables = variables.copy()
+
+        # Keep track of variables being processed to detect circular references
+        processing_stack = set()
+
+        def resolve_value(name: str, value: str) -> str:
+            """
+            Recursively resolve all variables in a given value.
+
+            Args:
+                name (str): The variable name being resolved (for circular detection)
+                value (str): The value to resolve
+
+            Returns:
+                str: The resolved value
+            """
+            # Check for circular reference
+            if name in processing_stack:
+                # Circular reference detected - return the original expression
+                # to prevent infinite recursion
+                return value
+
+            # Add current variable to the processing stack
+            processing_stack.add(name)
+
+            # Replace all variable references in the value
+            resolved = VariableResolver.resolve(
+                source_text=value,
+                variables=variables,
+                use_env_vars=True
+            )
+
+            # Remove current variable from the processing stack
+            processing_stack.remove(name)
+
+            return resolved
+
+        # Resolve each variable in the dictionary
+        for name in variables:
+            variables[name] = resolve_value(name, variables[name])
+
+        return variables
 
 
 class ValidReferenceDataYaml:
