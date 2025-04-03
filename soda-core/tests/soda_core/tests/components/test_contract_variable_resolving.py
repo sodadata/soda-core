@@ -1,7 +1,8 @@
+from soda_core.common.logs import Logs
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
-def test_contract_variable_resolving(env_vars: dict):
+def test_contract_variable_resolving(env_vars: dict, logs: Logs):
     env_vars["state"] = "polluted"
 
     variables = {
@@ -25,4 +26,7 @@ def test_contract_variable_resolving(env_vars: dict):
     assert resolved["circular2"] == "This has a This has a This has a ${var.circular1} reference. reference. reference."
     assert resolved["self_ref"] == "I reference I reference ${var.self_ref} myself! myself!"
     assert resolved["unknown"] == "This is an ${var.UNKNOWN} var"
-    assert resolved["env_resolving"] == "The state of the environment is polluted"
+    assert resolved["env_resolving"] == "The state of the environment is ${env.state}"
+
+    assert ("Environment variable 'state' will not be resolved because environment "
+            "variables are not supported inside contract.") in logs.get_errors_str()

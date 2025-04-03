@@ -80,6 +80,7 @@ class YamlSource:
         self.resolve_on_read: bool = False
         self.resolve_on_read_variables: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
+        self.resolve_on_read_ignored_variable_names: Optional[set[str]] = None
 
     def __str__(self) -> str:
         return self.description
@@ -137,12 +138,14 @@ class YamlSource:
 
     def resolve_on_read_value(
         self,
-        variables: Optional[dict[str, str]] = None,
-        use_env_vars: bool = True
+        variables: dict[str, str],
+        ignored_variable_names: set[str],
+        use_env_vars: bool
     ):
         self.resolve_on_read = True
         self.resolve_on_read_variables = variables
         self.resolve_on_read_use_env_vars = use_env_vars
+        self.resolve_on_read_ignored_variable_names = ignored_variable_names
 
     def parse(self) -> Optional[YamlObject]:
         self._ensure_yaml_str()
@@ -178,7 +181,7 @@ class YamlValue:
     def __init__(self, yaml_source: YamlSource) -> None:
         self.yaml_source: YamlSource = yaml_source
 
-    def _yaml_wrap(self, value):
+    def _yaml_wrap(self, value: any, location: Optional[Location] = None):
         if isinstance(value, dict):
             return YamlObject(yaml_source=self.yaml_source, yaml_dict=value)
         if isinstance(value, list):
@@ -187,7 +190,9 @@ class YamlValue:
             value = VariableResolver.resolve(
                 source_text=value,
                 variables=self.yaml_source.resolve_on_read_variables,
-                use_env_vars=self.yaml_source.resolve_on_read_use_env_vars
+                use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
+                ignored_variable_names=self.yaml_source.resolve_on_read_ignored_variable_names,
+                location=location
             )
         return value
 
@@ -355,6 +360,12 @@ class YamlObject(YamlValue):
         required: bool = False,
         default_value=None,
     ) -> Optional[object]:
+        location: Location = (
+            self.create_location_from_yaml_dict_key(key)
+            if key in self.yaml_dict
+            else self.location
+        )
+
         key_description: str = f"YAML key '{key}'"
         if env_var is not None and env_var in os.environ:
             key_description = f"Env var '{env_var}'"
@@ -384,12 +395,12 @@ class YamlObject(YamlValue):
             logger.error(
                 msg=(f"{key_description} expected a {expected_type.__name__}, " f"but was {actual_type_str}"),
                 extra={
-                    ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
+                    ExtraKeys.LOCATION: location,
                 },
             )
             value = None
 
-        return self._yaml_wrap(value)
+        return self._yaml_wrap(value, location=location)
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
@@ -429,7 +440,9 @@ class VariableResolver:
         cls,
         source_text: str,
         variables: Optional[dict[str, str]] = None,
-        use_env_vars: bool = True
+        use_env_vars: bool = True,
+        ignored_variable_names: Optional[set[str]] = None,
+        location: Optional[Location] = None
     ) -> str:
         if isinstance(source_text, str):
             return re.sub(
@@ -438,7 +451,9 @@ class VariableResolver:
                     namespace=m.group(1).strip(),
                     variable=m.group(2).strip(),
                     variables=variables,
-                    use_env_vars=use_env_vars
+                    use_env_vars=use_env_vars,
+                    ignored_variable_names=ignored_variable_names,
+                    location=location
                 ),
                 string=source_text,
             )
@@ -451,13 +466,17 @@ class VariableResolver:
         namespace: str,
         variable: str,
         variables: dict[str, str],
-        use_env_vars: bool
+        use_env_vars: bool,
+        ignored_variable_names: Optional[set[str]] = None,
+        location: Optional[Location] = None
     ) -> str:
         value: Optional[str] = cls.get_variable(
             namespace=namespace,
             variable=variable,
             variables=variables,
-            use_env_vars=use_env_vars
+            use_env_vars=use_env_vars,
+            ignored_variable_names=ignored_variable_names,
+            location=location
         )
         return value if isinstance(value, str) else f"${{{namespace}.{variable}}}"
 
@@ -467,10 +486,29 @@ class VariableResolver:
         namespace: str,
         variable: str,
         variables: Optional[dict[str, str]] = None,
-        use_env_vars: bool = True
+        use_env_vars: bool = True,
+        ignored_variable_names: Optional[set[str]] = None,
+        location: Optional[Location] = None
     ) -> Optional[str]:
         if isinstance(variables, dict) and namespace == "var":
+            if isinstance(ignored_variable_names, set) and variable in ignored_variable_names:
+                logger.error(
+                    msg=(f"Variable '{variable}' was used and provided, but not declared. "
+                         f"Please add variable declaration to the contract"),
+                    extra={
+                        ExtraKeys.LOCATION: location
+                    } if location else None
+                )
             return variables[variable] if isinstance(variables, dict) and variable in variables else None
-        elif use_env_vars and namespace == "env":
-            return os.getenv(variable) if variable in os.environ else None
+        elif namespace == "env":
+            if use_env_vars:
+                return os.getenv(variable) if variable in os.environ else None
+            else:
+                logger.error(
+                    msg=(f"Environment variable '{variable}' will not be resolved because environment variables are "
+                         f"not supported inside contract."),
+                    extra={
+                        ExtraKeys.LOCATION: location
+                    } if location else None
+                )
         return None

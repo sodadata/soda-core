@@ -8,7 +8,7 @@ def test_parse_relative_complete_contract():
     contract_yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
-        dataset: SODATEST_test_schema_31761d69_${var.SUFFIX}
+        dataset: SODATEST_test_schema_31761d69
         dataset_prefix: [soda_test, dev_xxx]
         columns:
           - name: id
@@ -22,11 +22,11 @@ def test_parse_relative_complete_contract():
     )
 
     contract_yaml: ContractYaml = ContractYaml.parse(
-        contract_yaml_source=contract_yaml_source, variables={"SUFFIX": "test"}
+        contract_yaml_source=contract_yaml_source, variables={}
     )
 
     assert ["soda_test", "dev_xxx"] == contract_yaml.dataset_prefix
-    assert "SODATEST_test_schema_31761d69_test" == contract_yaml.dataset
+    assert "SODATEST_test_schema_31761d69" == contract_yaml.dataset
 
     column_yaml: ColumnYaml = contract_yaml.columns[0]
     assert "id" == column_yaml.name

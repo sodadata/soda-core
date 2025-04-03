@@ -4,7 +4,6 @@ import base64
 import json
 import logging
 import os
-import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -15,6 +14,8 @@ from typing import Optional
 
 import requests
 from requests import Response
+
+from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
@@ -535,12 +536,13 @@ class SodaCloud:
                             level_logrecord: int = logging.getLevelName(level_cloud.upper())
 
                             timestamp_cloud: str = soda_cloud_log_dict.get("timestamp")
-                            timestamp_datetime: datetime = self.convert_str_to_datetime(timestamp_cloud)
-                            timestamp_logrecord: float = timestamp_datetime.timestamp() + (
-                                timestamp_datetime.microsecond / 1000000
-                            )
-                            # For explanation, see TimestampToCreatedLoggingFilter
-                            extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
+                            timestamp_datetime: datetime = convert_str_to_datetime(timestamp_cloud)
+                            if isinstance(timestamp_datetime, datetime):
+                                timestamp_logrecord: float = timestamp_datetime.timestamp() + (
+                                    timestamp_datetime.microsecond / 1000000
+                                )
+                                # For explanation, see TimestampToCreatedLoggingFilter
+                                extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
 
                             location_dict: Optional[dict] = soda_cloud_log_dict.get(ExtraKeys.LOCATION)
                             if isinstance(location_dict, dict):
@@ -636,10 +638,13 @@ class SodaCloud:
                         f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
                         f"via header X-Soda-Next-Poll-Time"
                     )
-                    next_poll_time: datetime = self.convert_str_to_datetime(next_poll_time_str)
-                    now = datetime.now(timezone.utc)
-                    time_to_wait = next_poll_time - now
-                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                    next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                    if isinstance(next_poll_time, datetime):
+                        now = datetime.now(timezone.utc)
+                        time_to_wait = next_poll_time - now
+                        time_to_wait_in_seconds = time_to_wait.total_seconds()
+                    else:
+                        time_to_wait_in_seconds = 60
                 if time_to_wait_in_seconds > 0:
                     logger.debug(
                         f"Sleeping {time_to_wait_in_seconds} seconds before asking "
@@ -815,7 +820,7 @@ class SodaCloud:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime):
-            return SodaCloud.convert_datetime_to_str(o)
+            return convert_datetime_to_str(o)
         if isinstance(o, date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, time):
@@ -827,19 +832,3 @@ class SodaCloud:
         if isinstance(o, Exception):
             return str(o)
         raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
-
-    @classmethod
-    def convert_datetime_to_str(cls, dt: datetime) -> str:
-        return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
-
-    @classmethod
-    def convert_str_to_datetime(cls, date_string: str) -> datetime:
-        # fromisoformat raises ValueError if date_string ends with a Z:
-        # Eg Invalid isoformat string: '2025-02-21T06:16:59Z'
-        if date_string.endswith("Z"):
-            # Z means Zulu time, which is UTC
-            # Converting timezone to format that fromisoformat understands
-            datetime_str_without_z: str = date_string[:-1]
-            datetime_str_without_z_seconds = re.sub(r"\.(\d+)$", "", datetime_str_without_z)
-            date_string = f"{datetime_str_without_z_seconds}+00:00"
-        return datetime.fromisoformat(date_string)
