@@ -244,6 +244,7 @@ class SodaCloud:
             "identities": {"vc1": check_result.check.identity},
             "name": check_result.check.name,
             "type": "generic",
+            "checkType": check_result.check.type,
             "definition": check_result.check.definition,
             "resourceAttributes": [],  # TODO
             "location": {
@@ -291,9 +292,11 @@ class SodaCloud:
             "index": index,
             "doc": log_record.doc if hasattr(log_record, "doc") else None,
             "exception": log_record.exception if hasattr(log_record, "exception") else None,
-            "location": log_record.location.get_dict()
-            if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
-            else None,
+            "location": (
+                log_record.location.get_dict()
+                if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
+                else None
+            ),
         }
 
     def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
