@@ -65,17 +65,6 @@ class MissingCheck(MissingAndValidityCheckImpl):
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
 
         self.metric_name = "missing_percent" if check_yaml.metric == "percent" else "missing_count"
-        metric_name: str = ThresholdImpl.get_metric_name(self.metric_name, column_impl=column_impl)
-        self.name = (
-            check_yaml.name
-            if check_yaml.name
-            else (
-                self.threshold.get_assertion_summary(metric_name=metric_name)
-                if self.threshold
-                else f"{check_yaml.type_name} (invalid threshold)"
-            )
-        )
-
         self.missing_count_metric = self._resolve_metric(
             MissingCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )

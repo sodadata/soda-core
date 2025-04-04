@@ -81,17 +81,7 @@ class InvalidCheck(MissingAndValidityCheckImpl):
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
 
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
-        metric_name: str = ThresholdImpl.get_metric_name(self.metric_name, column_impl=column_impl)
-
-        self.name = (
-            check_yaml.name
-            if check_yaml.name
-            else (
-                self.threshold.get_assertion_summary(metric_name=metric_name)
-                if self.threshold
-                else f"{check_yaml.type_name} (invalid threshold)"
-            )
-        )
+        self.name = check_yaml.name if check_yaml.name else self.type
 
         self.invalid_count_metric_impl: Optional[MetricImpl] = None
         if self.missing_and_validity.has_reference_data():
