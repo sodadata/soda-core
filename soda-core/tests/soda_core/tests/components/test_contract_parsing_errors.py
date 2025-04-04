@@ -42,8 +42,7 @@ def test_duplicate_identity_error(data_source_test_helper: DataSourceTestHelper)
     )
 
     assert (
-        "Duplicate identity yaml_string.yml/id/missing. "
-        "Original(yaml_string.yml[6,8]) Duplicate(yaml_string.yml[8,10])"
+        "Duplicate identity yaml_string.yml/id/missing. Original(yaml_string.yml[6,8]) Duplicate(yaml_string.yml[8,10])"
     ) in errors_str
 
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import ContractVerificationResult
@@ -94,7 +94,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             MockResponse(
                 method=MockHttpMethod.GET,
                 status_code=200,
-                headers={"X-Soda-Next-Poll-Time": SodaCloud.convert_datetime_to_str(datetime.now())},
+                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now())},
                 json_object={
                     "scanId": "ssscanid",
                     "state": "running",
@@ -171,7 +171,7 @@ def test_publish_contract():
                     "checksum": "check",
                     "fileId": "fake_file_id",
                 },
-                "metadata": {"source": {"filePath": "yaml_string.yml", "type": "local"}},
+                "metadata": {"source": {"filePath": "yaml_string", "type": "local"}},
             },
         ),
     ]
@@ -196,7 +196,7 @@ def test_publish_contract():
     assert res.contract.dataset_name == "CUSTOMERS"
     assert res.contract.data_source_name == "test"
     assert res.contract.dataset_prefix == ["some", "schema"]
-    assert res.contract.source.local_file_path == "yaml_string.yml"
+    assert res.contract.source.local_file_path == "yaml_string"
 
 
 def test_verify_contract_on_agent_permission_check():

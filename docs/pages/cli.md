@@ -108,6 +108,8 @@ To get credentials:
 2) Test if you have permissions. By default it should.  If not, ask around.
 ```
 
+For more, check out [the Soda Cloud YAML configuration file page](soda_cloud.md) 
+
 ### Step 7: Test your Soda Cloud configuration YAML file
 
 `soda test-soda-cloud -sc sc.yml`
@@ -225,3 +227,7 @@ This command will
   * The CLI will poll Soda Cloud until the contract verification is finished.
   * The CLI will poll fetch the logs from Soda Cloud
 * CLI print the logs and check results on the console
+
+### Specifying variables in the CLI
+
+TODO document how to specify variables in the CLI

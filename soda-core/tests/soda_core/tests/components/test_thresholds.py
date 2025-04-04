@@ -146,8 +146,7 @@ def test_threshold_custom_outer():
 def parse_threshold(threshold_yaml: str) -> ThresholdImpl:
     dedented_threshold_yaml: str = dedent_and_strip(threshold_yaml)
     yaml_source = YamlSource.from_str(dedented_threshold_yaml)
-    yaml_file_content = yaml_source.parse_yaml_file_content()
-    yaml_object: YamlObject = yaml_file_content.get_yaml_object()
+    yaml_object: YamlObject = yaml_source.parse()
     threshold_yaml: ThresholdYaml = ThresholdYaml(
         threshold_yaml_object=yaml_object,
     )

@@ -23,7 +23,7 @@ class ContractCommandBuilder:
     def with_contract_yaml_file(self, contract_yaml_file_path: str) -> T:
         if isinstance(contract_yaml_file_path, str):
             logger.debug(f"  ...with contract file path '{contract_yaml_file_path}'")
-            self.contract_yaml_sources.append(YamlSource.from_file_path(yaml_file_path=contract_yaml_file_path))
+            self.contract_yaml_sources.append(YamlSource.from_file_path(file_path=contract_yaml_file_path))
         else:
             logger.error(
                 f"...ignoring invalid contract yaml file '{contract_yaml_file_path}'. "
@@ -51,7 +51,7 @@ class ContractCommandBuilder:
                     f"  ...with soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
                     f"Ignoring previously configured soda cloud '{self.soda_cloud_yaml_source}'"
                 )
-            self.soda_cloud_yaml_source = YamlSource.from_file_path(yaml_file_path=soda_cloud_yaml_file_path)
+            self.soda_cloud_yaml_source = YamlSource.from_file_path(file_path=soda_cloud_yaml_file_path)
         else:
             logger.error(
                 f"...ignoring invalid soda_cloud_yaml_file_path '{soda_cloud_yaml_file_path}'. "
