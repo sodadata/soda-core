@@ -14,8 +14,10 @@ from typing import Optional
 
 import requests
 from requests import Response
-
-from soda_core.common.datetime_conversions import convert_datetime_to_str, convert_str_to_datetime
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
@@ -78,9 +80,7 @@ class SodaCloud:
 
     @classmethod
     def from_yaml_source(
-        cls,
-        soda_cloud_yaml_source: YamlSource,
-        variables: Optional[dict[str, str]]
+        cls, soda_cloud_yaml_source: YamlSource, variables: Optional[dict[str, str]]
     ) -> Optional[SodaCloud]:
         soda_cloud_yaml_source.set_file_type("Soda Cloud")
         soda_cloud_yaml_source.resolve(variables=variables)
@@ -95,18 +95,12 @@ class SodaCloud:
             logger.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
 
         return SodaCloud(
-            host=soda_cloud_yaml_object.read_string_opt(
-                key="host", env_var="SODA_CLOUD_HOST", default_value="cloud.soda.io"
-            ),
-            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", env_var="SODA_CLOUD_API_KEY_ID"),
-            api_key_secret=soda_cloud_yaml_object.read_string(
-                key="api_key_secret", env_var="SODA_CLOUD_API_KEY_SECRET"
-            ),
-            token=soda_cloud_yaml_object.read_string_opt(key="token", env_var="SODA_CLOUD_TOKEN"),
-            port=soda_cloud_yaml_object.read_string_opt(key="port", env_var="SODA_CLOUD_PORT"),
-            scheme=soda_cloud_yaml_object.read_string_opt(
-                key="scheme", env_var="SODA_CLOUD_SCHEME", default_value="https"
-            ),
+            host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id"),
+            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret"),
+            token=soda_cloud_yaml_object.read_string_opt(key="token"),
+            port=soda_cloud_yaml_object.read_string_opt(key="port"),
+            scheme=soda_cloud_yaml_object.read_string_opt(key="scheme", default_value="https"),
         )
 
     def __init__(

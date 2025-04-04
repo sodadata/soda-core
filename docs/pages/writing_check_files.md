@@ -4,9 +4,7 @@
 
 Example contract YAML file:
 ```
-data_source: postgres_adventureworks
-dataset_prefix: [adventureworks, advw]
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 columns:
   - name: id
@@ -32,10 +30,41 @@ checks:
         must_be_between: [10, 100]
 ```
 
-### Linking contracts to the data source
+### Contract variables
 
-In your source code repository, we recommend to use a top level directory called `soda` and 
-organize all the soda YAML configuration files in there.  
+Each variable that is used in a contract in the `variables` section:
+
+```yaml
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+variables: 
+  COUNTRY:
+    default: USA
+  CATEGORY:
+    default: L
+  CREATED_AFTER_TS:
+  SEGMENT_FILTER:
+    default: |
+        country ='${var.COUNTRY}' 
+        AND category = '${var.CATEGORY}' 
+        AND created_at <= TIMESTAMP '${var.NOW}
+        AND created_at > TIMESTAMP '${var.CREATED_AFTER_TS}
+
+filter: ${var.SEGMENT_FILTER}
+```
+
+In a contract, you can refer to variables using the syntax `${var.VARNAME}`, The variable reference 
+will be replaced with the values specified in the CLI, the Python API or the Soda Cloud UI.
+
+Variable are resolved case sensitive.
+
+In contract YAML files, environment variables like eg `${env.ERROR}` can **not** be used.
+
+All variables used in a contract except for `NOW` have to be declared.
+
+`NOW` has the current timestamp in ISO8601 format as default.  A value for `NOW` can be 
+provided in the variables, but then it has to be also in ISO8601 format.  Variable can 
+optionally be declared and given a default value, but doesn't have to be.
 
 ### Next: Adding checks
 

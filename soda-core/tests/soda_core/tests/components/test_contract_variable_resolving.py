@@ -14,7 +14,7 @@ def test_contract_variable_resolving(env_vars: dict, logs: Logs):
         "circular2": "This has a ${var.circular1} reference.",
         "self_ref": "I reference ${var.self_ref} myself!",
         "unknown": "This is an ${var.UNKNOWN} var",
-        "env_resolving": "The state of the environment is ${env.state}"
+        "env_resolving": "The state of the environment is ${env.state}",
     }
 
     resolved = ContractYaml._resolve_variables(variables)
@@ -28,5 +28,7 @@ def test_contract_variable_resolving(env_vars: dict, logs: Logs):
     assert resolved["unknown"] == "This is an ${var.UNKNOWN} var"
     assert resolved["env_resolving"] == "The state of the environment is ${env.state}"
 
-    assert ("Environment variable 'state' will not be resolved because environment "
-            "variables are not supported inside contract.") in logs.get_errors_str()
+    assert (
+        "Environment variable 'state' will not be resolved because environment "
+        "variables are not supported inside contract."
+    ) in logs.get_errors_str()

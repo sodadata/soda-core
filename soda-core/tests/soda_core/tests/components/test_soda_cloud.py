@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml

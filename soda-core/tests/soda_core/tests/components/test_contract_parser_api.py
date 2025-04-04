@@ -21,9 +21,7 @@ def test_parse_relative_complete_contract():
         )
     )
 
-    contract_yaml: ContractYaml = ContractYaml.parse(
-        contract_yaml_source=contract_yaml_source, variables={}
-    )
+    contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables={})
 
     assert ["soda_test", "dev_xxx"] == contract_yaml.dataset_prefix
     assert "SODATEST_test_schema_31761d69" == contract_yaml.dataset

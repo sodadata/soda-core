@@ -60,7 +60,7 @@ def test_yaml_error_invalid_top_level_element(logs: Logs):
         - two
         """
         ),
-        file_path="yaml_string.yml"
+        file_path="yaml_string.yml",
     )
     yaml_object: YamlObject = yaml_source.parse()
     errors_str = logs.get_errors_str()
@@ -70,10 +70,7 @@ def test_yaml_error_invalid_top_level_element(logs: Logs):
 
 
 def test_yaml_error_empty_yaml_str(logs: Logs):
-    yaml_source: YamlSource = YamlSource.from_str(
-        yaml_str="",
-        file_path="yaml_string.yml"
-    )
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str="", file_path="yaml_string.yml")
     yaml_object: YamlObject = yaml_source.parse()
     errors_str = logs.get_errors_str()
     assert "YAML file 'yaml_string.yml' root must be an object, but was empty" in errors_str

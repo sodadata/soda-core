@@ -196,8 +196,7 @@ class ContractVerificationSessionImpl:
         )
         for data_source_yaml_source in data_source_yaml_sources:
             data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
-                data_source_yaml_source=data_source_yaml_source,
-                variables=variables
+                data_source_yaml_source=data_source_yaml_source, variables=variables
             )
             data_source_impl_by_name[data_source_impl.name] = data_source_impl
         return data_source_impl_by_name
@@ -212,10 +211,7 @@ class ContractVerificationSessionImpl:
         if soda_cloud_impl:
             return soda_cloud_impl
         if soda_cloud_yaml_source:
-            return SodaCloud.from_yaml_source(
-                soda_cloud_yaml_source=soda_cloud_yaml_source,
-                variables=variables
-            )
+            return SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables)
         return None
 
     @classmethod
@@ -338,9 +334,7 @@ class ContractImpl:
     def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
         now_variable_name: str = "DATA_TS"
         now_variable_timestamp_text = VariableResolver.get_variable(
-            namespace="var",
-            variables=variables,
-            variable=now_variable_name
+            namespace="var", variables=variables, variable=now_variable_name
         )
         if isinstance(now_variable_timestamp_text, str):
             try:

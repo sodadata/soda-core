@@ -7,14 +7,18 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.datetime_conversions import convert_str_to_datetime, convert_datetime_to_str
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
+    VariableResolver,
     YamlList,
     YamlObject,
     YamlSource,
-    YamlValue, VariableResolver,
+    YamlValue,
 )
 
 logger: logging.Logger = soda_logger
@@ -75,10 +79,7 @@ class ContractYaml:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
-        return ContractYaml(
-            contract_yaml_source=contract_yaml_source,
-            variables=variables
-        )
+        return ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables)
 
     def __init__(self, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]]):
         self.contract_yaml_source: YamlSource = contract_yaml_source
@@ -113,16 +114,18 @@ class ContractYaml:
                 for variable_name in variable_names
             }
 
+            if "NOW" not in variable_values:
+                variable_values["NOW"] = convert_datetime_to_str(datetime.now())
+
             ignored_variable_names: set[str] = set()
             for variable_name in variables:
-                if variable_name not in variable_yamls_by_name:
+                if variable_name not in variable_yamls_by_name and variable_name != "NOW":
                     logger.warning(f"Ignoring provided variable {variable_name} because it's not declared")
                     variable_values.pop(variable_name)
                     ignored_variable_names.add(variable_name)
 
             resolved_variable_values: dict[str, str] = (
-                self._resolve_variables(variable_values)
-                if variable_values else {}
+                self._resolve_variables(variable_values) if variable_values else {}
             )
 
             for variable_name, resolve_variable_value in resolved_variable_values.items():
@@ -134,20 +137,18 @@ class ContractYaml:
                 if variable.required and resolved_variable_values.get(variable.name) is None:
                     logger.error(
                         msg=f"Required variable '{variable.name}' not provided",
-                        extra={
-                            ExtraKeys.LOCATION: variable.variable_yaml.location
-                        }
+                        extra={ExtraKeys.LOCATION: variable.variable_yaml.location},
                     )
                 elif variable.type == "timestamp":
                     resolved_timestamp_value = resolved_variable_values.get(variable.name)
-                    if (resolved_timestamp_value is not None
-                        and convert_str_to_datetime(resolved_timestamp_value) is None):
+                    if (
+                        resolved_timestamp_value is not None
+                        and convert_str_to_datetime(resolved_timestamp_value) is None
+                    ):
                         logger.error(
                             msg=f"Invalid timestamp value for variable '{variable.name}': "
-                                f"{resolved_timestamp_value}",
-                            extra={
-                                ExtraKeys.LOCATION: variable.variable_yaml.location
-                            }
+                            f"{resolved_timestamp_value}",
+                            extra={ExtraKeys.LOCATION: variable.variable_yaml.location},
                         )
 
             # Without this line, usage of NOW without declaring it will generate an error
@@ -164,13 +165,9 @@ class ContractYaml:
                     logger.error(f"Provided 'NOW' variable value is not a correct timestamp format: {now_str}")
                 else:
                     resolved_variable_values["NOW"] = now_str
-            if "NOW" not in resolved_variable_values:
-                resolved_variable_values["NOW"] = convert_datetime_to_str(datetime.now())
 
             contract_yaml_source.resolve_on_read_value(
-                variables=resolved_variable_values,
-                ignored_variable_names=ignored_variable_names,
-                use_env_vars=True
+                variables=resolved_variable_values, ignored_variable_names=ignored_variable_names, use_env_vars=True
             )
 
         self.data_source: Optional[str] = (
@@ -325,11 +322,7 @@ class ContractYaml:
             processing_stack.add(name)
 
             # Replace all variable references in the value
-            resolved = VariableResolver.resolve(
-                source_text=value,
-                variables=variables,
-                use_env_vars=False
-            )
+            resolved = VariableResolver.resolve(source_text=value, variables=variables, use_env_vars=False)
 
             # Remove current variable from the processing stack
             processing_stack.remove(name)
@@ -347,9 +340,9 @@ class VariableYaml:
     def __init__(self, variable_name: str, variable_yaml: YamlObject):
         self.variable_yaml: YamlObject = variable_yaml
         self.name: str = variable_name
-        self.type: any = variable_yaml.read_string_opt("type")
-        self.required: any = variable_yaml.read_bool_opt("required")
-        self.default: any = variable_yaml.read_string_opt("default")
+        self.type: any = variable_yaml.read_string_opt("type") if variable_yaml else None
+        self.required: any = variable_yaml.read_bool_opt("required") if variable_yaml else None
+        self.default: any = variable_yaml.read_string_opt("default") if variable_yaml else None
 
 
 class ValidReferenceDataYaml:

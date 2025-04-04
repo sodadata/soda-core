@@ -6,26 +6,23 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.logging_constants import soda_logger, ExtraKeys
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlSource, YamlObject
+from soda_core.common.yaml import YamlObject, YamlSource
 from soda_core.contracts.contract_verification import DataSource
 
 logger: logging.Logger = soda_logger
 
 
 class DataSourceImpl(ABC):
-
     @classmethod
     def from_yaml_source(
-        cls,
-        data_source_yaml_source: YamlSource,
-        variables: Optional[dict] = None
+        cls, data_source_yaml_source: YamlSource, variables: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
         assert isinstance(data_source_yaml_source, YamlSource)
 

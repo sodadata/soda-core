@@ -70,12 +70,12 @@ class DataSourceTestHelper:
         logs: Logs = Logs()
         soda_cloud_yaml_str: str = """
             soda_cloud:
+              host: ${env.SODA_CLOUD_HOST}
+              api_key_id: ${env.SODA_CLOUD_API_KEY_ID}
+              api_key_secret: ${env.SODA_CLOUD_API_KEY_SECRET}
         """
         soda_cloud_yaml_source: YamlSource = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
-        self.soda_cloud = SodaCloud.from_yaml_source(
-            soda_cloud_yaml_source=soda_cloud_yaml_source,
-            variables={}
-        )
+        self.soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables={})
         if logs.has_errors():
             raise AssertionError(str(logs))
 
@@ -89,6 +89,7 @@ class DataSourceTestHelper:
         logs: Logs = Logs()
         data_source_yaml_source: YamlSource = self._create_data_source_yaml_source()
         from soda_core.common.data_source_impl import DataSourceImpl
+
         data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
         assert not logs.has_errors()
         return data_source_impl

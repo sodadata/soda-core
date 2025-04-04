@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import re
-from abc import abstractmethod
 from numbers import Number
 from typing import Iterable, Optional
 
@@ -121,27 +120,16 @@ class YamlSource:
                 else:
                     logger.error(f"{self.description} can't be read", exc_info=True)
 
-    def resolve(
-        self,
-        variables: Optional[dict[str, str]] = None,
-        use_env_vars: bool = True
-    ) -> None:
+    def resolve(self, variables: Optional[dict[str, str]] = None, use_env_vars: bool = True) -> None:
         """
         Note: this does not change the object, but returns a new ResolvedYamlSource instead
         """
         self._ensure_yaml_str()
         self.yaml_str = VariableResolver.resolve(
-            source_text=self.yaml_str,
-            variables=variables,
-            use_env_vars=use_env_vars
+            source_text=self.yaml_str, variables=variables, use_env_vars=use_env_vars
         )
 
-    def resolve_on_read_value(
-        self,
-        variables: dict[str, str],
-        ignored_variable_names: set[str],
-        use_env_vars: bool
-    ):
+    def resolve_on_read_value(self, variables: dict[str, str], ignored_variable_names: set[str], use_env_vars: bool):
         self.resolve_on_read = True
         self.resolve_on_read_variables = variables
         self.resolve_on_read_use_env_vars = use_env_vars
@@ -192,7 +180,7 @@ class YamlValue:
                 variables=self.yaml_source.resolve_on_read_variables,
                 use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
                 ignored_variable_names=self.yaml_source.resolve_on_read_ignored_variable_names,
-                location=location
+                location=location,
             )
         return value
 
@@ -360,11 +348,7 @@ class YamlObject(YamlValue):
         required: bool = False,
         default_value=None,
     ) -> Optional[object]:
-        location: Location = (
-            self.create_location_from_yaml_dict_key(key)
-            if key in self.yaml_dict
-            else self.location
-        )
+        location: Location = self.create_location_from_yaml_dict_key(key) if key in self.yaml_dict else self.location
 
         key_description: str = f"YAML key '{key}'"
         if env_var is not None and env_var in os.environ:
@@ -442,7 +426,7 @@ class VariableResolver:
         variables: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
         ignored_variable_names: Optional[set[str]] = None,
-        location: Optional[Location] = None
+        location: Optional[Location] = None,
     ) -> str:
         if isinstance(source_text, str):
             return re.sub(
@@ -453,7 +437,7 @@ class VariableResolver:
                     variables=variables,
                     use_env_vars=use_env_vars,
                     ignored_variable_names=ignored_variable_names,
-                    location=location
+                    location=location,
                 ),
                 string=source_text,
             )
@@ -468,7 +452,7 @@ class VariableResolver:
         variables: dict[str, str],
         use_env_vars: bool,
         ignored_variable_names: Optional[set[str]] = None,
-        location: Optional[Location] = None
+        location: Optional[Location] = None,
     ) -> str:
         value: Optional[str] = cls.get_variable(
             namespace=namespace,
@@ -476,7 +460,7 @@ class VariableResolver:
             variables=variables,
             use_env_vars=use_env_vars,
             ignored_variable_names=ignored_variable_names,
-            location=location
+            location=location,
         )
         return value if isinstance(value, str) else f"${{{namespace}.{variable}}}"
 
@@ -488,16 +472,16 @@ class VariableResolver:
         variables: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
         ignored_variable_names: Optional[set[str]] = None,
-        location: Optional[Location] = None
+        location: Optional[Location] = None,
     ) -> Optional[str]:
         if isinstance(variables, dict) and namespace == "var":
             if isinstance(ignored_variable_names, set) and variable in ignored_variable_names:
                 logger.error(
-                    msg=(f"Variable '{variable}' was used and provided, but not declared. "
-                         f"Please add variable declaration to the contract"),
-                    extra={
-                        ExtraKeys.LOCATION: location
-                    } if location else None
+                    msg=(
+                        f"Variable '{variable}' was used and provided, but not declared. "
+                        f"Please add variable declaration to the contract"
+                    ),
+                    extra={ExtraKeys.LOCATION: location} if location else None,
                 )
             return variables[variable] if isinstance(variables, dict) and variable in variables else None
         elif namespace == "env":
@@ -505,10 +489,10 @@ class VariableResolver:
                 return os.getenv(variable) if variable in os.environ else None
             else:
                 logger.error(
-                    msg=(f"Environment variable '{variable}' will not be resolved because environment variables are "
-                         f"not supported inside contract."),
-                    extra={
-                        ExtraKeys.LOCATION: location
-                    } if location else None
+                    msg=(
+                        f"Environment variable '{variable}' will not be resolved because environment variables are "
+                        f"not supported inside contract."
+                    ),
+                    extra={ExtraKeys.LOCATION: location} if location else None,
                 )
         return None

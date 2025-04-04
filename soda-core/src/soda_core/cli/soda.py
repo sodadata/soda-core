@@ -335,10 +335,7 @@ class CLI:
 
         print(f"Testing soda cloud file {soda_cloud_file_path}")
         soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
-        soda_cloud: SodaCloud = SodaCloud.from_yaml_source(
-            soda_cloud_yaml_source=soda_cloud_yaml_source,
-            variables={}
-        )
+        soda_cloud: SodaCloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables={})
 
         error_msg: Optional[str] = None
         if soda_cloud:
