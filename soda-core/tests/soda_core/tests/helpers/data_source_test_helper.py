@@ -445,12 +445,15 @@ class DataSourceTestHelper:
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
             header_contract_yaml_str: str = (
-                f"data_source: {self.data_source_impl.name}\n"
-                f"dataset: {test_table.unique_name}\n"
-                f"dataset_prefix: {self.dataset_prefix}\n"
+                f"dataset: {self.build_dqn(test_table)}\n"
             )
             checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
+
+    def build_dqn(self, test_table: TestTable) -> str:
+        dqn_parts: list[str] = [self.data_source_impl.name] + self.dataset_prefix + [test_table.unique_name]
+        dqn: str = "/".join(dqn_parts)
+        return dqn
 
     def test_method_ended(self) -> None:
         self.data_source_impl.data_source_connection.rollback()

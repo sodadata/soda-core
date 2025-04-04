@@ -367,9 +367,11 @@ class SodaCloud:
         )
         contract_yaml_str_original = contract_yaml.contract_yaml_source.yaml_str_original
         contract_local_file_path = contract_yaml.contract_yaml_source.file_path
-        data_source_name = contract_yaml.data_source
-        dataset_prefix = contract_yaml.dataset_prefix
-        dataset_name = contract_yaml.dataset
+
+        dqn_parts: list[str] = contract_yaml.dataset.split("/") if contract_yaml.dataset else None
+        data_source_name = dqn_parts[0] if dqn_parts else None
+        dataset_prefix = dqn_parts[1:-1] if dqn_parts else None
+        dataset_name = dqn_parts[-1] if dqn_parts else None
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             data_source_name, dataset_prefix, dataset_name
@@ -395,8 +397,17 @@ class SodaCloud:
             "type": "sodaCorePublishContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {"datasource": data_source_name, "prefixes": dataset_prefix, "name": dataset_name},
-                "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
+                "dataset": {
+                    "datasource": data_source_name,
+                    "prefixes": dataset_prefix,
+                    "name": dataset_name
+                },
+                "metadata": {
+                    "source": {
+                        "type": "local",
+                        "filePath": contract_local_file_path
+                    }
+                },
             },
         }
         response: Response = self._execute_command(
@@ -480,9 +491,11 @@ class SodaCloud:
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path
-        data_source_name = contract_yaml.data_source
-        dataset_prefix = contract_yaml.dataset_prefix
-        dataset_name = contract_yaml.dataset
+
+        dqn_parts: list[str] = contract_yaml.dataset.split("/")
+        data_source_name = dqn_parts[0]
+        dataset_prefix = dqn_parts[1:-1]
+        dataset_name = dqn_parts[-1]
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             data_source_name, dataset_prefix, dataset_name

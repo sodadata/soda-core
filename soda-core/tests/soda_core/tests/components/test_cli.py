@@ -88,9 +88,7 @@ def test_cli(data_source_test_helper: DataSourceTestHelper):
 
     contract_yaml_str: str = dedent_and_strip(
         f"""
-        data_source: {data_source_test_helper.data_source_impl.name}
-        dataset: {test_table.unique_name}
-        dataset_prefix: {data_source_test_helper.dataset_prefix}
+        dataset: {data_source_test_helper.build_dqn(test_table)}
         columns:
           - name: id
         checks:

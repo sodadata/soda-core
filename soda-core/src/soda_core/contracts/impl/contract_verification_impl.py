@@ -157,11 +157,15 @@ class ContractVerificationSessionImpl:
                     contract_yaml: ContractYaml = ContractYaml.parse(
                         contract_yaml_source=contract_yaml_source, variables=variables
                     )
+                    data_source_name: str = (
+                        contract_yaml.dataset[:contract_yaml.dataset.find("/")]
+                        if contract_yaml.dataset else None
+                    )
                     data_source_impl: Optional[DataSourceImpl] = (
                         cls._get_data_source_impl(
-                            contract_yaml.data_source, data_source_impls_by_name, opened_data_sources
+                            data_source_name, data_source_impls_by_name, opened_data_sources
                         )
-                        if (contract_yaml and contract_yaml.data_source and not only_validate_without_execute)
+                        if (contract_yaml and data_source_name and not only_validate_without_execute)
                         else None
                     )
                     contract_impl: ContractImpl = ContractImpl(
@@ -287,8 +291,13 @@ class ContractImpl:
             variables=variables, default=self.started_timestamp
         )
 
-        self.dataset_prefix: Optional[list[str]] = contract_yaml.dataset_prefix
-        self.dataset_name: Optional[str] = contract_yaml.dataset
+        self.dataset_prefix: Optional[list[str]] = None
+        self.dataset_name: Optional[str] = None
+
+        dqn: list[str] = contract_yaml.dataset.split("/") if contract_yaml.dataset else None
+        if dqn:
+            self.dataset_prefix = dqn[1:-1] if len(dqn) > 2 else None
+            self.dataset_name = dqn[-1] if len(dqn) > 0 else None
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
@@ -424,11 +433,6 @@ class ContractImpl:
         )
 
         if not self.logs.has_errors():
-            if isinstance(self.data_source_impl, DataSourceImpl) and not self.data_source_impl.is_valid_dataset_prefix(
-                self.contract_yaml.dataset_prefix
-            ):
-                logger.error(f"No valid dataset_prefix: {self.contract_yaml.dataset_prefix}")
-
             # Executing the queries will set the value of the metrics linked to queries
             if not self.only_validate_without_execute:
                 for query in self.queries:

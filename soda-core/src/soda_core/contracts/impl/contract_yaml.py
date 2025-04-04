@@ -87,24 +87,70 @@ class ContractYaml:
 
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
-        self.variables: list[VariableYaml] = []
+        self.variables: list[VariableYaml] = self._process_variables(contract_yaml_source, variables)
+
+        self.data_source: Optional[str] = (
+            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
+        )
+        if (
+            self.contract_yaml_object
+            and self.contract_yaml_object.has_key("datasource")
+            and not self.contract_yaml_object.has_key("data_source")
+        ):
+            logger.error(
+                msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
+                extra={
+                    ExtraKeys.LOCATION: self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
+                },
+            )
+
+        self.dataset_prefix: Optional[list[str]] = (
+            self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix") if self.contract_yaml_object else None
+        )
+        self.dataset: Optional[str] = (
+            self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
+        )
+
+        if isinstance(self.dataset, str) and "/" not in self.dataset:
+            # old style
+            if self.data_source is None:
+                logger.error("Key data_source is required")
+            dataset_parts: list[str] = []
+            if self.data_source:
+                dataset_parts.append(self.data_source)
+            if self.dataset_prefix:
+                dataset_parts.extend(self.dataset_prefix)
+            if self.dataset:
+                dataset_parts.append(self.dataset)
+            self.dataset = "/".join(dataset_parts)
+            self.data_source = None
+            self.dataset_prefix = None
+
+        self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+
+    def _process_variables(self, contract_yaml_source, variables) -> list[VariableYaml]:
+        variable_yamls: list[VariableYaml] = []
+
         if self.contract_yaml_object:
             variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
             if variables_yaml_object:
                 for variable_name, variable_yaml_object in variables_yaml_object.items():
                     variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
-                    self.variables.append(variable_yaml)
+                    variable_yamls.append(variable_yaml)
 
             # Replace None with empty dict, so variables is always a dict
             variables = variables if isinstance(variables, dict) else {}
 
             # Building up the variable name list in order, first the provided, then the declared variables
             variable_names: list[str] = list(variables.keys())
-            for variable in self.variables:
-                if variable.name not in variable_names:
-                    variable_names.append(variable.name)
+            for variable_yaml in variable_yamls:
+                if variable_yaml.name not in variable_names:
+                    variable_names.append(variable_yaml.name)
 
-            variable_yamls_by_name: dict[str, VariableYaml] = {variable.name: variable for variable in self.variables}
+            variable_yamls_by_name: dict[str, VariableYaml] = {
+                variable_yaml.name: variable_yaml for variable_yaml in variable_yamls
+            }
             variable_values: dict[str, str] = {
                 variable_name: (
                     variables[variable_name]
@@ -133,22 +179,22 @@ class ContractYaml:
                     logger.debug(f"Using provided variable value {variable_name}={resolve_variable_value}")
                 else:
                     logger.debug(f"Using default variable value {variable_name}={resolve_variable_value}")
-            for variable in self.variables:
-                if variable.required and resolved_variable_values.get(variable.name) is None:
+            for variable_yaml in variable_yamls:
+                if variable_yaml.required and resolved_variable_values.get(variable_yaml.name) is None:
                     logger.error(
-                        msg=f"Required variable '{variable.name}' not provided",
-                        extra={ExtraKeys.LOCATION: variable.variable_yaml.location},
+                        msg=f"Required variable '{variable_yaml.name}' not provided",
+                        extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                     )
-                elif variable.type == "timestamp":
-                    resolved_timestamp_value = resolved_variable_values.get(variable.name)
+                elif variable_yaml.type == "timestamp":
+                    resolved_timestamp_value = resolved_variable_values.get(variable_yaml.name)
                     if (
                         resolved_timestamp_value is not None
                         and convert_str_to_datetime(resolved_timestamp_value) is None
                     ):
                         logger.error(
-                            msg=f"Invalid timestamp value for variable '{variable.name}': "
-                            f"{resolved_timestamp_value}",
-                            extra={ExtraKeys.LOCATION: variable.variable_yaml.location},
+                            msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
+                                f"{resolved_timestamp_value}",
+                            extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                         )
 
             # Without this line, usage of NOW without declaring it will generate an error
@@ -170,29 +216,7 @@ class ContractYaml:
                 variables=resolved_variable_values, ignored_variable_names=ignored_variable_names, use_env_vars=True
             )
 
-        self.data_source: Optional[str] = (
-            self.contract_yaml_object.read_string("data_source") if self.contract_yaml_object else None
-        )
-        if (
-            self.contract_yaml_object
-            and self.contract_yaml_object.has_key("datasource")
-            and not self.contract_yaml_object.has_key("data_source")
-        ):
-            logger.error(
-                msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
-                extra={
-                    ExtraKeys.LOCATION: self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
-                },
-            )
-
-        self.dataset_prefix: Optional[list[str]] = (
-            self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix") if self.contract_yaml_object else None
-        )
-        self.dataset: Optional[str] = (
-            self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
-        )
-        self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
-        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+            return variable_yamls
 
     def _parse_columns(self, contract_yaml_object: YamlObject) -> Optional[list[Optional[ColumnYaml]]]:
         columns: Optional[list[Optional[ColumnYaml]]] = None
@@ -337,12 +361,12 @@ class ContractYaml:
 
 
 class VariableYaml:
-    def __init__(self, variable_name: str, variable_yaml: YamlObject):
-        self.variable_yaml: YamlObject = variable_yaml
+    def __init__(self, variable_name: str, variable_yaml_object: YamlObject):
+        self.variable_yaml_object: YamlObject = variable_yaml_object
         self.name: str = variable_name
-        self.type: any = variable_yaml.read_string_opt("type") if variable_yaml else None
-        self.required: any = variable_yaml.read_bool_opt("required") if variable_yaml else None
-        self.default: any = variable_yaml.read_string_opt("default") if variable_yaml else None
+        self.type: any = variable_yaml_object.read_string_opt("type") if variable_yaml_object else None
+        self.required: any = variable_yaml_object.read_bool_opt("required") if variable_yaml_object else None
+        self.default: any = variable_yaml_object.read_string_opt("default") if variable_yaml_object else None
 
 
 class ValidReferenceDataYaml:
