@@ -13,7 +13,7 @@ class Location:
         self.column: Optional[int] = column
 
     def __str__(self) -> str:
-        src_description: str = self.file_path if self.file_path else "source file position "
+        src_description: str = self.file_path if self.file_path else "location"
         return f"{src_description}[{self.line},{self.column}]"
 
     def __hash__(self) -> int:

@@ -9,13 +9,12 @@ from io import StringIO
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.data_source_parser import DataSourceParser
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import VariableResolver, YamlFileContent, YamlSource
+from soda_core.common.yaml import VariableResolver, YamlSource
 from soda_core.contracts.contract_verification import (
     Check,
     CheckOutcome,
@@ -196,11 +195,9 @@ class ContractVerificationSessionImpl:
             else {}
         )
         for data_source_yaml_source in data_source_yaml_sources:
-            data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-                file_type="data source", variables=variables
+            data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
+                data_source_yaml_source=data_source_yaml_source, variables=variables
             )
-            data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-            data_source_impl = data_source_parser.parse()
             data_source_impl_by_name[data_source_impl.name] = data_source_impl
         return data_source_impl_by_name
 
@@ -214,10 +211,7 @@ class ContractVerificationSessionImpl:
         if soda_cloud_impl:
             return soda_cloud_impl
         if soda_cloud_yaml_source:
-            soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-                file_type="soda cloud", variables=variables
-            )
-            return SodaCloud.from_file(soda_cloud_yaml_file_content)
+            return SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables)
         return None
 
     @classmethod
@@ -258,17 +252,11 @@ class ContractVerificationSessionImpl:
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )
-
-                if soda_cloud_impl.can_publish_and_verify_contract(
-                    data_source_name=contract_yaml.data_source,
-                    dataset_prefix=contract_yaml.dataset_prefix,
-                    dataset_name=contract_yaml.dataset,
-                ):
-                    contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
-                        contract_yaml=contract_yaml,
-                        blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
-                    )
-                    contract_verification_results.append(contract_verification_result)
+                contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
+                    contract_yaml=contract_yaml,
+                    blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                )
+                contract_verification_results.append(contract_verification_result)
             except:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         return contract_verification_results
@@ -339,7 +327,9 @@ class ContractImpl:
 
     def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
         now_variable_name: str = "DATA_TS"
-        now_variable_timestamp_text = VariableResolver.get_variable(variables=variables, variable=now_variable_name)
+        now_variable_timestamp_text = VariableResolver.get_variable(
+            namespace="var", variables=variables, variable=now_variable_name
+        )
         if isinstance(now_variable_timestamp_text, str):
             try:
                 now_variable_timestamp = datetime.fromisoformat(now_variable_timestamp_text)
@@ -430,7 +420,7 @@ class ContractImpl:
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
             f"{verb} contract {Emoticons.SCROLL} "
-            f"{self.contract_yaml.contract_yaml_file_content.yaml_file_path} {Emoticons.FINGERS_CROSSED}"
+            f"{self.contract_yaml.contract_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
         if not self.logs.has_errors():
@@ -533,8 +523,8 @@ class ContractImpl:
             dataset_name=self.dataset_name,
             soda_qualified_dataset_name=self.soda_qualified_dataset_name,
             source=YamlFileContentInfo(
-                source_content_str=self.contract_yaml.contract_yaml_file_content.yaml_str_source,
-                local_file_path=self.contract_yaml.contract_yaml_file_content.yaml_file_path,
+                source_content_str=self.contract_yaml.contract_yaml_source.yaml_str_original,
+                local_file_path=self.contract_yaml.contract_yaml_source.file_path,
             ),
         )
 
@@ -1019,7 +1009,7 @@ class CheckImpl:
         self.check_yaml: CheckYaml = check_yaml
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
-        self.name: Optional[str] = None
+        self.name: Optional[str] = check_yaml.name if check_yaml.name else self.type
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -1044,6 +1034,7 @@ class CheckImpl:
     def _build_check_info(self) -> Check:
         return Check(
             type=self.type,
+            qualifier=self.check_yaml.qualifier,
             name=self.name,
             identity=self.identity,
             definition=self._build_definition(),
@@ -1069,7 +1060,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.contract_yaml.contract_yaml_file_content.yaml_file_path,
+            self.contract_impl.contract_yaml.contract_yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,

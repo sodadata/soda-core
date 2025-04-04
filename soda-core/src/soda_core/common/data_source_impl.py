@@ -13,7 +13,7 @@ from soda_core.common.statements.metadata_columns_query import (
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlFileContent, YamlSource
+from soda_core.common.yaml import YamlObject, YamlSource
 from soda_core.contracts.contract_verification import DataSource
 
 logger: logging.Logger = soda_logger
@@ -21,41 +21,64 @@ logger: logging.Logger = soda_logger
 
 class DataSourceImpl(ABC):
     @classmethod
+    def from_yaml_source(
+        cls, data_source_yaml_source: YamlSource, variables: Optional[dict] = None
+    ) -> Optional[DataSourceImpl]:
+        assert isinstance(data_source_yaml_source, YamlSource)
+
+        data_source_yaml_source.set_file_type("Data source")
+        data_source_yaml_source.resolve(variables=variables)
+        data_source_yaml: YamlObject = data_source_yaml_source.parse()
+        if not data_source_yaml:
+            return None
+
+        data_source_type_name: str = data_source_yaml.read_string("type")
+        data_source_name: Optional[str] = data_source_yaml.read_string("name")
+
+        connection_yaml: YamlObject = data_source_yaml.read_object_opt("connection")
+        connection_properties: Optional[dict] = None
+        if connection_yaml:
+            connection_properties = connection_yaml.to_dict()
+
+        return DataSourceImpl.create(
+            data_source_yaml_source=data_source_yaml_source,
+            name=data_source_name,
+            type_name=data_source_type_name,
+            connection_properties=connection_properties,
+        )
+
+    @classmethod
     def create(
         cls,
-        data_source_yaml_file_content: YamlFileContent,
+        data_source_yaml_source: YamlSource,
         name: str,
         type_name: str,
         connection_properties: dict,
-        format_regexes: dict[str, str],
     ) -> DataSourceImpl:
         from soda_core.common.data_sources.postgres_data_source import (
             PostgresDataSourceImpl,
         )
 
         return PostgresDataSourceImpl(
-            data_source_yaml_file_content=data_source_yaml_file_content,
+            data_source_yaml_source=data_source_yaml_source,
             name=name,
             type_name=type_name,
             connection_properties=connection_properties,
-            format_regexes=format_regexes,
         )
 
     def __init__(
         self,
-        data_source_yaml_file_content: YamlFileContent,
+        data_source_yaml_source: YamlSource,
         name: str,
         type_name: str,
         connection_properties: dict,
-        format_regexes: dict[str, str],
     ):
-        self.data_source_yaml_file_content: YamlFileContent = data_source_yaml_file_content
+        self.data_source_yaml_source: YamlSource = data_source_yaml_source
         self.name: str = name
         self.type_name: str = type_name
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
         self.connection_properties: Optional[dict] = connection_properties
         self.data_source_connection: Optional[DataSourceConnection] = None
-        self.format_regexes: dict[str, str] = format_regexes
 
     def __str__(self) -> str:
         return self.name
@@ -164,17 +187,6 @@ class DataSourceImpl(ABC):
         if format_regex is None:
             logger.error(f"Validity format regex '{format}' not configured " f"in data source 'format_regexes'")
         return format_regex
-
-    @classmethod
-    def from_file(cls, data_source_file_path: str) -> Optional[DataSourceImpl]:
-        data_source_yaml_source: YamlSource = YamlSource.from_file_path(data_source_file_path)
-        data_source_yaml_file_content: YamlFileContent = data_source_yaml_source.parse_yaml_file_content(
-            file_type="data source", variables={}
-        )
-        from soda_core.common.data_source_parser import DataSourceParser
-
-        data_source_parser: DataSourceParser = DataSourceParser(data_source_yaml_file_content)
-        return data_source_parser.parse()
 
     def test_connection_error_message(self) -> Optional[str]:
         try:

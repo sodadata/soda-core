@@ -4,7 +4,6 @@ import base64
 import json
 import logging
 import os
-import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -16,12 +15,17 @@ from typing import Optional
 
 import requests
 from requests import Response
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
-from soda_core.common.yaml import YamlFileContent, YamlObject
+from soda_core.common.yaml import YamlObject, YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    Check,
     CheckOutcome,
     CheckResult,
     Contract,
@@ -72,25 +76,44 @@ class TimestampToCreatedLoggingFilter(logging.Filter):
 
 
 class SodaCloud:
-    # Singleton instance
-    _instance = None
-
     # Constants
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
     CSV_TEXT_MAX_LENGTH = 1500
 
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(SodaCloud, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+    @classmethod
+    def from_yaml_source(
+        cls, soda_cloud_yaml_source: YamlSource, variables: Optional[dict[str, str]]
+    ) -> Optional[SodaCloud]:
+        soda_cloud_yaml_source.set_file_type("Soda Cloud")
+        soda_cloud_yaml_source.resolve(variables=variables)
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
 
-    def __init__(self, host: str = None, api_key_id: str = None, api_key_secret: str = None,
-                 token: Optional[str] = None, port: Optional[str] = None, scheme: Optional[str] = None):
-        # Only initialize once
-        if self._initialized:
-            return
+        if not soda_cloud_yaml_root_object:
+            logger.error(f"Invalid Soda Cloud config file: No valid YAML object as file content")
+            return None
 
+        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
+        if not soda_cloud_yaml_object:
+            logger.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
+
+        return SodaCloud(
+            host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id"),
+            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret"),
+            token=soda_cloud_yaml_object.read_string_opt(key="token"),
+            port=soda_cloud_yaml_object.read_string_opt(key="port"),
+            scheme=soda_cloud_yaml_object.read_string_opt(key="scheme", default_value="https"),
+        )
+
+    def __init__(
+        self,
+        host: str,
+        api_key_id: str,
+        api_key_secret: str,
+        token: Optional[str],
+        port: Optional[str],
+        scheme: Optional[str],
+    ):
         self.host = host
         self.port = f":{port}" if port else ""
         self.scheme = scheme if scheme else "https"
@@ -101,38 +124,6 @@ class SodaCloud:
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
-        self._initialized = True
-
-    @classmethod
-    def from_file(cls, soda_cloud_file_content: YamlFileContent) -> Optional[SodaCloud]:
-        if not isinstance(soda_cloud_file_content, YamlFileContent):
-            logger.error(f"soda_cloud_file_content is not a YamlFileContent: {type(soda_cloud_file_content)}")
-            return None
-
-        if not soda_cloud_file_content.has_yaml_object():
-            logger.error(f"Invalid Soda Cloud config file: No valid YAML object as file content")
-            return None
-
-        soda_cloud_yaml_root_object: YamlObject = soda_cloud_file_content.get_yaml_object()
-
-        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
-        if not soda_cloud_yaml_object:
-            logger.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
-
-        return cls(
-            host=soda_cloud_yaml_object.read_string_opt(
-                key="host", env_var="SODA_CLOUD_HOST", default_value="cloud.soda.io"
-            ),
-            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", env_var="SODA_CLOUD_API_KEY_ID"),
-            api_key_secret=soda_cloud_yaml_object.read_string(
-                key="api_key_secret", env_var="SODA_CLOUD_API_KEY_SECRET"
-            ),
-            token=soda_cloud_yaml_object.read_string_opt(key="token", env_var="SODA_CLOUD_TOKEN"),
-            port=soda_cloud_yaml_object.read_string_opt(key="port", env_var="SODA_CLOUD_PORT"),
-            scheme=soda_cloud_yaml_object.read_string_opt(
-                key="scheme", env_var="SODA_CLOUD_SCHEME", default_value="https"
-            ),
-        )
 
     def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
@@ -249,8 +240,10 @@ class SodaCloud:
     def _build_check_result_cloud_dict(self, check_result: CheckResult) -> dict:
         check_result_cloud_dict: dict = {
             "identities": {"vc1": check_result.check.identity},
+            "checkPath": self._build_check_path(check_result),
             "name": check_result.check.name,
             "type": "generic",
+            "checkType": check_result.check.type,
             "definition": check_result.check.definition,
             "resourceAttributes": [],  # TODO
             "location": {
@@ -290,6 +283,18 @@ class SodaCloud:
             }
         return check_result_cloud_dict
 
+    def _build_check_path(self, check_result: CheckResult) -> str:
+        check: Check = check_result.check
+        parts: list[str] = []
+        if check.column_name:
+            parts.append("columns")
+            parts.append(check.column_name)
+        parts.append("checks")
+        parts.append(check_result.check.type)
+        if check.qualifier:
+            parts.append(check.qualifier)
+        return ".".join(parts)
+
     def _build_log_cloud_json_dict(self, log_record: LogRecord, index: int) -> dict:
         return {
             "level": log_record.levelname.lower(),
@@ -298,9 +303,11 @@ class SodaCloud:
             "index": index,
             "doc": log_record.doc if hasattr(log_record, "doc") else None,
             "exception": log_record.exception if hasattr(log_record, "exception") else None,
-            "location": log_record.location.get_dict()
-            if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
-            else None,
+            "location": (
+                log_record.location.get_dict()
+                if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
+                else None
+            ),
         }
 
     def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
@@ -355,11 +362,11 @@ class SodaCloud:
             return ContractPublicationResult(contract=None)
 
         logger.info(
-            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_file_content.yaml_file_path} "
+            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_source.file_path} "
             f"{Emoticons.FINGERS_CROSSED}"
         )
-        contract_yaml_source_str = contract_yaml.contract_yaml_file_content.yaml_str_source
-        contract_local_file_path = contract_yaml.contract_yaml_file_content.yaml_file_path
+        contract_yaml_str_original = contract_yaml.contract_yaml_source.yaml_str_original
+        contract_local_file_path = contract_yaml.contract_yaml_source.file_path
         data_source_name = contract_yaml.data_source
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
@@ -367,7 +374,7 @@ class SodaCloud:
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             data_source_name, dataset_prefix, dataset_name
         )
-        if not can_publish_and_verify:
+        if not can_publish_and_verify or not contract_yaml_str_original:
             if reason is None:
                 logger.error(f"Skipping contract publication because of an error (see logs)")
             else:
@@ -378,7 +385,7 @@ class SodaCloud:
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical("Uploading the contract file failed")
@@ -471,17 +478,47 @@ class SodaCloud:
     def verify_contract_on_agent(
         self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
     ) -> ContractVerificationResult:
-        contract_yaml_source_str: str = contract_yaml.contract_yaml_file_content.yaml_str_source
-        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_file_content.yaml_file_path
+        contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
+        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path
         data_source_name = contract_yaml.data_source
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
+
+        can_publish_and_verify, reason = self.can_publish_and_verify_contract(
+            data_source_name, dataset_prefix, dataset_name
+        )
+        if not can_publish_and_verify:
+            if reason is None:
+                logger.error(f"Skipping contract verification because of an error (see logs)")
+            else:
+                logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
+            return ContractVerificationResult(
+                contract=Contract(
+                    data_source_name=data_source_name,
+                    dataset_prefix=dataset_prefix,
+                    dataset_name=dataset_name,
+                    soda_qualified_dataset_name=None,
+                    source=YamlFileContentInfo(
+                        local_file_path=contract_local_file_path,
+                        source_content_str=contract_yaml_str_original,
+                        soda_cloud_file_id=None,
+                    ),
+                ),
+                data_source=None,
+                data_timestamp=None,
+                started_timestamp=None,
+                ended_timestamp=None,
+                measurements=[],
+                check_results=[],
+                sending_results_to_soda_cloud_failed=True,
+                log_records=None,
+            )
 
         soda_cloud_file_path: str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
+            yaml_str_source=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
@@ -503,7 +540,6 @@ class SodaCloud:
 
         log_records: Optional[list[LogRecord]] = None
         if response.status_code == 200 and scan_id:
-            soda_cloud_scan_url: Optional[str]
             scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
                 scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
             )
@@ -540,12 +576,13 @@ class SodaCloud:
                             level_logrecord: int = logging.getLevelName(level_cloud.upper())
 
                             timestamp_cloud: str = soda_cloud_log_dict.get("timestamp")
-                            timestamp_datetime: datetime = self.convert_str_to_datetime(timestamp_cloud)
-                            timestamp_logrecord: float = timestamp_datetime.timestamp() + (
-                                timestamp_datetime.microsecond / 1000000
-                            )
-                            # For explanation, see TimestampToCreatedLoggingFilter
-                            extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
+                            timestamp_datetime: datetime = convert_str_to_datetime(timestamp_cloud)
+                            if isinstance(timestamp_datetime, datetime):
+                                timestamp_logrecord: float = timestamp_datetime.timestamp() + (
+                                    timestamp_datetime.microsecond / 1000000
+                                )
+                                # For explanation, see TimestampToCreatedLoggingFilter
+                                extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
 
                             location_dict: Optional[dict] = soda_cloud_log_dict.get(ExtraKeys.LOCATION)
                             if isinstance(location_dict, dict):
@@ -668,10 +705,13 @@ class SodaCloud:
                         f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
                         f"via header X-Soda-Next-Poll-Time"
                     )
-                    next_poll_time: datetime = self.convert_str_to_datetime(next_poll_time_str)
-                    now = datetime.now(timezone.utc)
-                    time_to_wait = next_poll_time - now
-                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                    next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                    if isinstance(next_poll_time, datetime):
+                        now = datetime.now(timezone.utc)
+                        time_to_wait = next_poll_time - now
+                        time_to_wait_in_seconds = time_to_wait.total_seconds()
+                    else:
+                        time_to_wait_in_seconds = 60
                 if time_to_wait_in_seconds > 0:
                     logger.debug(
                         f"Sleeping {time_to_wait_in_seconds} seconds before asking "
@@ -847,7 +887,7 @@ class SodaCloud:
         if isinstance(o, Decimal):
             return float(o)
         if isinstance(o, datetime):
-            return SodaCloud.convert_datetime_to_str(o)
+            return convert_datetime_to_str(o)
         if isinstance(o, date):
             return o.strftime("%Y-%m-%d")
         if isinstance(o, time):
@@ -859,19 +899,3 @@ class SodaCloud:
         if isinstance(o, Exception):
             return str(o)
         raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
-
-    @classmethod
-    def convert_datetime_to_str(cls, dt: datetime) -> str:
-        return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
-
-    @classmethod
-    def convert_str_to_datetime(cls, date_string: str) -> datetime:
-        # fromisoformat raises ValueError if date_string ends with a Z:
-        # Eg Invalid isoformat string: '2025-02-21T06:16:59Z'
-        if date_string.endswith("Z"):
-            # Z means Zulu time, which is UTC
-            # Converting timezone to format that fromisoformat understands
-            datetime_str_without_z: str = date_string[:-1]
-            datetime_str_without_z_seconds = re.sub(r"\.(\d+)$", "", datetime_str_without_z)
-            date_string = f"{datetime_str_without_z_seconds}+00:00"
-        return datetime.fromisoformat(date_string)

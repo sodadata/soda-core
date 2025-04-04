@@ -165,6 +165,7 @@ class Threshold:
 class Check:
     column_name: Optional[str]
     type: str
+    qualifier: Optional[str]
     name: str  # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
     identity: str
     definition: str
@@ -268,6 +269,8 @@ class ContractVerificationResult:
         return "\n".join(self.get_errors())
 
     def has_errors(self) -> bool:
+        if self.log_records is None:
+            return False
         return any(r.levelno >= ERROR for r in self.log_records)
 
     def is_failed(self) -> bool:

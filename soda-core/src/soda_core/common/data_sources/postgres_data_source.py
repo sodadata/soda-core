@@ -2,7 +2,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.yaml import YamlFileContent
+from soda_core.common.yaml import YamlSource
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
@@ -11,13 +11,12 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import (
 class PostgresDataSourceImpl(DataSourceImpl):
     def __init__(
         self,
-        data_source_yaml_file_content: YamlFileContent,
+        data_source_yaml_source: YamlSource,
         name: str,
         type_name: str,
         connection_properties: dict,
-        format_regexes: dict[str, str],
     ):
-        super().__init__(data_source_yaml_file_content, name, type_name, connection_properties, format_regexes)
+        super().__init__(data_source_yaml_source, name, type_name, connection_properties)
 
     def get_data_source_type_name(self) -> str:
         return "postgres"

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import re
-from abc import abstractmethod
 from numbers import Number
 from typing import Iterable, Optional
 
@@ -22,196 +21,167 @@ class YamlParser:
 
 
 class YamlSource:
-    @classmethod
-    def from_str(cls, yaml_str: str) -> YamlSource:
-        return StrYamlSource(yaml_str=yaml_str)
+    """
+    YamlSource is an abstraction for 2 types of YAML sources: file and string.
+    It does lazy loading of the file so that errors are only generated when resolving or parsing.
+    It's a stateful object that allows for optional variable resolving.
 
-    @classmethod
-    def from_file_path(cls, yaml_file_path: str) -> YamlSource:
-        return FileYamlSource(yaml_file_path=yaml_file_path)
-
-    @classmethod
-    def from_dict(cls, yaml_dict: dict) -> YamlSource:
-        return DictYamlSource(yaml_dict=yaml_dict)
-
-    @abstractmethod
-    def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None
-    ) -> YamlFileContent:
-        pass
+    Usage:
 
 
-class FileYamlSource(YamlSource):
-    def __init__(self, yaml_file_path: str):
-        super().__init__()
-        self.yaml_file_path: str = yaml_file_path
+    yaml_source: YamlSource = YamlSource.from_str(
+        yaml_str="...yaml...",
+        file_path="./some/contract.yml" # optional
+    )
+    # or
+    yaml_source: YamlSource = YamlSource.from_file_path(
+        file_path="./some/contract.yml"
+    )
 
-    def __str__(self) -> str:
-        return self.yaml_file_path
+    # The default file type is 'yaml file'.
+    # Parsers can update the file type to get a better description and more concrete error messages
+    yaml_source.set_file_type("contract")
 
-    def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None
-    ) -> YamlFileContent:
-        yaml_source_description: str = (
-            f"{file_type} file '{self.yaml_file_path}'" if file_type else f"'{self.yaml_file_path}'"
-        )
-        yaml_str: Optional[str] = YamlFileContent.read_yaml_file(
-            file_path=self.yaml_file_path, yaml_source_description=yaml_source_description
-        )
-        yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=yaml_str, variables=variables)
-        yaml_dict: Optional[dict] = YamlFileContent.parse_yaml_dict(
-            yaml_str=yaml_str_resolved,
-            yaml_file_path=self.yaml_file_path,
-            yaml_source_description=yaml_source_description,
-        )
-        return YamlFileContent(
-            yaml_file_path=self.yaml_file_path,
-            yaml_source_description=yaml_source_description,
-            yaml_str_source=yaml_str,
-            yaml_str_resolved=yaml_str_resolved,
-            yaml_dict=yaml_dict,
-        )
+    # Optionally resolve variables as many times as you like:
+    # resolving will trigger file loading (if applicable)
+    yaml_source.resolve(variables={}, use_env_vars=True)
 
+    # parse will create the YamlObject
+    # resolving will trigger file loading (if applicable)
+    yaml_object: YamlObject = yaml_source.parse()
+    """
 
-class StrYamlSource(YamlSource):
-    def __init__(self, yaml_str: str, file_path: Optional[str] = "yaml_string.yml"):
-        super().__init__()
-        self.yaml_str: str = yaml_str
-        self.file_path: Optional[str] = file_path
-
-    def __str__(self) -> str:
-        return self.file_path if isinstance(self.file_path, str) else "yaml_str"
-
-    def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None
-    ) -> YamlFileContent:
-        yaml_source_description: str = f"{file_type} yaml string" if file_type else "yaml string"
-        yaml_str_resolved: str = YamlFileContent.resolve_yaml_str(yaml_str=self.yaml_str, variables=variables)
-        yaml_dict: Optional[dict] = YamlFileContent.parse_yaml_dict(
-            yaml_str=yaml_str_resolved,
-            yaml_file_path=yaml_source_description,
-            yaml_source_description=yaml_source_description,
-        )
-        return YamlFileContent(
-            yaml_file_path=self.file_path,
-            yaml_source_description=yaml_source_description,
-            yaml_str_source=self.yaml_str,
-            yaml_str_resolved=yaml_str_resolved,
-            yaml_dict=yaml_dict,
-        )
-
-
-class DictYamlSource(YamlSource):
-    def __init__(self, yaml_dict: dict, file_path: Optional[str] = "yaml_dict.yml"):
-        super().__init__()
-        self.yaml_dict: dict = yaml_dict
-        self.file_path: Optional[str] = file_path
-
-    def __str__(self) -> str:
-        return self.file_path if isinstance(self.file_path, str) else "yaml_dict"
-
-    def parse_yaml_file_content(
-        self, file_type: Optional[str] = None, variables: Optional[dict] = None
-    ) -> YamlFileContent:
-        yaml_source_description: str = f"{file_type} yaml dict" if file_type else "yaml dict"
-        return YamlFileContent(
-            yaml_file_path=self.file_path,
-            yaml_source_description=yaml_source_description,
-            yaml_str_source=None,
-            yaml_str_resolved=None,
-            yaml_dict=self.yaml_dict,
-        )
-
-
-class YamlFileContent:
     __yaml_parser = YamlParser()
 
-    def __init__(
-        self,
-        yaml_file_path: Optional[str],
-        yaml_source_description: Optional[str],
-        yaml_str_source: Optional[str],
-        yaml_str_resolved: Optional[str],
-        yaml_dict: Optional[dict],
-    ):
-        self.yaml_file_path: Optional[str] = yaml_file_path
-        self.yaml_source_description: Optional[str] = yaml_source_description
-        self.yaml_str_source: Optional[str] = yaml_str_source
-        self.yaml_str_resolved: Optional[str] = yaml_str_resolved
-        self.yaml_dict: Optional[dict] = yaml_dict
+    @classmethod
+    def from_str(cls, yaml_str: str, file_path: Optional[str] = None) -> YamlSource:
+        """
+        Raises an assertion exception if yaml_str is not a str
+        """
+        assert isinstance(yaml_str, str)
+        return YamlSource(file_path=file_path, yaml_str=yaml_str)
 
     @classmethod
-    def read_yaml_file(cls, file_path: str, yaml_source_description: str) -> Optional[str]:
-        if isinstance(file_path, str):
+    def from_file_path(cls, file_path: str) -> YamlSource:
+        """
+        Raises an assertion exception if file_path is not a str
+        """
+        assert isinstance(file_path, str)
+        return YamlSource(file_path=file_path)
+
+    def __init__(self, file_path: Optional[str] = None, yaml_str: Optional[str] = None):
+        self.file_type: Optional[str] = None
+        self.file_path: str = file_path
+        self.description: str = self._build_description(self.file_type, self.file_path)
+        self.is_file_read: bool = False
+        self.yaml_str: Optional[str] = yaml_str
+        self.yaml_str_original: Optional[str] = yaml_str
+        self.resolve_on_read: bool = False
+        self.resolve_on_read_variables: Optional[dict[str, str]] = None
+        self.resolve_on_read_use_env_vars: bool = True
+        self.resolve_on_read_ignored_variable_names: Optional[set[str]] = None
+
+    def __str__(self) -> str:
+        return self.description
+
+    @classmethod
+    def _build_description(cls, file_type: str, file_path: Optional[str]) -> str:
+        if file_type:
+            if file_path:
+                return f"{file_type} file '{file_path}'"
+            else:
+                return f"{file_type} YAML string"
+        else:
+            if file_path:
+                return f"YAML file '{file_path}'"
+            else:
+                return f"YAML string"
+
+    def set_file_type(self, file_type: str) -> None:
+        self.file_type: str = file_type
+        self.description: str = self._build_description(self.file_type, self.file_path)
+
+    def _ensure_yaml_str(self) -> None:
+        if not isinstance(self.yaml_str, str) and isinstance(self.file_path, str) and not self.is_file_read:
+            # There should be only 1 reading attempt.
+            self.is_file_read = True
             try:
-                with open(file_path) as f:
-                    file_content_str: str = f.read()
-                    if len(file_content_str) > 0:
-                        return file_content_str
-                    else:
-                        logger.error(f"{yaml_source_description} is empty")
+                with open(self.file_path) as f:
+                    self.yaml_str = f.read()
+                    self.yaml_str_original = self.yaml_str
+                    if len(self.yaml_str) == 0:
+                        logger.error(f"{self.description} is empty")
 
             except OSError as e:
-                if not os.path.exists(file_path):
-                    logger.error(f"{yaml_source_description} does not exist")
-                elif not os.path.isdir(file_path):
-                    logger.error(f"{yaml_source_description} is a directory")
+                if not os.path.exists(self.file_path):
+                    logger.error(f"{self.description} does not exist")
+                elif not os.path.isdir(self.file_path):
+                    logger.error(f"{self.description} is a directory")
                 else:
-                    logger.error(f"{yaml_source_description} can't be read", exc_info=True)
+                    logger.error(f"{self.description} can't be read", exc_info=True)
 
-    @classmethod
-    def resolve_yaml_str(cls, yaml_str: str, variables: Optional[dict]) -> Optional[str]:
-        return VariableResolver.resolve(source_text_with_variables=yaml_str, variables=variables)
+    def resolve(self, variables: Optional[dict[str, str]] = None, use_env_vars: bool = True) -> None:
+        """
+        Note: this does not change the object, but returns a new ResolvedYamlSource instead
+        """
+        self._ensure_yaml_str()
+        self.yaml_str = VariableResolver.resolve(
+            source_text=self.yaml_str, variables=variables, use_env_vars=use_env_vars
+        )
 
-    @classmethod
-    def parse_yaml_dict(cls, yaml_str: str, yaml_file_path: Optional[str], yaml_source_description: str) -> any:
-        if isinstance(yaml_str, str):
+    def resolve_on_read_value(self, variables: dict[str, str], ignored_variable_names: set[str], use_env_vars: bool):
+        self.resolve_on_read = True
+        self.resolve_on_read_variables = variables
+        self.resolve_on_read_use_env_vars = use_env_vars
+        self.resolve_on_read_ignored_variable_names = ignored_variable_names
+
+    def parse(self) -> Optional[YamlObject]:
+        self._ensure_yaml_str()
+        if isinstance(self.yaml_str, str):
             try:
-                root_yaml_object: any = cls.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
+                root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(self.yaml_str)
                 if isinstance(root_yaml_object, dict):
-                    return root_yaml_object
+                    return YamlObject(self, root_yaml_object)
                 else:
-                    location = Location(file_path=yaml_file_path, line=0, column=0)
+                    location = Location(file_path=self.file_path, line=0, column=0)
                     yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
                     yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
                     logger.error(
-                        msg=f"Root YAML in {yaml_source_description} must be an object, " f"but was {yaml_type}",
+                        msg=f"{self.description} root must be an object, " f"but was {yaml_type}",
                         extra={
                             ExtraKeys.LOCATION: location,
                         },
                     )
-                    return None
 
             except MarkedYAMLError as e:
                 mark = e.context_mark if e.context_mark else e.problem_mark
                 line = mark.line + 1
                 col = mark.column + 1
-                location = Location(file_path=yaml_file_path, line=line, column=col)
+                location = Location(file_path=self.file_path, line=line, column=col)
                 logger.error(
-                    msg=f"YAML syntax error in {yaml_source_description}",
+                    msg=f"YAML syntax error in {self.description}",
                     exc_info=True,
                     extra={ExtraKeys.LOCATION: location},
                 )
 
-    def get_yaml_object(self) -> Optional[YamlObject]:
-        return YamlObject(self, self.yaml_dict) if isinstance(self.yaml_dict, dict) else None
-
-    def has_yaml_object(self) -> bool:
-        return isinstance(self.yaml_dict, dict)
-
-    def __str__(self) -> str:
-        return self.yaml_source_description
-
 
 class YamlValue:
-    def __init__(self, yaml_file_content: YamlFileContent) -> None:
-        self.yaml_file_content: YamlFileContent = yaml_file_content
+    def __init__(self, yaml_source: YamlSource) -> None:
+        self.yaml_source: YamlSource = yaml_source
 
-    def _yaml_wrap(self, value):
+    def _yaml_wrap(self, value: any, location: Optional[Location] = None):
         if isinstance(value, dict):
-            return YamlObject(yaml_file_content=self.yaml_file_content, yaml_dict=value)
+            return YamlObject(yaml_source=self.yaml_source, yaml_dict=value)
         if isinstance(value, list):
-            return YamlList(yaml_file_content=self.yaml_file_content, yaml_list=value)
+            return YamlList(yaml_source=self.yaml_source, yaml_list=value)
+        if isinstance(value, str) and self.yaml_source.resolve_on_read:
+            value = VariableResolver.resolve(
+                source_text=value,
+                variables=self.yaml_source.resolve_on_read_variables,
+                use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
+                ignored_variable_names=self.yaml_source.resolve_on_read_ignored_variable_names,
+                location=location,
+            )
         return value
 
     @classmethod
@@ -229,10 +199,10 @@ def get_location(yaml_value: any, yaml_file_path: Optional[str]) -> Optional[Loc
 
 
 class YamlObject(YamlValue):
-    def __init__(self, yaml_file_content: YamlFileContent, yaml_dict: dict) -> None:
-        super().__init__(yaml_file_content)
+    def __init__(self, yaml_source: YamlSource, yaml_dict: dict) -> None:
+        super().__init__(yaml_source)
         self.yaml_dict: dict = yaml_dict
-        self.location: Optional[Location] = get_location(self.yaml_dict, yaml_file_content.yaml_file_path)
+        self.location: Optional[Location] = get_location(self.yaml_dict, yaml_source.file_path)
 
     def items(self) -> list[tuple]:
         return [(k, self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
@@ -378,6 +348,8 @@ class YamlObject(YamlValue):
         required: bool = False,
         default_value=None,
     ) -> Optional[object]:
+        location: Location = self.create_location_from_yaml_dict_key(key) if key in self.yaml_dict else self.location
+
         key_description: str = f"YAML key '{key}'"
         if env_var is not None and env_var in os.environ:
             key_description = f"Env var '{env_var}'"
@@ -407,12 +379,12 @@ class YamlObject(YamlValue):
             logger.error(
                 msg=(f"{key_description} expected a {expected_type.__name__}, " f"but was {actual_type_str}"),
                 extra={
-                    ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(key),
+                    ExtraKeys.LOCATION: location,
                 },
             )
             value = None
 
-        return self._yaml_wrap(value)
+        return self._yaml_wrap(value, location=location)
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
@@ -420,17 +392,17 @@ class YamlObject(YamlValue):
                 ruamel_location = self.yaml_dict.lc.value(key)
                 line: int = ruamel_location[0]
                 column: int = ruamel_location[1]
-                return Location(file_path=self.yaml_file_content.yaml_file_path, line=line, column=column)
+                return Location(file_path=self.yaml_source.file_path, line=line, column=column)
 
     def to_dict(self) -> dict:
         return self.yaml_dict
 
 
 class YamlList(YamlValue, Iterable):
-    def __init__(self, yaml_file_content: YamlFileContent, yaml_list: list) -> None:
-        super().__init__(yaml_file_content)
+    def __init__(self, yaml_source: YamlSource, yaml_list: list) -> None:
+        super().__init__(yaml_source)
         self.yaml_list: list = yaml_list
-        self.location: Optional[Location] = get_location(yaml_list, yaml_file_content.yaml_file_path)
+        self.location: Optional[Location] = get_location(yaml_list, yaml_source.file_path)
 
     def __iter__(self) -> iter:
         return iter([self._yaml_wrap(element) for element in self.yaml_list])
@@ -443,29 +415,84 @@ class YamlList(YamlValue, Iterable):
             ruamel_location = self.yaml_list.lc.item(index)
             line: int = ruamel_location[0]
             column: int = ruamel_location[1]
-            return Location(file_path=self.yaml_file_content.yaml_file_path, line=line, column=column)
+            return Location(file_path=self.yaml_source.file_path, line=line, column=column)
 
 
 class VariableResolver:
     @classmethod
-    def resolve(cls, source_text_with_variables: str, variables: Optional[dict[str, str]] = None) -> str:
-        if isinstance(source_text_with_variables, str):
+    def resolve(
+        cls,
+        source_text: str,
+        variables: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True,
+        ignored_variable_names: Optional[set[str]] = None,
+        location: Optional[Location] = None,
+    ) -> str:
+        if isinstance(source_text, str):
             return re.sub(
-                pattern=r"\$\{ *([a-zA-Z_][a-zA-Z_0-9]*)\ *}",
-                repl=lambda m: cls._resolve_variable_pattern(variables=variables, variable=m.group(1).strip()),
-                string=source_text_with_variables,
+                pattern=r"\$\{ *(env|var)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}",
+                repl=lambda m: cls._resolve_variable_pattern(
+                    namespace=m.group(1).strip(),
+                    variable=m.group(2).strip(),
+                    variables=variables,
+                    use_env_vars=use_env_vars,
+                    ignored_variable_names=ignored_variable_names,
+                    location=location,
+                ),
+                string=source_text,
             )
         else:
-            return source_text_with_variables
+            return source_text
 
     @classmethod
-    def _resolve_variable_pattern(cls, variables: dict[str, str], variable: str) -> str:
-        return cls.get_variable(variables=variables, variable=variable, default=f"${{{variable}}}")
+    def _resolve_variable_pattern(
+        cls,
+        namespace: str,
+        variable: str,
+        variables: dict[str, str],
+        use_env_vars: bool,
+        ignored_variable_names: Optional[set[str]] = None,
+        location: Optional[Location] = None,
+    ) -> str:
+        value: Optional[str] = cls.get_variable(
+            namespace=namespace,
+            variable=variable,
+            variables=variables,
+            use_env_vars=use_env_vars,
+            ignored_variable_names=ignored_variable_names,
+            location=location,
+        )
+        return value if isinstance(value, str) else f"${{{namespace}.{variable}}}"
 
     @classmethod
-    def get_variable(cls, variables: dict[str, str], variable: str, default: Optional[str] = None) -> Optional[str]:
-        if isinstance(variables, dict) and variable in variables:
-            return variables[variable]
-        if variable in os.environ:
-            return os.getenv(variable)
-        return default
+    def get_variable(
+        cls,
+        namespace: str,
+        variable: str,
+        variables: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True,
+        ignored_variable_names: Optional[set[str]] = None,
+        location: Optional[Location] = None,
+    ) -> Optional[str]:
+        if isinstance(variables, dict) and namespace == "var":
+            if isinstance(ignored_variable_names, set) and variable in ignored_variable_names:
+                logger.error(
+                    msg=(
+                        f"Variable '{variable}' was used and provided, but not declared. "
+                        f"Please add variable declaration to the contract"
+                    ),
+                    extra={ExtraKeys.LOCATION: location} if location else None,
+                )
+            return variables[variable] if isinstance(variables, dict) and variable in variables else None
+        elif namespace == "env":
+            if use_env_vars:
+                return os.getenv(variable) if variable in os.environ else None
+            else:
+                logger.error(
+                    msg=(
+                        f"Environment variable '{variable}' will not be resolved because environment variables are "
+                        f"not supported inside contract."
+                    ),
+                    extra={ExtraKeys.LOCATION: location} if location else None,
+                )
+        return None

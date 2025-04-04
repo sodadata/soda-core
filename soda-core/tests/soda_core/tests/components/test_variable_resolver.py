@@ -1,49 +1,58 @@
 from textwrap import dedent
+from typing import Optional
 
 from soda_core.common.yaml import VariableResolver
 
 
-def test_variable():
-    src = dedent(
-        """
-        host: ${HOST}
-    """
-    ).strip()
+def resolve(template: str, variables: Optional[dict] = None):
+    template_str_dedented = dedent(template).strip()
+    return VariableResolver.resolve(source_text=template_str_dedented, variables=variables)
 
-    result = VariableResolver.resolve(source_text_with_variables=src, variables={"HOST": "test.soda.io"})
-    assert "host: test.soda.io" == result
+
+def test_variable():
+    assert "host: test.soda.io" == resolve(
+        template="""
+            host: ${var.HOST}
+        """,
+        variables={"HOST": "test.soda.io"},
+    )
 
 
 def test_variable_with_spaces():
-    src = dedent(
-        """
-        host: ${  HOST }
-    """
-    ).strip()
-
-    result = VariableResolver.resolve(source_text_with_variables=src, variables={"HOST": "test.soda.io"})
-    assert "host: test.soda.io" == result
+    assert "host: test.soda.io" == resolve(
+        template="""
+            host: ${  var.HOST }
+        """,
+        variables={"HOST": "test.soda.io"},
+    )
 
 
 def test_variable_env_var(env_vars: dict):
-    src = dedent(
-        """
-        host: ${HOST}
-    """
-    ).strip()
-
     env_vars["HOST"] = "test.soda.io"
 
-    result = VariableResolver.resolve(source_text_with_variables=src)
-    assert "host: test.soda.io" == result
+    assert "host: test.soda.io" == resolve(
+        template="""
+            host: ${env.HOST}
+        """,
+        variables=None,
+    )
 
 
-def test_variable_not_found():
-    src = dedent(
-        """
-        host: ${HOST}
-    """
-    ).strip()
+def test_variable_not_found(env_vars: dict):
+    env_vars["HOST"] = "test.soda.io"
 
-    result = VariableResolver.resolve(source_text_with_variables=src)
-    assert "host: ${HOST}" == result
+    assert "host: ${var.HOST}" == resolve(
+        template="""
+            host: ${var.HOST}
+        """,
+        variables=None,
+    )
+
+
+def test_env_var_not_found(env_vars: dict):
+    assert "host: ${env.HOST}" == resolve(
+        template="""
+            host: ${env.HOST}
+        """,
+        variables={"HOST": "test.soda.io"},
+    )

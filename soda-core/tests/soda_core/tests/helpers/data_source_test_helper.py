@@ -14,7 +14,7 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
-from soda_core.common.yaml import YamlFileContent, YamlSource
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSession,
@@ -69,10 +69,14 @@ class DataSourceTestHelper:
 
     def enable_soda_cloud(self):
         logs: Logs = Logs()
-        soda_cloud_yaml_dict: dict = {"soda_cloud": {}}
-        soda_cloud_yaml_source: YamlSource = YamlSource.from_dict(soda_cloud_yaml_dict)
-        soda_cloud_yaml_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(logs=logs)
-        self.soda_cloud = SodaCloud.from_file(soda_cloud_yaml_file_content)
+        soda_cloud_yaml_str: str = """
+            soda_cloud:
+              host: ${env.SODA_CLOUD_HOST}
+              api_key_id: ${env.SODA_CLOUD_API_KEY_ID}
+              api_key_secret: ${env.SODA_CLOUD_API_KEY_SECRET}
+        """
+        soda_cloud_yaml_source: YamlSource = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
+        self.soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables={})
         if logs.has_errors():
             raise AssertionError(str(logs))
 
@@ -84,24 +88,24 @@ class DataSourceTestHelper:
         Called in constructor to initialized self.data_source
         """
         logs: Logs = Logs()
-        test_data_source_yaml_dict: dict = self._create_data_source_yaml_dict()
-        data_source_yaml_file = YamlSource.from_dict(yaml_dict=test_data_source_yaml_dict)
-        data_source_yaml_file_content: YamlFileContent = data_source_yaml_file.parse_yaml_file_content(
-            file_type="data source"
-        )
-        from soda_core.common.data_source_parser import DataSourceParser
+        data_source_yaml_source: YamlSource = self._create_data_source_yaml_source()
+        from soda_core.common.data_source_impl import DataSourceImpl
 
-        data_source_parser = DataSourceParser(data_source_yaml_file_content)
-        data_source_impl: "DataSourceImpl" = data_source_parser.parse()
+        data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
         assert not logs.has_errors()
         return data_source_impl
 
-    def _create_data_source_yaml_dict(self) -> dict:
+    def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
-        return {}
+        return ""
+
+    def _create_data_source_yaml_source(self) -> YamlSource:
+        test_data_source_yaml_str: str = self._create_data_source_yaml_str()
+        test_data_source_yaml_str = dedent(test_data_source_yaml_str).strip()
+        return YamlSource.from_str(yaml_str=test_data_source_yaml_str)
 
     def _create_dataset_prefix(self) -> list[str]:
         database_name: str = self._create_database_name()
@@ -388,7 +392,7 @@ class DataSourceTestHelper:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
 
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
+            contract_yaml_sources=[YamlSource.from_str(yaml_str=contract_yaml_str, file_path="yaml_string.yml")],
             only_validate_without_execute=True,
             variables=variables,
             data_source_impls=[self.data_source_impl],

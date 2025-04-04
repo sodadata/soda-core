@@ -8,9 +8,8 @@ def test_parse_relative_complete_contract():
     contract_yaml_source: YamlSource = YamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
-        data_source_file: ../../data_source_${env}.yml
-        dataset_prefix: [soda_test, dev_xxx]
         dataset: SODATEST_test_schema_31761d69
+        dataset_prefix: [soda_test, dev_xxx]
         columns:
           - name: id
             data_type: varchar(255)
@@ -22,9 +21,7 @@ def test_parse_relative_complete_contract():
         )
     )
 
-    contract_yaml: ContractYaml = ContractYaml.parse(
-        contract_yaml_source=contract_yaml_source, variables={"env": "test"}
-    )
+    contract_yaml: ContractYaml = ContractYaml.parse(contract_yaml_source=contract_yaml_source, variables={})
 
     assert ["soda_test", "dev_xxx"] == contract_yaml.dataset_prefix
     assert "SODATEST_test_schema_31761d69" == contract_yaml.dataset

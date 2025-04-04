@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
+from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.tests.helpers.mock_soda_cloud import (
@@ -51,12 +52,19 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
+              - name: id
               - name: age
                 missing_values: [-1, -2]
                 checks:
                   - missing:
                       threshold:
                         must_be_less_than_or_equal: 2
+                  - missing:
+                      qualifier: 2
+                      threshold:
+                        must_be_less_than_or_equal: 5
+            checks:
+              - schema:
         """,
     )
 
@@ -74,7 +82,10 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     request_2: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
     assert request_2.url.endswith("api/command")
     assert request_2.json["type"] == "sodaCoreInsertScanResults"
-    assert "env_var_scan_id" == request_2.json["scanId"]
+    assert request_2.json["scanId"] == "env_var_scan_id"
+    assert request_2.json["checks"][0]["checkPath"] == "checks.schema"
+    assert request_2.json["checks"][1]["checkPath"] == "columns.age.checks.missing"
+    assert request_2.json["checks"][2]["checkPath"] == "columns.age.checks.missing.2"
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
@@ -93,7 +104,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             MockResponse(
                 method=MockHttpMethod.GET,
                 status_code=200,
-                headers={"X-Soda-Next-Poll-Time": SodaCloud.convert_datetime_to_str(datetime.now())},
+                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now())},
                 json_object={
                     "scanId": "ssscanid",
                     "state": "running",
@@ -170,7 +181,7 @@ def test_publish_contract():
                     "checksum": "check",
                     "fileId": "fake_file_id",
                 },
-                "metadata": {"source": {"filePath": "yaml_string.yml", "type": "local"}},
+                "metadata": {"source": {"filePath": "yaml_string", "type": "local"}},
             },
         ),
     ]
@@ -195,4 +206,41 @@ def test_publish_contract():
     assert res.contract.dataset_name == "CUSTOMERS"
     assert res.contract.data_source_name == "test"
     assert res.contract.dataset_prefix == ["some", "schema"]
-    assert res.contract.source.local_file_path == "yaml_string.yml"
+    assert res.contract.source.local_file_path == "yaml_string"
+
+
+def test_verify_contract_on_agent_permission_check():
+    responses = [
+        MockResponse(
+            status_code=200,
+            json_object={
+                "allowed": False,
+                "reason": "missingManageContracts",
+            },
+        ),
+    ]
+    mock_cloud = MockSodaCloud(responses)
+
+    res = mock_cloud.verify_contract_on_agent(
+        ContractYaml.parse(
+            YamlSource.from_str(
+                f"""
+            dataset: CUSTOMERS
+            dataset_prefix: [some, schema]
+            data_source: test
+            columns:
+            - name: id
+        """
+            )
+        ),
+        blocking_timeout_in_minutes=60,
+    )
+
+    assert isinstance(res, ContractVerificationResult)
+    assert res.sending_results_to_soda_cloud_failed is True
+    assert res.contract.dataset_name == "CUSTOMERS"
+    assert res.contract.data_source_name == "test"
+    assert res.contract.dataset_prefix == ["some", "schema"]
+    assert res.check_results == []
+    assert res.measurements == []
+    assert res.log_records is None

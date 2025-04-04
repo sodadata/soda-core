@@ -42,16 +42,9 @@ class ContractVerificationSession:
     ) -> ContractVerificationSessionResult:
 ```
 
+### Variables in a contract verification
 
+Contracts can refer to variables`${var.VAR_NAME}`.  To pass variables in the Soda Python API for 
+contract verification, use parameter `variables={"MY_VAR": "somevalue"}`
 
-### Variables
-
-Use the syntax `${VAR_NAME}` in Soda YAML configuration files like data source and contract files to add dynamic content.
-Those variables will be resolved from the variables passed in the API `variables={"MY_VAR": "somevalue"}` and from 
-the environment variables.
-
-It is highly recommended to use variables for credentials in data source YAML files.
-
-User defined variables specified in the API have precedence over environment variables. 
-
-Variable are resolved case sensitive.
+See ['Contract variables' in the writing check files page](writing_check_files.md#contract-variables)
