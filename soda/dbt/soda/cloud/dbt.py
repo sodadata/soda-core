@@ -31,6 +31,7 @@ from soda.execution.check_outcome import CheckOutcome
 from soda.model.dataset import Dataset
 from soda.scan import Scan
 from soda.sodacl.dbt_check_cfg import DbtCheckCfg
+from security import safe_requests
 
 
 class DbtCloud:
@@ -265,7 +266,7 @@ class DbtCloud:
 
         self.scan._logs.info(f"Downloading artifact: {artifact}, from run: {run_id}")
 
-        response = requests.get(url, headers=headers)
+        response = safe_requests.get(url, headers=headers)
         if response.status_code != requests.codes.ok:
             response.raise_for_status()
 
@@ -279,7 +280,7 @@ class DbtCloud:
         headers["Content-Type"] = "application/json"
 
         query_params = {"job_definition_id": job_id, "order_by": "-finished_at"}
-        response = requests.get(url, headers=headers, params=query_params)
+        response = safe_requests.get(url, headers=headers, params=query_params)
 
         if response.status_code != requests.codes.ok:
             response.raise_for_status()
