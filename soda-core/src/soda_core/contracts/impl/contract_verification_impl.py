@@ -1009,7 +1009,7 @@ class CheckImpl:
         self.check_yaml: CheckYaml = check_yaml
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
-        self.name: Optional[str] = None
+        self.name: Optional[str] = check_yaml.name if check_yaml.name else self.type
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,

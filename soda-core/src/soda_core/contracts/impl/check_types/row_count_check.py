@@ -56,18 +56,7 @@ class RowCountCheckImpl(CheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be_greater_than=0),
         )
 
-        # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
         metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type_name, column_impl=column_impl)
-        self.name = (
-            check_yaml.name
-            if check_yaml.name
-            else (
-                self.threshold.get_assertion_summary(metric_name=metric_name)
-                if self.threshold
-                else f"{check_yaml.type_name} (invalid threshold)"
-            )
-        )
-
         self.summary = (
             self.threshold.get_assertion_summary(metric_name=metric_name)
             if self.threshold
