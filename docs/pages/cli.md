@@ -6,7 +6,7 @@ See [Install Soda Core in a Python virtual environment](./install.md)
 
 ### Step 2: Start a postgres database
 
-If you already have a PostgreSQL database available, you can use that one.  
+If you already have a PostgreSQL database available, you can use that one.
 If not, these instruction may help you to get one running on your machine:
 
 Copy this docker compose file locally: https://github.com/sodadata/soda-core/blob/v4/soda-postgres/docker-compose.yml
@@ -27,8 +27,8 @@ services:
       - POSTGRES_HOST_AUTH_METHOD=trust
 ```
 
-In this file, replace the credentials `***` with values of your choice.  You'll need to configure those 
-values in the data source configuration later, preferably via environment variables.  
+In this file, replace the credentials `***` with values of your choice.  You'll need to configure those
+values in the data source configuration later, preferably via environment variables.
 
 To start the postgres database with the above docker file, use command
 ```
