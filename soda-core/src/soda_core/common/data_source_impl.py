@@ -199,11 +199,7 @@ class DataSourceImpl(ABC):
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
 
-    def is_valid_dataset_prefix(self, dataset_prefix: Optional[list[str]]) -> bool:
-        if not isinstance(dataset_prefix, list):
-            return False
-        if len(dataset_prefix) != 2:
-            return False
-        if not all(isinstance(prefix_element, str) for prefix_element in dataset_prefix):
-            return False
-        return True
+    # Deprecated
+    def validate_dataset_qualified_name(self, dsn_parts: list[str]):
+        if not isinstance(dsn_parts, list) or len(dsn_parts) != 4:
+            logger.error(f"Invalid dataset qualified name: {dsn_parts}")

@@ -15,7 +15,7 @@ def test_contract_publication_fails_on_missing_soda_cloud_config():
         ContractPublication.builder()
         .with_contract_yaml_str(
             f"""
-          dataset: CUSTOMERS
+          dataset: ds/db/sch/CUSTOMERS
           columns:
             - name: id
         """
