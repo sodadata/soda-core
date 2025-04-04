@@ -444,9 +444,7 @@ class DataSourceTestHelper:
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
-            header_contract_yaml_str: str = (
-                f"dataset: {self.build_dqn(test_table)}\n"
-            )
+            header_contract_yaml_str: str = f"dataset: {self.build_dqn(test_table)}\n"
             checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
 

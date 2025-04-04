@@ -397,17 +397,8 @@ class SodaCloud:
             "type": "sodaCorePublishContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {
-                    "datasource": data_source_name,
-                    "prefixes": dataset_prefix,
-                    "name": dataset_name
-                },
-                "metadata": {
-                    "source": {
-                        "type": "local",
-                        "filePath": contract_local_file_path
-                    }
-                },
+                "dataset": {"datasource": data_source_name, "prefixes": dataset_prefix, "name": dataset_name},
+                "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
         }
         response: Response = self._execute_command(

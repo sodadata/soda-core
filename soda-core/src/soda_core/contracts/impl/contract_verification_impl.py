@@ -158,13 +158,10 @@ class ContractVerificationSessionImpl:
                         contract_yaml_source=contract_yaml_source, variables=variables
                     )
                     data_source_name: str = (
-                        contract_yaml.dataset[:contract_yaml.dataset.find("/")]
-                        if contract_yaml.dataset else None
+                        contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
                     )
                     data_source_impl: Optional[DataSourceImpl] = (
-                        cls._get_data_source_impl(
-                            data_source_name, data_source_impls_by_name, opened_data_sources
-                        )
+                        cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
                         if (contract_yaml and data_source_name and not only_validate_without_execute)
                         else None
                     )

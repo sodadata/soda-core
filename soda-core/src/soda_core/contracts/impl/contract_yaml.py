@@ -193,7 +193,7 @@ class ContractYaml:
                     ):
                         logger.error(
                             msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
-                                f"{resolved_timestamp_value}",
+                            f"{resolved_timestamp_value}",
                             extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                         )
 
