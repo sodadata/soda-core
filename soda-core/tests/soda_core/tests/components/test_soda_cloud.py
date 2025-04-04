@@ -52,12 +52,19 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
+              - name: id
               - name: age
                 missing_values: [-1, -2]
                 checks:
                   - missing:
                       threshold:
                         must_be_less_than_or_equal: 2
+                  - missing:
+                      qualifier: 2
+                      threshold:
+                        must_be_less_than_or_equal: 5
+            checks:
+              - schema:
         """,
     )
 
@@ -75,7 +82,10 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     request_2: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
     assert request_2.url.endswith("api/command")
     assert request_2.json["type"] == "sodaCoreInsertScanResults"
-    assert "env_var_scan_id" == request_2.json["scanId"]
+    assert request_2.json["scanId"] == "env_var_scan_id"
+    assert request_2.json["checks"][0]["checkPath"] == "checks.schema"
+    assert request_2.json["checks"][1]["checkPath"] == "columns.age.checks.missing"
+    assert request_2.json["checks"][2]["checkPath"] == "columns.age.checks.missing.2"
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):

@@ -1034,6 +1034,7 @@ class CheckImpl:
     def _build_check_info(self) -> Check:
         return Check(
             type=self.type,
+            qualifier=self.check_yaml.qualifier,
             name=self.name,
             identity=self.identity,
             definition=self._build_definition(),

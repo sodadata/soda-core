@@ -38,14 +38,14 @@ class MissingCheckParser(CheckParser):
         column_impl: Optional[ColumnImpl],
         check_yaml: MissingCheckYaml,
     ) -> Optional[CheckImpl]:
-        return MissingCheck(
+        return MissingCheckImpl(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
 
 
-class MissingCheck(MissingAndValidityCheckImpl):
+class MissingCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,

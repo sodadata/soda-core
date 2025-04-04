@@ -24,6 +24,7 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlObject, YamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    Check,
     CheckOutcome,
     CheckResult,
     Contract,
@@ -239,6 +240,7 @@ class SodaCloud:
     def _build_check_result_cloud_dict(self, check_result: CheckResult) -> dict:
         check_result_cloud_dict: dict = {
             "identities": {"vc1": check_result.check.identity},
+            "checkPath": self._build_check_path(check_result),
             "name": check_result.check.name,
             "type": "generic",
             "checkType": check_result.check.type,
@@ -280,6 +282,18 @@ class SodaCloud:
                 "fail": fail_threshold,
             }
         return check_result_cloud_dict
+
+    def _build_check_path(self, check_result: CheckResult) -> str:
+        check: Check = check_result.check
+        parts: list[str] = []
+        if check.column_name:
+            parts.append("columns")
+            parts.append(check.column_name)
+        parts.append("checks")
+        parts.append(check_result.check.type)
+        if check.qualifier:
+            parts.append(check.qualifier)
+        return ".".join(parts)
 
     def _build_log_cloud_json_dict(self, log_record: LogRecord, index: int) -> dict:
         return {

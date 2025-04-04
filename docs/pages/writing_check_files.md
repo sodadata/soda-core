@@ -5,6 +5,11 @@
 Example contract YAML file:
 ```
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+dataset: dqn://postgres_adventureworks/adventureworks/advw/dim_employee
+dqn: postgres_adventureworks/adventureworks/advw/dim_employee
+dqn: dqn://postgres_adventureworks/adventureworks/advw/dim_employee
+
+
 
 columns:
   - name: id

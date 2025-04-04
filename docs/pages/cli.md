@@ -230,4 +230,4 @@ This command will
 
 ### Specifying variables in the CLI
 
-TODO document how to specify variables in the CLI
+`soda contract verify --set key=value ...`
