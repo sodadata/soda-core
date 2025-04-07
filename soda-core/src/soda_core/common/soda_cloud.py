@@ -8,9 +8,10 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
+from soda_core.common.exceptions import SodaCloudAuthenticationFailedException
 from tempfile import TemporaryFile
 from time import sleep
-from typing import Optional
+from typing import Optional, Any
 
 import requests
 from requests import Response
@@ -124,6 +125,7 @@ class SodaCloud:
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
+
 
     def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
@@ -823,6 +825,12 @@ class SodaCloud:
                 )
 
             return response
+        except SodaCloudAuthenticationFailedException:
+            logger.critical(
+                msg="Soda Cloud authentication failed. The provided API keys are unknown or invalid. "
+                    "Please verify your credentials."
+            )
+            raise
         except Exception as e:
             logger.critical(
                 msg=f"Error while executing Soda Cloud {request_type} {request_log_name}",
@@ -882,7 +890,7 @@ class SodaCloud:
                 url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_log_name="get_token"
             )
             if login_response.status_code != 200:
-                raise AssertionError(f"Soda Cloud login failed {login_response.status_code}. Check credentials.")
+                raise SodaCloudAuthenticationFailedException()
             login_response_json = login_response.json()
 
             self.token = login_response_json.get("token")
