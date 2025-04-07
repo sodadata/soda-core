@@ -219,7 +219,8 @@ class SodaCloud:
                     "metadata": {
                         "source": {
                             "type": "local",
-                            "filePath": contract_verification_result.contract.source.local_file_path,
+                            # TODO: make contract metadata verification optional on BE?
+                            "filePath": contract_verification_result.contract.source.local_file_path or "REMOTE",
                         }
                     },
                 },
@@ -652,9 +653,9 @@ class SodaCloud:
             - an unexpected response is received from the backend
         """
 
-        logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset {dataset_identifier}")
+        logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
         parsed_identifier = ContractIdentifier.parse(dataset_identifier)
-        request = {"type": "sodaCoreContractFile", "dataset": {
+        request = {"type": "sodaCoreGetContractFile", "dataset": {
             "datasource": parsed_identifier.data_source,
             "prefixes": parsed_identifier.prefixes,
             "name": parsed_identifier.dataset,
@@ -663,6 +664,35 @@ class SodaCloud:
 
         if response.status_code != 200:
             logger.error(f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'")
+            return None
+
+        response_dict = response.json()
+        return response_dict.get("contents")
+
+
+    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> Optional[str]:
+        """Fetches the data source configuration for the source associated with the given dataset identifier.
+
+        Returns:
+            The data source configuration content as a string, or None if:
+            - the data source or dataset does not exist
+            - an unexpected response is received from the backend
+        """
+
+        logger.info(f"{Emoticons.CLOUD} Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'")
+        parsed_identifier = ContractIdentifier.parse(dataset_identifier)
+        request = {
+            "type": "sodaCoreGetDatasourceConfigurationFile",
+            "dataset": {
+                "datasource": parsed_identifier.data_source,
+                "prefixes": parsed_identifier.prefixes,
+                "name": parsed_identifier.dataset,
+            }
+        }
+        response = self._execute_query(request, request_log_name="get_contract_data_source_configuration")
+
+        if response.status_code != 200:
+            logger.error(f"{Emoticons.CROSS_MARK} Failed to retrieve data source configuration for dataset '{dataset_identifier}'")
             return None
 
         response_dict = response.json()

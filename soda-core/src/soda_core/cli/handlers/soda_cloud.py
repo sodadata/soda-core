@@ -3,7 +3,7 @@ from pathlib import Path
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.yaml import YamlSource
 from textwrap import dedent
 from typing import Optional
 
@@ -43,10 +43,7 @@ def handle_test_soda_cloud(soda_cloud_file_path: str):
 
     print(f"Testing soda cloud file {soda_cloud_file_path}")
     soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
-    soda_cloud_file_content: YamlFileContent = soda_cloud_yaml_source.parse_yaml_file_content(
-        file_type="soda_cloud", variables={}
-    )
-    soda_cloud = SodaCloud.from_file(soda_cloud_file_content)
+    soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source, variables=None)
     error_msg: Optional[str] = None
     if soda_cloud:
         soda_cloud.test_connection()

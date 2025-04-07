@@ -1,5 +1,5 @@
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.common.yaml import YamlSource, YamlFileContent
+from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
@@ -7,7 +7,7 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.common.logging_constants import soda_logger, Emoticons
 from soda_core.common.soda_cloud import SodaCloud
-from typing import Optional, Dict
+from typing import Optional
 
 
 def handle_verify_contract(
@@ -19,37 +19,47 @@ def handle_verify_contract(
     use_agent: bool,
     blocking_timeout_in_minutes: int,
 ) -> ExitCode:
-    if all_none_or_empty(contract_file_paths, dataset_identifiers):
-        soda_logger.error("At least one of -c/--contract or -d/--dataset value is required.")
-        return ExitCode.LOG_ERRORS
+    validate_verify_arguments(contract_file_paths, dataset_identifiers, data_source_file_path, soda_cloud_file_path)
 
-    if dataset_identifiers and not soda_cloud_file_path:
-        soda_logger.error("A Soda Cloud configuration is required to use the -d/--dataset switch.")
-        return ExitCode.LOG_ERRORS
+    soda_cloud_client: Optional[SodaCloud] = None
+    if soda_cloud_file_path:
+        soda_cloud_client = SodaCloud.from_yaml_source(YamlSource.from_file_path(soda_cloud_file_path), variables=None)
 
     contract_yaml_sources: list[YamlSource] = []
+
     contract_yaml_sources += [
-            YamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths
+        YamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths or []
+    ]
+
+    if is_using_remote_contract(dataset_identifiers) and soda_cloud_client:
+        contract_yaml_sources += [
+            YamlSource.from_str(soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)) for
+            dataset_identifier in dataset_identifiers
         ]
 
-    if soda_cloud_file_path:
-        soda_cloud_client = SodaCloud.from_file(
-            YamlSource.from_file_path(soda_cloud_file_path).parse_yaml_file_content(
-                file_type="soda cloud", variables=None)
-        )
+    data_source_yaml_source: Optional[YamlSource] = None
 
-        if is_using_remote_contract(dataset_identifiers):
-            contract_yaml_sources += [
-                YamlSource.from_str(soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)) for
-                dataset_identifier in dataset_identifiers
-            ]
+    if data_source_file_path:
+        data_source_yaml_source = YamlSource.from_file_path(data_source_file_path)
+
+    if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
+        # TODO: decide on implications of this
+        if len(dataset_identifiers) > 1:
+            soda_logger.error(f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
+                              f"Please pass a single dataset identifier.")
+            return ExitCode.LOG_ERRORS
+
+        dataset_identifier = dataset_identifiers[0]
+
+        soda_logger.debug(f"No local data source config, trying to fetch data source config from cloud")
+        data_source_yaml_source = YamlSource.from_str(
+            soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
+        )
 
     # TODO: pass the Soda Cloud client directly into subsequent methods
     contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
         contract_yaml_sources=contract_yaml_sources,
-        data_source_yaml_sources=(
-            [YamlSource.from_file_path(data_source_file_path)] if data_source_file_path else []
-        ),
+        data_source_yaml_sources=[data_source_yaml_source],
         soda_cloud_yaml_source=(YamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None),
         soda_cloud_publish_results=publish,
         soda_cloud_use_agent=use_agent,
@@ -59,12 +69,34 @@ def handle_verify_contract(
     return interpret_contract_verification_result(contract_verification_session_result)
 
 
+def validate_verify_arguments(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    data_source_file_path: Optional[str],
+    soda_cloud_file_path: Optional[str],
+):
+    if all_none_or_empty(contract_file_paths, dataset_identifiers):
+        soda_logger.error("At least one of -c/--contract or -d/--dataset value is required.")
+        return ExitCode.LOG_ERRORS
+
+    if dataset_identifiers and not soda_cloud_file_path:
+        soda_logger.error("A Soda Cloud configuration is required to use the -d/--dataset switch.")
+        return ExitCode.LOG_ERRORS
+
+    if all_none_or_empty(dataset_identifiers) and not data_source_file_path:
+        soda_logger.error("At least one of -ds/--data-source or -d/--dataset value is required.")
+
+
 def all_none_or_empty(*args: list | None) -> bool:
     return all(x is None or len(x) == 0 for x in args)
 
 
 def is_using_remote_contract(dataset_identifiers: Optional[list[str]]) -> bool:
     return dataset_identifiers is not None
+
+
+def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
+    return not data_source_file_path and not all_none_or_empty(dataset_identifiers)
 
 
 def contract_verification_is_not_sent_to_cloud(
