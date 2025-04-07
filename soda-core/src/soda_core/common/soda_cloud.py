@@ -8,7 +8,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from soda_core.common.exceptions import SodaCloudAuthenticationFailedException
+from soda_core.common.exceptions import SodaCloudAuthenticationFailedException, InvalidSodaCloudConfigurationException
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional, Any
@@ -90,12 +90,22 @@ class SodaCloud:
         soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
 
         if not soda_cloud_yaml_root_object:
-            logger.error(f"Invalid Soda Cloud config file: No valid YAML object as file content")
+            logger.error("Invalid Soda Cloud config file: No valid YAML object as file content")
             return None
 
         soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
         if not soda_cloud_yaml_object:
-            logger.debug(f"key 'soda_cloud' is required in a Soda Cloud configuration file.")
+            logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
+
+        if not soda_cloud_yaml_object.has_key("api_key_id"):
+            raise InvalidSodaCloudConfigurationException(
+                f"Missing required 'api_key_id' property in your Soda Cloud configuration."
+            )
+
+        if not soda_cloud_yaml_object.has_key("api_key_secret"):
+            raise InvalidSodaCloudConfigurationException(
+                f"Missing required 'api_key_secret' property in your Soda Cloud configuration."
+            )
 
         return SodaCloud(
             host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
@@ -826,10 +836,6 @@ class SodaCloud:
 
             return response
         except SodaCloudAuthenticationFailedException:
-            logger.critical(
-                msg="Soda Cloud authentication failed. The provided API keys are unknown or invalid. "
-                    "Please verify your credentials."
-            )
             raise
         except Exception as e:
             logger.critical(
@@ -890,7 +896,10 @@ class SodaCloud:
                 url=f"{self.api_url}/command", headers=self.headers, json=login_command, request_log_name="get_token"
             )
             if login_response.status_code != 200:
-                raise SodaCloudAuthenticationFailedException()
+                raise SodaCloudAuthenticationFailedException(
+                    "Soda Cloud authentication failed. The provided API keys are unknown or invalid. "
+                    "Please verify your credentials."
+                )
             login_response_json = login_response.json()
 
             self.token = login_response_json.get("token")

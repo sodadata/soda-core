@@ -72,7 +72,8 @@ def handle_verify_contract(
         )
 
         return interpret_contract_verification_result(contract_verification_session_result)
-    except SodaCloudAuthenticationFailedException:
+    except Exception as exc:
+        soda_logger.error(exc)
         return ExitCode.LOG_ERRORS
 
 
