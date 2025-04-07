@@ -1,17 +1,26 @@
 from __future__ import annotations
 
-import sys
-
-from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.contract import handle_publish_contract, handle_verify_contract, handle_test_contract
-from soda_core.cli.handlers.data_source import handle_create_data_source, handle_test_data_source
-from soda_core.cli.handlers.soda_cloud import handle_create_soda_cloud, handle_test_soda_cloud
-from soda_core.common.logging_configuration import configure_logging
-from soda_core.common.logging_constants import soda_logger
-
 import signal
+import sys
 import traceback
 from argparse import ArgumentParser
+
+from soda_core.cli.exit_codes import ExitCode
+from soda_core.cli.handlers.contract import (
+    handle_publish_contract,
+    handle_test_contract,
+    handle_verify_contract,
+)
+from soda_core.cli.handlers.data_source import (
+    handle_create_data_source,
+    handle_test_data_source,
+)
+from soda_core.cli.handlers.soda_cloud import (
+    handle_create_soda_cloud,
+    handle_test_soda_cloud,
+)
+from soda_core.common.logging_configuration import configure_logging
+from soda_core.common.logging_constants import soda_logger
 
 
 def execute() -> None:
@@ -78,7 +87,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser = contract_parsers.add_parser("verify", help="Verify a contract")
 
     verify_parser.add_argument(
-        "-c", "--contract",
+        "-c",
+        "--contract",
         type=str,
         nargs="+",
         help="One or more contract file paths. Use this to work with local contracts.",
@@ -107,7 +117,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         type=int,
         default=60,
         help="Max time in minutes that the CLI should wait for the contract "
-             "verification to complete on Soda Agent.  Default is 60 minutes.",
+        "verification to complete on Soda Agent.  Default is 60 minutes.",
     )
     verify_parser.add_argument(
         "-p",
@@ -152,9 +162,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
 def _setup_contract_publish_command(contract_parsers) -> None:
     publish_parser = contract_parsers.add_parser("publish", help="Publish a contract")
-    publish_parser.add_argument(
-        "-c", "--contract", type=str, nargs="+", help="One or more contract file paths."
-    )
+    publish_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
 
     publish_parser.add_argument(
         "-sc",
@@ -183,15 +191,9 @@ def _setup_contract_publish_command(contract_parsers) -> None:
 
 
 def _setup_contract_test_command(contract_parsers) -> None:
-    test_contract_parser = contract_parsers.add_parser(
-        name="test", help="Test a contract syntax without executing it"
-    )
-    test_contract_parser.add_argument(
-        "-c", "--contract", type=str, nargs="+", help="One or more contract file paths."
-    )
-    test_contract_parser.add_argument(
-        "-ds", "--data-source", type=str, help="The data source configuration file."
-    )
+    test_contract_parser = contract_parsers.add_parser(name="test", help="Test a contract syntax without executing it")
+    test_contract_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
+    test_contract_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
 
     test_contract_parser.add_argument(
         "-v",
@@ -255,9 +257,7 @@ def _setup_data_source_create_command(data_source_parsers) -> None:
 
 def _setup_data_source_test_command(data_source_parsers) -> None:
     test_parser = data_source_parsers.add_parser("test", help="Test a data source connection")
-    test_parser.add_argument(
-        "-ds", "--data-source", type=str, help="The name of a configured data source to test."
-    )
+    test_parser.add_argument("-ds", "--data-source", type=str, help="The name of a configured data source to test.")
 
     test_parser.add_argument(
         "-v",
@@ -343,6 +343,7 @@ def handle_ctrl_c(self, sig, frame):
     soda_logger.info("")
     soda_logger.info(f"CTRL+C detected")
     exit_with_code(ExitCode.LOG_ERRORS)
+
 
 if __name__ == "__main__":
     execute()

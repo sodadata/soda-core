@@ -20,5 +20,7 @@ class ContractIdentifier:
         return "/".join([self.data_source] + self.prefixes + [self.dataset])
 
     def __repr__(self):
-        return (f"ContractIdentifier(data_source='{self.data_source}', "
-                f"prefixes={self.prefixes}, dataset='{self.dataset}')")
+        return (
+            f"ContractIdentifier(data_source='{self.data_source}', "
+            f"prefixes={self.prefixes}, dataset='{self.dataset}')"
+        )

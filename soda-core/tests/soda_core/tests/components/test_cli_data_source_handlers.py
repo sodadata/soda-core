@@ -1,6 +1,10 @@
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import MagicMock, mock_open, patch
+
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.data_source import handle_create_data_source, handle_test_data_source
+from soda_core.cli.handlers.data_source import (
+    handle_create_data_source,
+    handle_test_data_source,
+)
 
 
 @patch("soda_core.cli.handlers.data_source.exists", return_value=True)

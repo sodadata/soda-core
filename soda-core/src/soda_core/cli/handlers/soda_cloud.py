@@ -1,11 +1,12 @@
-from os.path import exists, dirname
+from os.path import dirname, exists
 from pathlib import Path
+from textwrap import dedent
+from typing import Optional
+
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlSource
-from textwrap import dedent
-from typing import Optional
 
 
 def handle_create_soda_cloud(soda_cloud_file_path: str) -> ExitCode:
@@ -35,6 +36,7 @@ def handle_create_soda_cloud(soda_cloud_file_path: str) -> ExitCode:
         soda_logger.error(f"An unexpected exception occurred: {exc}")
         return ExitCode.LOG_ERRORS
 
+
 def handle_test_soda_cloud(soda_cloud_file_path: str):
     from soda_core.common.soda_cloud import SodaCloud
 
@@ -56,5 +58,7 @@ def handle_test_soda_cloud(soda_cloud_file_path: str):
         soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Could not connect to Soda Cloud: {error_msg}")
         return ExitCode.LOG_ERRORS
     else:
-        soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'")
+        soda_logger.info(
+            f"{Emoticons.WHITE_CHECK_MARK} Success! Tested Soda Cloud credentials in '{soda_cloud_file_path}'"
+        )
         return ExitCode.OK

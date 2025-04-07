@@ -1,13 +1,14 @@
+from typing import Optional
+
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import YamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
-    ContractVerificationSessionResult,
     ContractVerificationSession,
+    ContractVerificationSessionResult,
 )
-from soda_core.common.logging_constants import soda_logger, Emoticons
-from soda_core.common.soda_cloud import SodaCloud
-from typing import Optional
 
 
 def handle_verify_contract(
@@ -33,8 +34,8 @@ def handle_verify_contract(
 
     if is_using_remote_contract(dataset_identifiers) and soda_cloud_client:
         contract_yaml_sources += [
-            YamlSource.from_str(soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)) for
-            dataset_identifier in dataset_identifiers
+            YamlSource.from_str(soda_cloud_client.fetch_contract_for_dataset(dataset_identifier))
+            for dataset_identifier in dataset_identifiers
         ]
 
     data_source_yaml_source: Optional[YamlSource] = None
@@ -45,8 +46,10 @@ def handle_verify_contract(
     if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
         # TODO: decide on implications of this
         if len(dataset_identifiers) > 1:
-            soda_logger.error(f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
-                              f"Please pass a single dataset identifier.")
+            soda_logger.error(
+                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
+                f"Please pass a single dataset identifier."
+            )
             return ExitCode.LOG_ERRORS
 
         dataset_identifier = dataset_identifiers[0]
@@ -100,10 +103,11 @@ def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_so
 
 
 def contract_verification_is_not_sent_to_cloud(
-    contract_verification_session_result: ContractVerificationSessionResult
+    contract_verification_session_result: ContractVerificationSessionResult,
 ) -> bool:
     return any(
-        cr.sending_results_to_soda_cloud_failed for cr in contract_verification_session_result.contract_verification_results
+        cr.sending_results_to_soda_cloud_failed
+        for cr in contract_verification_session_result.contract_verification_results
     )
 
 
@@ -154,4 +158,3 @@ def handle_test_contract(
             return ExitCode.OK
 
     return ExitCode.OK
-

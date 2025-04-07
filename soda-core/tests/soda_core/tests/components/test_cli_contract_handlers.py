@@ -1,24 +1,32 @@
-import pytest
+from unittest.mock import MagicMock, patch
 
+import pytest
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
-    handle_verify_contract, handle_publish_contract, handle_test_contract, ContractVerificationSession
+    ContractVerificationSession,
+    handle_publish_contract,
+    handle_test_contract,
+    handle_verify_contract,
 )
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
-    ContractPublication, ContractPublicationResultList, ContractPublicationResult
+    ContractPublication,
+    ContractPublicationResult,
+    ContractPublicationResultList,
 )
-from unittest.mock import patch, MagicMock
 
 
-@pytest.mark.parametrize("has_errors, has_failures, cloud_failed, expected_exit_code", [
-    (False, False, False, ExitCode.OK),
-    (False, True, False, ExitCode.CHECK_FAILURES),
-    (True, False, False, ExitCode.LOG_ERRORS),
-    (True, True, False, ExitCode.LOG_ERRORS),
-    (False, False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
-    (True, True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
-])
+@pytest.mark.parametrize(
+    "has_errors, has_failures, cloud_failed, expected_exit_code",
+    [
+        (False, False, False, ExitCode.OK),
+        (False, True, False, ExitCode.CHECK_FAILURES),
+        (True, False, False, ExitCode.LOG_ERRORS),
+        (True, True, False, ExitCode.LOG_ERRORS),
+        (False, False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+        (True, True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+    ],
+)
 @patch.object(ContractVerificationSession, "execute")
 def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failures, cloud_failed, expected_exit_code):
     mock_contract_result = MagicMock()
@@ -58,12 +66,15 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_dataset_names_wit
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-@pytest.mark.parametrize("has_errors, cloud_failed, expected_exit_code", [
-    (False, False, ExitCode.OK),
-    (True, False, ExitCode.LOG_ERRORS),
-    # (False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),  # TODO: support exit code 4 detection
-    # (True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
-])
+@pytest.mark.parametrize(
+    "has_errors, cloud_failed, expected_exit_code",
+    [
+        (False, False, ExitCode.OK),
+        (True, False, ExitCode.LOG_ERRORS),
+        # (False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),  # TODO: support exit code 4 detection
+        # (True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+    ],
+)
 @patch.object(ContractPublication, "builder")
 def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_failed, expected_exit_code):
     mock_logs = MagicMock(spec=Logs)
@@ -86,10 +97,13 @@ def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_fail
     assert exit_code == expected_exit_code
 
 
-@pytest.mark.parametrize("has_errors, expected_exit_code", [
-    (False, ExitCode.OK),
-    (True, ExitCode.LOG_ERRORS),
-])
+@pytest.mark.parametrize(
+    "has_errors, expected_exit_code",
+    [
+        (False, ExitCode.OK),
+        (True, ExitCode.LOG_ERRORS),
+    ],
+)
 @patch.object(ContractVerificationSession, "execute")
 def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit_code):
     mock_result = MagicMock()
@@ -97,9 +111,6 @@ def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit
 
     mock_execute.return_value = mock_result
 
-    exit_code = handle_test_contract(
-        contract_file_paths=["contract.yaml"],
-        data_source_file_path="ds.yaml"
-    )
+    exit_code = handle_test_contract(contract_file_paths=["contract.yaml"], data_source_file_path="ds.yaml")
 
     assert exit_code == expected_exit_code

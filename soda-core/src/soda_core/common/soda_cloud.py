@@ -8,7 +8,6 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from soda_core.contracts.contract import ContractIdentifier
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional
@@ -23,6 +22,7 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.contracts.contract import ContractIdentifier
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
     Check,
@@ -137,9 +137,7 @@ class SodaCloud:
 
         return file_id
 
-    def send_contract_result(
-        self, contract_verification_result: ContractVerificationResult
-    ) -> bool:
+    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> bool:
         """
         Returns True if a 200 OK was received, False otherwise
         """
@@ -161,9 +159,7 @@ class SodaCloud:
         else:
             return False
 
-    def _build_contract_result_json(
-        self, contract_verification_result: ContractVerificationResult
-    ) -> dict:
+    def _build_contract_result_json(self, contract_verification_result: ContractVerificationResult) -> dict:
         check_result_cloud_json_dicts = [
             self._build_check_result_cloud_dict(check_result)
             for check_result in contract_verification_result.check_results
@@ -655,20 +651,24 @@ class SodaCloud:
 
         logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
         parsed_identifier = ContractIdentifier.parse(dataset_identifier)
-        request = {"type": "sodaCoreGetContractFile", "dataset": {
-            "datasource": parsed_identifier.data_source,
-            "prefixes": parsed_identifier.prefixes,
-            "name": parsed_identifier.dataset,
-        }}
+        request = {
+            "type": "sodaCoreGetContractFile",
+            "dataset": {
+                "datasource": parsed_identifier.data_source,
+                "prefixes": parsed_identifier.prefixes,
+                "name": parsed_identifier.dataset,
+            },
+        }
         response = self._execute_query(request, request_log_name="get_contract_file")
 
         if response.status_code != 200:
-            logger.error(f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'")
+            logger.error(
+                f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'"
+            )
             return None
 
         response_dict = response.json()
         return response_dict.get("contents")
-
 
     def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> Optional[str]:
         """Fetches the data source configuration for the source associated with the given dataset identifier.
@@ -679,7 +679,9 @@ class SodaCloud:
             - an unexpected response is received from the backend
         """
 
-        logger.info(f"{Emoticons.CLOUD} Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'")
+        logger.info(
+            f"{Emoticons.CLOUD} Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'"
+        )
         parsed_identifier = ContractIdentifier.parse(dataset_identifier)
         request = {
             "type": "sodaCoreGetDatasourceConfigurationFile",
@@ -687,17 +689,18 @@ class SodaCloud:
                 "datasource": parsed_identifier.data_source,
                 "prefixes": parsed_identifier.prefixes,
                 "name": parsed_identifier.dataset,
-            }
+            },
         }
         response = self._execute_query(request, request_log_name="get_contract_data_source_configuration")
 
         if response.status_code != 200:
-            logger.error(f"{Emoticons.CROSS_MARK} Failed to retrieve data source configuration for dataset '{dataset_identifier}'")
+            logger.error(
+                f"{Emoticons.CROSS_MARK} Failed to retrieve data source configuration for dataset '{dataset_identifier}'"
+            )
             return None
 
         response_dict = response.json()
         return response_dict.get("contents")
-
 
     def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
         """

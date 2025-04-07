@@ -6,6 +6,7 @@ class ExitCode(IntEnum):
 
     See https://docs.soda.io/soda-library/programmatic.html#scan-exit-codes
     """
+
     OK = 0
     CHECK_FAILURES = 1
     LOG_WARNINGS = 2

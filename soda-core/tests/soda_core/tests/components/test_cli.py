@@ -1,71 +1,75 @@
 import sys
+from unittest.mock import patch
 
 import pytest
-
-import tempfile
-from argparse import ArgumentParser, ArgumentError
 from soda_core.cli.exit_codes import ExitCode
-from typing import Optional, Callable
-
-# from soda_core.cli.soda import CLI
-from soda_core.contracts.contract_verification import (
-    ContractVerificationResult,
-    ContractVerificationSessionResult,
-)
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.test_functions import dedent_and_strip
-from soda_core.tests.helpers.test_table import TestTableSpecification
-
-import sys
-from unittest.mock import patch
 from soda_core.cli.soda import create_cli_parser
 
+# from soda_core.cli.soda import CLI
 
-@pytest.mark.parametrize("args, expected", [
-    (
-        [
-            "soda", "contract", "verify",
-            "-c", "a.yaml", "b.yaml",
-            "-d", "some/remote/dataset/identifier",
-            "-ds", "ds.yaml",
-            "-sc", "cloud.yaml",
-            "-a",
-            "-btm", "42",
-            "-p",
-            "-v",
-        ],
-        [
-            ["a.yaml", "b.yaml"],
-            ["some/remote/dataset/identifier"],
-            "ds.yaml",
-            "cloud.yaml",
-            True,
-            True,
-            42,
-        ]
-    ),
-    (
-        [
-            "soda", "contract", "verify",
-            "-d", "some-dataset",
-            "-ds", "ds.yaml",
-            "-sc", "cloud.yaml",
-            "-a",
-            "-btm", "42",
-            "-p",
-            "-v",
-        ],
-        [
-            None,
-            ["some-dataset"],
-            "ds.yaml",
-            "cloud.yaml",
-            True,
-            True,
-            42,
-        ]
-    )
-])
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        (
+            [
+                "soda",
+                "contract",
+                "verify",
+                "-c",
+                "a.yaml",
+                "b.yaml",
+                "-d",
+                "some/remote/dataset/identifier",
+                "-ds",
+                "ds.yaml",
+                "-sc",
+                "cloud.yaml",
+                "-a",
+                "-btm",
+                "42",
+                "-p",
+                "-v",
+            ],
+            [
+                ["a.yaml", "b.yaml"],
+                ["some/remote/dataset/identifier"],
+                "ds.yaml",
+                "cloud.yaml",
+                True,
+                True,
+                42,
+            ],
+        ),
+        (
+            [
+                "soda",
+                "contract",
+                "verify",
+                "-d",
+                "some-dataset",
+                "-ds",
+                "ds.yaml",
+                "-sc",
+                "cloud.yaml",
+                "-a",
+                "-btm",
+                "42",
+                "-p",
+                "-v",
+            ],
+            [
+                None,
+                ["some-dataset"],
+                "ds.yaml",
+                "cloud.yaml",
+                True,
+                True,
+                42,
+            ],
+        ),
+    ],
+)
 @patch("soda_core.cli.soda.handle_verify_contract")
 def test_cli_argument_mapping_for_contract_verify_command(mock_handler, args, expected):
     mock_handler.return_value = ExitCode.OK.value
@@ -81,13 +85,19 @@ def test_cli_argument_mapping_for_contract_verify_command(mock_handler, args, ex
 
     mock_handler.assert_called_once_with(*expected)
 
+
 def test_verify_command_raises_exception_when_none_of_contract_or_dataset_specified():
     sys.argv = [
-        "soda", "contract", "verify",
-        "-ds", "ds.yaml",
-        "-sc", "cloud.yaml",
+        "soda",
+        "contract",
+        "verify",
+        "-ds",
+        "ds.yaml",
+        "-sc",
+        "cloud.yaml",
         "-a",
-        "-btm", "42",
+        "-btm",
+        "42",
         "-p",
         "-v",
     ]
@@ -99,13 +109,19 @@ def test_verify_command_raises_exception_when_none_of_contract_or_dataset_specif
 
     assert ExitCode.LOG_ERRORS == e.value.code
 
+
 @patch("soda_core.cli.soda.handle_publish_contract")
 def test_cli_argument_mapping_for_contract_publish_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
-        "soda", "contract", "publish",
-        "-c", "a.yaml", "b.yaml",
-        "-sc", "cloud.yaml",
+        "soda",
+        "contract",
+        "publish",
+        "-c",
+        "a.yaml",
+        "b.yaml",
+        "-sc",
+        "cloud.yaml",
         "-v",
     ]
 
@@ -127,9 +143,14 @@ def test_cli_argument_mapping_for_contract_publish_command(mock_handler):
 def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
-        "soda", "contract", "test",
-        "-c", "a.yaml", "b.yaml",
-        "-ds", "ds.yaml",
+        "soda",
+        "contract",
+        "test",
+        "-c",
+        "a.yaml",
+        "b.yaml",
+        "-ds",
+        "ds.yaml",
         "-v",
     ]
 
@@ -151,9 +172,13 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
 def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
-        "soda", "data-source", "create",
-        "-f", "ds.yaml",
-        "-t", "postgres",
+        "soda",
+        "data-source",
+        "create",
+        "-f",
+        "ds.yaml",
+        "-t",
+        "postgres",
         "-v",
     ]
 
@@ -165,17 +190,18 @@ def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with(
-        "ds.yaml", "postgres"
-    )
+    mock_handler.assert_called_once_with("ds.yaml", "postgres")
 
 
 @patch("soda_core.cli.soda.handle_test_data_source")
 def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
-        "soda", "data-source", "test",
-        "-ds", "ds.yaml",
+        "soda",
+        "data-source",
+        "test",
+        "-ds",
+        "ds.yaml",
         "-v",
     ]
 
@@ -187,17 +213,18 @@ def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with(
-        "ds.yaml"
-    )
+    mock_handler.assert_called_once_with("ds.yaml")
 
 
 @patch("soda_core.cli.soda.handle_create_soda_cloud")
 def test_cli_argument_mapping_for_soda_cloud_create_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
-        "soda", "cloud", "create",
-        "-f", "sc.yaml",
+        "soda",
+        "cloud",
+        "create",
+        "-f",
+        "sc.yaml",
         "-v",
     ]
 
@@ -209,17 +236,18 @@ def test_cli_argument_mapping_for_soda_cloud_create_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with(
-        "sc.yaml"
-    )
+    mock_handler.assert_called_once_with("sc.yaml")
 
 
 @patch("soda_core.cli.soda.handle_test_soda_cloud")
 def test_cli_argument_mapping_for_soda_cloud_test_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
-        "soda", "cloud", "test",
-        "-sc", "sc.yaml",
+        "soda",
+        "cloud",
+        "test",
+        "-sc",
+        "sc.yaml",
         "-v",
     ]
 
@@ -231,9 +259,8 @@ def test_cli_argument_mapping_for_soda_cloud_test_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with(
-        "sc.yaml"
-    )
+    mock_handler.assert_called_once_with("sc.yaml")
+
 
 # class CLI4Test(CLI):
 #     def __init__(self, argv: list[str]):

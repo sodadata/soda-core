@@ -1,6 +1,10 @@
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import MagicMock, mock_open, patch
+
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.soda_cloud import handle_create_soda_cloud, handle_test_soda_cloud
+from soda_core.cli.handlers.soda_cloud import (
+    handle_create_soda_cloud,
+    handle_test_soda_cloud,
+)
 
 
 @patch("soda_core.cli.handlers.soda_cloud.exists", return_value=True)
@@ -55,8 +59,9 @@ def test_test_soda_cloud_connection_failure(mock_yaml_source_cls, mock_soda_clou
     mock_soda_cloud.test_connection.return_value = None
     mock_soda_cloud_cls.from_file.return_value = mock_soda_cloud
 
-    with patch("soda_core.cli.handlers.soda_cloud.Logs.has_errors", return_value=True), \
-         patch("soda_core.cli.handlers.soda_cloud.Logs.get_errors_str", return_value="boom"):
+    with patch("soda_core.cli.handlers.soda_cloud.Logs.has_errors", return_value=True), patch(
+        "soda_core.cli.handlers.soda_cloud.Logs.get_errors_str", return_value="boom"
+    ):
         exit_code = handle_test_soda_cloud("sc.yaml")
 
     assert exit_code == ExitCode.LOG_ERRORS
