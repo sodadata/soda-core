@@ -32,13 +32,28 @@ def test_parse_relative_complete_contract():
     assert check_yaml.__class__.__name__ == "SchemaCheckYaml"
 
 
-def test_parse_minimal_contract():
+def test_legacy_dataset_specification():
     logs: Logs = Logs()
     ContractYaml.parse(
         contract_yaml_source=YamlSource.from_str(
             """
             data_source: abc
+            dataset_prefix: [a, b]
             dataset: dsname
+        """
+        )
+    )
+    logs.remove_from_root_logger()
+
+    assert not logs.get_errors_str()
+
+
+def test_minimal_contract():
+    logs: Logs = Logs()
+    ContractYaml.parse(
+        contract_yaml_source=YamlSource.from_str(
+            """
+            dataset: a/b/c/d
         """
         )
     )

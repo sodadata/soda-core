@@ -89,9 +89,6 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._process_variables(contract_yaml_source, variables)
 
-        self.data_source: Optional[str] = (
-            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
-        )
         if (
             self.contract_yaml_object
             and self.contract_yaml_object.has_key("datasource")
@@ -104,7 +101,10 @@ class ContractYaml:
                 },
             )
 
-        self.dataset_prefix: Optional[list[str]] = (
+        data_source: Optional[str] = (
+            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
+        )
+        dataset_prefix: Optional[list[str]] = (
             self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix") if self.contract_yaml_object else None
         )
         self.dataset: Optional[str] = (
@@ -112,19 +112,22 @@ class ContractYaml:
         )
 
         if isinstance(self.dataset, str) and "/" not in self.dataset:
-            # old style
-            if self.data_source is None:
-                logger.error("Key data_source is required")
+            # legacy error
+            if data_source is None or dataset_prefix is None:
+                logger.error(
+                    "If you use the deprecated style dataset (only table name) then you have to specify "
+                    "data_source and dataset_prefix as well.  Consider the new and preferred dataset "
+                    "qualified name (slash separated) as the value for dataset and remove data_source "
+                    "and dataset_prefix."
+                )
             dataset_parts: list[str] = []
-            if self.data_source:
-                dataset_parts.append(self.data_source)
-            if self.dataset_prefix:
-                dataset_parts.extend(self.dataset_prefix)
+            if data_source:
+                dataset_parts.append(data_source)
+            if dataset_prefix:
+                dataset_parts.extend(dataset_prefix)
             if self.dataset:
                 dataset_parts.append(self.dataset)
             self.dataset = "/".join(dataset_parts)
-            self.data_source = None
-            self.dataset_prefix = None
 
         self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
@@ -160,9 +163,6 @@ class ContractYaml:
                 for variable_name in variable_names
             }
 
-            if "NOW" not in variable_values:
-                variable_values["NOW"] = convert_datetime_to_str(datetime.now())
-
             ignored_variable_names: set[str] = set()
             for variable_name in variables:
                 if variable_name not in variable_yamls_by_name and variable_name != "NOW":
@@ -170,15 +170,33 @@ class ContractYaml:
                     variable_values.pop(variable_name)
                     ignored_variable_names.add(variable_name)
 
+            # Without this line, usage of NOW without declaring it will generate an error
+            ignored_variable_names.discard("NOW")
+            now_variable_yaml: VariableYaml = variable_yamls_by_name.get("NOW")
+            if "NOW" in variable_values:
+                if now_variable_yaml is not None and now_variable_yaml.type is not None:
+                    if now_variable_yaml.type != "timestamp":
+                        logger.error("If you specify a type for variable 'NOW', it must be a timestamp")
+                if not (now_variable_yaml and now_variable_yaml.type == "timestamp"):
+                    now_str: str = variables["NOW"]
+                    if isinstance(now_str, str) and convert_str_to_datetime(now_str) is None:
+                        logger.error(f"Provided 'NOW' variable value is not a correct timestamp format: {now_str}")
+                    else:
+                        variable_values["NOW"] = now_str
+            else:
+                variable_values["NOW"] = convert_datetime_to_str(datetime.now())
+
+            # Recursively resolving the variables
             resolved_variable_values: dict[str, str] = (
                 self._resolve_variables(variable_values) if variable_values else {}
             )
 
             for variable_name, resolve_variable_value in resolved_variable_values.items():
-                if variable_name in variables:
-                    logger.debug(f"Using provided variable value {variable_name}={resolve_variable_value}")
-                else:
-                    logger.debug(f"Using default variable value {variable_name}={resolve_variable_value}")
+                if variable_name != "NOW":
+                    if variable_name in variables:
+                        logger.debug(f"Using provided variable value {variable_name}={resolve_variable_value}")
+                    else:
+                        logger.debug(f"Using default variable value {variable_name}={resolve_variable_value}")
             for variable_yaml in variable_yamls:
                 if variable_yaml.required and resolved_variable_values.get(variable_yaml.name) is None:
                     logger.error(
@@ -196,21 +214,6 @@ class ContractYaml:
                             f"{resolved_timestamp_value}",
                             extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                         )
-
-            # Without this line, usage of NOW without declaring it will generate an error
-            ignored_variable_names.discard("NOW")
-
-            now_variable_yaml: VariableYaml = variable_yamls_by_name.get("NOW")
-            if "NOW" in resolved_variable_values:
-                if now_variable_yaml is not None and now_variable_yaml.type is not None:
-                    if now_variable_yaml.type != "timestamp":
-                        logger.error("If you specify a type for variable 'NOW', it must be a timestamp")
-            if "NOW" in variables and not (now_variable_yaml and now_variable_yaml.type == "timestamp"):
-                now_str: str = variables["NOW"]
-                if isinstance(now_str, str) and convert_str_to_datetime(now_str) is None:
-                    logger.error(f"Provided 'NOW' variable value is not a correct timestamp format: {now_str}")
-                else:
-                    resolved_variable_values["NOW"] = now_str
 
             contract_yaml_source.resolve_on_read_value(
                 variables=resolved_variable_values, ignored_variable_names=ignored_variable_names, use_env_vars=True
