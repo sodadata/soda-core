@@ -673,13 +673,30 @@ class SodaCloud:
         }
         response = self._execute_query(request, request_log_name="get_contract_file")
 
+        response_dict = response.json()
+
+        if response.status_code == 400:
+            error_code = response_dict.get("code")
+
+            if error_code == "contract_not_found":
+                logger.error(f"No data contract found for dataset '{dataset_identifier}' in Soda Cloud. "
+                             "Please publish a contract for this dataset in Soda Cloud before proceeding.")
+            elif error_code == "datasource_not_found":
+                logger.error(f"Data source '{parsed_identifier.data_source}' is unknown in Soda Cloud. "
+                             "Please verify the data source name or configure it in Soda Cloud.")
+            elif error_code == "dataset_not_found":
+                logger.error(f"Dataset'{dataset_identifier}' is unknown in Soda Cloud. "
+                             "Please verify the dataset name or configure it in Soda Cloud.")
+
+            return None
+
+
         if response.status_code != 200:
             logger.error(
                 f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'"
             )
             return None
 
-        response_dict = response.json()
         return response_dict.get("contents")
 
     def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> Optional[str]:
@@ -825,7 +842,7 @@ class SodaCloud:
                     is_retry=False,
                 )
             elif response.status_code != 200:
-                logger.critical(
+                logger.debug(
                     f"Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
@@ -871,7 +888,7 @@ class SodaCloud:
                 relative_url_path=relative_url_path, request_log_name=request_log_name, is_retry=False
             )
         elif response.status_code != 200:
-            logger.critical(
+            logger.debug(
                 f"Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
             )
