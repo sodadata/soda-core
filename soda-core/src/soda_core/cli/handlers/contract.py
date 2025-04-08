@@ -20,7 +20,10 @@ def handle_verify_contract(
     use_agent: bool,
     blocking_timeout_in_minutes: int,
 ) -> ExitCode:
-    validate_verify_arguments(contract_file_paths, dataset_identifiers, data_source_file_path, soda_cloud_file_path)
+    if exitcode := validate_verify_arguments(
+        contract_file_paths, dataset_identifiers, data_source_file_path, soda_cloud_file_path
+    ):
+        return exitcode
 
     soda_cloud_client: Optional[SodaCloud] = None
     if soda_cloud_file_path:
@@ -77,7 +80,7 @@ def validate_verify_arguments(
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
-):
+) -> Optional[ExitCode]:
     if all_none_or_empty(contract_file_paths, dataset_identifiers):
         soda_logger.error("At least one of -c/--contract or -d/--dataset value is required.")
         return ExitCode.LOG_ERRORS
@@ -88,6 +91,9 @@ def validate_verify_arguments(
 
     if all_none_or_empty(dataset_identifiers) and not data_source_file_path:
         soda_logger.error("At least one of -ds/--data-source or -d/--dataset value is required.")
+        return ExitCode.LOG_ERRORS
+
+    return None
 
 
 def all_none_or_empty(*args: list | None) -> bool:
