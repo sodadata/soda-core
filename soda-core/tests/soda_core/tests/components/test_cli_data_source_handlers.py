@@ -40,7 +40,7 @@ def test_create_data_source_unexpected_exception(mock_mkdir, mock_exists):
 def test_test_data_source_success(mock_data_source_impl_cls):
     mock_instance = MagicMock()
     mock_instance.test_connection_error_message.return_value = None
-    mock_data_source_impl_cls.from_file.return_value = mock_instance
+    mock_data_source_impl_cls.from_yaml_source.return_value = mock_instance
 
     exit_code = handle_test_data_source("ds.yaml")
     assert exit_code == ExitCode.OK
@@ -50,13 +50,13 @@ def test_test_data_source_success(mock_data_source_impl_cls):
 def test_test_data_source_connection_error(mock_data_source_impl_cls):
     mock_instance = MagicMock()
     mock_instance.test_connection_error_message.return_value = "Connection failed"
-    mock_data_source_impl_cls.from_file.return_value = mock_instance
+    mock_data_source_impl_cls.from_yaml_source.return_value = mock_instance
 
     exit_code = handle_test_data_source("ds.yaml")
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-@patch("soda_core.common.data_source_impl.DataSourceImpl.from_file", return_value=None)
+@patch("soda_core.common.data_source_impl.DataSourceImpl.from_yaml_source", return_value=None)
 def test_test_data_source_returns_none(mock_from_file):
     exit_code = handle_test_data_source("ds.yaml")
     assert exit_code == ExitCode.LOG_ERRORS
