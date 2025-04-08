@@ -1,11 +1,11 @@
 from os.path import dirname, exists
 from pathlib import Path
-from soda_core.common.yaml import YamlSource
 from textwrap import dedent
 from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.yaml import YamlSource
 
 
 def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
