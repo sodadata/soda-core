@@ -62,6 +62,7 @@ class DataSourceTestHelper:
 
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
+        self.publish_results = True
 
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
@@ -397,6 +398,7 @@ class DataSourceTestHelper:
             data_source_impls=[self.data_source_impl],
             soda_cloud_impl=self.soda_cloud,
             soda_cloud_use_agent=self.use_agent,
+            soda_cloud_publish_results=True,
         )
 
         errors_str: str = contract_verification_session_result.get_errors_str()
@@ -439,6 +441,7 @@ class DataSourceTestHelper:
             data_source_impls=[self.data_source_impl],
             soda_cloud_impl=self.soda_cloud,
             soda_cloud_use_agent=self.use_agent,
+            soda_cloud_publish_results=self.publish_results,
         )
 
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
