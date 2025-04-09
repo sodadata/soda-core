@@ -39,7 +39,9 @@ def handle_verify_contract(
         for dataset_identifier in dataset_identifiers:
             contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
             if not contract:
-                return ExitCode.LOG_ERRORS  # TODO: verify this is OK as it breaks the "multiple contracts" functionality
+                return (
+                    ExitCode.LOG_ERRORS
+                )  # TODO: verify this is OK as it breaks the "multiple contracts" functionality
             contract_yaml_sources.append(YamlSource.from_str(contract))
 
     data_source_yaml_source: Optional[YamlSource] = None
@@ -85,8 +87,10 @@ def validate_verify_arguments(
     publish: bool,
 ) -> Optional[ExitCode]:
     if publish and not soda_cloud_file_path:
-        soda_logger.error("A Soda Cloud configuration file is required to use the -p/--publish argument. "
-                          "Please provide the '--soda-cloud' argument with a valid configuration file path.")
+        soda_logger.error(
+            "A Soda Cloud configuration file is required to use the -p/--publish argument. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
         return ExitCode.LOG_ERRORS
 
     if all_none_or_empty(contract_file_paths, dataset_identifiers):
@@ -94,8 +98,10 @@ def validate_verify_arguments(
         return ExitCode.LOG_ERRORS
 
     if dataset_identifiers and not soda_cloud_file_path:
-        soda_logger.error("A Soda Cloud configuration file is required to use the -d/--dataset argument."
-                          "Please provide the '--soda-cloud' argument with a valid configuration file path.")
+        soda_logger.error(
+            "A Soda Cloud configuration file is required to use the -d/--dataset argument."
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
         return ExitCode.LOG_ERRORS
 
     if all_none_or_empty(dataset_identifiers) and not data_source_file_path:

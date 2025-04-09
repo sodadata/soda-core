@@ -8,16 +8,19 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from soda_core.common.exceptions import SodaCloudAuthenticationFailedException, InvalidSodaCloudConfigurationException
 from tempfile import TemporaryFile
 from time import sleep
-from typing import Optional, Any
+from typing import Optional
 
 import requests
 from requests import Response
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
+)
+from soda_core.common.exceptions import (
+    InvalidSodaCloudConfigurationException,
+    SodaCloudAuthenticationFailedException,
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -135,7 +138,6 @@ class SodaCloud:
         self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
-
 
     def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
@@ -679,17 +681,22 @@ class SodaCloud:
             error_code = response_dict.get("code")
 
             if error_code == "contract_not_found":
-                logger.error(f"No data contract found for dataset '{dataset_identifier}' in Soda Cloud. "
-                             "Please publish a contract for this dataset in Soda Cloud before proceeding.")
+                logger.error(
+                    f"No data contract found for dataset '{dataset_identifier}' in Soda Cloud. "
+                    "Please publish a contract for this dataset in Soda Cloud before proceeding."
+                )
             elif error_code == "datasource_not_found":
-                logger.error(f"Data source '{parsed_identifier.data_source}' is unknown in Soda Cloud. "
-                             "Please verify the data source name or configure it in Soda Cloud.")
+                logger.error(
+                    f"Data source '{parsed_identifier.data_source}' is unknown in Soda Cloud. "
+                    "Please verify the data source name or configure it in Soda Cloud."
+                )
             elif error_code == "dataset_not_found":
-                logger.error(f"Dataset'{dataset_identifier}' is unknown in Soda Cloud. "
-                             "Please verify the dataset name or configure it in Soda Cloud.")
+                logger.error(
+                    f"Dataset'{dataset_identifier}' is unknown in Soda Cloud. "
+                    "Please verify the dataset name or configure it in Soda Cloud."
+                )
 
             return None
-
 
         if response.status_code != 200:
             logger.error(
