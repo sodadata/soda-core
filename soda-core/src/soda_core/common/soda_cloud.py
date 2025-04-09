@@ -496,26 +496,26 @@ class SodaCloud:
         dataset_name = contract_yaml.dataset
 
         verification_result = ContractVerificationResult(
-                contract=Contract(
-                    data_source_name=data_source_name,
-                    dataset_prefix=dataset_prefix,
-                    dataset_name=dataset_name,
-                    soda_qualified_dataset_name=None,
-                    source=YamlFileContentInfo(
-                        local_file_path=contract_local_file_path,
-                        source_content_str=contract_yaml_str_original,
-                        soda_cloud_file_id=None,
-                    ),
+            contract=Contract(
+                data_source_name=data_source_name,
+                dataset_prefix=dataset_prefix,
+                dataset_name=dataset_name,
+                soda_qualified_dataset_name=None,
+                source=YamlFileContentInfo(
+                    local_file_path=contract_local_file_path,
+                    source_content_str=contract_yaml_str_original,
+                    soda_cloud_file_id=None,
                 ),
-                data_source=None,
-                data_timestamp=None,
-                started_timestamp=None,
-                ended_timestamp=None,
-                measurements=[],
-                check_results=[],
-                sending_results_to_soda_cloud_failed=False,
-                log_records=None,
-            )
+            ),
+            data_source=None,
+            data_timestamp=None,
+            started_timestamp=None,
+            ended_timestamp=None,
+            measurements=[],
+            check_results=[],
+            sending_results_to_soda_cloud_failed=False,
+            log_records=None,
+        )
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             data_source_name, dataset_prefix, dataset_name
