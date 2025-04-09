@@ -2,21 +2,17 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.yaml import YamlSource
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
+)
+from soda_postgres.model.data_source.postgres_data_source import (
+    PostgresDataSource as PostgresDataSourceModel,
 )
 
 
 class PostgresDataSourceImpl(DataSourceImpl):
-    def __init__(
-        self,
-        data_source_yaml_source: YamlSource,
-        name: str,
-        type_name: str,
-        connection_properties: dict,
-    ):
-        super().__init__(data_source_yaml_source, name, type_name, connection_properties)
+    def __init__(self, data_source_model: PostgresDataSourceModel):
+        super().__init__(data_source_model=data_source_model)
 
     def get_data_source_type_name(self) -> str:
         return "postgres"
@@ -24,8 +20,10 @@ class PostgresDataSourceImpl(DataSourceImpl):
     def _create_sql_dialect(self) -> SqlDialect:
         return PostgresSqlDialect()
 
-    def _create_data_source_connection(self, name: str, connection_properties: dict) -> DataSourceConnection:
-        return PostgresDataSourceConnection(name=name, connection_properties=connection_properties)
+    def _create_data_source_connection(self) -> DataSourceConnection:
+        return PostgresDataSourceConnection(
+            name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+        )
 
 
 class PostgresSqlDialect(SqlDialect):

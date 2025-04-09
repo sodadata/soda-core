@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from enum import Enum
 from numbers import Number
 from typing import Iterable, Optional
 
@@ -18,6 +19,10 @@ class YamlParser:
     def __init__(self):
         self.ruamel_yaml_parser: YAML = YAML()
         self.ruamel_yaml_parser.preserve_quotes = True
+
+
+class FileType(str, Enum):
+    DATA_SOURCE = "data source"
 
 
 class YamlSource:
@@ -67,7 +72,7 @@ class YamlSource:
         Raises an assertion exception if file_path is not a str
         """
         assert isinstance(file_path, str)
-        return YamlSource(file_path=file_path)
+        return cls(file_path=file_path)
 
     def __init__(self, file_path: Optional[str] = None, yaml_str: Optional[str] = None):
         self.file_type: Optional[str] = None
@@ -98,6 +103,10 @@ class YamlSource:
                 return f"YAML string"
 
     def set_file_type(self, file_type: str) -> None:
+        ###
+        # Deprecated. The instance should not be able to change the file type once created.
+        ###
+
         self.file_type: str = file_type
         self.description: str = self._build_description(self.file_type, self.file_path)
 
@@ -163,6 +172,13 @@ class YamlSource:
                     exc_info=True,
                     extra={ExtraKeys.LOCATION: location},
                 )
+
+
+class DataSourceYamlSource(YamlSource):
+    def __init__(self, file_path: Optional[str] = None, yaml_str: Optional[str] = None):
+        super().__init__(file_path=file_path, yaml_str=yaml_str)
+
+        self.file_type: str = FileType.DATA_SOURCE
 
 
 class YamlValue:
