@@ -21,7 +21,7 @@ def handle_verify_contract(
     blocking_timeout_in_minutes: int,
 ) -> ExitCode:
     if exitcode := validate_verify_arguments(
-        contract_file_paths, dataset_identifiers, data_source_file_path, soda_cloud_file_path, publish
+        contract_file_paths, dataset_identifiers, data_source_file_path, soda_cloud_file_path, publish, use_agent
     ):
         return exitcode
 
@@ -85,10 +85,18 @@ def validate_verify_arguments(
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
     publish: bool,
+    use_agent: bool,
 ) -> Optional[ExitCode]:
     if publish and not soda_cloud_file_path:
         soda_logger.error(
             "A Soda Cloud configuration file is required to use the -p/--publish argument. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
+        return ExitCode.LOG_ERRORS
+
+    if use_agent and not soda_cloud_file_path:
+        soda_logger.error(
+            "A Soda Cloud configuration file is required to use the -a/--agent argument. "
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
         return ExitCode.LOG_ERRORS

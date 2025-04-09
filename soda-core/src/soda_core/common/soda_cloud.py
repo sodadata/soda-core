@@ -490,20 +490,12 @@ class SodaCloud:
         self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
-        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path
+        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path or "REMOTE"  # TODO
         data_source_name = contract_yaml.data_source
         dataset_prefix = contract_yaml.dataset_prefix
         dataset_name = contract_yaml.dataset
 
-        can_publish_and_verify, reason = self.can_publish_and_verify_contract(
-            data_source_name, dataset_prefix, dataset_name
-        )
-        if not can_publish_and_verify:
-            if reason is None:
-                logger.error(f"Skipping contract verification because of an error (see logs)")
-            else:
-                logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
-            return ContractVerificationResult(
+        verification_result = ContractVerificationResult(
                 contract=Contract(
                     data_source_name=data_source_name,
                     dataset_prefix=dataset_prefix,
@@ -521,9 +513,20 @@ class SodaCloud:
                 ended_timestamp=None,
                 measurements=[],
                 check_results=[],
-                sending_results_to_soda_cloud_failed=True,
+                sending_results_to_soda_cloud_failed=False,
                 log_records=None,
             )
+
+        can_publish_and_verify, reason = self.can_publish_and_verify_contract(
+            data_source_name, dataset_prefix, dataset_name
+        )
+        if not can_publish_and_verify:
+            if reason is None:
+                logger.error(f"Skipping contract verification because of an error (see logs)")
+                verification_result.sending_results_to_soda_cloud_failed = True
+            else:
+                logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
+            return verification_result
 
         soda_cloud_file_path: str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
@@ -550,108 +553,101 @@ class SodaCloud:
         scan_id: str = response_json.get("scanId")
 
         log_records: Optional[list[LogRecord]] = None
-        if response.status_code == 200 and scan_id:
-            scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
-                scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
-            )
+        if response.status_code != 200:
+            logger.error("Remote contract verification failed.")
+            verification_result.sending_results_to_soda_cloud_failed = True
+            return verification_result
 
-            logger.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
-            logs_response: Response = self._get_scan_logs(scan_id=scan_id)
-            logger.debug(f"Soda Cloud responded with {json.dumps(dict(logs_response.headers))}\n{logs_response.text}")
+        if not scan_id:
+            logger.warning("Did not receive a Scan ID from Soda Cloud")
+            return verification_result
 
-            # Start capturing logs here
-            logs: Logs = Logs()
-
-            response_json: dict = logs_response.json()
-            soda_cloud_log_dicts: list[dict] = response_json.get("content")
-            # TODO implement extra page loading if there are more pages of scan logs....
-            # response body: {
-            #   "content": [...],
-            #   "totalElements": 0,
-            #   "totalPages": 0,
-            #   "number": 0,
-            #   "size": 0,
-            #   "last": true,
-            #   "first": true
-            # }
-            if isinstance(soda_cloud_log_dicts, list):
-                # For explanation, see TimestampToCreatedLoggingFilter
-                logging_filter: TimestampToCreatedLoggingFilter = TimestampToCreatedLoggingFilter()
-                logger.addFilter(logging_filter)
-                try:
-                    for soda_cloud_log_dict in soda_cloud_log_dicts:
-                        if isinstance(soda_cloud_log_dict, dict):
-                            extra: dict = {}
-
-                            level_cloud: str = soda_cloud_log_dict.get("level")
-                            level_logrecord: int = logging.getLevelName(level_cloud.upper())
-
-                            timestamp_cloud: str = soda_cloud_log_dict.get("timestamp")
-                            timestamp_datetime: datetime = convert_str_to_datetime(timestamp_cloud)
-                            if isinstance(timestamp_datetime, datetime):
-                                timestamp_logrecord: float = timestamp_datetime.timestamp() + (
-                                    timestamp_datetime.microsecond / 1000000
-                                )
-                                # For explanation, see TimestampToCreatedLoggingFilter
-                                extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
-
-                            location_dict: Optional[dict] = soda_cloud_log_dict.get(ExtraKeys.LOCATION)
-                            if isinstance(location_dict, dict):
-                                extra[ExtraKeys.LOCATION] = Location(
-                                    file_path=location_dict.get("filePath"),
-                                    line=location_dict.get("line"),
-                                    column=location_dict.get("col"),
-                                )
-
-                            doc: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.DOC)
-                            if doc:
-                                extra[ExtraKeys.DOC] = doc
-
-                            exception: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.EXCEPTION)
-                            if doc:
-                                extra[ExtraKeys.EXCEPTION] = exception
-
-                            logger.log(level=level_logrecord, msg=soda_cloud_log_dict.get("message"), extra=extra)
-                        else:
-                            logger.debug(
-                                f"Expected dict for logs list element, but was {type(soda_cloud_log_dict).__name__}"
-                            )
-                finally:
-                    logger.removeFilter(logging_filter)
-
-            elif soda_cloud_log_dicts is None:
-                logger.debug(f"No logs in Soda Cloud response")
-            else:
-                logger.debug(f"Expected dict for logs, but was {type(soda_cloud_log_dicts).__name__}")
-
-            if not scan_is_finished:
-                logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
-
-            if contract_dataset_cloud_url:
-                logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
-
-            logs.remove_from_root_logger()
-            log_records = logs.records
-
-        return ContractVerificationResult(
-            contract=Contract(
-                data_source_name=data_source_name,
-                dataset_prefix=dataset_prefix,
-                dataset_name=dataset_name,
-                soda_qualified_dataset_name=None,
-                source=None,
-            ),
-            data_source=None,
-            data_timestamp=None,
-            started_timestamp=None,
-            ended_timestamp=None,
-            measurements=[],
-            check_results=[
-                # TODO
-            ],
-            sending_results_to_soda_cloud_failed=True,
-            log_records=log_records,
+        scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
+            scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
+
+        logger.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
+        logs_response: Response = self._get_scan_logs(scan_id=scan_id)
+        logger.debug(f"Soda Cloud responded with {json.dumps(dict(logs_response.headers))}\n{logs_response.text}")
+
+        # Start capturing logs here
+        logs: Logs = Logs()
+
+        response_json: dict = logs_response.json()
+        soda_cloud_log_dicts: list[dict] = response_json.get("content")
+        # TODO implement extra page loading if there are more pages of scan logs....
+        # response body: {
+        #   "content": [...],
+        #   "totalElements": 0,
+        #   "totalPages": 0,
+        #   "number": 0,
+        #   "size": 0,
+        #   "last": true,
+        #   "first": true
+        # }
+        if isinstance(soda_cloud_log_dicts, list):
+            # For explanation, see TimestampToCreatedLoggingFilter
+            logging_filter: TimestampToCreatedLoggingFilter = TimestampToCreatedLoggingFilter()
+            logger.addFilter(logging_filter)
+            try:
+                for soda_cloud_log_dict in soda_cloud_log_dicts:
+                    if isinstance(soda_cloud_log_dict, dict):
+                        extra: dict = {}
+
+                        level_cloud: str = soda_cloud_log_dict.get("level")
+                        level_logrecord: int = logging.getLevelName(level_cloud.upper())
+
+                        timestamp_cloud: str = soda_cloud_log_dict.get("timestamp")
+                        timestamp_datetime: datetime = convert_str_to_datetime(timestamp_cloud)
+                        if isinstance(timestamp_datetime, datetime):
+                            timestamp_logrecord: float = timestamp_datetime.timestamp() + (
+                                timestamp_datetime.microsecond / 1000000
+                            )
+                            # For explanation, see TimestampToCreatedLoggingFilter
+                            extra[TimestampToCreatedLoggingFilter.TIMESTAMP] = timestamp_logrecord
+
+                        location_dict: Optional[dict] = soda_cloud_log_dict.get(ExtraKeys.LOCATION)
+                        if isinstance(location_dict, dict):
+                            extra[ExtraKeys.LOCATION] = Location(
+                                file_path=location_dict.get("filePath"),
+                                line=location_dict.get("line"),
+                                column=location_dict.get("col"),
+                            )
+
+                        doc: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.DOC)
+                        if doc:
+                            extra[ExtraKeys.DOC] = doc
+
+                        exception: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.EXCEPTION)
+                        if doc:
+                            extra[ExtraKeys.EXCEPTION] = exception
+
+                        logger.log(level=level_logrecord, msg=soda_cloud_log_dict.get("message"), extra=extra)
+                    else:
+                        logger.debug(
+                            f"Expected dict for logs list element, but was {type(soda_cloud_log_dict).__name__}"
+                        )
+            finally:
+                logger.removeFilter(logging_filter)
+
+        elif soda_cloud_log_dicts is None:
+            logger.debug(f"No logs in Soda Cloud response")
+        else:
+            logger.debug(f"Expected dict for logs, but was {type(soda_cloud_log_dicts).__name__}")
+
+        if not scan_is_finished:
+            logger.error(f"Max retries exceeded. " f"Contract verification did not finish yet.")
+            verification_result.sending_results_to_soda_cloud_failed = True
+
+        if contract_dataset_cloud_url:
+            logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
+
+        logs.remove_from_root_logger()
+        log_records = logs.records
+
+        verification_result.log_records = logs.records
+
+        return verification_result
 
     def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
         """Fetch the contract contents for the given dataset identifier.
