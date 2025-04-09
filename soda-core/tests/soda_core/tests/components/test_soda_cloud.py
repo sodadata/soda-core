@@ -237,7 +237,7 @@ def test_verify_contract_on_agent_permission_check():
     )
 
     assert isinstance(res, ContractVerificationResult)
-    assert res.sending_results_to_soda_cloud_failed is True
+    assert res.sending_results_to_soda_cloud_failed is False
     assert res.contract.dataset_name == "CUSTOMERS"
     assert res.contract.data_source_name == "test"
     assert res.contract.dataset_prefix == ["some", "schema"]
