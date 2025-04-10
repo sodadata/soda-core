@@ -41,7 +41,7 @@ def handle_verify_contract(
         ContractYamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths or []
     ]
 
-    if is_using_remote_contract(dataset_identifiers) and soda_cloud_client:
+    if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
         for dataset_identifier in dataset_identifiers:
             contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
             if not contract:
@@ -134,8 +134,11 @@ def all_none_or_empty(*args: list | None) -> bool:
     return all(x is None or len(x) == 0 for x in args)
 
 
-def is_using_remote_contract(dataset_identifiers: Optional[list[str]]) -> bool:
-    return dataset_identifiers is not None
+def is_using_remote_contract(contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]) -> bool:
+    return (
+        (contract_file_paths is None or len(contract_file_paths) == 0) and
+        dataset_identifiers is not None
+    )
 
 
 def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
