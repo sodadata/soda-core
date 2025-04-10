@@ -57,7 +57,7 @@ def test_test_soda_cloud_connection_failure(mock_soda_cloud_cls):
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-@patch("soda_core.cli.handlers.soda_cloud.YamlSource")
+@patch("soda_core.cli.handlers.soda_cloud.SodaCloudYamlSource")
 def test_test_soda_cloud_returns_none(mock_yaml_source_cls):
     mock_yaml_source = MagicMock()
     mock_yaml_source.parse_yaml_file_content.return_value = "parsed_yaml"

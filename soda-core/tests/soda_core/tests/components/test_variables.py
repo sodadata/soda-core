@@ -1,14 +1,14 @@
 from typing import Optional
 
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def parse_contract(contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractYaml:
     return ContractYaml.parse(
-        contract_yaml_source=YamlSource.from_str(dedent_and_strip(contract_yaml_str)), variables=variables
+        contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)), variables=variables
     )
 
 

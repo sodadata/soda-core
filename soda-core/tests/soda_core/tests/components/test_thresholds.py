@@ -1,4 +1,4 @@
-from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.common.yaml import ContractYamlSource, YamlObject
 from soda_core.contracts.impl.contract_verification_impl import ThresholdImpl
 from soda_core.contracts.impl.contract_yaml import ThresholdYaml
 from soda_core.tests.helpers.test_functions import dedent_and_strip
@@ -145,7 +145,7 @@ def test_threshold_custom_outer():
 
 def parse_threshold(threshold_yaml: str) -> ThresholdImpl:
     dedented_threshold_yaml: str = dedent_and_strip(threshold_yaml)
-    yaml_source = YamlSource.from_str(dedented_threshold_yaml)
+    yaml_source = ContractYamlSource.from_str(dedented_threshold_yaml)
     yaml_object: YamlObject = yaml_source.parse()
     threshold_yaml: ThresholdYaml = ThresholdYaml(
         threshold_yaml_object=yaml_object,
