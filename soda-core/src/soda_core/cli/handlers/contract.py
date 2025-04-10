@@ -39,9 +39,8 @@ def handle_verify_contract(
         for dataset_identifier in dataset_identifiers:
             contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
             if not contract:
-                return (
-                    ExitCode.LOG_ERRORS
-                )  # TODO: verify this is OK as it breaks the "multiple contracts" functionality
+                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
+                continue
             contract_yaml_sources.append(YamlSource.from_str(contract))
 
     data_source_yaml_source: Optional[YamlSource] = None
