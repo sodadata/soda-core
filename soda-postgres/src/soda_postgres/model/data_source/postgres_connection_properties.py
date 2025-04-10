@@ -8,13 +8,15 @@ from soda_core.model.data_source.data_source_connection_properties import (
 )
 
 
-class PostgresConnectionString(DataSourceConnectionProperties):
-    connection_string: Optional[str] = Field(
-        None, description="Complete connection string (alternative to individual parameters)"
-    )
+class PostgresConnectionProperties(DataSourceConnectionProperties, ABC):
+    ...
 
 
-class PostgresConnectionPropertiesBase(DataSourceConnectionProperties, ABC):
+class PostgresConnectionString(PostgresConnectionProperties):
+    connection_string: str = Field(..., description="Complete connection string (alternative to individual parameters)")
+
+
+class PostgresConnectionPropertiesBase(PostgresConnectionProperties, ABC):
     host: Union[str, IPvAnyAddress] = Field(..., description="Database host (hostname or IP address)")
     port: int = Field(5432, description="Database port (1-65535)", ge=1, le=65535)
     database: str = Field(..., description="Database name", min_length=1, max_length=63)
@@ -33,7 +35,7 @@ class PostgresConnectionPropertiesBase(DataSourceConnectionProperties, ABC):
 
 
 class PostgresConnectionPassword(PostgresConnectionPropertiesBase):
-    password: SecretStr = Field(None, description="Database password")
+    password: SecretStr = Field(..., description="Database password")
 
 
 class PostgresConnectionPasswordFile(PostgresConnectionPropertiesBase):
