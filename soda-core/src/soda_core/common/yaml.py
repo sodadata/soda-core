@@ -25,7 +25,7 @@ class FileType(str, Enum):
     DATA_SOURCE = "Data Source"
     SODA_CLOUD = "Soda Cloud"
     CONTRACT = "Contract"
-    YAML = "YAML file"
+    YAML = "YAML"
 
 
 class YamlSource:
@@ -46,7 +46,7 @@ class YamlSource:
         file_path="./some/contract.yml"
     )
 
-    # The default file type is 'YAML file'.
+    # The default file type is 'YAML'.
     # Specific subclasses use different file types.
 
     # Optionally resolve variables as many times as you like:
@@ -173,16 +173,13 @@ class YamlSource:
                 )
 
 
-class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
-    ...
+class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE): ...
 
 
-class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):
-    ...
+class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD): ...
 
 
-class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
-    ...
+class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT): ...
 
 
 class YamlValue:
