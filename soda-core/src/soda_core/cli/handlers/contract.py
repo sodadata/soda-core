@@ -49,6 +49,10 @@ def handle_verify_contract(
                 continue
             contract_yaml_sources.append(ContractYamlSource.from_str(contract))
 
+    if len(contract_yaml_sources) == 0:
+        soda_logger.debug("No contracts given. Exiting.")
+        return ExitCode.OK
+
     data_source_yaml_source: Optional[DataSourceYamlSource] = None
 
     if data_source_file_path:

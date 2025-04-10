@@ -126,7 +126,26 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-def test_handle_verify_contract_returns_exit_code_3_when_contract_fetching_from_cloud_returns_errors(caplog):
+def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud_returns_errors(caplog):
+    with patch("soda_core.cli.handlers.contract.SodaCloud.from_yaml_source") as mock_cloud_from_yaml:
+        mock_cloud = MagicMock()
+        mock_cloud.fetch_contract_for_dataset.return_value = None
+        mock_cloud_from_yaml.return_value = mock_cloud
+
+        _ = handle_verify_contract(
+            contract_file_paths=None,
+            dataset_identifiers=["my/super/awesome/identifier"],
+            data_source_file_path="ds.yaml",
+            soda_cloud_file_path="soda-cloud.yaml",
+            publish=True,
+            use_agent=False,
+            blocking_timeout_in_minutes=10,
+        )
+
+        assert "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification" in caplog.messages
+
+
+def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(caplog):
     with patch("soda_core.cli.handlers.contract.SodaCloud.from_yaml_source") as mock_cloud_from_yaml:
         mock_cloud = MagicMock()
         mock_cloud.fetch_contract_for_dataset.return_value = None
@@ -142,7 +161,8 @@ def test_handle_verify_contract_returns_exit_code_3_when_contract_fetching_from_
             blocking_timeout_in_minutes=10,
         )
 
-        assert exit_code == ExitCode.LOG_ERRORS
+        assert "No contracts given. Exiting." in caplog.messages
+        assert exit_code == ExitCode.OK
 
 
 @pytest.mark.parametrize(
