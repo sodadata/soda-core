@@ -35,7 +35,6 @@ class ContractPublicationImpl:
             logger.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
-                contract_yaml_source.set_file_type("Contract")
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )

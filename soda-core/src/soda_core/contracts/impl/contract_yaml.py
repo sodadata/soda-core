@@ -82,8 +82,6 @@ class ContractYaml:
 
     def __init__(self, contract_yaml_source: ContractYamlSource, variables: Optional[dict[str, str]]):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
-        self.contract_yaml_source.set_file_type("Contract")
-
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
         self.variables: list[VariableYaml] = []

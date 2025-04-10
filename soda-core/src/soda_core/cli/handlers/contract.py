@@ -73,7 +73,7 @@ def handle_verify_contract(
         contract_yaml_sources=contract_yaml_sources,
         data_source_yaml_sources=[data_source_yaml_source],
         soda_cloud_yaml_source=(
-            DataSourceYamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None
+            SodaCloudYamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None
         ),
         soda_cloud_publish_results=publish,
         soda_cloud_use_agent=use_agent,
