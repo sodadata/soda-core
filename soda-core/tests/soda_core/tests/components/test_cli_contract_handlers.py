@@ -142,7 +142,10 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
             blocking_timeout_in_minutes=10,
         )
 
-        assert "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification" in caplog.messages
+        assert (
+            "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification"
+            in caplog.messages
+        )
 
 
 def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(caplog):
