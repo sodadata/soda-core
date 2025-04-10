@@ -11,7 +11,11 @@ from typing import Optional
 
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import (
+    ContractYamlSource,
+    DataSourceYamlSource,
+    SodaCloudYamlSource,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -20,13 +24,13 @@ class ContractVerificationSession:
     @classmethod
     def execute(
         cls,
-        contract_yaml_sources: list[YamlSource],
+        contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
         data_source_impls: Optional[list["DataSourceImpl"]] = None,
-        data_source_yaml_sources: Optional[list[YamlSource]] = None,
+        data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional["SodaCloud"] = None,
-        soda_cloud_yaml_source: Optional[YamlSource] = None,
+        soda_cloud_yaml_source: Optional[SodaCloudYamlSource] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
