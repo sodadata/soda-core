@@ -134,11 +134,10 @@ def all_none_or_empty(*args: list | None) -> bool:
     return all(x is None or len(x) == 0 for x in args)
 
 
-def is_using_remote_contract(contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]) -> bool:
-    return (
-        (contract_file_paths is None or len(contract_file_paths) == 0) and
-        dataset_identifiers is not None
-    )
+def is_using_remote_contract(
+    contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]
+) -> bool:
+    return (contract_file_paths is None or len(contract_file_paths) == 0) and dataset_identifiers is not None
 
 
 def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
