@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml
@@ -189,7 +189,7 @@ def test_publish_contract():
 
     res = mock_cloud.publish_contract(
         ContractYaml.parse(
-            YamlSource.from_str(
+            ContractYamlSource.from_str(
                 f"""
             dataset: CUSTOMERS
             dataset_prefix: [some, schema]
@@ -223,7 +223,7 @@ def test_verify_contract_on_agent_permission_check():
 
     res = mock_cloud.verify_contract_on_agent(
         ContractYaml.parse(
-            YamlSource.from_str(
+            ContractYamlSource.from_str(
                 f"""
             dataset: CUSTOMERS
             dataset_prefix: [some, schema]

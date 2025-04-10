@@ -4,7 +4,7 @@ from typing import Optional
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResultList
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
@@ -15,9 +15,9 @@ logger: logging.Logger = soda_logger
 class ContractPublicationImpl:
     def __init__(
         self,
-        contract_yaml_sources: list[YamlSource],
+        contract_yaml_sources: list[ContractYamlSource],
         soda_cloud: Optional[SodaCloud],
-        soda_cloud_yaml_source: Optional[YamlSource],
+        soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         variables: dict[str, str],
         logs: Logs,
     ):
@@ -35,7 +35,6 @@ class ContractPublicationImpl:
             logger.error(f"No contracts configured")
         else:
             for contract_yaml_source in contract_yaml_sources:
-                contract_yaml_source.set_file_type("Contract")
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, variables=variables
                 )

@@ -6,6 +6,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
+from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
@@ -13,8 +14,9 @@ from soda_core.common.statements.metadata_columns_query import (
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
+from soda_core.model.data_source.data_source import DataSourceBase
 
 logger: logging.Logger = soda_logger
 
@@ -22,62 +24,45 @@ logger: logging.Logger = soda_logger
 class DataSourceImpl(ABC):
     @classmethod
     def from_yaml_source(
-        cls, data_source_yaml_source: YamlSource, variables: Optional[dict] = None
+        cls, data_source_yaml_source: DataSourceYamlSource, variables: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
-        assert isinstance(data_source_yaml_source, YamlSource)
-
-        data_source_yaml_source.set_file_type("Data source")
         data_source_yaml_source.resolve(variables=variables)
         data_source_yaml: YamlObject = data_source_yaml_source.parse()
         if not data_source_yaml:
             return None
 
-        data_source_type_name: str = data_source_yaml.read_string("type")
-        data_source_name: Optional[str] = data_source_yaml.read_string("name")
+        from typing import Annotated, Union
 
-        connection_yaml: YamlObject = data_source_yaml.read_object_opt("connection")
-        connection_properties: Optional[dict] = None
-        if connection_yaml:
-            connection_properties = connection_yaml.to_dict()
-
-        return DataSourceImpl.create(
-            data_source_yaml_source=data_source_yaml_source,
-            name=data_source_name,
-            type_name=data_source_type_name,
-            connection_properties=connection_properties,
+        from pydantic import Field, TypeAdapter
+        from soda_postgres.model.data_source.postgres_data_source import (
+            PostgresDataSource,
         )
+
+        DataSourceModel = Annotated[Union[PostgresDataSource], Field(discriminator="type")]
+        adapter = TypeAdapter(DataSourceModel)
+        data_source_model = adapter.validate_python(data_source_yaml.yaml_dict, strict=True)
+
+        return DataSourceImpl.create(data_source_model=data_source_model)
 
     @classmethod
     def create(
         cls,
-        data_source_yaml_source: YamlSource,
-        name: str,
-        type_name: str,
-        connection_properties: dict,
+        data_source_model: DataSourceBase,
     ) -> DataSourceImpl:
         from soda_core.common.data_sources.postgres_data_source import (
             PostgresDataSourceImpl,
         )
 
-        return PostgresDataSourceImpl(
-            data_source_yaml_source=data_source_yaml_source,
-            name=name,
-            type_name=type_name,
-            connection_properties=connection_properties,
-        )
+        return PostgresDataSourceImpl(data_source_model=data_source_model)
 
     def __init__(
         self,
-        data_source_yaml_source: YamlSource,
-        name: str,
-        type_name: str,
-        connection_properties: dict,
+        data_source_model: DataSourceBase,
     ):
-        self.data_source_yaml_source: YamlSource = data_source_yaml_source
-        self.name: str = name
-        self.type_name: str = type_name
+        self.data_source_model: DataSourceBase = data_source_model
+        self.name: str = data_source_model.name
+        self.type_name: str = data_source_model.type
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
-        self.connection_properties: Optional[dict] = connection_properties
         self.data_source_connection: Optional[DataSourceConnection] = None
 
     def __str__(self) -> str:
@@ -88,7 +73,7 @@ class DataSourceImpl(ABC):
         pass
 
     @abstractmethod
-    def _create_data_source_connection(self, name: str, connection_properties: dict) -> DataSourceConnection:
+    def _create_data_source_connection(self) -> DataSourceConnection:
         pass
 
     @abstractmethod
@@ -98,11 +83,17 @@ class DataSourceImpl(ABC):
     def __enter__(self) -> None:
         self.open_connection()
 
+    def connection(self) -> DataSourceConnection:
+        if not self.has_open_connection():
+            self.open_connection()
+
+        return self.data_source_connection
+
     def open_connection(self) -> None:
-        self.data_source_connection = self._create_data_source_connection(
-            name=self.name,
-            connection_properties=self.connection_properties,
-        )
+        try:
+            self.data_source_connection = self._create_data_source_connection()
+        except Exception as e:
+            raise DataSourceConnectionException(e) from e
 
     def has_open_connection(self) -> bool:
         return (

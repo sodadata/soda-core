@@ -2,7 +2,7 @@ from textwrap import dedent
 
 from dotenv import load_dotenv
 from soda_core.common.logging_configuration import configure_logging
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
 
 
@@ -36,8 +36,8 @@ def main():
     ).strip()
 
     ContractVerificationSession.execute(
-        contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
-        soda_cloud_yaml_source=YamlSource.from_str(soda_cloud_yaml_str),
+        contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
+        soda_cloud_yaml_source=SodaCloudYamlSource.from_str(soda_cloud_yaml_str),
         soda_cloud_use_agent=True,
         soda_cloud_use_agent_blocking_timeout_in_minutes=55,
     )

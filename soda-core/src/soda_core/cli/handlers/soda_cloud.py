@@ -6,7 +6,7 @@ from typing import Optional
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import SodaCloudYamlSource
 
 
 def handle_create_soda_cloud(soda_cloud_file_path: str) -> ExitCode:
@@ -44,7 +44,7 @@ def handle_test_soda_cloud(soda_cloud_file_path: str):
     logs = Logs()
 
     print(f"Testing soda cloud file {soda_cloud_file_path}")
-    soda_cloud_yaml_source: YamlSource = YamlSource.from_file_path(soda_cloud_file_path)
+    soda_cloud_yaml_source: SodaCloudYamlSource = SodaCloudYamlSource.from_file_path(soda_cloud_file_path)
     soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source, variables=None)
     error_msg: Optional[str] = None
     if soda_cloud:
