@@ -5,7 +5,7 @@ from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import DataSourceYamlSource
 
 
 def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
@@ -47,7 +47,9 @@ def handle_test_data_source(data_source_file_path: str) -> ExitCode:
     soda_logger.info(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source_impl import DataSourceImpl
 
-    data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(YamlSource.from_file_path(data_source_file_path))
+    data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
+        DataSourceYamlSource.from_file_path(data_source_file_path)
+    )
     error_message: Optional[str] = (
         data_source_impl.test_connection_error_message()
         if data_source_impl

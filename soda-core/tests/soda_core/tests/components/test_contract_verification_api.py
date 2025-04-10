@@ -1,5 +1,5 @@
 import pytest
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
@@ -9,7 +9,7 @@ from soda_core.contracts.contract_verification import (
 
 def test_contract_verification_file_api():
     contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-        contract_yaml_sources=[YamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+        contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
         variables={"env": "test"},
     )
 
@@ -22,7 +22,7 @@ def test_contract_verification_file_api():
 def test_contract_verification_file_api_exception_on_error():
     with pytest.raises(SodaException) as e:
         ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+            contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
             variables={"env": "test"},
         ).assert_ok()
 
@@ -36,7 +36,7 @@ def test_contract_provided_and_configured():
     """
     contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
         contract_yaml_sources=[
-            YamlSource.from_str(
+            ContractYamlSource.from_str(
                 f"""
               data_source: abc
               dataset: CUSTOMERS

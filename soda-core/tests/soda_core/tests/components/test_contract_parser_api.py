@@ -1,11 +1,11 @@
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml
 from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def test_parse_relative_complete_contract():
-    contract_yaml_source: YamlSource = YamlSource.from_str(
+    contract_yaml_source: ContractYamlSource = ContractYamlSource.from_str(
         yaml_str=dedent_and_strip(
             """
         dataset: SODATEST_test_schema_31761d69
@@ -37,7 +37,7 @@ def test_parse_relative_complete_contract():
 def test_parse_minimal_contract():
     logs: Logs = Logs()
     ContractYaml.parse(
-        contract_yaml_source=YamlSource.from_str(
+        contract_yaml_source=ContractYamlSource.from_str(
             """
             data_source: abc
             dataset: dsname

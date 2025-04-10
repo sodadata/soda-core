@@ -21,7 +21,7 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
-from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract import ContractIdentifier
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
@@ -82,9 +82,8 @@ class SodaCloud:
 
     @classmethod
     def from_yaml_source(
-        cls, soda_cloud_yaml_source: YamlSource, variables: Optional[dict[str, str]]
+        cls, soda_cloud_yaml_source: SodaCloudYamlSource, variables: Optional[dict[str, str]]
     ) -> Optional[SodaCloud]:
-        soda_cloud_yaml_source.set_file_type("Soda Cloud")
         soda_cloud_yaml_source.resolve(variables=variables)
         soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
 

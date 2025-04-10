@@ -42,18 +42,10 @@ class DataSourceConnection(ABC):
         """
         if self.connection is None:
             try:
-                self._log_connection_properties_excl_pwd(self.connection_properties)
+                logger.debug(f"'{self.name}' connection properties: {self.connection_properties}")
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
                 logger.error(msg=f"Could not connect to '{self.name}': {e}", exc_info=True)
-
-    def _log_connection_properties_excl_pwd(self, connection_yaml_dict: dict):
-        dict_without_pwd = {
-            k: v
-            for k, v in connection_yaml_dict.items()
-            if not "password" in k and not "pwd" in k and not "key" in k and not "secret" in k
-        }
-        logger.debug(f"{self.name} connection properties: {dict_without_pwd}")
 
     def close_connection(self) -> None:
         """
