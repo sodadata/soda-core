@@ -661,14 +661,14 @@ class SodaCloud:
         logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
         parsed_identifier = ContractIdentifier.parse(dataset_identifier)
         request = {
-            "type": "sodaCoreGetContractFile",
+            "type": "sodaCoreGetContract",
             "dataset": {
                 "datasource": parsed_identifier.data_source,
                 "prefixes": parsed_identifier.prefixes,
                 "name": parsed_identifier.dataset,
             },
         }
-        response = self._execute_query(request, request_log_name="get_contract_file")
+        response = self._execute_query(request, request_log_name="get_contract")
 
         response_dict = response.json()
 
