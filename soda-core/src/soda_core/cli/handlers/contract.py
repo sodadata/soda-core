@@ -35,7 +35,9 @@ def handle_verify_contract(
             SodaCloudYamlSource.from_file_path(soda_cloud_file_path), variables=None
         )
 
-    contract_yaml_sources, exit_code = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
+    contract_yaml_sources, exit_code = _create_contract_yamls(
+        contract_file_paths, dataset_identifiers, soda_cloud_client
+    )
     if exit_code:
         return exit_code
 
@@ -50,7 +52,9 @@ def handle_verify_contract(
             f"Please pass a single dataset identifier."
         )
         return ExitCode.LOG_ERRORS
-    data_source_yaml_source, exit_code = _create_datasource_yamls(data_source_file_path, dataset_identifiers, soda_cloud_client)
+    data_source_yaml_source, exit_code = _create_datasource_yamls(
+        data_source_file_path, dataset_identifiers, soda_cloud_client
+    )
     if exit_code:
         return exit_code
 
@@ -77,9 +81,7 @@ def _create_contract_yamls(
     contract_yaml_sources = []
 
     if contract_file_paths:
-        contract_yaml_sources += [
-            ContractYamlSource.from_file_path(p) for p in contract_file_paths
-        ]
+        contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
 
     if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
         for dataset_identifier in dataset_identifiers:
