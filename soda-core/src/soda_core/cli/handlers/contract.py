@@ -101,7 +101,7 @@ def _create_datasource_yamls(
     if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
         dataset_identifier = dataset_identifiers[0]
 
-        soda_logger.debug(f"No local data source config, trying to fetch data source config from cloud")
+        soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
         data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
         data_source_yaml_source = DataSourceYamlSource.from_str(data_source_config) if data_source_config else None
 
