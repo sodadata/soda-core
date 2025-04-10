@@ -22,30 +22,32 @@ class YamlParser:
 
 
 class FileType(str, Enum):
-    DATA_SOURCE = "data source"
+    DATA_SOURCE = "Data Source"
+    SODA_CLOUD = "Soda Cloud"
+    CONTRACT = "Contract"
+    YAML = "YAML"
 
 
 class YamlSource:
     """
-    YamlSource is an abstraction for 2 types of YAML sources: file and string.
+    YamlSource is an abstraction for multiple types of YAML sources: see subclasses below.
     It does lazy loading of the file so that errors are only generated when resolving or parsing.
     It's a stateful object that allows for optional variable resolving.
 
     Usage:
 
 
-    yaml_source: YamlSource = YamlSource.from_str(
+    yaml_source: YamlSource = ContractYamlSource.from_str(
         yaml_str="...yaml...",
         file_path="./some/contract.yml" # optional
     )
     # or
-    yaml_source: YamlSource = YamlSource.from_file_path(
+    yaml_source: YamlSource = ContractYamlSource.from_file_path(
         file_path="./some/contract.yml"
     )
 
-    # The default file type is 'yaml file'.
-    # Parsers can update the file type to get a better description and more concrete error messages
-    yaml_source.set_file_type("contract")
+    # The default file type is 'YAML'.
+    # Specific subclasses use different file types.
 
     # Optionally resolve variables as many times as you like:
     # resolving will trigger file loading (if applicable)
@@ -57,6 +59,7 @@ class YamlSource:
     """
 
     __yaml_parser = YamlParser()
+    __file_type = FileType.YAML.value
 
     @classmethod
     def from_str(cls, yaml_str: str, file_path: Optional[str] = None) -> YamlSource:
@@ -64,7 +67,7 @@ class YamlSource:
         Raises an assertion exception if yaml_str is not a str
         """
         assert isinstance(yaml_str, str)
-        return YamlSource(file_path=file_path, yaml_str=yaml_str)
+        return cls(file_path=file_path, yaml_str=yaml_str)
 
     @classmethod
     def from_file_path(cls, file_path: str) -> YamlSource:
@@ -75,7 +78,7 @@ class YamlSource:
         return cls(file_path=file_path)
 
     def __init__(self, file_path: Optional[str] = None, yaml_str: Optional[str] = None):
-        self.file_type: Optional[str] = None
+        self.file_type: str = self.__file_type
         self.file_path: str = file_path
         self.description: str = self._build_description(self.file_type, self.file_path)
         self.is_file_read: bool = False
@@ -85,6 +88,10 @@ class YamlSource:
         self.resolve_on_read_variables: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
         self.resolve_on_read_ignored_variable_names: Optional[set[str]] = None
+
+    def __init_subclass__(cls, file_type: FileType, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.__file_type = file_type.value
 
     def __str__(self) -> str:
         return self.description
@@ -101,14 +108,6 @@ class YamlSource:
                 return f"YAML file '{file_path}'"
             else:
                 return f"YAML string"
-
-    def set_file_type(self, file_type: str) -> None:
-        ###
-        # Deprecated. The instance should not be able to change the file type once created.
-        ###
-
-        self.file_type: str = file_type
-        self.description: str = self._build_description(self.file_type, self.file_path)
 
     def _ensure_yaml_str(self) -> None:
         if not isinstance(self.yaml_str, str) and isinstance(self.file_path, str) and not self.is_file_read:
@@ -174,11 +173,16 @@ class YamlSource:
                 )
 
 
-class DataSourceYamlSource(YamlSource):
-    def __init__(self, file_path: Optional[str] = None, yaml_str: Optional[str] = None):
-        super().__init__(file_path=file_path, yaml_str=yaml_str)
+class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
+    ...
 
-        self.file_type: str = FileType.DATA_SOURCE
+
+class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):
+    ...
+
+
+class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
+    ...
 
 
 class YamlValue:

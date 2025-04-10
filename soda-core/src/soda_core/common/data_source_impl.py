@@ -14,7 +14,7 @@ from soda_core.common.statements.metadata_columns_query import (
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
 
@@ -24,7 +24,7 @@ logger: logging.Logger = soda_logger
 class DataSourceImpl(ABC):
     @classmethod
     def from_yaml_source(
-        cls, data_source_yaml_source: YamlSource, variables: Optional[dict] = None
+        cls, data_source_yaml_source: DataSourceYamlSource, variables: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
         data_source_yaml_source.resolve(variables=variables)
         data_source_yaml: YamlObject = data_source_yaml_source.parse()
@@ -40,7 +40,7 @@ class DataSourceImpl(ABC):
 
         DataSourceModel = Annotated[Union[PostgresDataSource], Field(discriminator="type")]
         adapter = TypeAdapter(DataSourceModel)
-        data_source_model = adapter.validate_python(data_source_yaml.yaml_dict)
+        data_source_model = adapter.validate_python(data_source_yaml.yaml_dict, strict=True)
 
         return DataSourceImpl.create(data_source_model=data_source_model)
 

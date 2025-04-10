@@ -14,7 +14,11 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
-from soda_core.common.yaml import YamlSource
+from soda_core.common.yaml import (
+    ContractYamlSource,
+    DataSourceYamlSource,
+    SodaCloudYamlSource,
+)
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSession,
@@ -75,7 +79,7 @@ class DataSourceTestHelper:
               api_key_id: ${env.SODA_CLOUD_API_KEY_ID}
               api_key_secret: ${env.SODA_CLOUD_API_KEY_SECRET}
         """
-        soda_cloud_yaml_source: YamlSource = YamlSource.from_str(yaml_str=soda_cloud_yaml_str)
+        soda_cloud_yaml_source: SodaCloudYamlSource = SodaCloudYamlSource.from_str(yaml_str=soda_cloud_yaml_str)
         self.soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables={})
         if logs.has_errors():
             raise AssertionError(str(logs))
@@ -88,7 +92,7 @@ class DataSourceTestHelper:
         Called in constructor to initialized self.data_source
         """
         logs: Logs = Logs()
-        data_source_yaml_source: YamlSource = self._create_data_source_yaml_source()
+        data_source_yaml_source: DataSourceYamlSource = self._create_data_source_yaml_source()
         from soda_core.common.data_source_impl import DataSourceImpl
 
         data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
@@ -102,10 +106,10 @@ class DataSourceTestHelper:
         """
         return ""
 
-    def _create_data_source_yaml_source(self) -> YamlSource:
+    def _create_data_source_yaml_source(self) -> DataSourceYamlSource:
         test_data_source_yaml_str: str = self._create_data_source_yaml_str()
         test_data_source_yaml_str = dedent(test_data_source_yaml_str).strip()
-        return YamlSource.from_str(yaml_str=test_data_source_yaml_str)
+        return DataSourceYamlSource.from_str(yaml_str=test_data_source_yaml_str)
 
     def _create_dataset_prefix(self) -> list[str]:
         database_name: str = self._create_database_name()
@@ -384,7 +388,7 @@ class DataSourceTestHelper:
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
         contract_verification_session_result = ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)], only_validate_without_execute=True
+            contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)], only_validate_without_execute=True
         )
         return contract_verification_session_result.get_errors_str()
 
@@ -392,7 +396,9 @@ class DataSourceTestHelper:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
 
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_str(yaml_str=contract_yaml_str, file_path="yaml_string.yml")],
+            contract_yaml_sources=[
+                ContractYamlSource.from_str(yaml_str=contract_yaml_str, file_path="yaml_string.yml")
+            ],
             only_validate_without_execute=True,
             variables=variables,
             data_source_impls=[self.data_source_impl],
@@ -436,7 +442,7 @@ class DataSourceTestHelper:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
         return ContractVerificationSession.execute(
-            contract_yaml_sources=[YamlSource.from_str(contract_yaml_str)],
+            contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
             variables=variables,
             data_source_impls=[self.data_source_impl],
             soda_cloud_impl=self.soda_cloud,

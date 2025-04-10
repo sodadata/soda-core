@@ -14,7 +14,12 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
-from soda_core.common.yaml import VariableResolver, YamlSource
+from soda_core.common.yaml import (
+    ContractYamlSource,
+    DataSourceYamlSource,
+    SodaCloudYamlSource,
+    VariableResolver,
+)
 from soda_core.contracts.contract_verification import (
     Check,
     CheckOutcome,
@@ -46,12 +51,12 @@ class ContractVerificationSessionImpl:
     @classmethod
     def execute(
         cls,
-        contract_yaml_sources: list[YamlSource],
+        contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
         data_source_impls: Optional[list[DataSourceImpl]] = None,
-        data_source_yaml_sources: Optional[list[YamlSource]] = None,
-        soda_cloud_yaml_source: Optional[YamlSource] = None,
+        data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
+        soda_cloud_yaml_source: Optional[SodaCloudYamlSource] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
@@ -62,7 +67,9 @@ class ContractVerificationSessionImpl:
 
         # Validate input contract_yaml_sources
         assert isinstance(contract_yaml_sources, list)
-        assert all(isinstance(contract_yaml_source, YamlSource) for contract_yaml_source in contract_yaml_sources)
+        assert all(
+            isinstance(contract_yaml_source, ContractYamlSource) for contract_yaml_source in contract_yaml_sources
+        )
 
         # Validate input variables
         if variables is None:
@@ -84,12 +91,13 @@ class ContractVerificationSessionImpl:
         else:
             assert isinstance(data_source_yaml_sources, list)
             assert all(
-                isinstance(data_source_yaml_source, YamlSource) for data_source_yaml_source in data_source_yaml_sources
+                isinstance(data_source_yaml_source, DataSourceYamlSource)
+                for data_source_yaml_source in data_source_yaml_sources
             )
 
         # Validate input soda_cloud_yaml_source
         if soda_cloud_yaml_source is not None:
-            assert isinstance(soda_cloud_yaml_source, YamlSource)
+            assert isinstance(soda_cloud_yaml_source, SodaCloudYamlSource)
 
         # Validate input soda_cloud_impl
         if soda_cloud_impl is not None:
@@ -131,12 +139,12 @@ class ContractVerificationSessionImpl:
     def _execute_locally(
         cls,
         logs: Logs,
-        contract_yaml_sources: list[YamlSource],
+        contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool,
         variables: dict[str, str],
         data_source_impls: list[DataSourceImpl],
-        data_source_yaml_sources: list[YamlSource],
-        soda_cloud_yaml_source: Optional[YamlSource],
+        data_source_yaml_sources: list[DataSourceYamlSource],
+        soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
     ) -> list[ContractVerificationResult]:
@@ -186,7 +194,7 @@ class ContractVerificationSessionImpl:
     def _build_data_source_impl_by_name(
         cls,
         data_source_impls: list[DataSourceImpl],
-        data_source_yaml_sources: list[YamlSource],
+        data_source_yaml_sources: list[DataSourceYamlSource],
         variables: dict[str, str],
     ) -> dict[str, DataSourceImpl]:
         data_source_impl_by_name: dict[str, DataSourceImpl] = (
@@ -205,7 +213,7 @@ class ContractVerificationSessionImpl:
     def _build_soda_cloud_impl(
         cls,
         soda_cloud_impl: Optional[SodaCloud],
-        soda_cloud_yaml_source: Optional[YamlSource],
+        soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         variables: dict[str, str],
     ) -> Optional[SodaCloud]:
         if soda_cloud_impl:
@@ -235,9 +243,9 @@ class ContractVerificationSessionImpl:
     @classmethod
     def _execute_on_agent(
         cls,
-        contract_yaml_sources: list[YamlSource],
+        contract_yaml_sources: list[ContractYamlSource],
         variables: Optional[dict[str, str]],
-        soda_cloud_yaml_source: Optional[YamlSource],
+        soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes,
     ) -> list[ContractVerificationResult]:
