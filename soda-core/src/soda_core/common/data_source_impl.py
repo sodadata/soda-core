@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Annotated, Callable, Dict, Optional, Type, Union
+from typing import Callable, Dict, Optional, Type
 
-from pydantic import Field, TypeAdapter
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.exceptions import DataSourceConnectionException
