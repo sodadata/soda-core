@@ -35,45 +35,28 @@ def handle_verify_contract(
             SodaCloudYamlSource.from_file_path(soda_cloud_file_path), variables=None
         )
 
-    contract_yaml_sources: list[ContractYamlSource] = []
-
-    contract_yaml_sources += [
-        ContractYamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths or []
-    ]
-
-    if is_using_remote_contract(dataset_identifiers) and soda_cloud_client:
-        for dataset_identifier in dataset_identifiers:
-            contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
-            if not contract:
-                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
-                continue
-            contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+    contract_yaml_sources, exit_code = _create_contract_yamls(
+        contract_file_paths, dataset_identifiers, soda_cloud_client
+    )
+    if exit_code:
+        return exit_code
 
     if len(contract_yaml_sources) == 0:
         soda_logger.debug("No contracts given. Exiting.")
         return ExitCode.OK
 
-    data_source_yaml_source: Optional[DataSourceYamlSource] = None
-
-    if data_source_file_path:
-        data_source_yaml_source = DataSourceYamlSource.from_file_path(data_source_file_path)
-
-    if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
-        # TODO: decide on implications of this
-        if len(dataset_identifiers) > 1:
-            soda_logger.error(
-                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
-                f"Please pass a single dataset identifier."
-            )
-            return ExitCode.LOG_ERRORS
-
-        dataset_identifier = dataset_identifiers[0]
-
-        soda_logger.debug(f"No local data source config, trying to fetch data source config from cloud")
-        data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
-        if not data_source_config:
-            return ExitCode.LOG_ERRORS
-        data_source_yaml_source = DataSourceYamlSource.from_str(data_source_config)
+    # TODO: decide on implications of this
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        soda_logger.error(
+            f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
+            f"Please pass a single dataset identifier."
+        )
+        return ExitCode.LOG_ERRORS
+    data_source_yaml_source, exit_code = _create_datasource_yamls(
+        data_source_file_path, dataset_identifiers, soda_cloud_client
+    )
+    if exit_code:
+        return exit_code
 
     # TODO: pass the Soda Cloud client directly into subsequent methods
     contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
@@ -88,6 +71,59 @@ def handle_verify_contract(
     )
 
     return interpret_contract_verification_result(contract_verification_session_result)
+
+
+def _create_contract_yamls(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: SodaCloud,
+) -> tuple[list[ContractYamlSource], ExitCode | None]:
+    contract_yaml_sources = []
+
+    if contract_file_paths:
+        contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
+
+    if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
+        for dataset_identifier in dataset_identifiers:
+            contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
+            if not contract:
+                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
+                continue
+            contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+
+    if not contract_yaml_sources:
+        soda_logger.debug("No contracts given. Exiting.")
+        return [], ExitCode.OK
+
+    return contract_yaml_sources, None
+
+
+def _create_datasource_yamls(
+    data_source_file_path: Optional[str],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: SodaCloud,
+) -> tuple[Optional[DataSourceYamlSource], ExitCode | None]:
+    if data_source_file_path:
+        return DataSourceYamlSource.from_file_path(data_source_file_path), None
+
+    if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
+        if len(dataset_identifiers) > 1:
+            soda_logger.error(
+                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
+                f"Please pass a single dataset identifier."
+            )
+            return None, ExitCode.LOG_ERRORS
+
+        dataset_identifier = dataset_identifiers[0]
+        soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
+        data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
+
+        if not data_source_config:
+            return None, ExitCode.LOG_ERRORS
+
+        return DataSourceYamlSource.from_str(data_source_config), None
+
+    return None, None
 
 
 def validate_verify_arguments(
@@ -134,8 +170,10 @@ def all_none_or_empty(*args: list | None) -> bool:
     return all(x is None or len(x) == 0 for x in args)
 
 
-def is_using_remote_contract(dataset_identifiers: Optional[list[str]]) -> bool:
-    return dataset_identifiers is not None
+def is_using_remote_contract(
+    contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]
+) -> bool:
+    return (contract_file_paths is None or len(contract_file_paths) == 0) and dataset_identifiers is not None
 
 
 def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
