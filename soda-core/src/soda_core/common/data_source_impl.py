@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Annotated, Callable, Dict, Optional, Type, Union
 
+from pydantic import Field, TypeAdapter
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.exceptions import DataSourceConnectionException
@@ -22,6 +23,12 @@ logger: logging.Logger = soda_logger
 
 
 class DataSourceImpl(ABC):
+    _registry: Dict[str, Callable[[], Type["DataSourceImpl"]]] = {}
+
+    @classmethod
+    def register(cls, type_name: str, loader: Callable[[], Type["DataSourceImpl"]]):
+        cls._registry[type_name] = loader
+
     @classmethod
     def from_yaml_source(
         cls, data_source_yaml_source: DataSourceYamlSource, variables: Optional[dict] = None
@@ -31,9 +38,22 @@ class DataSourceImpl(ABC):
         if not data_source_yaml:
             return None
 
-        from typing import Annotated, Union
+        type_name = data_source_yaml.yaml_dict.get("type")
+        if not type_name:
+            raise ValueError("Missing required 'type' in data source YAML")
 
-        from pydantic import Field, TypeAdapter
+        loader = cls._registry.get(type_name)
+        if not loader:
+            raise ImportError(
+                f"Data source type '{type_name}' not available. "
+                f"Make sure to install the required plugin, e.g. `pip install soda-{type_name}`"
+            )
+
+        impl_class = loader()
+        model_class = impl_class.model_class()
+        validated_model = model_class.model_validate(data_source_yaml.yaml_dict)
+        return impl_class(data_source_model=validated_model)
+
         from soda_postgres.model.data_source.postgres_data_source import (
             PostgresDataSource,
         )
@@ -45,15 +65,15 @@ class DataSourceImpl(ABC):
         return DataSourceImpl.create(data_source_model=data_source_model)
 
     @classmethod
-    def create(
-        cls,
-        data_source_model: DataSourceBase,
-    ) -> DataSourceImpl:
-        from soda_core.common.data_sources.postgres_data_source import (
-            PostgresDataSourceImpl,
-        )
-
-        return PostgresDataSourceImpl(data_source_model=data_source_model)
+    def create(cls, data_source_model: DataSourceBase) -> "DataSourceImpl":
+        type_name = data_source_model.type
+        loader = cls._registry.get(type_name)
+        if not loader:
+            raise ImportError(
+                f"No implementation found for type '{type_name}'. " f"Install the required plugin or check your YAML."
+            )
+        impl_class = loader()
+        return impl_class(data_source_model=data_source_model)
 
     def __init__(
         self,
