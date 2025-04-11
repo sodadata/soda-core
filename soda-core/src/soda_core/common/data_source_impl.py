@@ -54,16 +54,6 @@ class DataSourceImpl(ABC):
         validated_model = model_class.model_validate(data_source_yaml.yaml_dict)
         return impl_class(data_source_model=validated_model)
 
-        from soda_postgres.model.data_source.postgres_data_source import (
-            PostgresDataSource,
-        )
-
-        DataSourceModel = Annotated[Union[PostgresDataSource], Field(discriminator="type")]
-        adapter = TypeAdapter(DataSourceModel)
-        data_source_model = adapter.validate_python(data_source_yaml.yaml_dict, strict=True)
-
-        return DataSourceImpl.create(data_source_model=data_source_model)
-
     @classmethod
     def create(cls, data_source_model: DataSourceBase) -> "DataSourceImpl":
         type_name = data_source_model.type
