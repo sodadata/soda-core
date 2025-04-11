@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Annotated, Callable, Dict, Optional, Type, Union
+from typing import Callable, Dict, Optional, Type
 
-from pydantic import Field, TypeAdapter
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.exceptions import DataSourceConnectionException
@@ -23,11 +22,8 @@ logger: logging.Logger = soda_logger
 
 
 class DataSourceImpl(ABC):
-    _registry: Dict[str, Callable[[], Type["DataSourceImpl"]]] = {}
-
-    @classmethod
-    def register(cls, type_name: str, loader: Callable[[], Type["DataSourceImpl"]]):
-        cls._registry[type_name] = loader
+    __implementation_classes: Dict[str, Callable[[], Type["DataSourceImpl"]]] = {}
+    __model_classes: Dict[str, Type[DataSourceBase]] = {}
 
     @classmethod
     def from_yaml_source(
@@ -42,22 +38,27 @@ class DataSourceImpl(ABC):
         if not type_name:
             raise ValueError("Missing required 'type' in data source YAML")
 
-        loader = cls._registry.get(type_name)
-        if not loader:
+        impl_class = cls.__implementation_classes.get(type_name)
+        if not impl_class:
             raise ImportError(
                 f"Data source type '{type_name}' not available. "
                 f"Make sure to install the required plugin, e.g. `pip install soda-{type_name}`"
             )
 
-        impl_class = loader()
-        model_class = impl_class.model_class()
+        model_class = cls.__model_classes.get(type_name)
+        if not model_class:
+            raise ImportError(
+                f"Model class for data source type '{type_name}' not found. "
+                f"This is likely a bug in the plugin implementation."
+            )
+
         validated_model = model_class.model_validate(data_source_yaml.yaml_dict)
         return impl_class(data_source_model=validated_model)
 
     @classmethod
     def create(cls, data_source_model: DataSourceBase) -> "DataSourceImpl":
-        type_name = data_source_model.type
-        loader = cls._registry.get(type_name)
+        type_name = data_source_model.get_class_type()
+        loader = cls.__implementation_classes.get(type_name)
         if not loader:
             raise ImportError(
                 f"No implementation found for type '{type_name}'. " f"Install the required plugin or check your YAML."
@@ -71,16 +72,18 @@ class DataSourceImpl(ABC):
     ):
         self.data_source_model: DataSourceBase = data_source_model
         self.name: str = data_source_model.name
-        self.type_name: str = data_source_model.type
+        self.type_name: str = data_source_model.get_class_type()
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
         self.data_source_connection: Optional[DataSourceConnection] = None
 
+    def __init_subclass__(cls, model_class: Type[DataSourceBase], **kwargs):
+        super().__init_subclass__(**kwargs)
+        type_name = model_class.get_class_type()
+        cls.__model_classes[type_name] = model_class
+        cls.__implementation_classes[type_name] = cls
+
     def __str__(self) -> str:
         return self.name
-
-    @abstractmethod
-    def get_data_source_type_name(self) -> str:
-        pass
 
     @abstractmethod
     def _create_data_source_connection(self) -> DataSourceConnection:

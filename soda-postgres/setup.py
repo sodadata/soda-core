@@ -14,8 +14,8 @@ setup(
     install_requires=requires,
     package_dir={"": "src"},
     entry_points={
-        "soda.plugins": [
-            "postgres = soda_postgres",
+        "soda.plugins.data_source.postgres": [
+            "PostgresDataSourceImpl = soda_postgres.common.data_sources.postgres_data_source:PostgresDataSourceImpl",
         ],
     },
 )

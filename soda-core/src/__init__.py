@@ -1,9 +1,0 @@
-import importlib.metadata
-
-
-def load_plugins():
-    for entry_point in importlib.metadata.entry_points(group="soda.plugins"):
-        try:
-            importlib.import_module(entry_point.value)
-        except ImportError as e:
-            print(f"Could not load plugin '{entry_point.name}': {e}")
