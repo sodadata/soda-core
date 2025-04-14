@@ -159,7 +159,7 @@ def validate_verify_arguments(
         )
         return ExitCode.LOG_ERRORS
 
-    if all_none_or_empty(dataset_identifiers) and not data_source_file_path:
+    if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent:
         soda_logger.error("At least one of -ds/--data-source or -d/--dataset value is required.")
         return ExitCode.LOG_ERRORS
 

@@ -126,6 +126,23 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
     assert exit_code == ExitCode.LOG_ERRORS
 
 
+def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configuration_or_dataset_identifiers_and_remote(
+    caplog,
+):
+    exit_code = handle_verify_contract(
+        contract_file_paths=["contract.yaml"],
+        dataset_identifiers=None,
+        data_source_file_path=None,
+        soda_cloud_file_path="soda-cloud.yaml",
+        publish=True,
+        use_agent=True,
+        blocking_timeout_in_minutes=10,
+    )
+
+    assert "At least one of -ds/--data-source or -d/--dataset value is required." not in caplog.messages
+    assert exit_code == ExitCode.OK
+
+
 def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud_returns_errors(caplog):
     with patch("soda_core.cli.handlers.contract.SodaCloud.from_yaml_source") as mock_cloud_from_yaml:
         mock_cloud = MagicMock()
