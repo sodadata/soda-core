@@ -1,9 +1,9 @@
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     ContractVerificationResult,
 )
-from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestTableSpecification
 
 test_table_specification = (
     TestTableSpecification.builder()

@@ -1,9 +1,9 @@
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     ContractVerificationResult,
 )
-from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestTableSpecification
 
 missing_no_rows_specification = (
     TestTableSpecification.builder().table_purpose("missing_no_rows").column_text("id").build()

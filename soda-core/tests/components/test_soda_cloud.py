@@ -1,10 +1,5 @@
 from datetime import datetime
 
-from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.contract_publication import ContractPublicationResult
-from soda_core.contracts.contract_verification import ContractVerificationResult
-from soda_core.contracts.impl.contract_yaml import ContractYaml
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import (
     MockHttpMethod,
@@ -13,6 +8,11 @@ from helpers.mock_soda_cloud import (
     MockSodaCloud,
 )
 from helpers.test_table import TestTableSpecification
+from soda_core.common.datetime_conversions import convert_datetime_to_str
+from soda_core.common.yaml import ContractYamlSource
+from soda_core.contracts.contract_publication import ContractPublicationResult
+from soda_core.contracts.contract_verification import ContractVerificationResult
+from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 test_table_specification = (
     TestTableSpecification.builder()

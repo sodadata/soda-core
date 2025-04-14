@@ -8,6 +8,13 @@ import string
 from textwrap import dedent
 from typing import Optional
 
+from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.test_table import (
+    TestColumn,
+    TestDataType,
+    TestTable,
+    TestTableSpecification,
+)
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.statements.metadata_tables_query import (
@@ -24,13 +31,6 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
-from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.test_table import (
-    TestColumn,
-    TestDataType,
-    TestTable,
-    TestTableSpecification,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,9 @@ logger = logging.getLogger(__name__)
 class DataSourceTestHelper:
     @classmethod
     def create(cls) -> DataSourceTestHelper:
-        from data_sources.postgres_data_source_test_helper import PostgresDataSourceTestHelper
+        from data_sources.postgres_data_source_test_helper import (
+            PostgresDataSourceTestHelper,
+        )
 
         return PostgresDataSourceTestHelper()
 

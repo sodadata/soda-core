@@ -1,12 +1,8 @@
+from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
     ContractPublicationResultList,
-)
-from helpers.mock_soda_cloud import (
-    MockHttpMethod,
-    MockResponse,
-    MockSodaCloud,
 )
 
 

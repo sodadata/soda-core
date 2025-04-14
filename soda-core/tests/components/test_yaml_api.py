@@ -1,9 +1,9 @@
 import logging
 import os
 
+from helpers.test_functions import dedent_and_strip
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlList, YamlObject, YamlSource
-from helpers.test_functions import dedent_and_strip
 
 
 def test_yaml_api(logs: Logs):
