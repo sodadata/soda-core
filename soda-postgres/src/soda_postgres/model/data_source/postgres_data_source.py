@@ -11,7 +11,7 @@ from soda_postgres.model.data_source.postgres_connection_properties import (
 
 
 class PostgresDataSource(DataSourceBase, abc.ABC):
-    type: Literal["postgres"]
+    type: Literal["postgres"] = Field("postgres")
     connection_properties: PostgresConnectionProperties = Field(
         ..., alias="connection", description="Data source connection details"
     )

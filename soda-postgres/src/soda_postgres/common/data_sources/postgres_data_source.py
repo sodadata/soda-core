@@ -10,12 +10,9 @@ from soda_postgres.model.data_source.postgres_data_source import (
 )
 
 
-class PostgresDataSourceImpl(DataSourceImpl):
+class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel):
     def __init__(self, data_source_model: PostgresDataSourceModel):
         super().__init__(data_source_model=data_source_model)
-
-    def get_data_source_type_name(self) -> str:
-        return "postgres"
 
     def _create_sql_dialect(self) -> SqlDialect:
         return PostgresSqlDialect()
