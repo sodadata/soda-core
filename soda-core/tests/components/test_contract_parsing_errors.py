@@ -1,5 +1,5 @@
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.test_functions import dedent_and_strip
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_functions import dedent_and_strip
 
 
 def test_parsing_error_wrong_type(data_source_test_helper: DataSourceTestHelper):

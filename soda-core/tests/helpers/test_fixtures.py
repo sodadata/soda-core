@@ -5,8 +5,8 @@ from typing import Optional
 
 import pytest
 from dotenv import load_dotenv
+from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.logs import Logs
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
 
 project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/helpers/test_fixtures.py")]
 load_dotenv(f"{project_root_dir}/.env", override=True)

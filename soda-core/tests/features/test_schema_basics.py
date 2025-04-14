@@ -1,7 +1,7 @@
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.test_table import TestTableSpecification
 
 test_table_specification = (
     TestTableSpecification.builder()

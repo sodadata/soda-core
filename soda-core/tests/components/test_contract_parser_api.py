@@ -1,7 +1,7 @@
+from helpers.test_functions import dedent_and_strip
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml
-from soda_core.tests.helpers.test_functions import dedent_and_strip
 
 
 def test_parse_relative_complete_contract():

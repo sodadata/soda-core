@@ -1,18 +1,18 @@
 from datetime import datetime
 
-from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.contract_publication import ContractPublicationResult
-from soda_core.contracts.contract_verification import ContractVerificationResult
-from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.tests.helpers.mock_soda_cloud import (
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import (
     MockHttpMethod,
     MockRequest,
     MockResponse,
     MockSodaCloud,
 )
-from soda_core.tests.helpers.test_table import TestTableSpecification
+from helpers.test_table import TestTableSpecification
+from soda_core.common.datetime_conversions import convert_datetime_to_str
+from soda_core.common.yaml import ContractYamlSource
+from soda_core.contracts.contract_publication import ContractPublicationResult
+from soda_core.contracts.contract_verification import ContractVerificationResult
+from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 test_table_specification = (
     TestTableSpecification.builder()
