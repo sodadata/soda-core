@@ -51,7 +51,7 @@ def test_legacy_dataset_specification():
 def test_minimal_contract():
     logs: Logs = Logs()
     ContractYaml.parse(
-        contract_yaml_source=YamlSource.from_str(
+        contract_yaml_source=ContractYamlSource.from_str(
             """
             dataset: a/b/c/d
         """
