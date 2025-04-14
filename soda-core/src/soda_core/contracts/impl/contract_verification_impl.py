@@ -91,7 +91,7 @@ class ContractVerificationSessionImpl:
         else:
             assert isinstance(data_source_yaml_sources, list)
             assert all(
-                isinstance(data_source_yaml_source, DataSourceYamlSource)
+                isinstance(data_source_yaml_source, DataSourceYamlSource) or soda_cloud_use_agent
                 for data_source_yaml_source in data_source_yaml_sources
             )
 
