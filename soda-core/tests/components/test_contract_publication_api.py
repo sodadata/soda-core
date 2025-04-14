@@ -3,7 +3,7 @@ from soda_core.contracts.contract_publication import (
     ContractPublicationResult,
     ContractPublicationResultList,
 )
-from soda_core.tests.helpers.mock_soda_cloud import (
+from helpers.mock_soda_cloud import (
     MockHttpMethod,
     MockResponse,
     MockSodaCloud,

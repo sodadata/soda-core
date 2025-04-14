@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from soda_core.tests.helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class PostgresDataSourceTestHelper(DataSourceTestHelper):

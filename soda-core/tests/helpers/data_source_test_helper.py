@@ -24,8 +24,8 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
-from soda_core.tests.helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from soda_core.tests.helpers.test_table import (
+from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.test_table import (
     TestColumn,
     TestDataType,
     TestTable,
@@ -38,9 +38,7 @@ logger = logging.getLogger(__name__)
 class DataSourceTestHelper:
     @classmethod
     def create(cls) -> DataSourceTestHelper:
-        from soda_postgres.contracts.impl.data_sources.postgres_data_source_test_helper import (
-            PostgresDataSourceTestHelper,
-        )
+        from data_sources.postgres_data_source_test_helper import PostgresDataSourceTestHelper
 
         return PostgresDataSourceTestHelper()
 

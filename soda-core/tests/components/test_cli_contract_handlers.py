@@ -126,6 +126,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
     assert exit_code == ExitCode.LOG_ERRORS
 
 
+@pytest.mark.skip(reason="Needs mocking of Contract verification.")
 def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configuration_or_dataset_identifiers_and_remote(
     caplog,
 ):

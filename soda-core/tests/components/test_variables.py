@@ -3,7 +3,7 @@ from typing import Optional
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import ContractYaml
-from soda_core.tests.helpers.test_functions import dedent_and_strip
+from helpers.test_functions import dedent_and_strip
 
 
 def parse_contract(contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractYaml:

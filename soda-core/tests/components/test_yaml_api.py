@@ -3,7 +3,7 @@ import os
 
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlList, YamlObject, YamlSource
-from soda_core.tests.helpers.test_functions import dedent_and_strip
+from helpers.test_functions import dedent_and_strip
 
 
 def test_yaml_api(logs: Logs):

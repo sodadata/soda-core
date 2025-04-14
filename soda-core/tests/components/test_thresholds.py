@@ -1,7 +1,7 @@
 from soda_core.common.yaml import ContractYamlSource, YamlObject
 from soda_core.contracts.impl.contract_verification_impl import ThresholdImpl
 from soda_core.contracts.impl.contract_yaml import ThresholdYaml
-from soda_core.tests.helpers.test_functions import dedent_and_strip
+from helpers.test_functions import dedent_and_strip
 
 
 def test_threshold_must_be():
