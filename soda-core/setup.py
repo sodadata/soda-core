@@ -13,7 +13,11 @@ package_name = "soda-core"
 package_version = "4.0.0b1"
 description = "Soda Core V4"
 
-requires = ["ruamel.yaml>=0.17.0,<0.18.0", "requests>=2.32.3,<2.33.0"]
+requires = [
+    "ruamel.yaml>=0.17.0,<0.18.0",
+    "requests>=2.32.3,<2.33.0",
+    "pydantic>=2.0,<3.0",
+]
 
 setup(
     name=package_name,
@@ -36,7 +40,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "soda=soda_core.cli.soda:main",
+            "soda=soda_core.cli.soda:execute",
         ]
     },
 )

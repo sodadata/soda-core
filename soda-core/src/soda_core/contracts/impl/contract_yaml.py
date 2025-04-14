@@ -14,10 +14,10 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
+    ContractYamlSource,
     VariableResolver,
     YamlList,
     YamlObject,
-    YamlSource,
     YamlValue,
 )
 
@@ -64,7 +64,6 @@ def register_check_types() -> None:
 
 
 class ContractYaml:
-
     """
     Represents YAML as close as possible.
     None means the key was not present.
@@ -74,17 +73,15 @@ class ContractYaml:
 
     @classmethod
     def parse(
-        cls, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]] = None
+        cls, contract_yaml_source: ContractYamlSource, variables: Optional[dict[str, str]] = None
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
         return ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables)
 
-    def __init__(self, contract_yaml_source: YamlSource, variables: Optional[dict[str, str]]):
-        self.contract_yaml_source: YamlSource = contract_yaml_source
-        self.contract_yaml_source.set_file_type("Contract")
-
+    def __init__(self, contract_yaml_source: ContractYamlSource, variables: Optional[dict[str, str]]):
+        self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
         self.variables: list[VariableYaml] = self._process_variables(contract_yaml_source, variables)

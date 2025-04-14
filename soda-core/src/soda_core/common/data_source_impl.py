@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
+from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
@@ -13,82 +14,79 @@ from soda_core.common.statements.metadata_columns_query import (
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.yaml import YamlObject, YamlSource
+from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
+from soda_core.model.data_source.data_source import DataSourceBase
 
 logger: logging.Logger = soda_logger
 
 
 class DataSourceImpl(ABC):
+    __implementation_classes: Dict[str, Callable[[], Type["DataSourceImpl"]]] = {}
+    __model_classes: Dict[str, Type[DataSourceBase]] = {}
+
     @classmethod
     def from_yaml_source(
-        cls, data_source_yaml_source: YamlSource, variables: Optional[dict] = None
+        cls, data_source_yaml_source: DataSourceYamlSource, variables: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
-        assert isinstance(data_source_yaml_source, YamlSource)
-
-        data_source_yaml_source.set_file_type("Data source")
         data_source_yaml_source.resolve(variables=variables)
         data_source_yaml: YamlObject = data_source_yaml_source.parse()
         if not data_source_yaml:
             return None
 
-        data_source_type_name: str = data_source_yaml.read_string("type")
-        data_source_name: Optional[str] = data_source_yaml.read_string("name")
+        type_name = data_source_yaml.yaml_dict.get("type")
+        if not type_name:
+            raise ValueError("Missing required 'type' in data source YAML")
 
-        connection_yaml: YamlObject = data_source_yaml.read_object_opt("connection")
-        connection_properties: Optional[dict] = None
-        if connection_yaml:
-            connection_properties = connection_yaml.to_dict()
+        impl_class = cls.__implementation_classes.get(type_name)
+        if not impl_class:
+            raise ImportError(
+                f"Data source type '{type_name}' not available. "
+                f"Make sure to install the required plugin, e.g. `pip install soda-{type_name}`"
+            )
 
-        return DataSourceImpl.create(
-            data_source_yaml_source=data_source_yaml_source,
-            name=data_source_name,
-            type_name=data_source_type_name,
-            connection_properties=connection_properties,
-        )
+        model_class = cls.__model_classes.get(type_name)
+        if not model_class:
+            raise ImportError(
+                f"Model class for data source type '{type_name}' not found. "
+                f"This is likely a bug in the plugin implementation."
+            )
+
+        validated_model = model_class.model_validate(data_source_yaml.yaml_dict)
+        return impl_class(data_source_model=validated_model)
 
     @classmethod
-    def create(
-        cls,
-        data_source_yaml_source: YamlSource,
-        name: str,
-        type_name: str,
-        connection_properties: dict,
-    ) -> DataSourceImpl:
-        from soda_core.common.data_sources.postgres_data_source import (
-            PostgresDataSourceImpl,
-        )
-
-        return PostgresDataSourceImpl(
-            data_source_yaml_source=data_source_yaml_source,
-            name=name,
-            type_name=type_name,
-            connection_properties=connection_properties,
-        )
+    def create(cls, data_source_model: DataSourceBase) -> "DataSourceImpl":
+        type_name = data_source_model.get_class_type()
+        loader = cls.__implementation_classes.get(type_name)
+        if not loader:
+            raise ImportError(
+                f"No implementation found for type '{type_name}'. " f"Install the required plugin or check your YAML."
+            )
+        impl_class = loader()
+        return impl_class(data_source_model=data_source_model)
 
     def __init__(
         self,
-        data_source_yaml_source: YamlSource,
-        name: str,
-        type_name: str,
-        connection_properties: dict,
+        data_source_model: DataSourceBase,
     ):
-        self.data_source_yaml_source: YamlSource = data_source_yaml_source
-        self.name: str = name
-        self.type_name: str = type_name
+        self.data_source_model: DataSourceBase = data_source_model
+        self.name: str = data_source_model.name
+        self.type_name: str = data_source_model.get_class_type()
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
-        self.connection_properties: Optional[dict] = connection_properties
         self.data_source_connection: Optional[DataSourceConnection] = None
+
+    def __init_subclass__(cls, model_class: Type[DataSourceBase], **kwargs):
+        super().__init_subclass__(**kwargs)
+        type_name = model_class.get_class_type()
+        cls.__model_classes[type_name] = model_class
+        cls.__implementation_classes[type_name] = cls
 
     def __str__(self) -> str:
         return self.name
 
     @abstractmethod
-    def get_data_source_type_name(self) -> str:
-        pass
-
-    @abstractmethod
-    def _create_data_source_connection(self, name: str, connection_properties: dict) -> DataSourceConnection:
+    def _create_data_source_connection(self) -> DataSourceConnection:
         pass
 
     @abstractmethod
@@ -98,11 +96,17 @@ class DataSourceImpl(ABC):
     def __enter__(self) -> None:
         self.open_connection()
 
+    def connection(self) -> DataSourceConnection:
+        if not self.has_open_connection():
+            self.open_connection()
+
+        return self.data_source_connection
+
     def open_connection(self) -> None:
-        self.data_source_connection = self._create_data_source_connection(
-            name=self.name,
-            connection_properties=self.connection_properties,
-        )
+        try:
+            self.data_source_connection = self._create_data_source_connection()
+        except Exception as e:
+            raise DataSourceConnectionException(e) from e
 
     def has_open_connection(self) -> bool:
         return (

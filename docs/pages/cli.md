@@ -54,7 +54,7 @@ INSERT INTO "soda_test"."clitest"."dim_employees" VALUES
 
 Use the Soda CLI to create a skeleton data source configuration file
 
-`soda create-data-source -f ds.yml`
+`soda data-source create -f ds.yml`
 
 Expected command output
 
@@ -70,7 +70,7 @@ Update the information in the generated file
 
 ### Step 5: Test your data source configuration file
 
-`soda test-data-source -ds ds.yml`
+`soda data-source test -ds ds.yml`
 
 Expected command output
 
@@ -84,7 +84,7 @@ Testing data source configuration file ds.yml
 
 ### Step 6: Create the Soda Cloud configuration YAML file
 
-`soda create-soda-cloud -f sc.yml`
+`soda cloud create -f sc.yml`
 
 Expected command output
 
@@ -112,7 +112,7 @@ For more, check out [the Soda Cloud YAML configuration file page](soda_cloud.md)
 
 ### Step 7: Test your Soda Cloud configuration YAML file
 
-`soda test-soda-cloud -sc sc.yml`
+`soda cloud test -sc sc.yml`
 
 Expected command output:
 
@@ -151,9 +151,9 @@ For more contract YAML examples, see
 
 ### Step 9: Test the contract YAML syntax
 
-`soda test-contract --data-source ds.yml --contract c.yml`
+`soda contract test --data-source ds.yml --contract c.yml`
 
-`soda test-contract -ds ds.yml -c c.yml`
+`soda contract test -ds ds.yml -c c.yml`
 
 Expected command output:
 ```text
@@ -168,9 +168,9 @@ Testing contract 'c.yml' YAML syntax
 
 **a) Verifying locally**
 
-`soda verify --data-source ds.yml --contract c.yml`
+`soda contract verify --data-source ds.yml --contract c.yml`
 
-`soda verify -ds ds.yml -c c.yml`
+`soda contract verify -ds ds.yml -c c.yml`
 
 This command will...
 
@@ -184,9 +184,9 @@ This command will...
 
 Basically append `-sc sc.yml` to the previous command to send contract verification results to Soda Cloud. If you provide a Soda Cloud configuration file, by default the contract will be published and the contract verification results will be sent.
 
-`soda verify --data-source ds.yml --soda-cloud sc.yml --contract c.yml`
+`soda contract verify --data-source ds.yml --soda-cloud sc.yml --contract c.yml -p`
 
-`soda verify -ds ds.yml -sc sc.yml -c c.yml`
+`soda contract verify -ds ds.yml -sc sc.yml -c c.yml -p`
 
 This command will
 
@@ -210,9 +210,9 @@ Prerequisites:
     * if the contract is not updated, "Execute Contracts"
 * A Soda Cloud data source with the same name as referred to in the contract
 
-`soda verify -a -sc sc.yml -c c.yml`
+`soda contract verify -a -sc sc.yml -c c.yml`
 
-`soda verify --use-agent --soda-cloud sc.yml --contract c.yml`
+`soda contract verify --agent --soda-cloud sc.yml --contract c.yml`
 
 This command will
 
