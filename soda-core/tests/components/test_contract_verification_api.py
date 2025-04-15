@@ -1,4 +1,5 @@
 import pytest
+from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
@@ -8,26 +9,28 @@ from soda_core.contracts.contract_verification import (
 
 
 def test_contract_verification_file_api():
-    contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-        contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
-        variables={"env": "test"},
-    )
+    with pytest.raises(InvalidDatasetQualifiedNameException):
+        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+            variables={"env": "test"},
+        )
 
-    assert (
-        "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-        in contract_verification_session_result.get_errors_str()
-    )
+        assert (
+            "Contract file '../soda/mydb/myschema/table.yml' does not exist"
+            in contract_verification_session_result.get_errors_str()
+        )
 
 
 def test_contract_verification_file_api_exception_on_error():
-    with pytest.raises(SodaException) as e:
-        ContractVerificationSession.execute(
-            contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
-            variables={"env": "test"},
-        ).assert_ok()
+    with pytest.raises(InvalidDatasetQualifiedNameException):
+        with pytest.raises(SodaException) as e:
+            ContractVerificationSession.execute(
+                contract_yaml_sources=[ContractYamlSource.from_file_path("../soda/mydb/myschema/table.yml")],
+                variables={"env": "test"},
+            ).assert_ok()
 
-    exception_string = str(e.value)
-    assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in exception_string
+            exception_string = str(e.value)
+            assert "Contract file '../soda/mydb/myschema/table.yml' does not exist" in exception_string
 
 
 def test_contract_provided_and_configured():
@@ -38,8 +41,7 @@ def test_contract_provided_and_configured():
         contract_yaml_sources=[
             ContractYamlSource.from_str(
                 f"""
-              data_source: abc
-              dataset: CUSTOMERS
+              dataset: abc/CUSTOMERS
               columns:
                 - name: id
             """

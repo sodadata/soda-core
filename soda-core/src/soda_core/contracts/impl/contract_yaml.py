@@ -7,6 +7,7 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
@@ -84,92 +85,8 @@ class ContractYaml:
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
-        self.variables: list[VariableYaml] = []
-        if self.contract_yaml_object:
-            variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
-            if variables_yaml_object:
-                for variable_name, variable_yaml_object in variables_yaml_object.items():
-                    variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
-                    self.variables.append(variable_yaml)
+        self.variables: list[VariableYaml] = self._process_variables(contract_yaml_source, variables)
 
-            # Replace None with empty dict, so variables is always a dict
-            variables = variables if isinstance(variables, dict) else {}
-
-            # Building up the variable name list in order, first the provided, then the declared variables
-            variable_names: list[str] = list(variables.keys())
-            for variable in self.variables:
-                if variable.name not in variable_names:
-                    variable_names.append(variable.name)
-
-            variable_yamls_by_name: dict[str, VariableYaml] = {variable.name: variable for variable in self.variables}
-            variable_values: dict[str, str] = {
-                variable_name: (
-                    variables[variable_name]
-                    if variable_name in variables
-                    else variable_yamls_by_name[variable_name].default
-                )
-                for variable_name in variable_names
-            }
-
-            if "NOW" not in variable_values:
-                variable_values["NOW"] = convert_datetime_to_str(datetime.now())
-
-            ignored_variable_names: set[str] = set()
-            for variable_name in variables:
-                if variable_name not in variable_yamls_by_name and variable_name != "NOW":
-                    logger.warning(f"Ignoring provided variable {variable_name} because it's not declared")
-                    variable_values.pop(variable_name)
-                    ignored_variable_names.add(variable_name)
-
-            resolved_variable_values: dict[str, str] = (
-                self._resolve_variables(variable_values) if variable_values else {}
-            )
-
-            for variable_name, resolve_variable_value in resolved_variable_values.items():
-                if variable_name in variables:
-                    logger.debug(f"Using provided variable value {variable_name}={resolve_variable_value}")
-                else:
-                    logger.debug(f"Using default variable value {variable_name}={resolve_variable_value}")
-            for variable in self.variables:
-                if variable.required and resolved_variable_values.get(variable.name) is None:
-                    logger.error(
-                        msg=f"Required variable '{variable.name}' not provided",
-                        extra={ExtraKeys.LOCATION: variable.variable_yaml.location},
-                    )
-                elif variable.type == "timestamp":
-                    resolved_timestamp_value = resolved_variable_values.get(variable.name)
-                    if (
-                        resolved_timestamp_value is not None
-                        and convert_str_to_datetime(resolved_timestamp_value) is None
-                    ):
-                        logger.error(
-                            msg=f"Invalid timestamp value for variable '{variable.name}': "
-                            f"{resolved_timestamp_value}",
-                            extra={ExtraKeys.LOCATION: variable.variable_yaml.location},
-                        )
-
-            # Without this line, usage of NOW without declaring it will generate an error
-            ignored_variable_names.discard("NOW")
-
-            now_variable_yaml: VariableYaml = variable_yamls_by_name.get("NOW")
-            if "NOW" in resolved_variable_values:
-                if now_variable_yaml is not None and now_variable_yaml.type is not None:
-                    if now_variable_yaml.type != "timestamp":
-                        logger.error("If you specify a type for variable 'NOW', it must be a timestamp")
-            if "NOW" in variables and not (now_variable_yaml and now_variable_yaml.type == "timestamp"):
-                now_str: str = variables["NOW"]
-                if isinstance(now_str, str) and convert_str_to_datetime(now_str) is None:
-                    logger.error(f"Provided 'NOW' variable value is not a correct timestamp format: {now_str}")
-                else:
-                    resolved_variable_values["NOW"] = now_str
-
-            contract_yaml_source.resolve_on_read_value(
-                variables=resolved_variable_values, ignored_variable_names=ignored_variable_names, use_env_vars=True
-            )
-
-        self.data_source: Optional[str] = (
-            self.contract_yaml_object.read_string("data_source") if self.contract_yaml_object else None
-        )
         if (
             self.contract_yaml_object
             and self.contract_yaml_object.has_key("datasource")
@@ -182,14 +99,110 @@ class ContractYaml:
                 },
             )
 
-        self.dataset_prefix: Optional[list[str]] = (
+        data_source: Optional[str] = (
+            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
+        )
+        dataset_prefix: Optional[list[str]] = (
             self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix") if self.contract_yaml_object else None
         )
         self.dataset: Optional[str] = (
             self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
         )
+
+        # Validate qualified dataset name
+        _ = DatasetIdentifier.parse(self.dataset)
+
         self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+
+    def _process_variables(self, contract_yaml_source, variables) -> list[VariableYaml]:
+        variable_yamls: list[VariableYaml] = []
+
+        if self.contract_yaml_object:
+            variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
+            if variables_yaml_object:
+                for variable_name, variable_yaml_object in variables_yaml_object.items():
+                    variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
+                    variable_yamls.append(variable_yaml)
+
+            # Replace None with empty dict, so variables is always a dict
+            variables = variables if isinstance(variables, dict) else {}
+
+            # Building up the variable name list in order, first the provided, then the declared variables
+            variable_names: list[str] = list(variables.keys())
+            for variable_yaml in variable_yamls:
+                if variable_yaml.name not in variable_names:
+                    variable_names.append(variable_yaml.name)
+
+            variable_yamls_by_name: dict[str, VariableYaml] = {
+                variable_yaml.name: variable_yaml for variable_yaml in variable_yamls
+            }
+            variable_values: dict[str, str] = {
+                variable_name: (
+                    variables[variable_name]
+                    if variable_name in variables
+                    else variable_yamls_by_name[variable_name].default
+                )
+                for variable_name in variable_names
+            }
+
+            ignored_variable_names: set[str] = set()
+            for variable_name in variables:
+                if variable_name not in variable_yamls_by_name and variable_name != "NOW":
+                    logger.warning(f"Ignoring provided variable {variable_name} because it's not declared")
+                    variable_values.pop(variable_name)
+                    ignored_variable_names.add(variable_name)
+
+            # Without this line, usage of NOW without declaring it will generate an error
+            ignored_variable_names.discard("NOW")
+            now_variable_yaml: VariableYaml = variable_yamls_by_name.get("NOW")
+            if "NOW" in variable_values:
+                if now_variable_yaml is not None and now_variable_yaml.type is not None:
+                    if now_variable_yaml.type != "timestamp":
+                        logger.error("If you specify a type for variable 'NOW', it must be a timestamp")
+                if not (now_variable_yaml and now_variable_yaml.type == "timestamp"):
+                    now_str: str = variables["NOW"]
+                    if isinstance(now_str, str) and convert_str_to_datetime(now_str) is None:
+                        logger.error(f"Provided 'NOW' variable value is not a correct timestamp format: {now_str}")
+                    else:
+                        variable_values["NOW"] = now_str
+            else:
+                variable_values["NOW"] = convert_datetime_to_str(datetime.now())
+
+            # Recursively resolving the variables
+            resolved_variable_values: dict[str, str] = (
+                self._resolve_variables(variable_values) if variable_values else {}
+            )
+
+            for variable_name, resolve_variable_value in resolved_variable_values.items():
+                if variable_name != "NOW":
+                    if variable_name in variables:
+                        logger.debug(f"Using provided variable value {variable_name}={resolve_variable_value}")
+                    else:
+                        logger.debug(f"Using default variable value {variable_name}={resolve_variable_value}")
+            for variable_yaml in variable_yamls:
+                if variable_yaml.required and resolved_variable_values.get(variable_yaml.name) is None:
+                    logger.error(
+                        msg=f"Required variable '{variable_yaml.name}' not provided",
+                        extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
+                    )
+                elif variable_yaml.type == "timestamp":
+                    resolved_timestamp_value = resolved_variable_values.get(variable_yaml.name)
+                    if (
+                        resolved_timestamp_value is not None
+                        and convert_str_to_datetime(resolved_timestamp_value) is None
+                    ):
+                        logger.error(
+                            msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
+                            f"{resolved_timestamp_value}",
+                            extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
+                        )
+
+            contract_yaml_source.resolve_on_read_value(
+                variables=resolved_variable_values, ignored_variable_names=ignored_variable_names, use_env_vars=True
+            )
+
+            return variable_yamls
 
     def _parse_columns(self, contract_yaml_object: YamlObject) -> Optional[list[Optional[ColumnYaml]]]:
         columns: Optional[list[Optional[ColumnYaml]]] = None
@@ -334,12 +347,12 @@ class ContractYaml:
 
 
 class VariableYaml:
-    def __init__(self, variable_name: str, variable_yaml: YamlObject):
-        self.variable_yaml: YamlObject = variable_yaml
+    def __init__(self, variable_name: str, variable_yaml_object: YamlObject):
+        self.variable_yaml_object: YamlObject = variable_yaml_object
         self.name: str = variable_name
-        self.type: any = variable_yaml.read_string_opt("type") if variable_yaml else None
-        self.required: any = variable_yaml.read_bool_opt("required") if variable_yaml else None
-        self.default: any = variable_yaml.read_string_opt("default") if variable_yaml else None
+        self.type: any = variable_yaml_object.read_string_opt("type") if variable_yaml_object else None
+        self.required: any = variable_yaml_object.read_bool_opt("required") if variable_yaml_object else None
+        self.default: any = variable_yaml_object.read_string_opt("default") if variable_yaml_object else None
 
 
 class ValidReferenceDataYaml:
