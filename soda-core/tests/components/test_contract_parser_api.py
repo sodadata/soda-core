@@ -1,5 +1,4 @@
 import pytest
-
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.common.logs import Logs
@@ -37,8 +36,7 @@ def test_parse_relative_complete_contract():
 
 def test_legacy_dataset_specification():
     with pytest.raises(
-        InvalidDatasetQualifiedNameException,
-        match="Identifier must contain at least a data source and a dataset"
+        InvalidDatasetQualifiedNameException, match="Identifier must contain at least a data source and a dataset"
     ):
         ContractYaml.parse(
             contract_yaml_source=ContractYamlSource.from_str(

@@ -1,5 +1,4 @@
 import pytest
-
 from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (

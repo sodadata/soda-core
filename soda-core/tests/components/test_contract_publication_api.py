@@ -1,5 +1,4 @@
 import pytest
-
 from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
 from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.contracts.contract_publication import (
