@@ -5,9 +5,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from numbers import Number
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from typing import Optional
 
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,

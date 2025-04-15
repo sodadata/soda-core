@@ -1,5 +1,6 @@
-from soda_core.common.exceptions import InvalidDatasetQualifiedName
 from typing import Optional
+
+from soda_core.common.exceptions import InvalidDatasetQualifiedName
 
 
 class DatasetIdentifier:

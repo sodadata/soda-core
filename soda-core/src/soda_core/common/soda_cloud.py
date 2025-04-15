@@ -14,6 +14,7 @@ from typing import Optional
 
 import requests
 from requests import Response
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
@@ -26,7 +27,6 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
     Check,
@@ -550,7 +550,7 @@ class SodaCloud:
                 "dataset": {
                     "datasource": dataset_identifier.data_source_name,
                     "prefixes": dataset_identifier.prefixes,
-                    "name": dataset_identifier.dataset_name
+                    "name": dataset_identifier.dataset_name,
                 },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
