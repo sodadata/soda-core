@@ -104,6 +104,13 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
     verify_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
     verify_parser.add_argument(
+        "--set",
+        type=str,
+        nargs="*",
+        help="Set variable values to be used in the contract. "
+        "Format: --set <variable_name>=<variable_value>.",
+    )
+    verify_parser.add_argument(
         "-a",
         "--use-agent",
         const=True,
@@ -141,6 +148,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         dataset_identifiers = args.dataset
         data_source_file_path = args.data_source
         soda_cloud_file_path = args.soda_cloud
+        variables = args.set
         publish = args.publish
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
@@ -150,6 +158,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             dataset_identifiers,
             data_source_file_path,
             soda_cloud_file_path,
+            variables,
             publish,
             use_agent,
             blocking_timeout_in_minutes,
