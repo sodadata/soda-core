@@ -379,10 +379,6 @@ class SodaCloud:
         contract_local_file_path = contract_yaml.contract_yaml_source.file_path
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
-        # dqn_parts: list[str] = contract_yaml.dataset.split("/") if contract_yaml.dataset else None
-        # data_source_name = dqn_parts[0] if dqn_parts else None
-        # dataset_prefix = dqn_parts[1:-1] if dqn_parts else None
-        # dataset_name = dqn_parts[-1] if dqn_parts else None
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
             dataset_identifier.data_source_name, dataset_identifier.prefixes, dataset_identifier.dataset_name
