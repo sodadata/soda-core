@@ -1,4 +1,7 @@
+import pytest
+
 from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
+from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
@@ -38,27 +41,28 @@ def test_contract_publication_fails_on_missing_contract_file():
         ),
     ]
     mock_cloud = MockSodaCloud(responses)
-    contract_publication_result: ContractPublicationResult = (
-        ContractPublication.builder()
-        .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
-        .with_soda_cloud_yaml_str(
+    with pytest.raises(InvalidDatasetQualifiedNameException):
+        contract_publication_result: ContractPublicationResult = (
+            ContractPublication.builder()
+            .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
+            .with_soda_cloud_yaml_str(
+                """
+            soda_cloud:
+              host: host.soda.io
+              api_key_id: id
+              api_key_secret: secret
             """
-        soda_cloud:
-          host: host.soda.io
-          api_key_id: id
-          api_key_secret: secret
-        """
+            )
+            .with_soda_cloud(mock_cloud)
+            .build()
+            .execute()
         )
-        .with_soda_cloud(mock_cloud)
-        .build()
-        .execute()
-    )
 
-    assert contract_publication_result.has_errors()
-    assert (
-        "Contract file '../soda/mydb/myschema/table.yml' does not exist"
-        in contract_publication_result.logs.get_errors_str()
-    )
+        assert contract_publication_result.has_errors()
+        assert (
+            "Contract file '../soda/mydb/myschema/table.yml' does not exist"
+            in contract_publication_result.logs.get_errors_str()
+        )
 
 
 def test_contract_publication_returns_result_for_each_added_contract():
@@ -94,18 +98,14 @@ def test_contract_publication_returns_result_for_each_added_contract():
         ContractPublication.builder()
         .with_contract_yaml_str(
             f"""
-            dataset: CUSTOMERS
-            dataset_prefix: [some, schema]
-            data_source: test
+            dataset: test/some/schema/CUSTOMERS
             columns:
             - name: id
             """
         )
         .with_contract_yaml_str(
             f"""
-            dataset: CUSTOMERS2
-            dataset_prefix: [some, schema]
-            data_source: test2
+            dataset: test2/some/schema/CUSTOMERS2
             columns:
             - name: id
             """

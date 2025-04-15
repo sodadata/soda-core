@@ -191,9 +191,7 @@ def test_publish_contract():
         ContractYaml.parse(
             ContractYamlSource.from_str(
                 f"""
-            dataset: CUSTOMERS
-            dataset_prefix: [some, schema]
-            data_source: test
+            dataset: test/some/schema/CUSTOMERS
             columns:
             - name: id
         """
