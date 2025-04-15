@@ -26,7 +26,7 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
-from soda_core.contracts.contract import ContractIdentifier
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
     Check,
@@ -378,13 +378,14 @@ class SodaCloud:
         contract_yaml_str_original = contract_yaml.contract_yaml_source.yaml_str_original
         contract_local_file_path = contract_yaml.contract_yaml_source.file_path
 
-        dqn_parts: list[str] = contract_yaml.dataset.split("/") if contract_yaml.dataset else None
-        data_source_name = dqn_parts[0] if dqn_parts else None
-        dataset_prefix = dqn_parts[1:-1] if dqn_parts else None
-        dataset_name = dqn_parts[-1] if dqn_parts else None
+        dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
+        # dqn_parts: list[str] = contract_yaml.dataset.split("/") if contract_yaml.dataset else None
+        # data_source_name = dqn_parts[0] if dqn_parts else None
+        # dataset_prefix = dqn_parts[1:-1] if dqn_parts else None
+        # dataset_name = dqn_parts[-1] if dqn_parts else None
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
-            data_source_name, dataset_prefix, dataset_name
+            dataset_identifier.data_source_name, dataset_identifier.prefixes, dataset_identifier.dataset_name
         )
         if not can_publish_and_verify or not contract_yaml_str_original:
             if reason is None:
@@ -407,7 +408,11 @@ class SodaCloud:
             "type": "sodaCorePublishContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {"datasource": data_source_name, "prefixes": dataset_prefix, "name": dataset_name},
+                "dataset": {
+                    "datasource": dataset_identifier.data_source_name,
+                    "prefixes": dataset_identifier.prefixes,
+                    "name": dataset_identifier.dataset_name,
+                },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
         }
@@ -430,15 +435,15 @@ class SodaCloud:
 
         return ContractPublicationResult(
             contract=Contract(
-                data_source_name=data_source_name,
-                dataset_prefix=dataset_prefix,
-                dataset_name=dataset_name,
+                data_source_name=dataset_identifier.data_source_name,
+                dataset_prefix=dataset_identifier.prefixes,
+                dataset_name=dataset_identifier.dataset_name,
                 source=YamlFileContentInfo(
                     local_file_path=yaml_file_path,
                     source_content_str=None,
                     soda_cloud_file_id=response_json.get("fileId", None),
                 ),
-                soda_qualified_dataset_name=None,
+                soda_qualified_dataset_name=contract_yaml.dataset,
             ),
         )
 
@@ -493,16 +498,13 @@ class SodaCloud:
         contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path or "REMOTE"  # TODO
 
-        dqn_parts: list[str] = contract_yaml.dataset.split("/")
-        data_source_name = dqn_parts[0]
-        dataset_prefix = dqn_parts[1:-1]
-        dataset_name = dqn_parts[-1]
+        dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 
         verification_result = ContractVerificationResult(
             contract=Contract(
-                data_source_name=data_source_name,
-                dataset_prefix=dataset_prefix,
-                dataset_name=dataset_name,
+                data_source_name=dataset_identifier.data_source_name,
+                dataset_prefix=dataset_identifier.prefixes,
+                dataset_name=dataset_identifier.dataset_name,
                 soda_qualified_dataset_name=None,
                 source=YamlFileContentInfo(
                     local_file_path=contract_local_file_path,
@@ -521,7 +523,7 @@ class SodaCloud:
         )
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
-            data_source_name, dataset_prefix, dataset_name
+            dataset_identifier.data_source_name, dataset_identifier.prefixes, dataset_identifier.dataset_name
         )
         if not can_publish_and_verify:
             if reason is None:
@@ -545,7 +547,11 @@ class SodaCloud:
             "type": "sodaCoreVerifyContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {"datasource": data_source_name, "prefixes": dataset_prefix, "name": dataset_name},
+                "dataset": {
+                    "datasource": dataset_identifier.data_source_name,
+                    "prefixes": dataset_identifier.prefixes,
+                    "name": dataset_identifier.dataset_name
+                },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
         }
@@ -663,13 +669,13 @@ class SodaCloud:
         """
 
         logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
-        parsed_identifier = ContractIdentifier.parse(dataset_identifier)
+        parsed_identifier = DatasetIdentifier.parse(dataset_identifier)
         request = {
             "type": "sodaCoreGetContract",
             "dataset": {
-                "datasource": parsed_identifier.data_source,
+                "datasource": parsed_identifier.data_source_name,
                 "prefixes": parsed_identifier.prefixes,
-                "name": parsed_identifier.dataset,
+                "name": parsed_identifier.dataset_name,
             },
         }
         response = self._execute_query(request, request_log_name="get_contract")
@@ -686,7 +692,7 @@ class SodaCloud:
                 )
             elif error_code == "datasource_not_found":
                 logger.error(
-                    f"Data source '{parsed_identifier.data_source}' is unknown in Soda Cloud. "
+                    f"Data source '{parsed_identifier.data_source_name}' is unknown in Soda Cloud. "
                     "Please verify the data source name or configure it in Soda Cloud."
                 )
             elif error_code == "dataset_not_found":
@@ -717,13 +723,13 @@ class SodaCloud:
         logger.info(
             f"{Emoticons.CLOUD} Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'"
         )
-        parsed_identifier = ContractIdentifier.parse(dataset_identifier)
+        parsed_identifier = DatasetIdentifier.parse(dataset_identifier)
         request = {
             "type": "sodaCoreGetDatasourceConfigurationFile",
             "dataset": {
-                "datasource": parsed_identifier.data_source,
+                "datasource": parsed_identifier.data_source_name,
                 "prefixes": parsed_identifier.prefixes,
-                "name": parsed_identifier.dataset,
+                "name": parsed_identifier.dataset_name,
             },
         }
         response = self._execute_query(request, request_log_name="get_contract_data_source_configuration")

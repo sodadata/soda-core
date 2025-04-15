@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from numbers import Number
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from typing import Optional
 
 from soda_core.common.datetime_conversions import (
@@ -108,23 +109,8 @@ class ContractYaml:
             self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
         )
 
-        if isinstance(self.dataset, str) and "/" not in self.dataset:
-            # legacy error
-            if data_source is None or dataset_prefix is None:
-                logger.error(
-                    "If you use the deprecated style dataset (only table name) then you have to specify "
-                    "data_source and dataset_prefix as well.  Consider the new and preferred dataset "
-                    "qualified name (slash separated) as the value for dataset and remove data_source "
-                    "and dataset_prefix."
-                )
-            dataset_parts: list[str] = []
-            if data_source:
-                dataset_parts.append(data_source)
-            if dataset_prefix:
-                dataset_parts.extend(dataset_prefix)
-            if self.dataset:
-                dataset_parts.append(self.dataset)
-            self.dataset = "/".join(dataset_parts)
+        # Validate qualified dataset name
+        _ = DatasetIdentifier.parse(self.dataset)
 
         self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
