@@ -127,6 +127,7 @@ def _create_datasource_yamls(
 
     return None, None
 
+
 def _parse_variables(variables: Optional[list[str]]) -> dict[str, str]:
     if not variables:
         return {}

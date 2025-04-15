@@ -107,8 +107,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "--set",
         type=str,
         nargs="*",
-        help="Set variable values to be used in the contract. "
-        "Format: --set <variable_name>=<variable_value>.",
+        help="Set variable values to be used in the contract. " "Format: --set <variable_name>=<variable_value>.",
     )
     verify_parser.add_argument(
         "-a",
