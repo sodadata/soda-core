@@ -1,6 +1,6 @@
 from typing import Optional
 
-from soda_core.common.exceptions import InvalidDatasetQualifiedName
+from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 
 
 class DatasetIdentifier:
@@ -12,11 +12,11 @@ class DatasetIdentifier:
     @classmethod
     def parse(cls, identifier: Optional[str]) -> "DatasetIdentifier":
         if not identifier:
-            raise InvalidDatasetQualifiedName("Identifier must be a valid string and cannot be None")
+            raise InvalidDatasetQualifiedNameException("Identifier must be a valid string and cannot be None")
 
         parts = identifier.split("/")
         if len(parts) < 2:
-            raise InvalidDatasetQualifiedName("Identifier must contain at least a data source and a dataset")
+            raise InvalidDatasetQualifiedNameException("Identifier must contain at least a data source and a dataset")
 
         data_source_name = parts[0]
         dataset_name = parts[-1]

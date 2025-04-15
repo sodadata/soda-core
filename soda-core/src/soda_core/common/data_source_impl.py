@@ -202,8 +202,3 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
-
-    # Deprecated
-    def validate_dataset_qualified_name(self, dsn_parts: list[str]):
-        if not isinstance(dsn_parts, list) or len(dsn_parts) != 4:
-            logger.error(f"Invalid dataset qualified name: {dsn_parts}")

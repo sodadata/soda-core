@@ -10,6 +10,8 @@ from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.exceptions import InvalidContractException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -184,6 +186,8 @@ class ContractVerificationSessionImpl:
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
                     contract_verification_results.append(contract_verification_result)
+                except InvalidContractException:
+                    raise
                 except:
                     logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         finally:
@@ -299,25 +303,16 @@ class ContractImpl:
         self.dataset_prefix: Optional[list[str]] = None
         self.dataset_name: Optional[str] = None
 
-        dqn: list[str] = contract_yaml.dataset.split("/") if contract_yaml.dataset else None
-        if dqn:
-            self.dataset_prefix = dqn[1:-1] if len(dqn) > 2 else None
-            self.dataset_name = dqn[-1] if len(dqn) > 0 else None
+        dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
+        self.dataset_prefix = dataset_identifier.prefixes
+        self.dataset_name = dataset_identifier.dataset_name
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
         self.column_impls: list[ColumnImpl] = []
         self.check_impls: list[CheckImpl] = []
 
-        self.soda_qualified_dataset_name: Optional[str] = (
-            self.create_soda_qualified_dataset_name(
-                data_source_name=self.data_source_impl.name,
-                dataset_prefix=self.dataset_prefix,
-                dataset_name=self.dataset_name,
-            )
-            if data_source_impl
-            else None
-        )
+        self.soda_qualified_dataset_name = contract_yaml.dataset
 
         self.sql_qualified_dataset_name: Optional[str] = (
             data_source_impl.sql_dialect.qualify_dataset_name(
@@ -357,17 +352,6 @@ class ContractImpl:
         else:
             return default
         return None
-
-    @classmethod
-    def create_soda_qualified_dataset_name(
-        cls, data_source_name: str, dataset_prefix: list[str], dataset_name: str
-    ) -> str:
-        soda_name_parts: list[str] = [data_source_name]
-        if dataset_prefix:
-            soda_name_parts.extend(dataset_prefix)
-        soda_name_parts.append(dataset_name)
-        soda_name_parts = [str(p) for p in soda_name_parts]
-        return "/" + "/".join(soda_name_parts)
 
     def _parse_checks(self, contract_yaml: ContractYaml) -> list[CheckImpl]:
         check_impls: list[CheckImpl] = []

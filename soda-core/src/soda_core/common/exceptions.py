@@ -22,5 +22,5 @@ class InvalidContractException(SodaCoreException):
     """Base class for all invalid contract exceptions."""
 
 
-class InvalidDatasetQualifiedName(InvalidContractException):
+class InvalidDatasetQualifiedNameException(InvalidContractException):
     """Indicates the `dataset` property of the contract is not a valid Dataset Qualified Name"""
