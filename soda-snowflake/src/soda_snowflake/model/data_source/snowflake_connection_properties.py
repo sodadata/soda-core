@@ -1,0 +1,78 @@
+import abc
+from abc import ABC
+from pathlib import Path
+from typing import Literal, Optional, Dict, Literal
+
+from pydantic import Field, SecretStr
+from soda_core.model.data_source.data_source import DataSourceBase
+from soda_core.model.data_source.data_source_connection_properties import (
+    DataSourceConnectionProperties,
+)
+
+
+class SnowflakeConnectionProperties(DataSourceConnectionProperties, ABC): ...
+
+
+class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):
+    account: str = Field(..., description="Snowflake account identifier")
+    user: str = Field(..., description="Username for authentication")
+    warehouse: Optional[str] = Field(None, description="Name of the warehouse to use")
+    database: Optional[str] = Field(None, description="Name of the database to use")
+    role: Optional[str] = Field(None, description="Role to assume after connecting")
+    session_parameters: Optional[Dict[str, str]] = Field(None, description="Session-level parameters")
+    host: Optional[str] = Field(None, description="Host name of the Snowflake account")
+
+    def to_connection_kwargs(self) -> dict:
+        return {
+            "account": self.account,
+            "user": self.user,
+            "warehouse": self.warehouse,
+            "database": self.database,
+            "role": self.role,
+            "session_parameters": self.session_parameters,
+        }
+
+
+class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
+    password: SecretStr = Field(..., description="User password")
+
+    def to_connection_kwargs(self) -> dict:
+        base = super().to_connection_kwargs()
+        base["password"] = self.password.get_secret_value()
+        return base
+
+
+class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
+    private_key_path: Path = Field(..., description="Path to private key file")
+    private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
+
+    def to_connection_kwargs(self) -> dict:
+        # TODO
+        pass
+
+
+class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
+    jwt_token: SecretStr = Field(..., description="JWT token for authentication")
+
+    def to_connection_kwargs(self) -> dict:
+        base = super().to_connection_kwargs()
+        base["token"] = self.jwt_token.get_secret_value()
+        return base
+
+
+class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
+    token: SecretStr = Field(..., description="OAuth access token")
+
+    def to_connection_kwargs(self) -> dict:
+        base = super().to_connection_kwargs()
+        base["token"] = self.token.get_secret_value()
+        return base
+
+
+class SnowflakeSSOAuth(SnowflakeSharedConnectionProperties):
+    authenticator: Literal["externalbrowser"] = Field("externalbrowser", description="Use external browser SSO login")
+
+    def to_connection_kwargs(self) -> dict:
+        base = super().to_connection_kwargs()
+        base["authenticator"] = self.authenticator
+        return base

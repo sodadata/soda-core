@@ -1,5 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestTableSpecification
+from helpers.test_table import TestDataType, TestTableSpecification
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
@@ -53,9 +53,12 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
     assert 2 == len(schema_check_result.column_data_type_mismatches)
 
     length_mismatch = schema_check_result.column_data_type_mismatches[0]
-    assert "character varying(255)" == length_mismatch.get_actual()
-    assert "varchar(512)" == length_mismatch.get_expected()
+
+    data_type_map = data_source_test_helper._get_contract_data_type_dict()
+
+    assert f"{data_type_map[TestDataType.TEXT]}(255)" == length_mismatch.get_actual()
+    assert f"{data_type_map[TestDataType.TEXT]}(512)" == length_mismatch.get_expected()
 
     type_mismatch = schema_check_result.column_data_type_mismatches[1]
-    assert "date" == type_mismatch.get_actual()
-    assert "varchar" == type_mismatch.get_expected()
+    assert data_type_map[TestDataType.DATE] == type_mismatch.get_actual()
+    assert data_type_map[TestDataType.TEXT] == type_mismatch.get_expected()

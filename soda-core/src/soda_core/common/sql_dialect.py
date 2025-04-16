@@ -36,7 +36,7 @@ class SqlDialect:
         """
         parts: list[str] = list(dataset_prefix) if dataset_prefix else []
         parts.append(dataset_name)
-        parts = [self.quote_default(p) for p in parts if p]
+        parts = [self.quote_default(self.default_casify(p)) for p in parts if p]
         return ".".join(parts)
 
     def literal(self, o: object) -> str:
@@ -343,3 +343,61 @@ class SqlDialect:
             f"THEN {self.build_expression_sql(case_when.if_expression)} "
             f"ELSE {self.build_expression_sql(case_when.else_expression)} END"
         )
+
+    def schema_information_schema(self) -> str:
+        """
+        Name of the schema that has the metadata
+        """
+        return self.default_casify("information_schema")
+
+    def table_tables(self) -> str:
+        """
+        Name of the table that has the table information in the metadata
+        """
+        return self.default_casify("tables")
+
+    def table_columns(self) -> str:
+        """
+        Name of the table that has the columns information in the metadata.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("columns")
+
+    def column_table_catalog(self) -> str:
+        """
+        Name of the column that has the database information in the tables metadata table
+        """
+        return self.default_casify("table_catalog")
+
+    def column_table_schema(self) -> str:
+        """
+        Name of the column that has the schema information in the tables metadata table
+        """
+        return self.default_casify("table_schema")
+
+    def column_table_name(self) -> str:
+        """
+        Name of the column that has the table name in the tables metadata table
+        """
+        return self.default_casify("table_name")
+
+    def column_column_name(self) -> str:
+        """
+        Name of the column that has the column name in the tables metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("column_name")
+
+    def column_data_type(self) -> str:
+        """
+        Name of the column that has the data type in the tables metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("data_type")
+
+    def column_data_type_max_length(self) -> str:
+        """
+        Name of the column that has the max data type length in the tables metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("character_maximum_length")

@@ -25,6 +25,7 @@ from soda_core.common.yaml import (
     ContractYamlSource,
     DataSourceYamlSource,
     SodaCloudYamlSource,
+    YamlParser,
 )
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
@@ -37,12 +38,21 @@ logger = logging.getLogger(__name__)
 
 class DataSourceTestHelper:
     @classmethod
-    def create(cls) -> DataSourceTestHelper:
-        from data_sources.postgres_data_source_test_helper import (
-            PostgresDataSourceTestHelper,
-        )
+    def create(cls, test_datasource: str) -> DataSourceTestHelper:
+        if test_datasource == "postgres":
+            from data_sources.postgres_data_source_test_helper import (
+                PostgresDataSourceTestHelper,
+            )
 
-        return PostgresDataSourceTestHelper()
+            return PostgresDataSourceTestHelper()
+        elif test_datasource == "snowflake":
+            from data_sources.snowflake_data_source_test_helper import (
+                SnowflakeDataSourceTestHelper,
+            )
+
+            return SnowflakeDataSourceTestHelper()
+        else:
+            raise AssertionError(f"Unknown test data source {test_datasource}")
 
     def __init__(self):
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
@@ -70,6 +80,9 @@ class DataSourceTestHelper:
 
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
+
+        # Set up some helpers and shortcuts
+        self.default_casify = self.data_source_impl.sql_dialect.default_casify
 
     def enable_soda_cloud(self):
         logs: Logs = Logs()
@@ -160,6 +173,12 @@ class DataSourceTestHelper:
 
         schema_name_raw = "_".join(schema_name_parts)
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
+
+        # Schema name needs to be available before data source in instantiated, so sql dialect cannot be accessed here yet.
+        # Modify the schema_name if needed for a given data source.
+        return self._adjust_schema_name(schema_name)
+
+    def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
 
     def _get_create_table_sql_type_dict(self) -> dict[str, str]:
@@ -184,7 +203,7 @@ class DataSourceTestHelper:
         to customize the get_schema_check_sql_type behavior
         """
         return {
-            TestDataType.TEXT: "varchar",
+            TestDataType.TEXT: "character varying",
             TestDataType.INTEGER: "integer",
             TestDataType.DECIMAL: "double precision",
             TestDataType.DATE: "date",
@@ -342,7 +361,10 @@ class DataSourceTestHelper:
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         columns_sql: str = ",\n".join(
-            [f"  {column.name} {column.create_table_data_type}" for column in test_table.columns.values()]
+            [
+                f"  {self.default_casify(column.name)} {self.default_casify(column.create_table_data_type)}"
+                for column in test_table.columns.values()
+            ]
         )
         return self._create_test_table_sql_statement(test_table.qualified_name, columns_sql)
 
@@ -413,7 +435,10 @@ class DataSourceTestHelper:
         return errors_str
 
     def assert_contract_pass(
-        self, test_table: TestTable, contract_yaml_str: str, variables: Optional[dict[str, str]] = None
+        self,
+        test_table: TestTable,
+        contract_yaml_str: str,
+        variables: Optional[dict[str, str]] = None,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str, test_table=test_table, variables=variables
@@ -437,8 +462,15 @@ class DataSourceTestHelper:
         return contract_verification_session_result.contract_verification_results[0]
 
     def verify_contract(
-        self, contract_yaml_str: str, test_table: Optional[TestTable] = None, variables: Optional[dict] = None
+        self,
+        contract_yaml_str: str,
+        test_table: Optional[TestTable] = None,
+        variables: Optional[dict] = None,
+        pre_format_yaml: bool = True,
     ) -> ContractVerificationSessionResult:
+        if pre_format_yaml:
+            contract_yaml_str = self._pre_format_yaml(contract_yaml_str)
+
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
         return ContractVerificationSession.execute(
@@ -453,7 +485,7 @@ class DataSourceTestHelper:
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
-            header_contract_yaml_str: str = f"dataset: {self.build_dqn(test_table)}\n"
+            header_contract_yaml_str: str = f"dataset: {self.default_casify(self.build_dqn(test_table))}\n"
             checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
 
@@ -461,6 +493,52 @@ class DataSourceTestHelper:
         dqn_parts: list[str] = [self.data_source_impl.name] + self.dataset_prefix + [test_table.unique_name]
         dqn: str = "/".join(dqn_parts)
         return dqn
+
+    def _pre_format_yaml(self, contract_yaml_str: str) -> str:
+        yaml = YamlParser()
+        data = yaml.ruamel_yaml_parser.load(contract_yaml_str)
+
+        # Casify the column names
+        self._casify_identifiers(data)
+
+        return yaml.dump_to_string(data)
+
+    def _casify_identifiers(self, data: dict) -> dict:
+        # Paths to transform: [] means "this is a list"
+        paths_to_uppercase = [
+            "columns[].name",
+            "columns[].valid_reference_data.dataset",
+            "columns[].valid_reference_data.column",
+        ]
+
+        def set_uppercase_at_path(root, path):
+            """Safely traverse the structure and uppercase values at fixed paths."""
+            parts = path.split(".")
+
+            def walk(obj, parts):
+                if not parts:
+                    return
+                part = parts[0]
+
+                if part.endswith("[]"):
+                    key = part[:-2]
+                    items = obj.get(key, [])
+                    if isinstance(items, list):
+                        for item in items:
+                            walk(item, parts[1:])
+                else:
+                    if part not in obj:
+                        return
+                    if len(parts) == 1:
+                        if isinstance(obj[part], str):
+                            obj[part] = self.default_casify(obj[part])
+                    elif isinstance(obj[part], dict):
+                        walk(obj[part], parts[1:])
+
+            walk(root, parts)
+
+        for path in paths_to_uppercase:
+            set_uppercase_at_path(data, path)
 
     def test_method_ended(self) -> None:
         self.data_source_impl.data_source_connection.rollback()
