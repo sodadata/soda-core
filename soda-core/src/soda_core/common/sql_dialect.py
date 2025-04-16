@@ -397,7 +397,7 @@ class SqlDialect:
 
     def column_data_type_max_length(self) -> str:
         """
-        Name of the column that has the mas data type length in the tables metadata table.
+        Name of the column that has the max data type length in the tables metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("character_maximum_length")
