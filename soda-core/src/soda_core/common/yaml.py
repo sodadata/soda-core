@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from enum import Enum
+from io import StringIO
 from numbers import Number
 from typing import Iterable, Optional
 
@@ -19,6 +20,11 @@ class YamlParser:
     def __init__(self):
         self.ruamel_yaml_parser: YAML = YAML()
         self.ruamel_yaml_parser.preserve_quotes = True
+
+    def dump_to_string(self, data):
+        stream = StringIO()
+        self.ruamel_yaml_parser.dump(data, stream)
+        return stream.getvalue()
 
 
 class FileType(str, Enum):
