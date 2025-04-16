@@ -254,7 +254,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
-        soda_cloud_publish_results: bool
+        soda_cloud_publish_results: bool,
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
 

@@ -552,7 +552,7 @@ class SodaCloud:
                     "name": dataset_identifier.dataset_name,
                 },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
-            }
+            },
         }
         response: Response = self._execute_command(
             command_json_dict=verify_contract_command, request_log_name="verify_contract"
