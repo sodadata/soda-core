@@ -147,7 +147,9 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         dataset_identifiers = args.dataset
         data_source_file_path = args.data_source
         soda_cloud_file_path = args.soda_cloud
-        variables = args.set
+        variables = _parse_variables(args.set)
+        if variables is None:
+            exit_with_code(ExitCode.LOG_ERRORS)
         publish = args.publish
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
