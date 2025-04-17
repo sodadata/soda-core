@@ -108,7 +108,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "--set",
         action="append",
         type=str,
-        help="Set variable values to be used in the contract. " "Format: --set <variable_name>=<variable_value>.",
+        help="Set variable values to be used in the contract with format '--set <variable_name>=<variable_value>'.",
     )
     verify_parser.add_argument(
         "-a",
@@ -177,30 +177,19 @@ def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]
 
     result = {}
     for variable in variables:
-        for nested_variable in variable.split(","):
-            nested_variable = nested_variable.strip()
-            if not nested_variable:
-                continue
-            parsed_variable = _parse_variable(nested_variable)
-            if parsed_variable is None:
-                return None
-            result[parsed_variable[0]] = parsed_variable[1]
+        if "=" not in variable:
+            soda_logger.error(f"Variable {variable} is incorrectly formatted. Please use the format KEY=VALUE")
+            return None
+        key, value = variable.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            soda_logger.error(
+                f"Incorrectly formatted variable '{variable}', key or value is empty. Please use the format KEY=VALUE"
+            )
+            return None
+        result[key] = value
     return result
-
-
-def _parse_variable(variable: str) -> Optional[Tuple[str, str]]:
-    if "=" not in variable:
-        soda_logger.error(f"Variable {variable} is incorrectly formatted. Please use the format KEY=VALUE")
-        return None
-    key, value = variable.split("=", 1)
-    key = key.strip()
-    value = value.strip()
-    if not key or not value:
-        soda_logger.error(
-            f"Incorrectly formatted variable '{variable}', key or value is empty. Please use the format KEY=VALUE"
-        )
-        return None
-    return key, value
 
 
 def _setup_contract_publish_command(contract_parsers) -> None:
