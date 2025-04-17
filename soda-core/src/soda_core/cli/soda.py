@@ -4,7 +4,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
