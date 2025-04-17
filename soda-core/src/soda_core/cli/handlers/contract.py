@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
@@ -20,7 +20,7 @@ def handle_verify_contract(
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
-    variables: Optional[List[str]],
+    variables: Optional[Dict[str, str]],
     publish: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
@@ -59,10 +59,6 @@ def handle_verify_contract(
     if exit_code:
         return exit_code
 
-    parsed_variables = _parse_variables(variables)
-    if parsed_variables is None:
-        return ExitCode.LOG_ERRORS
-
     # TODO: pass the Soda Cloud client directly into subsequent methods
     contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
         contract_yaml_sources=contract_yaml_sources,
@@ -70,45 +66,13 @@ def handle_verify_contract(
         soda_cloud_yaml_source=(
             SodaCloudYamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None
         ),
-        variables=parsed_variables,
+        variables=variables,
         soda_cloud_publish_results=publish,
         soda_cloud_use_agent=use_agent,
         soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
     )
 
     return interpret_contract_verification_result(contract_verification_session_result)
-
-
-def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]:
-    if not variables:
-        return {}
-
-    result = {}
-    for variable in variables:
-        for nested_variable in variable.split(","):
-            nested_variable = nested_variable.strip()
-            if not nested_variable:
-                continue
-            parsed_variable = _parse_variable(nested_variable)
-            if parsed_variable is None:
-                return None
-            result[parsed_variable[0]] = parsed_variable[1]
-    return result
-
-
-def _parse_variable(variable: str) -> Optional[Tuple[str, str]]:
-    if "=" not in variable:
-        soda_logger.error(f"Variable {variable} is incorrectly formatted. Please use the format KEY=VALUE")
-        return None
-    key, value = variable.split("=", 1)
-    key = key.strip()
-    value = value.strip()
-    if not key or not value:
-        soda_logger.error(
-            f"Incorrectly formatted variable '{variable}', key or value is empty. Please use the format KEY=VALUE"
-        )
-        return None
-    return key, value
 
 
 def _create_contract_yamls(
@@ -260,18 +224,14 @@ def handle_publish_contract(
 
 def handle_test_contract(
     contract_file_paths: Optional[list[str]],
-    variables: Optional[List[str]],
+    variables: Optional[Dict[str, str]],
     data_source_file_path: Optional[str],
 ) -> ExitCode:
-    parsed_variables = _parse_variables(variables)
-    if parsed_variables is None:
-        return ExitCode.LOG_ERRORS
-
     for contract_file_path in contract_file_paths:
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_file_path(contract_file_path)],
             only_validate_without_execute=True,
-            variables=parsed_variables,
+            variables=variables,
         )
         if contract_verification_session_result.has_errors():
             return ExitCode.LOG_ERRORS

@@ -4,6 +4,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser
+from typing import Dict, List, Optional, Tuple
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
@@ -105,8 +106,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
     verify_parser.add_argument(
         "--set",
+        action="append",
         type=str,
-        nargs="*",
         help="Set variable values to be used in the contract. " "Format: --set <variable_name>=<variable_value>.",
     )
     verify_parser.add_argument(
@@ -168,6 +169,38 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         exit_with_code(exit_code)
 
     verify_parser.set_defaults(handler_func=handle)
+
+
+def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]:
+    if not variables:
+        return {}
+
+    result = {}
+    for variable in variables:
+        for nested_variable in variable.split(","):
+            nested_variable = nested_variable.strip()
+            if not nested_variable:
+                continue
+            parsed_variable = _parse_variable(nested_variable)
+            if parsed_variable is None:
+                return None
+            result[parsed_variable[0]] = parsed_variable[1]
+    return result
+
+
+def _parse_variable(variable: str) -> Optional[Tuple[str, str]]:
+    if "=" not in variable:
+        soda_logger.error(f"Variable {variable} is incorrectly formatted. Please use the format KEY=VALUE")
+        return None
+    key, value = variable.split("=", 1)
+    key = key.strip()
+    value = value.strip()
+    if not key or not value:
+        soda_logger.error(
+            f"Incorrectly formatted variable '{variable}', key or value is empty. Please use the format KEY=VALUE"
+        )
+        return None
+    return key, value
 
 
 def _setup_contract_publish_command(contract_parsers) -> None:
