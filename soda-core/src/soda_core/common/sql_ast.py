@@ -39,6 +39,16 @@ class WHERE:
 
 
 @dataclass
+class WITH:
+    alias: str
+    cte_query: list = None
+
+    def AS(self, cte_query: list) -> WITH:
+        self.cte_query = cte_query
+        return self
+
+
+@dataclass
 class SqlExpression:
     pass
 

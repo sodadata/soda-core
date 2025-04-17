@@ -108,6 +108,9 @@ class ContractYaml:
         self.dataset: Optional[str] = (
             self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
         )
+        self.filter: Optional[str] = (
+            self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
+        )
 
         # Validate qualified dataset name
         _ = DatasetIdentifier.parse(self.dataset)

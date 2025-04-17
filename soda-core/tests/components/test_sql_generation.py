@@ -6,7 +6,14 @@ from soda_core.common.sql_dialect import *
 def test_sql_ast_select_star():
     sql_dialect: SqlDialect = SqlDialect()
 
-    assert sql_dialect.build_select_sql([SELECT(STAR()), FROM("customers")]) == ("SELECT *\n" 'FROM "customers";')
+    assert sql_dialect.build_select_sql(
+        [
+            SELECT(STAR()),
+            FROM("customers")
+        ]) == (
+        'SELECT *\n'
+        'FROM "customers";'
+    )
 
 
 def test_sql_ast_modeling_query2():
@@ -44,4 +51,28 @@ def test_sql_ast_modeling_query3():
         'WHERE "colA" >= 25\n'
         "  AND \"colB\" = 'XXX'\n"
         "  AND \"colC\" like '%xxx';"
+    )
+
+
+def test_sql_ast_modeling_cte():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_select_sql(
+        [
+            WITH([
+                SELECT(STAR()),
+                FROM("customers"),
+                WHERE(GTE("colA", LITERAL(25)))
+            ]).AS("customers_filtered"),
+            SELECT(SUM(COLUMN("size"))),
+            FROM("customers_filtered")
+        ]
+    ) == (
+        'WITH (\n'
+        '  SELECT *\n'
+        '  FROM "customers"\n'
+        '  WHERE "colA" >= 25\n'
+        ') AS "customers_filtered",\n'
+        'SELECT SUM("size")\n'
+        'FROM "customers_filtered";'
     )

@@ -390,7 +390,7 @@ class ContractImpl:
                     AggregationQuery(
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
-                        filter_condition=None,
+                        filter=self.contract_yaml.filter,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
                     )
@@ -457,6 +457,7 @@ class ContractImpl:
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),
+            filter=self.contract_yaml.filter,
             measurements=measurements,
             check_results=check_results,
             sending_results_to_soda_cloud_failed=False,
@@ -1184,14 +1185,14 @@ class AggregationQuery(Query):
         self,
         dataset_prefix: list[str],
         dataset_name: str,
-        filter_condition: Optional[str],
+        filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
         self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
-        self.filter_condition: str = filter_condition
+        self.filter: str = filter
         self.aggregation_metrics: list[AggregationMetricImpl] = []
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.query_size: int = len(self.build_sql())
@@ -1208,8 +1209,8 @@ class AggregationQuery(Query):
     def build_sql(self) -> str:
         field_expressions: list[SqlExpression] = self.build_field_expressions()
         select = [SELECT(field_expressions), FROM(self.dataset_name, self.dataset_prefix)]
-        if self.filter_condition:
-            select.append(WHERE(SqlExpressionStr(self.filter_condition)))
+        if self.filter:
+            select.append(WHERE(SqlExpressionStr(self.filter)))
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(select)
         return self.sql
 

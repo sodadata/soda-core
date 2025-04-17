@@ -544,3 +544,15 @@ class DataSourceTestHelper:
         self.data_source_impl.data_source_connection.rollback()
         self.soda_cloud = None
         self.use_agent = False
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"timestamp '{datetime_in_iso8601}'"
+
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        return f"date_trunc('day', {timestamp_literal})"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"{timestamp_literal} + interval '1 day'"
+
+    def quote_column(self, column_name: str) -> str:
+        return f'"{column_name}"'
