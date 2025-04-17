@@ -457,7 +457,6 @@ class ContractImpl:
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),
-            filter=self.contract_yaml.filter,
             measurements=measurements,
             check_results=check_results,
             sending_results_to_soda_cloud_failed=False,

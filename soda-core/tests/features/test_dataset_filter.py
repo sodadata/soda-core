@@ -93,7 +93,6 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     check_result = contract_verification_result_t1.check_results[1]
     assert next(d.value for d in check_result.diagnostics if d.name == "row_count") == 2
     assert next(d.value for d in check_result.diagnostics if d.name == "missing_count") == 0
-    assert len(contract_verification_result_t1.filter) > 20
 
     # On the second time partition t2 (17th) the filter should fail
     contract_verification_result_t2: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
@@ -109,4 +108,3 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     check_result = contract_verification_result_t2.check_results[1]
     assert next(d.value for d in check_result.diagnostics if d.name == "row_count") == 4
     assert next(d.value for d in check_result.diagnostics if d.name == "missing_count") == 1
-    assert len(contract_verification_result_t1.filter) > 20

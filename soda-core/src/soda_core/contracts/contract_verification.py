@@ -244,7 +244,6 @@ class ContractVerificationResult:
         data_timestamp: Optional[datetime],
         started_timestamp: datetime,
         ended_timestamp: datetime,
-        filter: Optional[str],
         measurements: list[Measurement],
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
@@ -256,7 +255,6 @@ class ContractVerificationResult:
         self.data_timestamp: Optional[datetime] = data_timestamp
         self.started_timestamp: datetime = started_timestamp
         self.ended_timestamp: datetime = ended_timestamp
-        self.filter: Optional[str] = filter
         self.measurements: list[Measurement] = measurements
         self.check_results: list[CheckResult] = check_results
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
