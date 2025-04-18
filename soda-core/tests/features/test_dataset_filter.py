@@ -77,6 +77,10 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
           - name: size
             checks:
               - missing:
+
+        checks:
+          - row_count:
+              name: The filter expression is ${{var.DATASET_FILTER}}
     """
 
     # On the first time partition t1 (16th) the filter should pass
@@ -102,9 +106,15 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
             "NOW": convert_datetime_to_str(t2)
         }
     )
-    check_result: CheckResult = contract_verification_result_t2.check_results[0]
-    assert next(d.value for d in check_result.diagnostics if d.name == "invalid_count") == 1
+    invalid_check_result: CheckResult = contract_verification_result_t2.check_results[0]
+    assert next(d.value for d in invalid_check_result.diagnostics if d.name == "invalid_count") == 1
 
-    check_result = contract_verification_result_t2.check_results[1]
-    assert next(d.value for d in check_result.diagnostics if d.name == "row_count") == 4
-    assert next(d.value for d in check_result.diagnostics if d.name == "missing_count") == 1
+    row_count_check_result: CheckResult = contract_verification_result_t2.check_results[1]
+    assert next(d.value for d in row_count_check_result.diagnostics if d.name == "row_count") == 4
+    assert next(d.value for d in row_count_check_result.diagnostics if d.name == "missing_count") == 1
+
+    schema_check_result: CheckResult = contract_verification_result_t2.check_results[2]
+    assert "The filter expression is" in schema_check_result.check.name
+    assert "${var.DATASET_FILTER}" not in schema_check_result.check.name
+    assert "updated" in schema_check_result.check.name
+    assert "AND" in schema_check_result.check.name

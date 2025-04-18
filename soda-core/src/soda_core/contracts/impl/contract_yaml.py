@@ -111,6 +111,8 @@ class ContractYaml:
         self.filter: Optional[str] = (
             self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
         )
+        if self.filter:
+            self.contract_yaml_source.resolve_on_read_variables["DATASET_FILTER"] = self.filter
 
         # Validate qualified dataset name
         _ = DatasetIdentifier.parse(self.dataset)
@@ -252,7 +254,7 @@ class ContractYaml:
                     check_body_yaml_object: Optional[YamlObject] = None
 
                     if isinstance(check_yaml_object, YamlObject):
-                        check_keys: set[str] = check_yaml_object.keys()
+                        check_keys: list[str] = check_yaml_object.keys()
                         if len(check_keys) != 1:
                             logging.error(
                                 msg=f"Checks require 1 key to be the type",

@@ -233,8 +233,8 @@ class YamlObject(YamlValue):
     def items(self) -> list[tuple]:
         return [(k, self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
 
-    def keys(self) -> set[str]:
-        return set(self.yaml_dict.keys())
+    def keys(self) -> list[str]:
+        return list(self.yaml_dict.keys())
 
     def __iter__(self) -> iter:
         return iter(self.yaml_dict.keys())

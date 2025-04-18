@@ -325,14 +325,27 @@ class ContractImpl:
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
 
-        self.all_check_impls: list[CheckImpl] = list(self.check_impls)
+        dataset_check_impls: list[CheckImpl] = list(self.check_impls)
+        column_check_impls: list[CheckImpl] = []
         for column_impl in self.column_impls:
-            self.all_check_impls.extend(column_impl.check_impls)
+            column_check_impls.extend(column_impl.check_impls)
+        # For consistency and predictability, we want the checks eval and results in the same order as in the contract
+        self.all_check_impls: list[CheckImpl] = (
+            dataset_check_impls + column_check_impls
+            if self._dataset_checks_came_before_columns_in_yaml() else
+            column_check_impls + dataset_check_impls
+        )
 
         self._verify_duplicate_identities(self.all_check_impls)
 
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries() if data_source_impl else []
+
+    def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
+        contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
+        if "checks" in contract_keys and "columns" in contract_keys:
+            return contract_keys.index("checks") < contract_keys.index("columns")
+        return None
 
     def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
         now_variable_name: str = "DATA_TS"
