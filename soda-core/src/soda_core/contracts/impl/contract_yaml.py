@@ -74,18 +74,31 @@ class ContractYaml:
 
     @classmethod
     def parse(
-        cls, contract_yaml_source: ContractYamlSource, variables: Optional[dict[str, str]] = None
+        cls, contract_yaml_source: ContractYamlSource, provided_variable_values: Optional[dict[str, str]] = None
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
-        return ContractYaml(contract_yaml_source=contract_yaml_source, variables=variables)
+        return ContractYaml(
+            contract_yaml_source=contract_yaml_source,
+            provided_variable_values=provided_variable_values
+        )
 
-    def __init__(self, contract_yaml_source: ContractYamlSource, variables: Optional[dict[str, str]]):
+    def __init__(self, contract_yaml_source: ContractYamlSource, provided_variable_values: Optional[dict[str, str]]):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
-        self.variables: list[VariableYaml] = self._process_variables(contract_yaml_source, variables)
+        self.variables: list[VariableYaml] = self._parse_variable_yamls(
+            contract_yaml_source,
+            provided_variable_values
+        )
+        self.variable_values: dict[str, str] = self._resolve_variable_values(
+            variable_yamls=self.variables,
+            provided_variable_values=provided_variable_values
+        )
+        self.contract_yaml_source.resolve_on_read_value(
+            variables=self.variable_values, use_env_vars=True
+        )
 
         if (
             self.contract_yaml_object
@@ -99,20 +112,12 @@ class ContractYaml:
                 },
             )
 
-        data_source: Optional[str] = (
-            self.contract_yaml_object.read_string_opt("data_source") if self.contract_yaml_object else None
-        )
-        dataset_prefix: Optional[list[str]] = (
-            self.contract_yaml_object.read_list_of_strings_opt("dataset_prefix") if self.contract_yaml_object else None
-        )
         self.dataset: Optional[str] = (
             self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
         )
-        self.filter: Optional[str] = (
-            self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
+        self.checks_filter: Optional[str] = (
+            self.contract_yaml_object.read_string_opt("checks_filter") if self.contract_yaml_object else None
         )
-        if self.filter:
-            self.contract_yaml_source.resolve_on_read_variables["DATASET_FILTER"] = self.filter
 
         # Validate qualified dataset name
         _ = DatasetIdentifier.parse(self.dataset)
@@ -120,7 +125,7 @@ class ContractYaml:
         self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
 
-    def _process_variables(self, contract_yaml_source, variables) -> list[VariableYaml]:
+    def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
 
         if self.contract_yaml_object:
@@ -130,84 +135,112 @@ class ContractYaml:
                     variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
                     variable_yamls.append(variable_yaml)
 
-            # Replace None with empty dict, so variables is always a dict
-            variables = variables if isinstance(variables, dict) else {}
+        return variable_yamls
 
-            # Building up the variable name list in order, first the provided, then the declared variables
-            variable_names: list[str] = list(variables.keys())
-            for variable_yaml in variable_yamls:
-                if variable_yaml.name not in variable_names:
-                    variable_names.append(variable_yaml.name)
+    def _resolve_variable_values(
+        self,
+        variable_yamls: list[VariableYaml],
+        provided_variable_values: Optional[dict[str, str]]
+    ) -> dict[str, str]:
+        # Replace None with empty dict, so variables is always a dict
+        provided_variable_values = provided_variable_values if isinstance(provided_variable_values, dict) else {}
 
-            variable_yamls_by_name: dict[str, VariableYaml] = {
-                variable_yaml.name: variable_yaml for variable_yaml in variable_yamls
-            }
-            variable_values: dict[str, str] = {
-                variable_name: (
-                    variables[variable_name]
-                    if variable_name in variables
-                    else variable_yamls_by_name[variable_name].default
-                )
-                for variable_name in variable_names
-            }
+        variable_values: dict[str, str] = {}
 
-            ignored_variable_names: set[str] = set()
-            for variable_name in variables:
-                if variable_name not in variable_yamls_by_name and variable_name != "NOW":
-                    logger.warning(f"Ignoring provided variable {variable_name} because it's not declared")
-                    variable_values.pop(variable_name)
-                    ignored_variable_names.add(variable_name)
-
-            # Without this line, usage of NOW without declaring it will generate an error
-            ignored_variable_names.discard("NOW")
-            now_variable_yaml: VariableYaml = variable_yamls_by_name.get("NOW")
-            if "NOW" in variable_values:
-                if now_variable_yaml is not None and now_variable_yaml.type is not None:
-                    if now_variable_yaml.type != "timestamp":
-                        logger.error("If you specify a type for variable 'NOW', it must be a timestamp")
-                if not (now_variable_yaml and now_variable_yaml.type == "timestamp"):
-                    now_str: str = variables["NOW"]
-                    if isinstance(now_str, str) and convert_str_to_datetime(now_str) is None:
-                        logger.error(f"Provided 'NOW' variable value is not a correct timestamp format: {now_str}")
-                    else:
-                        variable_values["NOW"] = now_str
-            else:
-                variable_values["NOW"] = convert_datetime_to_str(datetime.now())
-
-            # Recursively resolving the variables
-            resolved_variable_values: dict[str, str] = (
-                self._resolve_variables(variable_values) if variable_values else {}
+        # Initializing the declared variables
+        for variable_yaml in variable_yamls:
+            variable_name: str = variable_yaml.name
+            variable_values[variable_name] = (
+                provided_variable_values.get(variable_name)
+                if variable_name in provided_variable_values else
+                variable_yaml.default
             )
 
-            for variable_name, resolve_variable_value in resolved_variable_values.items():
-                if variable_name != "NOW":
-                    if variable_name in variables:
-                        logger.debug(f"Using provided variable value {variable_name}={resolve_variable_value}")
-                    else:
-                        logger.debug(f"Using default variable value {variable_name}={resolve_variable_value}")
-            for variable_yaml in variable_yamls:
-                if variable_yaml.required and resolved_variable_values.get(variable_yaml.name) is None:
+        if "NOW" in provided_variable_values:
+            now_str: str = provided_variable_values["NOW"]
+            if not isinstance(now_str, str):
+                logger.error(f"Provided 'NOW' variable must be a string, but was: {now_str.__class__.__name__}")
+            else:
+                if convert_str_to_datetime(now_str) is None:
+                    logger.error(f"Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: {now_str}")
+                variable_values["NOW"] = now_str
+        else:
+            # Default now initialization
+            variable_values["NOW"] = convert_datetime_to_str(datetime.now())
+
+        # Checking variable values against their declared type & required
+        for variable_yaml in variable_yamls:
+            if variable_yaml.required and variable_values.get(variable_yaml.name) is None:
+                logger.error(
+                    msg=f"Required variable '{variable_yaml.name}' not provided",
+                    extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
+                )
+            elif variable_yaml.type == "timestamp":
+                resolved_timestamp_value = variable_values.get(variable_yaml.name)
+                if (
+                    resolved_timestamp_value is not None
+                    and convert_str_to_datetime(resolved_timestamp_value) is None
+                ):
                     logger.error(
-                        msg=f"Required variable '{variable_yaml.name}' not provided",
+                        msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
+                            f"{resolved_timestamp_value}",
                         extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                     )
-                elif variable_yaml.type == "timestamp":
-                    resolved_timestamp_value = resolved_variable_values.get(variable_yaml.name)
-                    if (
-                        resolved_timestamp_value is not None
-                        and convert_str_to_datetime(resolved_timestamp_value) is None
-                    ):
-                        logger.error(
-                            msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
-                            f"{resolved_timestamp_value}",
-                            extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                        )
 
-            contract_yaml_source.resolve_on_read_value(
-                variables=resolved_variable_values, ignored_variable_names=ignored_variable_names, use_env_vars=True
-            )
+        return self._resolve_variables(variable_values=variable_values)
 
-            return variable_yamls
+    @classmethod
+    def _resolve_variables(cls, variable_values: dict[str, str]) -> dict[str, str]:
+        """
+        Resolve all variables in the dictionary, replacing ${variable_name} expressions
+        with their corresponding values, while detecting circular dependencies.
+
+        Args:
+            variable_values (dict): Dictionary with string keys and string values
+                             containing ${variable_name} expressions
+
+        Returns:
+            dict: Dictionary with all variables resolved
+        """
+        # Create a copy of the input dict to avoid modifying the original
+        variable_values = variable_values.copy()
+
+        # Keep track of variables being processed to detect circular references
+        processing_stack = set()
+
+        def resolve_value(name: str, value: str) -> str:
+            """
+            Recursively resolve all variables in a given value.
+
+            Args:
+                name (str): The variable name being resolved (for circular detection)
+                value (str): The value to resolve
+
+            Returns:
+                str: The resolved value
+            """
+            # Check for circular reference
+            if name in processing_stack:
+                # Circular reference detected - return the original expression
+                # to prevent infinite recursion
+                return value
+
+            # Add current variable to the processing stack
+            processing_stack.add(name)
+
+            # Replace all variable references in the value
+            resolved = VariableResolver.resolve(source_text=value, variables=variable_values, use_env_vars=False)
+
+            # Remove current variable from the processing stack
+            processing_stack.remove(name)
+
+            return resolved
+
+        # Resolve each variable in the dictionary
+        for name in variable_values:
+            variable_values[name] = resolve_value(name, variable_values[name])
+
+        return variable_values
 
     def _parse_columns(self, contract_yaml_object: YamlObject) -> Optional[list[Optional[ColumnYaml]]]:
         columns: Optional[list[Optional[ColumnYaml]]] = None
@@ -296,59 +329,6 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
-
-    @classmethod
-    def _resolve_variables(cls, variables: dict[str, str]) -> dict[str, str]:
-        """
-        Resolve all variables in the dictionary, replacing ${variable_name} expressions
-        with their corresponding values, while detecting circular dependencies.
-
-        Args:
-            variables (dict): Dictionary with string keys and string values
-                             containing ${variable_name} expressions
-
-        Returns:
-            dict: Dictionary with all variables resolved
-        """
-        # Create a copy of the input dict to avoid modifying the original
-        variables = variables.copy()
-
-        # Keep track of variables being processed to detect circular references
-        processing_stack = set()
-
-        def resolve_value(name: str, value: str) -> str:
-            """
-            Recursively resolve all variables in a given value.
-
-            Args:
-                name (str): The variable name being resolved (for circular detection)
-                value (str): The value to resolve
-
-            Returns:
-                str: The resolved value
-            """
-            # Check for circular reference
-            if name in processing_stack:
-                # Circular reference detected - return the original expression
-                # to prevent infinite recursion
-                return value
-
-            # Add current variable to the processing stack
-            processing_stack.add(name)
-
-            # Replace all variable references in the value
-            resolved = VariableResolver.resolve(source_text=value, variables=variables, use_env_vars=False)
-
-            # Remove current variable from the processing stack
-            processing_stack.remove(name)
-
-            return resolved
-
-        # Resolve each variable in the dictionary
-        for name in variables:
-            variables[name] = resolve_value(name, variables[name])
-
-        return variables
 
 
 class VariableYaml:

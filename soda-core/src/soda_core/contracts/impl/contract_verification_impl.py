@@ -165,7 +165,7 @@ class ContractVerificationSessionImpl:
             for contract_yaml_source in contract_yaml_sources:
                 try:
                     contract_yaml: ContractYaml = ContractYaml.parse(
-                        contract_yaml_source=contract_yaml_source, variables=variables
+                        contract_yaml_source=contract_yaml_source, provided_variable_values=variables
                     )
                     data_source_name: str = (
                         contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
@@ -179,7 +179,7 @@ class ContractVerificationSessionImpl:
                         contract_yaml=contract_yaml,
                         only_validate_without_execute=only_validate_without_execute,
                         data_source_impl=data_source_impl,
-                        variables=variables,
+                        variable_values=contract_yaml.variable_values,
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
@@ -263,7 +263,7 @@ class ContractVerificationSessionImpl:
         for contract_yaml_source in contract_yaml_sources:
             try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, variables=variables
+                    contract_yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
                 contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
                     contract_yaml=contract_yaml,
@@ -282,7 +282,7 @@ class ContractImpl:
         contract_yaml: ContractYaml,
         only_validate_without_execute: bool,
         data_source_impl: DataSourceImpl,
-        variables: dict[str, str],
+        variable_values: dict[str, str],
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
     ):
@@ -290,14 +290,16 @@ class ContractImpl:
         self.contract_yaml: ContractYaml = contract_yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
         self.data_source_impl: DataSourceImpl = data_source_impl
-        self.variables: dict[str, str] = variables
+        self.variable_values: dict[str, str] = variable_values
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.publish_results: bool = publish_results
 
+        self.filter: Optional[str] = self.contract_yaml.checks_filter
+
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
-        # self.data_timestamp can be None if the user specified a DATA_TS variable that is not in the correct format
+
         self.data_timestamp: Optional[datetime] = self._get_data_timestamp(
-            variables=variables, default=self.started_timestamp
+            variables=variable_values, default=self.started_timestamp
         )
 
         self.dataset_prefix: Optional[list[str]] = None
@@ -348,7 +350,7 @@ class ContractImpl:
         return None
 
     def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
-        now_variable_name: str = "DATA_TS"
+        now_variable_name: str = "NOW"
         now_variable_timestamp_text = VariableResolver.get_variable(
             namespace="var", variables=variables, variable=now_variable_name
         )
@@ -403,7 +405,7 @@ class ContractImpl:
                     AggregationQuery(
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
-                        filter=self.contract_yaml.filter,
+                        filter=self.filter,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
                     )

@@ -62,9 +62,9 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
           END_TS:
             default: {end_ts_value}
 
-        filter: |
-          ${{var.START_TS}} < {column_name_quoted}
-          AND {column_name_quoted} <= ${{var.END_TS}}
+        checks_filter: |
+            ${{var.START_TS}} < {column_name_quoted}
+            AND {column_name_quoted} <= ${{var.END_TS}}
 
         columns:
           - name: country
@@ -77,10 +77,6 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
           - name: size
             checks:
               - missing:
-
-        checks:
-          - row_count:
-              name: The filter expression is ${{var.DATASET_FILTER}}
     """
 
     # On the first time partition t1 (16th) the filter should pass
@@ -113,8 +109,42 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     assert next(d.value for d in row_count_check_result.diagnostics if d.name == "row_count") == 4
     assert next(d.value for d in row_count_check_result.diagnostics if d.name == "missing_count") == 1
 
-    schema_check_result: CheckResult = contract_verification_result_t2.check_results[2]
+
+def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${var.NOW}")
+    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
+    end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
+    column_name_quoted: str = data_source_test_helper.quote_column("updated")
+
+    contract_yaml_str: str = f"""
+        variables:
+          START_TS:
+            default: {start_ts_value}
+          END_TS:
+            default: {end_ts_value}
+          USER_DEFINED_FILTER_VARIABLE:
+            default: |
+              ${{var.START_TS}} < {column_name_quoted}
+              AND {column_name_quoted} <= ${{var.END_TS}}
+
+        checks_filter: ${{var.USER_DEFINED_FILTER_VARIABLE}}
+
+        checks:
+          - row_count:
+              name: The filter expression is ${{var.USER_DEFINED_FILTER_VARIABLE}}
+    """
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=contract_yaml_str,
+        variables={
+            "NOW": convert_datetime_to_str(t2)
+        }
+    )
+    schema_check_result: CheckResult = contract_verification_result.check_results[0]
     assert "The filter expression is" in schema_check_result.check.name
-    assert "${var.DATASET_FILTER}" not in schema_check_result.check.name
+    assert "${var.USER_DEFINED_FILTER_VARIABLE}" not in schema_check_result.check.name
     assert "updated" in schema_check_result.check.name
     assert "AND" in schema_check_result.check.name

@@ -94,7 +94,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             self.queries.append(
                 InvalidReferenceCountQuery(
                     metric_impl=self.invalid_count_metric_impl,
-                    filter=self.contract_impl.contract_yaml.filter,
+                    filter=self.contract_impl.filter,
                     data_source_impl=contract_impl.data_source_impl
                 )
             )
