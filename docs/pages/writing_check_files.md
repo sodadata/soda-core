@@ -32,29 +32,36 @@ checks:
 
 ### Contract variables
 
-Each variable that is used in a contract in the `variables` section:
+In a contract, you can refer to variables using the syntax `${var.VARNAME}`, The variable reference 
+will be replaced with the variables value.
 
+Example
 ```yaml
-dataset: postgres_adventureworks/adventureworks/${DATASET_SCHEMA}/${DATASET_PREFIX}_employee
+dataset: postgres_adventureworks/adventureworks/${var.DATASET_SCHEMA}/${var.DATASET_PREFIX}_employee
 
 variables: 
   DATASET_SCHEMA:
     default: advw
   DATASET_PREFIX:
-    default: dim
 
 columns:
   - name: id
 ```
 
-In a contract, you can refer to variables using the syntax `${var.VARNAME}`, The variable reference 
-will be replaced with the values specified in the CLI, the Python API or the Soda Cloud UI.
+Variable values are specified in one of 3 ways: 
+* Provided as parameter when starting a contract verification
+* Using the `default` key in the variable declaration in the contract YAML
+* The `NOW` variable is always available and should not need be declared.
+
+All variables used in a contract except for `NOW` have to be declared.
+
+Variable declarations optionally can have a `default` value assigned.  The default variable 
+values are allowed to contain nested variable references.  But of course, no circular 
+references are allowed.
 
 Variable are resolved case sensitive.
 
 In contract YAML files, environment variables like eg `${env.ERROR}` can **not** be used.
-
-All variables used in a contract except for `NOW` have to be declared.
 
 `NOW` has the current timestamp in ISO8601 format as default.  A value for `NOW` can be 
 provided in the variables, but then it has to be also in ISO8601 format.  Variable can 
@@ -96,15 +103,15 @@ dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 variables:
   START_TS:
-    default: {start_ts_value}
+    default: date_trunc('day', timestamp '${var.NOW}')
   END_TS:
-    default: {end_ts_value}
+    default: ${var.START_TS} + interval '1 day'
   USER_DEFINED_FILTER_VARIABLE:
     default: |
-      ${{var.START_TS}} < {column_name_quoted}
-      AND {column_name_quoted} <= ${{var.END_TS}}
+      ${var.START_TS} < "created_at"
+      AND "created_at" <= ${var.END_TS}
 
-checks_filter: ${{var.USER_DEFINED_FILTER_VARIABLE}}
+checks_filter: ${var.USER_DEFINED_FILTER_VARIABLE}
 
 checks:
   - failed_rows:
