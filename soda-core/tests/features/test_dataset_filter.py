@@ -3,7 +3,10 @@ from datetime import datetime
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.contracts.contract_verification import ContractVerificationResult, CheckResult
+from soda_core.contracts.contract_verification import (
+    CheckResult,
+    ContractVerificationResult,
+)
 
 t1 = datetime(year=2025, month=4, day=16, hour=12, minute=0, second=0)
 t2 = datetime(year=2025, month=4, day=17, hour=12, minute=0, second=0)
@@ -17,14 +20,13 @@ test_table_specification = (
     .rows(
         rows=[
             # records with t1
-            ("USA", 10,   t1),
-            ("BE",  1,    t1),
-
+            ("USA", 10, t1),
+            ("BE", 1, t1),
             # records with t2 (must be more than a day apart)
-            ("USA", 10,   t2),
-            ("BE",  1,    t2),
-            ("GR",  1,    t2),
-            ("NL",  None, t2),
+            ("USA", 10, t2),
+            ("BE", 1, t2),
+            ("GR", 1, t2),
+            ("NL", None, t2),
         ]
     )
     .build()
@@ -81,11 +83,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
 
     # On the first time partition t1 (16th) the filter should pass
     contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
-        test_table=test_table,
-        contract_yaml_str=contract_yaml_str,
-        variables={
-            "NOW": convert_datetime_to_str(t1)
-        }
+        test_table=test_table, contract_yaml_str=contract_yaml_str, variables={"NOW": convert_datetime_to_str(t1)}
     )
     check_result: CheckResult = contract_verification_result_t1.check_results[0]
     assert next(d.value for d in check_result.diagnostics if d.name == "invalid_count") == 0
@@ -96,11 +94,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
 
     # On the second time partition t2 (17th) the filter should fail
     contract_verification_result_t2: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
-        test_table=test_table,
-        contract_yaml_str=contract_yaml_str,
-        variables={
-            "NOW": convert_datetime_to_str(t2)
-        }
+        test_table=test_table, contract_yaml_str=contract_yaml_str, variables={"NOW": convert_datetime_to_str(t2)}
     )
     invalid_check_result: CheckResult = contract_verification_result_t2.check_results[0]
     assert next(d.value for d in invalid_check_result.diagnostics if d.name == "invalid_count") == 1
@@ -137,11 +131,7 @@ def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSo
     """
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
-        test_table=test_table,
-        contract_yaml_str=contract_yaml_str,
-        variables={
-            "NOW": convert_datetime_to_str(t2)
-        }
+        test_table=test_table, contract_yaml_str=contract_yaml_str, variables={"NOW": convert_datetime_to_str(t2)}
     )
     schema_check_result: CheckResult = contract_verification_result.check_results[0]
     assert "The filter expression is" in schema_check_result.check.name

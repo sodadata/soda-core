@@ -8,7 +8,8 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 def parse_contract(contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractYaml:
     return ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)), provided_variable_values=variables
+        contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)),
+        provided_variable_values=variables,
     )
 
 
@@ -238,7 +239,5 @@ def test_variables_example1_in_docs(logs: Logs):
     """
     )
 
-    assert dedent_and_strip(contract_yaml.dataset) == (
-        "postgres_adventureworks/adventureworks/advw/dim_employee"
-    )
+    assert dedent_and_strip(contract_yaml.dataset) == ("postgres_adventureworks/adventureworks/advw/dim_employee")
     assert "" == logs.get_errors_str()

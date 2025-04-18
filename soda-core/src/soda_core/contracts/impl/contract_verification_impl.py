@@ -334,8 +334,8 @@ class ContractImpl:
         # For consistency and predictability, we want the checks eval and results in the same order as in the contract
         self.all_check_impls: list[CheckImpl] = (
             dataset_check_impls + column_check_impls
-            if self._dataset_checks_came_before_columns_in_yaml() else
-            column_check_impls + dataset_check_impls
+            if self._dataset_checks_came_before_columns_in_yaml()
+            else column_check_impls + dataset_check_impls
         )
 
         self._verify_duplicate_identities(self.all_check_impls)

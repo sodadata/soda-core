@@ -95,7 +95,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 InvalidReferenceCountQuery(
                     metric_impl=self.invalid_count_metric_impl,
                     filter=self.contract_impl.filter,
-                    data_source_impl=contract_impl.data_source_impl
+                    data_source_impl=contract_impl.data_source_impl,
                 )
             )
         else:
@@ -191,7 +191,7 @@ class InvalidReferenceCountQuery(Query):
         self,
         metric_impl: InvalidReferenceCountMetricImpl,
         filter: Optional[str],
-        data_source_impl: Optional[DataSourceImpl]
+        data_source_impl: Optional[DataSourceImpl],
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
 
@@ -221,14 +221,14 @@ class InvalidReferenceCountQuery(Query):
             SELECT(COUNT(STAR())),
             FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(referencing_alias),
             LEFT_INNER_JOIN(referenced_dataset_name)
-                .IN(referenced_dataset_prefix)
-                .ON(
-                    EQ(
-                        COLUMN(referencing_column_name).IN(referencing_alias),
-                        COLUMN(referenced_column).IN(referenced_alias),
-                    )
+            .IN(referenced_dataset_prefix)
+            .ON(
+                EQ(
+                    COLUMN(referencing_column_name).IN(referencing_alias),
+                    COLUMN(referenced_column).IN(referenced_alias),
                 )
-                .AS(referenced_alias),
+            )
+            .AS(referenced_alias),
             WHERE(
                 AND(
                     [
@@ -256,13 +256,8 @@ class InvalidReferenceCountQuery(Query):
             original_from = sql_ast[1].AS(None)
             sql_ast[1] = FROM("filtered_dataset").AS(referencing_alias)
             sql_ast = [
-                WITH("filtered_dataset").AS([
-                    SELECT(STAR()),
-                    original_from,
-                    WHERE(SqlExpressionStr(filter))
-                ]),
+                WITH("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(SqlExpressionStr(filter))]),
             ] + sql_ast
-
 
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 

@@ -80,25 +80,18 @@ class ContractYaml:
         if not check_types_have_been_registered:
             register_check_types()
         return ContractYaml(
-            contract_yaml_source=contract_yaml_source,
-            provided_variable_values=provided_variable_values
+            contract_yaml_source=contract_yaml_source, provided_variable_values=provided_variable_values
         )
 
     def __init__(self, contract_yaml_source: ContractYamlSource, provided_variable_values: Optional[dict[str, str]]):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
-        self.variables: list[VariableYaml] = self._parse_variable_yamls(
-            contract_yaml_source,
-            provided_variable_values
-        )
+        self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
         self.variable_values: dict[str, str] = self._resolve_variable_values(
-            variable_yamls=self.variables,
-            provided_variable_values=provided_variable_values
+            variable_yamls=self.variables, provided_variable_values=provided_variable_values
         )
-        self.contract_yaml_source.resolve_on_read_value(
-            variables=self.variable_values, use_env_vars=True
-        )
+        self.contract_yaml_source.resolve_on_read_value(variables=self.variable_values, use_env_vars=True)
 
         if (
             self.contract_yaml_object
@@ -138,9 +131,7 @@ class ContractYaml:
         return variable_yamls
 
     def _resolve_variable_values(
-        self,
-        variable_yamls: list[VariableYaml],
-        provided_variable_values: Optional[dict[str, str]]
+        self, variable_yamls: list[VariableYaml], provided_variable_values: Optional[dict[str, str]]
     ) -> dict[str, str]:
         # Replace None with empty dict, so variables is always a dict
         provided_variable_values = provided_variable_values if isinstance(provided_variable_values, dict) else {}
@@ -152,8 +143,8 @@ class ContractYaml:
             variable_name: str = variable_yaml.name
             variable_values[variable_name] = (
                 provided_variable_values.get(variable_name)
-                if variable_name in provided_variable_values else
-                variable_yaml.default
+                if variable_name in provided_variable_values
+                else variable_yaml.default
             )
 
         if "NOW" in provided_variable_values:
@@ -177,13 +168,10 @@ class ContractYaml:
                 )
             elif variable_yaml.type == "timestamp":
                 resolved_timestamp_value = variable_values.get(variable_yaml.name)
-                if (
-                    resolved_timestamp_value is not None
-                    and convert_str_to_datetime(resolved_timestamp_value) is None
-                ):
+                if resolved_timestamp_value is not None and convert_str_to_datetime(resolved_timestamp_value) is None:
                     logger.error(
                         msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
-                            f"{resolved_timestamp_value}",
+                        f"{resolved_timestamp_value}",
                         extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                     )
 

@@ -495,9 +495,7 @@ class VariableResolver:
         if namespace == "var":
             if not isinstance(variables, dict) or variable not in variables:
                 logger.error(
-                    msg=(
-                        f"Variable '{variable}' was used and not declared"
-                    ),
+                    msg=(f"Variable '{variable}' was used and not declared"),
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
             else:
