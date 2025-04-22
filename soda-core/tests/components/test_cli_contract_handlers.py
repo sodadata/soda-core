@@ -53,6 +53,7 @@ def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failure
         dataset_identifiers=None,
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
+        variables={},
         publish=True,
         use_agent=False,
         blocking_timeout_in_minutes=10,
@@ -67,6 +68,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_dataset_names_wit
         dataset_identifiers=["some_dataset"],
         data_source_file_path="ds.yaml",
         soda_cloud_file_path=None,
+        variables={},
         publish=False,
         use_agent=False,
         blocking_timeout_in_minutes=10,
@@ -84,6 +86,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
         dataset_identifiers=["some_dataset"],
         data_source_file_path="ds.yaml",
         soda_cloud_file_path=None,
+        variables={},
         publish=True,
         use_agent=False,
         blocking_timeout_in_minutes=10,
@@ -102,6 +105,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
         dataset_identifiers=None,
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="soda-cloud.yaml",
+        variables={},
         publish=True,
         use_agent=False,
         blocking_timeout_in_minutes=10,
@@ -117,6 +121,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
         dataset_identifiers=None,
         data_source_file_path=None,
         soda_cloud_file_path="soda-cloud.yaml",
+        variables={},
         publish=True,
         use_agent=False,
         blocking_timeout_in_minutes=10,
@@ -135,6 +140,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
         dataset_identifiers=None,
         data_source_file_path=None,
         soda_cloud_file_path="soda-cloud.yaml",
+        variables={},
         publish=True,
         use_agent=True,
         blocking_timeout_in_minutes=10,
@@ -155,6 +161,7 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
             dataset_identifiers=["my/super/awesome/identifier"],
             data_source_file_path="ds.yaml",
             soda_cloud_file_path="soda-cloud.yaml",
+            variables={},
             publish=True,
             use_agent=False,
             blocking_timeout_in_minutes=10,
@@ -177,6 +184,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
             dataset_identifiers=["my/super/awesome/identifier"],
             data_source_file_path="ds.yaml",
             soda_cloud_file_path="soda-cloud.yaml",
+            variables={},
             publish=True,
             use_agent=False,
             blocking_timeout_in_minutes=10,
@@ -231,6 +239,6 @@ def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit
 
     mock_execute.return_value = mock_result
 
-    exit_code = handle_test_contract(contract_file_paths=["contract.yaml"], data_source_file_path="ds.yaml")
+    exit_code = handle_test_contract(contract_file_paths=["contract.yaml"], variables={}, data_source_file_path="ds.yaml")
 
     assert exit_code == expected_exit_code
