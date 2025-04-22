@@ -163,11 +163,14 @@ class InvalidCountMetric(AggregationMetricImpl):
             column_impl=column_impl,
             metric_type="invalid_count",
         )
-        self.missing_and_validity: MissingAndValidity = check_impl.missing_and_validity
+        self.check_impl: MissingAndValidityCheckImpl = check_impl
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        return self.missing_and_validity.get_sum_invalid_count_expr(column_name)
+        return self.check_impl.missing_and_validity.get_sum_invalid_count_expr(
+            column_name=column_name,
+            check_filter=self.check_impl.check_yaml.filter
+        )
 
     def convert_db_value(self, value) -> any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

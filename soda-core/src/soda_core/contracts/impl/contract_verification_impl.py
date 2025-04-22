@@ -661,9 +661,14 @@ class MissingAndValidity:
         invalid_expression: SqlExpression = OR(invalid_clauses)
         return AND([NOT(missing_expr), OR(invalid_expression)])
 
-    def get_sum_invalid_count_expr(self, column_name: str) -> SqlExpression:
+    def get_sum_invalid_count_expr(self, column_name: str, check_filter: Optional[str]) -> SqlExpression:
         not_missing_and_invalid_expr = self.get_invalid_count_condition(column_name)
-        return SUM(CASE_WHEN(not_missing_and_invalid_expr, LITERAL(1), LITERAL(0)))
+        invalid_count_condition: SqlExpression = (
+            not_missing_and_invalid_expr
+            if not check_filter else
+            AND([not_missing_and_invalid_expr, SqlExpressionStr(check_filter)])
+        )
+        return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1), LITERAL(0)))
 
     @classmethod
     def __apply_default(cls, self_value, default_value) -> any:

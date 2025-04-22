@@ -486,6 +486,7 @@ class CheckYaml(ABC):
         self.name: Optional[str] = check_yaml_object.read_string_opt("name") if check_yaml_object else None
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
         self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
+        self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
 
 
 class ThresholdCheckYaml(CheckYaml):
