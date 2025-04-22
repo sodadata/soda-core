@@ -421,6 +421,9 @@ class ContractImpl:
             f"{self.contract_yaml.contract_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
+        if self.data_source_impl:
+            data_source = self.data_source_impl.build_data_source()
+
         if not self.logs.has_errors():
             # Executing the queries will set the value of the metrics linked to queries
             if not self.only_validate_without_execute:
@@ -441,8 +444,6 @@ class ContractImpl:
                     measurements.append(derived_measurement)
 
             if self.data_source_impl:
-                data_source = self.data_source_impl.build_data_source()
-
                 # Evaluate the checks
                 measurement_values: MeasurementValues = MeasurementValues(measurements)
                 for check_impl in self.all_check_impls:
