@@ -45,3 +45,23 @@ def test_sql_ast_modeling_query3():
         "  AND \"colB\" = 'XXX'\n"
         "  AND \"colC\" like '%xxx';"
     )
+
+
+def test_sql_ast_modeling_cte():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_select_sql(
+        [
+            WITH("customers_filtered").AS([SELECT(STAR()), FROM("customers"), WHERE(GTE("colA", LITERAL(25)))]),
+            SELECT(SUM(COLUMN("size"))),
+            FROM("customers_filtered"),
+        ]
+    ) == (
+        'WITH "customers_filtered" AS (\n'
+        "  SELECT *\n"
+        '  FROM "customers"\n'
+        '  WHERE "colA" >= 25\n'
+        ")\n"
+        'SELECT SUM("size")\n'
+        'FROM "customers_filtered";'
+    )

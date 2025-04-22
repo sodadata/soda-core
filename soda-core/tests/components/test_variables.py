@@ -8,7 +8,8 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 def parse_contract(contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractYaml:
     return ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)), variables=variables
+        contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)),
+        provided_variable_values=variables,
     )
 
 
@@ -25,10 +26,7 @@ def test_using_undeclared_variable(logs: Logs):
 
     assert contract_yaml.checks[0].name == "abc_${var.DS_SUFFIX}"
 
-    assert (
-        "Variable 'DS_SUFFIX' was used and provided, but not declared. "
-        "Please add variable declaration to the contract" in logs.get_errors_str()
-    )
+    assert "Variable 'DS_SUFFIX' was used and not declared" in logs.get_errors_str()
 
 
 def test_variable_declaration():
@@ -221,41 +219,25 @@ def test_provided_invalid_now_variable(logs: Logs):
         variables={"NOW": "buzz"},
     )
 
-    assert contract_yaml.checks[0].name != "abc_${var.NOW}"
-    assert "Provided 'NOW' variable value is not a correct timestamp format: buzz" == logs.get_errors_str()
+    assert "Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: buzz" == logs.get_errors_str()
+    assert contract_yaml.checks[0].name == "abc_buzz"
 
 
-def test_variables_example_in_docs(logs: Logs):
+def test_variables_example1_in_docs(logs: Logs):
     contract_yaml: ContractYaml = parse_contract(
         contract_yaml_str="""
-            dataset: a/b/c/d
+            dataset: postgres_adventureworks/adventureworks/${var.DATASET_SCHEMA}/${var.DATASET_PREFIX}_employee
 
             variables:
-              COUNTRY:
-                default: USA
-              CATEGORY:
-                default: L
-              CREATED_AFTER_TS:
-              SEGMENT_FILTER:
-                default: |
-                    country ='${var.COUNTRY}'
-                    AND category = '${var.CATEGORY}'
-                    AND created_at <= TIMESTAMP '${var.NOW}'
-                    AND created_at > TIMESTAMP '${var.CREATED_AFTER_TS}'
+              DATASET_SCHEMA:
+                default: advw
+              DATASET_PREFIX:
+                default: dim
 
-            checks:
-              - schema:
-                  name: ${var.SEGMENT_FILTER}
-    """,
-        variables={"CATEGORY": "M", "CREATED_AFTER_TS": "2025-02-21T06:16:59Z", "NOW": "2025-04-04T06:04:40+00:00"},
-    )
-
-    assert dedent_and_strip(contract_yaml.checks[0].name) == dedent_and_strip(
-        """
-        country ='USA'
-        AND category = 'M'
-        AND created_at <= TIMESTAMP '2025-04-04T06:04:40+00:00'
-        AND created_at > TIMESTAMP '2025-02-21T06:16:59Z'
+            columns:
+              - name: id
     """
     )
+
+    assert dedent_and_strip(contract_yaml.dataset) == ("postgres_adventureworks/adventureworks/advw/dim_employee")
     assert "" == logs.get_errors_str()

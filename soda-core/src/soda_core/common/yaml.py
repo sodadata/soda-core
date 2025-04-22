@@ -93,7 +93,6 @@ class YamlSource:
         self.resolve_on_read: bool = False
         self.resolve_on_read_variables: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
-        self.resolve_on_read_ignored_variable_names: Optional[set[str]] = None
 
     def __init_subclass__(cls, file_type: FileType, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -143,11 +142,10 @@ class YamlSource:
             source_text=self.yaml_str, variables=variables, use_env_vars=use_env_vars
         )
 
-    def resolve_on_read_value(self, variables: dict[str, str], ignored_variable_names: set[str], use_env_vars: bool):
+    def resolve_on_read_value(self, variables: dict[str, str], use_env_vars: bool):
         self.resolve_on_read = True
         self.resolve_on_read_variables = variables
         self.resolve_on_read_use_env_vars = use_env_vars
-        self.resolve_on_read_ignored_variable_names = ignored_variable_names
 
     def parse(self) -> Optional[YamlObject]:
         self._ensure_yaml_str()
@@ -205,7 +203,6 @@ class YamlValue:
                 source_text=value,
                 variables=self.yaml_source.resolve_on_read_variables,
                 use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
-                ignored_variable_names=self.yaml_source.resolve_on_read_ignored_variable_names,
                 location=location,
             )
         return value
@@ -233,8 +230,8 @@ class YamlObject(YamlValue):
     def items(self) -> list[tuple]:
         return [(k, self._yaml_wrap(v)) for k, v in self.yaml_dict.items()]
 
-    def keys(self) -> set[str]:
-        return set(self.yaml_dict.keys())
+    def keys(self) -> list[str]:
+        return list(self.yaml_dict.keys())
 
     def __iter__(self) -> iter:
         return iter(self.yaml_dict.keys())
@@ -451,7 +448,6 @@ class VariableResolver:
         source_text: str,
         variables: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
-        ignored_variable_names: Optional[set[str]] = None,
         location: Optional[Location] = None,
     ) -> str:
         if isinstance(source_text, str):
@@ -462,7 +458,6 @@ class VariableResolver:
                     variable=m.group(2).strip(),
                     variables=variables,
                     use_env_vars=use_env_vars,
-                    ignored_variable_names=ignored_variable_names,
                     location=location,
                 ),
                 string=source_text,
@@ -477,7 +472,6 @@ class VariableResolver:
         variable: str,
         variables: dict[str, str],
         use_env_vars: bool,
-        ignored_variable_names: Optional[set[str]] = None,
         location: Optional[Location] = None,
     ) -> str:
         value: Optional[str] = cls.get_variable(
@@ -485,7 +479,6 @@ class VariableResolver:
             variable=variable,
             variables=variables,
             use_env_vars=use_env_vars,
-            ignored_variable_names=ignored_variable_names,
             location=location,
         )
         return value if isinstance(value, str) else f"${{{namespace}.{variable}}}"
@@ -497,19 +490,16 @@ class VariableResolver:
         variable: str,
         variables: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
-        ignored_variable_names: Optional[set[str]] = None,
         location: Optional[Location] = None,
     ) -> Optional[str]:
-        if isinstance(variables, dict) and namespace == "var":
-            if isinstance(ignored_variable_names, set) and variable in ignored_variable_names:
+        if namespace == "var":
+            if not isinstance(variables, dict) or variable not in variables:
                 logger.error(
-                    msg=(
-                        f"Variable '{variable}' was used and provided, but not declared. "
-                        f"Please add variable declaration to the contract"
-                    ),
+                    msg=(f"Variable '{variable}' was used and not declared"),
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
-            return variables[variable] if isinstance(variables, dict) and variable in variables else None
+            else:
+                return variables[variable]
         elif namespace == "env":
             if use_env_vars:
                 return os.getenv(variable) if variable in os.environ else None

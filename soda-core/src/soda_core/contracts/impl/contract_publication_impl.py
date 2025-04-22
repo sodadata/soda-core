@@ -36,7 +36,7 @@ class ContractPublicationImpl:
         else:
             for contract_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, variables=variables
+                    contract_yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
                 self.contract_yamls.append(contract_yaml)
 

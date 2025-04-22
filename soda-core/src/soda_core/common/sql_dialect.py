@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from numbers import Number
+from textwrap import indent
 
 from soda_core.common.sql_ast import *
 
@@ -88,7 +89,9 @@ class SqlDialect:
         return value
 
     def build_select_sql(self, select_elements: list) -> str:
-        statement_lines: list[str] = self._build_select_sql_lines(select_elements)
+        statement_lines: list[str] = []
+        statement_lines.extend(self._build_cte_sql_lines(select_elements))
+        statement_lines.extend(self._build_select_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         return "\n".join(statement_lines) + ";"
@@ -123,6 +126,19 @@ class SqlDialect:
             select_sql_lines.append(sql_line)
 
         return select_sql_lines
+
+    def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
+        cte_lines: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, WITH):
+                nested_select: str = self.build_select_sql(select_element.cte_query)
+                nested_select = nested_select.strip()
+                nested_select = nested_select.rstrip(";")
+                indented_nested_select: str = indent(nested_select, "  ")
+                cte_lines.append(f"WITH {self.quote_default(select_element.alias)} AS (")
+                cte_lines.extend(indented_nested_select.split("\n"))
+                cte_lines.append(f")")
+        return cte_lines
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):
@@ -166,7 +182,7 @@ class SqlDialect:
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
-            return expression.expression_str
+            return f"({expression.expression_str})"
         elif isinstance(expression, STAR):
             return "*"
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")

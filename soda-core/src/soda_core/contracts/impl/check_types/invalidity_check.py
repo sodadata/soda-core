@@ -93,7 +93,9 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
             self.queries.append(
                 InvalidReferenceCountQuery(
-                    metric_impl=self.invalid_count_metric_impl, data_source_impl=contract_impl.data_source_impl
+                    metric_impl=self.invalid_count_metric_impl,
+                    filter=self.contract_impl.filter,
+                    data_source_impl=contract_impl.data_source_impl,
                 )
             )
         else:
@@ -185,7 +187,12 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
 
 
 class InvalidReferenceCountQuery(Query):
-    def __init__(self, metric_impl: InvalidReferenceCountMetricImpl, data_source_impl: Optional[DataSourceImpl]):
+    def __init__(
+        self,
+        metric_impl: InvalidReferenceCountMetricImpl,
+        filter: Optional[str],
+        data_source_impl: Optional[DataSourceImpl],
+    ):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
 
         valid_reference_data: ValidReferenceData = metric_impl.missing_and_validity.valid_reference_data
@@ -210,42 +217,49 @@ class InvalidReferenceCountQuery(Query):
         # SELECT(STAR().IN("C")),
         # which should translate to SELECT C.*
 
-        self.sql = self.data_source_impl.sql_dialect.build_select_sql(
-            [
-                SELECT(COUNT(STAR())),
-                FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(referencing_alias),
-                LEFT_INNER_JOIN(referenced_dataset_name)
-                .IN(referenced_dataset_prefix)
-                .ON(
-                    EQ(
-                        COLUMN(referencing_column_name).IN(referencing_alias),
-                        COLUMN(referenced_column).IN(referenced_alias),
-                    )
+        sql_ast: list = [
+            SELECT(COUNT(STAR())),
+            FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(referencing_alias),
+            LEFT_INNER_JOIN(referenced_dataset_name)
+            .IN(referenced_dataset_prefix)
+            .ON(
+                EQ(
+                    COLUMN(referencing_column_name).IN(referencing_alias),
+                    COLUMN(referenced_column).IN(referenced_alias),
                 )
-                .AS(referenced_alias),
-                WHERE(
-                    AND(
-                        [
-                            NOT(
-                                metric_impl.missing_and_validity.get_missing_count_condition(
-                                    COLUMN(referencing_column_name).IN(referencing_alias)
-                                )
-                            ),
-                            IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
-                            # If you want to combine other validity constraints, replace
-                            # IS_NULL(COLUMN(referenced_column).IN(referenced_alias)) as follows:
-                            # OR(
-                            #     IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
-                            #     metric_impl.missing_and_validity.get_invalid_count_condition(
-                            #         COLUMN(referencing_column_name).IN(referencing_alias)
-                            #     )
-                            # )
-                            # Don't forget to update function get_non_reference_configurations in contract_yaml.py
-                        ]
-                    )
-                ),
-            ]
-        )
+            )
+            .AS(referenced_alias),
+            WHERE(
+                AND(
+                    [
+                        NOT(
+                            metric_impl.missing_and_validity.get_missing_count_condition(
+                                COLUMN(referencing_column_name).IN(referencing_alias)
+                            )
+                        ),
+                        IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
+                        # If you want to combine other validity constraints, replace
+                        # IS_NULL(COLUMN(referenced_column).IN(referenced_alias)) as follows:
+                        # OR(
+                        #     IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
+                        #     metric_impl.missing_and_validity.get_invalid_count_condition(
+                        #         COLUMN(referencing_column_name).IN(referencing_alias)
+                        #     )
+                        # )
+                        # Don't forget to update function get_non_reference_configurations in contract_yaml.py
+                    ]
+                )
+            ),
+        ]
+
+        if filter:
+            original_from = sql_ast[1].AS(None)
+            sql_ast[1] = FROM("filtered_dataset").AS(referencing_alias)
+            sql_ast = [
+                WITH("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(SqlExpressionStr(filter))]),
+            ] + sql_ast
+
+        self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
     def execute(self) -> list[Measurement]:
         try:
