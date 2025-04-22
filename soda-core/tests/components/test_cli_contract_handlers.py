@@ -239,6 +239,8 @@ def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit
 
     mock_execute.return_value = mock_result
 
-    exit_code = handle_test_contract(contract_file_paths=["contract.yaml"], variables={}, data_source_file_path="ds.yaml")
+    exit_code = handle_test_contract(
+        contract_file_paths=["contract.yaml"], variables={}, data_source_file_path="ds.yaml"
+    )
 
     assert exit_code == expected_exit_code
