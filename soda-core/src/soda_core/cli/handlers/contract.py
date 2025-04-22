@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
@@ -20,6 +20,7 @@ def handle_verify_contract(
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
+    variables: Optional[Dict[str, str]],
     publish: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
@@ -65,6 +66,7 @@ def handle_verify_contract(
         soda_cloud_yaml_source=(
             SodaCloudYamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None
         ),
+        variables=variables,
         soda_cloud_publish_results=publish,
         soda_cloud_use_agent=use_agent,
         soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
@@ -222,12 +224,14 @@ def handle_publish_contract(
 
 def handle_test_contract(
     contract_file_paths: Optional[list[str]],
+    variables: Optional[Dict[str, str]],
     data_source_file_path: Optional[str],
 ) -> ExitCode:
     for contract_file_path in contract_file_paths:
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_file_path(contract_file_path)],
             only_validate_without_execute=True,
+            variables=variables,
         )
         if contract_verification_session_result.has_errors():
             return ExitCode.LOG_ERRORS

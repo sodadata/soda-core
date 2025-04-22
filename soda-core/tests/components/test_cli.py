@@ -30,12 +30,17 @@ from soda_core.cli.soda import create_cli_parser
                 "42",
                 "-p",
                 "-v",
+                "--set",
+                "key1=value1",
+                "--set",
+                "key2=value2",
             ],
             [
                 ["a.yaml", "b.yaml"],
                 ["some/remote/dataset/identifier"],
                 "ds.yaml",
                 "cloud.yaml",
+                {"key1": "value1", "key2": "value2"},
                 True,
                 True,
                 42,
@@ -57,15 +62,41 @@ from soda_core.cli.soda import create_cli_parser
                 "42",
                 "-p",
                 "-v",
+                "--set",
+                "key1=value1",
             ],
             [
                 None,
                 ["some-dataset"],
                 "ds.yaml",
                 "cloud.yaml",
+                {"key1": "value1"},
                 True,
                 True,
                 42,
+            ],
+        ),
+        (
+            [
+                "soda",
+                "contract",
+                "verify",
+                "-d",
+                "some-dataset",
+                "-ds",
+                "ds.yaml",
+                "-sc",
+                "cloud.yaml",
+            ],
+            [
+                None,
+                ["some-dataset"],
+                "ds.yaml",
+                "cloud.yaml",
+                {},
+                False,
+                False,
+                60,
             ],
         ),
     ],
@@ -100,6 +131,27 @@ def test_verify_command_raises_exception_when_none_of_contract_or_dataset_specif
         "42",
         "-p",
         "-v",
+    ]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+    with pytest.raises(SystemExit) as e:
+        _ = args.handler_func(args)
+
+    assert ExitCode.LOG_ERRORS == e.value.code
+
+
+def test_verify_command_raises_exception_when_variables_are_incorrectly_formatted():
+    sys.argv = [
+        "soda",
+        "contract",
+        "verify",
+        "-ds",
+        "ds.yaml",
+        "-sc",
+        "cloud.yaml",
+        "--set",
+        "invalid_variable",
     ]
 
     parser = create_cli_parser()

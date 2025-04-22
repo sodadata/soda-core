@@ -4,6 +4,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser
+from typing import Dict, List, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
@@ -104,6 +105,12 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
     verify_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
     verify_parser.add_argument(
+        "--set",
+        action="append",
+        type=str,
+        help="Set variable values to be used in the contract with format '--set <variable_name>=<variable_value>'.",
+    )
+    verify_parser.add_argument(
         "-a",
         "--use-agent",
         const=True,
@@ -141,6 +148,9 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         dataset_identifiers = args.dataset
         data_source_file_path = args.data_source
         soda_cloud_file_path = args.soda_cloud
+        variables = _parse_variables(args.set)
+        if variables is None:
+            exit_with_code(ExitCode.LOG_ERRORS)
         publish = args.publish
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
@@ -150,6 +160,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             dataset_identifiers,
             data_source_file_path,
             soda_cloud_file_path,
+            variables,
             publish,
             use_agent,
             blocking_timeout_in_minutes,
@@ -158,6 +169,27 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         exit_with_code(exit_code)
 
     verify_parser.set_defaults(handler_func=handle)
+
+
+def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]:
+    if not variables:
+        return {}
+
+    result = {}
+    for variable in variables:
+        if "=" not in variable:
+            soda_logger.error(f"Variable {variable} is incorrectly formatted. Please use the format KEY=VALUE")
+            return None
+        key, value = variable.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            soda_logger.error(
+                f"Incorrectly formatted variable '{variable}', key or value is empty. Please use the format KEY=VALUE"
+            )
+            return None
+        result[key] = value
+    return result
 
 
 def _setup_contract_publish_command(contract_parsers) -> None:
