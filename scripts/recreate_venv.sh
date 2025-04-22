@@ -15,3 +15,4 @@ pip-compile dev-requirements.in
 pip install -r dev-requirements.txt
 pip install -e soda-core
 pip install -e soda-postgres
+pip install -e soda-snowflake
