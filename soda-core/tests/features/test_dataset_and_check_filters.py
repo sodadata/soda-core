@@ -30,7 +30,7 @@ def test_dataset_filter_combined_with_check_filters(data_source_test_helper: Dat
     size_quoted = data_source_test_helper.quote_column("size")
 
     contract_yaml_str: str = f"""
-        checks_filter: |
+        filter: |
           {size_quoted} >= 5
 
         columns:
@@ -40,7 +40,8 @@ def test_dataset_filter_combined_with_check_filters(data_source_test_helper: Dat
                   filter: |
                     {country_quoted} = 'BE'
               - invalid:
-                  valid_values: ['S', 'M', 'L']
+                  invalid_values: ['X', '-']
+                  valid_max_length: 2
                   filter: |
                     {country_quoted} = 'USA'
 

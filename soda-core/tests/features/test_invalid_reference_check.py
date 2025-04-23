@@ -3,7 +3,7 @@ from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     Diagnostic,
-    NumericDiagnostic,
+    NumericDiagnostic, CheckResult,
 )
 
 referencing_table_specification = (
@@ -16,12 +16,12 @@ referencing_table_specification = (
         rows=[
             (1, "NL", "NL4775"),
             (2, "NL", "XXXXXX"),
-            (1, "XX", "NL4775"),
-            (3, "BE", "NL4775"),
-            (4, "XX", "XXXXXX"),
-            (5, "XX", None),
-            (6, None, "XXXXXX"),
-            (7, None, None),
+            (3, "XX", "NL4775"),
+            (4, "BE", "NL4775"),
+            (5, "XX", "XXXXXX"),
+            (6, "XX", None),
+            (7, None, "XXXXXX"),
+            (8, None, None),
         ]
     )
     .build()
@@ -61,10 +61,61 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, NumericDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 3 == diagnostic.value
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.get_numeric_diagnostic_value("invalid_count") == 3
+
+
+def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTestHelper):
+    referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
+    referenced_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
+
+    zip_quoted: str = data_source_test_helper.quote_column("zip")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=referencing_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                valid_reference_data:
+                  dataset: {referenced_table.unique_name}
+                  column: country_code
+                checks:
+                  - invalid:
+                      filter: |
+                        {zip_quoted} = 'NL4775'
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.get_numeric_diagnostic_value("invalid_count") == 1
+    assert check_result.get_numeric_diagnostic_value("row_count") == 3
+
+
+def test_invalid_count_with_check_and_dataset_filter(data_source_test_helper: DataSourceTestHelper):
+    referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
+    referenced_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
+
+    zip_quoted: str = data_source_test_helper.quote_column("zip")
+    id_quoted: str = data_source_test_helper.quote_column("id")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=referencing_table,
+        contract_yaml_str=f"""
+            filter: |
+              {id_quoted} > 1
+            columns:
+              - name: country
+                valid_reference_data:
+                  dataset: {referenced_table.unique_name}
+                  column: country_code
+                checks:
+                  - invalid:
+                      filter: |
+                        {zip_quoted} = 'NL4775'
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.get_numeric_diagnostic_value("invalid_count") == 1
+    assert check_result.get_numeric_diagnostic_value("row_count") == 2
 
 
 def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelper):
