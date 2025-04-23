@@ -67,11 +67,11 @@ In contract YAML files, environment variables like eg `${env.ERROR}` can **not**
 provided in the variables, but then it has to be also in ISO8601 format.  Variable can 
 optionally be declared and given a default value, but doesn't have to be.
 
-### Checks filter
+### Dataset filter
 
-Use `checks_filter` to apply the checks to a filtered set of records in the dataset.
+Use `filter` to apply the checks to a filtered set of records in the dataset.
 
-The `checks_filter` is a SQL expression that is appended to the WHERE-clause of the 
+The `filter` is a SQL expression that is appended to the WHERE-clause of the 
 generated queries.  It's used mostly to filter the slice of data tested with the contract 
 for the latest time partition or for a particular sub category of the data.
 
@@ -85,7 +85,7 @@ The postgres functions `date_trunc` is used to compute the previous midnight.  A
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
-checks_filter: |
+filter: |
     date_trunc('day', timestamp '${var.NOW}') < {column_name_quoted}
     AND {column_name_quoted} <= date_trunc('day', timestamp '${var.NOW}') + interval '1 day'
 
@@ -111,7 +111,7 @@ variables:
       ${var.START_TS} < "created_at"
       AND "created_at" <= ${var.END_TS}
 
-checks_filter: ${var.USER_DEFINED_FILTER_VARIABLE}
+filter: ${var.USER_DEFINED_FILTER_VARIABLE}
 
 checks:
   - failed_rows:
