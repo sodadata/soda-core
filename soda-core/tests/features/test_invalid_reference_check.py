@@ -1,9 +1,10 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
+    CheckResult,
     ContractVerificationResult,
     Diagnostic,
-    NumericDiagnostic, CheckResult,
+    NumericDiagnostic,
 )
 
 referencing_table_specification = (
