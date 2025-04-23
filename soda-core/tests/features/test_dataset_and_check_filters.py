@@ -1,8 +1,6 @@
-from numbers import Number
-
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import ContractVerificationResult, CheckResult
+from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -12,14 +10,14 @@ test_table_specification = (
     .column_text("cat")
     .rows(
         rows=[
-            ("USA", 10,   "L"),
-            ("USA", 5,    "X"),
-            ("USA", 8,    "-"),
+            ("USA", 10, "L"),
+            ("USA", 5, "X"),
+            ("USA", 8, "-"),
             ("USA", None, "S"),
-            ("BE", 6,     "S"),
-            ("BE", 7,     None),
-            ("GR", 1,     "S"),
-            ("NL", None,  "S"),
+            ("BE", 6, "S"),
+            ("BE", 7, None),
+            ("GR", 1, "S"),
+            ("NL", None, "S"),
         ]
     )
     .build()

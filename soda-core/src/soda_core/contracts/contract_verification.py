@@ -208,11 +208,7 @@ class CheckResult(ABC):
 
     def get_numeric_diagnostic_value(self, diagnostic_name: str) -> any:
         return next(
-            (d.value
-             for d in self.diagnostics
-             if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name
-             ),
-            None
+            (d.value for d in self.diagnostics if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name), None
         )
 
 

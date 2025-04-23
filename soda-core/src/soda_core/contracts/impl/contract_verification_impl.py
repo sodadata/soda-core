@@ -1095,7 +1095,7 @@ class MetricImpl:
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
-        missing_and_validity: Optional[MissingAndValidity] = None
+        missing_and_validity: Optional[MissingAndValidity] = None,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1112,9 +1112,7 @@ class MetricImpl:
         return hash_builder.get_hash()
 
     def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = {
-            "type": self.type
-        }
+        id_properties: dict[str, any] = {"type": self.type}
 
         if self.contract_impl and self.contract_impl.contract_yaml:
             id_properties["dataset"] = self.contract_impl.contract_yaml.dataset
@@ -1156,14 +1154,14 @@ class AggregationMetricImpl(MetricImpl):
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
-        missing_and_validity: Optional[MissingAndValidity] = None
+        missing_and_validity: Optional[MissingAndValidity] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
             metric_type=metric_type,
             column_impl=column_impl,
             check_filter=check_filter,
-            missing_and_validity=missing_and_validity
+            missing_and_validity=missing_and_validity,
         )
 
     @abstractmethod
@@ -1178,12 +1176,7 @@ class AggregationMetricImpl(MetricImpl):
 
 
 class DerivedPercentageMetricImpl(MetricImpl):
-    def __init__(
-        self,
-        metric_type: str,
-        fraction_metric_impl: MetricImpl,
-        total_metric_impl: MetricImpl
-    ):
+    def __init__(self, metric_type: str, fraction_metric_impl: MetricImpl, total_metric_impl: MetricImpl):
         self.fraction_metric_impl: MetricImpl = fraction_metric_impl
         self.total_metric_impl: MetricImpl = total_metric_impl
         # Mind the ordering as the self._build_id() must come last
@@ -1191,7 +1184,7 @@ class DerivedPercentageMetricImpl(MetricImpl):
             contract_impl=fraction_metric_impl.contract_impl,
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
-            check_filter=None
+            check_filter=None,
         )
 
     def _build_id(self) -> str:

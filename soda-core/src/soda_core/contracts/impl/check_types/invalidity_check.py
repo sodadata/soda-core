@@ -101,19 +101,10 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
-                InvalidCountMetric(
-                    contract_impl=contract_impl,
-                    column_impl=column_impl,
-                    check_impl=self
-                )
+                InvalidCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
 
-        self.row_count_metric = self._resolve_metric(
-            RowCountMetric(
-                contract_impl=contract_impl,
-                check_impl=self
-            )
-        )
+        self.row_count_metric = self._resolve_metric(RowCountMetric(contract_impl=contract_impl, check_impl=self))
 
         self.invalid_percent_metric = self._resolve_metric(
             DerivedPercentageMetricImpl(
@@ -169,7 +160,7 @@ class InvalidCountMetric(AggregationMetricImpl):
             column_impl=column_impl,
             metric_type="invalid_count",
             check_filter=check_impl.check_yaml.filter,
-            missing_and_validity=check_impl.missing_and_validity
+            missing_and_validity=check_impl.missing_and_validity,
         )
 
     def sql_expression(self) -> SqlExpression:
@@ -177,8 +168,8 @@ class InvalidCountMetric(AggregationMetricImpl):
         not_missing_and_invalid_expr = self.missing_and_validity.get_invalid_count_condition(column_name)
         invalid_count_condition: SqlExpression = (
             not_missing_and_invalid_expr
-            if not self.check_filter else
-            AND([SqlExpressionStr(self.check_filter), not_missing_and_invalid_expr])
+            if not self.check_filter
+            else AND([SqlExpressionStr(self.check_filter), not_missing_and_invalid_expr])
         )
         return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1), LITERAL(0)))
 
@@ -195,7 +186,7 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
             contract_impl=contract_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
-            missing_and_validity=missing_and_validity
+            missing_and_validity=missing_and_validity,
         )
 
 
@@ -241,8 +232,8 @@ class InvalidReferenceCountQuery(Query):
 
         is_invalid_condition: SqlExpression = (
             is_invalid_reference_condition
-            if is_invalid_value_condition is None else
-            OR([is_invalid_reference_condition, is_invalid_value_condition])
+            if is_invalid_value_condition is None
+            else OR([is_invalid_reference_condition, is_invalid_value_condition])
         )
 
         sql_ast: list = [
@@ -257,14 +248,7 @@ class InvalidReferenceCountQuery(Query):
                 )
             )
             .AS(referenced_alias),
-            WHERE(
-                AND(
-                    [
-                        NOT(is_missing_condition),
-                        is_invalid_condition
-                    ]
-                )
-            ),
+            WHERE(AND([NOT(is_missing_condition), is_invalid_condition])),
         ]
 
         if dataset_filter or check_filter:
