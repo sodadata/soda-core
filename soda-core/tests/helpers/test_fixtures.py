@@ -13,7 +13,7 @@ load_dotenv(f"{project_root_dir}/.env", override=True)
 
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
-test_datasource = os.getenv("test_datasource", "postgres")
+test_datasource = os.getenv("TEST_DATASOURCE", "postgres")
 
 
 @pytest.fixture(scope="function")
