@@ -72,6 +72,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         self.row_count_metric_impl: MetricImpl = self._resolve_metric(
             RowCountMetric(
                 contract_impl=contract_impl,
+                check_impl=self
             )
         )
 
@@ -124,10 +125,17 @@ class MissingCountMetric(AggregationMetricImpl):
             metric_type=check_impl.type,
         )
         self.missing_and_validity: MissingAndValidity = check_impl.missing_and_validity
+        self.check_filter: Optional[str] = check_impl.check_yaml.filter
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        return self.missing_and_validity.get_sum_missing_count_expr(column_name)
+        not_missing_and_invalid_expr = self.missing_and_validity.get_missing_count_condition(column_name)
+        missing_count_condition: SqlExpression = (
+            not_missing_and_invalid_expr
+            if not self.check_filter else
+            AND([not_missing_and_invalid_expr, SqlExpressionStr(self.check_filter)])
+        )
+        return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
 
     def convert_db_value(self, value) -> any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

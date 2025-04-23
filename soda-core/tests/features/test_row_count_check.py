@@ -2,7 +2,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
-    ContractVerificationResult,
+    ContractVerificationResult, NumericDiagnostic,
 )
 
 test_table_specification = (
@@ -30,6 +30,25 @@ def test_row_count(data_source_test_helper: DataSourceTestHelper):
               - row_count:
         """,
     )
+
+
+def test_row_count_with_check_filter(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - row_count:
+                  filter: |
+                    {data_source_test_helper.quote_column("id")} != \'2\'
+        """,
+    )
+
+    row_count_diagnostic = contract_verification_result.check_results[0].diagnostics[0]
+    assert row_count_diagnostic.name == "row_count"
+    assert isinstance(row_count_diagnostic, NumericDiagnostic)
+    assert row_count_diagnostic.value == 2
 
 
 def test_row_count_thresholds_pass(data_source_test_helper: DataSourceTestHelper):
