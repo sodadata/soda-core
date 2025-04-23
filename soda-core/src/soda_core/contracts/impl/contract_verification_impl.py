@@ -302,11 +302,10 @@ class ContractImpl:
             variables=variable_values, default=self.started_timestamp
         )
 
-        self.dataset_prefix: Optional[list[str]] = None
         self.dataset_name: Optional[str] = None
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
-        self.dataset_prefix = dataset_identifier.prefixes
+        self.dataset_prefix: list[str] = dataset_identifier.prefixes
         self.dataset_name = dataset_identifier.dataset_name
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
