@@ -28,16 +28,13 @@ class SqlDialect:
             else None
         )
 
-    def default_casify(self, identifier: str) -> str:
-        return identifier.lower()
-
     def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
         """
         Creates a fully qualified table name, optionally quoting the table name
         """
         parts: list[str] = list(dataset_prefix) if dataset_prefix else []
         parts.append(dataset_name)
-        parts = [self.quote_default(self.default_casify(p)) for p in parts if p]
+        parts = [self.quote_default(p) for p in parts if p]
         return ".".join(parts)
 
     def literal(self, o: object) -> str:
@@ -417,3 +414,6 @@ class SqlDialect:
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("character_maximum_length")
+
+    def default_casify(self, identifier: str) -> str:
+        return identifier.lower()
