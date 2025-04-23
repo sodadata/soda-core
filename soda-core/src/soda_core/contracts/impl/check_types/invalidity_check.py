@@ -168,9 +168,9 @@ class InvalidCountMetric(AggregationMetricImpl):
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type="invalid_count",
+            check_filter=check_impl.check_yaml.filter,
+            missing_and_validity=check_impl.missing_and_validity
         )
-        self.missing_and_validity: MissingAndValidity = check_impl.missing_and_validity
-        self.check_filter: Optional[str] = check_impl.check_yaml.filter
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
@@ -195,8 +195,8 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
             contract_impl=contract_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
+            missing_and_validity=missing_and_validity
         )
-        self.missing_and_validity = missing_and_validity
 
 
 class InvalidReferenceCountQuery(Query):

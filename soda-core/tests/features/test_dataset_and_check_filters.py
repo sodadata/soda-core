@@ -13,8 +13,8 @@ test_table_specification = (
     .rows(
         rows=[
             ("USA", 10,   "L"),
-            ("USA", 5,    "M"),
-            ("USA", 1,    "-"),
+            ("USA", 5,    "X"),
+            ("USA", 8,    "-"),
             ("USA", None, "S"),
             ("BE", 6,     "S"),
             ("BE", 7,     None),
@@ -40,11 +40,11 @@ def test_dataset_filter_combined_with_check_filters(data_source_test_helper: Dat
             checks:
               - missing:
                   filter: |
-                    {country_quoted} IN ('USA')
+                    {country_quoted} = 'BE'
               - invalid:
                   valid_values: ['S', 'M', 'L']
                   filter: |
-                    {country_quoted} IN ('BE')
+                    {country_quoted} = 'USA'
 
         checks:
           - row_count:
@@ -56,5 +56,5 @@ def test_dataset_filter_combined_with_check_filters(data_source_test_helper: Dat
         test_table=test_table, contract_yaml_str=contract_yaml_str
     )
     assert contract_verification_result.check_results[0].get_numeric_diagnostic_value("missing_count") == 1
-    assert contract_verification_result.check_results[1].get_numeric_diagnostic_value("invalid_count") == 1
-    assert contract_verification_result.check_results[2].get_numeric_diagnostic_value("row_count") == 4
+    assert contract_verification_result.check_results[1].get_numeric_diagnostic_value("invalid_count") == 2
+    assert contract_verification_result.check_results[2].get_numeric_diagnostic_value("row_count") == 5

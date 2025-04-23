@@ -100,8 +100,8 @@ class RowCountMetric(AggregationMetricImpl):
         super().__init__(
             contract_impl=contract_impl,
             metric_type="row_count",
+            check_filter=check_impl.check_yaml.filter
         )
-        self.check_filter: Optional[str] = check_impl.check_yaml.filter
 
     def sql_expression(self) -> SqlExpression:
         if self.check_filter:
