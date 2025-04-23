@@ -294,7 +294,7 @@ class ContractImpl:
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.publish_results: bool = publish_results
 
-        self.filter: Optional[str] = self.contract_yaml.checks_filter
+        self.filter: Optional[str] = self.contract_yaml.filter
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
 
