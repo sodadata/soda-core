@@ -98,6 +98,8 @@ columns:
 Use a variable to leverage the checks filter also in other user defined SQL expressions 
 elsewhere in the contract:
 
+NOTE: The `failed_rows` check type shown in the next example is not yet supported.
+
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
@@ -121,6 +123,25 @@ checks:
         WHERE SOME_OTHER < CRITERIA
           AND ( ${var.USER_DEFINED_FILTER_VARIABLE} )
 ```
+
+### Check filter
+
+Every check can have a filter that limits the rows it applies to with a SQL expression filter.
+
+```yaml
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+columns:
+  - name: id
+    checks:
+      - missing:
+          filter: |
+            "country" = 'USA'
+```
+
+Check types that support filters: `missing`, `invalid`, `row_count`
+
+Check filters can be combined with dataset level filters. 
 
 ### Next: Adding checks
 
