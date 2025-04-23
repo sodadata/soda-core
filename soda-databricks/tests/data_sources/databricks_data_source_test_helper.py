@@ -19,18 +19,6 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
         return os.getenv("DATABRICKS_DATABASE", "soda_test")
 
-    def _create_data_source_yaml_dict(self) -> dict:
-        return {
-            "type": "databricks",
-            "name": "DATABRICKS_TEST_DS",
-            "connection": {
-                "host": os.getenv("DATABRICKS_HOST"),
-                "http_path": os.getenv("DATABRICKS_HTTP_PATH"),
-                "access_token": os.getenv("DATABRICKS_TOKEN"),
-                "catalog": os.getenv("DATABRICKS_CATALOG", "unity_catalog"),
-            },
-        }
-
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
