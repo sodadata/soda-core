@@ -64,7 +64,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
           END_TS:
             default: {end_ts_value}
 
-        checks_filter: |
+        filter: |
             ${{var.START_TS}} < {column_name_quoted}
             AND {column_name_quoted} <= ${{var.END_TS}}
 
@@ -123,7 +123,7 @@ def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSo
               ${{var.START_TS}} < {column_name_quoted}
               AND {column_name_quoted} <= ${{var.END_TS}}
 
-        checks_filter: ${{var.USER_DEFINED_FILTER_VARIABLE}}
+        filter: ${{var.USER_DEFINED_FILTER_VARIABLE}}
 
         checks:
           - row_count:
