@@ -27,9 +27,9 @@ class DataSourceImpl(ABC):
 
     @classmethod
     def from_yaml_source(
-        cls, data_source_yaml_source: DataSourceYamlSource, variables: Optional[dict] = None
+        cls, data_source_yaml_source: DataSourceYamlSource, provided_variable_values: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
-        data_source_yaml_source.resolve(variables=variables)
+        data_source_yaml_source.resolve(variables=provided_variable_values)
         data_source_yaml: YamlObject = data_source_yaml_source.parse()
         if not data_source_yaml:
             return None

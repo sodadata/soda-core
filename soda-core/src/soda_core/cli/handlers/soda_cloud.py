@@ -45,7 +45,7 @@ def handle_test_soda_cloud(soda_cloud_file_path: str):
 
     print(f"Testing soda cloud file {soda_cloud_file_path}")
     soda_cloud_yaml_source: SodaCloudYamlSource = SodaCloudYamlSource.from_file_path(soda_cloud_file_path)
-    soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source, variables=None)
+    soda_cloud = SodaCloud.from_yaml_source(soda_cloud_yaml_source, provided_variable_values=None)
     error_msg: Optional[str] = None
     if soda_cloud:
         soda_cloud.test_connection()

@@ -11,6 +11,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.exceptions import InvalidContractException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -128,7 +129,7 @@ class ContractVerificationSessionImpl:
                 logs=logs,
                 contract_yaml_sources=contract_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
-                variables=variables,
+                provided_variable_values=variables,
                 data_source_impls=data_source_impls,
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_yaml_source=soda_cloud_yaml_source,
@@ -143,7 +144,7 @@ class ContractVerificationSessionImpl:
         logs: Logs,
         contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool,
-        variables: dict[str, str],
+        provided_variable_values: dict[str, str],
         data_source_impls: list[DataSourceImpl],
         data_source_yaml_sources: list[DataSourceYamlSource],
         soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
@@ -153,19 +154,26 @@ class ContractVerificationSessionImpl:
         contract_verification_results: list[ContractVerificationResult] = []
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impl_by_name(
-            data_source_impls=data_source_impls, data_source_yaml_sources=data_source_yaml_sources, variables=variables
+            data_source_impls=data_source_impls,
+            data_source_yaml_sources=data_source_yaml_sources,
+            provided_variable_values=provided_variable_values
         )
 
         soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
-            soda_cloud_impl=soda_cloud_impl, soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables
+            soda_cloud_impl=soda_cloud_impl,
+            soda_cloud_yaml_source=soda_cloud_yaml_source,
+            provided_variable_values=provided_variable_values
         )
 
         opened_data_sources: list[DataSourceImpl] = []
         try:
             for contract_yaml_source in contract_yaml_sources:
                 try:
+                    soda_variable_values: dict[str, str] = cls.create_soda_variable_values()
                     contract_yaml: ContractYaml = ContractYaml.parse(
-                        contract_yaml_source=contract_yaml_source, provided_variable_values=variables
+                        contract_yaml_source=contract_yaml_source,
+                        provided_variable_values=provided_variable_values,
+                        soda_variable_values=soda_variable_values
                     )
                     data_source_name: str = (
                         contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
@@ -179,7 +187,8 @@ class ContractVerificationSessionImpl:
                         contract_yaml=contract_yaml,
                         only_validate_without_execute=only_validate_without_execute,
                         data_source_impl=data_source_impl,
-                        variable_values=contract_yaml.variable_values,
+                        resolved_variable_values=contract_yaml.resolved_variable_values,
+                        soda_variable_values=soda_variable_values,
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
@@ -195,12 +204,23 @@ class ContractVerificationSessionImpl:
                 data_source_impl.close_connection()
         return contract_verification_results
 
+    PROVIDED_NOW_TIMESTAMP: Optional[datetime] = None
+    @classmethod
+    def create_soda_variable_values(cls) -> dict[str, str]:
+        return {
+            "NOW": convert_datetime_to_str(
+                cls.PROVIDED_NOW_TIMESTAMP
+                if isinstance(cls.PROVIDED_NOW_TIMESTAMP, datetime) else
+                datetime.now()
+            )
+        }
+
     @classmethod
     def _build_data_source_impl_by_name(
         cls,
         data_source_impls: list[DataSourceImpl],
         data_source_yaml_sources: list[DataSourceYamlSource],
-        variables: dict[str, str],
+        provided_variable_values: dict[str, str],
     ) -> dict[str, DataSourceImpl]:
         data_source_impl_by_name: dict[str, DataSourceImpl] = (
             {data_source_impl.name: data_source_impl for data_source_impl in data_source_impls}
@@ -209,7 +229,7 @@ class ContractVerificationSessionImpl:
         )
         for data_source_yaml_source in data_source_yaml_sources:
             data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
-                data_source_yaml_source=data_source_yaml_source, variables=variables
+                data_source_yaml_source=data_source_yaml_source, provided_variable_values=provided_variable_values
             )
             data_source_impl_by_name[data_source_impl.name] = data_source_impl
         return data_source_impl_by_name
@@ -219,12 +239,15 @@ class ContractVerificationSessionImpl:
         cls,
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
-        variables: dict[str, str],
+        provided_variable_values: dict[str, str],
     ) -> Optional[SodaCloud]:
         if soda_cloud_impl:
             return soda_cloud_impl
         if soda_cloud_yaml_source:
-            return SodaCloud.from_yaml_source(soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables)
+            return SodaCloud.from_yaml_source(
+                soda_cloud_yaml_source=soda_cloud_yaml_source,
+                provided_variable_values=provided_variable_values
+            )
         return None
 
     @classmethod
@@ -257,7 +280,7 @@ class ContractVerificationSessionImpl:
         contract_verification_results: list[ContractVerificationResult] = []
 
         soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
-            soda_cloud_impl=soda_cloud_impl, soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables
+            soda_cloud_impl=soda_cloud_impl, soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=variables
         )
 
         for contract_yaml_source in contract_yaml_sources:
@@ -282,7 +305,8 @@ class ContractImpl:
         contract_yaml: ContractYaml,
         only_validate_without_execute: bool,
         data_source_impl: DataSourceImpl,
-        variable_values: dict[str, str],
+        resolved_variable_values: dict[str, str],
+        soda_variable_values: dict[str, str],
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
     ):
@@ -290,7 +314,7 @@ class ContractImpl:
         self.contract_yaml: ContractYaml = contract_yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
         self.data_source_impl: DataSourceImpl = data_source_impl
-        self.variable_values: dict[str, str] = variable_values
+        self.resolved_variable_values: dict[str, str] = resolved_variable_values
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.publish_results: bool = publish_results
 
@@ -299,7 +323,9 @@ class ContractImpl:
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
 
         self.data_timestamp: Optional[datetime] = self._get_data_timestamp(
-            variables=variable_values, default=self.started_timestamp
+            resolved_variable_values=resolved_variable_values,
+            soda_variable_values=soda_variable_values,
+            default=self.started_timestamp
         )
 
         self.dataset_prefix: Optional[list[str]] = None
@@ -349,23 +375,13 @@ class ContractImpl:
             return contract_keys.index("checks") < contract_keys.index("columns")
         return None
 
-    def _get_data_timestamp(self, variables: dict[str, str], default: datetime) -> Optional[datetime]:
-        now_variable_name: str = "NOW"
-        now_variable_timestamp_text = VariableResolver.get_variable(
-            namespace="var", variables=variables, variable=now_variable_name
-        )
-        if isinstance(now_variable_timestamp_text, str):
-            try:
-                now_variable_timestamp = datetime.fromisoformat(now_variable_timestamp_text)
-                if isinstance(now_variable_timestamp, datetime):
-                    return now_variable_timestamp
-            except:
-                pass
-            logger.error(
-                f"Could not parse variable {now_variable_name} " f"as a timestamp: {now_variable_timestamp_text}"
-            )
-        else:
-            return default
+    def _get_data_timestamp(
+        self,
+        resolved_variable_values: dict[str, str],
+        soda_variable_values: dict[str, str],
+        default: datetime
+    ) -> Optional[datetime]:
+        # Skipped for 'NOW' :)
         return None
 
     def _parse_checks(self, contract_yaml: ContractYaml) -> list[CheckImpl]:

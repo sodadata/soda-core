@@ -86,9 +86,9 @@ class SodaCloud:
 
     @classmethod
     def from_yaml_source(
-        cls, soda_cloud_yaml_source: SodaCloudYamlSource, variables: Optional[dict[str, str]]
+        cls, soda_cloud_yaml_source: SodaCloudYamlSource, provided_variable_values: Optional[dict[str, str]]
     ) -> Optional[SodaCloud]:
-        soda_cloud_yaml_source.resolve(variables=variables)
+        soda_cloud_yaml_source.resolve(variables=provided_variable_values)
         soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
 
         if not soda_cloud_yaml_root_object:

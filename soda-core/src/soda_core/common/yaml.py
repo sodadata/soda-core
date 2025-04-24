@@ -91,7 +91,8 @@ class YamlSource:
         self.yaml_str: Optional[str] = yaml_str
         self.yaml_str_original: Optional[str] = yaml_str
         self.resolve_on_read: bool = False
-        self.resolve_on_read_variables: Optional[dict[str, str]] = None
+        self.resolve_on_read_variable_values: Optional[dict[str, str]] = None
+        self.resolve_on_read_soda_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
 
     def __init_subclass__(cls, file_type: FileType, **kwargs):
@@ -139,12 +140,18 @@ class YamlSource:
         """
         self._ensure_yaml_str()
         self.yaml_str = VariableResolver.resolve(
-            source_text=self.yaml_str, variables=variables, use_env_vars=use_env_vars
+            source_text=self.yaml_str, variable_values=variables, use_env_vars=use_env_vars
         )
 
-    def resolve_on_read_value(self, variables: dict[str, str], use_env_vars: bool):
+    def resolve_on_read_value(
+        self,
+        resolved_variable_values: Optional[dict[str, str]],
+        soda_values: Optional[dict[str, str]],
+        use_env_vars: bool
+    ):
         self.resolve_on_read = True
-        self.resolve_on_read_variables = variables
+        self.resolve_on_read_variable_values = resolved_variable_values
+        self.resolve_on_read_soda_variable_values = soda_values
         self.resolve_on_read_use_env_vars = use_env_vars
 
     def parse(self) -> Optional[YamlObject]:
@@ -201,7 +208,8 @@ class YamlValue:
         if isinstance(value, str) and self.yaml_source.resolve_on_read:
             value = VariableResolver.resolve(
                 source_text=value,
-                variables=self.yaml_source.resolve_on_read_variables,
+                variable_values=self.yaml_source.resolve_on_read_variable_values,
+                soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
                 use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
                 location=location,
             )
@@ -446,17 +454,19 @@ class VariableResolver:
     def resolve(
         cls,
         source_text: str,
-        variables: Optional[dict[str, str]] = None,
+        variable_values: Optional[dict[str, str]] = None,
+        soda_variable_values: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
         location: Optional[Location] = None,
     ) -> str:
         if isinstance(source_text, str):
             return re.sub(
-                pattern=r"\$\{ *(env|var)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}",
+                pattern=r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}",
                 repl=lambda m: cls._resolve_variable_pattern(
                     namespace=m.group(1).strip(),
                     variable=m.group(2).strip(),
-                    variables=variables,
+                    variable_values=variable_values,
+                    soda_variable_values=soda_variable_values,
                     use_env_vars=use_env_vars,
                     location=location,
                 ),
@@ -470,14 +480,16 @@ class VariableResolver:
         cls,
         namespace: str,
         variable: str,
-        variables: dict[str, str],
+        variable_values: Optional[dict[str, str]],
+        soda_variable_values: Optional[dict[str, str]],
         use_env_vars: bool,
         location: Optional[Location] = None,
     ) -> str:
         value: Optional[str] = cls.get_variable(
             namespace=namespace,
             variable=variable,
-            variables=variables,
+            variable_values=variable_values,
+            soda_variable_values=soda_variable_values,
             use_env_vars=use_env_vars,
             location=location,
         )
@@ -488,18 +500,27 @@ class VariableResolver:
         cls,
         namespace: str,
         variable: str,
-        variables: Optional[dict[str, str]] = None,
+        variable_values: Optional[dict[str, str]],
+        soda_variable_values: Optional[dict[str, str]],
         use_env_vars: bool = True,
         location: Optional[Location] = None,
     ) -> Optional[str]:
         if namespace == "var":
-            if not isinstance(variables, dict) or variable not in variables:
+            if not isinstance(variable_values, dict) or variable not in variable_values:
                 logger.error(
                     msg=(f"Variable '{variable}' was used and not declared"),
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
             else:
-                return variables[variable]
+                return variable_values[variable]
+        elif namespace == "soda":
+            if not isinstance(soda_variable_values, dict) or variable not in soda_variable_values:
+                logger.error(
+                    msg=(f"Variable '{variable}' was used and not available in the 'soda' namespace"),
+                    extra={ExtraKeys.LOCATION: location} if location else None,
+                )
+            else:
+                return soda_variable_values[variable]
         elif namespace == "env":
             if use_env_vars:
                 return os.getenv(variable) if variable in os.environ else None
