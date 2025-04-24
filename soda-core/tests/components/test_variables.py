@@ -3,7 +3,9 @@ from typing import Optional
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.impl.contract_verification_impl import ContractVerificationSessionImpl
+from soda_core.contracts.impl.contract_verification_impl import (
+    ContractVerificationSessionImpl,
+)
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
@@ -11,7 +13,7 @@ def parse_contract(contract_yaml_str: str, provided_variable_values: Optional[di
     return ContractYaml.parse(
         contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)),
         provided_variable_values=provided_variable_values,
-        soda_variable_values=ContractVerificationSessionImpl.create_soda_variable_values()
+        soda_variable_values=ContractVerificationSessionImpl.create_soda_variable_values(),
     )
 
 

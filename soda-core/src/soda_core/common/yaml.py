@@ -147,7 +147,7 @@ class YamlSource:
         self,
         resolved_variable_values: Optional[dict[str, str]],
         soda_values: Optional[dict[str, str]],
-        use_env_vars: bool
+        use_env_vars: bool,
     ):
         self.resolve_on_read = True
         self.resolve_on_read_variable_values = resolved_variable_values

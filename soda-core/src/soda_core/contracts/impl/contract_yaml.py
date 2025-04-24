@@ -3,15 +3,11 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
 from numbers import Number
 from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
-)
+from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
@@ -77,7 +73,7 @@ class ContractYaml:
         cls,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
-        soda_variable_values: Optional[dict[str, str]] = None
+        soda_variable_values: Optional[dict[str, str]] = None,
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
@@ -85,14 +81,14 @@ class ContractYaml:
         return ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
-            soda_variable_values=soda_variable_values
+            soda_variable_values=soda_variable_values,
         )
 
     def __init__(
         self,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]]
+        soda_variable_values: Optional[dict[str, str]],
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
@@ -101,7 +97,7 @@ class ContractYaml:
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
             variable_yamls=self.variables,
             provided_variable_values=provided_variable_values,
-            soda_variable_values=soda_variable_values
+            soda_variable_values=soda_variable_values,
         )
 
         if "NOW" in self.resolved_variable_values:
@@ -110,9 +106,7 @@ class ContractYaml:
                 logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
 
         self.contract_yaml_source.resolve_on_read_value(
-            resolved_variable_values=self.resolved_variable_values,
-            soda_values=soda_variable_values,
-            use_env_vars=True
+            resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
         )
 
         if (
@@ -162,9 +156,8 @@ class ContractYaml:
         self,
         variable_yamls: list[VariableYaml],
         provided_variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]]
+        soda_variable_values: Optional[dict[str, str]],
     ) -> dict[str, str]:
-
         variable_values: dict[str, str] = {}
 
         # Initializing the declared variables
@@ -196,9 +189,7 @@ class ContractYaml:
 
     @classmethod
     def _resolve_variables(
-        cls,
-        variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]]
+        cls, variable_values: Optional[dict[str, str]], soda_variable_values: Optional[dict[str, str]]
     ) -> dict[str, str]:
         """
         Resolve all variables in the dictionary, replacing ${variable_name} expressions
@@ -242,7 +233,7 @@ class ContractYaml:
                 source_text=value,
                 variable_values=variable_values,
                 soda_variable_values=soda_variable_values,
-                use_env_vars=False
+                use_env_vars=False,
             )
 
             # Remove current variable from the processing stack

@@ -21,7 +21,6 @@ from soda_core.common.yaml import (
     ContractYamlSource,
     DataSourceYamlSource,
     SodaCloudYamlSource,
-    VariableResolver,
 )
 from soda_core.contracts.contract_verification import (
     Check,
@@ -156,13 +155,13 @@ class ContractVerificationSessionImpl:
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impl_by_name(
             data_source_impls=data_source_impls,
             data_source_yaml_sources=data_source_yaml_sources,
-            provided_variable_values=provided_variable_values
+            provided_variable_values=provided_variable_values,
         )
 
         soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
             soda_cloud_impl=soda_cloud_impl,
             soda_cloud_yaml_source=soda_cloud_yaml_source,
-            provided_variable_values=provided_variable_values
+            provided_variable_values=provided_variable_values,
         )
 
         opened_data_sources: list[DataSourceImpl] = []
@@ -173,7 +172,7 @@ class ContractVerificationSessionImpl:
                     contract_yaml: ContractYaml = ContractYaml.parse(
                         contract_yaml_source=contract_yaml_source,
                         provided_variable_values=provided_variable_values,
-                        soda_variable_values=soda_variable_values
+                        soda_variable_values=soda_variable_values,
                     )
                     data_source_name: str = (
                         contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
@@ -205,13 +204,12 @@ class ContractVerificationSessionImpl:
         return contract_verification_results
 
     PROVIDED_NOW_TIMESTAMP: Optional[datetime] = None
+
     @classmethod
     def create_soda_variable_values(cls) -> dict[str, str]:
         return {
             "NOW": convert_datetime_to_str(
-                cls.PROVIDED_NOW_TIMESTAMP
-                if isinstance(cls.PROVIDED_NOW_TIMESTAMP, datetime) else
-                datetime.now()
+                cls.PROVIDED_NOW_TIMESTAMP if isinstance(cls.PROVIDED_NOW_TIMESTAMP, datetime) else datetime.now()
             )
         }
 
@@ -245,8 +243,7 @@ class ContractVerificationSessionImpl:
             return soda_cloud_impl
         if soda_cloud_yaml_source:
             return SodaCloud.from_yaml_source(
-                soda_cloud_yaml_source=soda_cloud_yaml_source,
-                provided_variable_values=provided_variable_values
+                soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=provided_variable_values
             )
         return None
 
@@ -280,7 +277,9 @@ class ContractVerificationSessionImpl:
         contract_verification_results: list[ContractVerificationResult] = []
 
         soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
-            soda_cloud_impl=soda_cloud_impl, soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=variables
+            soda_cloud_impl=soda_cloud_impl,
+            soda_cloud_yaml_source=soda_cloud_yaml_source,
+            provided_variable_values=variables,
         )
 
         for contract_yaml_source in contract_yaml_sources:
@@ -325,7 +324,7 @@ class ContractImpl:
         self.data_timestamp: Optional[datetime] = self._get_data_timestamp(
             resolved_variable_values=resolved_variable_values,
             soda_variable_values=soda_variable_values,
-            default=self.started_timestamp
+            default=self.started_timestamp,
         )
 
         self.dataset_prefix: Optional[list[str]] = None
@@ -376,10 +375,7 @@ class ContractImpl:
         return None
 
     def _get_data_timestamp(
-        self,
-        resolved_variable_values: dict[str, str],
-        soda_variable_values: dict[str, str],
-        default: datetime
+        self, resolved_variable_values: dict[str, str], soda_variable_values: dict[str, str], default: datetime
     ) -> Optional[datetime]:
         # Skipped for 'NOW' :)
         return None
