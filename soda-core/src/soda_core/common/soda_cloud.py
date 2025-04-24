@@ -99,7 +99,8 @@ class SodaCloud:
         if not soda_cloud_yaml_object:
             logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
 
-        soda_cloud_token = os.environ.get("SODA_CLOUD_TOKEN")
+        if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
+            logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
 
         if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_id"):
             raise InvalidSodaCloudConfigurationException(
