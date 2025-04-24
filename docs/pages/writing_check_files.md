@@ -51,9 +51,6 @@ columns:
 Variable values are specified in one of 3 ways: 
 * Provided as parameter when starting a contract verification
 * Using the `default` key in the variable declaration in the contract YAML
-* The `NOW` variable is always available and should not need be declared.
-
-All variables used in a contract except for `NOW` have to be declared.
 
 Variable declarations optionally can have a `default` value assigned.  The default variable 
 values are allowed to contain nested variable references.  But of course, no circular 
@@ -63,11 +60,7 @@ Variable are resolved case sensitive.
 
 In contract YAML files, environment variables like eg `${env.ERROR}` can **not** be used.
 
-`NOW` has the current timestamp in ISO8601 format as default.  A value for `NOW` can be 
-provided in the variables, but then it has to be also in ISO8601 format.  Variable can 
-optionally be declared and given a default value, but doesn't have to be.
-
-### Dataset filter
+### Building a dataset filter with time partition variables
 
 Use `filter` to apply the checks to a filtered set of records in the dataset.
 
@@ -75,45 +68,26 @@ The `filter` is a SQL expression that is appended to the WHERE-clause of the
 generated queries.  It's used mostly to filter the slice of data tested with the contract 
 for the latest time partition or for a particular sub category of the data.
 
-The following example shows how a time partition filter for 'today' based on the `NOW` variable 
-using postgres SQL functions.  The `NOW` variable is automatically initialized by the contract 
-verification.
+Use `${soda.NOW}` to get a timestamp that is initialized on the current time.  
+It's formatted in ISO 8601 standard.
 
-The postgres functions `date_trunc` is used to compute the previous midnight.  And the 
-`+ interval '1 day'` is used to compute 24 hours later than the start timestamp.
+The `soda` namespace only has constants and values can not be over overwritten.
 
+Use variables and `${soda.NOW}` to build a time partition filter:
 ```yaml
-dataset: postgres_adventureworks/adventureworks/advw/dim_employee
-
-filter: |
-    date_trunc('day', timestamp '${var.NOW}') < {column_name_quoted}
-    AND {column_name_quoted} <= date_trunc('day', timestamp '${var.NOW}') + interval '1 day'
-
-columns:
-  - name: country
-    checks:
-      - missing:
-```
-
-Use a variable to leverage the checks filter also in other user defined SQL expressions 
-elsewhere in the contract:
-
-NOTE: The `failed_rows` check type shown in the next example is not yet supported.
-
-```yaml
-dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+dataset: postgres_test_ds/soda_test/dev_tom/SODATEST_filter_1cac5827
 
 variables:
   START_TS:
-    default: date_trunc('day', timestamp '${var.NOW}')
+    default: date_trunc('day', timestamp '${soda.NOW}')
   END_TS:
     default: ${var.START_TS} + interval '1 day'
-  USER_DEFINED_FILTER_VARIABLE:
+  TIME_PARTITION_FILTER:
     default: |
-      ${var.START_TS} < "created_at"
-      AND "created_at" <= ${var.END_TS}
+      ${var.START_TS} < "updated"
+      AND "updated" <= ${var.END_TS}
 
-filter: ${var.USER_DEFINED_FILTER_VARIABLE}
+filter: ${var.TIME_PARTITION_FILTER}
 
 checks:
   - failed_rows:
@@ -124,7 +98,14 @@ checks:
           AND ( ${var.USER_DEFINED_FILTER_VARIABLE} )
 ```
 
-### Check filter
+In the example above you can also see the `${var.TIME_PARTITION_FILTER}` being used in user defined SQL queries.
+
+The postgres functions `date_trunc` is used to compute the previous midnight.  And the 
+`+ interval '1 day'` is used to compute 24 hours later than the start timestamp.
+
+NOTE: The `failed_rows` check type shown in the next example is not yet supported.
+
+### Check filters
 
 Every check can have a filter that limits the rows it applies to with a SQL expression filter.
 
