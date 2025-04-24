@@ -493,8 +493,9 @@ class SodaCloud:
         return allowed, reason
 
     def verify_contract_on_agent(
-        self,
-        contract_yaml: ContractYaml,
+        self, 
+        contract_yaml: ContractYaml, 
+        variables: dict[str, str],
         blocking_timeout_in_minutes: int,
         publish_results: bool,
     ) -> ContractVerificationResult:
@@ -557,6 +558,7 @@ class SodaCloud:
                 },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
+            "variables": variables,
         }
         response: Response = self._execute_command(
             command_json_dict=verify_contract_command, request_log_name="verify_contract"
