@@ -319,12 +319,12 @@ class YamlObject(YamlValue):
         l = self.read_list(key, expected_element_type=str, required=False)
         return l.to_list() if isinstance(l, YamlList) else None
 
-    def read_string(self, key: str, env_var: Optional[str] = None) -> Optional[str]:
+    def read_string(self, key: str, env_var: Optional[str] = None, required: bool = True) -> Optional[str]:
         """
         An error is generated if the value is missing or not a string.
         :return: a str if the value for the key is a YAML string, otherwise None.
         """
-        return self.read_value(key=key, env_var=env_var, expected_type=str, required=True, default_value=None)
+        return self.read_value(key=key, env_var=env_var, expected_type=str, required=required, default_value=None)
 
     def read_string_opt(
         self, key: str, env_var: Optional[str] = None, default_value: Optional[str] = None

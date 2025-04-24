@@ -113,8 +113,8 @@ class SodaCloud:
 
         return SodaCloud(
             host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
-            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id"),
-            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret"),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", required=False),
+            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret", required=False),
             token=soda_cloud_token,
             port=soda_cloud_yaml_object.read_string_opt(key="port"),
             scheme=soda_cloud_yaml_object.read_string_opt(key="scheme", default_value="https"),
