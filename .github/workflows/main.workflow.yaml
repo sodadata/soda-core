@@ -76,7 +76,7 @@ jobs:
           export TEST_DATASOURCE=${{ matrix.package }}
           python -m pytest
   define-matrix:
-    if: github.base_ref == 'v4'
+    if: github.ref_name == 'v4'
     runs-on: ubuntu-24.04
     needs: [test]
     outputs:
@@ -88,7 +88,7 @@ jobs:
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release:
-    if: github.base_ref == 'v4'
+    if: github.ref_name == 'v4'
     runs-on: ubuntu-24.04
     needs: [define-matrix]
     strategy:
