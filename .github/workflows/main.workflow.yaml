@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'v4'
+      - '*'
 
 env:
   PROJECT_NAME: soda-core
@@ -44,6 +44,22 @@ jobs:
       matrix:
         python-version:
           - "3.10"
+          - "3.11"
+        package:
+          - "postgres"
+        #   - "snowflake"
+        #   - "databricks"
+
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_CI_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_CI_USERNAME }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_CI_PASSWORD }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_CI_DATABASE }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_DATABASE: ${{ secrets.DATABRICKS_DATABASE }}
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -56,9 +72,11 @@ jobs:
           source .venv/bin/activate
           pip install pytest python-dotenv requests
           pip install -e soda-core
-          pip install -e soda-postgres
+          pip install -e soda-${{ matrix.package }}
+          export TEST_DATASOURCE=${{ matrix.package }}
           python -m pytest
   define-matrix:
+    if: github.base_ref == 'v4'
     runs-on: ubuntu-24.04
     needs: [test]
     outputs:
@@ -70,6 +88,7 @@ jobs:
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release:
+    if: github.base_ref == 'v4'
     runs-on: ubuntu-24.04
     needs: [define-matrix]
     strategy:
