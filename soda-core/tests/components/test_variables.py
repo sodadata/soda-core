@@ -223,6 +223,20 @@ def test_provided_invalid_now_variable(logs: Logs):
     assert contract_yaml.checks[0].name == "abc_buzz"
 
 
+def test_missing_variable(logs: Logs):
+    parse_contract(
+        contract_yaml_str="""
+            dataset: a/b/c/d
+
+            variables:
+              V:
+        """,
+        variables={},
+    )
+
+    assert "Required variable 'V' did not get a value" == logs.get_errors_str()
+
+
 def test_variables_example1_in_docs(logs: Logs):
     contract_yaml: ContractYaml = parse_contract(
         contract_yaml_str="""

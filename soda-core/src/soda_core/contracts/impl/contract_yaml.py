@@ -151,6 +151,10 @@ class ContractYaml:
                 else variable_yaml.default
             )
 
+        for variable_yaml in variable_yamls:
+            if variable_values.get(variable_yaml.name) is None:
+                logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
+
         if "NOW" in provided_variable_values:
             now_str: str = provided_variable_values["NOW"]
             if not isinstance(now_str, str):
