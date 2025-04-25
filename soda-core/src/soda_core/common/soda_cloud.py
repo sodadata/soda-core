@@ -14,6 +14,8 @@ from typing import Optional
 
 import requests
 from requests import Response
+
+from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -752,11 +754,11 @@ class SodaCloud:
         * The Soda Cloud URL that navigates to the scan.  If it was obtained from Soda Cloud.
         """
 
-        blocking_timeout = datetime.now() + timedelta(minutes=blocking_timeout_in_minutes)
+        blocking_timeout = CurrentTime.now() + timedelta(minutes=blocking_timeout_in_minutes)
         attempt = 0
-        while datetime.now() < blocking_timeout:
+        while CurrentTime.now() < blocking_timeout:
             attempt += 1
-            max_wait: timedelta = blocking_timeout - datetime.now()
+            max_wait: timedelta = blocking_timeout - CurrentTime.now()
             logger.debug(
                 f"Asking Soda Cloud if scan {scan_id} is already completed. Attempt {attempt}. Max wait: {max_wait}"
             )

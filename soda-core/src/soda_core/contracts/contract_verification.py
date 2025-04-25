@@ -256,7 +256,6 @@ class ContractVerificationResult:
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
-
         self.data_timestamp: Optional[datetime] = data_timestamp
         self.started_timestamp: datetime = started_timestamp
         self.ended_timestamp: datetime = ended_timestamp

@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from numbers import Number
 from typing import Optional
 
+from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.datetime_conversions import convert_str_to_datetime
+from soda_core.common.datetime_conversions import convert_str_to_datetime, convert_datetime_to_str
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
@@ -73,7 +75,6 @@ class ContractYaml:
         cls,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
-        soda_variable_values: Optional[dict[str, str]] = None,
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
@@ -81,19 +82,23 @@ class ContractYaml:
         return ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
-            soda_variable_values=soda_variable_values,
         )
 
     def __init__(
         self,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]],
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
+
+        self.data_timestamp: datetime = CurrentTime.now()
+        soda_variable_values: dict[str,str] = {
+            "NOW": convert_datetime_to_str(self.data_timestamp)
+        }
+
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
             variable_yamls=self.variables,
             provided_variable_values=provided_variable_values,

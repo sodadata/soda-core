@@ -16,6 +16,7 @@ from helpers.test_table import (
     TestTable,
     TestTableSpecification,
 )
+from soda_core.common.current_time import CurrentTime
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import SqlDialect
@@ -490,8 +491,8 @@ class DataSourceTestHelper:
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
-        ContractVerificationSessionImpl.PROVIDED_NOW_TIMESTAMP = provided_now_timestamp
-        try:
+
+        with CurrentTime.freeze_now(provided_now_timestamp):
             return ContractVerificationSession.execute(
                 contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
                 variables=variables,
@@ -500,8 +501,6 @@ class DataSourceTestHelper:
                 soda_cloud_use_agent=self.use_agent,
                 soda_cloud_publish_results=self.publish_results,
             )
-        finally:
-            ContractVerificationSessionImpl.PROVIDED_NOW_TIMESTAMP = None
 
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
