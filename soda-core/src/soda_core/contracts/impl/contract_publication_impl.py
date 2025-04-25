@@ -26,7 +26,7 @@ class ContractPublicationImpl:
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         if self.soda_cloud is None and soda_cloud_yaml_source is not None:
             self.soda_cloud = SodaCloud.from_yaml_source(
-                soda_cloud_yaml_source=soda_cloud_yaml_source, variables=variables
+                soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=variables
             )
 
         self.contract_yamls: list[ContractYaml] = []

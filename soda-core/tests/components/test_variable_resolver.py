@@ -6,7 +6,7 @@ from soda_core.common.yaml import VariableResolver
 
 def resolve(template: str, variables: Optional[dict] = None):
     template_str_dedented = dedent(template).strip()
-    return VariableResolver.resolve(source_text=template_str_dedented, variables=variables)
+    return VariableResolver.resolve(source_text=template_str_dedented, variable_values=variables)
 
 
 def test_variable():

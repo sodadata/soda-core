@@ -2,7 +2,7 @@ from datetime import datetime
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.common.datetime_conversions import convert_datetime_to_str
+from soda_core.common.current_time import CurrentTime
 from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
@@ -52,7 +52,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     referenced_test_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
 
-    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${var.NOW}")
+    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
     start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
     end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
@@ -83,7 +83,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
 
     # On the first time partition t1 (16th) the filter should pass
     contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
-        test_table=test_table, contract_yaml_str=contract_yaml_str, variables={"NOW": convert_datetime_to_str(t1)}
+        test_table=test_table, contract_yaml_str=contract_yaml_str, provided_now_timestamp=t1
     )
     check_result: CheckResult = contract_verification_result_t1.check_results[0]
     assert next(d.value for d in check_result.diagnostics if d.name == "invalid_count") == 0
@@ -92,22 +92,23 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     assert next(d.value for d in check_result.diagnostics if d.name == "row_count") == 2
     assert next(d.value for d in check_result.diagnostics if d.name == "missing_count") == 0
 
-    # On the second time partition t2 (17th) the filter should fail
-    contract_verification_result_t2: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
-        test_table=test_table, contract_yaml_str=contract_yaml_str, variables={"NOW": convert_datetime_to_str(t2)}
-    )
-    invalid_check_result: CheckResult = contract_verification_result_t2.check_results[0]
-    assert next(d.value for d in invalid_check_result.diagnostics if d.name == "invalid_count") == 1
+    with CurrentTime.freeze_now(t1):
+        # On the second time partition t2 (17th) the filter should fail
+        contract_verification_result_t2: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+            test_table=test_table, contract_yaml_str=contract_yaml_str, provided_now_timestamp=t2
+        )
+        invalid_check_result: CheckResult = contract_verification_result_t2.check_results[0]
+        assert next(d.value for d in invalid_check_result.diagnostics if d.name == "invalid_count") == 1
 
-    row_count_check_result: CheckResult = contract_verification_result_t2.check_results[1]
-    assert next(d.value for d in row_count_check_result.diagnostics if d.name == "row_count") == 4
-    assert next(d.value for d in row_count_check_result.diagnostics if d.name == "missing_count") == 1
+        row_count_check_result: CheckResult = contract_verification_result_t2.check_results[1]
+        assert next(d.value for d in row_count_check_result.diagnostics if d.name == "row_count") == 4
+        assert next(d.value for d in row_count_check_result.diagnostics if d.name == "missing_count") == 1
 
 
 def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${var.NOW}")
+    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
     start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
     end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
@@ -131,7 +132,7 @@ def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSo
     """
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
-        test_table=test_table, contract_yaml_str=contract_yaml_str, variables={"NOW": convert_datetime_to_str(t2)}
+        test_table=test_table, contract_yaml_str=contract_yaml_str, provided_now_timestamp=t2
     )
     schema_check_result: CheckResult = contract_verification_result.check_results[0]
     assert "The filter expression is" in schema_check_result.check.name

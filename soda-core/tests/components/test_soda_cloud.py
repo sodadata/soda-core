@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -10,6 +9,7 @@ from helpers.mock_soda_cloud import (
     MockSodaCloud,
 )
 from helpers.test_table import TestTableSpecification
+from soda_core.common.current_time import CurrentTime
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
@@ -44,7 +44,7 @@ def test_soda_cloud_from_yaml_source_with_api_key_auth():
         """
     )
     try:
-        soda_cloud = SodaCloud.from_yaml_source(yaml_source, variables={})
+        soda_cloud = SodaCloud.from_yaml_source(yaml_source, provided_variable_values={})
         assert soda_cloud.api_key_id == "some_key_id"
         assert soda_cloud.api_key_secret == "some_key_secret"
         assert not soda_cloud.token
@@ -61,7 +61,7 @@ def test_soda_cloud_from_yaml_source_with_token_auth():
         """
     )
     try:
-        soda_cloud = SodaCloud.from_yaml_source(yaml_source, variables={})
+        soda_cloud = SodaCloud.from_yaml_source(yaml_source, provided_variable_values={})
         assert not soda_cloud.api_key_id
         assert not soda_cloud.api_key_secret
         assert soda_cloud.token == "some_token"
@@ -144,7 +144,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             MockResponse(
                 method=MockHttpMethod.GET,
                 status_code=200,
-                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now())},
+                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(CurrentTime.now())},
                 json_object={
                     "scanId": "ssscanid",
                     "state": "running",
