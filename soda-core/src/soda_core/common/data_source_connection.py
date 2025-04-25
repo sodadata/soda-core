@@ -74,13 +74,19 @@ class DataSourceConnection(ABC):
             if self.is_tabulate_available:
                 from tabulate import tabulate
 
-                table_text: str = tabulate(rows, headers=[c.name for c in cursor.description])
+                table_text: str = tabulate(
+                    rows, headers=[self._execute_query_get_result_row_column_name(c) for c in cursor.description]
+                )
+
                 logger.debug(f"SQL query result:\n{table_text}")
             else:
                 logger.debug(f"SQL query result: {len(rows)} rows")
             return QueryResult(rows=rows, columns=cursor.description)
         finally:
             cursor.close()
+
+    def _execute_query_get_result_row_column_name(self, column) -> str:
+        return column.name
 
     def execute_update(self, sql: str) -> UpdateResult:
         # noinspection PyUnresolvedReferences

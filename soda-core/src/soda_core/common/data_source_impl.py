@@ -202,3 +202,7 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
+
+    def quote_identifier(self, identifier: str) -> str:
+        c = self.sql_dialect._get_default_quote_char()
+        return f"{c}{identifier}{c}"

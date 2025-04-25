@@ -53,6 +53,12 @@ class DataSourceTestHelper:
             )
 
             return SnowflakeDataSourceTestHelper()
+        elif test_datasource == "databricks":
+            from data_sources.databricks_data_source_test_helper import (
+                DatabricksDataSourceTestHelper,
+            )
+
+            return DatabricksDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

@@ -99,21 +99,24 @@ class SodaCloud:
         if not soda_cloud_yaml_object:
             logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
 
-        if not soda_cloud_yaml_object.has_key("api_key_id"):
+        if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
+            logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
+
+        if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_id"):
             raise InvalidSodaCloudConfigurationException(
                 f"Missing required 'api_key_id' property in your Soda Cloud configuration."
             )
 
-        if not soda_cloud_yaml_object.has_key("api_key_secret"):
+        if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_secret"):
             raise InvalidSodaCloudConfigurationException(
                 f"Missing required 'api_key_secret' property in your Soda Cloud configuration."
             )
 
         return SodaCloud(
             host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
-            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id"),
-            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret"),
-            token=soda_cloud_yaml_object.read_string_opt(key="token"),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", required=False),
+            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret", required=False),
+            token=soda_cloud_token,
             port=soda_cloud_yaml_object.read_string_opt(key="port"),
             scheme=soda_cloud_yaml_object.read_string_opt(key="scheme", default_value="https"),
         )
@@ -489,7 +492,10 @@ class SodaCloud:
         return allowed, reason
 
     def verify_contract_on_agent(
-        self, contract_yaml: ContractYaml, blocking_timeout_in_minutes: int
+        self,
+        contract_yaml: ContractYaml,
+        blocking_timeout_in_minutes: int,
+        publish_results: bool,
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path or "REMOTE"  # TODO
@@ -540,7 +546,7 @@ class SodaCloud:
             return []
 
         verify_contract_command: dict = {
-            "type": "sodaCoreVerifyContract",
+            "type": "sodaCoreVerifyContract" if publish_results else "sodaCoreTestContract",
             "contract": {
                 "fileId": file_id,
                 "dataset": {
