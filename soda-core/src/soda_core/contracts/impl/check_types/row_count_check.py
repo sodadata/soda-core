@@ -63,11 +63,7 @@ class RowCountCheckImpl(CheckImpl):
             else f"{check_yaml.type_name} (invalid threshold)"
         )
 
-        self.row_count_metric = self._resolve_metric(
-            RowCountMetric(
-                contract_impl=contract_impl,
-            )
-        )
+        self.row_count_metric = self._resolve_metric(RowCountMetric(contract_impl=contract_impl, check_impl=self))
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
@@ -91,17 +87,16 @@ class RowCountCheckImpl(CheckImpl):
 
 
 class RowCountMetric(AggregationMetricImpl):
-    def __init__(
-        self,
-        contract_impl: ContractImpl,
-    ):
+    def __init__(self, contract_impl: ContractImpl, check_impl: CheckImpl):
         super().__init__(
-            contract_impl=contract_impl,
-            metric_type="row_count",
+            contract_impl=contract_impl, metric_type="row_count", check_filter=check_impl.check_yaml.filter
         )
 
     def sql_expression(self) -> SqlExpression:
-        return COUNT(STAR())
+        if self.check_filter:
+            return SUM(CASE_WHEN(SqlExpressionStr(self.check_filter), LITERAL(1), LITERAL(0)))
+        else:
+            return COUNT(STAR())
 
     def convert_db_value(self, value: any) -> any:
         return int(value)

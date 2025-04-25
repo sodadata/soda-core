@@ -19,19 +19,6 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
         return os.getenv("SNOWFLAKE_DATABASE", "soda_test")
 
-    def _create_data_source_yaml_dict(self) -> dict:
-        return {
-            "type": "snowflake",
-            "name": "SNOWFLAKE_TEST_DS",
-            "connection": {
-                "host": os.getenv("SNOWFLAKE_HOST"),
-                "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-                "user": os.getenv("SNOWFLAKE_USER"),
-                "password": os.getenv("SNOWFLAKE_PASSWORD"),
-                "database": self.dataset_prefix[0],
-            },
-        }
-
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl

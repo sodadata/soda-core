@@ -619,7 +619,7 @@ class MissingAndValidity:
             else None
         )
 
-    def get_missing_count_condition(self, column_name):
+    def get_missing_count_condition(self, column_name: str | COLUMN):
         is_missing_clauses: list[SqlExpression] = [IS_NULL(column_name)]
         if isinstance(self.missing_values, list):
             literal_values = [LITERAL(value) for value in self.missing_values]
@@ -628,11 +628,7 @@ class MissingAndValidity:
             is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_format.regex))
         return OR(is_missing_clauses)
 
-    def get_sum_missing_count_expr(self, column_name: str) -> SqlExpression:
-        missing_count_condition: SqlExpression = self.get_missing_count_condition(column_name)
-        return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
-
-    def get_invalid_count_condition(self, column_name: str) -> SqlExpression:
+    def get_invalid_count_condition(self, column_name: str | COLUMN) -> Optional[SqlExpression]:
         invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
@@ -661,12 +657,7 @@ class MissingAndValidity:
         if isinstance(self.valid_max_length, int):
             invalid_clauses.append(GT(LENGTH(column_name), LITERAL(self.valid_max_length)))
         missing_expr: SqlExpression = self.get_missing_count_condition(column_name)
-        invalid_expression: SqlExpression = OR(invalid_clauses)
-        return AND([NOT(missing_expr), OR(invalid_expression)])
-
-    def get_sum_invalid_count_expr(self, column_name: str) -> SqlExpression:
-        not_missing_and_invalid_expr = self.get_invalid_count_condition(column_name)
-        return SUM(CASE_WHEN(not_missing_and_invalid_expr, LITERAL(1), LITERAL(0)))
+        return AND([NOT(missing_expr), OR(invalid_clauses)]) if invalid_clauses else None
 
     @classmethod
     def __apply_default(cls, self_value, default_value) -> any:
@@ -1105,30 +1096,52 @@ class MetricImpl:
         contract_impl: ContractImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
+        check_filter: Optional[str] = None,
+        missing_and_validity: Optional[MissingAndValidity] = None,
     ):
-        # TODO id of a metric will have to be extended to include check configuration parameters that
-        #      influence the metric identity
-        self.id: str = self.create_metric_id(contract_impl, metric_type, column_impl)
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
+        self.check_filter: Optional[str] = check_filter
+        self.missing_and_validity: Optional[MissingAndValidity] = missing_and_validity
+        self.id: str = self._build_id()
 
-    @classmethod
-    def create_metric_id(
-        cls,
-        contract_impl: ContractImpl,
-        metric_type: str,
-        column_impl: Optional[ColumnImpl] = None,
-    ):
-        id_parts: list[str] = []
-        if contract_impl.data_source_impl:
-            id_parts.append(contract_impl.data_source_impl.name)
-        if contract_impl.dataset_prefix:
-            id_parts.extend(contract_impl.dataset_prefix)
-        if column_impl:
-            id_parts.append(column_impl.column_yaml.name)
-        id_parts.append(metric_type)
-        return "/" + "/".join(id_parts)
+    def _build_id(self) -> str:
+        hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
+        id_properties: dict[str, any] = self._get_id_properties()
+        for k, v in id_properties.items():
+            hash_builder.add_property(k, v)
+        return hash_builder.get_hash()
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, any] = {"type": self.type}
+
+        if self.contract_impl and self.contract_impl.contract_yaml:
+            id_properties["dataset"] = self.contract_impl.contract_yaml.dataset
+        if self.column_impl:
+            id_properties["column"] = self.column_impl.column_yaml.name
+        if self.check_filter:
+            id_properties["check_filter"] = self.check_filter
+        if self.missing_and_validity:
+            id_properties["missing_values"] = self.missing_and_validity.missing_values
+            id_properties["missing_format"] = self.missing_and_validity.missing_format
+            id_properties["invalid_values"] = self.missing_and_validity.invalid_values
+            if self.missing_and_validity.invalid_format:
+                id_properties["invalid_format_regex"] = self.missing_and_validity.invalid_format.regex
+            id_properties["valid_values"] = self.missing_and_validity.valid_values
+            if self.missing_and_validity.valid_format:
+                id_properties["valid_format"] = self.missing_and_validity.valid_format.regex
+            id_properties["valid_min"] = self.missing_and_validity.valid_min
+            id_properties["valid_max"] = self.missing_and_validity.valid_max
+            id_properties["valid_length"] = self.missing_and_validity.valid_length
+            id_properties["valid_min_length"] = self.missing_and_validity.valid_min_length
+            id_properties["valid_max_length"] = self.missing_and_validity.valid_max_length
+            if self.missing_and_validity.valid_reference_data:
+                id_properties["ref_prefix"] = self.missing_and_validity.valid_reference_data.dataset_prefix
+                id_properties["ref_name"] = self.missing_and_validity.valid_reference_data.dataset_name
+                id_properties["ref_column"] = self.missing_and_validity.valid_reference_data.column
+
+        return id_properties
 
     def __eq__(self, other):
         if type(other) != type(self):
@@ -1142,11 +1155,15 @@ class AggregationMetricImpl(MetricImpl):
         contract_impl: ContractImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
+        check_filter: Optional[str] = None,
+        missing_and_validity: Optional[MissingAndValidity] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
-            column_impl=column_impl,
             metric_type=metric_type,
+            column_impl=column_impl,
+            check_filter=check_filter,
+            missing_and_validity=missing_and_validity,
         )
 
     @abstractmethod
@@ -1162,13 +1179,22 @@ class AggregationMetricImpl(MetricImpl):
 
 class DerivedPercentageMetricImpl(MetricImpl):
     def __init__(self, metric_type: str, fraction_metric_impl: MetricImpl, total_metric_impl: MetricImpl):
+        self.fraction_metric_impl: MetricImpl = fraction_metric_impl
+        self.total_metric_impl: MetricImpl = total_metric_impl
+        # Mind the ordering as the self._build_id() must come last
         super().__init__(
             contract_impl=fraction_metric_impl.contract_impl,
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
+            check_filter=None,
         )
-        self.fraction_metric_impl: MetricImpl = fraction_metric_impl
-        self.total_metric_impl: MetricImpl = total_metric_impl
+
+    def _build_id(self) -> str:
+        hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
+        hash_builder.add_property("type", self.type)
+        hash_builder.add_property("fraction_metric_id", self.fraction_metric_impl.id)
+        hash_builder.add_property("total_metric_id", self.total_metric_impl.id)
+        return hash_builder.get_hash()
 
     def create_derived_measurement(self, measurement_values: MeasurementValues) -> Measurement:
         fraction: Number = measurement_values.get_value(self.fraction_metric_impl)

@@ -21,7 +21,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     DerivedPercentageMetricImpl,
     MeasurementValues,
     MetricImpl,
-    MissingAndValidity,
     MissingAndValidityCheckImpl,
     ThresholdImpl,
     ThresholdType,
@@ -70,9 +69,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         )
 
         self.row_count_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetric(
-                contract_impl=contract_impl,
-            )
+            RowCountMetric(contract_impl=contract_impl, check_impl=self)
         )
 
         self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
@@ -122,12 +119,19 @@ class MissingCountMetric(AggregationMetricImpl):
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
+            check_filter=check_impl.check_yaml.filter,
+            missing_and_validity=check_impl.missing_and_validity,
         )
-        self.missing_and_validity: MissingAndValidity = check_impl.missing_and_validity
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        return self.missing_and_validity.get_sum_missing_count_expr(column_name)
+        not_missing_and_invalid_expr = self.missing_and_validity.get_missing_count_condition(column_name)
+        missing_count_condition: SqlExpression = (
+            not_missing_and_invalid_expr
+            if not self.check_filter
+            else AND([SqlExpressionStr(self.check_filter), not_missing_and_invalid_expr])
+        )
+        return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
 
     def convert_db_value(self, value) -> any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

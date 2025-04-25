@@ -115,14 +115,3 @@ as: `missing_count` x `100` / `row_count`
 > division by zero and concludes there are 0 % missing values.  
 
 For more details on threshold, see [Thresholds](thresholds.md) 
-
-### List of missing check keys
-
-There are missing check configuration keys 
-
-| Key              | Description                                  | Examples                               |
-|------------------|----------------------------------------------|----------------------------------------|
-| `metric`         | `count` or `percent`                         | `percent`                              |
-| `missing_values` | A list of values that represent missing data | ['N/A', '-', 'No value']<br/>[-1, 999] |
-| `missing_format` | A regex format                               |                                        |
-| `threshold`      | The threshold for the metric value           |                                        |

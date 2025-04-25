@@ -182,3 +182,23 @@ def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelpe
     assert isinstance(diagnostic, NumericDiagnostic)
     assert "invalid_count" == diagnostic.name
     assert 1 == diagnostic.value
+
+
+def test_valid_values_with_check_filter(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                valid_values: ['1', '2', '3']
+                checks:
+                  - invalid:
+                      filter: '{data_source_test_helper.quote_column("age")} < 2'
+        """,
+    )
+    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
+    assert isinstance(diagnostic, NumericDiagnostic)
+    assert "invalid_count" == diagnostic.name
+    assert 0 == diagnostic.value
