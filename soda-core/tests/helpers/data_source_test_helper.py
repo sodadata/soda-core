@@ -29,9 +29,11 @@ from soda_core.common.yaml import (
     SodaCloudYamlSource,
 )
 from soda_core.contracts.contract_verification import (
+    CheckResult,
     ContractVerificationResult,
     ContractVerificationSession,
     ContractVerificationSessionResult,
+    NumericDiagnostic,
 )
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationSessionImpl,
@@ -55,6 +57,12 @@ class DataSourceTestHelper:
             )
 
             return SnowflakeDataSourceTestHelper()
+        elif test_datasource == "databricks":
+            from data_sources.databricks_data_source_test_helper import (
+                DatabricksDataSourceTestHelper,
+            )
+
+            return DatabricksDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -523,3 +531,14 @@ class DataSourceTestHelper:
 
     def quote_column(self, column_name: str) -> str:
         return f'"{column_name}"'
+
+    @classmethod
+    def get_first_numeric_diagnostic_value(cls, check_result: CheckResult, diagnostic_name: str) -> any:
+        return next(
+            (
+                d.value
+                for d in check_result.diagnostics
+                if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name
+            ),
+            None,
+        )

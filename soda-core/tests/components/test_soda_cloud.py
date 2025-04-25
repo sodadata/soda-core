@@ -1,5 +1,7 @@
+import os
 from datetime import datetime
 
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import (
     MockHttpMethod,
@@ -9,7 +11,8 @@ from helpers.mock_soda_cloud import (
 )
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.common.yaml import ContractYamlSource
+from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.contract_yaml import ContractYaml
@@ -29,6 +32,41 @@ test_table_specification = (
     )
     .build()
 )
+
+
+def test_soda_cloud_from_yaml_source_with_api_key_auth():
+    yaml_source = SodaCloudYamlSource.from_str(
+        """
+        soda_cloud:
+          host: dev.sodadata.io
+          api_key_id: some_key_id
+          api_key_secret: some_key_secret
+        """
+    )
+    try:
+        soda_cloud = SodaCloud.from_yaml_source(yaml_source, variables={})
+        assert soda_cloud.api_key_id == "some_key_id"
+        assert soda_cloud.api_key_secret == "some_key_secret"
+        assert not soda_cloud.token
+    except Exception as exc:
+        pytest.fail("An unexpected exception occurred: {exc}")
+
+
+def test_soda_cloud_from_yaml_source_with_token_auth():
+    os.environ.update({"SODA_CLOUD_TOKEN": "some_token"})
+    yaml_source = SodaCloudYamlSource.from_str(
+        """
+        soda_cloud:
+          host: dev.sodadata.io
+        """
+    )
+    try:
+        soda_cloud = SodaCloud.from_yaml_source(yaml_source, variables={})
+        assert not soda_cloud.api_key_id
+        assert not soda_cloud.api_key_secret
+        assert soda_cloud.token == "some_token"
+    except Exception as exc:
+        pytest.fail("An unexpected exception occurred: {exc}")
 
 
 def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
@@ -232,6 +270,7 @@ def test_verify_contract_on_agent_permission_check():
             )
         ),
         blocking_timeout_in_minutes=60,
+        publish_results=False,
     )
 
     assert isinstance(res, ContractVerificationResult)

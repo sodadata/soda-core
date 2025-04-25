@@ -121,6 +121,7 @@ class ContractVerificationSessionImpl:
                 soda_cloud_yaml_source=soda_cloud_yaml_source,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                soda_cloud_publish_results=soda_cloud_publish_results,
             )
 
         else:
@@ -272,7 +273,8 @@ class ContractVerificationSessionImpl:
         variables: Optional[dict[str, str]],
         soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
-        soda_cloud_use_agent_blocking_timeout_in_minutes,
+        soda_cloud_use_agent_blocking_timeout_in_minutes: int,
+        soda_cloud_publish_results: bool,
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
 
@@ -290,6 +292,7 @@ class ContractVerificationSessionImpl:
                 contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
                     contract_yaml=contract_yaml,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                    publish_results=soda_cloud_publish_results,
                 )
                 contract_verification_results.append(contract_verification_result)
             except:
@@ -327,11 +330,10 @@ class ContractImpl:
             default=self.started_timestamp,
         )
 
-        self.dataset_prefix: Optional[list[str]] = None
         self.dataset_name: Optional[str] = None
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
-        self.dataset_prefix = dataset_identifier.prefixes
+        self.dataset_prefix: list[str] = dataset_identifier.prefixes
         self.dataset_name = dataset_identifier.dataset_name
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()

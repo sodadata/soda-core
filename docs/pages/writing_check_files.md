@@ -75,7 +75,25 @@ The `soda` namespace only has constants and values can not be over overwritten.
 
 Use variables and `${soda.NOW}` to build a time partition filter:
 ```yaml
-dataset: postgres_test_ds/soda_test/dev_tom/SODATEST_filter_1cac5827
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+filter: |
+    date_trunc('day', timestamp '${var.NOW}') < {column_name_quoted}
+    AND {column_name_quoted} <= date_trunc('day', timestamp '${var.NOW}') + interval '1 day'
+
+columns:
+  - name: country
+    checks:
+      - missing:
+```
+
+Use a variable to leverage the checks filter also in other user defined SQL expressions 
+elsewhere in the contract:
+
+NOTE: The `failed_rows` check type shown in the next example is not yet supported.
+
+```yaml
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 variables:
   START_TS:

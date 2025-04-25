@@ -57,7 +57,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
     start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
     end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
-    column_name_quoted: str = data_source_test_helper.quote_column("updated")
+    column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
 
     contract_yaml_str: str = f"""
         variables:
@@ -114,7 +114,7 @@ def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSo
     now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
     start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
     end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
-    column_name_quoted: str = data_source_test_helper.quote_column("updated")
+    column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
 
     contract_yaml_str: str = f"""
         variables:
