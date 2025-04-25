@@ -94,7 +94,8 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             self.queries.append(
                 InvalidReferenceCountQuery(
                     metric_impl=self.invalid_count_metric_impl,
-                    filter=self.contract_impl.filter,
+                    dataset_filter=self.contract_impl.filter,
+                    check_filter=self.check_yaml.filter,
                     data_source_impl=contract_impl.data_source_impl,
                 )
             )
@@ -103,11 +104,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 InvalidCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
 
-        self.row_count_metric = self._resolve_metric(
-            RowCountMetric(
-                contract_impl=contract_impl,
-            )
-        )
+        self.row_count_metric = self._resolve_metric(RowCountMetric(contract_impl=contract_impl, check_impl=self))
 
         self.invalid_percent_metric = self._resolve_metric(
             DerivedPercentageMetricImpl(
@@ -162,12 +159,19 @@ class InvalidCountMetric(AggregationMetricImpl):
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type="invalid_count",
+            check_filter=check_impl.check_yaml.filter,
+            missing_and_validity=check_impl.missing_and_validity,
         )
-        self.missing_and_validity: MissingAndValidity = check_impl.missing_and_validity
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        return self.missing_and_validity.get_sum_invalid_count_expr(column_name)
+        not_missing_and_invalid_expr = self.missing_and_validity.get_invalid_count_condition(column_name)
+        invalid_count_condition: SqlExpression = (
+            not_missing_and_invalid_expr
+            if not self.check_filter
+            else AND([SqlExpressionStr(self.check_filter), not_missing_and_invalid_expr])
+        )
+        return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1), LITERAL(0)))
 
     def convert_db_value(self, value) -> any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
@@ -182,15 +186,16 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
             contract_impl=contract_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
+            missing_and_validity=missing_and_validity,
         )
-        self.missing_and_validity = missing_and_validity
 
 
 class InvalidReferenceCountQuery(Query):
     def __init__(
         self,
         metric_impl: InvalidReferenceCountMetricImpl,
-        filter: Optional[str],
+        dataset_filter: Optional[str],
+        check_filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
@@ -217,6 +222,20 @@ class InvalidReferenceCountQuery(Query):
         # SELECT(STAR().IN("C")),
         # which should translate to SELECT C.*
 
+        is_missing_condition: SqlExpression = metric_impl.missing_and_validity.get_missing_count_condition(
+            COLUMN(referencing_column_name).IN(referencing_alias)
+        )
+        is_invalid_value_condition: SqlExpression = metric_impl.missing_and_validity.get_invalid_count_condition(
+            COLUMN(referencing_column_name).IN(referencing_alias)
+        )
+        is_invalid_reference_condition: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(referenced_alias))
+
+        is_invalid_condition: SqlExpression = (
+            is_invalid_reference_condition
+            if is_invalid_value_condition is None
+            else OR([is_invalid_reference_condition, is_invalid_value_condition])
+        )
+
         sql_ast: list = [
             SELECT(COUNT(STAR())),
             FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(referencing_alias),
@@ -229,34 +248,29 @@ class InvalidReferenceCountQuery(Query):
                 )
             )
             .AS(referenced_alias),
-            WHERE(
-                AND(
-                    [
-                        NOT(
-                            metric_impl.missing_and_validity.get_missing_count_condition(
-                                COLUMN(referencing_column_name).IN(referencing_alias)
-                            )
-                        ),
-                        IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
-                        # If you want to combine other validity constraints, replace
-                        # IS_NULL(COLUMN(referenced_column).IN(referenced_alias)) as follows:
-                        # OR(
-                        #     IS_NULL(COLUMN(referenced_column).IN(referenced_alias)),
-                        #     metric_impl.missing_and_validity.get_invalid_count_condition(
-                        #         COLUMN(referencing_column_name).IN(referencing_alias)
-                        #     )
-                        # )
-                        # Don't forget to update function get_non_reference_configurations in contract_yaml.py
-                    ]
-                )
-            ),
+            WHERE(AND([NOT(is_missing_condition), is_invalid_condition])),
         ]
 
-        if filter:
+        if dataset_filter or check_filter:
+            dataset_filter_expr: Optional[SqlExpressionStr] = None
+            check_filter_expr: Optional[SqlExpressionStr] = None
+            combined_filter_expr: Optional[SqlExpression] = None
+
+            if dataset_filter:
+                dataset_filter_expr = SqlExpressionStr(dataset_filter)
+                combined_filter_expr = dataset_filter_expr
+
+            if check_filter:
+                check_filter_expr = SqlExpressionStr(check_filter)
+                combined_filter_expr = check_filter_expr
+
+            if dataset_filter_expr and check_filter_expr:
+                combined_filter_expr = AND([dataset_filter_expr, check_filter_expr])
+
             original_from = sql_ast[1].AS(None)
             sql_ast[1] = FROM("filtered_dataset").AS(referencing_alias)
             sql_ast = [
-                WITH("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(SqlExpressionStr(filter))]),
+                WITH("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(combined_filter_expr)]),
             ] + sql_ast
 
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)

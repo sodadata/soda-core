@@ -115,6 +115,8 @@ class ContractYaml:
             self.filter = (
                 self.contract_yaml_object.read_string_opt("checks_filter") if self.contract_yaml_object else None
             )
+        if self.filter:
+            self.filter = self.filter.strip()
 
         # Validate qualified dataset name
         _ = DatasetIdentifier.parse(self.dataset)
@@ -494,6 +496,9 @@ class CheckYaml(ABC):
         self.name: Optional[str] = check_yaml_object.read_string_opt("name") if check_yaml_object else None
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
         self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
+        self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
+        if self.filter:
+            self.filter = self.filter.strip()
 
 
 class ThresholdCheckYaml(CheckYaml):
