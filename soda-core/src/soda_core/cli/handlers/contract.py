@@ -33,7 +33,7 @@ def handle_verify_contract(
     soda_cloud_client: Optional[SodaCloud] = None
     if soda_cloud_file_path:
         soda_cloud_client = SodaCloud.from_yaml_source(
-            SodaCloudYamlSource.from_file_path(soda_cloud_file_path), variables=None
+            SodaCloudYamlSource.from_file_path(soda_cloud_file_path), provided_variable_values=None
         )
 
     contract_yaml_sources, exit_code = _create_contract_yamls(

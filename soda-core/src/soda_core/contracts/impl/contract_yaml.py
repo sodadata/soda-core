@@ -7,6 +7,7 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
+from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -74,24 +75,45 @@ class ContractYaml:
 
     @classmethod
     def parse(
-        cls, contract_yaml_source: ContractYamlSource, provided_variable_values: Optional[dict[str, str]] = None
+        cls,
+        contract_yaml_source: ContractYamlSource,
+        provided_variable_values: Optional[dict[str, str]] = None,
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
             register_check_types()
         return ContractYaml(
-            contract_yaml_source=contract_yaml_source, provided_variable_values=provided_variable_values
+            contract_yaml_source=contract_yaml_source,
+            provided_variable_values=provided_variable_values,
         )
 
-    def __init__(self, contract_yaml_source: ContractYamlSource, provided_variable_values: Optional[dict[str, str]]):
+    def __init__(
+        self,
+        contract_yaml_source: ContractYamlSource,
+        provided_variable_values: Optional[dict[str, str]],
+    ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
-        self.variable_values: dict[str, str] = self._resolve_variable_values(
-            variable_yamls=self.variables, provided_variable_values=provided_variable_values
+
+        self.data_timestamp: datetime = CurrentTime.now()
+        soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
+
+        self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
+            variable_yamls=self.variables,
+            provided_variable_values=provided_variable_values,
+            soda_variable_values=soda_variable_values,
         )
-        self.contract_yaml_source.resolve_on_read_value(variables=self.variable_values, use_env_vars=True)
+
+        if "NOW" in self.resolved_variable_values:
+            now_value = self.resolved_variable_values.get("NOW")
+            if convert_str_to_datetime(now_value) is None:
+                logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
+
+        self.contract_yaml_source.resolve_on_read_value(
+            resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
+        )
 
         if (
             self.contract_yaml_object
@@ -137,11 +159,11 @@ class ContractYaml:
         return variable_yamls
 
     def _resolve_variable_values(
-        self, variable_yamls: list[VariableYaml], provided_variable_values: Optional[dict[str, str]]
+        self,
+        variable_yamls: list[VariableYaml],
+        provided_variable_values: Optional[dict[str, str]],
+        soda_variable_values: Optional[dict[str, str]],
     ) -> dict[str, str]:
-        # Replace None with empty dict, so variables is always a dict
-        provided_variable_values = provided_variable_values if isinstance(provided_variable_values, dict) else {}
-
         variable_values: dict[str, str] = {}
 
         # Initializing the declared variables
@@ -149,21 +171,9 @@ class ContractYaml:
             variable_name: str = variable_yaml.name
             variable_values[variable_name] = (
                 provided_variable_values.get(variable_name)
-                if variable_name in provided_variable_values
+                if isinstance(provided_variable_values, dict) and variable_name in provided_variable_values
                 else variable_yaml.default
             )
-
-        if "NOW" in provided_variable_values:
-            now_str: str = provided_variable_values["NOW"]
-            if not isinstance(now_str, str):
-                logger.error(f"Provided 'NOW' variable must be a string, but was: {now_str.__class__.__name__}")
-            else:
-                if convert_str_to_datetime(now_str) is None:
-                    logger.error(f"Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: {now_str}")
-                variable_values["NOW"] = now_str
-        else:
-            # Default now initialization
-            variable_values["NOW"] = convert_datetime_to_str(datetime.now())
 
         # Checking variable values against their declared type & required
         for variable_yaml in variable_yamls:
@@ -181,10 +191,12 @@ class ContractYaml:
                         extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
                     )
 
-        return self._resolve_variables(variable_values=variable_values)
+        return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 
     @classmethod
-    def _resolve_variables(cls, variable_values: dict[str, str]) -> dict[str, str]:
+    def _resolve_variables(
+        cls, variable_values: Optional[dict[str, str]], soda_variable_values: Optional[dict[str, str]]
+    ) -> dict[str, str]:
         """
         Resolve all variables in the dictionary, replacing ${variable_name} expressions
         with their corresponding values, while detecting circular dependencies.
@@ -223,7 +235,12 @@ class ContractYaml:
             processing_stack.add(name)
 
             # Replace all variable references in the value
-            resolved = VariableResolver.resolve(source_text=value, variables=variable_values, use_env_vars=False)
+            resolved = VariableResolver.resolve(
+                source_text=value,
+                variable_values=variable_values,
+                soda_variable_values=soda_variable_values,
+                use_env_vars=False,
+            )
 
             # Remove current variable from the processing stack
             processing_stack.remove(name)
@@ -233,6 +250,9 @@ class ContractYaml:
         # Resolve each variable in the dictionary
         for name in variable_values:
             variable_values[name] = resolve_value(name, variable_values[name])
+
+        for name, value in variable_values.items():
+            logger.debug(f"var.{name} = {value}")
 
         return variable_values
 

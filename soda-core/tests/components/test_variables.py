@@ -6,10 +6,10 @@ from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
-def parse_contract(contract_yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractYaml:
+def parse_contract(contract_yaml_str: str, provided_variable_values: Optional[dict[str, str]] = None) -> ContractYaml:
     return ContractYaml.parse(
         contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)),
-        provided_variable_values=variables,
+        provided_variable_values=provided_variable_values,
     )
 
 
@@ -21,7 +21,7 @@ def test_using_undeclared_variable(logs: Logs):
               - schema:
                   name: abc_${var.DS_SUFFIX}
         """,
-        variables={"DS_SUFFIX": "xx"},
+        provided_variable_values={"DS_SUFFIX": "xx"},
     )
 
     assert contract_yaml.checks[0].name == "abc_${var.DS_SUFFIX}"
@@ -43,7 +43,7 @@ def test_variable_declaration():
               - schema:
                   name: abc_${var.DS_SUFFIX}
         """,
-        variables={"DS_SUFFIX": "xx"},
+        provided_variable_values={"DS_SUFFIX": "xx"},
     )
 
     assert contract_yaml.checks[0].name == "abc_xx"
@@ -61,7 +61,7 @@ def test_empty_variable_declaration():
               - schema:
                   name: abc_${var.DS_SUFFIX}
         """,
-        variables={"DS_SUFFIX": "xx"},
+        provided_variable_values={"DS_SUFFIX": "xx"},
     )
 
     assert contract_yaml.checks[0].name == "abc_xx"
@@ -84,7 +84,7 @@ def test_variable_declaration_default():
               - schema:
                   name: abc_${var.DS_SUFFIX}
         """,
-        variables={},
+        provided_variable_values={},
     )
 
     assert contract_yaml.checks[0].name == "abc_xx"
@@ -99,7 +99,7 @@ def test_required_variable_not_provided(logs: Logs):
                 type: string
                 required: true
         """,
-        variables={},
+        provided_variable_values={},
     )
 
     assert "Required variable 'DS_SUFFIX' not provided" in logs.get_errors_str()
@@ -119,7 +119,7 @@ def test_valid_timestamp_value(logs: Logs):
               - schema:
                   name: abc_${var.TS}
         """,
-        variables={"TS": "2025-02-21T06:16:59Z"},
+        provided_variable_values={"TS": "2025-02-21T06:16:59Z"},
     )
 
     assert not logs.has_errors()
@@ -140,7 +140,7 @@ def test_invalid_timestamp_value(logs: Logs):
               - schema:
                   name: abc_${TS}
         """,
-        variables={"TS": "buzzz"},
+        provided_variable_values={"TS": "buzzz"},
     )
 
     assert "Invalid timestamp value for variable 'TS': buzzz" in logs.get_errors_str()
@@ -167,7 +167,7 @@ def test_nested_variable_resolving(logs: Logs):
                   name: abc_${var.S2}
                   qualifier: 2
         """,
-        variables={"S": "X"},
+        provided_variable_values={"S": "X"},
     )
 
     assert contract_yaml.checks[0].name == "abc_1_X"
@@ -182,12 +182,12 @@ def test_now_variable_default_availability(logs: Logs):
 
             checks:
               - schema:
-                  name: abc_${var.NOW}
+                  name: abc_${soda.NOW}
         """,
-        variables={},
+        provided_variable_values={},
     )
 
-    assert contract_yaml.checks[0].name != "abc_${var.NOW}"
+    assert contract_yaml.checks[0].name != "abc_${soda.NOW}"
     assert "" == logs.get_errors_str()
 
 
@@ -196,11 +196,15 @@ def test_provided_now_variable(logs: Logs):
         contract_yaml_str="""
             dataset: a/b/c/d
 
+            variables:
+              NOW:
+                default: XXX
+
             checks:
               - schema:
                   name: abc_${var.NOW}
         """,
-        variables={"NOW": "2025-02-21T06:16:59Z"},
+        provided_variable_values={"NOW": "2025-02-21T06:16:59Z"},
     )
 
     assert contract_yaml.checks[0].name == "abc_2025-02-21T06:16:59Z"
@@ -212,14 +216,17 @@ def test_provided_invalid_now_variable(logs: Logs):
         contract_yaml_str="""
             dataset: a/b/c/d
 
+            variables:
+              NOW:
+
             checks:
               - schema:
                   name: abc_${var.NOW}
         """,
-        variables={"NOW": "buzz"},
+        provided_variable_values={"NOW": "buzz"},
     )
 
-    assert "Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: buzz" == logs.get_errors_str()
+    assert "Variable 'NOW' must be a correct ISO 8601 timestamp format: buzz" == logs.get_errors_str()
     assert contract_yaml.checks[0].name == "abc_buzz"
 
 

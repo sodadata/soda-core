@@ -206,6 +206,11 @@ class CheckResult(ABC):
         for diagnostic in self.diagnostics:
             logger.info(f"  {diagnostic.log_line()}")
 
+    def get_numeric_diagnostic_value(self, diagnostic_name: str) -> any:
+        return next(
+            (d.value for d in self.diagnostics if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name), None
+        )
+
 
 class Measurement:
     def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):
@@ -251,7 +256,6 @@ class ContractVerificationResult:
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
-
         self.data_timestamp: Optional[datetime] = data_timestamp
         self.started_timestamp: datetime = started_timestamp
         self.ended_timestamp: datetime = ended_timestamp
