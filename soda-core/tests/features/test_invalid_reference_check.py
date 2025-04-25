@@ -63,7 +63,7 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert check_result.get_numeric_diagnostic_value("invalid_count") == 3
+    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 3
 
 
 def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTestHelper):
@@ -87,8 +87,8 @@ def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTest
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert check_result.get_numeric_diagnostic_value("invalid_count") == 1
-    assert check_result.get_numeric_diagnostic_value("row_count") == 3
+    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 1
+    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "row_count") == 3
 
 
 def test_invalid_count_with_check_and_dataset_filter(data_source_test_helper: DataSourceTestHelper):
@@ -115,8 +115,8 @@ def test_invalid_count_with_check_and_dataset_filter(data_source_test_helper: Da
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert check_result.get_numeric_diagnostic_value("invalid_count") == 1
-    assert check_result.get_numeric_diagnostic_value("row_count") == 2
+    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 1
+    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "row_count") == 2
 
 
 def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelper):
