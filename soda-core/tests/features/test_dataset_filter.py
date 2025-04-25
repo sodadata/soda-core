@@ -7,9 +7,6 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
 )
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractVerificationSessionImpl,
-)
 
 t1 = datetime(year=2025, month=4, day=16, hour=12, minute=0, second=0)
 t2 = datetime(year=2025, month=4, day=17, hour=12, minute=0, second=0)

@@ -3,9 +3,6 @@ from typing import Optional
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractVerificationSessionImpl,
-)
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 

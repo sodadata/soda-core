@@ -5,7 +5,6 @@ from typing import Optional
 
 
 class CurrentTime:
-
     frozen_now: Optional[datetime] = None
 
     @classmethod
@@ -25,7 +24,6 @@ class CurrentTime:
 
 
 class FrozenTimeContext:
-
     def __init__(self, original_frozen_now: Optional[datetime]):
         self.original_frozen_now: Optional[datetime] = original_frozen_now
 

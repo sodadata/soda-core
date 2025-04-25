@@ -14,7 +14,6 @@ from typing import Optional
 
 import requests
 from requests import Response
-
 from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (

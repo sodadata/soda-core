@@ -36,9 +36,6 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
     NumericDiagnostic,
 )
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractVerificationSessionImpl,
-)
 
 logger = logging.getLogger(__name__)
 

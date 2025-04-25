@@ -9,7 +9,10 @@ from typing import Optional
 
 from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.datetime_conversions import convert_str_to_datetime, convert_datetime_to_str
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
@@ -95,9 +98,7 @@ class ContractYaml:
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
         self.data_timestamp: datetime = CurrentTime.now()
-        soda_variable_values: dict[str,str] = {
-            "NOW": convert_datetime_to_str(self.data_timestamp)
-        }
+        soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
             variable_yamls=self.variables,

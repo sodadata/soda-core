@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
