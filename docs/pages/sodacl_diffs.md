@@ -74,7 +74,8 @@ columns:
 > Note: This shows a potential direction.  For now, check configurations are local and not yet reusable on the column level. 
 
 ```yaml
-dataset: employees
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     unique: true
@@ -89,7 +90,8 @@ The `duplicate:` check is a check and part of a check suite which verifies that 
 Similarly, validity and missing configurations both have their API documentation part on the column and the check logic separated:
 
 ```yaml
-dataset: employees
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     not_null: true
@@ -120,7 +122,8 @@ Identity will be composed of the following parts:
 If you want 2 checks of the same type in the same `checks` section, you have to provide a `qualifier` property
 
 ```yaml
-dataset: employees
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
 checks:

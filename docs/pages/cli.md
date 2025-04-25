@@ -131,15 +131,15 @@ Create contract file `c.yml` with the contents below
 The parser still has to be updated to the new language as we agreed. But for now, it's this syntax.
 
 ```yaml
-datasource: postgres_ds
-dataset: dim_employees
-dataset_prefix: [soda_test, clitest]
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     valid_values: ['1', '2', '3']
     checks:
       - invalid:
   - name: age
+
 checks:
   - schema:
 ```
