@@ -44,7 +44,7 @@ def test_soda_cloud_from_yaml_source_with_api_key_auth():
         """
     )
     try:
-        soda_cloud = SodaCloud.from_yaml_source(yaml_source, variables={})
+        soda_cloud = SodaCloud.from_yaml_source(yaml_source, provided_variable_values={})
         assert soda_cloud.api_key_id == "some_key_id"
         assert soda_cloud.api_key_secret == "some_key_secret"
         assert not soda_cloud.token
@@ -61,7 +61,7 @@ def test_soda_cloud_from_yaml_source_with_token_auth():
         """
     )
     try:
-        soda_cloud = SodaCloud.from_yaml_source(yaml_source, variables={})
+        soda_cloud = SodaCloud.from_yaml_source(yaml_source, provided_variable_values={})
         assert not soda_cloud.api_key_id
         assert not soda_cloud.api_key_secret
         assert soda_cloud.token == "some_token"
