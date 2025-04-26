@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
-from soda_core.common.logging_constants import soda_logger, ExtraKeys
+from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.yaml import YamlObject
 
 logger: logging.Logger = soda_logger
@@ -17,12 +17,7 @@ class DatasetIdentifier:
         self.dataset_name = dataset_name
 
     @classmethod
-    def read(
-        cls,
-        yaml_object: YamlObject,
-        yaml_key: str,
-        required: bool = True
-    ) -> Optional[str]:
+    def read(cls, yaml_object: YamlObject, yaml_key: str, required: bool = True) -> Optional[str]:
         if yaml_object is None:
             return None
         dataset_qualified_name: Optional[str] = yaml_object.read_string_opt(yaml_key)
@@ -31,19 +26,12 @@ class DatasetIdentifier:
             if len(parts) < 2:
                 logger.error(
                     msg=f"Invalid dataset qualified name in '{yaml_key}': '{dataset_qualified_name}' "
-                        f"must be slash-separated, fully qualified dataset name.",
-                    extra={
-                        ExtraKeys.LOCATION: yaml_object.create_location_from_yaml_dict_key(yaml_key)
-                    }
+                    f"must be slash-separated, fully qualified dataset name.",
+                    extra={ExtraKeys.LOCATION: yaml_object.create_location_from_yaml_dict_key(yaml_key)},
                 )
                 return None
         elif required:
-            logger.error(
-                msg=f"'{yaml_key}' is required",
-                extra={
-                    ExtraKeys.LOCATION: yaml_object.location
-                }
-            )
+            logger.error(msg=f"'{yaml_key}' is required", extra={ExtraKeys.LOCATION: yaml_object.location})
         return dataset_qualified_name
 
     @classmethod

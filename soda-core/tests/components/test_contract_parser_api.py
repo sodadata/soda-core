@@ -1,6 +1,4 @@
-import pytest
 from helpers.test_functions import dedent_and_strip
-from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml

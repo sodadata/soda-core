@@ -7,8 +7,6 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
-from ruamel.yaml import yaml_object
-
 from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
@@ -129,10 +127,7 @@ class ContractYaml:
                 },
             )
 
-        self.dataset: Optional[str] = DatasetIdentifier.read(
-            yaml_object=self.contract_yaml_object,
-            yaml_key="dataset"
-        )
+        self.dataset: Optional[str] = DatasetIdentifier.read(yaml_object=self.contract_yaml_object, yaml_key="dataset")
 
         self.filter: Optional[str] = (
             self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
@@ -357,10 +352,7 @@ class VariableYaml:
 
 class ValidReferenceDataYaml:
     def __init__(self, valid_reference_data_yaml: YamlObject):
-        self.dataset: Optional[str] = DatasetIdentifier.read(
-            yaml_object=valid_reference_data_yaml,
-            yaml_key="dataset"
-        )
+        self.dataset: Optional[str] = DatasetIdentifier.read(yaml_object=valid_reference_data_yaml, yaml_key="dataset")
         self.column: Optional[str] = valid_reference_data_yaml.read_string("column")
 
 
