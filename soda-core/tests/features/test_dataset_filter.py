@@ -71,7 +71,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
         columns:
           - name: country
             valid_reference_data:
-              dataset: {referenced_test_table.unique_name}
+              dataset: {data_source_test_helper.build_dqn(referenced_test_table)}
               column: country_code
             checks:
               - invalid:

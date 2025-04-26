@@ -36,19 +36,17 @@ def test_parse_relative_complete_contract():
     assert check_yaml.__class__.__name__ == "SchemaCheckYaml"
 
 
-def test_legacy_dataset_specification():
-    with pytest.raises(
-        InvalidDatasetQualifiedNameException, match="Identifier must contain at least a data source and a dataset"
-    ):
-        ContractYaml.parse(
-            contract_yaml_source=ContractYamlSource.from_str(
-                """
-                data_source: abc
-                dataset_prefix: [a, b]
-                dataset: dsname
+def test_legacy_dataset_specification(logs: Logs):
+    ContractYaml.parse(
+        contract_yaml_source=ContractYamlSource.from_str(
             """
-            )
+            data_source: abc
+            dataset_prefix: [a, b]
+            dataset: dsname
+        """
         )
+    )
+    assert "Invalid dataset qualified name in 'dataset'" in logs.get_errors_str()
 
 
 def test_minimal_contract():

@@ -580,15 +580,20 @@ class ColumnImpl:
 
 
 class ValidReferenceData:
+    @classmethod
+    def parse(cls, valid_reference_data_yaml: Optional[ValidReferenceDataYaml]) -> Optional[ValidReferenceData]:
+        return (
+            ValidReferenceData(valid_reference_data_yaml)
+            if valid_reference_data_yaml and valid_reference_data_yaml.dataset and valid_reference_data_yaml.column
+            else None
+        )
+
     def __init__(self, valid_reference_data_yaml: ValidReferenceDataYaml):
-        self.dataset_name: Optional[str] = None
-        self.dataset_prefix: str | list[str] | None = None
-        if isinstance(valid_reference_data_yaml.dataset, str):
-            self.dataset_name = valid_reference_data_yaml.dataset
-        if isinstance(valid_reference_data_yaml.dataset, list) and len(valid_reference_data_yaml.dataset) > 0:
-            self.dataset_name = valid_reference_data_yaml.dataset[-1]
-            self.dataset_prefix = valid_reference_data_yaml.dataset[1:]
-        self.column: Optional[str] = valid_reference_data_yaml.column
+        dataset_identifier: DatasetIdentifier = DatasetIdentifier.parse(valid_reference_data_yaml.dataset)
+        self.data_source_name: str = dataset_identifier.data_source_name
+        self.dataset_prefix: list[str] = dataset_identifier.prefixes
+        self.dataset_name: str = dataset_identifier.dataset_name
+        self.column: str = valid_reference_data_yaml.column
 
 
 class MissingAndValidity:
@@ -605,10 +610,8 @@ class MissingAndValidity:
         self.valid_length: Optional[int] = missing_and_validity_yaml.valid_length
         self.valid_min_length: Optional[int] = missing_and_validity_yaml.valid_min_length
         self.valid_max_length: Optional[int] = missing_and_validity_yaml.valid_max_length
-        self.valid_reference_data: Optional[ValidReferenceData] = (
-            ValidReferenceData(missing_and_validity_yaml.valid_reference_data)
-            if missing_and_validity_yaml.valid_reference_data
-            else None
+        self.valid_reference_data: Optional[ValidReferenceData] = ValidReferenceData.parse(
+            missing_and_validity_yaml.valid_reference_data
         )
 
     def get_missing_count_condition(self, column_name: str | COLUMN):
