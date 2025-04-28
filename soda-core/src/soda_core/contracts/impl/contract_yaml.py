@@ -191,21 +191,6 @@ class ContractYaml:
             # Default now initialization
             variable_values["NOW"] = convert_datetime_to_str(datetime.now())
 
-        # Checking variable values against their declared type & required
-        for variable_yaml in variable_yamls:
-            if variable_yaml.required and variable_values.get(variable_yaml.name) is None:
-                logger.error(
-                    msg=f"Required variable '{variable_yaml.name}' not provided",
-                    extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                )
-            elif variable_yaml.type == "timestamp":
-                resolved_timestamp_value = variable_values.get(variable_yaml.name)
-                if resolved_timestamp_value is not None and convert_str_to_datetime(resolved_timestamp_value) is None:
-                    logger.error(
-                        msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
-                        f"{resolved_timestamp_value}",
-                        extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                    )
 
         return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 
