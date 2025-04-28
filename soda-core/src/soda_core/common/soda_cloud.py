@@ -493,8 +493,8 @@ class SodaCloud:
         return allowed, reason
 
     def verify_contract_on_agent(
-        self, 
-        contract_yaml: ContractYaml, 
+        self,
+        contract_yaml: ContractYaml,
         variables: dict[str, str],
         blocking_timeout_in_minutes: int,
         publish_results: bool,
