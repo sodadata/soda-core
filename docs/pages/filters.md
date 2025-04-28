@@ -67,8 +67,21 @@ Applying a filter on an individual check is used to filter the rows on which the
 is performed.
 
 ```yaml
-TODO
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+columns:
+  - name: cat
+    checks:
+      - missing:
+          filter: |
+            "country" = 'USA'
 ```
+
+Check types that support a check `filter`:
+* `missing`
+* `invalid`
+* `row_count`
+* ...more will be added when the check types are implemented
 
 Check filters can be combined with a [dataset filter](#dataset-filter).  The dataset filter 
 will be applied on all the checks in the contract, and the check filter will additionally 
