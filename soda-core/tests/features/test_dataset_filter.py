@@ -1,8 +1,8 @@
 from datetime import datetime
 
+from helpers.a_time_machine import TimeMachine
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from helpers.time_machine import TimeMachine
 from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
@@ -108,7 +108,9 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper, time_mach
     assert next(d.value for d in row_count_check_result.diagnostics if d.name == "missing_count") == 1
 
 
-def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSourceTestHelper, time_machine: TimeMachine):
+def test_dataset_filter_in_user_defined_variable(
+    data_source_test_helper: DataSourceTestHelper, time_machine: TimeMachine
+):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")

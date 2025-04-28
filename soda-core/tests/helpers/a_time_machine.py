@@ -5,7 +5,6 @@ import pytest
 
 
 class TimeMachineDatetime(datetime.datetime):
-
     NOW: Optional[datetime.datetime] = None
 
     @classmethod
