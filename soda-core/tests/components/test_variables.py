@@ -238,7 +238,7 @@ def test_missing_variable(logs: Logs):
             variables:
               V:
         """,
-        variables={},
+        provided_variable_values={},
     )
 
     assert "Required variable 'V' did not get a value" == logs.get_errors_str()
