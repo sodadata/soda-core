@@ -216,9 +216,10 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
 
     mock_handler.assert_called_once_with(
         ["a.yaml", "b.yaml"],
+        {},
         "ds.yaml",
     )
-
+    
 
 @patch("soda_core.cli.soda.handle_create_data_source")
 def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
