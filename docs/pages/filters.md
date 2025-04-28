@@ -42,7 +42,7 @@ dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 variables:
   START_TS:
-    default: date_trunc('day', timestamp '${var.NOW}')
+    default: date_trunc('day', timestamp '${soda.NOW}')
   END_TS:
     default: ${var.START_TS} + interval '1 day'
   USER_DEFINED_FILTER_VARIABLE:
