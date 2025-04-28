@@ -256,7 +256,7 @@ class ContractVerificationSessionImpl:
     def _execute_on_agent(
         cls,
         contract_yaml_sources: list[ContractYamlSource],
-        variables: Optional[dict[str, str]],
+        variables: dict[str, str],
         soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
@@ -277,6 +277,7 @@ class ContractVerificationSessionImpl:
                 )
                 contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
                     contract_yaml=contract_yaml,
+                    variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                 )
