@@ -191,7 +191,6 @@ class ContractYaml:
             # Default now initialization
             variable_values["NOW"] = convert_datetime_to_str(datetime.now())
 
-
         return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 
     @classmethod
