@@ -175,21 +175,21 @@ class ContractYaml:
                 else variable_yaml.default
             )
 
-        # Checking variable values against their declared type & required
         for variable_yaml in variable_yamls:
-            if variable_yaml.required and variable_values.get(variable_yaml.name) is None:
-                logger.error(
-                    msg=f"Required variable '{variable_yaml.name}' not provided",
-                    extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                )
-            elif variable_yaml.type == "timestamp":
-                resolved_timestamp_value = variable_values.get(variable_yaml.name)
-                if resolved_timestamp_value is not None and convert_str_to_datetime(resolved_timestamp_value) is None:
-                    logger.error(
-                        msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
-                        f"{resolved_timestamp_value}",
-                        extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                    )
+            if variable_values.get(variable_yaml.name) is None:
+                logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
+
+        if isinstance(provided_variable_values, dict) and "NOW" in provided_variable_values:
+            now_str: str = provided_variable_values["NOW"]
+            if not isinstance(now_str, str):
+                logger.error(f"Provided 'NOW' variable must be a string, but was: {now_str.__class__.__name__}")
+            else:
+                if convert_str_to_datetime(now_str) is None:
+                    logger.error(f"Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: {now_str}")
+                variable_values["NOW"] = now_str
+        else:
+            # Default now initialization
+            variable_values["NOW"] = convert_datetime_to_str(datetime.now())
 
         return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 

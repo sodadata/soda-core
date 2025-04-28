@@ -10,7 +10,8 @@ Column names are case sensitive.
 For example:
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     data_type: varchar
@@ -48,7 +49,8 @@ verify it.  This is mostly for `varchar` data types that have been created with
 for example `varchar(255)`
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     data_type: varchar

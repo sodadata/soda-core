@@ -6,7 +6,7 @@ Verify that a dataset has rows with the `row_count:` check
 
 For example:
 ```
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 checks:
   - row_count:
@@ -16,7 +16,7 @@ checks:
 
 Example: verify that the number of rows must be between 10 and 25.
 ```````
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 checks:
   - row_count:
