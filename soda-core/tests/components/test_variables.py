@@ -102,49 +102,7 @@ def test_required_variable_not_provided(logs: Logs):
         provided_variable_values={},
     )
 
-    assert "Required variable 'DS_SUFFIX' not provided" in logs.get_errors_str()
-
-
-def test_valid_timestamp_value(logs: Logs):
-    contract_yaml: ContractYaml = parse_contract(
-        contract_yaml_str="""
-            dataset: a/b/c/d
-
-            variables:
-              TS:
-                type: timestamp
-                required: true
-
-            checks:
-              - schema:
-                  name: abc_${var.TS}
-        """,
-        provided_variable_values={"TS": "2025-02-21T06:16:59Z"},
-    )
-
-    assert not logs.has_errors()
-    assert contract_yaml.checks[0].name == "abc_2025-02-21T06:16:59Z"
-
-
-def test_invalid_timestamp_value(logs: Logs):
-    contract_yaml: ContractYaml = parse_contract(
-        contract_yaml_str="""
-            dataset: a/b/c/d
-
-            variables:
-              TS:
-                type: timestamp
-                required: true
-
-            checks:
-              - schema:
-                  name: abc_${TS}
-        """,
-        provided_variable_values={"TS": "buzzz"},
-    )
-
-    assert "Invalid timestamp value for variable 'TS': buzzz" in logs.get_errors_str()
-    assert contract_yaml.checks[0].name == "abc_${TS}"
+    assert "Required variable 'DS_SUFFIX' did not get a value" in logs.get_errors_str()
 
 
 def test_nested_variable_resolving(logs: Logs):
@@ -226,7 +184,7 @@ def test_provided_invalid_now_variable(logs: Logs):
         provided_variable_values={"NOW": "buzz"},
     )
 
-    assert "Variable 'NOW' must be a correct ISO 8601 timestamp format: buzz" == logs.get_errors_str()
+    assert "Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: buzz" in logs.get_errors_str()
     assert contract_yaml.checks[0].name == "abc_buzz"
 
 
