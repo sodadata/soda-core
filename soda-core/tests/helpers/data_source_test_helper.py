@@ -16,7 +16,6 @@ from helpers.test_table import (
     TestTable,
     TestTableSpecification,
 )
-from soda_core.common.current_time import CurrentTime
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import SqlDialect
@@ -446,13 +445,11 @@ class DataSourceTestHelper:
         test_table: TestTable,
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
-        provided_now_timestamp: Optional[datetime] = None,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
-            provided_now_timestamp=provided_now_timestamp,
         )
         if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
             raise AssertionError(f"No contract verification result session")
@@ -467,13 +464,11 @@ class DataSourceTestHelper:
         test_table: TestTable,
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
-        provided_now_timestamp: Optional[datetime] = None,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
-            provided_now_timestamp=provided_now_timestamp,
         )
         if contract_verification_session_result.is_ok():
             raise AssertionError(f"Expected contract verification failed")
@@ -484,20 +479,18 @@ class DataSourceTestHelper:
         contract_yaml_str: str,
         test_table: Optional[TestTable] = None,
         variables: Optional[dict] = None,
-        provided_now_timestamp: Optional[datetime] = None,
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
 
-        with CurrentTime.freeze_now(provided_now_timestamp):
-            return ContractVerificationSession.execute(
-                contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
-                variables=variables,
-                data_source_impls=[self.data_source_impl],
-                soda_cloud_impl=self.soda_cloud,
-                soda_cloud_use_agent=self.use_agent,
-                soda_cloud_publish_results=self.publish_results,
-            )
+        return ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
+            variables=variables,
+            data_source_impls=[self.data_source_impl],
+            soda_cloud_impl=self.soda_cloud,
+            soda_cloud_use_agent=self.use_agent,
+            soda_cloud_publish_results=self.publish_results,
+        )
 
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
