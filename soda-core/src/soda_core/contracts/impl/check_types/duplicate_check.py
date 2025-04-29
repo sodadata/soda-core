@@ -103,6 +103,11 @@ class DuplicateCheckImpl(MissingAndValidityCheckImpl):
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         diagnostics: list[Diagnostic] = []
+
+        distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
+        if isinstance(distinct_count, Number):
+            diagnostics.append(NumericDiagnostic(name="distinct_count", value=distinct_count))
+
         duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
         if isinstance(duplicate_count, Number):
             diagnostics.append(NumericDiagnostic(name="duplicate_count", value=duplicate_count))

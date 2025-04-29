@@ -527,14 +527,3 @@ class DataSourceTestHelper:
 
     def quote_column(self, column_name: str) -> str:
         return f'"{column_name}"'
-
-    @classmethod
-    def get_first_numeric_diagnostic_value(cls, check_result: CheckResult, diagnostic_name: str) -> any:
-        return next(
-            (
-                d.value
-                for d in check_result.diagnostics
-                if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name
-            ),
-            None,
-        )

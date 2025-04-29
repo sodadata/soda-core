@@ -1,4 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckResult,
@@ -59,10 +60,10 @@ def test_dataset_filter_combined_with_check_filters(data_source_test_helper: Dat
     )
 
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "missing_count") == 1
+    assert get_diagnostic_value(check_result, "missing_count") == 1
 
     check_result = contract_verification_result.check_results[1]
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 2
+    assert get_diagnostic_value(check_result, "invalid_count") == 2
 
     check_result = contract_verification_result.check_results[2]
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "row_count") == 5
+    assert get_diagnostic_value(check_result, "row_count") == 5

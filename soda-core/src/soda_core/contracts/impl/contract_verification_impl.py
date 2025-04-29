@@ -1233,7 +1233,7 @@ class ValidCountMetric(AggregationMetricImpl):
         filters: list = [SqlExpressionStr.optional(self.check_filter)]
         if self.missing_and_validity:
             filters.append(NOT(self.missing_and_validity.is_missing_expr(column_name)))
-            filters.append(self.missing_and_validity.is_valid_expr(column_name))
+            filters.append(NOT.optional(self.missing_and_validity.is_invalid_expr(column_name)))
         if filters:
             return SUM(CASE_WHEN(AND.optional(filters), LITERAL(1)))
         else:
