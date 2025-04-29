@@ -30,11 +30,9 @@ from soda_core.common.yaml import (
     SodaCloudYamlSource,
 )
 from soda_core.contracts.contract_verification import (
-    CheckResult,
     ContractVerificationResult,
     ContractVerificationSession,
     ContractVerificationSessionResult,
-    NumericDiagnostic,
 )
 
 logger = logging.getLogger(__name__)

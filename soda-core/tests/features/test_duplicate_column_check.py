@@ -14,15 +14,15 @@ test_table_specification = (
     .column_text("country")
     .rows(
         rows=[
-            ("1",  1,    "USA"),
-            ("2",  2,    "USA"),
-            ("3",  2,    "BE"),
-            ("4",  3,    "USA"),
-            ("5",  3,    "BE"),
-            ("6",  3,    "BE"),
-            ("7",  3,    "BE"),
-            ("8",  4,    "USA"),
-            ("9",  4,    "BE"),
+            ("1", 1, "USA"),
+            ("2", 2, "USA"),
+            ("3", 2, "BE"),
+            ("4", 3, "USA"),
+            ("5", 3, "BE"),
+            ("6", 3, "BE"),
+            ("7", 3, "BE"),
+            ("8", 4, "USA"),
+            ("9", 4, "BE"),
             (None, None, "BE"),
         ]
     )
@@ -62,9 +62,7 @@ def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):
             """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert 5 == get_diagnostic_value(
-        check_result=check_result, diagnostic_name="duplicate_count"
-    )
+    assert 5 == get_diagnostic_value(check_result=check_result, diagnostic_name="duplicate_count")
 
 
 def test_duplicate_with_check_filter(data_source_test_helper: DataSourceTestHelper):
