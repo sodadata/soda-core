@@ -1,11 +1,8 @@
-import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_fixtures import data_source_test_helper
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
+    CheckResult,
     ContractVerificationResult,
-    Diagnostic,
-    NumericDiagnostic, CheckResult,
 )
 
 test_table_specification = (
@@ -39,8 +36,7 @@ def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
     assert 0 == data_source_test_helper.get_first_numeric_diagnostic_value(
-        check_result=check_result,
-        diagnostic_name="duplicate_count"
+        check_result=check_result, diagnostic_name="duplicate_count"
     )
 
 
@@ -58,6 +54,5 @@ def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
     assert 1 == data_source_test_helper.get_first_numeric_diagnostic_value(
-        check_result=check_result,
-        diagnostic_name="duplicate_count"
+        check_result=check_result, diagnostic_name="duplicate_count"
     )

@@ -27,30 +27,52 @@ logger: logging.Logger = soda_logger
 
 
 def register_check_types() -> None:
-    from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYamlParser
+    from soda_core.contracts.impl.check_types.schema_check_yaml import (
+        SchemaCheckYamlParser,
+    )
     from soda_core.contracts.impl.contract_verification_impl import CheckImpl
+
     CheckYaml.register(SchemaCheckYamlParser())
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckParser
+
     CheckImpl.register(SchemaCheckParser())
 
-    from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYamlParser
+    from soda_core.contracts.impl.check_types.missing_check_yaml import (
+        MissingCheckYamlParser,
+    )
+
     CheckYaml.register(MissingCheckYamlParser())
     from soda_core.contracts.impl.check_types.missing_check import MissingCheckParser
+
     CheckImpl.register(MissingCheckParser())
 
-    from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYamlParser
+    from soda_core.contracts.impl.check_types.invalidity_check_yaml import (
+        InvalidCheckYamlParser,
+    )
+
     CheckYaml.register(InvalidCheckYamlParser())
     from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckParser
+
     CheckImpl.register(InvalidCheckParser())
 
-    from soda_core.contracts.impl.check_types.duplicate_check_yaml import DuplicateCheckYamlParser
+    from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
+        DuplicateCheckYamlParser,
+    )
+
     CheckYaml.register(DuplicateCheckYamlParser())
-    from soda_core.contracts.impl.check_types.duplicate_check import DuplicateCheckParser
+    from soda_core.contracts.impl.check_types.duplicate_check import (
+        DuplicateCheckParser,
+    )
+
     CheckImpl.register(DuplicateCheckParser())
 
-    from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYamlParser
+    from soda_core.contracts.impl.check_types.row_count_check_yaml import (
+        RowCountCheckYamlParser,
+    )
+
     CheckYaml.register(RowCountCheckYamlParser())
     from soda_core.contracts.impl.check_types.row_count_check import RowCountCheckParser
+
     CheckImpl.register(RowCountCheckParser())
 
 

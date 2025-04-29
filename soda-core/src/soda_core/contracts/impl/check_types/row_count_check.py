@@ -17,7 +17,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
     MeasurementValues,
     ThresholdImpl,
-    ThresholdType, MissingAndValidity, MissingAndValidityCheckImpl,
+    ThresholdType,
 )
 
 
@@ -92,7 +92,7 @@ class RowCountMetric(AggregationMetricImpl):
             contract_impl=contract_impl,
             metric_type="row_count",
             check_filter=check_impl.check_yaml.filter,
-            missing_and_validity=None
+            missing_and_validity=None,
         )
 
     def sql_expression(self) -> SqlExpression:

@@ -357,11 +357,10 @@ class SqlDialect:
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (
-            f"CASE WHEN {self.build_expression_sql(case_when.condition)} " +
-            f"THEN {self.build_expression_sql(case_when.if_expression)} " +
-            (f"ELSE {self.build_expression_sql(case_when.else_expression)} "
-             if case_when.else_expression else "") +
-            "END"
+            f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
+            + f"THEN {self.build_expression_sql(case_when.if_expression)} "
+            + (f"ELSE {self.build_expression_sql(case_when.else_expression)} " if case_when.else_expression else "")
+            + "END"
         )
 
     def schema_information_schema(self) -> str:

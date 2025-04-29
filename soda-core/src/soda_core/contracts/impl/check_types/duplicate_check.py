@@ -12,13 +12,13 @@ from soda_core.contracts.contract_verification import (
     NumericDiagnostic,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
-from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
     ContractImpl,
+    DerivedMetricImpl,
     DerivedPercentageMetricImpl,
     MeasurementValues,
     MetricImpl,
@@ -26,7 +26,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MissingAndValidityCheckImpl,
     ThresholdImpl,
     ThresholdType,
-    DerivedMetricImpl, ValidCountMetric,
+    ValidCountMetric,
 )
 
 logger: logging.Logger = soda_logger
@@ -70,11 +70,7 @@ class DuplicateCheckImpl(MissingAndValidityCheckImpl):
         self.name = check_yaml.name if check_yaml.name else self.type
 
         self.distinct_count_metric_impl: MetricImpl = self._resolve_metric(
-            DistinctCountMetric(
-                contract_impl=contract_impl,
-                column_impl=column_impl,
-                check_impl=self
-            )
+            DistinctCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.valid_count_metric_impl = self._resolve_metric(
@@ -91,7 +87,7 @@ class DuplicateCheckImpl(MissingAndValidityCheckImpl):
                 distinct_count_metric_impl=self.distinct_count_metric_impl,
                 valid_count_metric_impl=self.valid_count_metric_impl,
                 check_filter=self.check_yaml.filter,
-                missing_and_validity=self.missing_and_validity
+                missing_and_validity=self.missing_and_validity,
             )
         )
 
@@ -121,9 +117,7 @@ class DuplicateCheckImpl(MissingAndValidityCheckImpl):
             diagnostics.append(NumericDiagnostic(name="duplicate_percent", value=duplicate_percent))
 
         threshold_value: Optional[Number] = (
-            duplicate_percent
-            if self.metric_name == "duplicate_percent" else
-            duplicate_count
+            duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
         )
 
         if self.threshold and isinstance(threshold_value, Number):
@@ -159,14 +153,18 @@ class DistinctCountMetric(AggregationMetricImpl):
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
 
-        filters: list = [
-            SqlExpressionStr.optional(self.check_filter)
-        ]
+        filters: list = [SqlExpressionStr.optional(self.check_filter)]
         if self.missing_and_validity:
-            filters.append(NOT(OR.optional([
-                self.missing_and_validity.is_missing_expr(column_name),
-                self.missing_and_validity.is_invalid_expr(column_name)
-            ])))
+            filters.append(
+                NOT(
+                    OR.optional(
+                        [
+                            self.missing_and_validity.is_missing_expr(column_name),
+                            self.missing_and_validity.is_invalid_expr(column_name),
+                        ]
+                    )
+                )
+            )
         filter_expr: Optional[SqlExpression] = AND.optional(filters)
         if filter_expr:
             return COUNT(DISTINCT(CASE_WHEN(filter_expr, column_name)))
@@ -180,14 +178,13 @@ class DistinctCountMetric(AggregationMetricImpl):
 
 
 class DuplicateCountMetricImpl(DerivedMetricImpl):
-
     def __init__(
         self,
         metric_type: str,
         distinct_count_metric_impl: MetricImpl,
         valid_count_metric_impl: MetricImpl,
         check_filter: Optional[str],
-        missing_and_validity: Optional[MissingAndValidity]
+        missing_and_validity: Optional[MissingAndValidity],
     ):
         self.distinct_count_metric_impl: MetricImpl = distinct_count_metric_impl
         self.valid_count_metric_impl: MetricImpl = valid_count_metric_impl
@@ -197,7 +194,7 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
             column_impl=distinct_count_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=check_filter,
-            missing_and_validity=missing_and_validity
+            missing_and_validity=missing_and_validity,
         )
 
     def get_metric_dependencies(self) -> list[MetricImpl]:

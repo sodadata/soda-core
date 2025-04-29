@@ -443,9 +443,7 @@ class ContractImpl:
 
             # Triggering the derived metrics to initialize their value based on their dependencies
             derived_metric_impls: list[DerivedMetricImpl] = [
-                derived_metric
-                for derived_metric in self.metrics
-                if isinstance(derived_metric, DerivedMetricImpl)
+                derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedMetricImpl)
             ]
             measurement_values: MeasurementValues = MeasurementValues(measurements)
             for derived_metric_impl in derived_metric_impls:
@@ -1184,7 +1182,6 @@ class AggregationMetricImpl(MetricImpl):
 
 
 class DerivedMetricImpl(MetricImpl, ABC):
-
     @abstractmethod
     def get_metric_dependencies(self) -> list[MetricImpl]:
         pass
@@ -1201,7 +1198,6 @@ class DerivedMetricImpl(MetricImpl, ABC):
 
 
 class DerivedPercentageMetricImpl(DerivedMetricImpl):
-
     def __init__(self, metric_type: str, fraction_metric_impl: MetricImpl, total_metric_impl: MetricImpl):
         self.fraction_metric_impl: MetricImpl = fraction_metric_impl
         self.total_metric_impl: MetricImpl = total_metric_impl
@@ -1229,7 +1225,7 @@ class ValidCountMetric(AggregationMetricImpl):
             column_impl=column_impl,
             metric_type="valid_count",
             check_filter=check_impl.check_yaml.filter,
-            missing_and_validity=check_impl.missing_and_validity
+            missing_and_validity=check_impl.missing_and_validity,
         )
 
     def sql_expression(self) -> SqlExpression:

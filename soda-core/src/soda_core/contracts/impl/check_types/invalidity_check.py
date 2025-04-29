@@ -165,11 +165,13 @@ class InvalidCountMetric(AggregationMetricImpl):
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        invalid_count_condition: SqlExpression = AND.optional([
-            SqlExpressionStr.optional(self.check_filter),
-            NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
-            self.missing_and_validity.is_invalid_expr(column_name),
-        ])
+        invalid_count_condition: SqlExpression = AND.optional(
+            [
+                SqlExpressionStr.optional(self.check_filter),
+                NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
+                self.missing_and_validity.is_invalid_expr(column_name),
+            ]
+        )
         return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1)))
 
     def convert_db_value(self, value) -> int:
@@ -226,9 +228,7 @@ class InvalidReferenceCountQuery(Query):
         is_referencing_column_invalid: SqlExpression = metric_impl.missing_and_validity.is_invalid_expr(
             COLUMN(referencing_column_name).IN(referencing_alias)
         )
-        is_referenced_column_null: SqlExpression = IS_NULL(
-            COLUMN(referenced_column).IN(referenced_alias)
-        )
+        is_referenced_column_null: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(referenced_alias))
         is_referencing_column_invalid: SqlExpression = OR.optional(
             [is_referenced_column_null, is_referencing_column_invalid]
         )
