@@ -51,6 +51,7 @@ jobs:
           - "databricks"
 
     env:
+      SNOWFLAKE_HOST: ${{ vars.SNOWFLAKE_CI_HOST }}
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
       SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
       SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_CI_DATABASE }}

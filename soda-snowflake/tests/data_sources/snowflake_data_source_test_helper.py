@@ -28,6 +28,7 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
             type: snowflake
             name: SNOWFLAKE_TEST_DS
             connection:
+                host: {os.getenv("SNOWFLAKE_HOST")}
                 account: {os.getenv("SNOWFLAKE_ACCOUNT")}
                 user: {os.getenv("SNOWFLAKE_USER")}
                 password: {os.getenv("SNOWFLAKE_PASSWORD")}
