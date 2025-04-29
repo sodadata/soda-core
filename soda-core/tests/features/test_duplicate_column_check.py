@@ -65,6 +65,59 @@ def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):
     assert 5 == get_diagnostic_value(check_result=check_result, diagnostic_name="duplicate_count")
 
 
+def test_duplicate_threshold(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: age
+                checks:
+                  - duplicate:
+                      threshold:
+                        must_be_less_than: 6
+            """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert 5 == get_diagnostic_value(check_result=check_result, diagnostic_name="duplicate_count")
+
+
+def test_duplicate_percent_threshold(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: age
+                checks:
+                  - duplicate:
+                      metric: percent
+                      threshold:
+                        must_be_greater_than: 10
+            """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert 55 < get_diagnostic_value(check_result=check_result, diagnostic_name="duplicate_percent") < 56
+
+
+def test_duplicate_metric_typo_error(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: id
+                checks:
+                  - duplicate:
+                      metric: percentttt
+            """,
+    )
+    assert "'metric' must be either 'count' or 'percent'" == contract_verification_result.get_errors_str()
+
+
 def test_duplicate_with_check_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -83,7 +136,7 @@ def test_duplicate_with_check_filter(data_source_test_helper: DataSourceTestHelp
     assert get_diagnostic_value(check_result, "duplicate_count") == 0
 
 
-def test_duplicate_with_missing_and_validity(data_source_test_helper: DataSourceTestHelper):
+def test_duplicate_with_column_missing_and_validity(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
@@ -101,7 +154,7 @@ def test_duplicate_with_missing_and_validity(data_source_test_helper: DataSource
     assert get_diagnostic_value(check_result, "duplicate_count") == 3
 
 
-def test_duplicate_with_missing_and_validity_and_check_filter(data_source_test_helper: DataSourceTestHelper):
+def test_duplicate_with_check_missing_and_validity_and_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
@@ -109,10 +162,10 @@ def test_duplicate_with_missing_and_validity_and_check_filter(data_source_test_h
         contract_yaml_str=f"""
             columns:
               - name: age
-                missing_values: [2]
-                valid_values: [1, 2, 3]
                 checks:
                   - duplicate:
+                      missing_values: [2]
+                      valid_values: [1, 2, 3]
                       filter: |
                         {data_source_test_helper.quote_column("country")} = 'BE'
             """,
