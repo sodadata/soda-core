@@ -30,11 +30,9 @@ from soda_core.common.yaml import (
     SodaCloudYamlSource,
 )
 from soda_core.contracts.contract_verification import (
-    CheckResult,
     ContractVerificationResult,
     ContractVerificationSession,
     ContractVerificationSessionResult,
-    NumericDiagnostic,
 )
 
 logger = logging.getLogger(__name__)
@@ -527,14 +525,3 @@ class DataSourceTestHelper:
 
     def quote_column(self, column_name: str) -> str:
         return f'"{column_name}"'
-
-    @classmethod
-    def get_first_numeric_diagnostic_value(cls, check_result: CheckResult, diagnostic_name: str) -> any:
-        return next(
-            (
-                d.value
-                for d in check_result.diagnostics
-                if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name
-            ),
-            None,
-        )

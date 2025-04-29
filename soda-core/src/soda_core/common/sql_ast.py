@@ -64,6 +64,11 @@ class COUNT(SqlExpression):
 
 
 @dataclass
+class DISTINCT(SqlExpression):
+    expression: SqlExpression | str
+
+
+@dataclass
 class SUM(SqlExpression):
     expression: SqlExpression | str
 
@@ -72,12 +77,16 @@ class SUM(SqlExpression):
 class SqlExpressionStr(SqlExpression):
     expression_str: str
 
+    @classmethod
+    def optional(cls, expression_str: Optional[str]) -> Optional[SqlExpressionStr]:
+        return SqlExpressionStr(expression_str) if expression_str is not None else None
+
 
 @dataclass
 class CASE_WHEN(SqlExpression):
     condition: SqlExpression | str
     if_expression: SqlExpression | str
-    else_expression: SqlExpression | str
+    else_expression: SqlExpression | str | None = None
 
 
 @dataclass
@@ -170,6 +179,10 @@ class LTE(Operator):
 class NOT(SqlExpression):
     expression: SqlExpression | str
 
+    @classmethod
+    def optional(cls, expression: SqlExpression | str | None) -> Optional[NOT]:
+        return NOT(expression) if expression is not None else None
+
 
 @dataclass
 class REGEX_LIKE(SqlExpression):
@@ -197,6 +210,20 @@ class AND(SqlExpression):
         else:
             return [self.clauses]
 
+    @classmethod
+    def optional(cls, clauses: SqlExpression | str | list[SqlExpression] | None) -> Optional[SqlExpression]:
+        if isinstance(clauses, SqlExpression):
+            clauses = [clauses]
+        elif isinstance(clauses, str):
+            clauses = [COLUMN(clauses)]
+        if isinstance(clauses, list):
+            clauses = [c for c in clauses if c is not None]
+            if len(clauses) == 0:
+                return None
+            elif len(clauses) == 1:
+                return clauses[0]
+            return AND(clauses)
+
 
 @dataclass
 class OR(SqlExpression):
@@ -207,3 +234,17 @@ class OR(SqlExpression):
             return self.clauses
         else:
             return [self.clauses]
+
+    @classmethod
+    def optional(cls, clauses: SqlExpression | str | list[SqlExpression] | None) -> Optional[SqlExpression]:
+        if isinstance(clauses, SqlExpression):
+            clauses = [clauses]
+        elif isinstance(clauses, str):
+            clauses = [COLUMN(clauses)]
+        if isinstance(clauses, list):
+            clauses = [c for c in clauses if c is not None]
+            if len(clauses) == 0:
+                return None
+            elif len(clauses) == 1:
+                return clauses[0]
+            return OR(clauses)
