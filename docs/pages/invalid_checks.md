@@ -13,7 +13,7 @@ Table of contents
 * [Allow some invalid values to occur, up to a threshold](#allow-some-invalid-values-to-occur-up-to-a-threshold)
 * [Verify more specific validity on a subset of the data](#verify-more-specific-validity-on-a-subset-of-the-data)
 * [Missing values are excluded](#missing-values-are-excluded)
-* [List of valid & invalid value configuration keys](#list-of-valid--invalid-value-configuration-keys) 
+ 
 
 ### Verify there are no invalid values
 
@@ -222,17 +222,5 @@ This ensures that missing values are not counted double: `missing_count` + `inva
 
 Same reasoning: `missing_percent` + `invalid_percent` + `valid_percent` = 100
 
-### List of valid & invalid value configuration keys
 
-| Key                     | Description                            | Examples        |
-|-------------------------|----------------------------------------|-----------------|
-| `invalid_values`        | A list of values considered invalid    | ['X', 'ERROR']  |
-| `invalid_format`        | A regex format                         |                 |
-| `valid_values`          | A list of the valid values.            | ['S', 'M', 'L'] |
-| `valid_format`          | A regex format                         |                 |
-| `valid_min`             | The minimum valid value for the column |                 |
-| `valid_max`             | The maximum valid value for the column |                 |
-| `valid_length`          | TODO                                   |                 |
-| `valid_min_length`      |                                        |                 |
-| `valid_max_length`      |                                        |                 |
-| `valid_reference_data`  |                                        |                 |
+See [the reference page for more missing and validity configurations](missing_and_validity.md) 

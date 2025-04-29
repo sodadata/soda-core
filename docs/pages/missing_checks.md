@@ -121,3 +121,5 @@ as: `missing_count` x `100` / `row_count`
 > division by zero and concludes there are 0 % missing values.  
 
 For more details on threshold, see [Thresholds](thresholds.md) 
+
+See [the reference page for more missing and validity configurations](missing_and_validity.md)
