@@ -442,20 +442,17 @@ class ContractImpl:
                     measurements.extend(query_measurements)
 
             # Triggering the derived metrics to initialize their value based on their dependencies
-            derived_metric_impls: list[DerivedPercentageMetricImpl] = [
+            derived_metric_impls: list[DerivedMetricImpl] = [
                 derived_metric
                 for derived_metric in self.metrics
-                if isinstance(derived_metric, DerivedPercentageMetricImpl)
+                if isinstance(derived_metric, DerivedMetricImpl)
             ]
             measurement_values: MeasurementValues = MeasurementValues(measurements)
             for derived_metric_impl in derived_metric_impls:
-                derived_measurement: Measurement = derived_metric_impl.create_derived_measurement(measurement_values)
-                if isinstance(derived_measurement, Measurement):
-                    measurements.append(derived_measurement)
+                measurement_values.derive_value(derived_metric_impl)
 
             if self.data_source_impl:
                 # Evaluate the checks
-                measurement_values: MeasurementValues = MeasurementValues(measurements)
                 for check_impl in self.all_check_impls:
                     check_result: CheckResult = check_impl.evaluate(
                         measurement_values=measurement_values, contract=contract
@@ -556,12 +553,26 @@ class ContractImpl:
 
 class MeasurementValues:
     def __init__(self, measurements: list[Measurement]):
-        self.measurement_values_by_metric_id: dict[str, any] = {
+        self.metric_values_by_id: dict[str, any] = {
             measurement.metric_id: measurement.value for measurement in measurements
         }
+        self.metric_ids_being_derived: set[str] = set()
 
     def get_value(self, metric_impl: MetricImpl) -> any:
-        return self.measurement_values_by_metric_id.get(metric_impl.id)
+        return self.metric_values_by_id.get(metric_impl.id)
+
+    def derive_value(self, derived_metric_impl: DerivedMetricImpl) -> None:
+        if derived_metric_impl.id not in self.metric_values_by_id:
+            if derived_metric_impl.id in self.metric_ids_being_derived:
+                logger.error("Bug: please report circular reference in derived metrics")
+            else:
+                self.metric_ids_being_derived.add(derived_metric_impl.id)
+                for metric_dependency in derived_metric_impl.get_metric_dependencies():
+                    if isinstance(metric_dependency, DerivedMetricImpl):
+                        self.derive_value(metric_dependency)
+                self.metric_ids_being_derived.remove(derived_metric_impl.id)
+                value = derived_metric_impl.compute_derived_value(self)
+                self.metric_values_by_id[derived_metric_impl.id] = value
 
 
 class ColumnImpl:
@@ -612,16 +623,16 @@ class MissingAndValidity:
             else None
         )
 
-    def get_missing_count_condition(self, column_name: str | COLUMN):
+    def is_missing_expr(self, column_name: str | COLUMN) -> SqlExpression:
         is_missing_clauses: list[SqlExpression] = [IS_NULL(column_name)]
         if isinstance(self.missing_values, list):
             literal_values = [LITERAL(value) for value in self.missing_values]
             is_missing_clauses.append(IN(column_name, literal_values))
         if isinstance(self.missing_format, RegexFormat) and isinstance(self.missing_format.regex, str):
             is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_format.regex))
-        return OR(is_missing_clauses)
+        return OR.optional(is_missing_clauses)
 
-    def get_invalid_count_condition(self, column_name: str | COLUMN) -> Optional[SqlExpression]:
+    def is_invalid_expr(self, column_name: str | COLUMN) -> Optional[SqlExpression]:
         invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
@@ -649,8 +660,10 @@ class MissingAndValidity:
             invalid_clauses.append(LT(LENGTH(column_name), LITERAL(self.valid_min_length)))
         if isinstance(self.valid_max_length, int):
             invalid_clauses.append(GT(LENGTH(column_name), LITERAL(self.valid_max_length)))
-        missing_expr: SqlExpression = self.get_missing_count_condition(column_name)
-        return AND([NOT(missing_expr), OR(invalid_clauses)]) if invalid_clauses else None
+        return OR.optional(invalid_clauses)
+
+    def is_valid_expr(self, column_name: str | COLUMN) -> SqlExpression:
+        return NOT.optional(OR.optional([self.is_missing_expr(column_name), self.is_invalid_expr(column_name)]))
 
     @classmethod
     def __apply_default(cls, self_value, default_value) -> any:
@@ -1170,7 +1183,25 @@ class AggregationMetricImpl(MetricImpl):
         return self.type
 
 
-class DerivedPercentageMetricImpl(MetricImpl):
+class DerivedMetricImpl(MetricImpl, ABC):
+
+    @abstractmethod
+    def get_metric_dependencies(self) -> list[MetricImpl]:
+        pass
+
+    @abstractmethod
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
+        pass
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, any] = super()._get_id_properties()
+        for index, metric_dependency in enumerate(self.get_metric_dependencies()):
+            id_properties[str(index)] = metric_dependency.id
+        return id_properties
+
+
+class DerivedPercentageMetricImpl(DerivedMetricImpl):
+
     def __init__(self, metric_type: str, fraction_metric_impl: MetricImpl, total_metric_impl: MetricImpl):
         self.fraction_metric_impl: MetricImpl = fraction_metric_impl
         self.total_metric_impl: MetricImpl = total_metric_impl
@@ -1182,19 +1213,40 @@ class DerivedPercentageMetricImpl(MetricImpl):
             check_filter=None,
         )
 
-    def _build_id(self) -> str:
-        hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
-        hash_builder.add_property("type", self.type)
-        hash_builder.add_property("fraction_metric_id", self.fraction_metric_impl.id)
-        hash_builder.add_property("total_metric_id", self.total_metric_impl.id)
-        return hash_builder.get_hash()
+    def get_metric_dependencies(self) -> list[MetricImpl]:
+        return [self.fraction_metric_impl, self.total_metric_impl]
 
-    def create_derived_measurement(self, measurement_values: MeasurementValues) -> Measurement:
-        fraction: Number = measurement_values.get_value(self.fraction_metric_impl)
-        total: Number = measurement_values.get_value(self.total_metric_impl)
-        if isinstance(fraction, Number) and isinstance(total, Number):
-            value: float = (fraction * 100 / total) if total != 0 else 0
-            return Measurement(metric_id=self.id, value=value, metric_name=self.type)
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
+        fraction: int = measurement_values.get_value(self.fraction_metric_impl)
+        total: int = measurement_values.get_value(self.total_metric_impl)
+        return (fraction * 100 / total) if total != 0 else 0
+
+
+class ValidCountMetric(AggregationMetricImpl):
+    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_impl: MissingAndValidityCheckImpl):
+        super().__init__(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            metric_type="valid_count",
+            check_filter=check_impl.check_yaml.filter,
+            missing_and_validity=check_impl.missing_and_validity
+        )
+
+    def sql_expression(self) -> SqlExpression:
+        column_name = self.column_impl.column_yaml.name
+        filters: list = [SqlExpressionStr.optional(self.check_filter)]
+        if self.missing_and_validity:
+            filters.append(NOT(self.missing_and_validity.is_missing_expr(column_name)))
+            filters.append(self.missing_and_validity.is_valid_expr(column_name))
+        if filters:
+            return SUM(CASE_WHEN(AND.optional(filters), LITERAL(1)))
+        else:
+            return COUNT(column_name)
+
+    def convert_db_value(self, value) -> int:
+        # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
+        # there are no rows
+        return int(value) if value is not None else 0
 
 
 class Query(ABC):

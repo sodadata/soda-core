@@ -17,7 +17,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
     MeasurementValues,
     ThresholdImpl,
-    ThresholdType,
+    ThresholdType, MissingAndValidity, MissingAndValidityCheckImpl,
 )
 
 
@@ -89,14 +89,19 @@ class RowCountCheckImpl(CheckImpl):
 class RowCountMetric(AggregationMetricImpl):
     def __init__(self, contract_impl: ContractImpl, check_impl: CheckImpl):
         super().__init__(
-            contract_impl=contract_impl, metric_type="row_count", check_filter=check_impl.check_yaml.filter
+            contract_impl=contract_impl,
+            metric_type="row_count",
+            check_filter=check_impl.check_yaml.filter,
+            missing_and_validity=None
         )
 
     def sql_expression(self) -> SqlExpression:
         if self.check_filter:
-            return SUM(CASE_WHEN(SqlExpressionStr(self.check_filter), LITERAL(1), LITERAL(0)))
+            return SUM(CASE_WHEN(SqlExpressionStr(self.check_filter), LITERAL(1)))
         else:
             return COUNT(STAR())
 
     def convert_db_value(self, value: any) -> any:
-        return int(value)
+        # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
+        # there are no rows
+        return int(value) if value is not None else 0

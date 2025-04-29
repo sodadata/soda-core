@@ -165,19 +165,17 @@ class InvalidCountMetric(AggregationMetricImpl):
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        not_missing_and_invalid_expr = self.missing_and_validity.get_invalid_count_condition(column_name)
-        invalid_count_condition: SqlExpression = (
-            not_missing_and_invalid_expr
-            if not self.check_filter
-            else AND([SqlExpressionStr(self.check_filter), not_missing_and_invalid_expr])
-        )
-        return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1), LITERAL(0)))
+        invalid_count_condition: SqlExpression = AND.optional([
+            SqlExpressionStr.optional(self.check_filter),
+            NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
+            self.missing_and_validity.is_invalid_expr(column_name),
+        ])
+        return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1)))
 
-    def convert_db_value(self, value) -> any:
+    def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
         # there are no rows
-        value = 0 if value is None else value
-        return int(value)
+        return int(value) if value is not None else 0
 
 
 class InvalidReferenceCountMetricImpl(MetricImpl):
@@ -222,18 +220,17 @@ class InvalidReferenceCountQuery(Query):
         # SELECT(STAR().IN("C")),
         # which should translate to SELECT C.*
 
-        is_missing_condition: SqlExpression = metric_impl.missing_and_validity.get_missing_count_condition(
+        is_referencing_column_missing: SqlExpression = metric_impl.missing_and_validity.is_missing_expr(
             COLUMN(referencing_column_name).IN(referencing_alias)
         )
-        is_invalid_value_condition: SqlExpression = metric_impl.missing_and_validity.get_invalid_count_condition(
+        is_referencing_column_invalid: SqlExpression = metric_impl.missing_and_validity.is_invalid_expr(
             COLUMN(referencing_column_name).IN(referencing_alias)
         )
-        is_invalid_reference_condition: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(referenced_alias))
-
-        is_invalid_condition: SqlExpression = (
-            is_invalid_reference_condition
-            if is_invalid_value_condition is None
-            else OR([is_invalid_reference_condition, is_invalid_value_condition])
+        is_referenced_column_null: SqlExpression = IS_NULL(
+            COLUMN(referenced_column).IN(referenced_alias)
+        )
+        is_referencing_column_invalid: SqlExpression = OR.optional(
+            [is_referenced_column_null, is_referencing_column_invalid]
         )
 
         sql_ast: list = [
@@ -248,7 +245,7 @@ class InvalidReferenceCountQuery(Query):
                 )
             )
             .AS(referenced_alias),
-            WHERE(AND([NOT(is_missing_condition), is_invalid_condition])),
+            WHERE(AND([NOT(is_referencing_column_missing), is_referencing_column_invalid])),
         ]
 
         if dataset_filter or check_filter:
