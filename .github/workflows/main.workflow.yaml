@@ -47,8 +47,8 @@ jobs:
           - "3.11"
         package:
           - "postgres"
-        #   - "snowflake"
-        #   - "databricks"
+          - "snowflake"
+          - "databricks"
 
     env:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_CI_ACCOUNT }}
