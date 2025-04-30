@@ -27,6 +27,8 @@ Apply the check only to a subset of the data.
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 columns:
+  - name: age
+    checks:
       - aggregate:
           function: avg
           threshold: 
