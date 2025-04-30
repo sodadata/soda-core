@@ -240,7 +240,7 @@ def _setup_contract_test_command(contract_parsers) -> None:
         contract_file_paths = args.contract
         data_source_file_path = args.data_source
 
-        exit_code = handle_test_contract(contract_file_paths, data_source_file_path)
+        exit_code = handle_test_contract(contract_file_paths, {}, data_source_file_path)
         exit_with_code(exit_code)
 
     test_contract_parser.set_defaults(handler_func=handle)

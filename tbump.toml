@@ -20,3 +20,7 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda-snowflake/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda-databricks/setup.py"
+search = 'package_version = "{current_version}"'

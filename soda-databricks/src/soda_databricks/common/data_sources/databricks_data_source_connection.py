@@ -26,7 +26,7 @@ class DatabricksDataSourceConnection(DataSourceConnection):
         config: DatabricksConnectionProperties,
     ):
         return sql.connect(
-            _user_agent_entry="Soda Core",
+            user_agent_entry="Soda Core",
             **config.to_connection_kwargs(),
         )
 

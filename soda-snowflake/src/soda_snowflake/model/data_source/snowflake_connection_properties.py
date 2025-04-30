@@ -22,24 +22,9 @@ class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):
     session_parameters: Optional[Dict[str, str]] = Field(None, description="Session-level parameters")
     host: Optional[str] = Field(None, description="Host name of the Snowflake account")
 
-    def to_connection_kwargs(self) -> dict:
-        return {
-            "account": self.account,
-            "user": self.user,
-            "warehouse": self.warehouse,
-            "database": self.database,
-            "role": self.role,
-            "session_parameters": self.session_parameters,
-        }
-
 
 class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
     password: SecretStr = Field(..., description="User password")
-
-    def to_connection_kwargs(self) -> dict:
-        base = super().to_connection_kwargs()
-        base["password"] = self.password.get_secret_value()
-        return base
 
 
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
@@ -54,25 +39,10 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
 class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
     jwt_token: SecretStr = Field(..., description="JWT token for authentication")
 
-    def to_connection_kwargs(self) -> dict:
-        base = super().to_connection_kwargs()
-        base["token"] = self.jwt_token.get_secret_value()
-        return base
-
 
 class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
     token: SecretStr = Field(..., description="OAuth access token")
 
-    def to_connection_kwargs(self) -> dict:
-        base = super().to_connection_kwargs()
-        base["token"] = self.token.get_secret_value()
-        return base
-
 
 class SnowflakeSSOAuth(SnowflakeSharedConnectionProperties):
     authenticator: Literal["externalbrowser"] = Field("externalbrowser", description="Use external browser SSO login")
-
-    def to_connection_kwargs(self) -> dict:
-        base = super().to_connection_kwargs()
-        base["authenticator"] = self.authenticator
-        return base

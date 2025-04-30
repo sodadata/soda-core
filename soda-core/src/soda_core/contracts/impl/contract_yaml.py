@@ -54,6 +54,17 @@ def register_check_types() -> None:
 
     CheckImpl.register(InvalidCheckParser())
 
+    from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
+        DuplicateCheckYamlParser,
+    )
+
+    CheckYaml.register(DuplicateCheckYamlParser())
+    from soda_core.contracts.impl.check_types.duplicate_check import (
+        DuplicateCheckParser,
+    )
+
+    CheckImpl.register(DuplicateCheckParser())
+
     from soda_core.contracts.impl.check_types.row_count_check_yaml import (
         RowCountCheckYamlParser,
     )
@@ -69,7 +80,8 @@ class ContractYaml:
     Represents YAML as close as possible.
     None means the key was not present.
     If property value types do not match the schema, None value will be in the model
-    List properties will have a None value if the property is not present or the content was not a list, a list otherwise
+    List properties will have a None value if the property is not present or the content was not a list, a list
+    otherwise
     """
 
     @classmethod
@@ -96,7 +108,7 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = CurrentTime.now()
+        self.data_timestamp: datetime = datetime.now()
         soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
@@ -132,10 +144,6 @@ class ContractYaml:
         self.filter: Optional[str] = (
             self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
         )
-        if not self.filter:
-            self.filter = (
-                self.contract_yaml_object.read_string_opt("checks_filter") if self.contract_yaml_object else None
-            )
         if self.filter:
             self.filter = self.filter.strip()
 
@@ -171,21 +179,21 @@ class ContractYaml:
                 else variable_yaml.default
             )
 
-        # Checking variable values against their declared type & required
         for variable_yaml in variable_yamls:
-            if variable_yaml.required and variable_values.get(variable_yaml.name) is None:
-                logger.error(
-                    msg=f"Required variable '{variable_yaml.name}' not provided",
-                    extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                )
-            elif variable_yaml.type == "timestamp":
-                resolved_timestamp_value = variable_values.get(variable_yaml.name)
-                if resolved_timestamp_value is not None and convert_str_to_datetime(resolved_timestamp_value) is None:
-                    logger.error(
-                        msg=f"Invalid timestamp value for variable '{variable_yaml.name}': "
-                        f"{resolved_timestamp_value}",
-                        extra={ExtraKeys.LOCATION: variable_yaml.variable_yaml_object.location},
-                    )
+            if variable_values.get(variable_yaml.name) is None:
+                logger.error(f"Required variable '{variable_yaml.name}' did not get a value")
+
+        if isinstance(provided_variable_values, dict) and "NOW" in provided_variable_values:
+            now_str: str = provided_variable_values["NOW"]
+            if not isinstance(now_str, str):
+                logger.error(f"Provided 'NOW' variable must be a string, but was: {now_str.__class__.__name__}")
+            else:
+                if convert_str_to_datetime(now_str) is None:
+                    logger.error(f"Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: {now_str}")
+                variable_values["NOW"] = now_str
+        else:
+            # Default now initialization
+            variable_values["NOW"] = convert_datetime_to_str(datetime.now())
 
         return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 
@@ -485,6 +493,11 @@ class ThresholdCheckYaml(CheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
         self.metric: Optional[str] = check_yaml_object.read_string_opt("metric")
+        if self.metric and self.metric not in ["count", "percent"]:
+            logger.error(
+                msg="'metric' must be either 'count' or 'percent'",
+                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+            )
         self.threshold: Optional[ThresholdYaml] = None
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:

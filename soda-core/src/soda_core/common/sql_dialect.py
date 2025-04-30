@@ -178,6 +178,8 @@ class SqlDialect:
             return self._build_length_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
+        elif isinstance(expression, DISTINCT):
+            return self._build_distinct_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
             return f"({expression.expression_str})"
         elif isinstance(expression, STAR):
@@ -321,6 +323,9 @@ class SqlDialect:
     def _build_count_sql(self, count: COUNT) -> str:
         return f"COUNT({self.build_expression_sql(count.expression)})"
 
+    def _build_distinct_sql(self, distinct: DISTINCT) -> str:
+        return f"DISTINCT {self.build_expression_sql(distinct.expression)}"
+
     def _build_sum_sql(self, sum: SUM) -> str:
         return f"SUM({self.build_expression_sql(sum.expression)})"
 
@@ -353,8 +358,9 @@ class SqlDialect:
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (
             f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
-            f"THEN {self.build_expression_sql(case_when.if_expression)} "
-            f"ELSE {self.build_expression_sql(case_when.else_expression)} END"
+            + f"THEN {self.build_expression_sql(case_when.if_expression)} "
+            + (f"ELSE {self.build_expression_sql(case_when.else_expression)} " if case_when.else_expression else "")
+            + "END"
         )
 
     def schema_information_schema(self) -> str:

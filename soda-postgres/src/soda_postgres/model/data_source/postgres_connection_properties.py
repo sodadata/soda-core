@@ -23,12 +23,12 @@ class PostgresConnectionPropertiesBase(PostgresConnectionProperties, ABC):
     user: str = Field(..., description="Database user (1-63 characters)", min_length=1, max_length=63)
 
     # SSL configuration
-    ssl_mode: Literal["disable", "allow", "prefer", "require", "verify-ca", "verify-full"] = Field(
+    sslmode: Literal["disable", "allow", "prefer", "require", "verify-ca", "verify-full"] = Field(
         "prefer", description="SSL mode for the connection"
     )
-    ssl_cert: Optional[str] = Field(None, description="Path to SSL client certificate")
-    ssl_key: Optional[str] = Field(None, description="Path to SSL client key")
-    ssl_root_cert: Optional[str] = Field(None, description="Path to SSL root certificate")
+    sslcert: Optional[str] = Field(None, description="Path to SSL client certificate")
+    sslkey: Optional[str] = Field(None, description="Path to SSL client key")
+    sslrootcert: Optional[str] = Field(None, description="Path to SSL root certificate")
 
     # Connection options
     connection_timeout: Optional[int] = Field(None, description="Connection timeout in seconds")

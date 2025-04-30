@@ -125,7 +125,7 @@ class MissingCountMetric(AggregationMetricImpl):
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        not_missing_and_invalid_expr = self.missing_and_validity.get_missing_count_condition(column_name)
+        not_missing_and_invalid_expr = self.missing_and_validity.is_missing_expr(column_name)
         missing_count_condition: SqlExpression = (
             not_missing_and_invalid_expr
             if not self.check_filter
@@ -133,8 +133,7 @@ class MissingCountMetric(AggregationMetricImpl):
         )
         return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
 
-    def convert_db_value(self, value) -> any:
+    def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
         # there are no rows
-        value = 0 if value is None else value
-        return int(value)
+        return int(value) if value is not None else 0

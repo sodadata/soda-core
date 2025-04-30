@@ -10,7 +10,8 @@ Table of contents
 Verify there are no missing values in the column: 
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -27,7 +28,8 @@ columns:
 ### Configure a different missing metric
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -45,7 +47,8 @@ non-NULL values that must be considered as missing. Typical examples are
 
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -67,7 +70,8 @@ columns:
 ### Configure a regular expression to specify missing values
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -86,7 +90,8 @@ For the full list of options, see [the Reference list of missing value configura
 Verify there are less than 25 missing values in a column:
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -98,7 +103,8 @@ columns:
 Verify there are between 0 and 1 % missing values in a column:
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -115,3 +121,5 @@ as: `missing_count` x `100` / `row_count`
 > division by zero and concludes there are 0 % missing values.  
 
 For more details on threshold, see [Thresholds](thresholds.md) 
+
+See [the reference page for more missing and validity configurations](missing_and_validity.md)

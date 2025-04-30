@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -9,7 +10,6 @@ from helpers.mock_soda_cloud import (
     MockSodaCloud,
 )
 from helpers.test_table import TestTableSpecification
-from soda_core.common.current_time import CurrentTime
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
@@ -144,7 +144,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             MockResponse(
                 method=MockHttpMethod.GET,
                 status_code=200,
-                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(CurrentTime.now())},
+                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now())},
                 json_object={
                     "scanId": "ssscanid",
                     "state": "running",
@@ -269,6 +269,7 @@ def test_verify_contract_on_agent_permission_check():
         """
             )
         ),
+        variables={},
         blocking_timeout_in_minutes=60,
         publish_results=False,
     )

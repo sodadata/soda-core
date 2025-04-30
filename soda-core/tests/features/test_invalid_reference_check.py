@@ -1,4 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckResult,
@@ -63,7 +64,7 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 3
+    assert get_diagnostic_value(check_result, "invalid_count") == 3
 
 
 def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTestHelper):
@@ -87,8 +88,8 @@ def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTest
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 1
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "row_count") == 3
+    assert get_diagnostic_value(check_result, "invalid_count") == 1
+    assert get_diagnostic_value(check_result, "row_count") == 3
 
 
 def test_invalid_count_with_check_and_dataset_filter(data_source_test_helper: DataSourceTestHelper):
@@ -115,8 +116,8 @@ def test_invalid_count_with_check_and_dataset_filter(data_source_test_helper: Da
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "invalid_count") == 1
-    assert DataSourceTestHelper.get_first_numeric_diagnostic_value(check_result, "row_count") == 2
+    assert get_diagnostic_value(check_result, "invalid_count") == 1
+    assert get_diagnostic_value(check_result, "row_count") == 2
 
 
 def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelper):

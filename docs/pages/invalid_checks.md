@@ -13,12 +13,13 @@ Table of contents
 * [Allow some invalid values to occur, up to a threshold](#allow-some-invalid-values-to-occur-up-to-a-threshold)
 * [Verify more specific validity on a subset of the data](#verify-more-specific-validity-on-a-subset-of-the-data)
 * [Missing values are excluded](#missing-values-are-excluded)
-* [List of valid & invalid value configuration keys](#list-of-valid--invalid-value-configuration-keys) 
+ 
 
 ### Verify there are no invalid values
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: size
     checks:
@@ -44,7 +45,8 @@ This allows the user to define a fixed list of values to define validity.
 > Limitation: It can be either a list of strings or a list of numbers.  So only ~~~~text and numeric columns are supported for now.
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: size
     checks:
@@ -58,7 +60,8 @@ Configure a regular expression to identify valid values.  It leverages the regex
 Every time you use a regex, a human readable name has to be provided as well.
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: job_code
     checks:
@@ -76,32 +79,30 @@ See also these [example regexes](example_regexes.md) for inspiration
 ##### Verify valid values occur in a reference dataset
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: country
     checks:
       - invalid:
           valid_reference_data:
-            dataset: ['proddb', 'refschema', 'country_codes']
+            dataset: postgres_adventureworks/adventureworks/advw/country_codes
             column: country_code
 ```
 
 The `valid_reference_data`.`dataset` is the fully qualified name of the reference dataset.
 
-> Note: `valid_reference_data` is (for now) only combinable with missing configurations.  Not with other 
-> validity configurations
+> Note: `valid_reference_data` is combinable with other missing and validity configurations.
 
-> Note: If the reference dataset is located in the same schema, then it is sufficient to 
-> only provide the name of the dataset itself as a string eg `dataset: country_codes`
-
-> Performance warning! Using this type of configuration has an on performance.  Whereas other 
+> Performance warning! Using the `valid_reference_data` configuration has a performance impact.  Whereas other 
 > validity configurations can be computed in one pass together with all the other metrics, the `valid_reference_data`
 > requires its own separate query per check which can make the contract verification run slower and cost more.
 
 ##### Verify the length of values
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: job_code
     checks:
@@ -110,7 +111,8 @@ columns:
 ```
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: job_code
     checks:
@@ -122,7 +124,8 @@ columns:
 ##### Verify the values are within a range
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: idea_score_pct
     checks:
@@ -136,7 +139,8 @@ columns:
 Configure a list of values that will be considered invalid.
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: desk
     checks:
@@ -145,7 +149,8 @@ columns:
 ```
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: location
     checks:
@@ -154,7 +159,8 @@ columns:
 ```
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: desk
     checks:
@@ -171,7 +177,8 @@ See also these [example regexes](example_regexes.md) for inspiration
 Verify there are less than 25 invalid values in a column:
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: size
     checks:
@@ -186,7 +193,8 @@ The default metric is missing `count`.  Specify `metric: percent` to
 set the threshold as a percent of the total row count.
 
 ```yaml
-dataset: dim_employee
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
 columns:
   - name: id
     checks:
@@ -214,17 +222,5 @@ This ensures that missing values are not counted double: `missing_count` + `inva
 
 Same reasoning: `missing_percent` + `invalid_percent` + `valid_percent` = 100
 
-### List of valid & invalid value configuration keys
 
-| Key                     | Description                            | Examples        |
-|-------------------------|----------------------------------------|-----------------|
-| `invalid_values`        | A list of values considered invalid    | ['X', 'ERROR']  |
-| `invalid_format`        | A regex format                         |                 |
-| `valid_values`          | A list of the valid values.            | ['S', 'M', 'L'] |
-| `valid_format`          | A regex format                         |                 |
-| `valid_min`             | The minimum valid value for the column |                 |
-| `valid_max`             | The maximum valid value for the column |                 |
-| `valid_length`          | TODO                                   |                 |
-| `valid_min_length`      |                                        |                 |
-| `valid_max_length`      |                                        |                 |
-| `valid_reference_data`  |                                        |                 |
+See [the reference page for more missing and validity configurations](missing_and_validity.md) 
