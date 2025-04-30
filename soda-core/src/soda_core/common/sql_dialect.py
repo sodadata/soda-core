@@ -161,6 +161,8 @@ class SqlDialect:
             return self._build_sum_sql(expression)
         elif isinstance(expression, CASE_WHEN):
             return self._build_case_when_sql(expression)
+        elif isinstance(expression, TUPLE):
+            return self._build_tuple_sql(expression)
         elif isinstance(expression, IS_NULL):
             return self._build_is_null_sql(expression)
         elif isinstance(expression, IS_NOT_NULL):
@@ -327,7 +329,11 @@ class SqlDialect:
         return f"COUNT({self.build_expression_sql(count.expression)})"
 
     def _build_distinct_sql(self, distinct: DISTINCT) -> str:
-        return f"DISTINCT {self.build_expression_sql(distinct.expression)}"
+        expressions: list[SqlExpression] = (
+            distinct.expression if isinstance(distinct.expression, list) else [distinct.expression]
+        )
+        field_expression_str = ", ".join([self.build_expression_sql(e) for e in expressions])
+        return f"DISTINCT({field_expression_str})"
 
     def _build_sum_sql(self, sum: SUM) -> str:
         return f"SUM({self.build_expression_sql(sum.expression)})"
@@ -381,6 +387,10 @@ class SqlDialect:
 
     def _build_ordinal_position_sql(self, ordinal_position: ORDINAL_POSITION) -> str:
         return "ORDINAL_POSITION"
+
+    def _build_tuple_sql(self, tuple: TUPLE) -> str:
+        elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
+        return f"({elements})"
 
     def schema_information_schema(self) -> str:
         """

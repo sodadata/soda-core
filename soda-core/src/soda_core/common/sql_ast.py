@@ -65,7 +65,7 @@ class COUNT(SqlExpression):
 
 @dataclass
 class DISTINCT(SqlExpression):
-    expression: SqlExpression | str
+    expression: SqlExpression | str | list[SqlExpression | str]
 
 
 @dataclass
@@ -87,6 +87,11 @@ class CASE_WHEN(SqlExpression):
     condition: SqlExpression | str
     if_expression: SqlExpression | str
     else_expression: SqlExpression | str | None = None
+
+
+@dataclass
+class TUPLE(SqlExpression):
+    expressions: list[SqlExpression | str]
 
 
 @dataclass

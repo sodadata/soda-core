@@ -7,8 +7,6 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.current_time import CurrentTime
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
@@ -109,7 +107,7 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = CurrentTime.now()
+        self.data_timestamp: datetime = datetime.now()
         soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
@@ -140,16 +138,13 @@ class ContractYaml:
             )
 
         self.dataset: Optional[str] = (
-            self.contract_yaml_object.read_string("dataset") if self.contract_yaml_object else None
+            self.contract_yaml_object.read_dataset_identifier("dataset") if self.contract_yaml_object else None
         )
         self.filter: Optional[str] = (
             self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
         )
         if self.filter:
             self.filter = self.filter.strip()
-
-        # Validate qualified dataset name
-        _ = DatasetIdentifier.parse(self.dataset)
 
         self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
@@ -364,27 +359,8 @@ class VariableYaml:
 
 class ValidReferenceDataYaml:
     def __init__(self, valid_reference_data_yaml: YamlObject):
-        dataset: any = valid_reference_data_yaml.read_value("dataset")
-        is_list_str: bool = isinstance(dataset, list) and all(isinstance(e, str) for e in dataset)
-        self.dataset: str | list[str] | None = dataset if isinstance(dataset, str) or is_list_str else None
+        self.dataset: Optional[str] = valid_reference_data_yaml.read_dataset_identifier("dataset")
         self.column: Optional[str] = valid_reference_data_yaml.read_string("column")
-
-        cfg_keys = valid_reference_data_yaml.yaml_dict.keys()
-        self.has_configuration_error: bool = ("dataset" in cfg_keys and self.dataset is None) and (
-            "column" in cfg_keys and self.column is None
-        )
-
-        if self.dataset is None:
-            self.has_configuration_error = True
-            logger.error(
-                msg=(
-                    f"'dataset' is required. Must be the dataset name as a string "
-                    "or a list of strings representing the qualified name."
-                ),
-                extra={
-                    ExtraKeys.LOCATION: valid_reference_data_yaml.location,
-                },
-            )
 
 
 @dataclass
@@ -427,19 +403,6 @@ class MissingAndValidityYaml:
         valid_reference_data_yaml: Optional[YamlObject] = yaml_object.read_object_opt("valid_reference_data")
         if valid_reference_data_yaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
-
-        # self.has_valid_configuration_error: bool = (
-        #     ("invalid_values" in cfg_keys and self.invalid_values is None)
-        #     or ("invalid_format" in cfg_keys and self.invalid_format is None)
-        #     or ("valid_values" in cfg_keys and self.valid_values is None)
-        #     or ("valid_format" in cfg_keys and self.valid_format is None)
-        #     or ("valid_min" in cfg_keys and self.valid_min is None)
-        #     or ("valid_max" in cfg_keys and self.valid_max is None)
-        #     or ("valid_length" in cfg_keys and self.valid_length is None)
-        #     or ("valid_min_length" in cfg_keys and self.valid_min_length is None)
-        #     or ("valid_max_length" in cfg_keys and self.valid_max_length is None)
-        #     or ("valid_reference_data" in cfg_keys and self.valid_reference_data.has_configuration_error)
-        # )
 
 
 class ColumnYaml(MissingAndValidityYaml):

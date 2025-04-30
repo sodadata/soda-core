@@ -11,7 +11,7 @@ from soda_core.contracts.contract_verification import (
     NumericDiagnostic,
 )
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
-from soda_core.contracts.impl.check_types.row_count_check import RowCountMetric
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -69,7 +69,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         )
 
         self.row_count_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetric(contract_impl=contract_impl, check_impl=self)
+            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
         )
 
         self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(

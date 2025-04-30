@@ -57,7 +57,7 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: country
                 valid_reference_data:
-                  dataset: {referenced_table.unique_name}
+                  dataset: {data_source_test_helper.build_dqn(referenced_table)}
                   column: country_code
                 checks:
                   - invalid:
@@ -79,7 +79,7 @@ def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTest
             columns:
               - name: country
                 valid_reference_data:
-                  dataset: {referenced_table.unique_name}
+                  dataset: {data_source_test_helper.build_dqn(referenced_table)}
                   column: country_code
                 checks:
                   - invalid:
@@ -107,7 +107,7 @@ def test_invalid_count_with_check_and_dataset_filter(data_source_test_helper: Da
             columns:
               - name: country
                 valid_reference_data:
-                  dataset: {referenced_table.unique_name}
+                  dataset: {data_source_test_helper.build_dqn(referenced_table)}
                   column: country_code
                 checks:
                   - invalid:
@@ -130,7 +130,7 @@ def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelpe
             columns:
               - name: country
                 valid_reference_data:
-                  dataset: {referenced_table.unique_name}
+                  dataset: {data_source_test_helper.build_dqn(referenced_table)}
                   column: country_code
                 missing_values: [XX]
                 checks:

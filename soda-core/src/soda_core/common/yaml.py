@@ -247,6 +247,21 @@ class YamlObject(YamlValue):
     def has_key(self, key: str) -> bool:
         return key in self.yaml_dict
 
+    def read_dataset_identifier(self, yaml_key: str, required: bool = True) -> Optional[str]:
+        dataset_qualified_name: Optional[str] = self.read_string_opt(yaml_key)
+        if isinstance(dataset_qualified_name, str):
+            parts = dataset_qualified_name.split("/")
+            if len(parts) < 2:
+                logger.error(
+                    msg=f"Invalid dataset qualified name in '{yaml_key}': '{dataset_qualified_name}' "
+                    f"must be slash-separated, fully qualified dataset name.",
+                    extra={ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(yaml_key)},
+                )
+                return None
+        elif required:
+            logger.error(msg=f"'{yaml_key}' is required", extra={ExtraKeys.LOCATION: self.location})
+        return dataset_qualified_name
+
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
         An error is generated if the value is missing or not a YAML object.
