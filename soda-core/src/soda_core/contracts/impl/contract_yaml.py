@@ -7,7 +7,6 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.current_time import CurrentTime
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -109,7 +108,7 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = CurrentTime.now()
+        self.data_timestamp: datetime = datetime.now()
         soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
