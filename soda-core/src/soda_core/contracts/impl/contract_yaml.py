@@ -7,7 +7,6 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
-from soda_core.common.current_time import CurrentTime
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
