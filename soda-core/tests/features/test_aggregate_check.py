@@ -8,7 +8,7 @@ from soda_core.contracts.contract_verification import (
 
 test_table_specification = (
     TestTableSpecification.builder()
-    .table_purpose("numeric")
+    .table_purpose("aggregate")
     .column_text("country")
     .column_integer("age")
     .column_integer("age_wm")
@@ -26,7 +26,7 @@ test_table_specification = (
 )
 
 
-def test_numeric_function_avg(data_source_test_helper: DataSourceTestHelper):
+def test_aggregate_function_avg(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
@@ -35,7 +35,7 @@ def test_numeric_function_avg(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: age
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: avg
                       threshold:
                         must_be: 5
@@ -45,7 +45,7 @@ def test_numeric_function_avg(data_source_test_helper: DataSourceTestHelper):
     assert get_diagnostic_value(check_result, "avg") == 5
 
 
-def test_numeric_function_avg_with_missing(data_source_test_helper: DataSourceTestHelper):
+def test_aggregate_function_avg_with_missing(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
@@ -55,7 +55,7 @@ def test_numeric_function_avg_with_missing(data_source_test_helper: DataSourceTe
               - name: age_wm
                 missing_values: [-1]
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: avg
                       threshold:
                         must_be: 5
@@ -65,7 +65,7 @@ def test_numeric_function_avg_with_missing(data_source_test_helper: DataSourceTe
     assert get_diagnostic_value(check_result, "avg") == 5
 
 
-def test_numeric_function_avg_with_invalid(data_source_test_helper: DataSourceTestHelper):
+def test_aggregate_function_avg_with_invalid(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
@@ -75,7 +75,7 @@ def test_numeric_function_avg_with_invalid(data_source_test_helper: DataSourceTe
               - name: age_wi
                 missing_values: [999]
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: avg
                       threshold:
                         must_be: 5
@@ -85,7 +85,7 @@ def test_numeric_function_avg_with_invalid(data_source_test_helper: DataSourceTe
     assert get_diagnostic_value(check_result, "avg") == 5
 
 
-def test_numeric_function_sum_with_filter(data_source_test_helper: DataSourceTestHelper):
+def test_aggregate_function_sum_with_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
@@ -94,7 +94,7 @@ def test_numeric_function_sum_with_filter(data_source_test_helper: DataSourceTes
             columns:
               - name: age
                 checks:
-                  - numeric:
+                  - aggregate:
                       filter: |
                         "country" = 'BE'
                       function: sum
@@ -106,7 +106,7 @@ def test_numeric_function_sum_with_filter(data_source_test_helper: DataSourceTes
     assert get_diagnostic_value(check_result, "sum") == 15
 
 
-def test_numeric_function_unsupported(data_source_test_helper: DataSourceTestHelper):
+def test_aggregate_function_unsupported(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
@@ -115,10 +115,10 @@ def test_numeric_function_unsupported(data_source_test_helper: DataSourceTestHel
             columns:
               - name: age
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: xyz
                       threshold:
                         must_be: 0
         """,
     )
-    assert "Function 'xyz' is not supported on" in contract_verification_result.get_errors_str()
+    assert "Aggregate function 'xyz' is not supported on" in contract_verification_result.get_errors_str()

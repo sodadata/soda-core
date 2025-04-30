@@ -1,4 +1,4 @@
-# Numeric check
+# Aggregate check
 
 ### Verify the numeric value of an aggregate SQL function 
 
@@ -8,7 +8,7 @@ dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 columns:
   - name: age
     checks:
-      - numeric:
+      - aggregate:
           function: avg
           threshold: 
             must_be_between: 20 and 50
@@ -27,7 +27,7 @@ Apply the check only to a subset of the data.
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 columns:
-      - numeric:
+      - aggregate:
           function: avg
           threshold: 
             must_be_between: 20 and 50
@@ -43,7 +43,7 @@ dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 columns:
   - name: age
     checks:
-      - numeric:
+      - aggregate:
           function: avg
           missing_values: [-1]
           invalid_values: [999] 

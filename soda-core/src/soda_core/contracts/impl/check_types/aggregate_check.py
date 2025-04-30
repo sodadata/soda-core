@@ -11,7 +11,7 @@ from soda_core.contracts.contract_verification import (
     Diagnostic,
     NumericDiagnostic,
 )
-from soda_core.contracts.impl.check_types.numeric_check_yaml import NumericCheckYaml
+from soda_core.contracts.impl.check_types.aggregate_check_yaml import AggregateCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -26,29 +26,29 @@ from soda_core.contracts.impl.contract_verification_impl import (
 logger: logging.Logger = soda_logger
 
 
-class NumericCheckParser(CheckParser):
+class AggregateCheckParser(CheckParser):
     def get_check_type_names(self) -> list[str]:
-        return ["numeric"]
+        return ["aggregate"]
 
     def parse_check(
         self,
         contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
-        check_yaml: NumericCheckYaml,
+        check_yaml: AggregateCheckYaml,
     ) -> Optional[CheckImpl]:
-        return NumericCheckImpl(
+        return AggregateCheckImpl(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
 
 
-class NumericCheckImpl(MissingAndValidityCheckImpl):
+class AggregateCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
-        check_yaml: NumericCheckYaml,
+        check_yaml: AggregateCheckYaml,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -63,13 +63,14 @@ class NumericCheckImpl(MissingAndValidityCheckImpl):
 
         if self.function and not contract_impl.data_source_impl.sql_dialect.supports_function(self.function):
             logger.error(
-                msg=f"Function '{check_yaml.function}' is not supported on '{contract_impl.data_source_impl.type_name}'",
+                msg=f"Aggregate function '{check_yaml.function}' is not supported on "
+                f"'{contract_impl.data_source_impl.type_name}'",
                 extra={ExtraKeys.LOCATION: check_yaml.check_yaml_object.create_location_from_yaml_dict_key("function")},
             )
             self.function = None
 
         self.numeric_metric = self._resolve_metric(
-            NumericFunctionMetricImpl(
+            AggregateFunctionMetricImpl(
                 contract_impl=contract_impl, column_impl=column_impl, check_impl=self, function=self.function
             )
         )
@@ -98,7 +99,7 @@ class NumericCheckImpl(MissingAndValidityCheckImpl):
         )
 
 
-class NumericFunctionMetricImpl(AggregationMetricImpl):
+class AggregateFunctionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,

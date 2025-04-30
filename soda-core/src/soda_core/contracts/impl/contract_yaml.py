@@ -75,15 +75,17 @@ def register_check_types() -> None:
 
     CheckImpl.register(RowCountCheckParser())
 
-    from soda_core.contracts.impl.check_types.numeric_check import NumericCheckParser
-
-    CheckImpl.register(NumericCheckParser())
-
-    from soda_core.contracts.impl.check_types.numeric_check_yaml import (
-        NumericCheckYamlParser,
+    from soda_core.contracts.impl.check_types.aggregate_check import (
+        AggregateCheckParser,
     )
 
-    CheckYaml.register(NumericCheckYamlParser())
+    CheckImpl.register(AggregateCheckParser())
+
+    from soda_core.contracts.impl.check_types.aggregate_check_yaml import (
+        AggregateCheckYamlParser,
+    )
+
+    CheckYaml.register(AggregateCheckYamlParser())
 
 
 class ContractYaml:
