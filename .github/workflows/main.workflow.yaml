@@ -47,18 +47,18 @@ jobs:
           - "3.11"
         package:
           - "postgres"
-        #   - "snowflake"
+          - "snowflake"
         #   - "databricks"
 
     env:
-      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_CI_ACCOUNT }}
-      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_CI_USERNAME }}
+      SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_CI_DATABASE }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_CI_PASSWORD }}
-      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_CI_DATABASE }}
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-      DATABRICKS_DATABASE: ${{ secrets.DATABRICKS_DATABASE }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_CI_HOST }}
+      DATABRICKS_HTTP_PATH: ${{ vars.DATABRICKS_CI_HTTP_PATH }}
+      DATABRICKS_CATALOG: ${{ vars.DATABRICKS_CI_CATALOG }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CI_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
