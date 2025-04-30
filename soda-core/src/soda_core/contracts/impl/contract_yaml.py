@@ -87,6 +87,18 @@ def register_check_types() -> None:
 
     CheckYaml.register(AggregateCheckYamlParser())
 
+    from soda_core.contracts.impl.check_types.metric_expression_check import (
+        MetricExpressionCheckParser,
+    )
+
+    CheckImpl.register(MetricExpressionCheckParser())
+
+    from soda_core.contracts.impl.check_types.metric_expression_check_yaml import (
+        MetricExpressionCheckYamlParser,
+    )
+
+    CheckYaml.register(MetricExpressionCheckYamlParser())
+
 
 class ContractYaml:
     """
@@ -540,16 +552,20 @@ class CheckYaml(ABC):
 class ThresholdCheckYaml(CheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
-        self.metric: Optional[str] = check_yaml_object.read_string_opt("metric")
-        if self.metric and self.metric not in ["count", "percent"]:
-            logger.error(
-                msg="'metric' must be either 'count' or 'percent'",
-                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
-            )
+        self.metric: Optional[str] = self.read_metric(check_yaml_object)
         self.threshold: Optional[ThresholdYaml] = None
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:
             self.threshold = ThresholdYaml(threshold_yaml_object)
+
+    def read_metric(self, check_yaml_object: YamlObject) -> Optional[str]:
+        metric: Optional[str] = check_yaml_object.read_string_opt("metric")
+        if metric and metric not in ["count", "percent"]:
+            logger.error(
+                msg="'metric' must be either 'count' or 'percent'",
+                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+            )
+        return metric
 
 
 class ThresholdYaml:

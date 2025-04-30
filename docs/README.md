@@ -16,6 +16,7 @@ Table of contents
   * [Invalid checks](pages/invalid_checks.md)
   * [Duplicate checks](pages/duplicate_checks.md)
   * [Aggregate check](pages/aggregate_check.md)
+  * [Metric expression check](pages/metric_expression_check.md)
 * [Missing and validity configurations](pages/missing_and_validity.md)
 * [Example regexes](pages/example_regexes)
 * [Data sources configuration reference](pages/data_source.md) 
