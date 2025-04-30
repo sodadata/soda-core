@@ -1,7 +1,10 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import ContractVerificationResult, CheckResult
+from soda_core.contracts.contract_verification import (
+    CheckResult,
+    ContractVerificationResult,
+)
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -12,11 +15,11 @@ test_table_specification = (
     .column_integer("age_wi")
     .rows(
         rows=[
-            ("USA", 5,    0,    0),
-            ("BE",  None, 5,    999),
-            ("BE",  0,    -1,   10),
-            ("BE",  None, 10,   5),
-            ("BE",  10,   None, None),
+            ("USA", 5, 0, 0),
+            ("BE", None, 5, 999),
+            ("BE", 0, -1, 10),
+            ("BE", None, 10, 5),
+            ("BE", 10, None, None),
         ]
     )
     .build()
