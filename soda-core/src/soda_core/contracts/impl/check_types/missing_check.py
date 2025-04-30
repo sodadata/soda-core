@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
@@ -61,11 +59,9 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
-        # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
-
         self.metric_name = "missing_percent" if check_yaml.metric == "percent" else "missing_count"
         self.missing_count_metric = self._resolve_metric(
-            MissingCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.row_count_metric_impl: MetricImpl = self._resolve_metric(
@@ -108,7 +104,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         )
 
 
-class MissingCountMetric(AggregationMetricImpl):
+class MissingCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,

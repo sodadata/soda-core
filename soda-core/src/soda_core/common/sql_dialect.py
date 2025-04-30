@@ -363,6 +363,9 @@ class SqlDialect:
             + "END"
         )
 
+    def supports_function(self, function: str) -> bool:
+        return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum"]
+
     def schema_information_schema(self) -> str:
         """
         Name of the schema that has the metadata
