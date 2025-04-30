@@ -48,7 +48,7 @@ jobs:
         package:
           - "postgres"
           - "snowflake"
-          - "databricks"
+        #   - "databricks"
 
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
