@@ -14,6 +14,7 @@ class TimeMachineDatetime(datetime.datetime):
     TimeMachineDatetime(datetime.datetime) ** before ** any import datetime from datetime is perfomed by the
     production code.
     """
+
     NOW: Optional[datetime.datetime] = None
 
     @classmethod
