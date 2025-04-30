@@ -91,6 +91,7 @@ class SqlDialect:
         statement_lines.extend(self._build_select_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
+        statement_lines.extend(self._build_order_by_lines(select_elements))
         return "\n".join(statement_lines) + ";"
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
@@ -182,6 +183,8 @@ class SqlDialect:
             return self._build_distinct_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
             return f"({expression.expression_str})"
+        elif isinstance(expression, ORDINAL_POSITION):
+            return self._build_ordinal_position_sql(expression)
         elif isinstance(expression, STAR):
             return "*"
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
@@ -362,6 +365,22 @@ class SqlDialect:
             + (f"ELSE {self.build_expression_sql(case_when.else_expression)} " if case_when.else_expression else "")
             + "END"
         )
+
+    def _build_order_by_lines(self, select_elements: list) -> list[str]:
+        order_by_clauses: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, ORDER_BY_ASC) or isinstance(select_element, ORDER_BY_DESC):
+                expression = select_element.expression
+                direction: str = " ASC" if isinstance(select_element, ORDER_BY_ASC) else " DESC"
+                order_by_clauses.append(f"{self.build_expression_sql(expression)}{direction}")
+        if order_by_clauses:
+            order_by_text: str = ", ".join(order_by_clauses)
+            return [f"ORDER BY {order_by_text}"]
+        else:
+            return []
+
+    def _build_ordinal_position_sql(self, ordinal_position: ORDINAL_POSITION) -> str:
+        return "ORDINAL_POSITION"
 
     def schema_information_schema(self) -> str:
         """

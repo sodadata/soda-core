@@ -46,6 +46,7 @@ class MetadataColumnsQuery:
                         ]
                     )
                 ),
+                ORDER_BY_ASC(ORDINAL_POSITION()),
             ]
         )
 

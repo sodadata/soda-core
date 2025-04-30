@@ -248,3 +248,26 @@ class OR(SqlExpression):
             elif len(clauses) == 1:
                 return clauses[0]
             return OR(clauses)
+
+
+@dataclass
+class ORDER_BY_ASC:
+    """
+    Multiple of these can be added to a sql select statement. They are added in order.
+    """
+
+    expression: SqlExpression | str
+
+
+@dataclass
+class ORDER_BY_DESC:
+    """
+    Multiple of these can be added to a sql select statement. They are added in order.
+    """
+
+    expression: SqlExpression | str
+
+
+@dataclass
+class ORDINAL_POSITION(SqlExpression):
+    pass
