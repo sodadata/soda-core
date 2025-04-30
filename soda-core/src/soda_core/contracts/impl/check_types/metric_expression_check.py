@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from soda_core.common.logging_constants import ExtraKeys, soda_logger
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
@@ -11,7 +11,9 @@ from soda_core.contracts.contract_verification import (
     Diagnostic,
     NumericDiagnostic,
 )
-from soda_core.contracts.impl.check_types.metric_expression_check_yaml import MetricExpressionCheckYaml
+from soda_core.contracts.impl.check_types.metric_expression_check_yaml import (
+    MetricExpressionCheckYaml,
+)
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -59,9 +61,7 @@ class MetricExpressionCheckImpl(CheckImpl):
             threshold_yaml=check_yaml.threshold,
         )
         self.expression_metric = self._resolve_metric(
-            MetricExpressionFunctionMetricImpl(
-                contract_impl=contract_impl, column_impl=column_impl, check_impl=self
-            )
+            MetricExpressionFunctionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
@@ -71,10 +71,9 @@ class MetricExpressionCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = []
 
         if isinstance(expression_metric_value, Number):
-            diagnostics.append(NumericDiagnostic(
-                name=self.metric_expression_check_yaml.metric,
-                value=expression_metric_value
-            ))
+            diagnostics.append(
+                NumericDiagnostic(name=self.metric_expression_check_yaml.metric, value=expression_metric_value)
+            )
 
             if self.threshold:
                 if self.threshold.passes(expression_metric_value):
