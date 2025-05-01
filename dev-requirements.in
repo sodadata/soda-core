@@ -1,7 +1,6 @@
 pip-tools~=7.3
 pytest~=7.0
 python-dotenv~=1.0
-tox~=4.12
-tox-docker~=5.0
 tbump~=6.11
 pre-commit~=4.1.0
+freezegun
