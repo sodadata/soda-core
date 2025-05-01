@@ -194,9 +194,16 @@ class SodaCloud:
             # and check.archetype is None
         ]
 
+        # The scan definition name is still required on result ingestion to link to the contract
+        # and determine if we're dealing with a default or test contract.
+        scan_definition_name = contract_verification_result.contract.soda_qualified_dataset_name
+        if "SODA_SCAN_DEFINITION" in os.environ:
+            scan_definition_name = os.environ["SODA_SCAN_DEFINITION"]
+            logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
+
         contract_result_json: dict = self.to_jsonnable(  # type: ignore
             {
-                "definitionName": contract_verification_result.contract.soda_qualified_dataset_name,
+                "definitionName": scan_definition_name,
                 "defaultDataSource": contract_verification_result.data_source.name,
                 "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
                 # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
@@ -238,9 +245,12 @@ class SodaCloud:
                 },
             }
         )
-        soda_scan_id: Optional[str] = os.environ.get("SODA_SCAN_ID")
-        if soda_scan_id:
+
+        if "SODA_SCAN_ID" in os.environ:
+            soda_scan_id = os.environ["SODA_SCAN_ID"]
+            logger.debug(f"Using SODA_SCAN_ID from environment variable: {soda_scan_id}")
             contract_result_json["scanId"] = soda_scan_id
+
         return contract_result_json
 
     def _translate_check_outcome_for_soda_cloud(self, outcome: CheckOutcome) -> str:
