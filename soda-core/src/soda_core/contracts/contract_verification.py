@@ -208,7 +208,12 @@ class CheckResult(ABC):
 
     def get_numeric_diagnostic_value(self, diagnostic_name: str) -> any:
         return next(
-            (d.value for d in self.diagnostics if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name), None
+            (
+                d.value
+                for d in self.diagnostics
+                if isinstance(d, MeasuredNumericValueDiagnostic) and d.name == diagnostic_name
+            ),
+            None,
         )
 
 
@@ -229,11 +234,19 @@ class Diagnostic:
 
 
 @dataclass
-class NumericDiagnostic(Diagnostic):
+class MeasuredNumericValueDiagnostic(Diagnostic):
     value: float
 
     def log_line(self) -> str:
         return f"Actual {self.name} was {self.value}"
+
+
+@dataclass
+class TextDiagnostic(Diagnostic):
+    value: str
+
+    def log_line(self) -> str:
+        return f"{self.name} was {self.value}"
 
 
 class ContractVerificationResult:

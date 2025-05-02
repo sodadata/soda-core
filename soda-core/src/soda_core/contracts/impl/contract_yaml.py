@@ -108,6 +108,16 @@ def register_check_types() -> None:
     )
 
     CheckImpl.register(MetricQueryCheckParser())
+    from soda_core.contracts.impl.check_types.freshness_check_yaml import (
+        FreshnessCheckYamlParser,
+    )
+
+    CheckYaml.register(FreshnessCheckYamlParser())
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckParser,
+    )
+
+    CheckImpl.register(FreshnessCheckParser())
 
 
 class ContractYaml:

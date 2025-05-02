@@ -9,7 +9,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
-    NumericDiagnostic,
+    MeasuredNumericValueDiagnostic,
 )
 from soda_core.contracts.impl.check_types.metric_expression_check_yaml import (
     MetricExpressionCheckYaml,
@@ -72,7 +72,9 @@ class MetricExpressionCheckImpl(CheckImpl):
 
         if isinstance(expression_metric_value, Number):
             diagnostics.append(
-                NumericDiagnostic(name=self.metric_expression_check_yaml.metric, value=expression_metric_value)
+                MeasuredNumericValueDiagnostic(
+                    name=self.metric_expression_check_yaml.metric, value=expression_metric_value
+                )
             )
 
             if self.threshold:

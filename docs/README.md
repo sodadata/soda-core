@@ -12,6 +12,7 @@ Table of contents
 * Check types
   * [Schema check](pages/schema_check.md)
   * [Row count check](pages/row_count_check.md)
+  * [Freshness check](pages/freshness_check.md)
   * [Missing checks](pages/missing_checks.md)
   * [Invalid checks](pages/invalid_checks.md)
   * [Duplicate checks](pages/duplicate_checks.md)

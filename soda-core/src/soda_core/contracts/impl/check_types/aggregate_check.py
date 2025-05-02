@@ -9,7 +9,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
-    NumericDiagnostic,
+    MeasuredNumericValueDiagnostic,
 )
 from soda_core.contracts.impl.check_types.aggregate_check_yaml import AggregateCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -69,7 +69,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
             )
             self.function = None
 
-        self.numeric_metric = self._resolve_metric(
+        self.aggregate_metric = self._resolve_metric(
             AggregateFunctionMetricImpl(
                 contract_impl=contract_impl, column_impl=column_impl, check_impl=self, function=self.function
             )
@@ -78,11 +78,11 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        function_value: Optional[Number] = measurement_values.get_value(self.numeric_metric)
+        function_value: Optional[Number] = measurement_values.get_value(self.aggregate_metric)
         diagnostics: list[Diagnostic] = []
 
         if isinstance(function_value, Number):
-            diagnostics.append(NumericDiagnostic(name=self.function, value=function_value))
+            diagnostics.append(MeasuredNumericValueDiagnostic(name=self.function, value=function_value))
 
             if self.threshold:
                 if self.threshold.passes(function_value):

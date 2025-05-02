@@ -11,8 +11,8 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
+    MeasuredNumericValueDiagnostic,
     Measurement,
-    NumericDiagnostic,
 )
 from soda_core.contracts.impl.check_types.metric_query_check_yaml import (
     MetricQueryCheckYaml,
@@ -82,7 +82,9 @@ class MetricQueryCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = []
 
         if isinstance(query_metric_value, Number):
-            diagnostics.append(NumericDiagnostic(name=self.metric_query_check_yaml.metric, value=query_metric_value))
+            diagnostics.append(
+                MeasuredNumericValueDiagnostic(name=self.metric_query_check_yaml.metric, value=query_metric_value)
+            )
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):

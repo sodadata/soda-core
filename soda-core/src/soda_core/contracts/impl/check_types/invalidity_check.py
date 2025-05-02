@@ -11,8 +11,8 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
+    MeasuredNumericValueDiagnostic,
     Measurement,
-    NumericDiagnostic,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
@@ -120,16 +120,16 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         diagnostics: list[Diagnostic] = []
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
         if isinstance(invalid_count, Number):
-            diagnostics.append(NumericDiagnostic(name="invalid_count", value=invalid_count))
+            diagnostics.append(MeasuredNumericValueDiagnostic(name="invalid_count", value=invalid_count))
 
         row_count: int = measurement_values.get_value(self.row_count_metric)
         invalid_percent: float = 0
         if isinstance(row_count, Number):
-            diagnostics.append(NumericDiagnostic(name="row_count", value=row_count))
+            diagnostics.append(MeasuredNumericValueDiagnostic(name="row_count", value=row_count))
 
             if row_count > 0:
                 invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
-            diagnostics.append(NumericDiagnostic(name="invalid_percent", value=invalid_percent))
+            diagnostics.append(MeasuredNumericValueDiagnostic(name="invalid_percent", value=invalid_percent))
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 

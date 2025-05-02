@@ -5,7 +5,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
     Diagnostic,
-    NumericDiagnostic,
+    MeasuredNumericValueDiagnostic,
 )
 
 referencing_table_specification = (
@@ -138,6 +138,6 @@ def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelpe
         """,
     )
     diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, NumericDiagnostic)
+    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
     assert "invalid_count" == diagnostic.name
     assert 0 == diagnostic.value

@@ -179,6 +179,8 @@ class SqlDialect:
             return self._build_lower_sql(expression)
         elif isinstance(expression, LENGTH):
             return self._build_length_sql(expression)
+        elif isinstance(expression, MAX):
+            return self._build_max_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -363,6 +365,9 @@ class SqlDialect:
 
     def _build_length_sql(self, length: LENGTH) -> str:
         return f"LENGTH({self.build_expression_sql(length.expression)})"
+
+    def _build_max_sql(self, max: MAX) -> str:
+        return f"MAX({self.build_expression_sql(max.expression)})"
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (

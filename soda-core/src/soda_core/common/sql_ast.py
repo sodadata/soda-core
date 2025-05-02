@@ -140,6 +140,11 @@ class FUNCTION(SqlExpression):
 
 
 @dataclass
+class MAX(SqlExpression):
+    expression: SqlExpression | str
+
+
+@dataclass
 class LITERAL(SqlExpression):
     value: object
 
