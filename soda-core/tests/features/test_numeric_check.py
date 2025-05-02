@@ -35,7 +35,7 @@ def test_numeric_function_avg(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: age
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: avg
                       threshold:
                         must_be: 5
@@ -55,7 +55,7 @@ def test_numeric_function_avg_with_missing(data_source_test_helper: DataSourceTe
               - name: age_wm
                 missing_values: [-1]
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: avg
                       threshold:
                         must_be: 5
@@ -75,7 +75,7 @@ def test_numeric_function_avg_with_invalid(data_source_test_helper: DataSourceTe
               - name: age_wi
                 missing_values: [999]
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: avg
                       threshold:
                         must_be: 5
@@ -94,7 +94,7 @@ def test_numeric_function_sum_with_filter(data_source_test_helper: DataSourceTes
             columns:
               - name: age
                 checks:
-                  - numeric:
+                  - aggregate:
                       filter: |
                         "country" = 'BE'
                       function: sum
@@ -115,10 +115,10 @@ def test_numeric_function_unsupported(data_source_test_helper: DataSourceTestHel
             columns:
               - name: age
                 checks:
-                  - numeric:
+                  - aggregate:
                       function: xyz
                       threshold:
                         must_be: 0
         """,
     )
-    assert "Function 'xyz' is not supported on" in contract_verification_result.get_errors_str()
+    assert "Aggregate function 'xyz' is not supported on" in contract_verification_result.get_errors_str()
