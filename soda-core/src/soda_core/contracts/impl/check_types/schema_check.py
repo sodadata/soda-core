@@ -89,6 +89,8 @@ class SchemaCheckImpl(CheckImpl):
             )
             for column_impl in contract_impl.column_impls
         ]
+        self.allow_extra_columns: bool = bool(check_yaml.allow_extra_columns)
+        self.allow_other_column_order: bool = bool(check_yaml.allow_other_column_order)
 
         self.schema_metric = self._resolve_metric(
             SchemaMetricImpl(
@@ -111,6 +113,7 @@ class SchemaCheckImpl(CheckImpl):
         expected_column_names_not_actual: list[str] = []
         actual_column_names_not_expected: list[str] = []
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
+        are_columns_out_of_order: bool = False
 
         actual_columns: list[ColumnMetadata] = measurement_values.get_value(self.schema_metric)
         if actual_columns:
@@ -126,9 +129,10 @@ class SchemaCheckImpl(CheckImpl):
                 if expected_column not in actual_column_names:
                     expected_column_names_not_actual.append(expected_column)
 
-            for actual_column_name in actual_column_names:
-                if actual_column_name not in expected_column_names:
-                    actual_column_names_not_expected.append(actual_column_name)
+            if not self.allow_extra_columns:
+                for actual_column_name in actual_column_names:
+                    if actual_column_name not in expected_column_names:
+                        actual_column_names_not_expected.append(actual_column_name)
 
             for expected_column in self.expected_columns:
                 actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
@@ -150,17 +154,23 @@ class SchemaCheckImpl(CheckImpl):
                         )
                     )
 
-            # TODO add optional index checking
-            # schema_column_index_mismatches = {}
+            if not self.allow_other_column_order:
+                previous_index: int = 0
+                for actual_column_name in actual_column_names:
+                    if actual_column_name in expected_column_names:
+                        index: int = expected_column_names.index(actual_column_name)
+                        if index < previous_index:
+                            are_columns_out_of_order = True
+                        previous_index = index
 
             outcome = (
                 CheckOutcome.PASSED
                 if (
-                    len(expected_column_names_not_actual)
-                    + len(actual_column_names_not_expected)
-                    + len(column_data_type_mismatches)
+                    len(expected_column_names_not_actual) == 0
+                    and len(actual_column_names_not_expected) == 0
+                    and len(column_data_type_mismatches) == 0
+                    and not are_columns_out_of_order
                 )
-                == 0
                 else CheckOutcome.FAILED
             )
 
@@ -173,6 +183,7 @@ class SchemaCheckImpl(CheckImpl):
             expected_column_names_not_actual=expected_column_names_not_actual,
             actual_column_names_not_expected=actual_column_names_not_expected,
             column_data_type_mismatches=column_data_type_mismatches,
+            are_columns_out_of_order=are_columns_out_of_order,
         )
 
     def _build_threshold(self) -> Threshold:
@@ -226,6 +237,7 @@ class SchemaCheckResult(CheckResult):
         expected_column_names_not_actual: list[str],
         actual_column_names_not_expected: list[str],
         column_data_type_mismatches: list[ColumnDataTypeMismatch],
+        are_columns_out_of_order: bool,
     ):
         super().__init__(
             contract=contract,
@@ -243,6 +255,7 @@ class SchemaCheckResult(CheckResult):
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
         self.actual_column_names_not_expected: list[str] = actual_column_names_not_expected
         self.column_data_type_mismatches: list[ColumnDataTypeMismatch] = column_data_type_mismatches
+        self.are_columns_out_of_order: bool = are_columns_out_of_order
 
     def log_summary(self, logs: Logs) -> None:
         super().log_summary(logs)
@@ -277,6 +290,9 @@ class SchemaCheckResult(CheckResult):
                 f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.get_expected()}', "
                 f"but was '{data_type_mismatch.get_actual()}'"
             )
+
+        if self.are_columns_out_of_order:
+            logger.info(f"  There are columns out of order")
 
     def dataset_does_not_exists(self) -> bool:
         """
