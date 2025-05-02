@@ -26,7 +26,7 @@ class DuplicateCheckYamlParser(CheckYamlParser):
         if column_yaml:
             return ColumnDuplicateCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
         else:
-            return DatasetDuplicateCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
+            return MultiColumnDuplicateCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
 
 
 class ColumnDuplicateCheckYaml(MissingAncValidityCheckYaml):
@@ -34,7 +34,7 @@ class ColumnDuplicateCheckYaml(MissingAncValidityCheckYaml):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
 
 
-class DatasetDuplicateCheckYaml(ThresholdCheckYaml):
+class MultiColumnDuplicateCheckYaml(ThresholdCheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
         self.columns: Optional[list[str]] = check_yaml_object.read_list_of_strings("columns")
