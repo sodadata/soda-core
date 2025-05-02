@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timezone, timedelta
+from datetime import timedelta, timezone
 
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
@@ -74,7 +74,7 @@ class FreshnessCheckImpl(CheckImpl):
                 check_impl=self,
                 column=self.column,
                 now_variable=self.now_variable,
-                unit=self.unit
+                unit=self.unit,
             )
         )
 
@@ -121,15 +121,12 @@ class FreshnessCheckImpl(CheckImpl):
             if self.unit == "minute":
                 threshold_value = freshness_in_seconds / 60
             elif self.unit == "hour":
-                threshold_value = freshness_in_seconds / (60*60)
+                threshold_value = freshness_in_seconds / (60 * 60)
             elif self.unit == "day":
-                threshold_value = freshness_in_seconds / (60*60*24)
+                threshold_value = freshness_in_seconds / (60 * 60 * 24)
 
             if threshold_value:
-                diagnostics.append(TextDiagnostic(
-                    name=f"freshness_in_{self.unit}s",
-                    value=f"{threshold_value:.2f}")
-                )
+                diagnostics.append(TextDiagnostic(name=f"freshness_in_{self.unit}s", value=f"{threshold_value:.2f}"))
 
             if self.threshold:
                 if self.threshold.passes(threshold_value):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from soda_core.common.logging_constants import soda_logger, ExtraKeys
+from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
@@ -25,9 +25,7 @@ class FreshnessCheckYamlParser(CheckYamlParser):
         if column_yaml:
             logger.error(
                 msg=f"The 'freshness' check type is not supported in column checks. Was on column '{column_yaml.name}'",
-                extra={
-                    ExtraKeys.LOCATION: check_yaml_object.location
-                }
+                extra={ExtraKeys.LOCATION: check_yaml_object.location},
             )
         return FreshnessCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
 
