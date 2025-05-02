@@ -13,7 +13,7 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
-    DatasetDuplicateCheckYaml,
+    MultiColumnDuplicateCheckYaml,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
@@ -226,7 +226,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
-        check_yaml: DatasetDuplicateCheckYaml,
+        check_yaml: MultiColumnDuplicateCheckYaml,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -335,7 +335,7 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
         if filter_expr:
             return COUNT(DISTINCT(CASE_WHEN(filter_expr, TUPLE(self.column_names))))
         else:
-            return COUNT(DISTINCT(self.column_names))
+            return COUNT(DISTINCT(TUPLE(self.column_names)))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
