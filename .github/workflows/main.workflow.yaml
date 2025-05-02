@@ -74,7 +74,11 @@ jobs:
           pip install -e soda-core
           pip install -e soda-${{ matrix.package }}
           export TEST_DATASOURCE=${{ matrix.package }}
-          python -m pytest
+          python -m pytest -ra soda-core/tests/features
+          if [ "${{ matrix.package }}" = "postgres" ]; then
+            python -m pytest -ra soda-core/tests/components
+          fi
+
   define-matrix:
     if: github.ref_name == 'v4'
     runs-on: ubuntu-24.04
