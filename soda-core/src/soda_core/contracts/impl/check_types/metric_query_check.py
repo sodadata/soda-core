@@ -11,17 +11,21 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
-    NumericDiagnostic, Measurement,
+    Measurement,
+    NumericDiagnostic,
 )
-from soda_core.contracts.impl.check_types.metric_query_check_yaml import MetricQueryCheckYaml
+from soda_core.contracts.impl.check_types.metric_query_check_yaml import (
+    MetricQueryCheckYaml,
+)
 from soda_core.contracts.impl.contract_verification_impl import (
-    AggregationMetricImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
     ContractImpl,
     MeasurementValues,
-    ThresholdImpl, Query, MetricImpl,
+    MetricImpl,
+    Query,
+    ThresholdImpl,
 )
 
 logger: logging.Logger = soda_logger
@@ -67,7 +71,7 @@ class MetricQueryCheckImpl(CheckImpl):
             metric_query: Query = MetricQuery(
                 data_source_impl=contract_impl.data_source_impl,
                 metrics=[self.query_metric_impl],
-                sql=self.metric_query_check_yaml.query
+                sql=self.metric_query_check_yaml.query,
             )
             self.queries.append(metric_query)
 
@@ -78,9 +82,7 @@ class MetricQueryCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = []
 
         if isinstance(query_metric_value, Number):
-            diagnostics.append(
-                NumericDiagnostic(name=self.metric_query_check_yaml.metric, value=query_metric_value)
-            )
+            diagnostics.append(NumericDiagnostic(name=self.metric_query_check_yaml.metric, value=query_metric_value))
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):
@@ -119,13 +121,7 @@ class MetricQueryMetricImpl(MetricImpl):
 
 
 class MetricQuery(Query):
-
-    def __init__(
-        self,
-        data_source_impl: Optional[DataSourceImpl],
-        metrics: list[MetricImpl],
-        sql: str
-    ):
+    def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], sql: str):
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
 
     def build_sql(self) -> str:
