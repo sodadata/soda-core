@@ -10,8 +10,8 @@ for the latest time partition or for a particular sub category of the data.
 
 ### Building a time partition filter
 
-The following example shows how a time partition filter for 'today' based on the `NOW` variable 
-using postgres SQL functions.  The `NOW` variable is automatically initialized by the contract 
+The following example shows how a time partition filter for 'today' based on the `soda.NOW` variable 
+using postgres SQL functions.  The `soda.NOW` variable is automatically initialized by the contract 
 verification.
 
 The postgres functions `date_trunc` is used to compute the previous midnight.  And the 
@@ -21,8 +21,8 @@ The postgres functions `date_trunc` is used to compute the previous midnight.  A
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 filter: |
-    date_trunc('day', timestamp '${var.NOW}') < {column_name_quoted}
-    AND {column_name_quoted} <= date_trunc('day', timestamp '${var.NOW}') + interval '1 day'
+    date_trunc('day', timestamp '${soda.NOW}') < {column_name_quoted}
+    AND {column_name_quoted} <= date_trunc('day', timestamp '${soda.NOW}') + interval '1 day'
 
 columns:
   - name: country

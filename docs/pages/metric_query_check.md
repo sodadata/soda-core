@@ -12,10 +12,11 @@
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 checks:
-  - metric_expression:
+  - metric_query:
       metric: avg_duration
-      expression: |
-        AVG("end" - "start")
+      query: |
+        SELECT AVG("end" - "start")
+        FROM "adventureworks"."advw"."dim_employee"
       threshold:
         must_be_between: [9, 11]
 ```

@@ -61,7 +61,7 @@ class MetricExpressionCheckImpl(CheckImpl):
             threshold_yaml=check_yaml.threshold,
         )
         self.expression_metric = self._resolve_metric(
-            MetricExpressionFunctionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            MetricExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
@@ -90,7 +90,7 @@ class MetricExpressionCheckImpl(CheckImpl):
         )
 
 
-class MetricExpressionFunctionMetricImpl(AggregationMetricImpl):
+class MetricExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,

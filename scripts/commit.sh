@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 
 if [ $# -eq 1 ]; then
-    set -e
-    set -x
     . .venv/bin/activate
     pre-commit run --all-files
+    PRE_COMMIT_RESULT=$?
+    set -e
+    if [ $PRE_COMMIT_RESULT -ne 0 ]; then
+        echo pre-commit failed.  Trying once more.
+        pre-commit run --all-files
+    else
+        echo First time ok
+    fi
     python -m pytest
     git status
     git add .

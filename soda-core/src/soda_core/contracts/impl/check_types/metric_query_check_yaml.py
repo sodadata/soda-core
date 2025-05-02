@@ -12,22 +12,22 @@ from soda_core.contracts.impl.contract_yaml import (
 )
 
 
-class MetricExpressionCheckYamlParser(CheckYamlParser):
+class MetricQueryCheckYamlParser(CheckYamlParser):
     def get_check_type_names(self) -> list[str]:
-        return ["metric_expression"]
+        return ["metric_query"]
 
     def parse_check_yaml(
         self, check_type_name: str, check_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml]
     ) -> Optional[CheckYaml]:
-        return MetricExpressionCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
+        return MetricQueryCheckYaml(type_name=check_type_name, check_yaml_object=check_yaml_object)
 
 
-class MetricExpressionCheckYaml(MissingAncValidityCheckYaml):
+class MetricQueryCheckYaml(MissingAncValidityCheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
-        self.expression: Optional[str] = check_yaml_object.read_string("expression")
-        if self.expression:
-            self.expression = dedent(self.expression).strip()
+        self.query: Optional[str] = check_yaml_object.read_string("query")
+        if self.query:
+            self.query = dedent(self.query).strip()
 
     def read_metric(self, check_yaml_object: YamlObject) -> Optional[str]:
         return check_yaml_object.read_string("metric")
