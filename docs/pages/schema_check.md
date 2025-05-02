@@ -1,10 +1,14 @@
 # Schema check
 
-### Basic schema check
+### Verify the schema of a dataset
+
+The schema refers to the list of columns and their data types.
 
 To verify the schema, add a check with `schema:` to the list of checks.
-This is the most common check. The list of column must be exact as 
-specified in the contract.  No extra nor missing columns are allowed.  
+The list of column must be exact as specified in the contract.  
+No extra nor missing columns are allowed and the order of the columns 
+has to be like in the data source.
+
 Column names are case sensitive.
 
 For example:
@@ -30,6 +34,39 @@ data-source-specific data types.
 
 There are no further configuration keys for the schema check.
 
+### Ignore extra columns
+
+If you want to allow for extra columns, use `allow_extra_columns: true`
+
+```yaml
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+columns:
+  - name: id
+  - name: last_name
+
+checks:
+  - schema:
+      allow_extra_columns: true
+```
+
+### Ignore column ordering
+
+If you want to allow for columns to occur in a different order, use `allow_other_column_order: true`
+
+```yaml
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+columns:
+  - name: last_name
+  - name: address_line1
+  - name: id
+
+checks:
+  - schema:
+      allow_other_column_order: true
+```
+
 ### Data type matching 
 
 Column `data_type` keys are optional.  Only if the `data_type` key is specified on 
@@ -38,6 +75,7 @@ the column, the data type is checked as part of the schema check.
 Data types specified in the contract will be checked case insensitive.
 
 ### Data type synonyms
+
 Data types may support synonyms.  Eg on postgres, `data_type: varchar` will be equal 
 to a column with metadata type `data_type: character varying`. 
 
@@ -60,10 +98,3 @@ columns:
 checks:
   - schema:
 ```
-
-
-### Roadmap features
-
-* Allow for optional columns
-* Allow for extra columns not in the list
-* Column ordering
