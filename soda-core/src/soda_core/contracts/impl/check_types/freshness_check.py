@@ -111,10 +111,7 @@ class FreshnessCheckImpl(CheckImpl):
                 threshold_value = freshness_in_seconds / (60 * 60 * 24)
 
             if threshold_value is not None:
-                diagnostics.append(TextDiagnostic(
-                    name=f"freshness_in_{self.unit}s",
-                    value=f"{threshold_value:.2f}")
-                )
+                diagnostics.append(TextDiagnostic(name=f"freshness_in_{self.unit}s", value=f"{threshold_value:.2f}"))
 
             if self.threshold:
                 if self.threshold.passes(threshold_value):
