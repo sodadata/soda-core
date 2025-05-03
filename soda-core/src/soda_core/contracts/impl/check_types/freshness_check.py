@@ -81,41 +81,26 @@ class FreshnessCheckImpl(CheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
-        if not isinstance(max_timestamp, datetime):
-            logger.error(f"Freshness column '{self.column}' does not have timestamp values: {max_timestamp}")
-
         diagnostics: list[Diagnostic] = []
         threshold_value: Optional[float] = None
 
-        if isinstance(max_timestamp, datetime):
-            diagnostics.append(TextDiagnostic(name="max_timestamp", value=str(max_timestamp)))
-            max_timestamp_utc: datetime = self._datetime_to_utc(max_timestamp)
-            diagnostics.append(TextDiagnostic(name="max_timestamp_utc", value=str(max_timestamp_utc)))
+        max_timestamp: datetime = self._get_max_timestamp(measurement_values)
+        max_timestamp_utc: datetime = self._get_max_timestamp_utc(max_timestamp)
+        now_timestamp: datetime = self._get_now_timestamp()
+        now_timestamp_utc: datetime = self._get_now_timestamp_utc(now_timestamp)
 
-            if self.now_variable is None or self.now_variable == "soda.NOW":
-                now_timestamp_str: str = self.soda_variable_values.get("NOW")
-            else:
-                now_timestamp_str: str = self.resolved_variable_values.get(self.now_variable)
-                if now_timestamp_str is None:
-                    logger.error(f"Freshness variable '{self.now_variable}' not available")
+        diagnostics.append(TextDiagnostic(name="max_timestamp", value=str(max_timestamp)))
+        diagnostics.append(TextDiagnostic(name="max_timestamp_utc", value=str(max_timestamp_utc)))
+        diagnostics.append(TextDiagnostic(name="now_timestamp", value=str(now_timestamp)))
+        diagnostics.append(TextDiagnostic(name="now_timestamp_utc", value=str(now_timestamp_utc)))
 
-            now_timestamp: Optional[datetime] = (
-                convert_str_to_datetime(now_timestamp_str) if isinstance(now_timestamp_str, str) else None
-            )
-            if not isinstance(now_timestamp, datetime):
-                logger.error(f"Freshness variable '{self.now_variable}' is not a timestamp: {now_timestamp_str}")
-
-            diagnostics.append(TextDiagnostic(name="now_timestamp", value=str(now_timestamp)))
-            now_timestamp_utc: datetime = self._datetime_to_utc(now_timestamp)
-            diagnostics.append(TextDiagnostic(name="now_timestamp_utc", value=str(now_timestamp_utc)))
-
+        threshold_value: Optional[float] = None
+        if now_timestamp_utc and max_timestamp_utc:
             delta: timedelta = now_timestamp_utc - max_timestamp_utc
-            diagnostics.append(TextDiagnostic(name="freshness", value=str(delta)))
-
             freshness_in_seconds: float = delta.total_seconds()
-            diagnostics.append(TextDiagnostic(name="freshness_in_seconds", value=str(freshness_in_seconds)))
 
+            diagnostics.append(TextDiagnostic(name="freshness", value=str(delta)))
+            diagnostics.append(TextDiagnostic(name="freshness_in_seconds", value=str(freshness_in_seconds)))
             diagnostics.append(TextDiagnostic(name="unit", value=self.unit))
 
             if self.unit == "minute":
@@ -125,8 +110,11 @@ class FreshnessCheckImpl(CheckImpl):
             elif self.unit == "day":
                 threshold_value = freshness_in_seconds / (60 * 60 * 24)
 
-            if threshold_value:
-                diagnostics.append(TextDiagnostic(name=f"freshness_in_{self.unit}s", value=f"{threshold_value:.2f}"))
+            if threshold_value is not None:
+                diagnostics.append(TextDiagnostic(
+                    name=f"freshness_in_{self.unit}s",
+                    value=f"{threshold_value:.2f}")
+                )
 
             if self.threshold:
                 if self.threshold.passes(threshold_value):
@@ -141,6 +129,34 @@ class FreshnessCheckImpl(CheckImpl):
             outcome=outcome,
             diagnostics=diagnostics,
         )
+
+    def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
+        max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
+        if not isinstance(max_timestamp, datetime):
+            logger.error(f"Freshness column '{self.column}' does not have timestamp values: {max_timestamp}")
+        return max_timestamp
+
+    def _get_max_timestamp_utc(self, max_timestamp: Optional[datetime]) -> Optional[datetime]:
+        return self._datetime_to_utc(max_timestamp) if isinstance(max_timestamp, datetime) else None
+
+    def _get_now_timestamp(self) -> Optional[datetime]:
+        if self.now_variable is None or self.now_variable == "soda.NOW":
+            now_timestamp_str: str = self.soda_variable_values.get("NOW")
+        else:
+            now_timestamp_str: str = self.resolved_variable_values.get(self.now_variable)
+            if now_timestamp_str is None:
+                logger.error(f"Freshness variable '{self.now_variable}' not available")
+
+        if not isinstance(now_timestamp_str, str):
+            logger.error(f"Freshness variable '{self.now_variable}' is not available")
+        else:
+            now_timestamp: Optional[datetime] = convert_str_to_datetime(now_timestamp_str)
+            if not isinstance(now_timestamp, datetime):
+                logger.error(f"Freshness variable '{self.now_variable}' is not a timestamp: {now_timestamp_str}")
+            return now_timestamp
+
+    def _get_now_timestamp_utc(self, now_timestamp: Optional[datetime]) -> Optional[datetime]:
+        return self._datetime_to_utc(now_timestamp) if now_timestamp else None
 
     @staticmethod
     def _datetime_to_utc(input: datetime) -> datetime:

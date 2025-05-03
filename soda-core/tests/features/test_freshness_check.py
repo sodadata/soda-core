@@ -4,6 +4,7 @@ from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
+from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
@@ -40,7 +41,6 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
     """
 
     with freeze_time(datetime(year=2025, month=1, day=4, hour=11, minute=0, second=0), tz_offset=0):
-        # On the first time partition t1 (16th) the filter should pass
         contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
@@ -53,3 +53,60 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
         assert get_diagnostic_value(check_result, "freshness_in_seconds") == "3600.0"
         assert get_diagnostic_value(check_result, "unit") == "hour"
         assert get_diagnostic_value(check_result, "freshness_in_hours") == "1.00"
+
+
+def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_yaml_str: str = f"""
+        checks:
+          - freshness:
+              column: created_at
+              unit: day
+              threshold:
+                must_be_less_than: 1
+    """
+
+    with freeze_time(datetime(year=2025, month=1, day=5, hour=12, minute=0, second=0), tz_offset=0):
+        contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+            test_table=test_table, contract_yaml_str=contract_yaml_str
+        )
+        check_result: CheckResult = contract_verification_result_t1.check_results[0]
+        assert get_diagnostic_value(check_result, "max_timestamp") == "2025-01-04 09:00:00"
+        assert get_diagnostic_value(check_result, "max_timestamp_utc") == "2025-01-04 09:00:00+00:00"
+        assert get_diagnostic_value(check_result, "now_timestamp") == "2025-01-05 11:00:00+00:00"
+        assert get_diagnostic_value(check_result, "now_timestamp_utc") == "2025-01-05 11:00:00+00:00"
+        assert get_diagnostic_value(check_result, "freshness") == "1 day, 2:00:00"
+        assert get_diagnostic_value(check_result, "freshness_in_seconds") == "93600.0"
+        assert get_diagnostic_value(check_result, "unit") == "day"
+        assert get_diagnostic_value(check_result, "freshness_in_days") == "1.08"
+
+
+def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_yaml_str: str = f"""
+        variables:
+          NNOWW:
+        checks:
+          - freshness:
+              column: created_at
+              now_variable: NNOWW
+              threshold:
+                must_be_less_than: 2
+    """
+
+    contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=contract_yaml_str,
+        variables={"NNOWW": convert_datetime_to_str(datetime(year=2025, month=1, day=4, hour=11, minute=0, second=0))},
+    )
+    check_result: CheckResult = contract_verification_result_t1.check_results[0]
+    assert get_diagnostic_value(check_result, "max_timestamp") == "2025-01-04 09:00:00"
+    assert get_diagnostic_value(check_result, "max_timestamp_utc") == "2025-01-04 09:00:00+00:00"
+    assert get_diagnostic_value(check_result, "now_timestamp") == "2025-01-04 10:00:00+00:00"
+    assert get_diagnostic_value(check_result, "now_timestamp_utc") == "2025-01-04 10:00:00+00:00"
+    assert get_diagnostic_value(check_result, "freshness") == "1:00:00"
+    assert get_diagnostic_value(check_result, "freshness_in_seconds") == "3600.0"
+    assert get_diagnostic_value(check_result, "unit") == "hour"
+    assert get_diagnostic_value(check_result, "freshness_in_hours") == "1.00"
