@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from numbers import Number
-from textwrap import indent
+from textwrap import dedent, indent
 
 from soda_core.common.sql_ast import *
 
@@ -129,10 +129,14 @@ class SqlDialect:
         cte_lines: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, WITH):
-                nested_select: str = self.build_select_sql(select_element.cte_query)
-                nested_select = nested_select.strip()
-                nested_select = nested_select.rstrip(";")
-                indented_nested_select: str = indent(nested_select, "  ")
+                cte_query_sql_str: str | None = None
+                if isinstance(select_element.cte_query, list):
+                    cte_query_sql_str: str = self.build_select_sql(select_element.cte_query)
+                    cte_query_sql_str = cte_query_sql_str.strip()
+                elif isinstance(select_element.cte_query, str):
+                    cte_query_sql_str: str = dedent(select_element.cte_query).strip()
+                cte_query_sql_str = cte_query_sql_str.rstrip(";")
+                indented_nested_select: str = indent(cte_query_sql_str, "  ")
                 cte_lines.append(f"WITH {self.quote_default(select_element.alias)} AS (")
                 cte_lines.extend(indented_nested_select.split("\n"))
                 cte_lines.append(f")")
