@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
@@ -164,7 +164,7 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = datetime.now()
+        self.data_timestamp: datetime = datetime.now(timezone.utc)
         soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
@@ -247,9 +247,9 @@ class ContractYaml:
                 if convert_str_to_datetime(now_str) is None:
                     logger.error(f"Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: {now_str}")
                 variable_values["NOW"] = now_str
-        else:
-            # Default now initialization
-            variable_values["NOW"] = convert_datetime_to_str(datetime.now())
+        # else:
+        #     # Default now initialization
+        #     variable_values["NOW"] = convert_datetime_to_str(datetime.now(timezone.utc))
 
         return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 

@@ -40,7 +40,7 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
                 must_be_less_than: 2
     """
 
-    with freeze_time(datetime(year=2025, month=1, day=4, hour=11, minute=0, second=0), tz_offset=0):
+    with freeze_time(datetime(year=2025, month=1, day=4, hour=10, minute=0, second=0)):
         contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
@@ -67,7 +67,7 @@ def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
                 must_be_less_than: 1
     """
 
-    with freeze_time(datetime(year=2025, month=1, day=5, hour=12, minute=0, second=0), tz_offset=0):
+    with freeze_time(datetime(year=2025, month=1, day=5, hour=11, minute=0, second=0)):
         contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
