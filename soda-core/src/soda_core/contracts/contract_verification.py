@@ -206,16 +206,6 @@ class CheckResult(ABC):
         for diagnostic in self.diagnostics:
             logger.info(f"  {diagnostic.log_line()}")
 
-    def get_numeric_diagnostic_value(self, diagnostic_name: str) -> any:
-        return next(
-            (
-                d.value
-                for d in self.diagnostics
-                if isinstance(d, MeasuredNumericValueDiagnostic) and d.name == diagnostic_name
-            ),
-            None,
-        )
-
 
 class Measurement:
     def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):

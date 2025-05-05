@@ -18,7 +18,7 @@ if [ $# -eq 1 ]; then
     git pull
     git status
     echo
-    read -p "Do you want to git push? y/N" -n 1 -r are_you_sure
+    read -p "Do you want to git push? (y/N): " -n 1 -r are_you_sure
     echo    # (optional) move to a new line
     if [[ $are_you_sure =~ ^[Yy]$ ]]
     then
