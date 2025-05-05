@@ -272,6 +272,7 @@ def test_verify_contract_on_agent_permission_check():
         variables={},
         blocking_timeout_in_minutes=60,
         publish_results=False,
+        verbose=False,
     )
 
     assert isinstance(res, ContractVerificationResult)

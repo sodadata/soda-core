@@ -33,6 +33,7 @@ class ContractVerificationSession:
         soda_cloud_yaml_source: Optional[SodaCloudYamlSource] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
+        soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
     ) -> ContractVerificationSessionResult:
         from soda_core.contracts.impl.contract_verification_impl import (
@@ -49,6 +50,7 @@ class ContractVerificationSession:
             soda_cloud_yaml_source=soda_cloud_yaml_source,
             soda_cloud_publish_results=soda_cloud_publish_results,
             soda_cloud_use_agent=soda_cloud_use_agent,
+            soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
         )
 
