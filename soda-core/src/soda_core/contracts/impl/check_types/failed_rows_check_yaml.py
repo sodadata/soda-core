@@ -8,7 +8,7 @@ from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     CheckYamlParser,
     ColumnYaml,
-    MissingAncValidityCheckYaml, ThresholdCheckYaml,
+    ThresholdCheckYaml,
 )
 
 

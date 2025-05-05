@@ -25,7 +25,8 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MeasurementValues,
     MetricImpl,
     Query,
-    ThresholdImpl, ThresholdType,
+    ThresholdImpl,
+    ThresholdType,
 )
 
 logger: logging.Logger = soda_logger
@@ -63,7 +64,7 @@ class FailedRowsCheckImpl(CheckImpl):
         self.failed_rows_check_yaml: FailedRowsCheckYaml = check_yaml
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
-            default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0)
+            default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
         self.query_metric_impl = self._resolve_metric(
             FailedRowsMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
@@ -86,9 +87,7 @@ class FailedRowsCheckImpl(CheckImpl):
             metric_name: str = (
                 self.failed_rows_check_yaml.metric if self.failed_rows_check_yaml.metric else "failed_rows_count"
             )
-            diagnostics.append(
-                MeasuredNumericValueDiagnostic(name=metric_name, value=query_metric_value)
-            )
+            diagnostics.append(MeasuredNumericValueDiagnostic(name=metric_name, value=query_metric_value))
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):
@@ -128,11 +127,9 @@ class FailedRowsMetricImpl(MetricImpl):
 
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
-        sql = data_source_impl.sql_dialect.build_select_sql([
-            WITH(alias="failed_rows").AS(cte_query=failed_rows_query),
-            SELECT(COUNT(STAR())),
-            FROM("failed_rows")
-        ])
+        sql = data_source_impl.sql_dialect.build_select_sql(
+            [WITH(alias="failed_rows").AS(cte_query=failed_rows_query), SELECT(COUNT(STAR())), FROM("failed_rows")]
+        )
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
 
     def execute(self) -> list[Measurement]:
