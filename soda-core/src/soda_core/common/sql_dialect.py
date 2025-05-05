@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from numbers import Number
-from textwrap import indent
+from textwrap import dedent, indent
 
 from soda_core.common.sql_ast import *
 
@@ -129,10 +129,14 @@ class SqlDialect:
         cte_lines: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, WITH):
-                nested_select: str = self.build_select_sql(select_element.cte_query)
-                nested_select = nested_select.strip()
-                nested_select = nested_select.rstrip(";")
-                indented_nested_select: str = indent(nested_select, "  ")
+                cte_query_sql_str: str | None = None
+                if isinstance(select_element.cte_query, list):
+                    cte_query_sql_str: str = self.build_select_sql(select_element.cte_query)
+                    cte_query_sql_str = cte_query_sql_str.strip()
+                elif isinstance(select_element.cte_query, str):
+                    cte_query_sql_str: str = dedent(select_element.cte_query).strip()
+                cte_query_sql_str = cte_query_sql_str.rstrip(";")
+                indented_nested_select: str = indent(cte_query_sql_str, "  ")
                 cte_lines.append(f"WITH {self.quote_default(select_element.alias)} AS (")
                 cte_lines.extend(indented_nested_select.split("\n"))
                 cte_lines.append(f")")
@@ -179,6 +183,8 @@ class SqlDialect:
             return self._build_lower_sql(expression)
         elif isinstance(expression, LENGTH):
             return self._build_length_sql(expression)
+        elif isinstance(expression, MAX):
+            return self._build_max_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -364,6 +370,9 @@ class SqlDialect:
     def _build_length_sql(self, length: LENGTH) -> str:
         return f"LENGTH({self.build_expression_sql(length.expression)})"
 
+    def _build_max_sql(self, max: MAX) -> str:
+        return f"MAX({self.build_expression_sql(max.expression)})"
+
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (
             f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
@@ -387,6 +396,9 @@ class SqlDialect:
 
     def _build_ordinal_position_sql(self, ordinal_position: ORDINAL_POSITION) -> str:
         return "ORDINAL_POSITION"
+
+    def supports_function(self, function: str) -> bool:
+        return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum"]
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)

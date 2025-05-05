@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
@@ -73,6 +73,63 @@ def register_check_types() -> None:
 
     CheckImpl.register(RowCountCheckParser())
 
+    from soda_core.contracts.impl.check_types.aggregate_check import (
+        AggregateCheckParser,
+    )
+
+    CheckImpl.register(AggregateCheckParser())
+
+    from soda_core.contracts.impl.check_types.aggregate_check_yaml import (
+        AggregateCheckYamlParser,
+    )
+
+    CheckYaml.register(AggregateCheckYamlParser())
+
+    from soda_core.contracts.impl.check_types.metric_expression_check import (
+        MetricExpressionCheckParser,
+    )
+
+    CheckImpl.register(MetricExpressionCheckParser())
+
+    from soda_core.contracts.impl.check_types.metric_expression_check_yaml import (
+        MetricExpressionCheckYamlParser,
+    )
+
+    CheckYaml.register(MetricExpressionCheckYamlParser())
+
+    from soda_core.contracts.impl.check_types.metric_query_check_yaml import (
+        MetricQueryCheckYamlParser,
+    )
+
+    CheckYaml.register(MetricQueryCheckYamlParser())
+
+    from soda_core.contracts.impl.check_types.metric_query_check import (
+        MetricQueryCheckParser,
+    )
+
+    CheckImpl.register(MetricQueryCheckParser())
+    from soda_core.contracts.impl.check_types.freshness_check_yaml import (
+        FreshnessCheckYamlParser,
+    )
+
+    CheckYaml.register(FreshnessCheckYamlParser())
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckParser,
+    )
+
+    CheckImpl.register(FreshnessCheckParser())
+
+    from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
+        FailedRowsCheckYamlParser,
+    )
+
+    CheckYaml.register(FailedRowsCheckYamlParser())
+    from soda_core.contracts.impl.check_types.failed_rows_check import (
+        FailedRowsCheckParser,
+    )
+
+    CheckImpl.register(FailedRowsCheckParser())
+
 
 class ContractYaml:
     """
@@ -107,7 +164,7 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = datetime.now()
+        self.data_timestamp: datetime = datetime.now(timezone.utc)
         soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
@@ -190,9 +247,9 @@ class ContractYaml:
                 if convert_str_to_datetime(now_str) is None:
                     logger.error(f"Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: {now_str}")
                 variable_values["NOW"] = now_str
-        else:
-            # Default now initialization
-            variable_values["NOW"] = convert_datetime_to_str(datetime.now())
+        # else:
+        #     # Default now initialization
+        #     variable_values["NOW"] = convert_datetime_to_str(datetime.now(timezone.utc))
 
         return self._resolve_variables(variable_values=variable_values, soda_variable_values=soda_variable_values)
 
@@ -491,16 +548,20 @@ class CheckYaml(ABC):
 class ThresholdCheckYaml(CheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
-        self.metric: Optional[str] = check_yaml_object.read_string_opt("metric")
-        if self.metric and self.metric not in ["count", "percent"]:
-            logger.error(
-                msg="'metric' must be either 'count' or 'percent'",
-                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
-            )
+        self.metric: Optional[str] = self.read_metric_count_percent(check_yaml_object)
         self.threshold: Optional[ThresholdYaml] = None
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:
             self.threshold = ThresholdYaml(threshold_yaml_object)
+
+    def read_metric_count_percent(self, check_yaml_object: YamlObject) -> Optional[str]:
+        metric: Optional[str] = check_yaml_object.read_string_opt("metric")
+        if metric and metric not in ["count", "percent"]:
+            logger.error(
+                msg="'metric' must be either 'count' or 'percent'",
+                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+            )
+        return metric
 
 
 class ThresholdYaml:

@@ -206,11 +206,6 @@ class CheckResult(ABC):
         for diagnostic in self.diagnostics:
             logger.info(f"  {diagnostic.log_line()}")
 
-    def get_numeric_diagnostic_value(self, diagnostic_name: str) -> any:
-        return next(
-            (d.value for d in self.diagnostics if isinstance(d, NumericDiagnostic) and d.name == diagnostic_name), None
-        )
-
 
 class Measurement:
     def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):
@@ -229,11 +224,19 @@ class Diagnostic:
 
 
 @dataclass
-class NumericDiagnostic(Diagnostic):
+class MeasuredNumericValueDiagnostic(Diagnostic):
     value: float
 
     def log_line(self) -> str:
         return f"Actual {self.name} was {self.value}"
+
+
+@dataclass
+class TextDiagnostic(Diagnostic):
+    value: str
+
+    def log_line(self) -> str:
+        return f"{self.name} was {self.value}"
 
 
 class ContractVerificationResult:

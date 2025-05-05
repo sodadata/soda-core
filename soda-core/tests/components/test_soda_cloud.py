@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -144,7 +144,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
             MockResponse(
                 method=MockHttpMethod.GET,
                 status_code=200,
-                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now())},
+                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now(timezone.utc))},
                 json_object={
                     "scanId": "ssscanid",
                     "state": "running",

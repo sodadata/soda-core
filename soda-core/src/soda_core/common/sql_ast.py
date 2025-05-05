@@ -41,9 +41,9 @@ class WHERE:
 @dataclass
 class WITH:
     alias: str
-    cte_query: list = None
+    cte_query: list | str | None = None
 
-    def AS(self, cte_query: list) -> WITH:
+    def AS(self, cte_query: list | str) -> WITH:
         self.cte_query = cte_query
         return self
 
@@ -137,6 +137,11 @@ class COLUMN(SqlExpression):
 class FUNCTION(SqlExpression):
     name: str
     args: list[SqlExpression | str]
+
+
+@dataclass
+class MAX(SqlExpression):
+    expression: SqlExpression | str
 
 
 @dataclass

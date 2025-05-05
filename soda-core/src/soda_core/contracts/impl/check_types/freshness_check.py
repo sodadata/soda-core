@@ -1,0 +1,194 @@
+from __future__ import annotations
+
+import logging
+from datetime import timedelta, timezone
+
+from soda_core.common.datetime_conversions import convert_str_to_datetime
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_dialect import *
+from soda_core.contracts.contract_verification import (
+    CheckOutcome,
+    CheckResult,
+    Contract,
+    Diagnostic,
+    TextDiagnostic,
+)
+from soda_core.contracts.impl.check_types.freshness_check_yaml import FreshnessCheckYaml
+from soda_core.contracts.impl.contract_verification_impl import (
+    AggregationMetricImpl,
+    CheckImpl,
+    CheckParser,
+    ColumnImpl,
+    ContractImpl,
+    MeasurementValues,
+    ThresholdImpl,
+)
+
+logger: logging.Logger = soda_logger
+
+
+class FreshnessCheckParser(CheckParser):
+    def get_check_type_names(self) -> list[str]:
+        return ["freshness"]
+
+    def parse_check(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: FreshnessCheckYaml,
+    ) -> Optional[CheckImpl]:
+        return FreshnessCheckImpl(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            check_yaml=check_yaml,
+        )
+
+
+class FreshnessCheckImpl(CheckImpl):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: FreshnessCheckYaml,
+    ):
+        super().__init__(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            check_yaml=check_yaml,
+        )
+        self.threshold = ThresholdImpl.create(
+            threshold_yaml=check_yaml.threshold,
+        )
+
+        self.column = check_yaml.column
+        self.now_variable: Optional[str] = check_yaml.now_variable
+        self.unit: str = check_yaml.unit if check_yaml.unit else "hour"
+        self.resolved_variable_values = contract_impl.contract_yaml.resolved_variable_values
+        self.soda_variable_values = (
+            contract_impl.contract_yaml.contract_yaml_source.resolve_on_read_soda_variable_values
+        )
+
+        self.max_timestamp_metric = self._resolve_metric(
+            MaxTimestampMetricImpl(
+                contract_impl=contract_impl,
+                check_impl=self,
+                column=self.column,
+                now_variable=self.now_variable,
+                unit=self.unit,
+            )
+        )
+
+    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+
+        diagnostics: list[Diagnostic] = []
+        threshold_value: Optional[float] = None
+
+        max_timestamp: datetime = self._get_max_timestamp(measurement_values)
+        max_timestamp_utc: datetime = self._get_max_timestamp_utc(max_timestamp)
+        now_timestamp: datetime = self._get_now_timestamp()
+        now_timestamp_utc: datetime = self._get_now_timestamp_utc(now_timestamp)
+
+        diagnostics.append(TextDiagnostic(name="max_timestamp", value=str(max_timestamp)))
+        diagnostics.append(TextDiagnostic(name="max_timestamp_utc", value=str(max_timestamp_utc)))
+        diagnostics.append(TextDiagnostic(name="now_timestamp", value=str(now_timestamp)))
+        diagnostics.append(TextDiagnostic(name="now_timestamp_utc", value=str(now_timestamp_utc)))
+
+        threshold_value: Optional[float] = None
+        if now_timestamp_utc and max_timestamp_utc:
+            delta: timedelta = now_timestamp_utc - max_timestamp_utc
+            freshness_in_seconds: float = delta.total_seconds()
+
+            diagnostics.append(TextDiagnostic(name="freshness", value=str(delta)))
+            diagnostics.append(TextDiagnostic(name="freshness_in_seconds", value=str(freshness_in_seconds)))
+            diagnostics.append(TextDiagnostic(name="unit", value=self.unit))
+
+            if self.unit == "minute":
+                threshold_value = freshness_in_seconds / 60
+            elif self.unit == "hour":
+                threshold_value = freshness_in_seconds / (60 * 60)
+            elif self.unit == "day":
+                threshold_value = freshness_in_seconds / (60 * 60 * 24)
+
+            if threshold_value is not None:
+                diagnostics.append(TextDiagnostic(name=f"freshness_in_{self.unit}s", value=f"{threshold_value:.2f}"))
+
+            if self.threshold:
+                if self.threshold.passes(threshold_value):
+                    outcome = CheckOutcome.PASSED
+                else:
+                    outcome = CheckOutcome.FAILED
+
+        return CheckResult(
+            contract=contract,
+            check=self._build_check_info(),
+            metric_value=threshold_value,
+            outcome=outcome,
+            diagnostics=diagnostics,
+        )
+
+    def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
+        max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
+        if not isinstance(max_timestamp, datetime):
+            logger.error(f"Freshness column '{self.column}' does not have timestamp values: {max_timestamp}")
+        return max_timestamp
+
+    def _get_max_timestamp_utc(self, max_timestamp: Optional[datetime]) -> Optional[datetime]:
+        return self._datetime_to_utc(max_timestamp) if isinstance(max_timestamp, datetime) else None
+
+    def _get_now_timestamp(self) -> Optional[datetime]:
+        if self.now_variable is None or self.now_variable == "soda.NOW":
+            now_timestamp_str: str = self.soda_variable_values.get("NOW")
+        else:
+            now_timestamp_str: str = self.resolved_variable_values.get(self.now_variable)
+            if now_timestamp_str is None:
+                logger.error(f"Freshness variable '{self.now_variable}' not available")
+
+        if not isinstance(now_timestamp_str, str):
+            logger.error(f"Freshness variable '{self.now_variable}' is not available")
+        else:
+            now_timestamp: Optional[datetime] = convert_str_to_datetime(now_timestamp_str)
+            if not isinstance(now_timestamp, datetime):
+                logger.error(f"Freshness variable '{self.now_variable}' is not a timestamp: {now_timestamp_str}")
+            return now_timestamp
+
+    def _get_now_timestamp_utc(self, now_timestamp: Optional[datetime]) -> Optional[datetime]:
+        return self._datetime_to_utc(now_timestamp) if now_timestamp else None
+
+    @staticmethod
+    def _datetime_to_utc(input: datetime) -> datetime:
+        if input.tzinfo is None:
+            return input.replace(tzinfo=timezone.utc)
+        return input.astimezone(timezone.utc)
+
+
+class MaxTimestampMetricImpl(AggregationMetricImpl):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        check_impl: FreshnessCheckImpl,
+        column: str,
+        now_variable: Optional[str],
+        unit: Optional[str],
+    ):
+        self.column: str = column
+        self.now_variable: Optional[str] = now_variable
+        self.unit: Optional[str] = unit
+        super().__init__(
+            contract_impl=contract_impl,
+            metric_type=check_impl.type,
+            check_filter=check_impl.check_yaml.filter,
+        )
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, str] = super()._get_id_properties()
+        id_properties["column"] = self.column
+        id_properties["now_variable"] = self.now_variable
+        id_properties["unit"] = self.unit
+        return id_properties
+
+    def sql_expression(self) -> SqlExpression:
+        return MAX(self.column)
+
+    def convert_db_value(self, value) -> any:
+        return value
