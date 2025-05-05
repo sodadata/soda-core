@@ -99,7 +99,11 @@ def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
     contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=contract_yaml_str,
-        variables={"NNOWW": convert_datetime_to_str(datetime(year=2025, month=1, day=4, hour=11, minute=0, second=0))},
+        variables={
+            "NNOWW": convert_datetime_to_str(
+                datetime(year=2025, month=1, day=4, hour=10, minute=0, second=0, tzinfo=timezone.utc)
+            )
+        },
     )
     check_result: CheckResult = contract_verification_result_t1.check_results[0]
     assert get_diagnostic_value(check_result, "max_timestamp") == "2025-01-04 09:00:00"
