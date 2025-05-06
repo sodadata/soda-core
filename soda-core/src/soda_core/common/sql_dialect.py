@@ -131,15 +131,16 @@ class SqlDialect:
             if isinstance(select_element, WITH):
                 cte_query_sql_str: str | None = None
                 if isinstance(select_element.cte_query, list):
-                    cte_query_sql_str: str = self.build_select_sql(select_element.cte_query)
+                    cte_query_sql_str = self.build_select_sql(select_element.cte_query)
                     cte_query_sql_str = cte_query_sql_str.strip()
                 elif isinstance(select_element.cte_query, str):
-                    cte_query_sql_str: str = dedent(select_element.cte_query).strip()
-                cte_query_sql_str = cte_query_sql_str.rstrip(";")
-                indented_nested_select: str = indent(cte_query_sql_str, "  ")
-                cte_lines.append(f"WITH {self.quote_default(select_element.alias)} AS (")
-                cte_lines.extend(indented_nested_select.split("\n"))
-                cte_lines.append(f")")
+                    cte_query_sql_str = dedent(select_element.cte_query).strip()
+                if cte_query_sql_str:
+                    cte_query_sql_str = cte_query_sql_str.rstrip(";")
+                    indented_nested_query: str = indent(cte_query_sql_str, "  ")
+                    cte_lines.append(f"WITH {self.quote_default(select_element.alias)} AS (")
+                    cte_lines.extend(indented_nested_query.split("\n"))
+                    cte_lines.append(f")")
         return cte_lines
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
