@@ -507,6 +507,7 @@ class SodaCloud:
         variables: dict[str, str],
         blocking_timeout_in_minutes: int,
         publish_results: bool,
+        verbose: bool,
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
         contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path or "REMOTE"  # TODO
@@ -567,6 +568,7 @@ class SodaCloud:
                 },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
+            "verbose": verbose,
             "variables": variables,
         }
         response: Response = self._execute_command(

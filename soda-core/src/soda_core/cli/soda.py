@@ -152,6 +152,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         if variables is None:
             exit_with_code(ExitCode.LOG_ERRORS)
         publish = args.publish
+        verbose = args.verbose
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
 
@@ -162,6 +163,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             soda_cloud_file_path,
             variables,
             publish,
+            verbose,
             use_agent,
             blocking_timeout_in_minutes,
         )
