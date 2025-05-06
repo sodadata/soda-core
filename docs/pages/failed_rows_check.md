@@ -10,15 +10,10 @@ dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 checks:
   - failed_rows:
-      metric: rows_with_high_duration
       query: |
         SELECT *
         FROM "adventureworks"."advw"."dim_employee"
         WHERE ("end" - "start") > 5
 ```
-
-The `metric` is a name given to the row count value.  You will see this name in 
-and the value in the check diagnostics.  The convention is to use lower case 
-and underscores
 
 The `query` is a SQL query.
