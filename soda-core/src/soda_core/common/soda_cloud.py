@@ -141,6 +141,22 @@ class SodaCloud:
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
+    def mark_scan_as_failed(self, scan_id: str, logs: Optional[list[LogRecord]]) -> None:
+        """
+        Marks a scan as failed in Soda Cloud. This is used when the scan fails before we have any results to send.
+        """
+        log_dicts = [self._build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)]
+
+
+        self._execute_command(
+            command_json_dict={
+                "type": "sodaCoreMarkScanAsFailed",
+                "scanId": scan_id,
+                "logs": log_dicts
+            },
+            request_log_name="mark_scan_as_failed",
+        )
+
     def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
         logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
