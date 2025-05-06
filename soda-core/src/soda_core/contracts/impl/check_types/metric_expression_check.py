@@ -71,11 +71,7 @@ class MetricExpressionCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = []
 
         if isinstance(expression_metric_value, Number):
-            diagnostics.append(
-                MeasuredNumericValueDiagnostic(
-                    name=self.metric_expression_check_yaml.metric, value=expression_metric_value
-                )
-            )
+            diagnostics.append(MeasuredNumericValueDiagnostic(name="expression_value", value=expression_metric_value))
 
             if self.threshold:
                 if self.threshold.passes(expression_metric_value):

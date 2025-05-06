@@ -82,9 +82,7 @@ class MetricQueryCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = []
 
         if isinstance(query_metric_value, Number):
-            diagnostics.append(
-                MeasuredNumericValueDiagnostic(name=self.metric_query_check_yaml.metric, value=query_metric_value)
-            )
+            diagnostics.append(MeasuredNumericValueDiagnostic(name="query_value", value=query_metric_value))
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):

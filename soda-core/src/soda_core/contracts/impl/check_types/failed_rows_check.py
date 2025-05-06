@@ -84,9 +84,7 @@ class FailedRowsCheckImpl(CheckImpl):
         diagnostics: list[Diagnostic] = []
 
         if isinstance(query_metric_value, Number):
-            metric_name: str = (
-                self.failed_rows_check_yaml.metric if self.failed_rows_check_yaml.metric else "failed_rows_count"
-            )
+            metric_name: str = "failed_rows_count"
             diagnostics.append(MeasuredNumericValueDiagnostic(name=metric_name, value=query_metric_value))
 
             if self.threshold:

@@ -6,7 +6,7 @@
 > and check filters.  Here in metric_expression checks, you have to ensure those aspects 
 > are incorporated into your expression.
 
-### Verify the numeric value of a custom SQL expression 
+### Verify a numeric value obtained via a custom SQL expression 
 
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee

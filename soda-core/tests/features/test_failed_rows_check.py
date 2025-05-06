@@ -33,7 +33,6 @@ def test_failed_rows_basics(data_source_test_helper: DataSourceTestHelper):
         contract_yaml_str=f"""
             checks:
               - failed_rows:
-                  metric: rows_with_high_duration
                   query: |
                     SELECT *
                     FROM {test_table.qualified_name}
@@ -41,4 +40,4 @@ def test_failed_rows_basics(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "rows_with_high_duration") == 2
+    assert get_diagnostic_value(check_result, "failed_rows_count") == 2

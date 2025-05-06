@@ -28,6 +28,3 @@ class FailedRowsCheckYaml(ThresholdCheckYaml):
         self.query: Optional[str] = check_yaml_object.read_string("query")
         if self.query:
             self.query = dedent(self.query).strip()
-
-    def read_metric_count_percent(self, check_yaml_object: YamlObject) -> Optional[str]:
-        return check_yaml_object.read_string_opt("metric")

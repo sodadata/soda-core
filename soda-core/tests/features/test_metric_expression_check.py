@@ -34,7 +34,6 @@ def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
         contract_yaml_str=f"""
             checks:
               - metric_expression:
-                  metric: avg_duration
                   expression: |
                     AVG({end_quoted} - {start_quoted})
                   threshold:
@@ -42,4 +41,4 @@ def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "avg_duration") == 10
+    assert get_diagnostic_value(check_result, "expression_value") == 10
