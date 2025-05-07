@@ -57,7 +57,6 @@ class ContractVerificationSessionImpl:
         variables: Optional[dict[str, str]] = None,
         data_source_impls: Optional[list[DataSourceImpl]] = None,
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
-        soda_cloud_yaml_source: Optional[SodaCloudYamlSource] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
@@ -97,10 +96,6 @@ class ContractVerificationSessionImpl:
                 for data_source_yaml_source in data_source_yaml_sources
             )
 
-        # Validate input soda_cloud_yaml_source
-        if soda_cloud_yaml_source is not None:
-            assert isinstance(soda_cloud_yaml_source, SodaCloudYamlSource)
-
         # Validate input soda_cloud_impl
         if soda_cloud_impl is not None:
             assert isinstance(soda_cloud_impl, SodaCloud)
@@ -118,7 +113,6 @@ class ContractVerificationSessionImpl:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
                 contract_yaml_sources=contract_yaml_sources,
                 variables=variables,
-                soda_cloud_yaml_source=soda_cloud_yaml_source,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
@@ -133,7 +127,6 @@ class ContractVerificationSessionImpl:
                 provided_variable_values=variables,
                 data_source_impls=data_source_impls,
                 data_source_yaml_sources=data_source_yaml_sources,
-                soda_cloud_yaml_source=soda_cloud_yaml_source,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
             )
@@ -148,7 +141,6 @@ class ContractVerificationSessionImpl:
         provided_variable_values: dict[str, str],
         data_source_impls: list[DataSourceImpl],
         data_source_yaml_sources: list[DataSourceYamlSource],
-        soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
     ) -> list[ContractVerificationResult]:
@@ -157,12 +149,6 @@ class ContractVerificationSessionImpl:
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impl_by_name(
             data_source_impls=data_source_impls,
             data_source_yaml_sources=data_source_yaml_sources,
-            provided_variable_values=provided_variable_values,
-        )
-
-        soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
-            soda_cloud_impl=soda_cloud_impl,
-            soda_cloud_yaml_source=soda_cloud_yaml_source,
             provided_variable_values=provided_variable_values,
         )
 
@@ -259,19 +245,12 @@ class ContractVerificationSessionImpl:
         cls,
         contract_yaml_sources: list[ContractYamlSource],
         variables: dict[str, str],
-        soda_cloud_yaml_source: Optional[SodaCloudYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
-
-        soda_cloud_impl: SodaCloud = cls._build_soda_cloud_impl(
-            soda_cloud_impl=soda_cloud_impl,
-            soda_cloud_yaml_source=soda_cloud_yaml_source,
-            provided_variable_values=variables,
-        )
 
         for contract_yaml_source in contract_yaml_sources:
             try:

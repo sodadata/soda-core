@@ -11,11 +11,7 @@ from typing import Optional
 
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    DataSourceYamlSource,
-    SodaCloudYamlSource,
-)
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 
 logger: logging.Logger = soda_logger
 
@@ -30,7 +26,6 @@ class ContractVerificationSession:
         data_source_impls: Optional[list["DataSourceImpl"]] = None,
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional["SodaCloud"] = None,
-        soda_cloud_yaml_source: Optional[SodaCloudYamlSource] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
@@ -47,7 +42,6 @@ class ContractVerificationSession:
             data_source_impls=data_source_impls,
             data_source_yaml_sources=data_source_yaml_sources,
             soda_cloud_impl=soda_cloud_impl,
-            soda_cloud_yaml_source=soda_cloud_yaml_source,
             soda_cloud_publish_results=soda_cloud_publish_results,
             soda_cloud_use_agent=soda_cloud_use_agent,
             soda_cloud_verbose=soda_cloud_verbose,

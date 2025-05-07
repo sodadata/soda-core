@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -17,6 +16,8 @@ class DatasetIdentifier:
 
     @classmethod
     def parse(cls, dataset_qualified_name: Optional[str]) -> DatasetIdentifier:
+        from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
+
         if not dataset_qualified_name:
             raise InvalidDatasetQualifiedNameException("Identifier must be a valid string and cannot be None")
 

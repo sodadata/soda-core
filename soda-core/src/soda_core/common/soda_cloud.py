@@ -20,8 +20,12 @@ from soda_core.common.datetime_conversions import (
     convert_str_to_datetime,
 )
 from soda_core.common.exceptions import (
+    ContractNotFoundException,
+    DatasetNotFoundException,
+    DataSourceNotFoundException,
     InvalidSodaCloudConfigurationException,
     SodaCloudAuthenticationFailedException,
+    SodaCloudException,
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -42,29 +46,22 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 logger: logging.Logger = soda_logger
 
 
-class RemoteScanStatus:
-    QUEUING = "queuing"
-    EXECUTING = "executing"
-    CANCELATION_REQUESTED = "cancelationRequested"
-    TIME_OUT_REQUESTED = "timeOutRequested"
-    CANCELED = "canceled"
-    TIMED_OUT = "timedOut"
-    FAILED = "failed"
-    COMPLETED_WITH_ERRORS = "completedWithErrors"
-    COMPLETED_WITH_FAILURES = "completedWithFailures"
-    COMPLETED_WITH_WARNINGS = "completedWithWarnings"
-    COMPLETED = "completed"
+class RemoteScanStatus(Enum):
+    QUEUING = ("queuing", False)
+    EXECUTING = ("executing", False)
+    CANCELATION_REQUESTED = ("cancelationRequested", False)
+    TIME_OUT_REQUESTED = ("timeOutRequested", False)
+    CANCELED = ("canceled", True)
+    TIMED_OUT = ("timedOut", True)
+    FAILED = ("failed", True)
+    COMPLETED_WITH_ERRORS = ("completedWithErrors", True)
+    COMPLETED_WITH_FAILURES = ("completedWithFailures", True)
+    COMPLETED_WITH_WARNINGS = ("completedWithWarnings", True)
+    COMPLETED = ("completed", True)
 
-
-REMOTE_SCAN_FINAL_STATES = [
-    RemoteScanStatus.CANCELED,
-    RemoteScanStatus.TIMED_OUT,
-    RemoteScanStatus.FAILED,
-    RemoteScanStatus.COMPLETED_WITH_ERRORS,
-    RemoteScanStatus.COMPLETED_WITH_FAILURES,
-    RemoteScanStatus.COMPLETED_WITH_WARNINGS,
-    RemoteScanStatus.COMPLETED,
-]
+    def __init__(self, value: str, is_final_state: bool):
+        self._value_ = value
+        self.is_final_state = is_final_state
 
 
 class TimestampToCreatedLoggingFilter(logging.Filter):
@@ -83,6 +80,47 @@ class SodaCloud:
     # Constants
     ORG_CONFIG_KEY_DISABLE_COLLECTING_WH_DATA = "disableCollectingWarehouseData"
     CSV_TEXT_MAX_LENGTH = 1500
+
+    @classmethod
+    def from_config(
+        cls, config_file_path: Optional[str], provided_variable_values: Optional[dict[str, str]] = None
+    ) -> Optional[SodaCloud]:
+        if not config_file_path:
+            return None
+
+        soda_cloud_yaml_source: SodaCloudYamlSource = SodaCloudYamlSource.from_file_path(file_path=config_file_path)
+        soda_cloud_yaml_source.resolve(variables=provided_variable_values)
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
+
+        if not soda_cloud_yaml_root_object:
+            logger.error("Invalid Soda Cloud config file: No valid YAML object as file content")
+            return None
+
+        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
+        if not soda_cloud_yaml_object:
+            logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
+
+        if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
+            logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
+
+        if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_id"):
+            raise InvalidSodaCloudConfigurationException(
+                f"Missing required 'api_key_id' property in your Soda Cloud configuration."
+            )
+
+        if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_secret"):
+            raise InvalidSodaCloudConfigurationException(
+                f"Missing required 'api_key_secret' property in your Soda Cloud configuration."
+            )
+
+        return SodaCloud(
+            host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", required=False),
+            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret", required=False),
+            token=soda_cloud_token,
+            port=soda_cloud_yaml_object.read_string_opt(key="port"),
+            scheme=soda_cloud_yaml_object.read_string_opt(key="scheme", default_value="https"),
+        )
 
     @classmethod
     def from_yaml_source(
@@ -141,6 +179,30 @@ class SodaCloud:
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
+    def mark_scan_as_failed(
+        self, scan_id: Optional[str] = None, logs: Optional[list[LogRecord]] = None, exc: Optional[Exception] = None
+    ) -> None:
+        """
+        Marks a scan as failed in Soda Cloud. This is used when the scan fails before we have any results to send.
+        """
+        if not scan_id:
+            if not "SODA_SCAN_ID" in os.environ:
+                logger.debug("No scan ID provided, not marking scan as failed")
+                return
+            scan_id = os.environ["SODA_SCAN_ID"]
+
+        cloud_log_dicts = (
+            [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
+        )
+
+        if exc:
+            cloud_log_dicts = _append_exception_to_cloud_log_dicts(cloud_log_dicts, exc)
+
+        self._execute_command(
+            command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
+            request_log_name="mark_scan_as_failed",
+        )
+
     def upload_contract_file(self, contract: Contract) -> str:
         contract_yaml_source_str = contract.source.source_content_str
         logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
@@ -157,7 +219,7 @@ class SodaCloud:
         """
         Returns True if a 200 OK was received, False otherwise
         """
-        contract_verification_result = self._build_contract_result_json(
+        contract_verification_result = _build_contract_result_json(
             contract_verification_result=contract_verification_result
         )
         contract_verification_result["type"] = "sodaCoreInsertScanResults"
@@ -174,164 +236,6 @@ class SodaCloud:
             return True
         else:
             return False
-
-    def _build_contract_result_json(self, contract_verification_result: ContractVerificationResult) -> dict:
-        check_result_cloud_json_dicts = [
-            self._build_check_result_cloud_dict(check_result)
-            for check_result in contract_verification_result.check_results
-            # TODO ask m1no if this should be ported
-            # if check.check_type == CheckType.CLOUD
-            # and (check.outcome is not None or check.force_send_results_to_cloud is True)
-            # and check.archetype is None
-        ]
-
-        log_cloud_json_dicts: list[dict] = [
-            self._build_log_cloud_json_dict(log_record, index)
-            for index, log_record in enumerate(contract_verification_result.log_records)
-            # TODO ask m1no if this should be ported
-            # if check.check_type == CheckType.CLOUD
-            # and (check.outcome is not None or check.force_send_results_to_cloud is True)
-            # and check.archetype is None
-        ]
-
-        # The scan definition name is still required on result ingestion to link to the contract
-        # and determine if we're dealing with a default or test contract.
-        scan_definition_name = contract_verification_result.contract.soda_qualified_dataset_name
-        if "SODA_SCAN_DEFINITION" in os.environ:
-            scan_definition_name = os.environ["SODA_SCAN_DEFINITION"]
-            logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
-
-        contract_result_json: dict = self.to_jsonnable(  # type: ignore
-            {
-                "definitionName": scan_definition_name,
-                "defaultDataSource": contract_verification_result.data_source.name,
-                "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
-                # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
-                # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
-                "dataTimestamp": contract_verification_result.data_timestamp,
-                # scanStartTimestamp is the actual time when the scan started.
-                "scanStartTimestamp": contract_verification_result.started_timestamp,
-                # scanEndTimestamp is the actual time when scan ended.
-                "scanEndTimestamp": contract_verification_result.ended_timestamp,
-                "hasErrors": contract_verification_result.has_errors(),
-                "hasWarnings": False,
-                "hasFailures": contract_verification_result.is_failed(),
-                # "metrics": [metric.get_cloud_dict() for metric in contract_result._metrics],
-                # If archetype is not None, it means that check is automated monitoring
-                "checks": check_result_cloud_json_dicts,
-                # "queries": querys,
-                # "automatedMonitoringChecks": automated_monitoring_checks,
-                # "profiling": profiling,
-                # "metadata": [
-                #     discover_tables_result.get_cloud_dict()
-                #     for discover_tables_result in contract_result._discover_tables_result_tables
-                # ],
-                "logs": log_cloud_json_dicts,
-                "sourceOwner": "soda-core",
-                "contract": {
-                    "fileId": contract_verification_result.contract.source.soda_cloud_file_id,
-                    "dataset": {
-                        "datasource": contract_verification_result.contract.data_source_name,
-                        "prefixes": contract_verification_result.contract.dataset_prefix,
-                        "name": contract_verification_result.contract.dataset_name,
-                    },
-                    "metadata": {
-                        "source": {
-                            "type": "local",
-                            # TODO: make contract metadata verification optional on BE?
-                            "filePath": contract_verification_result.contract.source.local_file_path or "REMOTE",
-                        }
-                    },
-                },
-            }
-        )
-
-        if "SODA_SCAN_ID" in os.environ:
-            soda_scan_id = os.environ["SODA_SCAN_ID"]
-            logger.debug(f"Using SODA_SCAN_ID from environment variable: {soda_scan_id}")
-            contract_result_json["scanId"] = soda_scan_id
-
-        return contract_result_json
-
-    def _translate_check_outcome_for_soda_cloud(self, outcome: CheckOutcome) -> str:
-        if outcome == CheckOutcome.PASSED:
-            return "pass"
-        elif outcome == CheckOutcome.FAILED:
-            return "fail"
-        return "unevaluated"
-
-    def _build_check_result_cloud_dict(self, check_result: CheckResult) -> dict:
-        check_result_cloud_dict: dict = {
-            "identities": {"vc1": check_result.check.identity},
-            "checkPath": self._build_check_path(check_result),
-            "name": check_result.check.name,
-            "type": "generic",
-            "checkType": check_result.check.type,
-            "definition": check_result.check.definition,
-            "resourceAttributes": [],  # TODO
-            "location": {
-                "filePath": (
-                    check_result.contract.source.local_file_path
-                    if isinstance(check_result.contract.source.local_file_path, str)
-                    else "yamlstr.yml"
-                ),
-                "line": check_result.check.contract_file_line,
-                "col": check_result.check.contract_file_column,
-            },
-            "dataSource": check_result.contract.data_source_name,
-            "table": check_result.contract.dataset_name,
-            "datasetPrefix": check_result.contract.dataset_prefix,
-            "column": check_result.check.column_name,
-            # "metrics": [
-            #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
-            # ],
-            "outcome": self._translate_check_outcome_for_soda_cloud(check_result.outcome),
-            "source": "soda-contract",
-        }
-        if check_result.metric_value is not None and check_result.check.threshold is not None:
-            t: Threshold = check_result.check.threshold
-            fail_threshold: dict = {}
-            if t.must_be_less_than_or_equal is not None:
-                fail_threshold["greaterThan"] = t.must_be_less_than_or_equal
-            if t.must_be_less_than is not None:
-                fail_threshold["greaterThanOrEqual"] = t.must_be_less_than
-            if t.must_be_greater_than_or_equal is not None:
-                fail_threshold["lessThan"] = t.must_be_greater_than_or_equal
-            if t.must_be_greater_than is not None:
-                fail_threshold["lessThanOrEqual"] = t.must_be_greater_than
-            check_result_cloud_dict["diagnostics"] = {
-                "blocks": [],
-                "value": check_result.metric_value,
-                "fail": fail_threshold,
-            }
-        return check_result_cloud_dict
-
-    def _build_check_path(self, check_result: CheckResult) -> str:
-        check: Check = check_result.check
-        parts: list[str] = []
-        if check.column_name:
-            parts.append("columns")
-            parts.append(check.column_name)
-        parts.append("checks")
-        parts.append(check_result.check.type)
-        if check.qualifier:
-            parts.append(check.qualifier)
-        return ".".join(parts)
-
-    def _build_log_cloud_json_dict(self, log_record: LogRecord, index: int) -> dict:
-        return {
-            "level": log_record.levelname.lower(),
-            "message": log_record.msg,
-            "timestamp": datetime.fromtimestamp(log_record.created),
-            "index": index,
-            "doc": log_record.doc if hasattr(log_record, "doc") else None,
-            "exception": log_record.exception if hasattr(log_record, "exception") else None,
-            "location": (
-                log_record.location.get_dict()
-                if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
-                else None
-            ),
-        }
 
     def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
         """
@@ -674,7 +578,7 @@ class SodaCloud:
 
         return verification_result
 
-    def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
+    def fetch_contract_for_dataset(self, dataset_identifier: str) -> str:
         """Fetch the contract contents for the given dataset identifier.
 
         Returns:
@@ -695,39 +599,24 @@ class SodaCloud:
             },
         }
         response = self._execute_query(request, request_log_name="get_contract")
-
         response_dict = response.json()
 
         if response.status_code == 400:
             error_code = response_dict.get("code")
 
             if error_code == "contract_not_found":
-                logger.error(
-                    f"No data contract found for dataset '{dataset_identifier}' in Soda Cloud. "
-                    "Please publish a contract for this dataset in Soda Cloud before proceeding."
-                )
+                raise ContractNotFoundException(parsed_identifier)
             elif error_code == "datasource_not_found":
-                logger.error(
-                    f"Data source '{parsed_identifier.data_source_name}' is unknown in Soda Cloud. "
-                    "Please verify the data source name or configure it in Soda Cloud."
-                )
+                raise DataSourceNotFoundException(parsed_identifier)
             elif error_code == "dataset_not_found":
-                logger.error(
-                    f"Dataset'{dataset_identifier}' is unknown in Soda Cloud. "
-                    "Please verify the dataset name or configure it in Soda Cloud."
-                )
-
-            return None
+                raise DatasetNotFoundException(parsed_identifier)
 
         if response.status_code != 200:
-            logger.error(
-                f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'"
-            )
-            return None
+            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'")
 
         return response_dict.get("contents")
 
-    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> Optional[str]:
+    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> str:
         """Fetches the data source configuration for the source associated with the given dataset identifier.
 
         Returns:
@@ -749,14 +638,17 @@ class SodaCloud:
             },
         }
         response = self._execute_query(request, request_log_name="get_contract_data_source_configuration")
+        response_dict = response.json()
+
+        if response.status_code == 400:
+            if response_dict["code"] == "datasource_not_found":
+                raise DataSourceNotFoundException(parsed_identifier)
 
         if response.status_code != 200:
-            logger.error(
-                f"{Emoticons.CROSS_MARK} Failed to retrieve data source configuration for dataset '{dataset_identifier}'"
+            raise SodaCloudException(
+                f"Failed to retrieve data source configuration for dataset '{dataset_identifier}': {response_dict['message']}"
             )
-            return None
 
-        response_dict = response.json()
         return response_dict.get("contents")
 
     def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
@@ -840,7 +732,7 @@ class SodaCloud:
     ) -> Response:
         try:
             request_body["token"] = self._get_token()
-            log_body_text: str = json.dumps(self.to_jsonnable(request_body), indent=2)
+            log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
             logger.debug(f"Sending {request_type} {request_log_name} to Soda Cloud with body: {log_body_text}")
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
@@ -951,46 +843,227 @@ class SodaCloud:
             assert self.token, "No token in login response?!"
         return self.token
 
-    @classmethod
-    def to_jsonnable(cls, o) -> object:
-        if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
-            return o
-        if isinstance(o, dict):
-            for key, value in o.items():
-                update = False
-                if not isinstance(key, str):
-                    del o[key]
-                    key = str(key)
-                    update = True
 
-                jsonnable_value = cls.to_jsonnable(value)
-                if value is not jsonnable_value:
-                    value = jsonnable_value
-                    update = True
-                if update:
-                    o[key] = value
-            return o
-        if isinstance(o, tuple):
-            return cls.to_jsonnable(list(o))
-        if isinstance(o, list):
-            for i in range(len(o)):
-                element = o[i]
-                jsonnable_element = cls.to_jsonnable(element)
-                if element is not jsonnable_element:
-                    o[i] = jsonnable_element
-            return o
-        if isinstance(o, Decimal):
-            return float(o)
-        if isinstance(o, datetime):
-            return convert_datetime_to_str(o)
-        if isinstance(o, date):
-            return o.strftime("%Y-%m-%d")
-        if isinstance(o, time):
-            return o.strftime("%H:%M:%S")
-        if isinstance(o, timedelta):
-            return str(o)
-        if isinstance(o, Enum):
-            return o.value
-        if isinstance(o, Exception):
-            return str(o)
-        raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
+def to_jsonnable(o) -> object:
+    if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
+        return o
+    if isinstance(o, dict):
+        for key, value in o.items():
+            update = False
+            if not isinstance(key, str):
+                del o[key]
+                key = str(key)
+                update = True
+
+            jsonnable_value = to_jsonnable(value)
+            if value is not jsonnable_value:
+                value = jsonnable_value
+                update = True
+            if update:
+                o[key] = value
+        return o
+    if isinstance(o, tuple):
+        return to_jsonnable(list(o))
+    if isinstance(o, list):
+        for i in range(len(o)):
+            element = o[i]
+            jsonnable_element = to_jsonnable(element)
+            if element is not jsonnable_element:
+                o[i] = jsonnable_element
+        return o
+    if isinstance(o, Decimal):
+        return float(o)
+    if isinstance(o, datetime):
+        return convert_datetime_to_str(o)
+    if isinstance(o, date):
+        return o.strftime("%Y-%m-%d")
+    if isinstance(o, time):
+        return o.strftime("%H:%M:%S")
+    if isinstance(o, timedelta):
+        return str(o)
+    if isinstance(o, Enum):
+        return o.value
+    if isinstance(o, Exception):
+        return str(o)
+    raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
+
+
+def _build_contract_result_json(contract_verification_result: ContractVerificationResult) -> dict:
+    check_result_cloud_json_dicts = [
+        _build_check_result_cloud_dict(check_result)
+        for check_result in contract_verification_result.check_results
+        # TODO ask m1no if this should be ported
+        # if check.check_type == CheckType.CLOUD
+        # and (check.outcome is not None or check.force_send_results_to_cloud is True)
+        # and check.archetype is None
+    ]
+
+    log_cloud_json_dicts: list[dict] = [
+        _build_log_cloud_json_dict(log_record, index)
+        for index, log_record in enumerate(contract_verification_result.log_records)
+        # TODO ask m1no if this should be ported
+        # if check.check_type == CheckType.CLOUD
+        # and (check.outcome is not None or check.force_send_results_to_cloud is True)
+        # and check.archetype is None
+    ]
+
+    # The scan definition name is still required on result ingestion to link to the contract
+    # and determine if we're dealing with a default or test contract.
+    scan_definition_name = contract_verification_result.contract.soda_qualified_dataset_name
+    if "SODA_SCAN_DEFINITION" in os.environ:
+        scan_definition_name = os.environ["SODA_SCAN_DEFINITION"]
+        logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
+
+    contract_result_json: dict = to_jsonnable(  # type: ignore
+        {
+            "definitionName": scan_definition_name,
+            "defaultDataSource": contract_verification_result.data_source.name,
+            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
+            # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
+            # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
+            "dataTimestamp": contract_verification_result.data_timestamp,
+            # scanStartTimestamp is the actual time when the scan started.
+            "scanStartTimestamp": contract_verification_result.started_timestamp,
+            # scanEndTimestamp is the actual time when scan ended.
+            "scanEndTimestamp": contract_verification_result.ended_timestamp,
+            "hasErrors": contract_verification_result.has_errors(),
+            "hasWarnings": False,
+            "hasFailures": contract_verification_result.is_failed(),
+            # "metrics": [metric.get_cloud_dict() for metric in contract_result._metrics],
+            # If archetype is not None, it means that check is automated monitoring
+            "checks": check_result_cloud_json_dicts,
+            # "queries": querys,
+            # "automatedMonitoringChecks": automated_monitoring_checks,
+            # "profiling": profiling,
+            # "metadata": [
+            #     discover_tables_result.get_cloud_dict()
+            #     for discover_tables_result in contract_result._discover_tables_result_tables
+            # ],
+            "logs": log_cloud_json_dicts,
+            "sourceOwner": "soda-core",
+            "contract": {
+                "fileId": contract_verification_result.contract.source.soda_cloud_file_id,
+                "dataset": {
+                    "datasource": contract_verification_result.contract.data_source_name,
+                    "prefixes": contract_verification_result.contract.dataset_prefix,
+                    "name": contract_verification_result.contract.dataset_name,
+                },
+                "metadata": {
+                    "source": {
+                        "type": "local",
+                        # TODO: make contract metadata verification optional on BE?
+                        "filePath": contract_verification_result.contract.source.local_file_path or "REMOTE",
+                    }
+                },
+            },
+        }
+    )
+
+    if "SODA_SCAN_ID" in os.environ:
+        soda_scan_id = os.environ["SODA_SCAN_ID"]
+        logger.debug(f"Using SODA_SCAN_ID from environment variable: {soda_scan_id}")
+        contract_result_json["scanId"] = soda_scan_id
+
+    return contract_result_json
+
+
+def _translate_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
+    if outcome == CheckOutcome.PASSED:
+        return "pass"
+    elif outcome == CheckOutcome.FAILED:
+        return "fail"
+    return "unevaluated"
+
+
+def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
+    check_result_cloud_dict: dict = {
+        "identities": {"vc1": check_result.check.identity},
+        "checkPath": _build_check_path(check_result),
+        "name": check_result.check.name,
+        "type": "generic",
+        "checkType": check_result.check.type,
+        "definition": check_result.check.definition,
+        "resourceAttributes": [],  # TODO
+        "location": {
+            "filePath": (
+                check_result.contract.source.local_file_path
+                if isinstance(check_result.contract.source.local_file_path, str)
+                else "yamlstr.yml"
+            ),
+            "line": check_result.check.contract_file_line,
+            "col": check_result.check.contract_file_column,
+        },
+        "dataSource": check_result.contract.data_source_name,
+        "table": check_result.contract.dataset_name,
+        "datasetPrefix": check_result.contract.dataset_prefix,
+        "column": check_result.check.column_name,
+        # "metrics": [
+        #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
+        # ],
+        "outcome": _translate_check_outcome_for_soda_cloud(check_result.outcome),
+        "source": "soda-contract",
+    }
+    if check_result.metric_value is not None and check_result.check.threshold is not None:
+        t: Threshold = check_result.check.threshold
+        fail_threshold: dict = {}
+        if t.must_be_less_than_or_equal is not None:
+            fail_threshold["greaterThan"] = t.must_be_less_than_or_equal
+        if t.must_be_less_than is not None:
+            fail_threshold["greaterThanOrEqual"] = t.must_be_less_than
+        if t.must_be_greater_than_or_equal is not None:
+            fail_threshold["lessThan"] = t.must_be_greater_than_or_equal
+        if t.must_be_greater_than is not None:
+            fail_threshold["lessThanOrEqual"] = t.must_be_greater_than
+        check_result_cloud_dict["diagnostics"] = {
+            "blocks": [],
+            "value": check_result.metric_value,
+            "fail": fail_threshold,
+        }
+    return check_result_cloud_dict
+
+
+def _build_check_path(check_result: CheckResult) -> str:
+    check: Check = check_result.check
+    parts: list[str] = []
+    if check.column_name:
+        parts.append("columns")
+        parts.append(check.column_name)
+    parts.append("checks")
+    parts.append(check_result.check.type)
+    if check.qualifier:
+        parts.append(check.qualifier)
+    return ".".join(parts)
+
+
+def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
+    return {
+        "level": log_record.levelname.lower(),
+        "message": log_record.msg,
+        "timestamp": datetime.fromtimestamp(log_record.created),
+        "index": index,
+        "doc": log_record.doc if hasattr(log_record, "doc") else None,
+        "exception": log_record.exception if hasattr(log_record, "exception") else None,
+        "location": (
+            log_record.location.get_dict()
+            if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
+            else None
+        ),
+    }
+
+
+def _exception_to_cloud_log_dict(exception: Exception) -> dict:
+    return {
+        "level": "error",
+        "message": "An exception occurred",
+        "timestamp": datetime.now(timezone.utc),
+        "index": 0,
+        "exception": str(exception),
+        "location": None,
+    }
+
+
+def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception: Exception) -> list[dict]:
+    exc_cloud_log_dict = _exception_to_cloud_log_dict(exception)
+    exc_cloud_log_dict["index"] = len(cloud_log_dicts)
+    cloud_log_dicts.append(exc_cloud_log_dict)
+    return cloud_log_dicts
