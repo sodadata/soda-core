@@ -112,9 +112,6 @@ def _create_datasource_yamls(
         soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
         data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
 
-        if not data_source_config:
-            raise InvalidDataSourceConfigurationException("Could not fetch data source configuration from cloud")
-
         return DataSourceYamlSource.from_str(data_source_config)
 
     raise InvalidDataSourceConfigurationException(

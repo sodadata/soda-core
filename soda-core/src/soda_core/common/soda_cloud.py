@@ -21,7 +21,8 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.exceptions import (
     InvalidSodaCloudConfigurationException,
-    SodaCloudAuthenticationFailedException,
+    SodaCloudAuthenticationFailedException, ContractNotFoundException, DataSourceNotFoundException,
+    DatasetNotFoundException, SodaCloudException,
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -578,7 +579,7 @@ class SodaCloud:
 
         return verification_result
 
-    def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
+    def fetch_contract_for_dataset(self, dataset_identifier: str) -> str:
         """Fetch the contract contents for the given dataset identifier.
 
         Returns:
@@ -599,39 +600,25 @@ class SodaCloud:
             },
         }
         response = self._execute_query(request, request_log_name="get_contract")
-
         response_dict = response.json()
 
         if response.status_code == 400:
             error_code = response_dict.get("code")
 
             if error_code == "contract_not_found":
-                logger.error(
-                    f"No data contract found for dataset '{dataset_identifier}' in Soda Cloud. "
-                    "Please publish a contract for this dataset in Soda Cloud before proceeding."
-                )
+                raise ContractNotFoundException(parsed_identifier)
             elif error_code == "datasource_not_found":
-                logger.error(
-                    f"Data source '{parsed_identifier.data_source_name}' is unknown in Soda Cloud. "
-                    "Please verify the data source name or configure it in Soda Cloud."
-                )
+                raise DataSourceNotFoundException(parsed_identifier)
             elif error_code == "dataset_not_found":
-                logger.error(
-                    f"Dataset'{dataset_identifier}' is unknown in Soda Cloud. "
-                    "Please verify the dataset name or configure it in Soda Cloud."
-                )
-
-            return None
+                raise DatasetNotFoundException(parsed_identifier)
 
         if response.status_code != 200:
-            logger.error(
-                f"{Emoticons.CROSS_MARK} Failed to retrieve contract contents for dataset '{dataset_identifier}'"
-            )
-            return None
+            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'"
+)
 
         return response_dict.get("contents")
 
-    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> Optional[str]:
+    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> str:
         """Fetches the data source configuration for the source associated with the given dataset identifier.
 
         Returns:
@@ -653,14 +640,17 @@ class SodaCloud:
             },
         }
         response = self._execute_query(request, request_log_name="get_contract_data_source_configuration")
+        response_dict = response.json()
+
+        if response.status_code == 400:
+            if response_dict["code"] == "datasource_not_found":
+                raise DataSourceNotFoundException(parsed_identifier)
 
         if response.status_code != 200:
-            logger.error(
-                f"{Emoticons.CROSS_MARK} Failed to retrieve data source configuration for dataset '{dataset_identifier}'"
+            raise SodaCloudException(
+                f"Failed to retrieve data source configuration for dataset '{dataset_identifier}': {response_dict['message']}"
             )
-            return None
 
-        response_dict = response.json()
         return response_dict.get("contents")
 
     def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
