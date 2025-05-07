@@ -40,11 +40,9 @@ def handle_verify_contract(
 
         # TODO: decide on implications of this
         if dataset_identifiers and len(dataset_identifiers) > 1:
-            soda_logger.error(
-                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
-                f"Please pass a single dataset identifier."
+            raise InvalidArgumentException(
+                "We currently only support a single data source configuration. Please pass a single dataset identifier."
             )
-            return ExitCode.LOG_ERRORS
 
         data_source_yaml_source = _create_datasource_yamls(
             data_source_file_path, dataset_identifiers, soda_cloud_client
