@@ -194,16 +194,19 @@ class SodaCloud:
                 return
             scan_id = os.environ["SODA_SCAN_ID"]
 
-        log_dicts = (
+        cloud_log_dicts = (
             [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)]
             if logs else []
         )
+
+        if exc:
+            cloud_log_dicts = _append_exception_to_cloud_log_dicts(cloud_log_dicts, exc)
 
         self._execute_command(
             command_json_dict={
                 "type": "sodaCoreMarkScanFailed",
                 "scanId": scan_id,
-                "logs": log_dicts
+                "logs": cloud_log_dicts
             },
             request_log_name="mark_scan_as_failed",
         )
@@ -1071,9 +1074,16 @@ def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
 def _exception_to_cloud_log_dict(exception: Exception) -> dict:
     return {
         "level": "error",
-        "message": str(exception),
+        "message": "An exception occurred",
         "timestamp": datetime.now(timezone.utc),
         "index": 0,
         "exception": str(exception),
         "location": None,
     }
+
+
+def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception: Exception) -> list[dict]:
+    exc_cloud_log_dict = _exception_to_cloud_log_dict(exception)
+    exc_cloud_log_dict["index"] = len(cloud_log_dicts)
+    cloud_log_dicts.append(exc_cloud_log_dict)
+    return cloud_log_dicts

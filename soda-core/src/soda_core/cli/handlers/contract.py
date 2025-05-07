@@ -61,10 +61,10 @@ def handle_verify_contract(
 
         return interpret_contract_verification_result(contract_verification_session_result)
 
-    except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as e:
-        soda_logger.error(e)
+    except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
+        soda_logger.error(exc)
         if soda_cloud_client:
-            soda_cloud_client.mark_scan_as_failed()
+            soda_cloud_client.mark_scan_as_failed(exc=exc)
         return ExitCode.LOG_ERRORS
 
 
