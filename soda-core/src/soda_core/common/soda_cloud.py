@@ -20,9 +20,12 @@ from soda_core.common.datetime_conversions import (
     convert_str_to_datetime,
 )
 from soda_core.common.exceptions import (
+    ContractNotFoundException,
+    DatasetNotFoundException,
+    DataSourceNotFoundException,
     InvalidSodaCloudConfigurationException,
-    SodaCloudAuthenticationFailedException, ContractNotFoundException, DataSourceNotFoundException,
-    DatasetNotFoundException, SodaCloudException,
+    SodaCloudAuthenticationFailedException,
+    SodaCloudException,
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
@@ -41,6 +44,7 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
+
 
 class RemoteScanStatus(Enum):
     QUEUING = ("queuing", False)
@@ -188,19 +192,14 @@ class SodaCloud:
             scan_id = os.environ["SODA_SCAN_ID"]
 
         cloud_log_dicts = (
-            [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)]
-            if logs else []
+            [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
         )
 
         if exc:
             cloud_log_dicts = _append_exception_to_cloud_log_dicts(cloud_log_dicts, exc)
 
         self._execute_command(
-            command_json_dict={
-                "type": "sodaCoreMarkScanFailed",
-                "scanId": scan_id,
-                "logs": cloud_log_dicts
-            },
+            command_json_dict={"type": "sodaCoreMarkScanFailed", "scanId": scan_id, "logs": cloud_log_dicts},
             request_log_name="mark_scan_as_failed",
         )
 
@@ -613,8 +612,7 @@ class SodaCloud:
                 raise DatasetNotFoundException(parsed_identifier)
 
         if response.status_code != 200:
-            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'"
-)
+            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'")
 
         return response_dict.get("contents")
 

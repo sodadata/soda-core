@@ -11,11 +11,7 @@ from typing import Optional
 
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    DataSourceYamlSource,
-    SodaCloudYamlSource,
-)
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 
 logger: logging.Logger = soda_logger
 

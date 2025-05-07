@@ -151,7 +151,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
         use_agent=True,
         verbose=False,
         blocking_timeout_in_minutes=10,
-        soda_cloud_client=MagicMock()
+        soda_cloud_client=MagicMock(),
     )
 
     assert "At least one of -ds/--data-source or -d/--dataset value is required." not in caplog.messages
@@ -175,8 +175,7 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
     )
 
     assert (
-        "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification"
-        in caplog.messages
+        "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification" in caplog.messages
     )
 
 

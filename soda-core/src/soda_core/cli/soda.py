@@ -20,7 +20,6 @@ from soda_core.cli.handlers.soda_cloud import (
     handle_create_soda_cloud,
     handle_test_soda_cloud,
 )
-
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.soda_cloud import SodaCloud

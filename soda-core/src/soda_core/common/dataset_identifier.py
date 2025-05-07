@@ -17,6 +17,7 @@ class DatasetIdentifier:
     @classmethod
     def parse(cls, dataset_qualified_name: Optional[str]) -> DatasetIdentifier:
         from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
+
         if not dataset_qualified_name:
             raise InvalidDatasetQualifiedNameException("Identifier must be a valid string and cannot be None")
 
@@ -38,4 +39,3 @@ class DatasetIdentifier:
             f"DatasetIdentifier(data_source='{self.data_source_name}', "
             f"prefixes={self.prefixes}, dataset='{self.dataset_name}')"
         )
-

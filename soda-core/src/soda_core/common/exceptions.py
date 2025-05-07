@@ -43,6 +43,7 @@ class SodaCloudException(SodaCoreException):
 
 class ContractNotFoundException(SodaCloudException):
     """Indicates the contract was not found in Soda Cloud."""
+
     def __init__(self, dataset_identifier: DatasetIdentifier):
         super().__init__(
             f"No data contract found for dataset '{str(dataset_identifier)}' in Soda Cloud. "
@@ -52,14 +53,17 @@ class ContractNotFoundException(SodaCloudException):
 
 class DataSourceNotFoundException(SodaCloudException):
     """Indicates the data source was not found in Soda Cloud."""
+
     def __init__(self, dataset_identifier: DatasetIdentifier):
         super().__init__(
             f"Data source '{dataset_identifier.data_source_name}' is unknown in Soda Cloud. "
             "Please verify the data source name or configure it in Soda Cloud."
         )
 
+
 class DatasetNotFoundException(SodaCloudException):
     """Indicates the dataset was not found in Soda Cloud."""
+
     def __init__(self, dataset_identifier: DatasetIdentifier):
         super().__init__(
             f"Dataset '{dataset_identifier.dataset_name}' is unknown in Soda Cloud. "

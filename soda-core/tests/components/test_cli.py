@@ -90,17 +90,7 @@ from soda_core.cli.soda import create_cli_parser
                 "-sc",
                 "cloud.yaml",
             ],
-            [
-                None,
-                ["some-dataset"],
-                "ds.yaml",
-                {},
-                False,
-                False,
-                False,
-                60,
-                None
-            ],
+            [None, ["some-dataset"], "ds.yaml", {}, False, False, False, 60, None],
         ),
     ],
 )

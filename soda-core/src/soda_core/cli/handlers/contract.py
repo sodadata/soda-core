@@ -1,17 +1,18 @@
+from typing import Dict, Optional
+
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.common.exceptions import InvalidArgumentException, InvalidDataSourceConfigurationException
+from soda_core.common.exceptions import (
+    InvalidArgumentException,
+    InvalidDataSourceConfigurationException,
+)
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import (
-    ContractYamlSource,
-    DataSourceYamlSource,
-)
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
-from typing import Dict, Optional
 
 
 def handle_verify_contract(
@@ -30,9 +31,7 @@ def handle_verify_contract(
             contract_file_paths, dataset_identifiers, data_source_file_path, publish, use_agent, soda_cloud_client
         )
 
-        contract_yaml_sources = _create_contract_yamls(
-            contract_file_paths, dataset_identifiers, soda_cloud_client
-        )
+        contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
 
         if len(contract_yaml_sources) == 0:
             soda_logger.debug("No contracts given. Exiting.")
@@ -141,9 +140,7 @@ def validate_verify_arguments(
         )
 
     if all_none_or_empty(contract_file_paths, dataset_identifiers):
-        raise InvalidArgumentException(
-            "At least one of -c/--contract or -d/--dataset arguments is required."
-        )
+        raise InvalidArgumentException("At least one of -c/--contract or -d/--dataset arguments is required.")
 
     if dataset_identifiers and not soda_cloud_client:
         raise InvalidArgumentException(
@@ -152,9 +149,7 @@ def validate_verify_arguments(
         )
 
     if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent:
-        raise InvalidArgumentException(
-            "At least one of -ds/--data-source or -d/--dataset value is required."
-        )
+        raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
 
 
 def all_none_or_empty(*args: list | None) -> bool:
