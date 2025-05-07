@@ -85,6 +85,47 @@ class SodaCloud:
     CSV_TEXT_MAX_LENGTH = 1500
 
     @classmethod
+    def from_config(
+        cls, config_file_path: Optional[str], provided_variable_values: Optional[dict[str, str]] = None
+    ) -> Optional[SodaCloud]:
+        if not config_file_path:
+            return None
+
+        soda_cloud_yaml_source: SodaCloudYamlSource = SodaCloudYamlSource.from_file_path(file_path=config_file_path)
+        soda_cloud_yaml_source.resolve(variables=provided_variable_values)
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
+
+        if not soda_cloud_yaml_root_object:
+            logger.error("Invalid Soda Cloud config file: No valid YAML object as file content")
+            return None
+
+        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
+        if not soda_cloud_yaml_object:
+            logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
+
+        if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
+            logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
+
+        if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_id"):
+            raise InvalidSodaCloudConfigurationException(
+                f"Missing required 'api_key_id' property in your Soda Cloud configuration."
+            )
+
+        if not soda_cloud_token and not soda_cloud_yaml_object.has_key("api_key_secret"):
+            raise InvalidSodaCloudConfigurationException(
+                f"Missing required 'api_key_secret' property in your Soda Cloud configuration."
+            )
+
+        return SodaCloud(
+            host=soda_cloud_yaml_object.read_string_opt(key="host", default_value="cloud.soda.io"),
+            api_key_id=soda_cloud_yaml_object.read_string(key="api_key_id", required=False),
+            api_key_secret=soda_cloud_yaml_object.read_string(key="api_key_secret", required=False),
+            token=soda_cloud_token,
+            port=soda_cloud_yaml_object.read_string_opt(key="port"),
+            scheme=soda_cloud_yaml_object.read_string_opt(key="scheme", default_value="https"),
+        )
+
+    @classmethod
     def from_yaml_source(
         cls, soda_cloud_yaml_source: SodaCloudYamlSource, provided_variable_values: Optional[dict[str, str]]
     ) -> Optional[SodaCloud]:
@@ -141,12 +182,22 @@ class SodaCloud:
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
 
-    def mark_scan_as_failed(self, scan_id: str, logs: Optional[list[LogRecord]]) -> None:
+    def mark_scan_as_failed(
+        self, scan_id: Optional[str] = None, logs: Optional[list[LogRecord]] = None, exc: Optional[Exception] = None
+    ) -> None:
         """
         Marks a scan as failed in Soda Cloud. This is used when the scan fails before we have any results to send.
         """
-        log_dicts = [self._build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)]
+        if not scan_id:
+            if not "SODA_SCAN_ID" in os.environ:
+                logger.debug("No scan ID provided, not marking scan as failed")
+                return
+            scan_id = os.environ["SODA_SCAN_ID"]
 
+        log_dicts = (
+            [self._build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)]
+            if logs else []
+        )
 
         self._execute_command(
             command_json_dict={

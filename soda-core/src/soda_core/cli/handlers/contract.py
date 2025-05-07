@@ -1,85 +1,78 @@
-from typing import Dict, Optional
-
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common.exceptions import InvalidArgumentException, InvalidDataSourceConfigurationException
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import (
     ContractYamlSource,
     DataSourceYamlSource,
-    SodaCloudYamlSource,
 )
 from soda_core.contracts.contract_publication import ContractPublication
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
+from typing import Dict, Optional
 
 
 def handle_verify_contract(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
-    soda_cloud_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
     publish: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
+    soda_cloud_client: Optional[SodaCloud],
 ) -> ExitCode:
-    if exitcode := validate_verify_arguments(
-        contract_file_paths, dataset_identifiers, data_source_file_path, soda_cloud_file_path, publish, use_agent
-    ):
-        return exitcode
-
-    soda_cloud_client: Optional[SodaCloud] = None
-    if soda_cloud_file_path:
-        soda_cloud_client = SodaCloud.from_yaml_source(
-            SodaCloudYamlSource.from_file_path(soda_cloud_file_path), provided_variable_values=None
+    try:
+        validate_verify_arguments(
+            contract_file_paths, dataset_identifiers, data_source_file_path, publish, use_agent, soda_cloud_client
         )
 
-    contract_yaml_sources, exit_code = _create_contract_yamls(
-        contract_file_paths, dataset_identifiers, soda_cloud_client
-    )
-    if exit_code:
-        return exit_code
-
-    if len(contract_yaml_sources) == 0:
-        soda_logger.debug("No contracts given. Exiting.")
-        return ExitCode.OK
-
-    # TODO: decide on implications of this
-    if dataset_identifiers and len(dataset_identifiers) > 1:
-        soda_logger.error(
-            f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
-            f"Please pass a single dataset identifier."
+        contract_yaml_sources = _create_contract_yamls(
+            contract_file_paths, dataset_identifiers, soda_cloud_client
         )
+
+        if len(contract_yaml_sources) == 0:
+            soda_logger.debug("No contracts given. Exiting.")
+            return ExitCode.OK
+
+        # TODO: decide on implications of this
+        if dataset_identifiers and len(dataset_identifiers) > 1:
+            soda_logger.error(
+                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
+                f"Please pass a single dataset identifier."
+            )
+            return ExitCode.LOG_ERRORS
+
+        data_source_yaml_source = _create_datasource_yamls(
+            data_source_file_path, dataset_identifiers, soda_cloud_client
+        )
+
+        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
+            contract_yaml_sources=contract_yaml_sources,
+            data_source_yaml_sources=[data_source_yaml_source],
+            soda_cloud_impl=soda_cloud_client,
+            variables=variables,
+            soda_cloud_publish_results=publish,
+            soda_cloud_use_agent=use_agent,
+            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        )
+
+        return interpret_contract_verification_result(contract_verification_session_result)
+
+    except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as e:
+        soda_logger.error(e)
+        if soda_cloud_client:
+            soda_cloud_client.mark_scan_as_failed()
         return ExitCode.LOG_ERRORS
-    data_source_yaml_source, exit_code = _create_datasource_yamls(
-        data_source_file_path, dataset_identifiers, soda_cloud_client
-    )
-    if exit_code:
-        return exit_code
-
-    # TODO: pass the Soda Cloud client directly into subsequent methods
-    contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-        contract_yaml_sources=contract_yaml_sources,
-        data_source_yaml_sources=[data_source_yaml_source],
-        soda_cloud_yaml_source=(
-            SodaCloudYamlSource.from_file_path(soda_cloud_file_path) if soda_cloud_file_path else None
-        ),
-        variables=variables,
-        soda_cloud_publish_results=publish,
-        soda_cloud_use_agent=use_agent,
-        soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
-    )
-
-    return interpret_contract_verification_result(contract_verification_session_result)
 
 
 def _create_contract_yamls(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
-) -> tuple[list[ContractYamlSource], ExitCode | None]:
+) -> list[ContractYamlSource]:
     contract_yaml_sources = []
 
     if contract_file_paths:
@@ -95,77 +88,76 @@ def _create_contract_yamls(
 
     if not contract_yaml_sources:
         soda_logger.debug("No contracts given. Exiting.")
-        return [], ExitCode.OK
+        return []
 
-    return contract_yaml_sources, None
+    return contract_yaml_sources
 
 
 def _create_datasource_yamls(
     data_source_file_path: Optional[str],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
-) -> tuple[Optional[DataSourceYamlSource], ExitCode | None]:
+) -> DataSourceYamlSource:
     if data_source_file_path:
-        return DataSourceYamlSource.from_file_path(data_source_file_path), None
+        return DataSourceYamlSource.from_file_path(data_source_file_path)
 
     if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
         if len(dataset_identifiers) > 1:
-            soda_logger.error(
+            raise InvalidDataSourceConfigurationException(
                 f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
                 f"Please pass a single dataset identifier."
             )
-            return None, ExitCode.LOG_ERRORS
 
         dataset_identifier = dataset_identifiers[0]
         soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
         data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
 
         if not data_source_config:
-            return None, ExitCode.LOG_ERRORS
+            raise InvalidDataSourceConfigurationException("Could not fetch data source configuration from cloud")
 
-        return DataSourceYamlSource.from_str(data_source_config), None
+        return DataSourceYamlSource.from_str(data_source_config)
 
-    return None, None
+    raise InvalidDataSourceConfigurationException(
+        "No data source configuration provided and no dataset identifiers given. "
+        "Please provide a data source configuration file or a dataset identifier."
+    )
 
 
 def validate_verify_arguments(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
-    soda_cloud_file_path: Optional[str],
     publish: bool,
     use_agent: bool,
-) -> Optional[ExitCode]:
-    if publish and not soda_cloud_file_path:
-        soda_logger.error(
+    soda_cloud_client: Optional[SodaCloud],
+) -> None:
+    if publish and not soda_cloud_client:
+        raise InvalidArgumentException(
             "A Soda Cloud configuration file is required to use the -p/--publish argument. "
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
-        return ExitCode.LOG_ERRORS
 
-    if use_agent and not soda_cloud_file_path:
-        soda_logger.error(
+    if use_agent and not soda_cloud_client:
+        raise InvalidArgumentException(
             "A Soda Cloud configuration file is required to use the -a/--agent argument. "
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
-        return ExitCode.LOG_ERRORS
 
     if all_none_or_empty(contract_file_paths, dataset_identifiers):
-        soda_logger.error("At least one of -c/--contract or -d/--dataset arguments is required.")
-        return ExitCode.LOG_ERRORS
+        raise InvalidArgumentException(
+            "At least one of -c/--contract or -d/--dataset arguments is required."
+        )
 
-    if dataset_identifiers and not soda_cloud_file_path:
-        soda_logger.error(
+    if dataset_identifiers and not soda_cloud_client:
+        raise InvalidArgumentException(
             "A Soda Cloud configuration file is required to use the -d/--dataset argument."
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
-        return ExitCode.LOG_ERRORS
 
     if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent:
-        soda_logger.error("At least one of -ds/--data-source or -d/--dataset value is required.")
-        return ExitCode.LOG_ERRORS
-
-    return None
+        raise InvalidArgumentException(
+            "At least one of -ds/--data-source or -d/--dataset value is required."
+        )
 
 
 def all_none_or_empty(*args: list | None) -> bool:
