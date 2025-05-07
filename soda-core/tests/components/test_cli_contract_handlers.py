@@ -56,6 +56,7 @@ def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failure
         data_source_file_path="ds.yaml",
         variables={},
         publish=True,
+        verbose=False,
         use_agent=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=mock_cloud,
@@ -72,6 +73,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_dataset_names_wit
         variables={},
         publish=False,
         use_agent=False,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=None,
     )
@@ -90,6 +92,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
         variables={},
         publish=True,
         use_agent=False,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=None,
     )
@@ -109,6 +112,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
         variables={},
         publish=True,
         use_agent=False,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=MagicMock(),
     )
@@ -125,6 +129,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
         variables={},
         publish=True,
         use_agent=False,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=MagicMock(),
     )
@@ -144,6 +149,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
         variables={},
         publish=True,
         use_agent=True,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=MagicMock()
     )
@@ -163,6 +169,7 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
         variables={},
         publish=True,
         use_agent=False,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=mock_cloud,
     )
@@ -184,6 +191,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
         variables={},
         publish=True,
         use_agent=False,
+        verbose=False,
         blocking_timeout_in_minutes=10,
         soda_cloud_client=mock_cloud,
     )

@@ -20,6 +20,7 @@ def handle_verify_contract(
     data_source_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
     publish: bool,
+    verbose: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
     soda_cloud_client: Optional[SodaCloud],
@@ -56,6 +57,7 @@ def handle_verify_contract(
             variables=variables,
             soda_cloud_publish_results=publish,
             soda_cloud_use_agent=use_agent,
+            soda_cloud_verbose=verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
         )
 

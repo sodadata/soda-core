@@ -60,6 +60,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_impl: Optional[SodaCloud] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
+        soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
     ):
         # Start capturing logs
@@ -115,6 +116,7 @@ class ContractVerificationSessionImpl:
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
+                soda_cloud_verbose=soda_cloud_verbose,
             )
 
         else:
@@ -246,6 +248,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
+        soda_cloud_verbose: bool,
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
 
@@ -259,6 +262,7 @@ class ContractVerificationSessionImpl:
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
+                    verbose=soda_cloud_verbose,
                 )
                 contract_verification_results.append(contract_verification_result)
             except:
