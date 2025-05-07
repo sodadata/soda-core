@@ -41,30 +41,22 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 logger: logging.Logger = soda_logger
 
+class RemoteScanStatus(Enum):
+    QUEUING = ("queuing", False)
+    EXECUTING = ("executing", False)
+    CANCELATION_REQUESTED = ("cancelationRequested", False)
+    TIME_OUT_REQUESTED = ("timeOutRequested", False)
+    CANCELED = ("canceled", True)
+    TIMED_OUT = ("timedOut", True)
+    FAILED = ("failed", True)
+    COMPLETED_WITH_ERRORS = ("completedWithErrors", True)
+    COMPLETED_WITH_FAILURES = ("completedWithFailures", True)
+    COMPLETED_WITH_WARNINGS = ("completedWithWarnings", True)
+    COMPLETED = ("completed", True)
 
-class RemoteScanStatus:
-    QUEUING = "queuing"
-    EXECUTING = "executing"
-    CANCELATION_REQUESTED = "cancelationRequested"
-    TIME_OUT_REQUESTED = "timeOutRequested"
-    CANCELED = "canceled"
-    TIMED_OUT = "timedOut"
-    FAILED = "failed"
-    COMPLETED_WITH_ERRORS = "completedWithErrors"
-    COMPLETED_WITH_FAILURES = "completedWithFailures"
-    COMPLETED_WITH_WARNINGS = "completedWithWarnings"
-    COMPLETED = "completed"
-
-
-REMOTE_SCAN_FINAL_STATES = [
-    RemoteScanStatus.CANCELED,
-    RemoteScanStatus.TIMED_OUT,
-    RemoteScanStatus.FAILED,
-    RemoteScanStatus.COMPLETED_WITH_ERRORS,
-    RemoteScanStatus.COMPLETED_WITH_FAILURES,
-    RemoteScanStatus.COMPLETED_WITH_WARNINGS,
-    RemoteScanStatus.COMPLETED,
-]
+    def __init__(self, value: str, is_final_state: bool):
+        self._value_ = value
+        self.is_final_state = is_final_state
 
 
 class TimestampToCreatedLoggingFilter(logging.Filter):
