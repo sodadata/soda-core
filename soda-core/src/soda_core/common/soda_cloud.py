@@ -201,7 +201,7 @@ class SodaCloud:
 
         self._execute_command(
             command_json_dict={
-                "type": "sodaCoreMarkScanAsFailed",
+                "type": "sodaCoreMarkScanFailed",
                 "scanId": scan_id,
                 "logs": log_dicts
             },
