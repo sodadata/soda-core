@@ -147,7 +147,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
                 headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now(timezone.utc))},
                 json_object={
                     "scanId": "ssscanid",
-                    "state": "running",
+                    "state": "executing",
                 },
             ),
             MockResponse(

@@ -60,8 +60,15 @@ class RemoteScanStatus(Enum):
     COMPLETED = ("completed", True)
 
     def __init__(self, value: str, is_final_state: bool):
-        self._value_ = value
+        self.value_ = value
         self.is_final_state = is_final_state
+
+    @classmethod
+    def from_value(cls, value: str) -> RemoteScanStatus:
+        for status in cls:
+            if status.value_ == value:
+                return status
+        raise ValueError(f"Unknown RemoteScanStatus value: {value}")
 
 
 class TimestampToCreatedLoggingFilter(logging.Filter):
@@ -677,7 +684,7 @@ class SodaCloud:
 
                 logger.info(f"Scan {scan_id} has state '{scan_state}'")
 
-                if scan_state in REMOTE_SCAN_FINAL_STATES:
+                if RemoteScanStatus.from_value(scan_state).is_final_state:
                     return True, contract_dataset_cloud_url
 
                 time_to_wait_in_seconds: float = 5
