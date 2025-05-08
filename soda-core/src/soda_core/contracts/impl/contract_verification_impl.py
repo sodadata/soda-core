@@ -11,7 +11,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.exceptions import InvalidContractException
+from soda_core.common.exceptions import SodaCoreException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -179,10 +179,8 @@ class ContractVerificationSessionImpl:
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
                     contract_verification_results.append(contract_verification_result)
-                except InvalidContractException:
+                except Exception:
                     raise
-                except:
-                    logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         finally:
             for data_source_impl in opened_data_sources:
                 data_source_impl.close_connection()
@@ -1295,8 +1293,7 @@ class AggregationQuery(Query):
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(sql)
         except Exception as e:
-            logger.error(msg=f"Could not execute aggregation query {sql}: {e}", exc_info=True)
-            return []
+            raise SodaCoreException(f"Could not execute aggregation query: {e}") from e
 
         measurements: list[Measurement] = []
         row: tuple = query_result.rows[0]
