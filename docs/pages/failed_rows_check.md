@@ -1,24 +1,35 @@
 # Failed rows check
 
-### Verify no failed rows
+The failed rows check is based on user defined SQL that produces rows that indicate a 
+problem with the data. The rows returned should also include diagnostic information.
 
-The failed rows check is any query that produces rows that indicate a problem with the data.
-In Soda Cloud the failed rows can be sent to people for resolving the problems at the source.
+In Soda Cloud the failed rows can be viewed and assigned to people for resolving the 
+problems at the source.
+
+### Verify no failed rows with a user defined SQL expression
 
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 
 checks:
   - failed_rows:
-      metric: rows_with_high_duration
+      expression: |
+        ("end" - "start") > 5
+```
+
+The `query` is a user defined SQL expression.
+
+### Verify no failed rows with a user defined SQL query
+
+```yaml
+dataset: postgres_adventureworks/adventureworks/advw/dim_employee
+
+checks:
+  - failed_rows:
       query: |
         SELECT *
         FROM "adventureworks"."advw"."dim_employee"
         WHERE ("end" - "start") > 5
 ```
-
-The `metric` is a name given to the row count value.  You will see this name in 
-and the value in the check diagnostics.  The convention is to use lower case 
-and underscores
 
 The `query` is a SQL query.
