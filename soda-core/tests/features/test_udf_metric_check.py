@@ -8,7 +8,7 @@ from soda_core.contracts.contract_verification import (
 
 test_table_specification = (
     TestTableSpecification.builder()
-    .table_purpose("metric_query")
+    .table_purpose("metric")
     .column_integer("start")
     .column_integer("end")
     .rows(
@@ -33,8 +33,29 @@ def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - metric_query:
-                  metric: avg_duration
+              - metric:
+                  expression: |
+                    AVG({end_quoted} - {start_quoted})
+                  threshold:
+                    must_be_between: [9, 11]
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "metric_value") == 10
+
+
+# Ensure this test is skipped on other data sources than
+def test_metric_query(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
                   query: |
                     SELECT AVG({end_quoted} - {start_quoted})
                     FROM {test_table.qualified_name}
@@ -43,4 +64,4 @@ def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "avg_duration") == 10
+    assert get_diagnostic_value(check_result, "metric_value") == 10

@@ -85,29 +85,16 @@ def register_check_types() -> None:
 
     CheckYaml.register(AggregateCheckYamlParser())
 
-    from soda_core.contracts.impl.check_types.metric_expression_check import (
-        MetricExpressionCheckParser,
+    from soda_core.contracts.impl.check_types.metric_check import MetricCheckParser
+
+    CheckImpl.register(MetricCheckParser())
+
+    from soda_core.contracts.impl.check_types.metric_check_yaml import (
+        MetricCheckYamlParser,
     )
 
-    CheckImpl.register(MetricExpressionCheckParser())
+    CheckYaml.register(MetricCheckYamlParser())
 
-    from soda_core.contracts.impl.check_types.metric_expression_check_yaml import (
-        MetricExpressionCheckYamlParser,
-    )
-
-    CheckYaml.register(MetricExpressionCheckYamlParser())
-
-    from soda_core.contracts.impl.check_types.metric_query_check_yaml import (
-        MetricQueryCheckYamlParser,
-    )
-
-    CheckYaml.register(MetricQueryCheckYamlParser())
-
-    from soda_core.contracts.impl.check_types.metric_query_check import (
-        MetricQueryCheckParser,
-    )
-
-    CheckImpl.register(MetricQueryCheckParser())
     from soda_core.contracts.impl.check_types.freshness_check_yaml import (
         FreshnessCheckYamlParser,
     )
