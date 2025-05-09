@@ -130,6 +130,9 @@ def register_check_types() -> None:
 
     CheckImpl.register(FailedRowsCheckParser())
 
+    from soda_core.contracts.impl.extensions import extensions
+    extensions.register_check_types()
+
 
 class ContractYaml:
     """
