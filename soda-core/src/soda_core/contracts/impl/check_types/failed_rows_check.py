@@ -18,6 +18,7 @@ from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
     FailedRowsCheckYaml,
 )
 from soda_core.contracts.impl.contract_verification_impl import (
+    AggregationMetricImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -66,21 +67,32 @@ class FailedRowsCheckImpl(CheckImpl):
             threshold_yaml=check_yaml.threshold,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
-        self.query_metric_impl = self._resolve_metric(
-            FailedRowsMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
-        )
-        if contract_impl.data_source_impl:
-            failed_rows_count_query: Query = FailedRowsCountQuery(
-                data_source_impl=contract_impl.data_source_impl,
-                metrics=[self.query_metric_impl],
-                failed_rows_query=self.failed_rows_check_yaml.query,
+
+        self.query_metric_impl: Optional[MetricImpl] = None
+        if self.failed_rows_check_yaml.expression:
+            self.query_metric_impl = self._resolve_metric(
+                FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
-            self.queries.append(failed_rows_count_query)
+
+        elif self.failed_rows_check_yaml.query:
+            self.query_metric_impl = self._resolve_metric(
+                FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            )
+            if contract_impl.data_source_impl:
+                failed_rows_count_query: Query = FailedRowsCountQuery(
+                    data_source_impl=contract_impl.data_source_impl,
+                    metrics=[self.query_metric_impl],
+                    failed_rows_query=self.failed_rows_check_yaml.query,
+                )
+                self.queries.append(failed_rows_count_query)
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        query_metric_value: Optional[Number] = measurement_values.get_value(self.query_metric_impl)
+        query_metric_value: Optional[Number] = (
+            measurement_values.get_value(self.query_metric_impl) if self.query_metric_impl else None
+        )
+
         diagnostics: list[Diagnostic] = []
 
         if isinstance(query_metric_value, Number):
@@ -102,7 +114,34 @@ class FailedRowsCheckImpl(CheckImpl):
         )
 
 
-class FailedRowsMetricImpl(MetricImpl):
+class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_impl: FailedRowsCheckImpl,
+    ):
+        self.expression: str = check_impl.check_yaml.expression
+        super().__init__(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            metric_type=check_impl.type,
+            check_filter=check_impl.check_yaml.filter,
+        )
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, any] = super()._get_id_properties()
+        id_properties["expression"] = self.expression
+        return id_properties
+
+    def sql_expression(self) -> SqlExpression:
+        return COUNT(CASE_WHEN(SqlExpressionStr(self.expression), LITERAL(1)))
+
+    def convert_db_value(self, value) -> any:
+        return int(value) if value is not None else 0
+
+
+class FailedRowsQueryMetricImpl(MetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,

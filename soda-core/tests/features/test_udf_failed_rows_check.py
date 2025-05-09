@@ -22,7 +22,26 @@ test_table_specification = (
 )
 
 
-def test_failed_rows_basics(data_source_test_helper: DataSourceTestHelper):
+def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - failed_rows:
+                  expression: |
+                    ({end_quoted} - {start_quoted}) > 5
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "failed_rows_count") == 2
+
+
+def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     end_quoted = data_source_test_helper.quote_column("end")

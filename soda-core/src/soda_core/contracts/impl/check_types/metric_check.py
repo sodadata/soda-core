@@ -14,10 +14,9 @@ from soda_core.contracts.contract_verification import (
     MeasuredNumericValueDiagnostic,
     Measurement,
 )
-from soda_core.contracts.impl.check_types.metric_query_check_yaml import (
-    MetricQueryCheckYaml,
-)
+from soda_core.contracts.impl.check_types.metric_check_yaml import MetricCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
+    AggregationMetricImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -31,61 +30,68 @@ from soda_core.contracts.impl.contract_verification_impl import (
 logger: logging.Logger = soda_logger
 
 
-class MetricQueryCheckParser(CheckParser):
+class MetricCheckParser(CheckParser):
     def get_check_type_names(self) -> list[str]:
-        return ["metric_query"]
+        return ["metric"]
 
     def parse_check(
         self,
         contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
-        check_yaml: MetricQueryCheckYaml,
+        check_yaml: MetricCheckYaml,
     ) -> Optional[CheckImpl]:
-        return MetricQueryCheckImpl(
+        return MetricCheckImpl(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
 
 
-class MetricQueryCheckImpl(CheckImpl):
+class MetricCheckImpl(CheckImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
-        check_yaml: MetricQueryCheckYaml,
+        check_yaml: MetricCheckYaml,
     ):
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
-        self.metric_query_check_yaml: MetricQueryCheckYaml = check_yaml
+        self.metric_check_yaml: MetricCheckYaml = check_yaml
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
         )
-        self.query_metric_impl = self._resolve_metric(
-            MetricQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
-        )
-        if contract_impl.data_source_impl:
-            metric_query: Query = MetricQuery(
-                data_source_impl=contract_impl.data_source_impl,
-                metrics=[self.query_metric_impl],
-                sql=self.metric_query_check_yaml.query,
+
+        self.numeric_metric_impl: Optional[MetricImpl] = None
+        if self.metric_check_yaml.expression:
+            self.numeric_metric_impl = self._resolve_metric(
+                MetricExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
-            self.queries.append(metric_query)
+        elif self.metric_check_yaml.query:
+            self.numeric_metric_impl = self._resolve_metric(
+                MetricQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            )
+            if contract_impl.data_source_impl:
+                metric_query: Query = MetricQuery(
+                    data_source_impl=contract_impl.data_source_impl,
+                    metrics=[self.numeric_metric_impl],
+                    sql=self.metric_check_yaml.query,
+                )
+                self.queries.append(metric_query)
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        query_metric_value: Optional[Number] = measurement_values.get_value(self.query_metric_impl)
+        numeric_metric_value: Optional[Number] = measurement_values.get_value(self.numeric_metric_impl)
         diagnostics: list[Diagnostic] = []
 
-        if isinstance(query_metric_value, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="query_value", value=query_metric_value))
+        if isinstance(numeric_metric_value, Number):
+            diagnostics.append(MeasuredNumericValueDiagnostic(name="metric_value", value=numeric_metric_value))
 
             if self.threshold:
-                if self.threshold.passes(query_metric_value):
+                if self.threshold.passes(numeric_metric_value):
                     outcome = CheckOutcome.PASSED
                 else:
                     outcome = CheckOutcome.FAILED
@@ -93,10 +99,37 @@ class MetricQueryCheckImpl(CheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=query_metric_value,
+            metric_value=numeric_metric_value,
             outcome=outcome,
             diagnostics=diagnostics,
         )
+
+
+class MetricExpressionMetricImpl(AggregationMetricImpl):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_impl: MetricCheckImpl,
+    ):
+        self.expression: str = check_impl.check_yaml.expression
+        super().__init__(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            metric_type=check_impl.type,
+            check_filter=check_impl.check_yaml.filter,
+        )
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, any] = super()._get_id_properties()
+        id_properties["expression"] = self.expression
+        return id_properties
+
+    def sql_expression(self) -> SqlExpression:
+        return SqlExpressionStr(self.expression)
+
+    def convert_db_value(self, value) -> any:
+        return float(value) if value is not None else None
 
 
 class MetricQueryMetricImpl(MetricImpl):
@@ -104,7 +137,7 @@ class MetricQueryMetricImpl(MetricImpl):
         self,
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
-        check_impl: MetricQueryCheckImpl,
+        check_impl: MetricCheckImpl,
     ):
         self.query: str = check_impl.check_yaml.query
         super().__init__(
