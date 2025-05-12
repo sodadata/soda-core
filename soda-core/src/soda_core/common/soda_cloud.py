@@ -1061,7 +1061,7 @@ def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
 def _exception_to_cloud_log_dict(exception: Exception) -> dict:
     return {
         "level": "error",
-        "message": "An exception occurred",
+        "message": f"An exception occurred: {str(exception)}",
         "timestamp": datetime.now(timezone.utc),
         "index": 0,
         "exception": str(exception),
