@@ -11,7 +11,7 @@ from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.exceptions import SodaCoreException
+from soda_core.common.exceptions import SodaCoreException, InvalidRegexException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -1293,6 +1293,8 @@ class AggregationQuery(Query):
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(sql)
         except Exception as e:
+            if invalid_regex_exc:=InvalidRegexException.should_raise(e, sql):
+                raise invalid_regex_exc
             raise SodaCoreException(f"Could not execute aggregation query: {e}") from e
 
         measurements: list[Measurement] = []

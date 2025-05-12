@@ -1,4 +1,5 @@
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from typing import Optional
 
 
 class SodaCoreException(Exception):
@@ -31,6 +32,22 @@ class DataSourceConnectionException(SodaCoreException):
 
 class InvalidContractException(SodaCoreException):
     """Base class for all invalid contract exceptions."""
+
+
+class InvalidRegexException(InvalidContractException):
+    """Indicates the regex is invalid."""
+
+    def __init__(self, sql: str):
+        super().__init__(f"Invalid regex found in SQL '{sql}'")
+
+    @classmethod
+    def should_raise(cls, exception: Exception, sql: str) -> Optional["InvalidRegexException"]:
+        if (
+            hasattr(exception, "args")
+            and exception.args[0] == "invalid regular expression: quantifier operand invalid\n"
+        ):
+            return cls(sql)
+        return None
 
 
 class InvalidDatasetQualifiedNameException(InvalidContractException):
@@ -69,3 +86,5 @@ class DatasetNotFoundException(SodaCloudException):
             f"Dataset '{dataset_identifier.dataset_name}' is unknown in Soda Cloud. "
             "Please verify the dataset name or configure it in Soda Cloud."
         )
+
+
