@@ -15,11 +15,7 @@ from soda_snowflake.model.data_source.snowflake_connection_properties import (
 
 class SnowflakeDataSource(DataSourceBase, abc.ABC):
     type: Literal["snowflake"] = Field("snowflake")
-    connection_properties: SnowflakeConnectionProperties = Field(
-        ..., alias="connection", description="Snowflake connection configuration"
-    )
 
-    @field_validator("connection_properties", mode="before")
     @classmethod
     def infer_connection_type(cls, value):
         if "password" in value:

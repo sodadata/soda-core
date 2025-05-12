@@ -11,11 +11,7 @@ from soda_databricks.model.data_source.databricks_connection_properties import (
 
 class DatabricksDataSource(DataSourceBase, abc.ABC):
     type: Literal["databricks"] = Field("databricks")
-    connection_properties: DatabricksConnectionProperties = Field(
-        ..., alias="connection", description="Databricks connection configuration"
-    )
 
-    @field_validator("connection_properties", mode="before")
     @classmethod
     def infer_connection_type(cls, value):
         if "access_token" in value:
