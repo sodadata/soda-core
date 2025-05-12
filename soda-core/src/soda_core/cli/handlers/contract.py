@@ -44,7 +44,7 @@ def handle_verify_contract(
             )
 
         data_source_yaml_source = _create_datasource_yamls(
-            data_source_file_path, dataset_identifiers, soda_cloud_client
+            data_source_file_path, dataset_identifiers, soda_cloud_client, use_agent,
         )
 
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
@@ -96,7 +96,8 @@ def _create_datasource_yamls(
     data_source_file_path: Optional[str],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
-) -> DataSourceYamlSource:
+    use_agent: bool,
+) -> Optional[DataSourceYamlSource]:
     if data_source_file_path:
         return DataSourceYamlSource.from_file_path(data_source_file_path)
 
@@ -112,6 +113,11 @@ def _create_datasource_yamls(
         data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
 
         return DataSourceYamlSource.from_str(data_source_config)
+
+    # By this point, we can only progress if we are using an agent.
+    # Then the agent will provide the data source config.
+    if use_agent:
+        return None
 
     raise InvalidDataSourceConfigurationException(
         "No data source configuration provided and no dataset identifiers given. "
