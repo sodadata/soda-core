@@ -44,7 +44,10 @@ def handle_verify_contract(
             )
 
         data_source_yaml_source = _create_datasource_yamls(
-            data_source_file_path, dataset_identifiers, soda_cloud_client, use_agent,
+            data_source_file_path,
+            dataset_identifiers,
+            soda_cloud_client,
+            use_agent,
         )
 
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
