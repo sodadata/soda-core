@@ -193,7 +193,7 @@ class SodaCloud:
         Marks a scan as failed in Soda Cloud. This is used when the scan fails before we have any results to send.
         """
         if not scan_id:
-            if not "SODA_SCAN_ID" in os.environ:
+            if "SODA_SCAN_ID" not in os.environ:
                 logger.debug("No scan ID provided, not marking scan as failed")
                 return
             scan_id = os.environ["SODA_SCAN_ID"]
@@ -1061,7 +1061,7 @@ def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
 def _exception_to_cloud_log_dict(exception: Exception) -> dict:
     return {
         "level": "error",
-        "message": "An exception occurred",
+        "message": f"An exception occurred: {str(exception)}",
         "timestamp": datetime.now(timezone.utc),
         "index": 0,
         "exception": str(exception),
