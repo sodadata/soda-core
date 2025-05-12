@@ -1,5 +1,6 @@
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from typing import Optional
+
+from soda_core.common.dataset_identifier import DatasetIdentifier
 
 
 class SodaCoreException(Exception):
@@ -86,5 +87,3 @@ class DatasetNotFoundException(SodaCloudException):
             f"Dataset '{dataset_identifier.dataset_name}' is unknown in Soda Cloud. "
             "Please verify the dataset name or configure it in Soda Cloud."
         )
-
-
