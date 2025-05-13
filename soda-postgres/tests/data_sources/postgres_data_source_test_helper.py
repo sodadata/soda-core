@@ -20,10 +20,11 @@ class PostgresDataSourceTestHelper(DataSourceTestHelper):
         return f"""
             type: postgres
             name: postgres_test_ds
-            connection:
-                host: {os.getenv("POSTGRES_HOST", "localhost")}
-                user: {os.getenv("POSTGRES_USERNAME", "soda_test")}
-                password: {os.getenv("POSTGRES_PASSWORD")}
-                port: {int(os.getenv("POSTGRES_PORT", "5432"))}
-                database: {self.dataset_prefix[0]}
+            connections:
+                default:
+                    host: {os.getenv("POSTGRES_HOST", "localhost")}
+                    user: {os.getenv("POSTGRES_USERNAME", "soda_test")}
+                    password: {os.getenv("POSTGRES_PASSWORD")}
+                    port: {int(os.getenv("POSTGRES_PORT", "5432"))}
+                    database: {self.dataset_prefix[0]}
         """

@@ -27,11 +27,12 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
         return f"""
             type: databricks
             name: DATABRICKS_TEST_DS
-            connection:
-                host: {os.getenv("DATABRICKS_HOST")}
-                http_path: {os.getenv("DATABRICKS_HTTP_PATH")}
-                access_token: {os.getenv("DATABRICKS_TOKEN")}
-                catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
+            connections:
+                default:
+                    host: {os.getenv("DATABRICKS_HOST")}
+                    http_path: {os.getenv("DATABRICKS_HTTP_PATH")}
+                    access_token: {os.getenv("DATABRICKS_TOKEN")}
+                    catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
         """
 
     def create_test_schema_if_not_exists_sql(self) -> str:
