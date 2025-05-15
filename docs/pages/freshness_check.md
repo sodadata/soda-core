@@ -41,6 +41,7 @@ checks:
 
 This enables a user to specify and overwrite the NOW value used in the freshness check via the variables.
 It uses the current system time in UTC `${soda.NOW}` as the default.
+// TODO mention its in ISO
 
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
@@ -52,7 +53,7 @@ variables:
 checks:
   - freshness:
       column: created_at
-      now_variable: NOW
+      data_timestamp: NOW
       threshold:
         must_be_less_than: 1
 ```
