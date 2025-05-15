@@ -73,8 +73,8 @@ columns:
   - name: id
     checks:
       - duplicate:
-          metric: percent
           threshold:
+            metric: percent
             must_be_less_than: 15
 ```
 

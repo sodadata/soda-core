@@ -39,7 +39,6 @@ from soda_core.contracts.impl.contract_yaml import (
     ContractYaml,
     MissingAncValidityCheckYaml,
     MissingAndValidityYaml,
-    RangeYaml,
     RegexFormat,
     ThresholdYaml,
     ValidReferenceDataYaml,
@@ -736,39 +735,13 @@ class ThresholdImpl:
                 logger.error(f"Threshold required, but not specified")
                 return None
 
-        total_config_count: int = cls.__config_count(
-            [
-                threshold_yaml.must_be_greater_than,
-                threshold_yaml.must_be_greater_than_or_equal,
-                threshold_yaml.must_be_less_than,
-                threshold_yaml.must_be_less_than_or_equal,
-                threshold_yaml.must_be,
-                threshold_yaml.must_not_be,
-                threshold_yaml.must_be_between,
-                threshold_yaml.must_be_not_between,
-            ]
-        )
-
-        if total_config_count == 0:
+        if not threshold_yaml.has_any_configurations():
             if default_threshold:
                 return default_threshold
             logger.error(f"Threshold required, but not specified")
             return None
 
-        if (
-            total_config_count == 1
-            and cls.__config_count(
-                [
-                    threshold_yaml.must_be_greater_than,
-                    threshold_yaml.must_be_greater_than_or_equal,
-                    threshold_yaml.must_be_less_than,
-                    threshold_yaml.must_be_less_than_or_equal,
-                    threshold_yaml.must_be,
-                    threshold_yaml.must_not_be,
-                ]
-            )
-            == 1
-        ):
+        if threshold_yaml.has_exactly_one_comparison():
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
                 must_be_greater_than=threshold_yaml.must_be_greater_than,
@@ -779,43 +752,29 @@ class ThresholdImpl:
                 must_not_be=threshold_yaml.must_not_be,
             )
 
-        elif total_config_count == 1 and isinstance(threshold_yaml.must_be_between, RangeYaml):
-            if isinstance(threshold_yaml.must_be_between.lower_bound, Number) and isinstance(
-                threshold_yaml.must_be_between.upper_bound, Number
-            ):
-                if threshold_yaml.must_be_between.lower_bound < threshold_yaml.must_be_between.upper_bound:
-                    return ThresholdImpl(
-                        type=ThresholdType.INNER_RANGE,
-                        must_be_greater_than_or_equal=threshold_yaml.must_be_between.lower_bound,
-                        must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
-                    )
-                else:
-                    logger.error(f"Threshold must_be_between range: " "first value must be less than the second value")
-                    return None
+        elif threshold_yaml.has_only_must_be_between():
+            if threshold_yaml.must_be_between.lower_bound < threshold_yaml.must_be_between.upper_bound:
+                return ThresholdImpl(
+                    type=ThresholdType.INNER_RANGE,
+                    must_be_greater_than_or_equal=threshold_yaml.must_be_between.lower_bound,
+                    must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
+                )
+            else:
+                logger.error(f"Threshold must_be_between range: " "first value must be less than the second value")
+                return None
 
-        elif total_config_count == 1 and isinstance(threshold_yaml.must_be_not_between, RangeYaml):
-            if isinstance(threshold_yaml.must_be_not_between.lower_bound, Number) and isinstance(
-                threshold_yaml.must_be_not_between.upper_bound, Number
-            ):
-                if threshold_yaml.must_be_not_between.lower_bound < threshold_yaml.must_be_not_between.upper_bound:
-                    return ThresholdImpl(
-                        type=ThresholdType.OUTER_RANGE,
-                        must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.upper_bound,
-                        must_be_less_than_or_equal=threshold_yaml.must_be_not_between.lower_bound,
-                    )
-                else:
-                    logger.error(
-                        f"Threshold must_be_not_between range: " "first value must be less than the second value"
-                    )
-                    return None
+        elif threshold_yaml.has_only_must_be_not_between():
+            if threshold_yaml.must_be_not_between.lower_bound < threshold_yaml.must_be_not_between.upper_bound:
+                return ThresholdImpl(
+                    type=ThresholdType.OUTER_RANGE,
+                    must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.upper_bound,
+                    must_be_less_than_or_equal=threshold_yaml.must_be_not_between.lower_bound,
+                )
+            else:
+                logger.error(f"Threshold must_be_not_between range: " "first value must be less than the second value")
+                return None
         else:
-            lower_bound_count = cls.__config_count(
-                [threshold_yaml.must_be_greater_than, threshold_yaml.must_be_greater_than_or_equal]
-            )
-            upper_bound_count = cls.__config_count(
-                [threshold_yaml.must_be_less_than, threshold_yaml.must_be_less_than_or_equal]
-            )
-            if lower_bound_count == 1 and upper_bound_count == 1:
+            if threshold_yaml.has_one_lower_bound() and threshold_yaml.has_one_upper_bound():
                 lower_bound = (
                     threshold_yaml.must_be_greater_than
                     if threshold_yaml.must_be_greater_than is not None
@@ -842,10 +801,6 @@ class ThresholdImpl:
                         must_be_less_than=threshold_yaml.must_be_less_than,
                         must_be_less_than_or_equal=threshold_yaml.must_be_less_than_or_equal,
                     )
-
-    @classmethod
-    def __config_count(cls, members: list[any]) -> int:
-        return sum([0 if v is None else 1 for v in members])
 
     def __init__(
         self,

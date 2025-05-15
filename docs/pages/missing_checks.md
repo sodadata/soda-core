@@ -34,7 +34,8 @@ columns:
   - name: id
     checks:
       - missing:
-          metric: percent
+          threshold:
+            metric: percent
 ```
 
 ### Configure extra missing values
@@ -109,8 +110,8 @@ columns:
   - name: id
     checks:
       - missing:
-          metric: percent
           threshold:
+            metric: percent
             must_be_between: [0, 1]
 ```
 

@@ -20,7 +20,8 @@ def test_missing_percent_no_division_by_zero(data_source_test_helper: DataSource
               - name: id
                 checks:
                   - missing:
-                      metric: percent
+                      threshold:
+                        metric: percent
         """,
     )
 

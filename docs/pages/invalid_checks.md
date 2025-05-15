@@ -199,8 +199,8 @@ columns:
   - name: id
     checks:
       - type: invalid
-        metric: percent
         threshold:
+          metric: percent
           must_be_between: [0, 1]
 ```
 

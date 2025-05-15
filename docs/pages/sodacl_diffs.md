@@ -51,9 +51,13 @@ columns:
   - name: id
     checks:
       - missing:
-          metric: percent
+          threshold: 
+            metric: percent
+            must_be: 0
       - duplicate:
-          metric: percent
+          threshold: 
+            metric: percent
+            must_be: 0
 ```
 
 #### Grouping the threshold keys
