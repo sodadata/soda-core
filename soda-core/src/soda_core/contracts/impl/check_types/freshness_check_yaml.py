@@ -37,5 +37,11 @@ class FreshnessCheckYaml(MissingAncValidityCheckYaml):
         self.now_variable: Optional[str] = check_yaml_object.read_string_opt("now_variable")
         self.unit: Optional[str] = check_yaml_object.read_string_opt("unit")
         if self.unit and not self.unit in ["minute", "hour", "day"]:
-            logger.error(f"Invalid freshness threshold unit: {self.unit}")
+            logger.error(
+                msg=f"Invalid freshness threshold unit: {self.unit}",
+                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("unit")},
+            )
             self.unit = None
+
+    def get_valid_units(self) -> list[str]:
+        return ["minute", "hour", "day"]

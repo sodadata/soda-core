@@ -535,20 +535,42 @@ class CheckYaml(ABC):
 class ThresholdCheckYaml(CheckYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         super().__init__(type_name=type_name, check_yaml_object=check_yaml_object)
-        self.metric: Optional[str] = self.read_metric_count_percent(check_yaml_object)
+        self.metric: Optional[str] = None
+        self.unit: Optional[str] = None
         self.threshold: Optional[ThresholdYaml] = None
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:
+            self.metric = self.read_metric(threshold_yaml_object)
+            self.unit = threshold_yaml_object.read_string_opt("unit")
             self.threshold = ThresholdYaml(threshold_yaml_object)
 
-    def read_metric_count_percent(self, check_yaml_object: YamlObject) -> Optional[str]:
+    def read_metric(self, check_yaml_object: YamlObject) -> Optional[str]:
         metric: Optional[str] = check_yaml_object.read_string_opt("metric")
-        if metric and metric not in ["count", "percent"]:
-            logger.error(
-                msg="'metric' must be either 'count' or 'percent'",
-                extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
-            )
+        if metric:
+            valid_metrics: list[str] = self.get_valid_metrics()
+            if metric not in valid_metrics:
+                logger.error(
+                    msg=f"'metric' must be in {valid_metrics}",
+                    extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+                )
         return metric
+
+    def get_valid_metrics(self) -> list[str]:
+        return []
+
+    def read_unit(self, check_yaml_object: YamlObject) -> Optional[str]:
+        unit: Optional[str] = check_yaml_object.read_string_opt("unit")
+        if unit:
+            valid_units: list[str] = self.get_valid_metrics()
+            if unit not in valid_units:
+                logger.error(
+                    msg=f"'metric' must be in {valid_units}",
+                    extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("unit")},
+                )
+        return unit
+
+    def get_valid_units(self) -> list[str]:
+        return []
 
 
 class ThresholdYaml:
@@ -566,8 +588,107 @@ class ThresholdYaml:
         self.must_be_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_between")
         self.must_be_not_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_not_between")
 
+    @classmethod
+    def __config_count(cls, members: list[any]) -> int:
+        return sum([0 if v is None else 1 for v in members])
+
+    def has_one_lower_bound(self) -> bool:
+        return self.__config_count([self.must_be_greater_than, self.must_be_greater_than_or_equal]) == 1
+
+    def has_one_upper_bound(self) -> bool:
+        return self.__config_count([self.must_be_less_than, self.must_be_less_than_or_equal]) == 1
+
+    def has_any_configurations(self) -> bool:
+        return (
+            self.__config_count(
+                [
+                    self.must_be_greater_than,
+                    self.must_be_greater_than_or_equal,
+                    self.must_be_less_than,
+                    self.must_be_less_than_or_equal,
+                    self.must_be,
+                    self.must_not_be,
+                    self.must_be_between,
+                    self.must_be_not_between,
+                ]
+            )
+            > 0
+        )
+
+    def has_upper_bound(self) -> bool:
+        return (
+            self.__config_count(
+                [
+                    self.must_be_greater_than,
+                    self.must_be_greater_than_or_equal,
+                    self.must_be_less_than,
+                    self.must_be_less_than_or_equal,
+                    self.must_be,
+                    self.must_not_be,
+                    self.must_be_between,
+                    self.must_be_not_between,
+                ]
+            )
+            > 0
+        )
+
+    def has_exactly_one_comparison(self) -> bool:
+        comparator_count: int = self.__config_count(
+            [
+                self.must_be_greater_than,
+                self.must_be_greater_than_or_equal,
+                self.must_be_less_than,
+                self.must_be_less_than_or_equal,
+                self.must_be,
+                self.must_not_be,
+            ]
+        )
+        between_count: int = self.__config_count([self.must_be_between, self.must_be_not_between])
+        return comparator_count == 1 and between_count == 0
+
+    def has_only_must_be_between(self) -> bool:
+        other_config_count: int = self.__config_count(
+            [
+                self.must_be_greater_than,
+                self.must_be_greater_than_or_equal,
+                self.must_be_less_than,
+                self.must_be_less_than_or_equal,
+                self.must_be,
+                self.must_not_be,
+                self.must_be_not_between,
+            ]
+        )
+        return (
+            other_config_count == 0
+            and isinstance(self.must_be_between, RangeYaml)
+            and isinstance(self.must_be_between.lower_bound, Number)
+            and isinstance(self.must_be_between.upper_bound, Number)
+        )
+
+    def has_only_must_be_not_between(self) -> bool:
+        other_config_count: int = self.__config_count(
+            [
+                self.must_be_greater_than,
+                self.must_be_greater_than_or_equal,
+                self.must_be_less_than,
+                self.must_be_less_than_or_equal,
+                self.must_be,
+                self.must_not_be,
+                self.must_be_between,
+            ]
+        )
+        return (
+            other_config_count == 0
+            and isinstance(self.must_be_not_between, RangeYaml)
+            and isinstance(self.must_be_not_between.lower_bound, Number)
+            and isinstance(self.must_be_not_between.upper_bound, Number)
+        )
+
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):
     def __init__(self, type_name: str, check_yaml_object: YamlObject):
         ThresholdCheckYaml.__init__(self, type_name=type_name, check_yaml_object=check_yaml_object)
         MissingAndValidityYaml.__init__(self, yaml_object=check_yaml_object)
+
+    def get_valid_metrics(self) -> list[str]:
+        return ["count", "percent"]

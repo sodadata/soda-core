@@ -13,8 +13,8 @@ columns:
   - name: last_name
     checks:
       - missing:
-          metric: percent
           threshold:
+            metric: percent
             must_be_less_than: 10
   - name: address_line1
     checks:

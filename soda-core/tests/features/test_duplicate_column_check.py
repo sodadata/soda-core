@@ -93,8 +93,8 @@ def test_duplicate_percent_threshold(data_source_test_helper: DataSourceTestHelp
               - name: age
                 checks:
                   - duplicate:
-                      metric: percent
                       threshold:
+                        metric: percent
                         must_be_greater_than: 10
             """,
     )
@@ -112,10 +112,11 @@ def test_duplicate_metric_typo_error(data_source_test_helper: DataSourceTestHelp
               - name: id
                 checks:
                   - duplicate:
-                      metric: percentttt
+                      threshold:
+                        metric: percentttt
             """,
     )
-    assert "'metric' must be either 'count' or 'percent'" == contract_verification_result.get_errors_str()
+    assert "'metric' must be in ['count', 'percent']" == contract_verification_result.get_errors_str()
 
 
 def test_duplicate_with_check_filter(data_source_test_helper: DataSourceTestHelper):
