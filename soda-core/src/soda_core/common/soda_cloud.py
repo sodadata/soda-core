@@ -328,11 +328,6 @@ class SodaCloud:
             "type": "sodaCorePublishContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {
-                    "datasource": dataset_identifier.data_source_name,
-                    "prefixes": dataset_identifier.prefixes,
-                    "name": dataset_identifier.dataset_name,
-                },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
         }
@@ -472,11 +467,6 @@ class SodaCloud:
             "type": "sodaCoreVerifyContract" if publish_results else "sodaCoreTestContract",
             "contract": {
                 "fileId": file_id,
-                "dataset": {
-                    "datasource": dataset_identifier.data_source_name,
-                    "prefixes": dataset_identifier.prefixes,
-                    "name": dataset_identifier.dataset_name,
-                },
                 "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
             },
             "verbose": verbose,
@@ -950,11 +940,6 @@ def _build_contract_result_json(contract_verification_result: ContractVerificati
             "sourceOwner": "soda-core",
             "contract": {
                 "fileId": contract_verification_result.contract.source.soda_cloud_file_id,
-                "dataset": {
-                    "datasource": contract_verification_result.contract.data_source_name,
-                    "prefixes": contract_verification_result.contract.dataset_prefix,
-                    "name": contract_verification_result.contract.dataset_name,
-                },
                 "metadata": {
                     "source": {
                         "type": "local",
