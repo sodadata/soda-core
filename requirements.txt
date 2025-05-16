@@ -1,0 +1,3 @@
+soda-core
+soda-tests
+soda-postgres
