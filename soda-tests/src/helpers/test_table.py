@@ -196,6 +196,10 @@ class TestTable:
     def data_type(self, column_name: str) -> str:
         return self.columns[column_name].contract_data_type
 
+    def get_dataset_qualified_name(self) -> str:
+        slash_separated_prefixes: str = "/".join(self.dataset_prefix)
+        return f"{self.data_source_name}/{slash_separated_prefixes}/{self.unique_name}"
+
 
 class TestColumn:
     __test__ = False
