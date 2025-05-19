@@ -11,8 +11,10 @@ columns:
       - aggregate:
           function: avg
           threshold: 
-            must_be_between: 20 and 50
-```
+            must_be_between:
+              greater_than_or_equal: 5
+              less_than_or_equal: 10
+````
 
 > Note: A threshold is required
 
@@ -32,7 +34,9 @@ columns:
       - aggregate:
           function: avg
           threshold: 
-            must_be_between: 20 and 50
+            must_be_between: 
+              greater_than_or_equal: 20
+              less_than_or_equal: 50
           filter: |
             "country" = 'USA'
 ```
@@ -50,5 +54,7 @@ columns:
           missing_values: [-1]
           invalid_values: [999] 
           threshold: 
-            must_be_between: 20 and 50
+            must_be_between:
+              greater_than_or_equal: 20
+              less_than_or_equal: 50
 ```

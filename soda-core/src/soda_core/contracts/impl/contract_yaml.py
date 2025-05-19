@@ -462,26 +462,54 @@ class ColumnYaml(MissingAndValidityYaml):
 
 
 class RangeYaml:
-    """
-    Boundary values are inclusive
-    """
-
-    def __init__(self, lower_bound: Number, upper_bound: Number):
-        self.lower_bound: Number = lower_bound
-        self.upper_bound: Number = upper_bound
+    def __init__(self, range_yaml_object: YamlObject):
+        self.greater_than: Optional[Number] = range_yaml_object.read_number_opt("greater_than")
+        self.greater_than_or_equal: Optional[Number] = range_yaml_object.read_number_opt("greater_than_or_equal")
+        self.less_than: Optional[Number] = range_yaml_object.read_number_opt("less_than")
+        self.less_than_or_equal: Optional[Number] = range_yaml_object.read_number_opt("less_than_or_equal")
 
     @classmethod
-    def read_opt(cls, check_yaml_object: YamlObject, key: str) -> Optional[RangeYaml]:
-        range_yaml_list: YamlList = check_yaml_object.read_list_opt(key)
-        if range_yaml_list:
-            lower_bound: Optional[Number] = None
-            upper_bound: Optional[Number] = None
-            range_list: list = range_yaml_list.to_list()
-            if len(range_list) > 0 and isinstance(range_list[0], Number):
-                lower_bound = range_list[0]
-            if len(range_list) > 1 and isinstance(range_list[1], Number):
-                upper_bound = range_list[1]
-            return RangeYaml(lower_bound=lower_bound, upper_bound=upper_bound)
+    def read_range_opt(cls, threshold_yaml_object: YamlObject, key: str) -> Optional[RangeYaml]:
+        range_between_yaml_object: Optional[YamlObject] = threshold_yaml_object.read_object_opt(key)
+        if range_between_yaml_object:
+            return RangeYaml(range_yaml_object=range_between_yaml_object)
+        return None
+
+    def __get_common_range_errors(self) -> list[str]:
+        errors: list[str] = []
+        if isinstance(self.greater_than, Number) and isinstance(self.greater_than_or_equal, Number):
+            errors.append("double greater bound")
+        if self.greater_than is None and self.greater_than_or_equal is None:
+            errors.append("no greater bound")
+        if isinstance(self.less_than, Number) and isinstance(self.less_than_or_equal, Number):
+            errors.append("double less bound")
+        if self.less_than is None and self.less_than_or_equal is None:
+            errors.append("no less bound")
+        return errors
+
+    def __get_greater_bound(self) -> Optional[Number]:
+        return self.greater_than if isinstance(self.greater_than, Number) else self.greater_than_or_equal
+
+    def __get_less_bound(self) -> Optional[Number]:
+        return self.less_than if isinstance(self.less_than, Number) else self.less_than_or_equal
+
+    def get_between_range_error(self) -> Optional[str]:
+        errors: list[str] = self.__get_common_range_errors()
+        if not errors:
+            greater_bound: Number = self.__get_greater_bound()
+            less_bound: Number = self.__get_less_bound()
+            if greater_bound >= less_bound:
+                errors.append(f"greater bound ({greater_bound}) < less bound ({less_bound})")
+        return " & ".join(errors) if errors else None
+
+    def get_not_between_range_error(self) -> Optional[str]:
+        errors: list[str] = self.__get_common_range_errors()
+        if not errors:
+            greater_bound: Number = self.__get_greater_bound()
+            less_bound: Number = self.__get_less_bound()
+            if greater_bound <= less_bound:
+                errors.append(f"greater bound ({greater_bound}) > less bound ({less_bound})")
+        return " & ".join(errors) if errors else None
 
 
 class CheckYamlParser(ABC):
@@ -548,7 +576,12 @@ class ThresholdCheckYaml(CheckYaml):
         metric: Optional[str] = check_yaml_object.read_string_opt("metric")
         if metric:
             valid_metrics: list[str] = self.get_valid_metrics()
-            if metric not in valid_metrics:
+            if len(valid_metrics) == 0:
+                logger.error(
+                    msg=f"'metric' not allowed",
+                    extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+                )
+            elif metric not in valid_metrics:
                 logger.error(
                     msg=f"'metric' must be in {valid_metrics}",
                     extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
@@ -585,8 +618,10 @@ class ThresholdYaml:
         )
         self.must_be: Optional[Number] = threshold_yaml_object.read_number_opt("must_be")
         self.must_not_be: Optional[Number] = threshold_yaml_object.read_number_opt("must_not_be")
-        self.must_be_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_between")
-        self.must_be_not_between: Optional[RangeYaml] = RangeYaml.read_opt(threshold_yaml_object, "must_be_not_between")
+        self.must_be_between: Optional[RangeYaml] = RangeYaml.read_range_opt(threshold_yaml_object, "must_be_between")
+        self.must_be_not_between: Optional[RangeYaml] = RangeYaml.read_range_opt(
+            threshold_yaml_object, "must_be_not_between"
+        )
 
     @classmethod
     def __config_count(cls, members: list[any]) -> int:

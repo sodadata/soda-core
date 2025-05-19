@@ -1,3 +1,7 @@
+from textwrap import dedent, indent
+
+import pytest
+
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
@@ -52,55 +56,89 @@ def test_row_count_with_check_filter(data_source_test_helper: DataSourceTestHelp
     assert row_count_diagnostic.value == 2
 
 
-def test_row_count_thresholds_pass(data_source_test_helper: DataSourceTestHelper):
+@pytest.mark.parametrize(
+    "contract_yaml_str", [
+        """
+        checks:
+          - row_count:
+              threshold:
+                must_be: 3
+        """,
+        """
+        checks:
+          - row_count:
+              threshold:
+                must_not_be: 2
+        """,
+        """
+        checks:
+          - row_count:
+              threshold:
+                must_be_greater_than: 2
+        """,
+        """
+        checks:
+          - row_count:
+              qualifier: 4
+              threshold:
+                must_be_greater_than_or_equal: 3
+        """,
+        """
+        checks:
+          - row_count:
+              qualifier: 5
+              threshold:
+                must_be_less_than: 4
+        """,
+        """
+        checks:
+          - row_count:
+              qualifier: 6
+              threshold:
+                must_be_less_than_or_equal: 3
+        """,
+        """
+        checks:
+          - row_count:
+              threshold:
+                must_be_between:
+                  greater_than_or_equal: 2
+                  less_than_or_equal: 3
+        """,
+        """
+        checks:
+          - row_count:
+              qualifier: 8
+              threshold:
+                must_be_between:
+                  greater_than_or_equal: 3
+                  less_than_or_equal: 4
+        """,
+        """
+        checks:
+          - row_count:
+              qualifier: 9
+              threshold:
+                must_be_between:
+                  greater_than: 2
+                  less_than_or_equal: 3
+        """,
+        """
+        checks:
+          - row_count:
+              qualifier: 10
+              threshold:
+                must_be_between:
+                  greater_than_or_equal: 3
+                  less_than: 4
+        """,
+])
+def test_row_count_thresholds_pass(contract_yaml_str: str,data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=f"""
-            checks:
-              - row_count:
-                  threshold:
-                    must_be: 3
-              - row_count:
-                  qualifier: 2
-                  threshold:
-                    must_not_be: 2
-              - row_count:
-                  qualifier: 3
-                  threshold:
-                    must_be_greater_than: 2
-              - row_count:
-                  qualifier: 4
-                  threshold:
-                    must_be_greater_than_or_equal: 3
-              - row_count:
-                  qualifier: 5
-                  threshold:
-                    must_be_less_than: 4
-              - row_count:
-                  qualifier: 6
-                  threshold:
-                    must_be_less_than_or_equal: 3
-              - row_count:
-                  qualifier: 7
-                  threshold:
-                    must_be_between: [2, 3]
-              - row_count:
-                  qualifier: 8
-                  threshold:
-                    must_be_between: [3, 4]
-              - row_count:
-                  qualifier: 9
-                  threshold:
-                    must_be_greater_than: 2
-                    must_be_less_than_or_equal: 3
-              - row_count:
-                  qualifier: 10
-                  threshold:
-                  must_be_greater_than_or_equal: 3
-                  must_be_less_than: 4
-        """,
+        contract_yaml_str=contract_yaml_str,
     )
 
 
