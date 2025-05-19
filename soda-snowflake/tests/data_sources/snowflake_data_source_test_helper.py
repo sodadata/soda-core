@@ -27,11 +27,12 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
         return f"""
             type: snowflake
             name: SNOWFLAKE_TEST_DS
-            connection:
-                account: {os.getenv("SNOWFLAKE_ACCOUNT")}
-                user: {os.getenv("SNOWFLAKE_USER")}
-                password: {os.getenv("SNOWFLAKE_PASSWORD")}
-                database: {self.dataset_prefix[0]}
+            connections:
+                default:
+                    account: {os.getenv("SNOWFLAKE_ACCOUNT")}
+                    user: {os.getenv("SNOWFLAKE_USER")}
+                    password: {os.getenv("SNOWFLAKE_PASSWORD")}
+                    database: {self.dataset_prefix[0]}
         """
 
     def create_test_schema_if_not_exists_sql(self) -> str:

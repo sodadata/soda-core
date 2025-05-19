@@ -26,16 +26,17 @@ def test_data_source_env_var_resolving(env_vars: dict):
         yaml_str=f"""
             type: postgres
             name: postgres_test_ds
-            connection:
-                host: ${{env.TEST_POSTGRES_HOST}}
-                user: ${{env.TEST_POSTGRES_USERNAME}}
-                password: '${{env.TEST_POSTGRES_PASSWORD}}'
-                database: ${{env.TEST_POSTGRES_DATABASE}}
+            connections:
+                default:
+                    host: ${{env.TEST_POSTGRES_HOST}}
+                    user: ${{env.TEST_POSTGRES_USERNAME}}
+                    password: '${{env.TEST_POSTGRES_PASSWORD}}'
+                    database: ${{env.TEST_POSTGRES_DATABASE}}
         """
     )
     data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
-    connection_properties = data_source_impl.data_source_model.connection_properties
+    connection_properties = data_source_impl.data_source_model.connection_properties["default"]
     assert connection_properties.host == "localhost"
     assert connection_properties.user == "soda_test"
     assert isinstance(connection_properties.password, SecretStr)

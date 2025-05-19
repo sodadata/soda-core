@@ -20,7 +20,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DatabricksDataSourceConnection(
-            name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+            name=self.data_source_model.name, connection_properties=self.data_source_model.default_connection
         )
 
     def create_metadata_columns_query(self) -> DatabricksMetadataColumnsQuery:

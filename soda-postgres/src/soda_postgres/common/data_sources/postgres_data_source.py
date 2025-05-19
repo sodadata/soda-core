@@ -19,7 +19,7 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return PostgresDataSourceConnection(
-            name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+            name=self.data_source_model.name, connection_properties=self.data_source_model.default_connection
         )
 
 
