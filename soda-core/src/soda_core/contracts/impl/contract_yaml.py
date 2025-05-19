@@ -627,30 +627,7 @@ class ThresholdYaml:
     def __config_count(cls, members: list[any]) -> int:
         return sum([0 if v is None else 1 for v in members])
 
-    def has_one_lower_bound(self) -> bool:
-        return self.__config_count([self.must_be_greater_than, self.must_be_greater_than_or_equal]) == 1
-
-    def has_one_upper_bound(self) -> bool:
-        return self.__config_count([self.must_be_less_than, self.must_be_less_than_or_equal]) == 1
-
     def has_any_configurations(self) -> bool:
-        return (
-            self.__config_count(
-                [
-                    self.must_be_greater_than,
-                    self.must_be_greater_than_or_equal,
-                    self.must_be_less_than,
-                    self.must_be_less_than_or_equal,
-                    self.must_be,
-                    self.must_not_be,
-                    self.must_be_between,
-                    self.must_be_not_between,
-                ]
-            )
-            > 0
-        )
-
-    def has_upper_bound(self) -> bool:
         return (
             self.__config_count(
                 [
@@ -680,44 +657,6 @@ class ThresholdYaml:
         )
         between_count: int = self.__config_count([self.must_be_between, self.must_be_not_between])
         return comparator_count == 1 and between_count == 0
-
-    def has_only_must_be_between(self) -> bool:
-        other_config_count: int = self.__config_count(
-            [
-                self.must_be_greater_than,
-                self.must_be_greater_than_or_equal,
-                self.must_be_less_than,
-                self.must_be_less_than_or_equal,
-                self.must_be,
-                self.must_not_be,
-                self.must_be_not_between,
-            ]
-        )
-        return (
-            other_config_count == 0
-            and isinstance(self.must_be_between, RangeYaml)
-            and isinstance(self.must_be_between.lower_bound, Number)
-            and isinstance(self.must_be_between.upper_bound, Number)
-        )
-
-    def has_only_must_be_not_between(self) -> bool:
-        other_config_count: int = self.__config_count(
-            [
-                self.must_be_greater_than,
-                self.must_be_greater_than_or_equal,
-                self.must_be_less_than,
-                self.must_be_less_than_or_equal,
-                self.must_be,
-                self.must_not_be,
-                self.must_be_between,
-            ]
-        )
-        return (
-            other_config_count == 0
-            and isinstance(self.must_be_not_between, RangeYaml)
-            and isinstance(self.must_be_not_between.lower_bound, Number)
-            and isinstance(self.must_be_not_between.upper_bound, Number)
-        )
 
 
 class MissingAncValidityCheckYaml(ThresholdCheckYaml, MissingAndValidityYaml):

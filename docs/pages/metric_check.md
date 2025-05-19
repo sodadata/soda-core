@@ -16,7 +16,9 @@ checks:
       expression: |
         AVG("end" - "start")
       threshold:
-        must_be_between: [9, 11]
+        must_be_between: 
+          greater_than_or_equal: 9
+          less_than_or_equal: 11
 ```
 
 > The previous example assumes that columns start and end are numeric columns.
@@ -49,7 +51,9 @@ checks:
         SELECT AVG("end" - "start")
         FROM "adventureworks"."advw"."dim_employee"
       threshold:
-        must_be_between: [9, 11]
+        must_be_between:
+          greater_than_or_equal: 9
+          less_than_or_equal: 11
 ```
 
 > Metric checks with a user defined query can be placed in the dataset checks or in the 
