@@ -37,7 +37,9 @@ def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
                   expression: |
                     AVG({end_quoted} - {start_quoted})
                   threshold:
-                    must_be_between: [9, 11]
+                    must_be_between:
+                      greater_than_or_equal: 9
+                      less_than_or_equal: 11
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
@@ -60,7 +62,9 @@ def test_metric_query(data_source_test_helper: DataSourceTestHelper):
                     SELECT AVG({end_quoted} - {start_quoted})
                     FROM {test_table.qualified_name}
                   threshold:
-                    must_be_between: [9, 11]
+                    must_be_between:
+                      greater_than_or_equal: 9
+                      less_than_or_equal: 11
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]

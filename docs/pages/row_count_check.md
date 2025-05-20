@@ -21,7 +21,9 @@ dataset: postgres_adventureworks/adventureworks/advw/dim_employee
 checks:
   - row_count:
     threshold:
-      must_be_between: [10, 25]
+      must_be_between:
+        greater_than_or_equal: 10
+        less_than_or_equal: 25
 ```````
 
 For more details on threshold, see [Thresholds](thresholds.md)

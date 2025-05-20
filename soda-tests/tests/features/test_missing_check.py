@@ -119,6 +119,8 @@ def test_missing_percent(data_source_test_helper: DataSourceTestHelper):
                   - missing:
                       threshold:
                         metric: percent
-                        must_be_between: [24, 26]
+                        must_be_between:
+                          greater_than_or_equal: 24
+                          less_than_or_equal: 26
         """,
     )

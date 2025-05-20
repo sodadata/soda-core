@@ -85,7 +85,9 @@ def test_threshold_less_than_or_equal():
 def test_threshold_between():
     threshold: ThresholdImpl = parse_threshold(
         """
-        must_be_between: [0, 1]
+        must_be_between:
+          greater_than_or_equal: 0
+          less_than_or_equal: 1
     """
     )
 
@@ -96,26 +98,12 @@ def test_threshold_between():
     assert not threshold.passes(2)
 
 
-def test_threshold_not_between():
-    threshold: ThresholdImpl = parse_threshold(
-        """
-        must_be_not_between: [0, 2]
-    """
-    )
-
-    assert threshold.get_assertion_summary("m") == "m <= 0 or 2 <= m"
-    assert threshold.passes(-1)
-    assert threshold.passes(0)
-    assert not threshold.passes(1)
-    assert threshold.passes(2)
-    assert threshold.passes(3)
-
-
 def test_threshold_custom_inner():
     threshold: ThresholdImpl = parse_threshold(
         """
-        must_be_greater_than: 0
-        must_be_less_than_or_equal: 2
+        must_be_between:
+            greater_than: 0
+            less_than_or_equal: 2
     """
     )
 
@@ -127,11 +115,29 @@ def test_threshold_custom_inner():
     assert not threshold.passes(3)
 
 
+def test_threshold_not_between():
+    threshold: ThresholdImpl = parse_threshold(
+        """
+        must_be_not_between:
+          greater_than_or_equal: 2
+          less_than_or_equal: 0
+    """
+    )
+
+    assert threshold.get_assertion_summary("m") == "m <= 0 or 2 <= m"
+    assert threshold.passes(-1)
+    assert threshold.passes(0)
+    assert not threshold.passes(1)
+    assert threshold.passes(2)
+    assert threshold.passes(3)
+
+
 def test_threshold_custom_outer():
     threshold: ThresholdImpl = parse_threshold(
         """
-        must_be_less_than_or_equal: 0
-        must_be_greater_than: 2
+        must_be_not_between:
+            less_than_or_equal: 0
+            greater_than: 2
     """
     )
 

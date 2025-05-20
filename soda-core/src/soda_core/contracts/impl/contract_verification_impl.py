@@ -756,55 +756,33 @@ class ThresholdImpl:
                 must_not_be=threshold_yaml.must_not_be,
             )
 
-        elif threshold_yaml.has_only_must_be_between():
-            if threshold_yaml.must_be_between.lower_bound < threshold_yaml.must_be_between.upper_bound:
+        elif threshold_yaml.must_be_between:
+            range_error: Optional[str] = threshold_yaml.must_be_between.get_between_range_error()
+            if range_error:
+                logger.error(f"Invalid between threshold range: {range_error}")
+                return None
+            else:
                 return ThresholdImpl(
                     type=ThresholdType.INNER_RANGE,
-                    must_be_greater_than_or_equal=threshold_yaml.must_be_between.lower_bound,
-                    must_be_less_than_or_equal=threshold_yaml.must_be_between.upper_bound,
+                    must_be_greater_than=threshold_yaml.must_be_between.greater_than,
+                    must_be_greater_than_or_equal=threshold_yaml.must_be_between.greater_than_or_equal,
+                    must_be_less_than=threshold_yaml.must_be_between.less_than,
+                    must_be_less_than_or_equal=threshold_yaml.must_be_between.less_than_or_equal,
                 )
-            else:
-                logger.error(f"Threshold must_be_between range: " "first value must be less than the second value")
-                return None
 
-        elif threshold_yaml.has_only_must_be_not_between():
-            if threshold_yaml.must_be_not_between.lower_bound < threshold_yaml.must_be_not_between.upper_bound:
+        elif threshold_yaml.must_be_not_between:
+            range_error: Optional[str] = threshold_yaml.must_be_not_between.get_not_between_range_error()
+            if range_error:
+                logger.error(f"Invalid not between threshold range: {range_error}")
+                return None
+            else:
                 return ThresholdImpl(
                     type=ThresholdType.OUTER_RANGE,
-                    must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.upper_bound,
-                    must_be_less_than_or_equal=threshold_yaml.must_be_not_between.lower_bound,
+                    must_be_greater_than=threshold_yaml.must_be_not_between.greater_than,
+                    must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.greater_than_or_equal,
+                    must_be_less_than=threshold_yaml.must_be_not_between.less_than,
+                    must_be_less_than_or_equal=threshold_yaml.must_be_not_between.less_than_or_equal,
                 )
-            else:
-                logger.error(f"Threshold must_be_not_between range: " "first value must be less than the second value")
-                return None
-        else:
-            if threshold_yaml.has_one_lower_bound() and threshold_yaml.has_one_upper_bound():
-                lower_bound = (
-                    threshold_yaml.must_be_greater_than
-                    if threshold_yaml.must_be_greater_than is not None
-                    else threshold_yaml.must_be_greater_than_or_equal
-                )
-                upper_bound = (
-                    threshold_yaml.must_be_less_than
-                    if threshold_yaml.must_be_less_than is not None
-                    else threshold_yaml.must_be_less_than_or_equal
-                )
-                if lower_bound < upper_bound:
-                    return ThresholdImpl(
-                        type=ThresholdType.INNER_RANGE,
-                        must_be_greater_than=threshold_yaml.must_be_greater_than,
-                        must_be_greater_than_or_equal=threshold_yaml.must_be_greater_than_or_equal,
-                        must_be_less_than=threshold_yaml.must_be_less_than,
-                        must_be_less_than_or_equal=threshold_yaml.must_be_less_than_or_equal,
-                    )
-                else:
-                    return ThresholdImpl(
-                        type=ThresholdType.OUTER_RANGE,
-                        must_be_greater_than=threshold_yaml.must_be_greater_than,
-                        must_be_greater_than_or_equal=threshold_yaml.must_be_greater_than_or_equal,
-                        must_be_less_than=threshold_yaml.must_be_less_than,
-                        must_be_less_than_or_equal=threshold_yaml.must_be_less_than_or_equal,
-                    )
 
     def __init__(
         self,

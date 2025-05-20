@@ -201,7 +201,9 @@ columns:
       - type: invalid
         threshold:
           metric: percent
-          must_be_between: [0, 1]
+          must_be_between: 
+            greater_than_or_equal: 0
+            less_than_or_equal: 1
 ```
 
 The metric used in this check type is `invalid_percent`, which is calculated 

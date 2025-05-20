@@ -467,11 +467,11 @@
             "type": "number"
           },
           "must_be_between": {
-            "description": "Specifies a threshold range for the check. The check fails if the metric value is between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
+            "description": "Specifies a threshold range for the check. The check fails if the metric value is outside the range of values indicated.  See thresholds in the docs for more information",
             "$ref": "#/$defs/numeric_range"
           },
           "must_not_be_between": {
-            "description": "Specifies a threshold range for the check. The check fails if the metric value is not between a minimum and maximum value. In short style eg fail_when_between:[10,20] boundary values 10 and 20 will pass. For including boundary values, use nested min_* and max_* properties",
+            "description": "Specifies a threshold range for the check. The check fails if the metric value is inside the range of values indicated.",
             "$ref": "#/$defs/numeric_range"
           }
         }

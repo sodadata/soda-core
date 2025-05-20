@@ -62,8 +62,8 @@ def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
         checks:
           - freshness:
               column: created_at
-              unit: day
               threshold:
+                unit: day
                 must_be_less_than: 1
     """
 
