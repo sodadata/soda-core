@@ -223,7 +223,7 @@ For more details on threshold, see [Thresholds](thresholds.md)
 
 ### Missing values are excluded
 
-All the missing values configurations mentioned in [missing the values check](missing_checks.md#configure-extra-missing-values)
+All the missing values configurations mentioned in [missing configurations overview](missing_checks.md#missing-configurations-overview)
 can also be specified here in the invalid check type.  Missing values will be excluded from the invalid values.  
 
 When customizing the missing values beyond NULL, note that these custom missint values are also excluded from the validity checks.

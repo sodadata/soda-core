@@ -90,8 +90,6 @@ columns:
 
 `missing_format.regex` is interpreted by the data source warehouse SQL engine.
 
-For the full list of options, see [the Reference list of missing value configuration keys below](#list-of-missing-value-configuration-keys) 
-
 ### Allow some missing values to occur, up to a threshold
 
 Verify there are less than 25 missing values in a column:
