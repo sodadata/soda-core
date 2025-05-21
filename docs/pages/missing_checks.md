@@ -40,12 +40,18 @@ columns:
 
 ### Configure extra missing values
 
-##### Configure a list of extra missing values
-
 NULL is always considered a missing value.  Only configure the extra 
 non-NULL values that must be considered as missing. Typical examples are 
 '-', 'No value', 'N/A', 'None', 'null', -1, 999
 
+##### Missing configurations overview
+
+| Key              | Description                                                                                                                            | Example link                                                         |
+|------------------|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `missing_values` | List of values that apart from NULL is considered missing.  NULL is always considered a missing value and doesn't need to be included  | [Example](#configure-extra-missing-values)                           | 
+| `missing_format` | A SQL regex that matches with missing values. (Advanced)                                                                               | [Example](#configure-a-regular-expression-to-specify-missing-values) |
+
+##### Configure a list of extra missing values
 
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
@@ -124,5 +130,3 @@ as: `missing_count` x `100` / `row_count`
 > division by zero and concludes there are 0 % missing values.  
 
 For more details on threshold, see [Thresholds](thresholds.md) 
-
-See [the reference page for more missing and validity configurations](missing_and_validity.md)

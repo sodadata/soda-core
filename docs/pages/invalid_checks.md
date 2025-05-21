@@ -4,8 +4,7 @@ Table of contents
 * [Verify there are no invalid values](#verify-there-are-no-invalid-values)
 * [Configure invalid values](#configure-invalid-values)
   * [Verify values are in a fixed list of valid values](#verify-values-are-in-a-fixed-list-of-valid-values)
-  * [Verify values are in a named format](#verify-values-are-in-a-named-format)
-  * [Verify valid values with a regex](#verify-valid-values-with-a-regex-) 
+  * [Verify valid values with a regex](#verify-valid-values-with-a-regex) 
   * [Verify valid values occur in a reference dataset](#verify-valid-values-occur-in-a-reference-dataset)
   * [Verify the length of values](#verify-the-length-of-values)
   * [Verify the values are within a range](#verify-the-values-are-within-a-range) 
@@ -13,7 +12,6 @@ Table of contents
 * [Allow some invalid values to occur, up to a threshold](#allow-some-invalid-values-to-occur-up-to-a-threshold)
 * [Verify more specific validity on a subset of the data](#verify-more-specific-validity-on-a-subset-of-the-data)
 * [Missing values are excluded](#missing-values-are-excluded)
- 
 
 ### Verify there are no invalid values
 
@@ -36,7 +34,22 @@ columns:
 
 ### Configure invalid values
 
+##### Valid and invalid configurations overview
+
 Multiple configurations can be combined.
+
+| Key                    | Description                                                                                                 | Example link                                                              |
+|------------------------|-------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `valid_values`         | List of values                                                                                              | [Example](#verify-values-are-in-a-fixed-list-of-valid-values)             |
+| `valid_format`         | Values not occurring in this list are considered invalid. List of values (strings or numbers).              | [Example](#verify-valid-values-with-a-regex)                              |
+| `valid_reference_data` | Values must occur in a reference data column to be valid.                                                   | [Example](#verify-valid-values-occur-in-a-reference-dataset)              |
+| `valid_min`            | Values must be greater or equal to the given numeric value to be valid.  Assumes numeric column data type.  | [Example](#verify-the-values-are-within-a-range)                          |
+| `valid_max`            | Values must be less or equal to the given numeric value to be valid.  Assumes numeric column data type.     | [Example](#verify-the-values-are-within-a-range)                          |
+| `valid_length`         | The length of the column value must be exact as configured. Integer value.                                  | [Example](#verify-the-length-of-values)                                   |
+| `valid_min_length`     | The length of the column value must be greater than or equal to the specified numeric value. Integer value. | [Example](#verify-the-length-of-values)                                   |
+| `valid_max_length`     | The length of the column value must be less than or equal to the specified numeric value. Integer value.    | [Example](#verify-the-length-of-values)                                   |
+| `invalid_values`       | Values occurring in this list are invalid. List of values (strings or numbers)                              | [Example](#verify-values-are-not-in-a-list-of-invalid-values)             |
+| `invalid_format`       | A SQL regex that matches with invalid values (Advanced)                                                     | [Example](#verify-values-do-not-match-a-regex-identifying-invalid-values) |
 
 ##### Verify values are in a fixed list of valid values
 
@@ -54,7 +67,7 @@ columns:
           valid_values: ['S', 'M', 'L']
 ```
 
-##### Verify valid values with a regex 
+##### Verify valid values with a regex
 
 Configure a regular expression to identify valid values.  It leverages the regex syntax of the SQL engine in the data source.
 Every time you use a regex, a human readable name has to be provided as well.
@@ -134,7 +147,9 @@ columns:
           valid_max: 100
 ```
 
-##### Verify values are not in a list of invalid values 
+`valid_min` and `valid_max` can be used individually as well.
+
+##### Verify values are not in a list of invalid values
 
 Configure a list of values that will be considered invalid.
 
@@ -148,15 +163,7 @@ columns:
           invalid_values: ['Cocobola', 'Rubber']
 ```
 
-```yaml
-dataset: postgres_adventureworks/adventureworks/advw/dim_employee
-
-columns:
-  - name: location
-    checks:
-      - invalid:
-          invalid_format: email
-```
+##### Verify values do not match a regex identifying invalid values
 
 ```yaml
 dataset: postgres_adventureworks/adventureworks/advw/dim_employee
@@ -223,6 +230,3 @@ When customizing the missing values beyond NULL, note that these custom missint 
 This ensures that missing values are not counted double: `missing_count` + `invalid_count` + `valid_count` must be equal to `row_count`
 
 Same reasoning: `missing_percent` + `invalid_percent` + `valid_percent` = 100
-
-
-See [the reference page for more missing and validity configurations](missing_and_validity.md) 
