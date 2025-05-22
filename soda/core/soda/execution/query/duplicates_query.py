@@ -23,7 +23,7 @@ class DuplicatesQuery(Query):
             values_filter_clauses.append(resolved_partition_filter)
 
         if metric.filter:
-            values_filter_clauses.append(metric.filter)
+            values_filter_clauses.append(f"({metric.filter})")
 
         values_filter = " \n  AND ".join(values_filter_clauses)
 
