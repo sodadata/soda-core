@@ -8,6 +8,7 @@ from typing import Type, TypeVar
 
 from helpers.mock_sampler import MockSampler
 from helpers.mock_soda_cloud import MockSodaCloud, TimeGenerator
+from soda.common.env_helper import EnvHelper
 from soda.common.log import LogLevel
 from soda.execution.check.check import Check
 from soda.execution.check_outcome import CheckOutcome
@@ -51,6 +52,13 @@ class TestScan(Scan):
             from helpers.mock_soda_cloud import MockSodaCloud
 
             self._configuration.soda_cloud = MockSodaCloud(self)
+
+        # reset env helper instance
+        self.environment.reset()
+        self.environment = EnvHelper(self._logs)
+
+    def enable_custom_identity_resolve(self):
+        self.environment.ff_jinja_resolve_custom_identity = True
 
     def _parse_sodacl_yaml_str(self, sodacl_yaml_str: str, file_path: str = None):
         dedented_sodacl_yaml_str = dedent(sodacl_yaml_str).strip()

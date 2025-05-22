@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from soda.__version__ import SODA_CORE_VERSION
 from soda.cloud.historic_descriptor import HistoricDescriptor
 from soda.cloud.soda_cloud import SodaCloud
+from soda.common.env_helper import EnvHelper
 from soda.common.json_helper import JsonHelper
 from soda.common.log import Log, LogLevel
 from soda.common.logs import Logs
@@ -68,6 +69,7 @@ class Scan:
         self._logs.info(f"Soda Core {SODA_CORE_VERSION}")
         self.scan_results: dict = {}
         self.scan_context: dict = {}
+        self.environment = EnvHelper(self._logs)
 
     def build_scan_results(self) -> dict:
         checks = [check.get_dict() for check in self._checks if check.outcome is not None and check.archetype is None]
