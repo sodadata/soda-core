@@ -5,7 +5,6 @@ from soda_core.common.exceptions import ExtensionException
 
 
 class Extensions:
-
     @classmethod
     def find_class_method(cls, module_name: str, class_name: str, method_name: str) -> Optional[Callable]:
         try:

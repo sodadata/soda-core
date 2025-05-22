@@ -1,10 +1,10 @@
-from typing import Dict, Optional, Callable
+from typing import Callable, Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import (
+    ExtensionException,
     InvalidArgumentException,
-    InvalidDataSourceConfigurationException, ExtensionException,
+    InvalidDataSourceConfigurationException,
 )
 from soda_core.common.extensions import Extensions
 from soda_core.common.logging_constants import Emoticons, soda_logger
@@ -252,9 +252,7 @@ def handle_create_contract_skeleton(
             )
 
         create_contract_function: Callable = Extensions.find_class_method(
-            "soda.generate.contract_generator",
-            class_name="ContractGenerator",
-            method_name="create_skeleton"
+            "soda.generate.contract_generator", class_name="ContractGenerator", method_name="create_skeleton"
         )
         create_contract_function(
             data_source_file_path=data_source_file_path,

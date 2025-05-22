@@ -8,9 +8,10 @@ from typing import Dict, List, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
+    handle_create_contract_skeleton,
     handle_publish_contract,
     handle_test_contract,
-    handle_verify_contract, handle_create_contract_skeleton,
+    handle_verify_contract,
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
@@ -373,7 +374,9 @@ def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
 
 
 def _setup_contract_create_skeleton_command(contract_parsers) -> None:
-    create_skeleton_parser = contract_parsers.add_parser("create", help="Create a contract skeleton from data source metadata")
+    create_skeleton_parser = contract_parsers.add_parser(
+        "create", help="Create a contract skeleton from data source metadata"
+    )
 
     create_skeleton_parser.add_argument(
         "-d",
@@ -415,7 +418,7 @@ def _setup_contract_create_skeleton_command(contract_parsers) -> None:
             dataset_identifiers=dataset_identifiers,
             verbose=verbose,
             soda_cloud=soda_cloud,
-            use_agent=use_agent
+            use_agent=use_agent,
         )
 
         exit_with_code(exit_code)
