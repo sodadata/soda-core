@@ -295,6 +295,12 @@ class Check(ABC):
         if isinstance(self.check_cfg.source_configurations, dict):
             identity = self.check_cfg.source_configurations.get("identity")
             if isinstance(identity, str):
+                jinja_resolve = self.data_source_scan.scan.jinja_resolve
+                do_resolve = self.data_source_scan.scan.environment.ff_jinja_resolve_custom_identity
+
+                if do_resolve:
+                    identity = jinja_resolve(identity)
+
                 identities["v4"] = identity
         return identities
 
