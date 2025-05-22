@@ -1,13 +1,15 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from soda.generate.contract_generator import ContractGenerator
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
     ContractVerificationSession,
     all_none_or_empty,
     handle_publish_contract,
     handle_test_contract,
-    handle_verify_contract,
+    handle_verify_contract, handle_create_contract_skeleton,
 )
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
@@ -249,3 +251,31 @@ def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit
     )
 
     assert exit_code == expected_exit_code
+
+
+@patch.object(ContractGenerator, "create_skeleton")
+def test_handle_create_contract_skeleton(mock_create_skeleton):
+    mock_create_skeleton.return_value = "the-generated-contract"
+    exit_code = ExitCode = handle_create_contract_skeleton(
+        data_source_file_path="sdf",
+        dataset_identifiers=["ksldfj/sdf/sdf/sdg"],
+        verbose=False,
+        soda_cloud=None,
+        use_agent=False
+    )
+    assert exit_code == ExitCode.OK
+
+
+@patch.object(ContractGenerator, "create_skeleton")
+def test_handle_create_contract_skeleton_error1(mock_create_skeleton, caplog):
+    mock_create_skeleton.return_value = "the-generated-contract"
+    exit_code = ExitCode = handle_create_contract_skeleton(
+        data_source_file_path="sdf",
+        dataset_identifiers=["ksldfj/sdf/sdf/sdg"],
+        verbose=False,
+        soda_cloud=None,
+        use_agent=True
+    )
+    assert exit_code == ExitCode.LOG_ERRORS
+    assert ("A Soda Cloud configuration file is required when using --use-agent. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path.") in caplog.messages

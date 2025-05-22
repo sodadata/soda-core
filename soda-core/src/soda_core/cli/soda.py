@@ -10,7 +10,7 @@ from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
     handle_publish_contract,
     handle_test_contract,
-    handle_verify_contract,
+    handle_verify_contract, handle_create_contract_skeleton,
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
@@ -81,6 +81,7 @@ def _setup_contract_resource(resource_parsers) -> None:
     contract_subparsers = contract_parser.add_subparsers(dest="command", help="Contract commands")
 
     _setup_contract_verify_command(contract_subparsers)
+    _setup_contract_create_skeleton_command(contract_subparsers)
     _setup_contract_publish_command(contract_subparsers)
     _setup_contract_test_command(contract_subparsers)
 
@@ -369,6 +370,57 @@ def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
         exit_with_code(exit_code)
 
     test_soda_cloud_parser.set_defaults(handler_func=handle)
+
+
+def _setup_contract_create_skeleton_command(contract_parsers) -> None:
+    create_skeleton_parser = contract_parsers.add_parser("create", help="Create a contract skeleton from data source metadata")
+
+    create_skeleton_parser.add_argument(
+        "-d",
+        "--dataset",
+        type=str,
+        nargs="+",
+        help="Names of datasets to verify. Use this to work with remote contracts present in Soda Cloud.",
+    )
+
+    create_skeleton_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
+    create_skeleton_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
+    create_skeleton_parser.add_argument(
+        "-a",
+        "--use-agent",
+        const=True,
+        action="store_const",
+        default=False,
+        help="Executes contract verification on Soda Agent instead of locally in this library.",
+    )
+    create_skeleton_parser.add_argument(
+        "-v",
+        "--verbose",
+        const=True,
+        action="store_const",
+        default=False,
+        help="Show more detailed logs on the console.",
+    )
+
+    def handle(args):
+        dataset_identifiers = args.dataset
+        data_source_file_path = args.data_source
+        verbose = args.verbose
+        use_agent = args.use_agent
+
+        soda_cloud = SodaCloud.from_config(args.soda_cloud)
+
+        exit_code = handle_create_contract_skeleton(
+            data_source_file_path=data_source_file_path,
+            dataset_identifiers=dataset_identifiers,
+            verbose=verbose,
+            soda_cloud=soda_cloud,
+            use_agent=use_agent
+        )
+
+        exit_with_code(exit_code)
+
+    create_skeleton_parser.set_defaults(handler_func=handle)
 
 
 def exit_with_code(exit_code: int):

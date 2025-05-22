@@ -1,10 +1,12 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable
 
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import (
     InvalidArgumentException,
-    InvalidDataSourceConfigurationException,
+    InvalidDataSourceConfigurationException, ExtensionException,
 )
+from soda_core.common.extensions import Extensions
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
@@ -231,5 +233,40 @@ def handle_test_contract(
         else:
             soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")
             return ExitCode.OK
+
+    return ExitCode.OK
+
+
+def handle_create_contract_skeleton(
+    data_source_file_path: Optional[str],
+    dataset_identifiers: Optional[list[str]],
+    verbose: bool,
+    soda_cloud: Optional[SodaCloud],
+    use_agent: bool,
+) -> ExitCode:
+    try:
+        if use_agent and not soda_cloud:
+            raise InvalidArgumentException(
+                "A Soda Cloud configuration file is required when using --use-agent. "
+                "Please provide the '--soda-cloud' argument with a valid configuration file path."
+            )
+
+        create_contract_function: Callable = Extensions.find_class_method(
+            "soda.generate.contract_generator",
+            class_name="ContractGenerator",
+            method_name="create_skeleton"
+        )
+        create_contract_function(
+            data_source_file_path=data_source_file_path,
+            dataset_identifiers=dataset_identifiers,
+            verbose=verbose,
+            soda_cloud_client=soda_cloud,
+            use_agent=use_agent,
+        )
+    except (ExtensionException, InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
+        soda_logger.error(exc)
+        if soda_cloud:
+            soda_cloud.mark_scan_as_failed(exc=exc)
+        return ExitCode.LOG_ERRORS
 
     return ExitCode.OK
