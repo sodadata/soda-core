@@ -1,7 +1,5 @@
 from typing import Callable, Dict, Optional
 
-from psycopg2.errorcodes import NONSTANDARD_USE_OF_ESCAPE_CHARACTER
-
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import (
@@ -256,18 +254,14 @@ def handle_create_contract_skeleton(
             )
 
         if not output_file_path and not soda_cloud:
-            raise InvalidArgumentException(
-                "No output destination provided. Either provide --file or --soda-cloud"
-            )
+            raise InvalidArgumentException("No output destination provided. Either provide --file or --soda-cloud")
 
         if data_source_file_path and dataset_identifier_str:
             data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_file_path(data_source_file_path)
             dataset_identifier: DatasetIdentifier = DatasetIdentifier.parse(dataset_identifier_str)
 
             create_contract_function: Callable = Extensions.find_class_method(
-                "soda.generate.contract_generator",
-                class_name="ContractGenerator",
-                method_name="create_skeleton"
+                "soda.generate.contract_generator", class_name="ContractGenerator", method_name="create_skeleton"
             )
 
             create_contract_function(

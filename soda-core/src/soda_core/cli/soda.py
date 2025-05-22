@@ -383,7 +383,7 @@ def _setup_contract_create_skeleton_command(contract_parsers) -> None:
         "--dataset",
         type=str,
         help="Fully qualified name of dataset. "
-             "Slash separated. Eg data_source_name/database_name/schema_name/table_name",
+        "Slash separated. Eg data_source_name/database_name/schema_name/table_name",
     )
 
     create_skeleton_parser.add_argument(

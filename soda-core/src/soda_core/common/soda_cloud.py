@@ -215,8 +215,7 @@ class SodaCloud:
         logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
         soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         file_id: Optional[str] = self.upload_yaml_file(
-            yaml_str=contract_yaml_source_str,
-            soda_cloud_file_path=soda_cloud_file_path
+            yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
         )
         if file_id:
             contract.source.soda_cloud_file_id = file_id
@@ -462,8 +461,7 @@ class SodaCloud:
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
         file_id: Optional[str] = self.upload_yaml_file(
-            yaml_str=contract_yaml_str_original,
-            soda_cloud_file_path=soda_cloud_file_path
+            yaml_str=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
