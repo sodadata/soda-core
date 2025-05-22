@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-fabric"
-package_version = "3.5.2"
+package_version = "3.5.3"
 description = "Soda Core Microsoft Fabric Package"
 
 requires = [f"soda-core-sqlserver=={package_version}"]
