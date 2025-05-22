@@ -3,6 +3,7 @@ from typing import Callable, Dict, Optional
 from psycopg2.errorcodes import NONSTANDARD_USE_OF_ESCAPE_CHARACTER
 
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import (
     ExtensionException,
     InvalidArgumentException,
