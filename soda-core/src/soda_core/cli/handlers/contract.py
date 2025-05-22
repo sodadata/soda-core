@@ -1,5 +1,7 @@
 from typing import Callable, Dict, Optional
 
+from psycopg2.errorcodes import NONSTANDARD_USE_OF_ESCAPE_CHARACTER
+
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.exceptions import (
     ExtensionException,
@@ -239,7 +241,8 @@ def handle_test_contract(
 
 def handle_create_contract_skeleton(
     data_source_file_path: Optional[str],
-    dataset_identifiers: Optional[list[str]],
+    dataset_identifier_str: Optional[str],
+    output_file_path: Optional[str],
     verbose: bool,
     soda_cloud: Optional[SodaCloud],
     use_agent: bool,
@@ -251,16 +254,30 @@ def handle_create_contract_skeleton(
                 "Please provide the '--soda-cloud' argument with a valid configuration file path."
             )
 
-        create_contract_function: Callable = Extensions.find_class_method(
-            "soda.generate.contract_generator", class_name="ContractGenerator", method_name="create_skeleton"
-        )
-        create_contract_function(
-            data_source_file_path=data_source_file_path,
-            dataset_identifiers=dataset_identifiers,
-            verbose=verbose,
-            soda_cloud_client=soda_cloud,
-            use_agent=use_agent,
-        )
+        if not output_file_path and not soda_cloud:
+            raise InvalidArgumentException(
+                "No output destination provided. Either provide --file or --soda-cloud"
+            )
+
+        if data_source_file_path and dataset_identifier_str:
+            data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_file_path(data_source_file_path)
+            dataset_identifier: DatasetIdentifier = DatasetIdentifier.parse(dataset_identifier_str)
+
+            create_contract_function: Callable = Extensions.find_class_method(
+                "soda.generate.contract_generator",
+                class_name="ContractGenerator",
+                method_name="create_skeleton"
+            )
+
+            create_contract_function(
+                data_source_yaml_source=data_source_yaml_source,
+                dataset_identifier=dataset_identifier,
+                output_file_path=output_file_path,
+                verbose=verbose,
+                soda_cloud=soda_cloud,
+                use_agent=use_agent,
+            )
+
     except (ExtensionException, InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
         soda_logger.error(exc)
         if soda_cloud:

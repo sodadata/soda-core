@@ -382,10 +382,16 @@ def _setup_contract_create_skeleton_command(contract_parsers) -> None:
         "-d",
         "--dataset",
         type=str,
-        nargs="+",
-        help="Names of datasets to verify. Use this to work with remote contracts present in Soda Cloud.",
+        help="Fully qualified name of dataset. "
+             "Slash separated. Eg data_source_name/database_name/schema_name/table_name",
     )
 
+    create_skeleton_parser.add_argument(
+        "-f",
+        "--file",
+        type=str,
+        help="The path to the file to be created. (directories will be created if needed)",
+    )
     create_skeleton_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
     create_skeleton_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
     create_skeleton_parser.add_argument(
@@ -406,16 +412,17 @@ def _setup_contract_create_skeleton_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        dataset_identifiers = args.dataset
+        dataset_identifier_str = args.dataset
+        output_file_path = args.file
         data_source_file_path = args.data_source
         verbose = args.verbose
         use_agent = args.use_agent
-
         soda_cloud = SodaCloud.from_config(args.soda_cloud)
 
         exit_code = handle_create_contract_skeleton(
             data_source_file_path=data_source_file_path,
-            dataset_identifiers=dataset_identifiers,
+            output_file_path=output_file_path,
+            dataset_identifier_str=dataset_identifier_str,
             verbose=verbose,
             soda_cloud=soda_cloud,
             use_agent=use_agent,
