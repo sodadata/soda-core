@@ -25,6 +25,40 @@ def test_vars_in_check(data_source_fixture: DataSourceFixture):
     )
 
     assert scan_result["checks"][0]["name"] == "testing name something"
+    assert scan_result["checks"][0]["identities"]["v4"] == "${IDENTITY}"
+
+
+def test_vars_in_check_identity_resolve(data_source_fixture: DataSourceFixture):
+    table_name = data_source_fixture.ensure_test_table(customers_test_table)
+    scan = data_source_fixture.create_test_scan()
+    mock_soda_cloud = scan.enable_mock_soda_cloud()
+    scan.enable_custom_identity_resolve()
+
+    scan.add_variables(
+        {
+            "TABLE_NAME": table_name,
+            "NAME": "something",
+            "COLUMN": "country",
+            "VALUE": "BE",
+            "IDENTITY": "test-check",
+        }
+    )
+    scan.add_sodacl_yaml_str(
+        f"""
+          checks for ${{TABLE_NAME}}:
+            - row_count > 0:
+                name: testing name ${{NAME}}
+                filter: ${{COLUMN}} = '${{VALUE}}'
+                identity: ${{IDENTITY}}
+        """,
+    )
+    scan.execute()
+
+    scan.assert_all_checks_pass()
+    scan_result = mock_soda_cloud.pop_scan_result()
+
+    assert scan_result["checks"][0]["name"] == "testing name something"
+    assert scan_result["checks"][0]["identities"]["v4"] == "test-check"
 
 
 def test_vars_in_configuration(data_source_fixture: DataSourceFixture):
