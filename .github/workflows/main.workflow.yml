@@ -24,7 +24,7 @@ jobs:
           extra_args: --all-files
 
   run-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -203,7 +203,7 @@ jobs:
     name: Build & Publish Package
     if: contains(github.ref, 'refs/tags/')
     timeout-minutes: 10
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: [run-tests]
     env:
       REPORTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -252,7 +252,7 @@ jobs:
     name: Trigger Docker build workflow
     needs: [publish-pypi]
     timeout-minutes: 10
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: contains(github.ref, 'refs/tags/')
     steps:
       - name: check if a version tag
