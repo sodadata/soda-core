@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import TYPE_CHECKING
 
-from pyspark.sql import SparkSession
 from soda.data_sources.spark_df_connection import SparkDfConnection
 from soda.execution.data_type import DataType
 
@@ -13,9 +13,11 @@ from soda.contracts.impl.yaml_helper import YamlFile
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
+
 
 class SparkDfSqlDialect(SqlDialect):
-
     def __init__(self):
         super().__init__()
 
@@ -87,7 +89,6 @@ class SparkDfSqlDialect(SqlDialect):
 
 
 class SparkDfContractDataSource(FileClContractDataSource):
-
     def __init__(self, data_source_yaml_file: YamlFile, spark_session: SparkSession):
         data_source_yaml_dict: dict = data_source_yaml_file.get_dict()
         data_source_yaml_dict[self._KEY_TYPE] = "spark_df"
