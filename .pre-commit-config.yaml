@@ -30,7 +30,7 @@ repos:
         exclude: _models?\.py$
         args: [--py38-plus, --keep-runtime-typing]
   - repo: https://github.com/PyCQA/isort
-    rev: 6.0.0
+    rev: 6.0.1
     hooks:
       - id: isort
         additional_dependencies: [toml]
