@@ -3,7 +3,7 @@
 from setuptools import find_namespace_packages, setup
 
 package_name = "soda-core-impala"
-package_version = "3.5.3"
+package_version = "3.5.4"
 description = "Soda Core Impala Package"
 
 requires = [f"soda-core=={package_version}", "impyla==0.19.0"]
