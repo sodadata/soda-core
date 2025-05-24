@@ -18,6 +18,7 @@ requires = [
     "sqlparse~=0.4",
     "inflect~=7.0",
     "pydantic>=2.0.0,<3.0.0",
+    "python-dotenv>=1.0.0"
 ]
 
 setup(
