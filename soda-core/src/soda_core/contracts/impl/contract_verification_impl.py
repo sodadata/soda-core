@@ -454,12 +454,14 @@ class ContractImpl:
         contract_verification_result.log_records = self.logs.pop_log_records()
 
         if self.soda_cloud and self.publish_results:
-            # upload_contract_file fills in contract.source.soda_cloud_file_id if all goes well
-            self.soda_cloud.upload_contract_file(contract_verification_result.contract)
-            # send_contract_result will use contract.source.soda_cloud_file_id
-            response_ok: bool = self.soda_cloud.send_contract_result(contract_verification_result)
-            if not response_ok:
-                contract_verification_result.sending_results_to_soda_cloud_failed = True
+            file_id: Optional[str] = self.soda_cloud.upload_contract_file(contract_verification_result.contract)
+            if file_id:
+                # Side effect to pass file id to console logging later on. TODO reconsider this
+                contract.source.soda_cloud_file_id = file_id
+                # send_contract_result will use contract.source.soda_cloud_file_id
+                response_ok: bool = self.soda_cloud.send_contract_result(contract_verification_result)
+                if not response_ok:
+                    contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 

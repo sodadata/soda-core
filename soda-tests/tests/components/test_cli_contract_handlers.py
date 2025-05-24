@@ -1,14 +1,14 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
     ContractVerificationSession,
     all_none_or_empty,
     handle_publish_contract,
     handle_test_contract,
-    handle_verify_contract,
-)
+    handle_verify_contract, )
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,

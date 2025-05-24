@@ -210,17 +210,11 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def upload_contract_file(self, contract: Contract) -> str:
+    def upload_contract_file(self, contract: Contract) -> Optional[str]:
         contract_yaml_source_str = contract.source.source_content_str
         logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
         soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
-        file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path
-        )
-        if file_id:
-            contract.source.soda_cloud_file_id = file_id
-
-        return file_id
+        return self._upload_scan_yaml_file(yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path)
 
     def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> bool:
         """
@@ -244,13 +238,35 @@ class SodaCloud:
         else:
             return False
 
-    def _upload_contract(self, yaml_str_source: str, soda_cloud_file_path: str) -> Optional[str]:
+    def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
+        file_id: Optional[str] = self._upload_scan_yaml_file(
+            yaml_str=contract_yaml_str, soda_cloud_file_path=soda_cloud_file_path
+        )
+        if file_id:
+            command_json_dict: dict = {
+                "type": "sodaCoreUpsertDraftContract",
+                "contract": {
+                    "fileId": file_id,
+                    "metadata": {"source": {"filePath": soda_cloud_file_path, "type": "cloud"}},
+                },
+            }
+            response: Response = self._execute_command(
+                command_json_dict=command_json_dict, request_log_name="create_draft_contract"
+            )
+
+            logger.debug(f"Response from Soda Cloud: {response.json()}")
+
+    def _upload_scan_yaml_file(
+        self,
+        yaml_str: str,
+        soda_cloud_file_path: str,
+    ) -> Optional[str]:
         """
         Returns a Soda Cloud fileId or None if something is wrong.
         """
         try:
             with TemporaryFile() as temp_file:
-                rows_json_bytes = bytearray(yaml_str_source, "utf-8")
+                rows_json_bytes = bytearray(yaml_str, "utf-8")
                 temp_file.write(rows_json_bytes)
 
                 file_size_in_bytes = temp_file.tell()
@@ -317,8 +333,8 @@ class SodaCloud:
         soda_cloud_file_path: str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
-        file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
+        file_id: Optional[str] = self._upload_scan_yaml_file(
+            yaml_str=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical("Uploading the contract file failed")
@@ -456,8 +472,8 @@ class SodaCloud:
         soda_cloud_file_path: str = (
             contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
         )
-        file_id: Optional[str] = self._upload_contract(
-            yaml_str_source=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
+        file_id: Optional[str] = self._upload_scan_yaml_file(
+            yaml_str=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
         )
         if not file_id:
             logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
