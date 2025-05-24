@@ -244,7 +244,7 @@ class SodaCloud:
         )
         if file_id:
             command_json_dict: dict = {
-                "type": "sodaCoreCreateDraftContract",
+                "type": "sodaCoreUpsertDraftContract",
                 "contract": {
                     "fileId": file_id,
                     "metadata": {"source": {"filePath": soda_cloud_file_path, "type": "cloud"}},
@@ -253,6 +253,8 @@ class SodaCloud:
             response: Response = self._execute_command(
                 command_json_dict=command_json_dict, request_log_name="create_draft_contract"
             )
+
+            logger.debug(f"Response from Soda Cloud: {response.json()}")
 
     def _upload_scan_yaml_file(
         self,
