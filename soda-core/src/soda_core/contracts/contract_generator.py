@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from typing import Optional, Type
+
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource
-
-from typing import Optional, Type
 
 
 class IContractGenerator:
@@ -21,7 +21,7 @@ class IContractGenerator:
             raise NotImplementedError(f"No contract generator implementations registered.")
         if not identifier:
             identifier = next(iter(cls._registry))
-        impl_cls =  cls._registry[identifier]
+        impl_cls = cls._registry[identifier]
         return impl_cls()
 
     def create_skeleton(

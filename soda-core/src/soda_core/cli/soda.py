@@ -380,7 +380,9 @@ def handle_ctrl_c(self, sig, frame):
     exit_with_code(ExitCode.LOG_ERRORS)
 
 
-def get_or_create_resource_parser(root_parser: ArgumentParser, resource_name: str, help_str: Optional[str] = None) -> ArgumentParser:
+def get_or_create_resource_parser(
+    root_parser: ArgumentParser, resource_name: str, help_str: Optional[str] = None
+) -> ArgumentParser:
     resource_subparsers = _get_or_create_subparsers(root_parser, "resource")
     if resource_name in resource_subparsers.choices:
         return resource_subparsers.choices[resource_name]
@@ -388,7 +390,9 @@ def get_or_create_resource_parser(root_parser: ArgumentParser, resource_name: st
     return resource_subparsers.add_parser(resource_name, help=help_str)
 
 
-def get_or_create_command_parser(root_parser: ArgumentParser, resource_name: str, command_name: str, help_str: Optional[str] = None) -> ArgumentParser:
+def get_or_create_command_parser(
+    root_parser: ArgumentParser, resource_name: str, command_name: str, help_str: Optional[str] = None
+) -> ArgumentParser:
     resource_parser = get_or_create_resource_parser(root_parser, resource_name)
     command_subparsers = _get_or_create_subparsers(resource_parser, "command")
 
@@ -396,6 +400,7 @@ def get_or_create_command_parser(root_parser: ArgumentParser, resource_name: str
         return command_subparsers.choices[command_name]
 
     return command_subparsers.add_parser(command_name, help=help_str)
+
 
 def _get_or_create_subparsers(parser: ArgumentParser, dest: str, help_str: Optional[str] = None) -> _SubParsersAction:
     for action in parser._actions:
