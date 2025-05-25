@@ -3,12 +3,11 @@ from __future__ import annotations
 import signal
 import sys
 import traceback
-from argparse import ArgumentParser
+from argparse import ArgumentParser, _SubParsersAction
 from typing import Dict, List, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
-    handle_create_contract_skeleton,
     handle_publish_contract,
     handle_test_contract,
     handle_verify_contract,
@@ -33,8 +32,6 @@ def execute() -> None:
         print(r"____/\___/___/_/  _\\ CLI 4.0.0.dev??")
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
-
-        cli_parser = create_cli_parser()
 
         args = cli_parser.parse_args()
 
@@ -82,7 +79,6 @@ def _setup_contract_resource(resource_parsers) -> None:
     contract_subparsers = contract_parser.add_subparsers(dest="command", help="Contract commands")
 
     _setup_contract_verify_command(contract_subparsers)
-    _setup_contract_create_skeleton_command(contract_subparsers)
     _setup_contract_publish_command(contract_subparsers)
     _setup_contract_test_command(contract_subparsers)
 
@@ -373,66 +369,6 @@ def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
     test_soda_cloud_parser.set_defaults(handler_func=handle)
 
 
-def _setup_contract_create_skeleton_command(contract_parsers) -> None:
-    create_skeleton_parser = contract_parsers.add_parser(
-        "create", help="Create a contract skeleton from data source metadata"
-    )
-
-    create_skeleton_parser.add_argument(
-        "-d",
-        "--dataset",
-        type=str,
-        help="Fully qualified name of dataset. "
-        "Slash separated. Eg data_source_name/database_name/schema_name/table_name",
-    )
-
-    create_skeleton_parser.add_argument(
-        "-f",
-        "--file",
-        type=str,
-        help="The path to the file to be created. (directories will be created if needed)",
-    )
-    create_skeleton_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
-    create_skeleton_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
-    create_skeleton_parser.add_argument(
-        "-a",
-        "--use-agent",
-        const=True,
-        action="store_const",
-        default=False,
-        help="Executes contract verification on Soda Agent instead of locally in this library.",
-    )
-    create_skeleton_parser.add_argument(
-        "-v",
-        "--verbose",
-        const=True,
-        action="store_const",
-        default=False,
-        help="Show more detailed logs on the console.",
-    )
-
-    def handle(args):
-        dataset_identifier_str = args.dataset
-        output_file_path = args.file
-        data_source_file_path = args.data_source
-        verbose = args.verbose
-        use_agent = args.use_agent
-        soda_cloud = SodaCloud.from_config(args.soda_cloud)
-
-        exit_code = handle_create_contract_skeleton(
-            data_source_file_path=data_source_file_path,
-            output_file_path=output_file_path,
-            dataset_identifier_str=dataset_identifier_str,
-            verbose=verbose,
-            soda_cloud=soda_cloud,
-            use_agent=use_agent,
-        )
-
-        exit_with_code(exit_code)
-
-    create_skeleton_parser.set_defaults(handler_func=handle)
-
-
 def exit_with_code(exit_code: int):
     soda_logger.debug(f"Exiting with code {exit_code}")
     exit(exit_code)
@@ -442,6 +378,34 @@ def handle_ctrl_c(self, sig, frame):
     soda_logger.info("")
     soda_logger.info(f"CTRL+C detected")
     exit_with_code(ExitCode.LOG_ERRORS)
+
+
+def get_or_create_resource_parser(root_parser: ArgumentParser, resource_name: str, help_str: Optional[str] = None) -> ArgumentParser:
+    resource_subparsers = _get_or_create_subparsers(root_parser, "resource")
+    if resource_name in resource_subparsers.choices:
+        return resource_subparsers.choices[resource_name]
+
+    return resource_subparsers.add_parser(resource_name, help=help_str)
+
+
+def get_or_create_command_parser(root_parser: ArgumentParser, resource_name: str, command_name: str, help_str: Optional[str] = None) -> ArgumentParser:
+    resource_parser = get_or_create_resource_parser(root_parser, resource_name)
+    command_subparsers = _get_or_create_subparsers(resource_parser, "command")
+
+    if command_name in command_subparsers.choices:
+        return command_subparsers.choices[command_name]
+
+    return command_subparsers.add_parser(command_name, help=help_str)
+
+def _get_or_create_subparsers(parser: ArgumentParser, dest: str, help_str: Optional[str] = None) -> _SubParsersAction:
+    for action in parser._actions:
+        if isinstance(action, _SubParsersAction) and action.dest == dest:
+            return action
+
+    return parser.add_subparsers(dest=dest, help=help_str)
+
+
+cli_parser = create_cli_parser()
 
 
 if __name__ == "__main__":
