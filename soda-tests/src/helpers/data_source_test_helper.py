@@ -40,19 +40,19 @@ class DataSourceTestHelper:
     @classmethod
     def create(cls, test_datasource: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":
-            from data_sources.postgres_data_source_test_helper import (
+            from helpers.postgres_data_source_test_helper import (
                 PostgresDataSourceTestHelper,
             )
 
             return PostgresDataSourceTestHelper()
         elif test_datasource == "snowflake":
-            from data_sources.snowflake_data_source_test_helper import (
+            from helpers.snowflake_data_source_test_helper import (
                 SnowflakeDataSourceTestHelper,
             )
 
             return SnowflakeDataSourceTestHelper()
         elif test_datasource == "databricks":
-            from data_sources.databricks_data_source_test_helper import (
+            from helpers.databricks_data_source_test_helper import (
                 DatabricksDataSourceTestHelper,
             )
 
