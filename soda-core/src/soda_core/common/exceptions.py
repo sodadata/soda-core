@@ -35,6 +35,10 @@ class InvalidContractException(SodaCoreException):
     """Base class for all invalid contract exceptions."""
 
 
+class ExtensionException(SodaCoreException):
+    """Indicates that the extensions are not installed."""
+
+
 class InvalidRegexException(InvalidContractException):
     """Indicates the regex is invalid."""
 
