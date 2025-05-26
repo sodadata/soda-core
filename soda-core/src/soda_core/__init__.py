@@ -1,3 +1,3 @@
-from soda_core.plugin_loader import load_data_source_plugins
+from soda_core.plugins import load_plugins
 
-load_data_source_plugins()
+load_plugins()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import signal
 import sys
 import traceback
-from argparse import ArgumentParser
+from argparse import ArgumentParser, _SubParsersAction
 from typing import Dict, List, Optional
 
 from soda_core.cli.exit_codes import ExitCode
@@ -32,8 +32,6 @@ def execute() -> None:
         print(r"____/\___/___/_/  _\\ CLI 4.0.0.dev??")
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
-
-        cli_parser = create_cli_parser()
 
         args = cli_parser.parse_args()
 
@@ -380,6 +378,39 @@ def handle_ctrl_c(self, sig, frame):
     soda_logger.info("")
     soda_logger.info(f"CTRL+C detected")
     exit_with_code(ExitCode.LOG_ERRORS)
+
+
+def get_or_create_resource_parser(
+    root_parser: ArgumentParser, resource_name: str, help_str: Optional[str] = None
+) -> ArgumentParser:
+    resource_subparsers = _get_or_create_subparsers(root_parser, "resource")
+    if resource_name in resource_subparsers.choices:
+        return resource_subparsers.choices[resource_name]
+
+    return resource_subparsers.add_parser(resource_name, help=help_str)
+
+
+def get_or_create_command_parser(
+    root_parser: ArgumentParser, resource_name: str, command_name: str, help_str: Optional[str] = None
+) -> ArgumentParser:
+    resource_parser = get_or_create_resource_parser(root_parser, resource_name)
+    command_subparsers = _get_or_create_subparsers(resource_parser, "command")
+
+    if command_name in command_subparsers.choices:
+        return command_subparsers.choices[command_name]
+
+    return command_subparsers.add_parser(command_name, help=help_str)
+
+
+def _get_or_create_subparsers(parser: ArgumentParser, dest: str, help_str: Optional[str] = None) -> _SubParsersAction:
+    for action in parser._actions:
+        if isinstance(action, _SubParsersAction) and action.dest == dest:
+            return action
+
+    return parser.add_subparsers(dest=dest, help=help_str)
+
+
+cli_parser = create_cli_parser()
 
 
 if __name__ == "__main__":
