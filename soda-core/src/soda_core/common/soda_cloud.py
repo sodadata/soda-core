@@ -29,7 +29,7 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
-from soda_core.common.version import SODA_CORE_VERSION
+from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
@@ -277,6 +277,7 @@ class SodaCloud:
                     "Content-Type": "application/yaml",
                     "Is-V3": "true",
                     "File-Path": soda_cloud_file_path,
+                    "Soda-Library-Version": clean_soda_core_version(),
                 }
 
                 if file_size_in_bytes == 0:
