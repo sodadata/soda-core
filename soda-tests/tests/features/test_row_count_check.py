@@ -7,7 +7,7 @@ from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     ContractVerificationResult,
-    MeasuredNumericValueDiagnostic,
+    MetricValuesDiagnostic,
 )
 
 test_table_specification = (
@@ -52,7 +52,7 @@ def test_row_count_with_check_filter(data_source_test_helper: DataSourceTestHelp
 
     row_count_diagnostic = contract_verification_result.check_results[0].diagnostics[0]
     assert row_count_diagnostic.name == "row_count"
-    assert isinstance(row_count_diagnostic, MeasuredNumericValueDiagnostic)
+    assert isinstance(row_count_diagnostic, MetricValuesDiagnostic)
     assert row_count_diagnostic.value == 2
 
 

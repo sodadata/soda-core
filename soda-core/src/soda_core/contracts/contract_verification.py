@@ -200,7 +200,8 @@ class CheckResult(ABC):
         )
         logger.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
         for diagnostic in self.diagnostics:
-            logger.info(f"  {diagnostic.log_line()}")
+            for log_line in diagnostic.get_console_log_lines():
+                logger.info(f"  {log_line}")
 
 
 class Measurement:
@@ -212,18 +213,19 @@ class Measurement:
 
 @dataclass
 class Diagnostic:
-    name: str
-
-    @abstractmethod
-    def log_line(self) -> str:
+    def get_console_log_lines(self) -> list[str]:
         pass
 
 
 @dataclass
-class MeasuredNumericValueDiagnostic(Diagnostic):
-    value: float
+class MetricValuesDiagnostic(Diagnostic):
+    metric_values: dict[str, float]
 
-    def log_line(self) -> str:
+    def get_console_log_lines(self) -> list[str]:
+        return [
+            f"Actual {k} was {v:.2g}"
+            for k, v in self.metric_values.items()
+        ]
         return f"Actual {self.name} was {self.value}"
 
 

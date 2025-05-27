@@ -1,3 +1,4 @@
+from numbers import Number
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -249,3 +250,45 @@ def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit
     )
 
     assert exit_code == expected_exit_code
+
+
+def test_ont():
+    def f(n):
+        return f"format({n}) -> {g(n)}"
+
+    def g(n):
+        if n == int(n):
+            return str(n)
+        n_str = str(n)
+        if "e" in n_str:
+            n_str = f"{n:.20f}"
+        is_index_after_comma = False
+        is_after_first_significant_number = False
+        significant_numbers_after_comma = 0
+        for index in range(0, len(n_str)):
+            c = n_str[index]
+            if is_index_after_comma and c != "0":
+                is_after_first_significant_number = True
+            elif not is_index_after_comma and c == ".":
+                is_index_after_comma = True
+
+            if is_after_first_significant_number:
+                significant_numbers_after_comma += 1
+
+            if significant_numbers_after_comma > 2:
+                return n_str[:index]
+
+        return n_str
+
+    print()
+
+    print(f(0.0999999))
+    print(f(0.0099999))
+    print(f(0.00000099999))
+    print(f(9.9999999))
+    print(f(99.999999))
+    print(f(999.99999))
+    print(f(99.99))
+    print(f(99.9))
+    print(f(99))
+    print(f(99999999999))

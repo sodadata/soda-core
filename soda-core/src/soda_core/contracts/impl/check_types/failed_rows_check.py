@@ -11,7 +11,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
-    MeasuredNumericValueDiagnostic,
+    MetricValuesDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
@@ -97,7 +97,7 @@ class FailedRowsCheckImpl(CheckImpl):
 
         if isinstance(query_metric_value, Number):
             metric_name: str = "failed_rows_count"
-            diagnostics.append(MeasuredNumericValueDiagnostic(name=metric_name, value=query_metric_value))
+            diagnostics.append(MetricValuesDiagnostic(name=metric_name, value=query_metric_value))
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):

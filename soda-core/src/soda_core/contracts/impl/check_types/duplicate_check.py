@@ -9,7 +9,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Diagnostic,
-    MeasuredNumericValueDiagnostic,
+    MetricValuesDiagnostic,
 )
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
@@ -117,20 +117,20 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
 
         distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
         if isinstance(distinct_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="distinct_count", value=distinct_count))
+            diagnostics.append(MetricValuesDiagnostic(name="distinct_count", value=distinct_count))
 
         duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
         if isinstance(duplicate_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="duplicate_count", value=duplicate_count))
+            diagnostics.append(MetricValuesDiagnostic(name="duplicate_count", value=duplicate_count))
 
         valid_count: int = measurement_values.get_value(self.valid_count_metric_impl)
         duplicate_percent: float = 0
         if isinstance(valid_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="valid_count", value=valid_count))
+            diagnostics.append(MetricValuesDiagnostic(name="valid_count", value=valid_count))
 
             if valid_count > 0:
                 duplicate_percent = measurement_values.get_value(self.duplicate_percent_metric_impl)
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="duplicate_percent", value=duplicate_percent))
+            diagnostics.append(MetricValuesDiagnostic(name="duplicate_percent", value=duplicate_percent))
 
         threshold_value: Optional[Number] = (
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
@@ -276,20 +276,20 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
         if isinstance(distinct_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="distinct_count", value=distinct_count))
+            diagnostics.append(MetricValuesDiagnostic(name="distinct_count", value=distinct_count))
 
         duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
         if isinstance(duplicate_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="duplicate_count", value=duplicate_count))
+            diagnostics.append(MetricValuesDiagnostic(name="duplicate_count", value=duplicate_count))
 
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         duplicate_percent: float = 0
         if isinstance(row_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="row_count", value=row_count))
+            diagnostics.append(MetricValuesDiagnostic(name="row_count", value=row_count))
 
             if row_count > 0:
                 duplicate_percent = measurement_values.get_value(self.duplicate_percent_metric_impl)
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="duplicate_percent", value=duplicate_percent))
+            diagnostics.append(MetricValuesDiagnostic(name="duplicate_percent", value=duplicate_percent))
 
         threshold_value: Optional[Number] = (
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count

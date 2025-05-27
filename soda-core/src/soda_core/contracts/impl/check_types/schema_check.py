@@ -18,7 +18,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     Measurement,
-    Threshold,
+    Threshold, Diagnostic,
 )
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -188,6 +188,16 @@ class SchemaCheckImpl(CheckImpl):
 
     def _build_threshold(self) -> Threshold:
         return Threshold(must_be_less_than_or_equal=0)
+
+
+@dataclass
+class SchemaDiagnostic(Diagnostic):
+    expected_columns: list[ColumnMetadata]
+    actual_columns: list[ColumnMetadata]
+    expected_column_names_not_actual: list[str]
+    actual_column_names_not_expected: list[str]
+    column_data_type_mismatches: list[ColumnDataTypeMismatch]
+    are_columns_out_of_order: bool
 
 
 class SchemaMetricImpl(MetricImpl):
