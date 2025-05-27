@@ -8,7 +8,7 @@ def clean_soda_core_version() -> str:
 
 
 def clean_semver(version_str) -> str:
-    match = re.match(r'^(\d+\.\d+\.\d+)', version_str)
+    match = re.match(r"^(\d+\.\d+\.\d+)", version_str)
     if match:
         return match.group(1)
     else:

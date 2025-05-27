@@ -277,7 +277,7 @@ class SodaCloud:
                     "Content-Type": "application/yaml",
                     "Is-V3": "true",
                     "File-Path": soda_cloud_file_path,
-                    "Soda-Library-Version": clean_soda_core_version()
+                    "Soda-Library-Version": clean_soda_core_version(),
                 }
 
                 if file_size_in_bytes == 0:
