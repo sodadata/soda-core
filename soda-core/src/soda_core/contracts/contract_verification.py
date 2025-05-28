@@ -40,7 +40,6 @@ class ContractVerificationSession:
             only_validate_without_execute=only_validate_without_execute,
             variables=variables,
             data_source_impls=data_source_impls,
-            data_source_yaml_sources=data_source_yaml_sources,
             soda_cloud_impl=soda_cloud_impl,
             soda_cloud_publish_results=soda_cloud_publish_results,
             soda_cloud_use_agent=soda_cloud_use_agent,

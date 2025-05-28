@@ -1,3 +1,4 @@
+from soda_core.common.data_source_impl import DataSourceImpl
 from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
@@ -43,7 +44,7 @@ def handle_verify_contract(
                 "We currently only support a single data source configuration. Please pass a single dataset identifier."
             )
 
-        data_source_yaml_source = _create_datasource_yamls(
+        data_source_impl = _create_datasource_impl(
             data_source_file_path,
             dataset_identifiers,
             soda_cloud_client,
@@ -52,7 +53,7 @@ def handle_verify_contract(
 
         contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
             contract_yaml_sources=contract_yaml_sources,
-            data_source_yaml_sources=[data_source_yaml_source],
+            data_source_impls=[data_source_impl],
             soda_cloud_impl=soda_cloud_client,
             variables=variables,
             soda_cloud_publish_results=publish,
@@ -95,14 +96,14 @@ def _create_contract_yamls(
     return contract_yaml_sources
 
 
-def _create_datasource_yamls(
+def _create_datasource_impl(
     data_source_file_path: Optional[str],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
     use_agent: bool,
-) -> Optional[DataSourceYamlSource]:
+) -> Optional[DataSourceImpl]:
     if data_source_file_path:
-        return DataSourceYamlSource.from_file_path(data_source_file_path)
+        return DataSourceImpl.from_configuration(data_source_file_path)
 
     if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
         if len(dataset_identifiers) > 1:
@@ -115,7 +116,7 @@ def _create_datasource_yamls(
         soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
         data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
 
-        return DataSourceYamlSource.from_str(data_source_config)
+        return DataSourceImpl.from_yaml_source(data_source_config)
 
     # By this point, we can only progress if we are using an agent.
     # Then the agent will provide the data source config.

@@ -26,6 +26,15 @@ class DataSourceImpl(ABC):
     __model_classes: Dict[str, Type[DataSourceBase]] = {}
 
     @classmethod
+    def from_configuration(
+        cls, data_source_file_path: str, provided_variable_values: Optional[dict] = None
+    ):
+        return cls.from_yaml_source(
+            data_source_yaml_source=DataSourceYamlSource.from_file_path(data_source_file_path),
+            provided_variable_values=provided_variable_values
+        )
+
+    @classmethod
     def from_yaml_source(
         cls, data_source_yaml_source: DataSourceYamlSource, provided_variable_values: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
