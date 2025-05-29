@@ -9,9 +9,9 @@ from typing import Dict, List, Optional
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
     handle_publish_contract,
+    handle_pull_contract,
     handle_test_contract,
     handle_verify_contract,
-    handle_pull_contract
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
@@ -267,13 +267,7 @@ def _setup_contract_pull_command(contract_parsers) -> None:
         help="A Soda Cloud configuration file path.",
         required=True,
     )
-    pull_parser.add_argument(
-        "-c",
-        "--contract",
-        type=str,
-        nargs="+",
-        help="One or more contract file paths."
-    )
+    pull_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
 
     pull_parser.add_argument(
         "-v",
@@ -290,11 +284,7 @@ def _setup_contract_pull_command(contract_parsers) -> None:
         soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
         dataset_identifiers = args.dataset
 
-        exit_code = handle_pull_contract(
-            contract_file_paths,
-            dataset_identifiers,
-            soda_cloud_client
-        )
+        exit_code = handle_pull_contract(contract_file_paths, dataset_identifiers, soda_cloud_client)
         exit_with_code(exit_code)
 
     pull_parser.set_defaults(handler_func=handle)
