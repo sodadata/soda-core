@@ -12,3 +12,6 @@ class ExitCode(IntEnum):
     LOG_WARNINGS = 2
     LOG_ERRORS = 3
     RESULTS_NOT_SENT_TO_CLOUD = 4
+
+
+OK_CODES = {ExitCode.OK, ExitCode.CHECK_FAILURES}
