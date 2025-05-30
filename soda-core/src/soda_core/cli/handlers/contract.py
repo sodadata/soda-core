@@ -270,7 +270,7 @@ def handle_fetch_contract(
                     action = "Created"
                 with open(contract_file_path, 'w') as contract_file:
                     contract_file.write(contract_yaml.yaml_str)
-                soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {action} contract source file '{contract_file_path}'")
+                soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK}  {action} contract source file '{contract_file_path}'")
                 return ExitCode.OK
             except Exception as exc:
                 soda_logger.error(f"An unexpected exception occurred: {exc}")
