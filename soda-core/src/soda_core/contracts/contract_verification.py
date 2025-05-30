@@ -68,6 +68,24 @@ class ContractVerificationSessionResult:
             errors.extend(contract_verification_result.get_errors())
         return errors
 
+    def get_number_of_checks(self) -> int:
+        return sum(
+            contract_verification_result.get_number_of_checks()
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    def get_number_of_checks_passed(self) -> int:
+        return sum(
+            contract_verification_result.get_number_of_checks_passed()
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    def get_number_of_checks_failed(self) -> int:
+        return sum(
+            contract_verification_result.get_number_of_checks_failed()
+            for contract_verification_result in self.contract_verification_results
+        )
+
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
@@ -298,3 +316,12 @@ class ContractVerificationResult:
 
     def is_ok(self) -> bool:
         return not self.is_failed() and not self.has_errors()
+
+    def get_number_of_checks(self) -> int:
+        return len(self.check_results)
+
+    def get_number_of_checks_passed(self) -> int:
+        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
+
+    def get_number_of_checks_failed(self) -> int:
+        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])
