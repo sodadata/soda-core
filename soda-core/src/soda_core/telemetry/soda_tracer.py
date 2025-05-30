@@ -18,13 +18,15 @@ soda_telemetry = SodaTelemetry.get_instance()
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 
+logger = logging.getLogger(__name__)
+
 def get_decorators(function):
     decorators = {}
 
     def visit_FunctionDef(node):
         decorators[node.name] = {}
         for n in node.decorator_list:
-            print(ast.dump(n))
+            logger.debug(ast.dump(n))
             name = ""
             if isinstance(n, ast.Call):
                 group = n.func.value.id
