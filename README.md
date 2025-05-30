@@ -11,7 +11,7 @@
 <hr />
 
 > [!IMPORTANT]  
-> **🚀 We're hiring! Are you passionate about open-source and love working on projects like Soda Core? Join our team as a Senior Data Engineer and help shape the future of data quality tools. [Apply now!](https://careers.soda.io/o/senior-data-engineer-python?source=gh-core)**
+> **🚀 Soda's Launch Week is Coming: June 9–13 — Register to win a $1000+ mechanical keyboard. [Register now!](https://launch.soda.io/launch-week?utm_source=soda+core&utm_medium=banner&utm_campaign=launch+week)**
 
 <hr />
 
