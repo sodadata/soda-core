@@ -199,20 +199,24 @@ def handle_publish_contract(
     contract_file_paths: Optional[list[str]],
     soda_cloud_file_path: Optional[str],
 ) -> ExitCode:
-    contract_publication_builder = ContractPublication.builder()
+    try:
+        contract_publication_builder = ContractPublication.builder()
 
-    for contract_file_path in contract_file_paths:
-        contract_publication_builder.with_contract_yaml_file(contract_file_path)
+        for contract_file_path in contract_file_paths:
+            contract_publication_builder.with_contract_yaml_file(contract_file_path)
 
-    if soda_cloud_file_path:
-        contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
+        if soda_cloud_file_path:
+            contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
 
-    contract_publication_result = contract_publication_builder.build().execute()
-    if contract_publication_result.has_errors():
-        # TODO: detect/deal with exit code 4?
+        contract_publication_result = contract_publication_builder.build().execute()
+        if contract_publication_result.has_errors():
+            # TODO: detect/deal with exit code 4?
+            return ExitCode.LOG_ERRORS
+        else:
+            return ExitCode.OK
+    except Exception as exc:
+        soda_logger.error(f"Failed to publish contract: {exc}")
         return ExitCode.LOG_ERRORS
-    else:
-        return ExitCode.OK
 
 
 def handle_test_contract(
