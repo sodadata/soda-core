@@ -20,6 +20,7 @@ tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 logger = logging.getLogger(__name__)
 
+
 def get_decorators(function):
     decorators = {}
 
