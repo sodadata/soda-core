@@ -9,19 +9,17 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from opentelemetry.trace.span import Span
 from opentelemetry.trace.status import Status, StatusCode
 from soda_core.cli.exit_codes import OK_CODES, ExitCode
-from soda_core.telemetry.soda_telemetry import SodaTelemetry
 
 trace_context_propagator = TraceContextTextMapPropagator()
 trace_context_carrier = {}
 
-soda_telemetry = SodaTelemetry.get_instance()
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 
 def get_decorators(function):
     decorators = {}
 
-    def visit_FunctionDef(node):
+    def visit_function_def(node):
         decorators[node.name] = {}
         for n in node.decorator_list:
             print(ast.dump(n))
@@ -43,7 +41,7 @@ def get_decorators(function):
                 decorators[node.name][group].append({name})
 
     node_iter = ast.NodeVisitor()
-    node_iter.visit_FunctionDef = visit_FunctionDef
+    node_iter.visit_function_def = visit_function_def
     node_iter.visit(ast.parse(textwrap.dedent(inspect.getsource(function))))
     return decorators
 

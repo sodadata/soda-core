@@ -27,7 +27,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
-soda_telemetry = SodaTelemetry.get_instance()
+soda_telemetry = SodaTelemetry()
 
 
 @soda_trace

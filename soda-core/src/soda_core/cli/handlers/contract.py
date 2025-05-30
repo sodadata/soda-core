@@ -15,7 +15,7 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 
-soda_telemetry = SodaTelemetry.get_instance()
+soda_telemetry = SodaTelemetry()
 
 
 def handle_verify_contract(

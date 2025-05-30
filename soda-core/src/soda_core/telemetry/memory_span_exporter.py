@@ -14,17 +14,11 @@ class MemorySpanExporter(SpanExporter):
     __instance = None
     __spans = []
 
-    @staticmethod
-    def get_instance():
-        if MemorySpanExporter.__instance is None:
-            MemorySpanExporter()
-        return MemorySpanExporter.__instance
-
-    def __init__(self):
-        if MemorySpanExporter.__instance is not None:
-            raise Exception("This class is a singleton!")
-        else:
-            MemorySpanExporter.__instance = self
+    def __new__(cls):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+            cls.__instance._initialize()
+        return cls.__instance
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         for span in spans:

@@ -27,21 +27,13 @@ class SodaTelemetry:
     ENDPOINT = "https://collect.soda.io/v1/traces"
     __instance = None
 
-    @staticmethod
-    def get_instance(test_mode: bool = False):
-        if test_mode:
-            SodaTelemetry.__instance = None
+    def __new__(cls, test_mode: bool = False):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+            cls.__instance._initialize(test_mode=test_mode)
+        return cls.__instance
 
-        if SodaTelemetry.__instance is None:
-            SodaTelemetry(test_mode=test_mode)
-        return SodaTelemetry.__instance
-
-    def __init__(self, test_mode: bool):
-        if SodaTelemetry.__instance is not None:
-            raise Exception("This class is a singleton!")
-        else:
-            SodaTelemetry.__instance = self
-
+    def _initialize(self, test_mode: bool):
         self.soda_config = EnvConfigHelper()
 
         self.__send = self.soda_config.soda_core_telemetry_enabled
@@ -101,7 +93,7 @@ class SodaTelemetry:
 
     @staticmethod
     def get_datasource_hash(data_source: DataSourceImpl):
-        return data_source.generate_safe_safe()
+        return data_source.generate_safe_hash()
 
     def ingest_cli_arguments(self, args: dict[str, Any]) -> None:
         for key, value in args.items():

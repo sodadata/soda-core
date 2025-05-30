@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 from typing import Optional
 
@@ -6,8 +5,9 @@ from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExportResult
+from soda_core.common.logging_constants import soda_logger
 
-logger = logging.getLogger(__name__)
+logger = soda_logger
 
 
 def get_soda_spans(spans: Sequence[ReadableSpan]) -> Sequence[ReadableSpan]:
