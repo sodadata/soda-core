@@ -249,7 +249,8 @@ def handle_pull_contract(
             for dataset_identifier in dataset_identifiers:
                 contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
                 if not contract:
-                    soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping pull")
+                    soda_logger.error(
+                        f"Could not fetch contract for dataset '{dataset_identifier}': skipping pull")
                     continue
                 contract_yaml_sources.append(ContractYamlSource.from_str(contract))
         if not contract_yaml_sources or len(contract_yaml_sources) == 0:
@@ -258,10 +259,20 @@ def handle_pull_contract(
 
         # write to local contract YAML files
         for contract_file_path, contract_yaml in zip(contract_file_paths, contract_yaml_sources):
-            with open(contract_file_path, "w") as contract_file:
-                contract_file.write(contract_yaml.yaml_str)
-
-        return ExitCode.OK
+            dir_name = dirname(contract_file_path)
+            try:
+                Path(dir_name).mkdir(parents=True, exist_ok=True)
+                if os.path.exists(contract_file_path):
+                    action = "Updated"
+                else:
+                    action = "Created"
+                with open(contract_file_path, 'w') as contract_file:
+                    contract_file.write(contract_yaml.yaml_str)
+                soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {action} contract source file '{contract_file_path}'")
+                return ExitCode.OK
+            except Exception as exc:
+                soda_logger.error(f"An unexpected exception occurred: {exc}")
+                return ExitCode.LOG_ERRORS
 
     except (InvalidArgumentException, Exception) as exc:
         soda_logger.error(exc)
