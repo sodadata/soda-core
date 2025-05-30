@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.exceptions import (
+    ContractParserException,
     InvalidArgumentException,
     InvalidDataSourceConfigurationException,
 )
@@ -214,6 +215,9 @@ def handle_publish_contract(
             return ExitCode.LOG_ERRORS
         else:
             return ExitCode.OK
+    except ContractParserException as exc:
+        soda_logger.error(f"Failed to parse contract: {exc}")
+        return ExitCode.LOG_ERRORS
     except Exception as exc:
         soda_logger.error(f"Failed to publish contract: {exc}")
         return ExitCode.LOG_ERRORS

@@ -7,14 +7,16 @@ from typing import Optional
 
 
 class Location:
-    def __init__(self, file_path: Optional[str], line: Optional[int], column: Optional[int]):
+    def __init__(self, file_path: Optional[str], line: Optional[int] = None, column: Optional[int] = None):
         self.file_path: Optional[str] = file_path
         self.line: Optional[int] = line
         self.column: Optional[int] = column
 
     def __str__(self) -> str:
         src_description: str = self.file_path if self.file_path else "location"
-        return f"{src_description}[{self.line},{self.column}]"
+        if self.line is not None and self.column is not None:
+            src_description += f"[{self.line},{self.column}]"
+        return src_description
 
     def __hash__(self) -> int:
         return hash((self.line, self.column))
