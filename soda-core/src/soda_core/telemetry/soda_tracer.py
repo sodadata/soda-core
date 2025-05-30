@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import ast
 import inspect
+import logging
 import textwrap
 from functools import wraps
 from typing import Optional
@@ -16,7 +19,9 @@ trace_context_carrier = {}
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 
-logger = logging.getLogger(__name__)
+from soda_core.common.logging_constants import soda_logger
+
+logger: logging.Logger = soda_logger
 
 
 def get_decorators(function):
