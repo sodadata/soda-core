@@ -1,4 +1,6 @@
 from typing import Dict, Optional
+from os.path import dirname, exists
+from pathlib import Path
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.exceptions import (
@@ -262,7 +264,7 @@ def handle_pull_contract(
             dir_name = dirname(contract_file_path)
             try:
                 Path(dir_name).mkdir(parents=True, exist_ok=True)
-                if os.path.exists(contract_file_path):
+                if exists(contract_file_path):
                     action = "Updated"
                 else:
                     action = "Created"
