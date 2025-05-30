@@ -1,6 +1,6 @@
-from typing import Dict, Optional
 from os.path import dirname, exists
 from pathlib import Path
+from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.exceptions import (
@@ -251,8 +251,7 @@ def handle_fetch_contract(
             for dataset_identifier in dataset_identifiers:
                 contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
                 if not contract:
-                    soda_logger.error(
-                        f"Could not fetch contract for dataset '{dataset_identifier}': skipping fetch")
+                    soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping fetch")
                     continue
                 contract_yaml_sources.append(ContractYamlSource.from_str(contract))
         if not contract_yaml_sources or len(contract_yaml_sources) == 0:
@@ -268,7 +267,7 @@ def handle_fetch_contract(
                     action = "Updated"
                 else:
                     action = "Created"
-                with open(contract_file_path, 'w') as contract_file:
+                with open(contract_file_path, "w") as contract_file:
                     contract_file.write(contract_yaml.yaml_str)
                 soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK}  {action} contract source file '{contract_file_path}'")
                 return ExitCode.OK

@@ -8,10 +8,10 @@ from typing import Dict, List, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
+    handle_fetch_contract,
     handle_publish_contract,
     handle_test_contract,
     handle_verify_contract,
-    handle_fetch_contract
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
@@ -273,7 +273,6 @@ def _setup_contract_fetch_command(contract_parsers) -> None:
         type=str,
         nargs="+",
         help="The path(s) to the contract files to be created or updated. (directories will be created if needed)",
-
     )
     fetch_parser.add_argument(
         "-v",
@@ -290,11 +289,7 @@ def _setup_contract_fetch_command(contract_parsers) -> None:
         soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
         dataset_identifiers = args.dataset
 
-        exit_code = handle_fetch_contract(
-            contract_file_paths,
-            dataset_identifiers,
-            soda_cloud_client
-        )
+        exit_code = handle_fetch_contract(contract_file_paths, dataset_identifiers, soda_cloud_client)
         exit_with_code(exit_code)
 
     fetch_parser.set_defaults(handler_func=handle)
