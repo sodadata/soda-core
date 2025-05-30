@@ -11,7 +11,7 @@ from soda_core.cli.handlers.contract import (
     handle_publish_contract,
     handle_test_contract,
     handle_verify_contract,
-    handle_pull_contract
+    handle_fetch_contract
 )
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
@@ -82,7 +82,7 @@ def _setup_contract_resource(resource_parsers) -> None:
     _setup_contract_verify_command(contract_subparsers)
     _setup_contract_publish_command(contract_subparsers)
     _setup_contract_test_command(contract_subparsers)
-    _setup_contract_pull_command(contract_subparsers)
+    _setup_contract_fetch_command(contract_subparsers)
 
 
 def _setup_contract_verify_command(contract_parsers) -> None:
@@ -251,23 +251,23 @@ def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser.set_defaults(handler_func=handle)
 
 
-def _setup_contract_pull_command(contract_parsers) -> None:
-    pull_parser = contract_parsers.add_parser("pull", help="Pull a contract")
-    pull_parser.add_argument(
+def _setup_contract_fetch_command(contract_parsers) -> None:
+    fetch_parser = contract_parsers.add_parser("fetch", help="Pull a contract")
+    fetch_parser.add_argument(
         "-d",
         "--dataset",
         type=str,
         nargs="+",
         help="Fully qualified names of datasets whose cloud contracts you wish to fetch.",
     )
-    pull_parser.add_argument(
+    fetch_parser.add_argument(
         "-sc",
         "--soda-cloud",
         type=str,
         help="A Soda Cloud configuration file path.",
         required=True,
     )
-    pull_parser.add_argument(
+    fetch_parser.add_argument(
         "-f",
         "--file",
         type=str,
@@ -275,7 +275,7 @@ def _setup_contract_pull_command(contract_parsers) -> None:
         help="The path(s) to the contract files to be created or updated. (directories will be created if needed)",
 
     )
-    pull_parser.add_argument(
+    fetch_parser.add_argument(
         "-v",
         "--verbose",
         const=True,
@@ -290,14 +290,14 @@ def _setup_contract_pull_command(contract_parsers) -> None:
         soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
         dataset_identifiers = args.dataset
 
-        exit_code = handle_pull_contract(
+        exit_code = handle_fetch_contract(
             contract_file_paths,
             dataset_identifiers,
             soda_cloud_client
         )
         exit_with_code(exit_code)
 
-    pull_parser.set_defaults(handler_func=handle)
+    fetch_parser.set_defaults(handler_func=handle)
 
 
 def _setup_data_source_resource(resource_parsers) -> None:

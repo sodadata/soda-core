@@ -237,13 +237,13 @@ def handle_test_contract(
     return ExitCode.OK
 
 
-def handle_pull_contract(
+def handle_fetch_contract(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: Optional[SodaCloud],
 ) -> ExitCode:
     try:
-        validate_pull_arguments(contract_file_paths, dataset_identifiers, soda_cloud_client)
+        validate_fetch_arguments(contract_file_paths, dataset_identifiers, soda_cloud_client)
 
         # fetch contract YAML strings
         contract_yaml_sources = []
@@ -252,7 +252,7 @@ def handle_pull_contract(
                 contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
                 if not contract:
                     soda_logger.error(
-                        f"Could not fetch contract for dataset '{dataset_identifier}': skipping pull")
+                        f"Could not fetch contract for dataset '{dataset_identifier}': skipping fetch")
                     continue
                 contract_yaml_sources.append(ContractYamlSource.from_str(contract))
         if not contract_yaml_sources or len(contract_yaml_sources) == 0:
@@ -283,24 +283,24 @@ def handle_pull_contract(
         return ExitCode.LOG_ERRORS
 
 
-def validate_pull_arguments(
+def validate_fetch_arguments(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: Optional[SodaCloud],
 ) -> None:
     if not contract_file_paths:
         raise InvalidArgumentException(
-            "A Soda Data Contract file path is required to use the pull command. "
+            "A Soda Data Contract file path is required to use the fetch command. "
             "Please provide the '-c/--contract' argument with a valid contract file path."
         )
     if not dataset_identifiers:
         raise InvalidArgumentException(
-            "A Soda Cloud dataset identifier is required to use the pull command. "
+            "A Soda Cloud dataset identifier is required to use the fetch command. "
             "Please provide the '-d/--dataset' argument with a valid dataset identifier."
         )
     if not soda_cloud_client:
         raise InvalidArgumentException(
-            "A Soda Cloud configuration file is required to use the pull command. "
+            "A Soda Cloud configuration file is required to use the fetch command. "
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
     if len(contract_file_paths) != len(dataset_identifiers):
