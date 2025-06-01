@@ -96,6 +96,14 @@ def _create_contract_yamls(
     return contract_yaml_sources
 
 
+def _create_contracts(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: SodaCloud,
+) -> list[ContractImpl]:
+    """"""
+
+
 def _create_datasource_impl(
     data_source_file_path: Optional[str],
     dataset_identifiers: Optional[list[str]],

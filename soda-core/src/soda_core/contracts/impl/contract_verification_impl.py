@@ -43,7 +43,7 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
-from typing import Union
+from typing import Union, Dict
 
 logger: logging.Logger = soda_logger
 
@@ -289,6 +289,35 @@ class ContractImpl:
 
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
         self.queries: list[Query] = self._build_queries() if data_source_impl else []
+
+    @staticmethod
+    def from_file(cls, contract_yaml_file_path: str, variables: Optional[Dict[str, str]]) -> ContractImpl:
+        """
+        Factory method to create a ContractImpl instance from a YAML file.
+        """
+        contract_yaml_source = ContractYamlSource.from_file_path(contract_yaml_file_path)
+        contract_yaml: ContractYaml = ContractYaml.parse(
+            contract_yaml_source=contract_yaml_source,
+            provided_variable_values=variables,
+        )
+
+        # data_source_name = contract_yaml.dataset[: contract_yaml.dataset.find("/")]
+        #
+        # data_source_impl: Optional[DataSourceImpl] = (
+        #     cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
+        #     if (contract_yaml and data_source_name and not only_validate_without_execute)
+        #     else None
+        # )
+
+        contract_impl: ContractImpl = ContractImpl(
+            contract_yaml=contract_yaml,
+            only_validate_without_execute=only_validate_without_execute,
+            data_timestamp=contract_yaml.data_timestamp,
+            data_source_impl=data_source_impl,
+            soda_cloud=soda_cloud_impl,
+            publish_results=soda_cloud_publish_results,
+            logs=logs,
+        )
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
