@@ -8,7 +8,7 @@ description = "Soda Core Spark Dataframe Package"
 
 requires = [
     f"soda-core-spark=={package_version}",
-    "pyspark>=3.4.0",
+    "pyspark>=3.4.0,<4.0.0",  # 4.0.0 has breaking changes, drops java 11 support. Revisit as needed.",
 ]
 # TODO Fix the params
 setup(
