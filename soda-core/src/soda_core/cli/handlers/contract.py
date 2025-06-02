@@ -1,3 +1,5 @@
+from os.path import dirname, exists
+from pathlib import Path
 from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
@@ -233,3 +235,75 @@ def handle_test_contract(
             return ExitCode.OK
 
     return ExitCode.OK
+
+
+def handle_fetch_contract(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: Optional[SodaCloud],
+) -> ExitCode:
+    try:
+        validate_fetch_arguments(contract_file_paths, dataset_identifiers, soda_cloud_client)
+
+        # fetch contract YAML strings
+        contract_yaml_sources = []
+        if soda_cloud_client:
+            for dataset_identifier in dataset_identifiers:
+                contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
+                if not contract:
+                    soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping fetch")
+                    continue
+                contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+        if not contract_yaml_sources or len(contract_yaml_sources) == 0:
+            soda_logger.debug("No contracts given. Exiting.")
+            return ExitCode.OK
+
+        # write to local contract YAML files
+        for contract_file_path, contract_yaml in zip(contract_file_paths, contract_yaml_sources):
+            dir_name = dirname(contract_file_path)
+            try:
+                Path(dir_name).mkdir(parents=True, exist_ok=True)
+                if exists(contract_file_path):
+                    action = "Updated"
+                else:
+                    action = "Created"
+                with open(contract_file_path, "w") as contract_file:
+                    contract_file.write(contract_yaml.yaml_str)
+                soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK}  {action} contract source file '{contract_file_path}'")
+                return ExitCode.OK
+            except Exception as exc:
+                soda_logger.error(f"An unexpected exception occurred: {exc}")
+                return ExitCode.LOG_ERRORS
+
+    except (InvalidArgumentException, Exception) as exc:
+        soda_logger.error(exc)
+        if soda_cloud_client:
+            soda_cloud_client.mark_scan_as_failed(exc=exc)
+        return ExitCode.LOG_ERRORS
+
+
+def validate_fetch_arguments(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: Optional[SodaCloud],
+) -> None:
+    if not contract_file_paths:
+        raise InvalidArgumentException(
+            "A Soda Data Contract file path is required to use the fetch command. "
+            "Please provide the '-c/--contract' argument with a valid contract file path."
+        )
+    if not dataset_identifiers:
+        raise InvalidArgumentException(
+            "A Soda Cloud dataset identifier is required to use the fetch command. "
+            "Please provide the '-d/--dataset' argument with a valid dataset identifier."
+        )
+    if not soda_cloud_client:
+        raise InvalidArgumentException(
+            "A Soda Cloud configuration file is required to use the fetch command. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
+    if len(contract_file_paths) != len(dataset_identifiers):
+        raise InvalidArgumentException(
+            "The number of contract file paths must match the number of dataset identifiers. "
+            "Ensure that each contract corresponds to a specific dataset."
+        )
