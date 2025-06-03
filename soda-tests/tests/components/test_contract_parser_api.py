@@ -41,6 +41,7 @@ def test_legacy_dataset_specification(logs: Logs):
             data_source: abc
             dataset_prefix: [a, b]
             dataset: dsname
+            columns: []
         """
         )
     )
@@ -53,6 +54,7 @@ def test_minimal_contract():
         contract_yaml_source=ContractYamlSource.from_str(
             """
             dataset: a/b/c/d
+            columns: []
         """
         )
     )

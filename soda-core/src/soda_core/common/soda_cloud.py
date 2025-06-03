@@ -351,13 +351,14 @@ class SodaCloud:
         response: Response = self._execute_command(
             command_json_dict=publish_contract_command, request_log_name="publish_contract"
         )
-
-        if response.status_code == 200:
-            logger.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
-        else:
-            logger.critical(f"Failed ot publish on Soda Cloud")
-
         response_json = response.json()
+
+        if response.status_code != 200:
+            error_details = response_json.get("message", response.text)
+            raise SodaCloudException(error_details)
+
+        logger.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
+
         source_metadata = (
             response_json["metadata"]["source"]
             if "metadata" in response_json and "source" in response_json["metadata"]
