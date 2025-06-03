@@ -310,7 +310,7 @@ def validate_fetch_arguments(
     if not contract_file_paths:
         raise InvalidArgumentException(
             "A Soda Data Contract file path is required to use the fetch command. "
-            "Please provide the '-c/--contract' argument with a valid contract file path."
+            "Please provide the '-f/--file' argument with a valid contract file path."
         )
     if not dataset_identifiers:
         raise InvalidArgumentException(
