@@ -230,15 +230,22 @@ class FreshnessCheckResult(CheckResult):
         if self.max_timestamp is None:
             logger.info("  Max timestamp has no value. Did the table or partition have rows?")
         elif isinstance(self.max_timestamp, datetime):
-            logger.info(f"  Max timestamp was {self.max_timestamp}")
+            logger.debug(f"  Max timestamp was {self.max_timestamp}")
         else:
-            logger.info(
+            logger.error(
                 f"  Invalid data type for max timestamp ({type(self.max_timestamp).__name__}). "
                 f"Is the column a timestamp?"
             )
         if isinstance(self.max_timestamp_utc, datetime):
             logger.info(f"  Max timestamp in UTC was {self.max_timestamp_utc}")
         if isinstance(self.data_timestamp, datetime):
-            logger.info(f"  Data timestamp was {self.data_timestamp}")
+            logger.debug(f"  Data timestamp was {self.data_timestamp}")
         if isinstance(self.data_timestamp_utc, datetime):
             logger.info(f"  Data timestamp in UTC was {self.data_timestamp_utc}")
+
+        if isinstance(self.freshness, str):
+            logger.debug(f"  Freshness was {self.freshness}")
+        if isinstance(self.freshness, str):
+            logger.debug(f"  Freshness in seconds was {self.freshness_in_seconds}")
+        if isinstance(self.unit, str):
+            logger.debug(f"  Unit was {self.unit}")

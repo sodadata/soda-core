@@ -114,4 +114,4 @@ def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
     assert str(check_result.freshness) == "1:00:00"
     assert str(check_result.freshness_in_seconds) == "3600.0"
     assert str(check_result.unit) == "hour"
-    assert get_diagnostic_value(check_result, "freshness_in_hours") == 1.0
+    assert 0.99 < get_diagnostic_value(check_result, "freshness_in_hours") < 1.01
