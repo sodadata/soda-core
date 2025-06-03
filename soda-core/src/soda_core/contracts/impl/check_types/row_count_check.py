@@ -73,9 +73,7 @@ class RowCountCheckImpl(CheckImpl):
             else:
                 outcome = CheckOutcome.FAILED
 
-        diagnostic_metric_values: dict[str, float] = {
-            "row_count": row_count
-        }
+        diagnostic_metric_values: dict[str, float] = {"row_count": row_count}
 
         return CheckResult(
             contract=contract,

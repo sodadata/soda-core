@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import datetime
 from numbers import Number
 from typing import Optional
@@ -13,9 +14,7 @@ class SodaCloudDiagnostics(BaseModel):
     value: Optional[Number] = None
     fail: Optional[SodaCloudThresholdDiagnostic] = None
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed = True
-    )
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SodaCloudThresholdDiagnostic(BaseModel):
@@ -24,9 +23,7 @@ class SodaCloudThresholdDiagnostic(BaseModel):
     lessThan: Optional[Number]
     lessThanOrEqual: Optional[Number]
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed = True
-    )
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SodaCloudMetricValuesDiagnostics(BaseModel):

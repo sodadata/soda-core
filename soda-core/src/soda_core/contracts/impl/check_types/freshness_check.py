@@ -8,10 +8,10 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
+    Check,
     CheckOutcome,
     CheckResult,
     Contract,
-    Check,
 )
 from soda_core.contracts.impl.check_types.freshness_check_yaml import FreshnessCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -103,9 +103,7 @@ class FreshnessCheckImpl(CheckImpl):
                 threshold_value = freshness_in_seconds / (60 * 60 * 24)
 
             if threshold_value is not None:
-                diagnostic_metric_values={
-                    threshold_metric_name: threshold_value
-                }
+                diagnostic_metric_values = {threshold_metric_name: threshold_value}
 
             if self.threshold:
                 if self.threshold.passes(threshold_value):
@@ -125,7 +123,7 @@ class FreshnessCheckImpl(CheckImpl):
             data_timestamp_utc=data_timestamp_utc,
             freshness=str(freshness),
             freshness_in_seconds=freshness_in_seconds,
-            unit=self.unit
+            unit=self.unit,
         )
 
     def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
@@ -196,7 +194,6 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
 
 
 class FreshnessCheckResult(CheckResult):
-
     def __init__(
         self,
         contract: Contract,
@@ -210,7 +207,7 @@ class FreshnessCheckResult(CheckResult):
         data_timestamp_utc: datetime,
         freshness: Optional[str],
         freshness_in_seconds: Optional[int],
-        unit: Optional[str]
+        unit: Optional[str],
     ):
         super().__init__(
             contract=contract,

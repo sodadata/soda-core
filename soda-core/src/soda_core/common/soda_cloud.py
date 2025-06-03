@@ -14,7 +14,6 @@ from time import sleep
 from typing import Optional
 
 import requests
-from pydantic.v1.schema import schema
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
@@ -31,9 +30,15 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
-from soda_core.common.soda_cloud_dto import SodaCloudDiagnostics, SodaCloudSchemaDiagnostics, \
-    SodaCloudMetricValuesDiagnostics, SodaCloudFreshnessDiagnostics, SodaCloudSchemaColumnInfo, \
-    SodaCloudSchemaDataTypeMismatch, SodaCloudThresholdDiagnostic
+from soda_core.common.soda_cloud_dto import (
+    SodaCloudDiagnostics,
+    SodaCloudFreshnessDiagnostics,
+    SodaCloudMetricValuesDiagnostics,
+    SodaCloudSchemaColumnInfo,
+    SodaCloudSchemaDataTypeMismatch,
+    SodaCloudSchemaDiagnostics,
+    SodaCloudThresholdDiagnostic,
+)
 from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
@@ -1027,13 +1032,14 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
 
 
 def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
-    from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckResult
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckResult,
+    )
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
     metric_values: Optional[SodaCloudMetricValuesDiagnostics] = (
         SodaCloudMetricValuesDiagnostics(
-            thresholdMetricName=check_result.threshold_metric_name,
-            values=check_result.diagnostic_metric_values
+            thresholdMetricName=check_result.threshold_metric_name, values=check_result.diagnostic_metric_values
         )
         if check_result.diagnostic_metric_values
         else None
@@ -1046,8 +1052,9 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
             expectedColumnNamesNotActual=check_result.expected_column_names_not_actual,
             actualColumnNamesNotExpected=check_result.actual_column_names_not_expected,
             columnDataTypeMismatches=_build_diagnostics_column_data_type_mismatches(
-                check_result.column_data_type_mismatches),
-            areColumnsOutOfOrder=check_result.are_columns_out_of_order
+                check_result.column_data_type_mismatches
+            ),
+            areColumnsOutOfOrder=check_result.are_columns_out_of_order,
         )
         if isinstance(check_result, SchemaCheckResult)
         else None
@@ -1076,36 +1083,36 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         metricValues=metric_values,
         freshness=freshness_diagnostics,
         value=check_result_value,
-        fail=fail_threshold
+        fail=fail_threshold,
     ).model_dump()
 
 
 def _build_fail_threshold(check_result: CheckResult) -> Optional[SodaCloudThresholdDiagnostic]:
-        threshold: Threshold = check_result.check.threshold
-        if threshold:
-            return SodaCloudThresholdDiagnostic(
-                greaterThan=threshold.must_be_less_than_or_equal,
-                greaterThanOrEqual=threshold.must_be_less_than,
-                lessThan=threshold.must_be_greater_than_or_equal,
-                lessThanOrEqual=threshold.must_be_greater_than
-            )
+    threshold: Threshold = check_result.check.threshold
+    if threshold:
+        return SodaCloudThresholdDiagnostic(
+            greaterThan=threshold.must_be_less_than_or_equal,
+            greaterThanOrEqual=threshold.must_be_less_than,
+            lessThan=threshold.must_be_greater_than_or_equal,
+            lessThanOrEqual=threshold.must_be_greater_than,
+        )
 
 
 def _build_diagnostics_schema_column_info(
-    column_metadatas: list[ColumnMetadata]
+    column_metadatas: list[ColumnMetadata],
 ) -> Optional[list[SodaCloudSchemaColumnInfo]]:
     return [
         SodaCloudSchemaColumnInfo(
             name=column_metadata.column_name,
             dataType=column_metadata.data_type,
-            characterMaximumLength=column_metadata.character_maximum_length
+            characterMaximumLength=column_metadata.character_maximum_length,
         )
         for column_metadata in column_metadatas
     ]
 
 
 def _build_diagnostics_column_data_type_mismatches(
-    column_data_type_mismatches: list["ColumnDataTypeMismatch"]
+    column_data_type_mismatches: list["ColumnDataTypeMismatch"],
 ) -> list[SodaCloudSchemaDataTypeMismatch]:
     return [
         SodaCloudSchemaDataTypeMismatch(
