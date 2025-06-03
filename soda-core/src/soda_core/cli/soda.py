@@ -22,7 +22,6 @@ from soda_core.cli.handlers.soda_cloud import (
 )
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.soda_cloud import SodaCloud
 
 
 def execute() -> None:
@@ -146,7 +145,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         contract_file_paths = args.contract
         dataset_identifiers = args.dataset
         data_source_file_path = args.data_source
-        # soda_cloud_file_path = args.soda_cloud
+        soda_cloud_file_path = args.soda_cloud
         variables = _parse_variables(args.set)
         if variables is None:
             exit_with_code(ExitCode.LOG_ERRORS)
@@ -155,18 +154,16 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
 
-        soda_cloud_client = SodaCloud.from_config(args.soda_cloud)
-
         exit_code = handle_verify_contract(
             contract_file_paths,
             dataset_identifiers,
             data_source_file_path,
+            soda_cloud_file_path,
             variables,
             publish,
             verbose,
             use_agent,
             blocking_timeout_in_minutes,
-            soda_cloud_client,
         )
 
         exit_with_code(exit_code)

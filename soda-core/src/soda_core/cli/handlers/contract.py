@@ -5,6 +5,7 @@ from soda_core.common.exceptions import (
     ContractParserException,
     InvalidArgumentException,
     InvalidDataSourceConfigurationException,
+    SodaCloudException,
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
@@ -20,14 +21,18 @@ def handle_verify_contract(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
+    soda_cloud_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
     publish: bool,
     verbose: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
-    soda_cloud_client: Optional[SodaCloud],
 ) -> ExitCode:
+    soda_cloud_client: Optional[SodaCloud] = None
     try:
+        if soda_cloud_file_path:
+            soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
+
         validate_verify_arguments(
             contract_file_paths, dataset_identifiers, data_source_file_path, publish, use_agent, soda_cloud_client
         )
@@ -83,11 +88,11 @@ def _create_contract_yamls(
 
     if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
         for dataset_identifier in dataset_identifiers:
-            contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
-            if not contract:
+            try:
+                contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
+                contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+            except SodaCloudException as exc:
                 soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
-                continue
-            contract_yaml_sources.append(ContractYamlSource.from_str(contract))
 
     if not contract_yaml_sources:
         soda_logger.debug("No contracts given. Exiting.")
