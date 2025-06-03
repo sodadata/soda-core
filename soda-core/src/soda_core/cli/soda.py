@@ -24,7 +24,6 @@ from soda_core.cli.handlers.soda_cloud import (
 )
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.soda_cloud import SodaCloud
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
@@ -292,10 +291,9 @@ def _setup_contract_fetch_command(contract_parsers) -> None:
     def handle(args):
         contract_file_paths = args.file
         soda_cloud_file_path = args.soda_cloud
-        soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
         dataset_identifiers = args.dataset
 
-        exit_code = handle_fetch_contract(contract_file_paths, dataset_identifiers, soda_cloud_client)
+        exit_code = handle_fetch_contract(contract_file_paths, dataset_identifiers, soda_cloud_file_path)
         exit_with_code(exit_code)
 
     fetch_parser.set_defaults(handler_func=handle)
