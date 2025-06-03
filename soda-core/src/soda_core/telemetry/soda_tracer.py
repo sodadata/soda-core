@@ -30,7 +30,6 @@ def get_decorators(function):
     def visit_function_def(node):
         decorators[node.name] = {}
         for n in node.decorator_list:
-            logger.debug(ast.dump(n))
             name = ""
             if isinstance(n, ast.Call):
                 group = n.func.value.id
