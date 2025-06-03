@@ -15,6 +15,9 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
+from soda_core.telemetry.soda_telemetry import SodaTelemetry
+
+soda_telemetry = SodaTelemetry()
 
 
 def handle_verify_contract(
@@ -61,6 +64,10 @@ def handle_verify_contract(
             soda_cloud_use_agent=use_agent,
             soda_cloud_verbose=verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        )
+
+        soda_telemetry.ingest_contract_verification_session_result(
+            contract_verification_session_result=contract_verification_session_result
         )
 
         return interpret_contract_verification_result(contract_verification_session_result)

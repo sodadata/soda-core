@@ -17,6 +17,8 @@ requires = [
     "ruamel.yaml>=0.17.0,<0.18.0",
     "requests>=2.32.3,<2.33.0",
     "pydantic>=2.0,<3.0",
+    "opentelemetry-api>=1.16.0,<2.0.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.16.0,<2.0.0",
 ]
 
 setup(

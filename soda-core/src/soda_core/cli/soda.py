@@ -6,6 +6,7 @@ import traceback
 from argparse import ArgumentParser, _SubParsersAction
 from typing import Dict, List, Optional
 
+from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
     handle_fetch_contract,
@@ -24,17 +25,24 @@ from soda_core.cli.handlers.soda_cloud import (
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from soda_core.telemetry.soda_tracer import soda_trace
+
+soda_telemetry = SodaTelemetry()
 
 
+@soda_trace
 def execute() -> None:
     try:
         print(r"  __|  _ \|  \   \\")
         print(r"\__ \ (   |   | _ \\")
-        print(r"____/\___/___/_/  _\\ CLI 4.0.0.dev??")
+        print(r"____/\___/___/_/  _\\ CLI v%s" % SODA_CORE_VERSION)
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
 
         args = cli_parser.parse_args()
+
+        soda_telemetry.ingest_cli_arguments(vars(args))
 
         if len(sys.argv) == 1:
             cli_parser.print_help()
@@ -417,6 +425,7 @@ def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
 
 def exit_with_code(exit_code: int):
     soda_logger.debug(f"Exiting with code {exit_code}")
+    soda_telemetry.set_attribute("cli__exit_code", exit_code)
     exit(exit_code)
 
 
