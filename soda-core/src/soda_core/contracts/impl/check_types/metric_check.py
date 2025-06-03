@@ -10,8 +10,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MetricValuesDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.metric_check_yaml import MetricCheckYaml
@@ -84,11 +82,13 @@ class MetricCheckImpl(CheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
+        metric_name: str = "metric_value"
         numeric_metric_value: Optional[Number] = measurement_values.get_value(self.numeric_metric_impl)
-        diagnostics: list[Diagnostic] = []
+
+        diagnostic_metric_values: dict[str, float] = {}
 
         if isinstance(numeric_metric_value, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="metric_value", value=numeric_metric_value))
+            diagnostic_metric_values[metric_name] = numeric_metric_value
 
             if self.threshold:
                 if self.threshold.passes(numeric_metric_value):
@@ -99,9 +99,9 @@ class MetricCheckImpl(CheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=numeric_metric_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_metric_name=metric_name,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

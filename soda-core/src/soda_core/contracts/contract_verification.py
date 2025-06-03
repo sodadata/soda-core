@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -175,20 +174,20 @@ class Check:
     threshold: Optional[Threshold]
 
 
-class CheckResult(ABC):
+class CheckResult:
     def __init__(
         self,
         contract: Contract,
         check: Check,
-        metric_value: Optional[Number],
         outcome: CheckOutcome,
-        diagnostics: list[Diagnostic],
+        threshold_metric_name: Optional[str] = None,
+        diagnostic_metric_values: Optional[dict[str, float]] = None,
     ):
         self.contract: Contract = contract
         self.check: Check = check
-        self.metric_value: Optional[Number] = metric_value
+        self.threshold_metric_name: Optional[str] = threshold_metric_name
         self.outcome: CheckOutcome = outcome
-        self.diagnostics: list[Diagnostic] = diagnostics
+        self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
 
     def log_summary(self, logs: Logs) -> None:
         outcome_emoticon: str = (
@@ -199,9 +198,36 @@ class CheckResult(ABC):
             else Emoticons.SEE_NO_EVIL
         )
         logger.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
-        for diagnostic in self.diagnostics:
-            for log_line in diagnostic.get_console_log_lines():
-                logger.info(f"  {log_line}")
+        if self.diagnostic_metric_values:
+            for k, v in self.diagnostic_metric_values.items():
+                logger.info(f"  Actual {k} was {self._log_console_format(v)}")
+
+    def _log_console_format(self, n: Number) -> str:
+        if n == int(n):
+            return str(n)
+        n_str = str(n)
+        if "e" in n_str:
+            n_str = f"{n:.20f}"
+        is_index_after_comma = False
+        is_after_first_significant_number = False
+        significant_numbers_after_comma = 0
+        for index in range(0, len(n_str)):
+            c = n_str[index]
+            if is_index_after_comma and c != "0":
+                is_after_first_significant_number = True
+            elif not is_index_after_comma and c == ".":
+                is_index_after_comma = True
+            if is_after_first_significant_number:
+                significant_numbers_after_comma += 1
+            if significant_numbers_after_comma > 2:
+                return n_str[:index]
+        return n_str
+
+    def get_threshold_value(self) -> Optional[Number]:
+        if self.threshold_metric_name and self.diagnostic_metric_values:
+            v = self.diagnostic_metric_values.get(self.threshold_metric_name)
+            if isinstance(v, Number):
+                return v
 
 
 class Measurement:
@@ -209,32 +235,6 @@ class Measurement:
         self.metric_id: str = metric_id
         self.metric_name: Optional[str] = metric_name
         self.value: any = value
-
-
-@dataclass
-class Diagnostic:
-    def get_console_log_lines(self) -> list[str]:
-        pass
-
-
-@dataclass
-class MetricValuesDiagnostic(Diagnostic):
-    metric_values: dict[str, float]
-
-    def get_console_log_lines(self) -> list[str]:
-        return [
-            f"Actual {k} was {v:.2g}"
-            for k, v in self.metric_values.items()
-        ]
-        return f"Actual {self.name} was {self.value}"
-
-
-@dataclass
-class TextDiagnostic(Diagnostic):
-    value: str
-
-    def log_line(self) -> str:
-        return f"{self.name} was {self.value}"
 
 
 class ContractVerificationResult:

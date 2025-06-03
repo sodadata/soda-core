@@ -8,8 +8,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MetricValuesDiagnostic,
 )
 from soda_core.contracts.impl.check_types.numeric_check_yaml import NumericCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -77,11 +75,12 @@ class NumericCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
+        diagnostic_metric_values: dict[str, float] = {}
+
         function_value: Optional[Number] = measurement_values.get_value(self.numeric_metric)
-        diagnostics: list[Diagnostic] = []
 
         if isinstance(function_value, Number):
-            diagnostics.append(MetricValuesDiagnostic(name=self.function, value=function_value))
+            diagnostic_metric_values[self.function] = function_value
 
             if self.threshold:
                 if self.threshold.passes(function_value):
@@ -92,9 +91,9 @@ class NumericCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=function_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_metric_name=self.function,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

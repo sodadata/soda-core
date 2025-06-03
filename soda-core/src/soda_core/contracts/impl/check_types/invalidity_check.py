@@ -10,8 +10,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MetricValuesDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
@@ -117,19 +115,20 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostics: list[Diagnostic] = []
+        diagnostic_metric_values: dict[str, float] = {}
+
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
         if isinstance(invalid_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="invalid_count", value=invalid_count))
+            diagnostic_metric_values["invalid_count"] = invalid_count
 
         row_count: int = measurement_values.get_value(self.row_count_metric)
         invalid_percent: float = 0
         if isinstance(row_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="row_count", value=row_count))
+            diagnostic_metric_values["row_count"] = row_count
 
             if row_count > 0:
                 invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
-            diagnostics.append(MetricValuesDiagnostic(name="invalid_percent", value=invalid_percent))
+            diagnostic_metric_values["invalid_percent"] = invalid_percent
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 
@@ -142,9 +141,9 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=threshold_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_metric_name=self.metric_name,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

@@ -3,11 +3,11 @@ from textwrap import dedent, indent
 import pytest
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     ContractVerificationResult,
-    MetricValuesDiagnostic,
 )
 
 test_table_specification = (
@@ -50,10 +50,10 @@ def test_row_count_with_check_filter(data_source_test_helper: DataSourceTestHelp
         """,
     )
 
-    row_count_diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert row_count_diagnostic.name == "row_count"
-    assert isinstance(row_count_diagnostic, MetricValuesDiagnostic)
-    assert row_count_diagnostic.value == 2
+    assert get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0],
+            diagnostic_name="row_count"
+        ) == 2
 
 
 @pytest.mark.parametrize("contract_yaml_str", [

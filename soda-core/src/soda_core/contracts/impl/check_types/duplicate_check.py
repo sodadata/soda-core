@@ -8,8 +8,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MetricValuesDiagnostic,
 )
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
@@ -113,24 +111,24 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostics: list[Diagnostic] = []
+        diagnostic_metric_values: dict[str, float] = {}
 
         distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
         if isinstance(distinct_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="distinct_count", value=distinct_count))
+            diagnostic_metric_values["distinct_count"] = distinct_count
 
         duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
         if isinstance(duplicate_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="duplicate_count", value=duplicate_count))
+            diagnostic_metric_values["duplicate_count"] = duplicate_count
 
         valid_count: int = measurement_values.get_value(self.valid_count_metric_impl)
         duplicate_percent: float = 0
         if isinstance(valid_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="valid_count", value=valid_count))
+            diagnostic_metric_values["valid_count"] = valid_count
 
             if valid_count > 0:
                 duplicate_percent = measurement_values.get_value(self.duplicate_percent_metric_impl)
-            diagnostics.append(MetricValuesDiagnostic(name="duplicate_percent", value=duplicate_percent))
+            diagnostic_metric_values["duplicate_percent"] = duplicate_percent
 
         threshold_value: Optional[Number] = (
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
@@ -145,9 +143,8 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=threshold_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 
@@ -272,24 +269,24 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostics: list[Diagnostic] = []
+        diagnostic_metric_values: dict[str, float] = {}
 
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
         if isinstance(distinct_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="distinct_count", value=distinct_count))
+            diagnostic_metric_values["distinct_count"] = distinct_count
 
         duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
         if isinstance(duplicate_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="duplicate_count", value=duplicate_count))
+            diagnostic_metric_values["duplicate_count"] = duplicate_count
 
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         duplicate_percent: float = 0
         if isinstance(row_count, Number):
-            diagnostics.append(MetricValuesDiagnostic(name="row_count", value=row_count))
+            diagnostic_metric_values["row_count"] = row_count
 
             if row_count > 0:
                 duplicate_percent = measurement_values.get_value(self.duplicate_percent_metric_impl)
-            diagnostics.append(MetricValuesDiagnostic(name="duplicate_percent", value=duplicate_percent))
+            diagnostic_metric_values["duplicate_percent"] = duplicate_percent
 
         threshold_value: Optional[Number] = (
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
@@ -304,9 +301,9 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=threshold_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_metric_name=self.metric_name,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 
