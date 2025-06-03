@@ -6,8 +6,10 @@ import traceback
 from argparse import ArgumentParser, _SubParsersAction
 from typing import Dict, List, Optional
 
+from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
+    handle_fetch_contract,
     handle_publish_contract,
     handle_test_contract,
     handle_verify_contract,
@@ -22,17 +24,25 @@ from soda_core.cli.handlers.soda_cloud import (
 )
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.soda_cloud import SodaCloud
+from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from soda_core.telemetry.soda_tracer import soda_trace
+
+soda_telemetry = SodaTelemetry()
 
 
+@soda_trace
 def execute() -> None:
     try:
         print(r"  __|  _ \|  \   \\")
         print(r"\__ \ (   |   | _ \\")
-        print(r"____/\___/___/_/  _\\ CLI 4.0.0.dev??")
+        print(r"____/\___/___/_/  _\\ CLI v%s" % SODA_CORE_VERSION)
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
 
         args = cli_parser.parse_args()
+
+        soda_telemetry.ingest_cli_arguments(vars(args))
 
         if len(sys.argv) == 1:
             cli_parser.print_help()
@@ -80,6 +90,7 @@ def _setup_contract_resource(resource_parsers) -> None:
     _setup_contract_verify_command(contract_subparsers)
     _setup_contract_publish_command(contract_subparsers)
     _setup_contract_test_command(contract_subparsers)
+    _setup_contract_fetch_command(contract_subparsers)
 
 
 def _setup_contract_verify_command(contract_parsers) -> None:
@@ -246,6 +257,50 @@ def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser.set_defaults(handler_func=handle)
 
 
+def _setup_contract_fetch_command(contract_parsers) -> None:
+    fetch_parser = contract_parsers.add_parser("fetch", help="Pull a contract")
+    fetch_parser.add_argument(
+        "-d",
+        "--dataset",
+        type=str,
+        nargs="+",
+        help="Fully qualified names of datasets whose cloud contracts you wish to fetch.",
+    )
+    fetch_parser.add_argument(
+        "-sc",
+        "--soda-cloud",
+        type=str,
+        help="A Soda Cloud configuration file path.",
+        required=True,
+    )
+    fetch_parser.add_argument(
+        "-f",
+        "--file",
+        type=str,
+        nargs="+",
+        help="The path(s) to the contract files to be created or updated. (directories will be created if needed)",
+    )
+    fetch_parser.add_argument(
+        "-v",
+        "--verbose",
+        const=True,
+        action="store_const",
+        default=False,
+        help="Show more detailed logs on the console.",
+    )
+
+    def handle(args):
+        contract_file_paths = args.file
+        soda_cloud_file_path = args.soda_cloud
+        soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
+        dataset_identifiers = args.dataset
+
+        exit_code = handle_fetch_contract(contract_file_paths, dataset_identifiers, soda_cloud_client)
+        exit_with_code(exit_code)
+
+    fetch_parser.set_defaults(handler_func=handle)
+
+
 def _setup_data_source_resource(resource_parsers) -> None:
     data_source_parser = resource_parsers.add_parser("data-source", help="Data source commands")
     data_source_subparsers = data_source_parser.add_subparsers(dest="command", help="Data source commands")
@@ -368,6 +423,7 @@ def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
 
 def exit_with_code(exit_code: int):
     soda_logger.debug(f"Exiting with code {exit_code}")
+    soda_telemetry.set_attribute("cli__exit_code", exit_code)
     exit(exit_code)
 
 
