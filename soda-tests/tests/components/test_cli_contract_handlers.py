@@ -4,12 +4,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.handlers.contract import (
+from soda_core.contracts.api.verify_api import (
     ContractVerificationSession,
     all_none_or_empty,
+)
+from soda_core.cli.handlers.contract import (
     handle_publish_contract,
     handle_test_contract,
-    handle_verify_contract, )
+    handle_verify_contract,
+)
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
@@ -37,8 +40,8 @@ def test_all_none_or_empty(array, expected):
         (True, True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
     ],
 )
-@patch("soda_core.cli.handlers.contract.SodaCloud.from_config")
-@patch("soda_core.cli.handlers.contract.ContractVerificationSession.execute")
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
 def test_handle_verify_contract_exit_codes(
     mock_execute, mock_cloud_client, has_errors, has_failures, cloud_failed, expected_exit_code
 ):
@@ -106,7 +109,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-@patch("soda_core.cli.handlers.contract.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_or_dataset_identifiers(
     mock_cloud_client, caplog
 ):
@@ -126,7 +129,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
     assert exit_code == ExitCode.LOG_ERRORS
 
 
-@patch("soda_core.cli.handlers.contract.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configuration_or_dataset_identifiers(
     mock_cloud_client, caplog
 ):
@@ -166,7 +169,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
     assert exit_code == ExitCode.OK
 
 
-@patch("soda_core.cli.handlers.contract.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud_returns_errors(
     mock_cloud_client, caplog
 ):
@@ -189,7 +192,7 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
     )
 
 
-@patch("soda_core.cli.handlers.contract.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(mock_cloud_client, caplog):
     mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
 
