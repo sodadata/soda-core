@@ -28,7 +28,9 @@ class SodaCloudThresholdDiagnostic(BaseModel):
 
 class SodaCloudMetricValuesDiagnostics(BaseModel):
     thresholdMetricName: Optional[str]
-    values: dict[str, float]
+    values: dict[str, Number]
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SodaCloudSchemaDiagnostics(BaseModel):
