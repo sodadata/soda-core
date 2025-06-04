@@ -1,4 +1,3 @@
-from soda_core.common.logging_configuration import configure_logging
 from typing import Dict, Optional, Union
 
 from soda_core.common.exceptions import (
@@ -6,6 +5,7 @@ from soda_core.common.exceptions import (
     InvalidDataSourceConfigurationException,
     SodaCloudException,
 )
+from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
@@ -81,7 +81,6 @@ def verify_contracts(
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
-
     configure_logging(verbose=verbose)
 
     soda_cloud_client: Optional[SodaCloud] = None

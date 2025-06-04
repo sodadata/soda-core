@@ -1,6 +1,6 @@
-from soda_core.common.logging_configuration import configure_logging
 from typing import Dict, Optional, Union
 
+from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
