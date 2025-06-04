@@ -10,12 +10,9 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api import verify_contracts
+from soda_core.contracts.api import test_contracts, verify_contracts
 from soda_core.contracts.contract_publication import ContractPublication
-from soda_core.contracts.contract_verification import (
-    ContractVerificationSession,
-    ContractVerificationSessionResult,
-)
+from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 
 
 def handle_verify_contract(
@@ -98,15 +95,10 @@ def handle_publish_contract(
 def handle_test_contract(
     contract_file_paths: Optional[list[str]],
     variables: Optional[Dict[str, str]],
-    data_source_file_path: Optional[str],
 ) -> ExitCode:
     for contract_file_path in contract_file_paths:
-        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=[ContractYamlSource.from_file_path(contract_file_path)],
-            only_validate_without_execute=True,
-            variables=variables,
-        )
-        if contract_verification_session_result.has_errors():
+        contract_verification_result = test_contracts(contract_file_paths=[contract_file_path], variables=variables)
+        if contract_verification_result.has_errors():
             return ExitCode.LOG_ERRORS
         else:
             soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")

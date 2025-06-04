@@ -79,7 +79,6 @@ def verify_contracts(
     variables: Optional[Dict[str, str]] = None,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
-    disable_query_execution: bool = False,
 ) -> ContractVerificationSessionResult:
     soda_cloud_client: Optional[SodaCloud] = None
     try:
@@ -117,7 +116,7 @@ def verify_contracts(
             data_source_yaml_sources=[data_source_yaml_source],
             soda_cloud_impl=soda_cloud_client,
             variables=variables,
-            only_validate_without_execute=disable_query_execution,
+            only_validate_without_execute=False,
             soda_cloud_publish_results=publish,
             soda_cloud_use_agent=use_agent,
             soda_cloud_verbose=verbose,
