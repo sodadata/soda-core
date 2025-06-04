@@ -59,6 +59,18 @@ class InvalidDatasetQualifiedNameException(InvalidContractException):
     """Indicates the `dataset` property of the contract is not a valid Dataset Qualified Name"""
 
 
+class YamlParserException(SodaCoreException):
+    """Indicates an error occurred while parsing a YAML file."""
+
+    def __init__(self, message: str, location: Optional[str] = None):
+        message_with_location = f"{message}, in {location}" if location else message
+        super().__init__(message_with_location)
+
+
+class ContractParserException(YamlParserException):
+    """Indicates an error occurred while parsing a contract."""
+
+
 class SodaCloudException(SodaCoreException):
     """Base class for all SodaCloud related exceptions."""
 
