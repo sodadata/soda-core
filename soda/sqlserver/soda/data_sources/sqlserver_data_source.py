@@ -46,9 +46,9 @@ def _get_azure_cli_access_token(scope: str) -> AccessToken:
 
 
 def _get_mssparkutils_access_token(scope: str) -> AccessToken:
-    from notebookutils import mssparkutils
+    from notebookutils import credentials
 
-    aad_token = mssparkutils.credentials.getToken(scope)
+    aad_token = credentials.getToken(scope)
     expires_on = int(time.time() + 4500.0)
     token = AccessToken(
         token=aad_token,
