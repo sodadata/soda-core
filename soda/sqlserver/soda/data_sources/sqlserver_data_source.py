@@ -25,12 +25,15 @@ from soda.execution.data_type import DataType
 logger = logging.getLogger(__name__)
 
 
-_AZURE_AUTH_FUNCTION_TYPE = Callable[[str], AccessToken]
+_ENTRA_ID_ACCESS_TOKEN_FUNCTION_TYPE = Callable[[str], AccessToken]
+
+_AZURE_CREDENTIAL_SCOPE = "https://database.windows.net/.default"
+_FABRIC_CREDENTIAL_SCOPE = "https://analysis.windows.net/powerbi/api/.default"
+_SYNAPSE_SPARK_CREDENTIAL_SCOPE = "DW"
+_FABRIC_SPARK_CREDENTIAL_SCOPE = "pbi"
+
 _SQL_COPT_SS_ACCESS_TOKEN = 1256
 _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME = 300
-_AZURE_CREDENTIAL_SCOPE = "https://database.windows.net//.default"
-_SYNAPSE_CREDENTIAL_SCOPE = "DW"
-_FABRIC_CREDENTIAL_SCOPE = "https://analysis.windows.net/powerbi/api"
 
 
 def _get_auto_access_token(scope: str) -> AccessToken:
@@ -57,34 +60,12 @@ def _get_mssparkutils_access_token(scope: str) -> AccessToken:
     return token
 
 
-def _get_synapse_spark_access_token(scope: str) -> AccessToken:
-    return _get_mssparkutils_access_token(scope)
-
-
-def _get_fabric_spark_access_token(scope: str) -> AccessToken:
-    return _get_mssparkutils_access_token(scope)
-
-
-def _derive_scope(authentication_method: str, hostname: str) -> str:
-    if "azuresynapse.net" in hostname:
-        return _SYNAPSE_CREDENTIAL_SCOPE
-    if "fabric.microsoft.com" in hostname:
-        return _FABRIC_CREDENTIAL_SCOPE
-    if "database.windows.net" in hostname:
-        return _AZURE_CREDENTIAL_SCOPE
-    if "synapse" in authentication_method:
-        return _SYNAPSE_CREDENTIAL_SCOPE
-    if "fabric" in authentication_method:
-        return _FABRIC_CREDENTIAL_SCOPE
-    return _AZURE_CREDENTIAL_SCOPE
-
-
-_AZURE_AUTH_FUNCTIONS: Mapping[str, _AZURE_AUTH_FUNCTION_TYPE] = {
+_ENTRA_ID_ACCESS_TOKEN_FUNCTIONS: Mapping[str, _ENTRA_ID_ACCESS_TOKEN_FUNCTION_TYPE] = {
     "auto": _get_auto_access_token,
     "cli": _get_azure_cli_access_token,
     "environment": _get_environment_access_token,
-    "synapsespark": _get_synapse_spark_access_token,
-    "fabricspark": _get_fabric_spark_access_token,
+    "synapsespark": _get_mssparkutils_access_token,
+    "fabricspark": _get_mssparkutils_access_token,
 }
 
 
@@ -96,26 +77,6 @@ def convert_bytes_to_mswindows_byte_string(value):
 def convert_access_token_to_mswindows_byte_string(token):
     value = bytes(token.token, "UTF-8")
     return convert_bytes_to_mswindows_byte_string(value)
-
-
-def get_pyodbc_attrs(authentication_method: str, scope: str | None, host: str):
-    if not authentication_method.lower() in _AZURE_AUTH_FUNCTIONS:
-        return None
-
-    global _azure_access_token
-    _azure_access_token = None
-
-    if _azure_access_token:
-        time_remaining = _azure_access_token.expires_on - time.time()
-        if time_remaining < _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME:
-            _azure_access_token = None
-
-    if not _azure_access_token:
-        scope = scope or _derive_scope(authentication_method.lower(), host.lower())
-        _azure_access_token = _AZURE_AUTH_FUNCTIONS[authentication_method.lower()](scope)
-
-    token_bytes = convert_access_token_to_mswindows_byte_string(_azure_access_token)
-    return {_SQL_COPT_SS_ACCESS_TOKEN: token_bytes}
 
 
 class SQLServerDataSource(DataSource):
@@ -295,7 +256,7 @@ class SQLServerDataSource(DataSource):
         try:
             self.connection = pyodbc.connect(
                 build_connection_string(),
-                attrs_before=get_pyodbc_attrs(self.authentication, self.scope, self.host),
+                attrs_before=self._get_pyodbc_attrs(),
                 timeout=int(self.login_timeout),
             )
 
@@ -310,6 +271,47 @@ class SQLServerDataSource(DataSource):
             return "YES" if value else "NO"
 
         return value
+
+    def _get_access_token_scope(self) -> str:
+        if self.scope:
+            return self.scope
+
+        authentication_method = self.authentication.lower()
+        hostname = self.host.lower()
+
+        if "synapse" in authentication_method:
+            return _SYNAPSE_SPARK_CREDENTIAL_SCOPE
+        if "fabric" in authentication_method:
+            return _FABRIC_SPARK_CREDENTIAL_SCOPE
+
+        if "fabric.microsoft.com" in hostname:
+            return _FABRIC_CREDENTIAL_SCOPE
+
+        return _AZURE_CREDENTIAL_SCOPE
+
+    def _get_pyodbc_attrs(self) -> dict[int, bytes] | None:
+        """
+        Returns a dictionary of pyodbc attributes to be used in the connection.
+        This is used to pass the Microsoft Entra ID access token for authentication.
+        """
+        auth_function = _ENTRA_ID_ACCESS_TOKEN_FUNCTIONS.get(self.authentication.lower(), None)
+
+        if not auth_function:
+            return None
+
+        global _azure_access_token
+        _azure_access_token = None
+
+        if _azure_access_token:
+            time_remaining = _azure_access_token.expires_on - time.time()
+            if time_remaining < _MAX_REMAINING_AZURE_ACCESS_TOKEN_LIFETIME:
+                _azure_access_token = None
+
+        if not _azure_access_token:
+            _azure_access_token = auth_function(self._get_access_token_scope())
+
+        token_bytes = convert_access_token_to_mswindows_byte_string(_azure_access_token)
+        return {_SQL_COPT_SS_ACCESS_TOKEN: token_bytes}
 
     def validate_configuration(self, logs: Logs) -> None:
         pass
