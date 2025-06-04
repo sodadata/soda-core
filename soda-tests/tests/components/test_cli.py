@@ -194,8 +194,6 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
         "-c",
         "a.yaml",
         "b.yaml",
-        "-ds",
-        "ds.yaml",
         "-v",
     ]
 
@@ -210,7 +208,6 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     mock_handler.assert_called_once_with(
         ["a.yaml", "b.yaml"],
         {},
-        "ds.yaml",
     )
 
 

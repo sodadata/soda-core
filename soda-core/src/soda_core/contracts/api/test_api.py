@@ -15,9 +15,13 @@ def test_contracts(
     variables: Optional[Dict[str, str]] = None,
     verbose: bool = False,
 ) -> ContractVerificationSessionResult:
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+
     contract_yaml_sources = [
         ContractYamlSource.from_file_path(contract_file_path) for contract_file_path in contract_file_paths
     ]
+
     contract_verification_result = ContractVerificationSession.execute(
         contract_yaml_sources=contract_yaml_sources,
         variables=variables,

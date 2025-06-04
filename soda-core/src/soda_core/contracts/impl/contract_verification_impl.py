@@ -426,8 +426,9 @@ class ContractImpl:
                 derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedMetricImpl)
             ]
             measurement_values: MeasurementValues = MeasurementValues(measurements)
-            for derived_metric_impl in derived_metric_impls:
-                measurement_values.derive_value(derived_metric_impl)
+            if not self.only_validate_without_execute:
+                for derived_metric_impl in derived_metric_impls:
+                    measurement_values.derive_value(derived_metric_impl)
 
             if self.data_source_impl:
                 # Evaluate the checks

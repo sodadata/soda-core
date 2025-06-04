@@ -18,7 +18,7 @@ soda_telemetry = SodaTelemetry()
 
 
 def verify_contracts_locally(
-    contract_file_paths: Union[str, Optional[list[str]]],
+    contract_file_paths: Optional[Union[str, list[str]]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str] = None,
     dataset_identifiers: Optional[list[str]] = None,
@@ -44,7 +44,7 @@ def verify_contracts_locally(
 
 
 def verify_contracts_on_agent(
-    contract_file_paths: Union[str, Optional[list[str]]],
+    contract_file_paths: Optional[Union[str, list[str]]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: str,
     dataset_identifiers: Optional[list[str]] = None,
@@ -70,7 +70,7 @@ def verify_contracts_on_agent(
 
 
 def verify_contracts(
-    contract_file_paths: Union[str, Optional[list[str]]],
+    contract_file_paths: Optional[Union[str, list[str]]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
