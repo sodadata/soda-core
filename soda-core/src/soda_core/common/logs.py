@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from logging import ERROR, Handler, Logger, LogRecord
+from logging import ERROR, Handler, LogRecord
 from typing import Optional
 
 
@@ -45,8 +45,6 @@ class LogCapturer(Handler):
 
 
 class Logs:
-    logger: Logger = logging.getLogger("soda.contracts")
-
     def __init__(self):
         # Stores all logs above debug level to be sent to soda cloud and for testing logs in the test suite.
         # self.logs: list[Log] = logs or []
