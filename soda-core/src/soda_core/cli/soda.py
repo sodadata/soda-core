@@ -24,7 +24,6 @@ from soda_core.cli.handlers.soda_cloud import (
 )
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.soda_cloud import SodaCloud
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
@@ -236,7 +235,6 @@ def _setup_contract_publish_command(contract_parsers) -> None:
 def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser = contract_parsers.add_parser(name="test", help="Test a contract syntax without executing it")
     test_contract_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
-    test_contract_parser.add_argument("-ds", "--data-source", type=str, help="The data source configuration file.")
 
     test_contract_parser.add_argument(
         "-v",
@@ -249,9 +247,8 @@ def _setup_contract_test_command(contract_parsers) -> None:
 
     def handle(args):
         contract_file_paths = args.contract
-        data_source_file_path = args.data_source
 
-        exit_code = handle_test_contract(contract_file_paths, {}, data_source_file_path)
+        exit_code = handle_test_contract(contract_file_paths, {})
         exit_with_code(exit_code)
 
     test_contract_parser.set_defaults(handler_func=handle)
@@ -292,10 +289,9 @@ def _setup_contract_fetch_command(contract_parsers) -> None:
     def handle(args):
         contract_file_paths = args.file
         soda_cloud_file_path = args.soda_cloud
-        soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
         dataset_identifiers = args.dataset
 
-        exit_code = handle_fetch_contract(contract_file_paths, dataset_identifiers, soda_cloud_client)
+        exit_code = handle_fetch_contract(contract_file_paths, dataset_identifiers, soda_cloud_file_path)
         exit_with_code(exit_code)
 
     fetch_parser.set_defaults(handler_func=handle)

@@ -17,7 +17,7 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys
 
 
 def configure_logging(
-    verbose: bool = True,
+    verbose: bool = False,
 ) -> None:
     """
     Used exposing the Soda log configurations.
