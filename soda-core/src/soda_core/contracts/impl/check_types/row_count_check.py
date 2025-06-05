@@ -5,8 +5,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
 )
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -75,14 +73,13 @@ class RowCountCheckImpl(CheckImpl):
             else:
                 outcome = CheckOutcome.FAILED
 
-        diagnostics: list[Diagnostic] = [MeasuredNumericValueDiagnostic(name="row_count", value=row_count)]
+        diagnostic_metric_values: dict[str, float] = {"row_count": row_count}
 
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=row_count,
             outcome=outcome,
-            diagnostics=diagnostics,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

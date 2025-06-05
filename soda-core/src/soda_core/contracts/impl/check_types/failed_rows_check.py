@@ -10,8 +10,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
@@ -89,15 +87,16 @@ class FailedRowsCheckImpl(CheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
+        metric_name: str = "failed_rows_count"
+
         query_metric_value: Optional[Number] = (
             measurement_values.get_value(self.query_metric_impl) if self.query_metric_impl else None
         )
 
-        diagnostics: list[Diagnostic] = []
+        diagnostic_metric_values: dict[str, float] = {}
 
         if isinstance(query_metric_value, Number):
-            metric_name: str = "failed_rows_count"
-            diagnostics.append(MeasuredNumericValueDiagnostic(name=metric_name, value=query_metric_value))
+            diagnostic_metric_values[metric_name] = query_metric_value
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):
@@ -108,9 +107,9 @@ class FailedRowsCheckImpl(CheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=query_metric_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_metric_name=metric_name,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

@@ -5,8 +5,6 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
 )
 from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
@@ -79,13 +77,16 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
+        diagnostic_metric_values: dict[str, float] = {}
+
         missing_count: int = measurement_values.get_value(self.missing_count_metric)
-        diagnostics: list[Diagnostic] = [MeasuredNumericValueDiagnostic(name="missing_count", value=missing_count)]
+        diagnostic_metric_values["missing_count"] = missing_count
 
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-        diagnostics.append(MeasuredNumericValueDiagnostic(name="row_count", value=row_count))
+        diagnostic_metric_values["row_count"] = row_count
+
         missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
-        diagnostics.append(MeasuredNumericValueDiagnostic(name="missing_percent", value=missing_percent))
+        diagnostic_metric_values["missing_percent"] = missing_percent
 
         threshold_value: Optional[Number] = missing_percent if self.metric_name == "missing_percent" else missing_count
 
@@ -98,9 +99,9 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             contract=contract,
             check=self._build_check_info(),
-            metric_value=threshold_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_metric_name=self.metric_name,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

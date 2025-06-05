@@ -1,7 +1,7 @@
 from textwrap import dedent
 from typing import Optional
 
-from soda_core.contracts.contract_verification import CheckResult, Diagnostic
+from soda_core.contracts.contract_verification import CheckResult
 
 
 def dedent_and_strip(text: str) -> str:
@@ -9,7 +9,4 @@ def dedent_and_strip(text: str) -> str:
 
 
 def get_diagnostic_value(check_result: CheckResult, diagnostic_name: str) -> Optional[any]:
-    return next(
-        (d.value for d in check_result.diagnostics if isinstance(d, Diagnostic) and d.name == diagnostic_name),
-        None,
-    )
+    return check_result.diagnostic_metric_values.get(diagnostic_name)

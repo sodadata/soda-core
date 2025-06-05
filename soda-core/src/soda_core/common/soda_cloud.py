@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
+from numbers import Number
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional
@@ -29,6 +30,16 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
+from soda_core.common.soda_cloud_dto import (
+    SodaCloudDiagnostics,
+    SodaCloudFreshnessDiagnostics,
+    SodaCloudMetricValuesDiagnostics,
+    SodaCloudSchemaColumnInfo,
+    SodaCloudSchemaDataTypeMismatch,
+    SodaCloudSchemaDiagnostics,
+    SodaCloudThresholdDiagnostic,
+)
+from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -1013,23 +1024,107 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "outcome": _translate_check_outcome_for_soda_cloud(check_result.outcome),
         "source": "soda-contract",
     }
-    if check_result.metric_value is not None and check_result.check.threshold is not None:
-        t: Threshold = check_result.check.threshold
-        fail_threshold: dict = {}
-        if t.must_be_less_than_or_equal is not None:
-            fail_threshold["greaterThan"] = t.must_be_less_than_or_equal
-        if t.must_be_less_than is not None:
-            fail_threshold["greaterThanOrEqual"] = t.must_be_less_than
-        if t.must_be_greater_than_or_equal is not None:
-            fail_threshold["lessThan"] = t.must_be_greater_than_or_equal
-        if t.must_be_greater_than is not None:
-            fail_threshold["lessThanOrEqual"] = t.must_be_greater_than
-        check_result_cloud_dict["diagnostics"] = {
-            "blocks": [],
-            "value": check_result.metric_value,
-            "fail": fail_threshold,
-        }
+
+    diagnostics_json_dict: Optional[dict] = _build_diagnostics_json_dict(check_result)
+    if diagnostics_json_dict:
+        check_result_cloud_dict["diagnostics"] = diagnostics_json_dict
+
     return check_result_cloud_dict
+
+
+def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckResult,
+    )
+    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
+
+    metric_values: Optional[SodaCloudMetricValuesDiagnostics] = (
+        SodaCloudMetricValuesDiagnostics(
+            thresholdMetricName=check_result.threshold_metric_name, values=check_result.diagnostic_metric_values
+        )
+        if check_result.diagnostic_metric_values
+        else None
+    )
+
+    schema_diagnostics: Optional[SodaCloudSchemaDiagnostics] = (
+        SodaCloudSchemaDiagnostics(
+            expectedColumns=_build_diagnostics_schema_column_info(check_result.expected_columns),
+            actualColumns=_build_diagnostics_schema_column_info(check_result.actual_columns),
+            expectedColumnNamesNotActual=check_result.expected_column_names_not_actual,
+            actualColumnNamesNotExpected=check_result.actual_column_names_not_expected,
+            columnDataTypeMismatches=_build_diagnostics_column_data_type_mismatches(
+                check_result.column_data_type_mismatches
+            ),
+            areColumnsOutOfOrder=check_result.are_columns_out_of_order,
+        )
+        if isinstance(check_result, SchemaCheckResult)
+        else None
+    )
+
+    freshness_diagnostics: Optional[SodaCloudFreshnessDiagnostics] = (
+        SodaCloudFreshnessDiagnostics(
+            maxTimestamp=check_result.max_timestamp,
+            maxTimestampUtc=check_result.max_timestamp_utc,
+            dataTimestamp=check_result.data_timestamp,
+            dataTimestampUtc=check_result.data_timestamp_utc,
+            freshness=check_result.freshness,
+            freshnessInSeconds=check_result.freshness_in_seconds,
+            unit=check_result.unit,
+        )
+        if isinstance(check_result, FreshnessCheckResult)
+        else None
+    )
+
+    check_result_value: Optional[Number] = check_result.get_threshold_value()
+
+    fail_threshold: SodaCloudThresholdDiagnostic = _build_fail_threshold(check_result)
+
+    return SodaCloudDiagnostics(
+        schema=schema_diagnostics,
+        metricValues=metric_values,
+        freshness=freshness_diagnostics,
+        value=check_result_value,
+        fail=fail_threshold,
+    ).model_dump()
+
+
+def _build_fail_threshold(check_result: CheckResult) -> Optional[SodaCloudThresholdDiagnostic]:
+    threshold: Threshold = check_result.check.threshold
+    if threshold:
+        return SodaCloudThresholdDiagnostic(
+            greaterThan=threshold.must_be_less_than_or_equal,
+            greaterThanOrEqual=threshold.must_be_less_than,
+            lessThan=threshold.must_be_greater_than_or_equal,
+            lessThanOrEqual=threshold.must_be_greater_than,
+        )
+
+
+def _build_diagnostics_schema_column_info(
+    column_metadatas: list[ColumnMetadata],
+) -> Optional[list[SodaCloudSchemaColumnInfo]]:
+    return [
+        SodaCloudSchemaColumnInfo(
+            name=column_metadata.column_name,
+            dataType=column_metadata.data_type,
+            characterMaximumLength=column_metadata.character_maximum_length,
+        )
+        for column_metadata in column_metadatas
+    ]
+
+
+def _build_diagnostics_column_data_type_mismatches(
+    column_data_type_mismatches: list["ColumnDataTypeMismatch"],
+) -> list[SodaCloudSchemaDataTypeMismatch]:
+    return [
+        SodaCloudSchemaDataTypeMismatch(
+            column=column_data_type_mismatch.column,
+            expectedDataType=column_data_type_mismatch.expected_data_type,
+            actualDataType=column_data_type_mismatch.actual_data_type,
+            expectedCharacterMaximumLength=column_data_type_mismatch.expected_character_maximum_length,
+            actualCharacterMaximumLength=column_data_type_mismatch.actual_character_maximum_length,
+        )
+        for column_data_type_mismatch in column_data_type_mismatches
+    ]
 
 
 def _build_check_path(check_result: CheckResult) -> str:

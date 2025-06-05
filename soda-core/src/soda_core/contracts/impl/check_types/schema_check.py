@@ -243,12 +243,6 @@ class SchemaCheckResult(CheckResult):
             contract=contract,
             check=check,
             outcome=outcome,
-            metric_value=(
-                len(expected_column_names_not_actual)
-                + len(actual_column_names_not_expected)
-                + len(column_data_type_mismatches)
-            ),
-            diagnostics=[],
         )
         self.expected_columns: list[ColumnMetadata] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns

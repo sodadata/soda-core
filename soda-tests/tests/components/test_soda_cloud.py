@@ -107,16 +107,10 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     )
 
     request_index = 0
-
-    # request_0: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
-    # assert request_0.url.endswith("api/query")
-    # assert request_0.json["type"] == "sodaCoreContractCanBePublished"
-    # request_index += 1
-
     request_1: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
     assert request_1.url.endswith("api/scan/upload")
-    request_index += 1
 
+    request_index += 1
     request_2: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
     assert request_2.url.endswith("api/command")
     assert request_2.json["type"] == "sodaCoreInsertScanResults"
@@ -126,6 +120,19 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     assert "columns.age.checks.missing" in check_paths
     assert "columns.age.checks.missing.2" in check_paths
     assert "checks.schema" in check_paths
+
+    metric_values: dict = request_2.json["checks"][0]["diagnostics"]["metricValues"]
+    assert metric_values["thresholdMetricName"] == "missing_count"
+    values: dict = metric_values["values"]
+    missing_count = values["missing_count"]
+    assert missing_count == 2
+    assert isinstance(missing_count, int)
+    row_count = values["row_count"]
+    assert row_count == 4
+    assert isinstance(row_count, int)
+    missing_percent = values["missing_percent"]
+    assert 49.99 < missing_percent < 50.01
+    assert isinstance(missing_percent, float)
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
