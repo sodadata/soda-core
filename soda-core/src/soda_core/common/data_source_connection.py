@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from importlib.util import find_spec
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult

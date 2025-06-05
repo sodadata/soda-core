@@ -23,7 +23,6 @@ from soda_core.common.yaml import (
 )
 from soda_core.contracts.contract_verification import (
     Check,
-    CheckOutcome,
     CheckResult,
     Contract,
     ContractVerificationResult,
@@ -44,8 +43,6 @@ from soda_core.contracts.impl.contract_yaml import (
     ValidReferenceDataYaml,
 )
 from tabulate import tabulate
-from soda_core.common.utils import pluralize
-
 
 logger: logging.Logger = soda_logger
 

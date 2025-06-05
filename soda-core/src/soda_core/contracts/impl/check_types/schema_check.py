@@ -4,15 +4,14 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
     MetadataColumnsQuery,
 )
+from soda_core.common.utils import format_items
 from soda_core.contracts.contract_verification import (
     Check,
     CheckOutcome,
@@ -31,7 +30,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MetricImpl,
     Query,
 )
-from soda_core.common.utils import format_items
 
 logger: logging.Logger = soda_logger
 
@@ -288,7 +286,6 @@ class SchemaCheckResult(CheckResult):
         return category_delimiter.join(diagnostics)
 
     def verbose_log_summary(self) -> None:
-
         verbose_lines = []
 
         for column in self.actual_column_names_not_expected:

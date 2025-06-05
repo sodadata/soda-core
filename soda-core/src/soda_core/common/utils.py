@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, List, Dict
+from typing import Dict, List, Union
 
 
 def pluralize(count, singular, plural=None):
