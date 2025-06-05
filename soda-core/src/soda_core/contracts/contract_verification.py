@@ -220,7 +220,14 @@ class CheckResult:
             for k, v in self.diagnostic_metric_values.items():
                 logger.info(f"  Actual {k} was {self._log_console_format(v)}")
 
-    def _log_console_format(self, n: Number) -> str:
+    @classmethod
+    def _log_console_format(cls, n: Number) -> str:
+        """
+        Couldn't find nicer & simpler code to format:
+        * Full number before the comma,
+        * At least 2 significant digits after comma
+        * Trunc (not round) after 2 significant digits after comma
+        """
         if n == int(n):
             return str(n)
         n_str = str(n)
