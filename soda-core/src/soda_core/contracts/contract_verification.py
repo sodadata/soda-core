@@ -11,6 +11,7 @@ from typing import Optional
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core import is_verbose
 
 logger: logging.Logger = soda_logger
 
@@ -207,18 +208,50 @@ class CheckResult:
         self.outcome: CheckOutcome = outcome
         self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
 
-    def log_summary(self, logs: Logs) -> None:
-        outcome_emoticon: str = (
-            Emoticons.WHITE_CHECK_MARK
-            if self.outcome == CheckOutcome.PASSED
-            else Emoticons.POLICE_CAR_LIGHT
-            if self.outcome == CheckOutcome.FAILED
-            else Emoticons.SEE_NO_EVIL
-        )
-        logger.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
+    @property
+    def outcome_emoticon(self) -> str:
+        if self.outcome == CheckOutcome.PASSED:
+            return Emoticons.WHITE_CHECK_MARK
+        elif self.outcome == CheckOutcome.FAILED:
+            return Emoticons.CROSS_MARK
+        else:
+            return Emoticons.SEE_NO_EVIL
+
+    @property
+    def is_passed(self) -> bool:
+        return self.outcome == CheckOutcome.PASSED
+
+    @property
+    def is_failed(self) -> bool:
+        return self.outcome == CheckOutcome.FAILED
+
+    @property
+    def is_not_evaluated(self) -> bool:
+        return self.outcome == CheckOutcome.NOT_EVALUATED
+
+    def log_table_row(self) -> dict:
+        row = {}
+        row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"
+        row["Check"] = self.check.name
+        row["Outcome"] = f"{self.outcome_emoticon} {self.outcome.name}"
+
+        if is_verbose():
+            row["Check Type"] = self.check.type
+            row["Identity"] = self.check.identity
+        row["Details"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
+
+        return row
+
+    def log_table_row_diagnostics(self, verbose: bool = True) -> str:
+        diagnostics = []
+
         if self.diagnostic_metric_values:
-            for k, v in self.diagnostic_metric_values.items():
-                logger.info(f"  Actual {k} was {self._log_console_format(v)}")
+            for metric_name, value in self.diagnostic_metric_values.items():
+                formatted_value = value
+                if not verbose:
+                    formatted_value = self._log_console_format(value)
+                diagnostics.append(f"{metric_name}: {formatted_value}")
+        return "\n".join(diagnostics)
 
     @classmethod
     def _log_console_format(cls, n: Number) -> str:

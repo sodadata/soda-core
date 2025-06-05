@@ -43,6 +43,9 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
+from tabulate import tabulate
+from soda_core.common.utils import pluralize
+
 
 logger: logging.Logger = soda_logger
 
@@ -450,7 +453,7 @@ class ContractImpl:
         )
 
         if not self.only_validate_without_execute:
-            self.log_summary(contract_verification_result)
+            logger.info(self.build_log_summary(contract_verification_result))
 
         contract_verification_result.log_records = self.logs.pop_log_records()
 
@@ -468,35 +471,70 @@ class ContractImpl:
 
         return contract_verification_result
 
-    def log_summary(self, contract_verification_result: ContractVerificationResult):
-        logger.info(f"### Contract results for {contract_verification_result.contract.soda_qualified_dataset_name}")
+    def build_log_summary(self, contract_verification_result: ContractVerificationResult) -> str:
+        summary_lines: list[str] = []
+
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
+
         for check_result in contract_verification_result.check_results:
-            check_result.log_summary(self.logs)
-            if check_result.outcome == CheckOutcome.FAILED:
+            if check_result.is_failed:
                 failed_count += 1
-            elif check_result.outcome == CheckOutcome.NOT_EVALUATED:
+            elif check_result.is_not_evaluated:
                 not_evaluated_count += 1
-            elif check_result.outcome == CheckOutcome.PASSED:
+            elif check_result.is_passed:
                 passed_count += 1
+        total_count: int = failed_count + not_evaluated_count + passed_count
 
         error_count: int = len(self.logs.get_errors())
 
-        not_evaluated_count: int = sum(
-            1 if check_result.outcome == CheckOutcome.NOT_EVALUATED else 0
-            for check_result in contract_verification_result.check_results
-        )
+        table_lines = [
+            ["Checks", total_count],
+            ["Passed", passed_count, Emoticons.WHITE_CHECK_MARK],
+        ]
 
-        if failed_count + error_count + not_evaluated_count == 0:
-            logger.info(f"Contract summary: All is good. All {passed_count} checks passed. No execution errors.")
+        if failed_count > 0:
+            table_lines.append(["Failed", failed_count, Emoticons.CROSS_MARK])
         else:
-            logger.info(
-                f"Contract summary: Ouch! {failed_count} checks failures, "
-                f"{passed_count} checks passed, {not_evaluated_count} checks not evaluated "
-                f"and {error_count} errors."
-            )
+            table_lines.append(["Failed", failed_count, Emoticons.WHITE_CHECK_MARK])
+
+        if not_evaluated_count > 0:
+            table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.CROSS_MARK])
+        else:
+            table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.WHITE_CHECK_MARK])
+        if error_count > 0:
+            table_lines.append(["Runtime Errors {Emoticons.CROSS_MARK}", error_count, Emoticons.CROSS_MARK])
+        else:
+            table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
+
+        summary_lines.append(
+            f"\n### Contract results for {contract_verification_result.contract.soda_qualified_dataset_name}"
+        )
+        summary_lines.append(self.build_summary_table(contract_verification_result))
+
+        overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
+        summary_lines.append(f"# Summary:\n{overview_table}\n")
+
+        return "\n".join(summary_lines)
+
+    def build_summary_table(self, contract_verification_result: ContractVerificationResult) -> str:
+        overview_table_data = [
+            check_result.log_table_row() for check_result in contract_verification_result.check_results
+        ]
+
+        # Sort by column name, check name and check outcome
+        overview_table_data.sort(key=lambda row: (row["Column"], row["Check"], row["Outcome"]))
+
+        # Re-iterate rows data and remove column name if it is the same as the previous row
+        previous_column_name: Optional[str] = None
+        for row in overview_table_data:
+            if previous_column_name == row["Column"]:
+                row["Column"] = ""  # Clear column name if it is the same as the previous row
+            else:
+                previous_column_name = row["Column"]
+
+        return tabulate(overview_table_data, headers="keys", tablefmt="grid")
 
     def build_contract(self) -> Contract:
         return Contract(

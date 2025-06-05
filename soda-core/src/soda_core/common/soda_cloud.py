@@ -1018,9 +1018,6 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "table": check_result.contract.dataset_name,
         "datasetPrefix": check_result.contract.dataset_prefix,
         "column": check_result.check.column_name,
-        # "metrics": [
-        #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
-        # ],
         "outcome": _translate_check_outcome_for_soda_cloud(check_result.outcome),
         "source": "soda-contract",
     }
