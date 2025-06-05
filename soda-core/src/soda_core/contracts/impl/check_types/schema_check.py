@@ -278,32 +278,12 @@ class SchemaCheckResult(CheckResult):
             diagnostics.append("There are columns out of order")
 
         if verbose:
-            actual_columns_str: str = [
+            actual_columns = [
                 f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns
             ]
-            diagnostics.append(f"Actual schema:{data_delimiter}{format_items(actual_columns_str, verbose=verbose)}")
+            diagnostics.append(f"Actual schema:{data_delimiter}{format_items(actual_columns, verbose=verbose)}")
 
         return category_delimiter.join(diagnostics)
-
-    def verbose_log_summary(self) -> None:
-        verbose_lines = []
-
-        for column in self.actual_column_names_not_expected:
-            verbose_lines.append(f"  Column '{column}' was present and not allowed")
-
-        for column in self.expected_column_names_not_actual:
-            verbose_lines.append(f"  Column '{column}' was missing")
-
-        for data_type_mismatch in self.column_data_type_mismatches:
-            verbose_lines.append(
-                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.get_expected()}', "
-                f"but was '{data_type_mismatch.get_actual()}'"
-            )
-
-        if self.are_columns_out_of_order:
-            verbose_lines.append(f"  There are columns out of order")
-
-        return "\n".join(verbose_lines)
 
     def dataset_does_not_exists(self) -> bool:
         """
