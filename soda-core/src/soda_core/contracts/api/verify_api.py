@@ -5,7 +5,6 @@ from soda_core.common.exceptions import (
     InvalidDataSourceConfigurationException,
     SodaCloudException,
 )
-from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
@@ -77,8 +76,6 @@ def verify_contracts(
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
-    configure_logging(verbose=verbose)
-
     soda_cloud_client: Optional[SodaCloud] = None
     try:
         if soda_cloud_file_path:
@@ -209,7 +206,6 @@ def _create_contract_yamls(
                 soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
 
     if not contract_yaml_sources:
-        soda_logger.debug("No contracts given. Exiting.")
         return []
 
     return contract_yaml_sources
