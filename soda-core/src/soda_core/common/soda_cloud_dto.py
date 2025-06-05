@@ -4,11 +4,11 @@ from datetime import datetime
 from numbers import Number
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SodaCloudDiagnostics(BaseModel):
-    schema: Optional[SodaCloudSchemaDiagnostics] = None
+    schema_: Optional[SodaCloudSchemaDiagnostics] = Field(..., alias="schema")
     metricValues: Optional[SodaCloudMetricValuesDiagnostics] = None
     freshness: Optional[SodaCloudFreshnessDiagnostics] = None
     value: Optional[Number] = None

@@ -19,6 +19,7 @@ requires = [
     "pydantic>=2.0,<3.0",
     "opentelemetry-api>=1.16.0,<2.0.0",
     "opentelemetry-exporter-otlp-proto-http>=1.16.0,<2.0.0",
+    "tabulate[widechars]",
 ]
 
 setup(
