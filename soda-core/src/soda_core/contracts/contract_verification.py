@@ -294,6 +294,13 @@ class Measurement:
         self.value: any = value
 
 
+class ContractVerificationStatus(Enum):
+    UNKNOWN = "UNKNOWN"
+    FAILED = "FAILED"
+    PASSED = "PASSED"
+    ERROR = "ERROR"
+
+
 class ContractVerificationResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
@@ -307,6 +314,7 @@ class ContractVerificationResult:
         data_timestamp: Optional[datetime],
         started_timestamp: datetime,
         ended_timestamp: datetime,
+        status: ContractVerificationStatus,
         measurements: list[Measurement],
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
@@ -321,6 +329,7 @@ class ContractVerificationResult:
         self.check_results: list[CheckResult] = check_results
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.log_records: Optional[list[LogRecord]] = log_records
+        self.status = status
 
     def get_logs(self) -> list[str]:
         return [r.msg for r in self.log_records]
@@ -335,9 +344,7 @@ class ContractVerificationResult:
         return "\n".join(self.get_errors())
 
     def has_errors(self) -> bool:
-        if self.log_records is None:
-            return False
-        return any(r.levelno >= ERROR for r in self.log_records)
+        return self.status is ContractVerificationStatus.ERROR
 
     def is_failed(self) -> bool:
         """
@@ -346,14 +353,14 @@ class ContractVerificationResult:
         Only looks at check results.
         Ignores execution errors in the logs.
         """
-        return any(check_result.outcome == CheckOutcome.FAILED for check_result in self.check_results)
+        return self.status is ContractVerificationStatus.FAILED
 
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
-        return not self.is_failed()
+        return self.status is ContractVerificationStatus.PASSED
 
     def is_ok(self) -> bool:
         return not self.is_failed() and not self.has_errors()
