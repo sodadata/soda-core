@@ -48,16 +48,23 @@ from tabulate import tabulate
 logger: logging.Logger = soda_logger
 
 
-class ContractVerificationResultHandler:
+class ContractVerificationHandler:
 
     @classmethod
-    def instance(cls, identifier: Optional[str] = None) -> ContractVerificationResultHandler:
+    def instance(cls, identifier: Optional[str] = None) -> ContractVerificationHandler:
         # TODO: replace with plugin extension mechanism
         return Extensions.find_class_method(
             "soda.failed_rows.failed_rows", "FailedRows", "create"
         )()
 
-    def handle(self, contract_impl: ContractImpl, contract_verification_result: ContractVerificationResult):
+    def handle(
+            self,
+            contract_impl: ContractImpl,
+            data_source_impl: DataSourceImpl,
+            contract_verification_result: ContractVerificationResult,
+            soda_cloud: SodaCloud,
+            scan_id: str
+    ):
         pass
 
 
@@ -468,23 +475,30 @@ class ContractImpl:
 
         contract_verification_result.log_records = self.logs.pop_log_records()
 
+        scan_id: Optional[str] = None
         if self.soda_cloud and self.publish_results:
             file_id: Optional[str] = self.soda_cloud.upload_contract_file(contract_verification_result.contract)
             if file_id:
                 # Side effect to pass file id to console logging later on. TODO reconsider this
                 contract.source.soda_cloud_file_id = file_id
                 # send_contract_result will use contract.source.soda_cloud_file_id
-                response_ok: bool = self.soda_cloud.send_contract_result(contract_verification_result)
-                if not response_ok:
+                scan_id = self.soda_cloud.send_contract_result(contract_verification_result)
+                if not scan_id:
                     contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        contract_verification_result_handler: Optional[ContractVerificationResultHandler] = (
-            ContractVerificationResultHandler.instance()
+        contract_verification_handler: Optional[ContractVerificationHandler] = (
+            ContractVerificationHandler.instance()
         )
-        if contract_verification_result_handler:
-            contract_verification_result_handler.handle(self, contract_verification_result)
+        if contract_verification_handler:
+            contract_verification_handler.handle(
+                contract_impl=self,
+                data_source_impl=self.data_source_impl,
+                contract_verification_result=contract_verification_result,
+                soda_cloud=self.soda_cloud,
+                scan_id=scan_id,
+            )
 
         return contract_verification_result
 
@@ -1131,6 +1145,10 @@ class MetricImpl:
             return False
         return self.id == other.id
 
+    @abstractmethod
+    def sql_condition_expression(self) -> Optional[SqlExpression]:
+        pass
+
 
 class AggregationMetricImpl(MetricImpl):
     def __init__(
@@ -1151,6 +1169,10 @@ class AggregationMetricImpl(MetricImpl):
 
     @abstractmethod
     def sql_expression(self) -> SqlExpression:
+        pass
+
+    @abstractmethod
+    def sql_condition_expression(self) -> SqlExpression:
         pass
 
     def convert_db_value(self, value: any) -> any:

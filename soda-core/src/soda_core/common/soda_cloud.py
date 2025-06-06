@@ -227,9 +227,9 @@ class SodaCloud:
         soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         return self._upload_scan_yaml_file(yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path)
 
-    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> bool:
+    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[str]:
         """
-        Returns True if a 200 OK was received, False otherwise
+        Returns A scanId string if a 200 OK was received, None otherwise
         """
         contract_verification_result = _build_contract_result_json(
             contract_verification_result=contract_verification_result
@@ -243,11 +243,10 @@ class SodaCloud:
             response_json = response.json()
             if isinstance(response_json, dict):
                 cloud_url: Optional[str] = response_json.get("cloudUrl")
+                scan_id: Optional[str] = response_json.get("scanId")
                 if isinstance(cloud_url, str):
                     logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
-            return True
-        else:
-            return False
+                return scan_id
 
     def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
         file_id: Optional[str] = self._upload_scan_yaml_file(

@@ -85,6 +85,10 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
+    def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
+        quoted_schema_name: str = self.quote_default(schema_name)
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
+
     def build_select_sql(self, select_elements: list) -> str:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))

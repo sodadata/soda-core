@@ -20,7 +20,6 @@ class DataSourceBase(
     connection_properties: DataSourceConnectionProperties = Field(
         ..., alias="connection", description="Data source connection details"
     )
-    failed_rows_table_name_template: Optional[str] = Field(default=None, description="Data source name")
 
     @classmethod
     def get_class_type(cls) -> str:
