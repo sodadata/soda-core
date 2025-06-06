@@ -12,6 +12,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.extensions import Extensions
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -45,6 +46,19 @@ from soda_core.contracts.impl.contract_yaml import (
 from tabulate import tabulate
 
 logger: logging.Logger = soda_logger
+
+
+class ContractVerificationResultHandler:
+
+    @classmethod
+    def instance(cls, identifier: Optional[str] = None) -> ContractVerificationResultHandler:
+        # TODO: replace with plugin extension mechanism
+        return Extensions.find_class_method(
+            "soda.failed_rows.failed_rows", "FailedRows", "create"
+        )()
+
+    def handle(self, contract_impl: ContractImpl, contract_verification_result: ContractVerificationResult):
+        pass
 
 
 class ContractVerificationSessionImpl:
@@ -465,6 +479,12 @@ class ContractImpl:
                     contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+
+        contract_verification_result_handler: Optional[ContractVerificationResultHandler] = (
+            ContractVerificationResultHandler.instance()
+        )
+        if contract_verification_result_handler:
+            contract_verification_result_handler.handle(self, contract_verification_result)
 
         return contract_verification_result
 
