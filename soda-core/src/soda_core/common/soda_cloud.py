@@ -49,6 +49,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     ContractVerificationResult,
+    ContractVerificationStatus,
     Threshold,
     YamlFileContentInfo,
 )
@@ -468,6 +469,7 @@ class SodaCloud:
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
             log_records=None,
+            status=ContractVerificationStatus.UNKNOWN,
         )
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
@@ -516,9 +518,11 @@ class SodaCloud:
             logger.warning("Did not receive a Scan ID from Soda Cloud")
             return verification_result
 
-        scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
+        scan_is_finished, contract_dataset_cloud_url, scan_status = self._poll_remote_scan_finished(
             scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
+
+        verification_result.status = _map_remote_scan_status_to_contract_verification_status(scan_status)
 
         logger.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
@@ -676,7 +680,9 @@ class SodaCloud:
 
         return response_dict.get("contents")
 
-    def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
+    def _poll_remote_scan_finished(
+        self, scan_id: str, blocking_timeout_in_minutes: int
+    ) -> tuple[bool, Optional[str], Optional[RemoteScanStatus]]:
         """
         Returns a tuple of 2 values:
         * A boolean indicating if the scan finished (true means scan finished. false means there was a timeout or retry exceeded)
@@ -693,42 +699,46 @@ class SodaCloud:
             )
             response = self._get_scan_status(scan_id)
             logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
-            if response:
-                response_body_dict: Optional[dict] = response.json() if response else None
-                scan_state: str = response_body_dict.get("state") if response_body_dict else None
-                contract_dataset_cloud_url: Optional[str] = (
-                    response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
-                )
-
-                logger.info(f"Scan {scan_id} has state '{scan_state}'")
-
-                if RemoteScanStatus.from_value(scan_state).is_final_state:
-                    return True, contract_dataset_cloud_url
-
-                time_to_wait_in_seconds: float = 5
-                next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
-                if next_poll_time_str:
-                    logger.debug(
-                        f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
-                        f"via header X-Soda-Next-Poll-Time"
-                    )
-                    next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
-                    if isinstance(next_poll_time, datetime):
-                        now = datetime.now(timezone.utc)
-                        time_to_wait = next_poll_time - now
-                        time_to_wait_in_seconds = time_to_wait.total_seconds()
-                    else:
-                        time_to_wait_in_seconds = 60
-                if time_to_wait_in_seconds > 0:
-                    logger.debug(
-                        f"Sleeping {time_to_wait_in_seconds} seconds before asking "
-                        f"Soda Cloud scan {scan_id} status again in ."
-                    )
-                    sleep(time_to_wait_in_seconds)
-            else:
+            if not response:
                 logger.error(f"Failed to poll remote scan status. " f"Response: {response}")
+                continue
 
-        return False, None
+            response_body_dict: Optional[dict] = response.json() if response else None
+            contract_dataset_cloud_url: Optional[str] = (
+                response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
+            )
+
+            if "state" not in response_body_dict:
+                continue
+            scan_state = RemoteScanStatus.from_value(response_body_dict["state"])
+
+            logger.info(f"Scan {scan_id} has state '{scan_state.value_}'")
+
+            if scan_state.is_final_state:
+                return True, contract_dataset_cloud_url, scan_state
+
+            time_to_wait_in_seconds: float = 5
+            next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+            if next_poll_time_str:
+                logger.debug(
+                    f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
+                    f"via header X-Soda-Next-Poll-Time"
+                )
+                next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                if isinstance(next_poll_time, datetime):
+                    now = datetime.now(timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                else:
+                    time_to_wait_in_seconds = 60
+            if time_to_wait_in_seconds > 0:
+                logger.debug(
+                    f"Sleeping {time_to_wait_in_seconds} seconds before asking "
+                    f"Soda Cloud scan {scan_id} status again in ."
+                )
+                sleep(time_to_wait_in_seconds)
+
+        return False, None, None
 
     def _get_scan_status(self, scan_id: str) -> Response:
         return self._execute_rest_get(
@@ -1085,6 +1095,19 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         value=check_result_value,
         fail=fail_threshold,
     ).model_dump()
+
+
+def _map_remote_scan_status_to_contract_verification_status(
+    scan_status: RemoteScanStatus,
+) -> ContractVerificationStatus:
+    if scan_status in (RemoteScanStatus.COMPLETED, RemoteScanStatus.COMPLETED_WITH_WARNINGS):
+        return ContractVerificationStatus.PASSED
+    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
+        return ContractVerificationStatus.FAILED
+    elif scan_status in RemoteScanStatus.COMPLETED_WITH_ERRORS:
+        return ContractVerificationStatus.ERROR
+    else:
+        return ContractVerificationStatus.UNKNOWN
 
 
 def _build_fail_threshold(check_result: CheckResult) -> Optional[SodaCloudThresholdDiagnostic]:
