@@ -23,10 +23,12 @@ from soda_core.common.yaml import (
 )
 from soda_core.contracts.contract_verification import (
     Check,
+    CheckOutcome,
     CheckResult,
     Contract,
     ContractVerificationResult,
     ContractVerificationSessionResult,
+    ContractVerificationStatus,
     DataSource,
     Measurement,
     Threshold,
@@ -404,6 +406,7 @@ class ContractImpl:
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
+        contract_verification_status = ContractVerificationStatus.UNKNOWN
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
@@ -414,7 +417,9 @@ class ContractImpl:
         if self.data_source_impl:
             data_source = self.data_source_impl.build_data_source()
 
-        if not self.logs.has_errors():
+        if self.logs.has_errors():
+            contract_verification_status = ContractVerificationStatus.ERROR
+        else:
             # Executing the queries will set the value of the metrics linked to queries
             if not self.only_validate_without_execute:
                 for query in self.queries:
@@ -438,6 +443,8 @@ class ContractImpl:
                     )
                     check_results.append(check_result)
 
+            contract_verification_status = _get_contract_verification_status(self.logs.records, check_results)
+
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=contract,
             data_source=data_source,
@@ -447,6 +454,7 @@ class ContractImpl:
             measurements=measurements,
             check_results=check_results,
             sending_results_to_soda_cloud_failed=False,
+            status=contract_verification_status,
         )
 
         if not self.only_validate_without_execute:
@@ -565,6 +573,21 @@ class ContractImpl:
                     },
                 )
             checks_by_identity[check_impl.identity] = check_impl
+
+
+def _get_contract_verification_status(
+    log_records: list[logging.LogRecord], check_results: list[CheckResult]
+) -> ContractVerificationStatus:
+    if any(r.levelno >= logging.ERROR for r in log_records):
+        return ContractVerificationStatus.ERROR
+
+    if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):
+        return ContractVerificationStatus.FAILED
+
+    if all(check_result.outcome == CheckOutcome.PASSED for check_result in check_results):
+        return ContractVerificationStatus.PASSED
+
+    return ContractVerificationStatus.UNKNOWN
 
 
 class MeasurementValues:
