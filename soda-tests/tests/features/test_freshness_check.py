@@ -46,10 +46,10 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
         check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
-        assert str(check_result.max_timestamp) == "2025-01-04 09:00:00"
-        assert str(check_result.max_timestamp_utc) == "2025-01-04 09:00:00+00:00"
-        assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
-        assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
+        assert str(check_result.max_time) == "2025-01-04 09:00:00"
+        assert str(check_result.max_time_utc) == "2025-01-04 09:00:00+00:00"
+        assert str(check_result.data_time) == "2025-01-04 10:00:00+00:00"
+        assert str(check_result.data_time_utc) == "2025-01-04 10:00:00+00:00"
         assert str(check_result.freshness) == "1:00:00"
         assert str(check_result.freshness_in_seconds) == "3600.0"
         assert str(check_result.unit) == "hour"
@@ -73,10 +73,10 @@ def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
         check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
-        assert str(check_result.max_timestamp) == "2025-01-04 09:00:00"
-        assert str(check_result.max_timestamp_utc) == "2025-01-04 09:00:00+00:00"
-        assert str(check_result.data_timestamp) == "2025-01-05 11:00:00+00:00"
-        assert str(check_result.data_timestamp_utc) == "2025-01-05 11:00:00+00:00"
+        assert str(check_result.max_time) == "2025-01-04 09:00:00"
+        assert str(check_result.max_time_utc) == "2025-01-04 09:00:00+00:00"
+        assert str(check_result.data_time) == "2025-01-05 11:00:00+00:00"
+        assert str(check_result.data_time_utc) == "2025-01-05 11:00:00+00:00"
         assert str(check_result.freshness) == "1 day, 2:00:00"
         assert str(check_result.freshness_in_seconds) == "93600.0"
         assert str(check_result.unit) == "day"
@@ -92,7 +92,7 @@ def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
         checks:
           - freshness:
               column: created_at
-              now_variable: NNOWW
+              data_time_variable: NNOWW
               threshold:
                 must_be_less_than: 2
     """
@@ -107,10 +107,10 @@ def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
         },
     )
     check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
-    assert str(check_result.max_timestamp) == "2025-01-04 09:00:00"
-    assert str(check_result.max_timestamp_utc) == "2025-01-04 09:00:00+00:00"
-    assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
-    assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
+    assert str(check_result.max_time) == "2025-01-04 09:00:00"
+    assert str(check_result.max_time_utc) == "2025-01-04 09:00:00+00:00"
+    assert str(check_result.data_time) == "2025-01-04 10:00:00+00:00"
+    assert str(check_result.data_time_utc) == "2025-01-04 10:00:00+00:00"
     assert str(check_result.freshness) == "1:00:00"
     assert str(check_result.freshness_in_seconds) == "3600.0"
     assert str(check_result.unit) == "hour"

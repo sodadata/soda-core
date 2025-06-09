@@ -172,7 +172,7 @@ class ContractVerificationSessionImpl:
                     contract_impl: ContractImpl = ContractImpl(
                         contract_yaml=contract_yaml,
                         only_validate_without_execute=only_validate_without_execute,
-                        data_timestamp=contract_yaml.data_timestamp,
+                        data_time=contract_yaml.data_time,
                         data_source_impl=data_source_impl,
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
@@ -276,7 +276,7 @@ class ContractImpl:
         contract_yaml: ContractYaml,
         only_validate_without_execute: bool,
         data_source_impl: DataSourceImpl,
-        data_timestamp: datetime,
+        data_time: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
     ):
@@ -289,9 +289,9 @@ class ContractImpl:
 
         self.filter: Optional[str] = self.contract_yaml.filter
 
-        self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
+        self.execution_start_time: datetime = datetime.now(tz=timezone.utc)
 
-        self.data_timestamp: datetime = data_timestamp
+        self.data_time: datetime = data_time
 
         self.dataset_name: Optional[str] = None
 
@@ -337,12 +337,6 @@ class ContractImpl:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
         if "checks" in contract_keys and "columns" in contract_keys:
             return contract_keys.index("checks") < contract_keys.index("columns")
-        return None
-
-    def _get_data_timestamp(
-        self, resolved_variable_values: dict[str, str], soda_variable_values: dict[str, str], default: datetime
-    ) -> Optional[datetime]:
-        # Skipped for 'NOW' :)
         return None
 
     def _parse_checks(self, contract_yaml: ContractYaml) -> list[CheckImpl]:
@@ -448,9 +442,9 @@ class ContractImpl:
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=contract,
             data_source=data_source,
-            data_timestamp=self.data_timestamp,
-            started_timestamp=self.started_timestamp,
-            ended_timestamp=datetime.now(tz=timezone.utc),
+            data_time=self.data_time,
+            execution_start_time=self.execution_start_time,
+            execution_end_time=datetime.now(tz=timezone.utc),
             measurements=measurements,
             check_results=check_results,
             sending_results_to_soda_cloud_failed=False,

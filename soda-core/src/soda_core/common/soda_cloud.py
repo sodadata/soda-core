@@ -463,9 +463,9 @@ class SodaCloud:
                 ),
             ),
             data_source=None,
-            data_timestamp=None,
-            started_timestamp=None,
-            ended_timestamp=None,
+            data_time=None,
+            execution_start_time=None,
+            execution_end_time=None,
             measurements=[],
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
@@ -957,11 +957,14 @@ def _build_contract_result_json(contract_verification_result: ContractVerificati
             "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
             # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
             # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
-            "dataTimestamp": contract_verification_result.data_timestamp,
+            # TODO align on the naming with backend
+            "dataTimestamp": contract_verification_result.data_time,
             # scanStartTimestamp is the actual time when the scan started.
-            "scanStartTimestamp": contract_verification_result.started_timestamp,
+            # TODO align on the naming with backend
+            "scanStartTimestamp": contract_verification_result.execution_start_time,
             # scanEndTimestamp is the actual time when scan ended.
-            "scanEndTimestamp": contract_verification_result.ended_timestamp,
+            # TODO align on the naming with backend
+            "scanEndTimestamp": contract_verification_result.execution_end_time,
             "hasErrors": contract_verification_result.has_errors(),
             "hasWarnings": False,
             "hasFailures": contract_verification_result.is_failed(),
@@ -1070,10 +1073,10 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
 
     freshness_diagnostics: Optional[SodaCloudFreshnessDiagnostics] = (
         SodaCloudFreshnessDiagnostics(
-            maxTimestamp=check_result.max_timestamp,
-            maxTimestampUtc=check_result.max_timestamp_utc,
-            dataTimestamp=check_result.data_timestamp,
-            dataTimestampUtc=check_result.data_timestamp_utc,
+            maxTimestamp=check_result.max_time,
+            maxTimestampUtc=check_result.max_time_utc,
+            dataTimestamp=check_result.data_time,
+            dataTimestampUtc=check_result.data_time_utc,
             freshness=check_result.freshness,
             freshnessInSeconds=check_result.freshness_in_seconds,
             unit=check_result.unit,

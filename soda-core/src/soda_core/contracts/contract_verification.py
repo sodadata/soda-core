@@ -311,9 +311,9 @@ class ContractVerificationResult:
         self,
         contract: Contract,
         data_source: DataSource,
-        data_timestamp: Optional[datetime],
-        started_timestamp: datetime,
-        ended_timestamp: datetime,
+        data_time: Optional[datetime],
+        execution_start_time: datetime,
+        execution_end_time: datetime,
         status: ContractVerificationStatus,
         measurements: list[Measurement],
         check_results: list[CheckResult],
@@ -322,9 +322,9 @@ class ContractVerificationResult:
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
-        self.data_timestamp: Optional[datetime] = data_timestamp
-        self.started_timestamp: datetime = started_timestamp
-        self.ended_timestamp: datetime = ended_timestamp
+        self.data_time: Optional[datetime] = data_time
+        self.execution_start_time: datetime = execution_start_time
+        self.execution_end_time: datetime = execution_end_time
         self.measurements: list[Measurement] = measurements
         self.check_results: list[CheckResult] = check_results
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed

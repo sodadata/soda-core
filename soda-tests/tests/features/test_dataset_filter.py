@@ -53,8 +53,8 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     referenced_test_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
 
-    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
-    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
+    data_time_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${var.DATA_TIME}")
+    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(data_time_literal)
     end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
 
@@ -110,8 +110,8 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
 def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
-    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
+    data_time_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${var.DATA_TIME}")
+    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(data_time_literal)
     end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
 

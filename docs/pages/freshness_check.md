@@ -53,7 +53,7 @@ variables:
 checks:
   - freshness:
       column: created_at
-      data_timestamp: NOW
+      data_time_variable: NOW
       threshold:
         must_be_less_than: 1
 ```

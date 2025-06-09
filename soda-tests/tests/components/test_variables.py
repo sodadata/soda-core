@@ -140,61 +140,95 @@ def test_nested_variable_resolving(logs: Logs):
     assert "" in logs.get_errors_str()
 
 
-def test_now_variable_default_availability(logs: Logs):
+def test_data_time_variable_default_availability(logs: Logs):
     contract_yaml: ContractYaml = parse_contract(
         contract_yaml_str="""
             dataset: a/b/c/d
-            columns: []
 
+            columns: []
             checks:
               - schema:
-                  name: abc_${soda.NOW}
+                  name: abc_${var.DATA_TIME}
         """,
         provided_variable_values={},
     )
 
-    assert contract_yaml.checks[0].name != "abc_${soda.NOW}"
+    assert contract_yaml.checks[0].name != "abc_${var.DATA_TIME}"
     assert "" == logs.get_errors_str()
 
 
-def test_provided_now_variable(logs: Logs):
+def test_data_time_variable_default_availability_declared(logs: Logs):
     contract_yaml: ContractYaml = parse_contract(
         contract_yaml_str="""
             dataset: a/b/c/d
-            columns: []
 
             variables:
-              NOW:
-                default: XXX
+              DATA_TIME:
 
+            columns: []
             checks:
               - schema:
-                  name: abc_${var.NOW}
+                  name: abc_${var.DATA_TIME}
         """,
-        provided_variable_values={"NOW": "2025-02-21T06:16:59Z"},
+        provided_variable_values={},
+    )
+
+    assert contract_yaml.checks[0].name != "abc_${var.DATA_TIME}"
+    assert "" == logs.get_errors_str()
+
+
+def test_provided_data_time_variable_undeclared(logs: Logs):
+    contract_yaml: ContractYaml = parse_contract(
+        contract_yaml_str="""
+            dataset: a/b/c/d
+
+            columns: []
+            checks:
+              - schema:
+                  name: abc_${var.DATA_TIME}
+        """,
+        provided_variable_values={"DATA_TIME": "2025-02-21T06:16:59Z"},
     )
 
     assert contract_yaml.checks[0].name == "abc_2025-02-21T06:16:59Z"
     assert "" == logs.get_errors_str()
 
 
-def test_provided_invalid_now_variable(logs: Logs):
+def test_provided_data_time_variable(logs: Logs):
     contract_yaml: ContractYaml = parse_contract(
         contract_yaml_str="""
             dataset: a/b/c/d
             columns: []
 
             variables:
-              NOW:
+              DATA_TIME:
+                default: XXX
 
             checks:
               - schema:
-                  name: abc_${var.NOW}
+                  name: abc_${var.DATA_TIME}
         """,
-        provided_variable_values={"NOW": "buzz"},
+        provided_variable_values={"DATA_TIME": "2025-02-21T06:16:59Z"},
     )
 
-    assert "Provided 'NOW' variable value is not a correct ISO 8601 timestamp format: buzz" in logs.get_errors_str()
+    assert contract_yaml.checks[0].name == "abc_2025-02-21T06:16:59Z"
+    assert "" == logs.get_errors_str()
+
+
+def test_provided_invalid_data_time_variable(logs: Logs):
+    contract_yaml: ContractYaml = parse_contract(
+        contract_yaml_str="""
+            dataset: a/b/c/d
+            columns: []
+
+            checks:
+              - schema:
+                  name: abc_${var.DATA_TIME}
+        """,
+        provided_variable_values={"DATA_TIME": "buzz"},
+    )
+
+    assert "Provided 'DATA_TIME' variable value is not a correct ISO 8601 timestamp format: buzz" in logs.get_errors_str()
     assert contract_yaml.checks[0].name == "abc_buzz"
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from enum import Enum
 from io import StringIO
 from numbers import Number
@@ -10,6 +11,7 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
+from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
@@ -93,7 +95,6 @@ class YamlSource:
         self.yaml_str_original: Optional[str] = yaml_str
         self.resolve_on_read: bool = False
         self.resolve_on_read_variable_values: Optional[dict[str, str]] = None
-        self.resolve_on_read_soda_variable_values: Optional[dict[str, str]] = None
         self.resolve_on_read_use_env_vars: bool = True
 
     def __init_subclass__(cls, file_type: FileType, **kwargs):
@@ -147,12 +148,10 @@ class YamlSource:
     def resolve_on_read_value(
         self,
         resolved_variable_values: Optional[dict[str, str]],
-        soda_values: Optional[dict[str, str]],
         use_env_vars: bool,
     ):
         self.resolve_on_read = True
         self.resolve_on_read_variable_values = resolved_variable_values
-        self.resolve_on_read_soda_variable_values = soda_values
         self.resolve_on_read_use_env_vars = use_env_vars
 
     def parse(self) -> YamlObject:
@@ -205,7 +204,6 @@ class YamlValue:
             value = VariableResolver.resolve(
                 source_text=value,
                 variable_values=self.yaml_source.resolve_on_read_variable_values,
-                soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
                 use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
                 location=location,
             )
@@ -462,7 +460,6 @@ class VariableResolver:
         cls,
         source_text: str,
         variable_values: Optional[dict[str, str]] = None,
-        soda_variable_values: Optional[dict[str, str]] = None,
         use_env_vars: bool = True,
         location: Optional[Location] = None,
     ) -> str:
@@ -473,7 +470,6 @@ class VariableResolver:
                     namespace=m.group(1).strip(),
                     variable=m.group(2).strip(),
                     variable_values=variable_values,
-                    soda_variable_values=soda_variable_values,
                     use_env_vars=use_env_vars,
                     location=location,
                 ),
@@ -488,7 +484,6 @@ class VariableResolver:
         namespace: str,
         variable: str,
         variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]],
         use_env_vars: bool,
         location: Optional[Location] = None,
     ) -> str:
@@ -496,7 +491,6 @@ class VariableResolver:
             namespace=namespace,
             variable=variable,
             variable_values=variable_values,
-            soda_variable_values=soda_variable_values,
             use_env_vars=use_env_vars,
             location=location,
         )
@@ -508,7 +502,6 @@ class VariableResolver:
         namespace: str,
         variable: str,
         variable_values: Optional[dict[str, str]],
-        soda_variable_values: Optional[dict[str, str]],
         use_env_vars: bool = True,
         location: Optional[Location] = None,
     ) -> Optional[str]:
@@ -521,13 +514,13 @@ class VariableResolver:
             else:
                 return variable_values[variable]
         elif namespace == "soda":
-            if not isinstance(soda_variable_values, dict) or variable not in soda_variable_values:
+            if variable == "NOW":
+                return convert_datetime_to_str(datetime.now(timezone.utc))
+            else:
                 logger.error(
                     msg=(f"Variable '{variable}' was used and not available in the 'soda' namespace"),
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
-            else:
-                return soda_variable_values[variable]
         elif namespace == "env":
             if use_env_vars:
                 return os.getenv(variable) if variable in os.environ else None
