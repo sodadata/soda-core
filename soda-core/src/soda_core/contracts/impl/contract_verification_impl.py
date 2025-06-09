@@ -49,21 +49,22 @@ logger: logging.Logger = soda_logger
 
 
 class ContractVerificationHandler:
-
     @classmethod
     def instance(cls, identifier: Optional[str] = None) -> ContractVerificationHandler:
         # TODO: replace with plugin extension mechanism
         return Extensions.find_class_method(
-            "soda.failed_rows.failed_rows", "FailedRows", "create"
+            module_name="soda.failed_rows_extractor.failed_rows_extractor",
+            class_name="FailedRowsExtractor",
+            method_name="create",
         )()
 
     def handle(
-            self,
-            contract_impl: ContractImpl,
-            data_source_impl: DataSourceImpl,
-            contract_verification_result: ContractVerificationResult,
-            soda_cloud: SodaCloud,
-            scan_id: str
+        self,
+        contract_impl: ContractImpl,
+        data_source_impl: DataSourceImpl,
+        contract_verification_result: ContractVerificationResult,
+        soda_cloud: SodaCloud,
+        scan_id: str,
     ):
         pass
 
@@ -488,9 +489,7 @@ class ContractImpl:
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        contract_verification_handler: Optional[ContractVerificationHandler] = (
-            ContractVerificationHandler.instance()
-        )
+        contract_verification_handler: Optional[ContractVerificationHandler] = ContractVerificationHandler.instance()
         if contract_verification_handler:
             contract_verification_handler.handle(
                 contract_impl=self,
@@ -1077,6 +1076,12 @@ class CheckImpl:
     def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        """
+        Used in extensions
+        """
+        return None
+
 
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
@@ -1173,7 +1178,9 @@ class AggregationMetricImpl(MetricImpl):
 
     @abstractmethod
     def sql_condition_expression(self) -> SqlExpression:
-        pass
+        """
+        Used in extensions
+        """
 
     def convert_db_value(self, value: any) -> any:
         return value

@@ -1,5 +1,5 @@
 import abc
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 from soda_core.model.data_source.data_source_connection_properties import (

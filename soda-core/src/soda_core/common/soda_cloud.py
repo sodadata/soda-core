@@ -868,6 +868,9 @@ class SodaCloud:
             assert self.token, "No token in login response?!"
         return self.token
 
+    def send_failed_rows_diagnostics(self, scan_id: str, failed_rows_diagnostics: list[FailedRowsDiagnostic]):
+        print(f"TODO sending failed rows diagnostics for scan {scan_id} to Soda Cloud: {failed_rows_diagnostics}")
+
 
 def to_jsonnable(o) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
@@ -1168,3 +1171,25 @@ def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception:
     exc_cloud_log_dict["index"] = len(cloud_log_dicts)
     cloud_log_dicts.append(exc_cloud_log_dict)
     return cloud_log_dicts
+
+
+class FailedRowsDiagnostic:
+    def __init__(self, check_identity: str, name: str, query: str):
+        self.check_identity: str = check_identity
+        self.name: str = name
+        self.query: str = query
+
+
+class QuerySourceFailedRowsDiagnostic(FailedRowsDiagnostic):
+    def __init__(self, check_identity: str, name: str, query: str):
+        super().__init__(check_identity, name, query)
+
+
+class StoreKeysFailedRowsDiagnostic(FailedRowsDiagnostic):
+    def __init__(self, check_identity: str, name: str, query: str):
+        super().__init__(check_identity, name, query)
+
+
+class StoreDataFailedRowsDiagnostic(FailedRowsDiagnostic):
+    def __init__(self, check_identity: str, name: str, query: str):
+        super().__init__(check_identity, name, query)
