@@ -91,7 +91,10 @@ class FreshnessCheckImpl(CheckImpl):
         threshold_metric_name: str = f"freshness_in_{self.unit}s"
 
         threshold_value: Optional[float] = None
-        if data_timestamp_utc and max_timestamp_utc:
+        if max_timestamp_utc is None:
+            outcome = CheckOutcome.FAILED
+
+        elif data_timestamp_utc is not None:
             logger.debug(
                 f"Calculating freshness using '{max_timestamp}' as 'max' and '{data_timestamp}' as 'now' values"
             )
