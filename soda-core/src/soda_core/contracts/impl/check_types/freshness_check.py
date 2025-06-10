@@ -129,7 +129,7 @@ class FreshnessCheckImpl(CheckImpl):
     def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
         max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
         if not isinstance(max_timestamp, datetime):
-            logger.error(f"Freshness column '{self.column}' does not have timestamp values: {max_timestamp}")
+            logger.info(f"Freshness column '{self.column}' does not have timestamp values: {max_timestamp}")
         return max_timestamp
 
     def _get_max_timestamp_utc(self, max_timestamp: Optional[datetime]) -> Optional[datetime]:
@@ -140,8 +140,6 @@ class FreshnessCheckImpl(CheckImpl):
             now_timestamp_str: str = self.soda_variable_values.get("NOW")
         else:
             now_timestamp_str: str = self.resolved_variable_values.get(self.now_variable)
-            if now_timestamp_str is None:
-                logger.error(f"Freshness variable '{self.now_variable}' not available")
 
         if not isinstance(now_timestamp_str, str):
             logger.error(f"Freshness variable '{self.now_variable}' is not available")
