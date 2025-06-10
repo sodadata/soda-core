@@ -1082,7 +1082,11 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         else None
     )
 
-    check_result_value: Optional[Number] = check_result.get_threshold_value()
+    #  TODO: this default is here only because check.diaignostics.value is a required non-nullable field in the api.
+    # Re-think this when we switch to the new diagnostics format and/or api accepts Null or something else that reflects the Core model.
+    # A poor default, but it really needs to be a number and not None or Nan.
+    # It's guaranteed to be 0 for non-evaluated checks, which is not ideal, but better than stopping ingestion.
+    check_result_value: Number = check_result.get_threshold_value() or 0
 
     fail_threshold: SodaCloudThresholdDiagnostic = _build_fail_threshold(check_result)
 
@@ -1092,7 +1096,7 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         freshness=freshness_diagnostics,
         value=check_result_value,
         fail=fail_threshold,
-    ).model_dump()
+    ).model_dump(by_alias=True)
 
 
 def _map_remote_scan_status_to_contract_verification_status(
