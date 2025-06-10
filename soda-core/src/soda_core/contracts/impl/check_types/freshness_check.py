@@ -117,6 +117,8 @@ class FreshnessCheckImpl(CheckImpl):
                 else:
                     outcome = CheckOutcome.FAILED
 
+        freshness_str: Optional[str] = str(freshness) if freshness is not None else None
+
         return FreshnessCheckResult(
             contract=contract,
             check=self._build_check_info(),
@@ -127,7 +129,7 @@ class FreshnessCheckImpl(CheckImpl):
             max_timestamp_utc=max_timestamp_utc,
             data_timestamp=data_timestamp,
             data_timestamp_utc=data_timestamp_utc,
-            freshness=str(freshness),
+            freshness=freshness_str,
             freshness_in_seconds=freshness_in_seconds,
             unit=self.unit,
         )
