@@ -198,15 +198,14 @@ class CheckResult:
         contract: Contract,
         check: Check,
         outcome: CheckOutcome,
-        # threshold_metric_name and diagnostic_metric_values could become optional once BE and FE switch to the new diagnostics format.
-        threshold_metric_name: str,
-        diagnostic_metric_values: dict[str, float],
+        threshold_metric_name: Optional[str] = None,
+        diagnostic_metric_values: Optional[dict[str, float]] = None,
     ):
         self.contract: Contract = contract
         self.check: Check = check
+        self.threshold_metric_name: Optional[str] = threshold_metric_name
         self.outcome: CheckOutcome = outcome
-        self.threshold_metric_name: str = threshold_metric_name
-        self.diagnostic_metric_values: dict[str, float] = diagnostic_metric_values
+        self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
 
     @property
     def outcome_emoticon(self) -> str:
@@ -286,12 +285,6 @@ class CheckResult:
             v = self.diagnostic_metric_values.get(self.threshold_metric_name)
             if isinstance(v, Number):
                 return v
-
-        #  TODO: this default is here only because check.diaignostics.value is a required non-nullable field in the api.
-        # Re-think this when we switch to the new diagnostics format and/or make sure all check types produce a mandatory threshold metric+value pair.
-        # A poor default, but it really needs to be a number and not None or Nan.
-        # It's guaranteed to be 0 for non-evaluated checks, which is not ideal, but better than stopping ingestion.
-        return 0
 
 
 class Measurement:
