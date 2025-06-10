@@ -15,6 +15,7 @@ class Emoticons:
     POLICE_CAR_LIGHT: str = "\U0001f6a8"
     SEE_NO_EVIL: str = "\U0001f648"
     PINCHED_FINGERS: str = "\U0001f90c"
+    QUESTION_MARK: str = "\u2753"
 
 
 class ExtraKeys:
