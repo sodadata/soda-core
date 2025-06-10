@@ -214,7 +214,7 @@ class CheckResult:
         elif self.outcome == CheckOutcome.FAILED:
             return Emoticons.CROSS_MARK
         else:
-            return Emoticons.SEE_NO_EVIL
+            return Emoticons.QUESTION_MARK
 
     @property
     def is_passed(self) -> bool:
