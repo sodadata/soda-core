@@ -148,7 +148,7 @@ class ContractYaml:
         self,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
-        data_timestamp: Optional[str] = None
+        data_timestamp: Optional[str] = None,
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
@@ -160,7 +160,7 @@ class ContractYaml:
 
         soda_variable_values: dict[str, str] = {
             "NOW": convert_datetime_to_str(soda_now),
-            "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp)
+            "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp),
         }
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
@@ -393,21 +393,17 @@ class ContractYaml:
 
         return checks
 
-    def _get_data_timestamp(
-        self,
-        data_timestamp: Optional[str],
-        soda_now: datetime
-    ) -> datetime:
+    def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
         if isinstance(data_timestamp, str):
             parsed_data_timestamp = convert_str_to_datetime(data_timestamp)
-            if parsed_data_timestamp is None:
+            if isinstance(parsed_data_timestamp, datetime):
+                return parsed_data_timestamp
+            else:
                 logging.error(
                     f"Provided 'data_timestamp' value is not a correct ISO 8601 "
                     f"timestamp format: '{data_timestamp}'"
                 )
-            self.data_timestamp: datetime = parsed_data_timestamp
-        else:
-            self.data_timestamp: datetime = soda_now
+        return default_soda_now
 
 
 class VariableYaml:

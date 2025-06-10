@@ -163,7 +163,7 @@ class ContractVerificationSessionImpl:
                     contract_yaml: ContractYaml = ContractYaml.parse(
                         contract_yaml_source=contract_yaml_source,
                         provided_variable_values=provided_variable_values,
-                        data_timestamp=data_timestamp
+                        data_timestamp=data_timestamp,
                     )
                     data_source_name: str = (
                         contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
