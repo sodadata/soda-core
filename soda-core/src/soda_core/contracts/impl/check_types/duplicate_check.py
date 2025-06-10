@@ -144,6 +144,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
+            threshold_metric_name=self.metric_name,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

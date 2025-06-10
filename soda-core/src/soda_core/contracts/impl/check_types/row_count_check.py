@@ -79,6 +79,7 @@ class RowCountCheckImpl(CheckImpl):
             contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
+            threshold_metric_name=self.row_count_metric.type,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

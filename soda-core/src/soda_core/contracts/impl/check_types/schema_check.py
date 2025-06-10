@@ -239,10 +239,20 @@ class SchemaCheckResult(CheckResult):
         column_data_type_mismatches: list[ColumnDataTypeMismatch],
         are_columns_out_of_order: bool,
     ):
+        schema_events = sum(
+            (
+                len(expected_column_names_not_actual),
+                len(actual_column_names_not_expected),
+                len(column_data_type_mismatches),
+            )
+        )
+        diagnostic_metric_values = {"schema_events": schema_events}
         super().__init__(
             contract=contract,
             check=check,
             outcome=outcome,
+            threshold_metric_name="schema_events",
+            diagnostic_metric_values=diagnostic_metric_values,
         )
         self.expected_columns: list[ColumnMetadata] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns

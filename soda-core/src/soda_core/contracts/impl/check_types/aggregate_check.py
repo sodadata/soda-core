@@ -57,7 +57,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
             threshold_yaml=check_yaml.threshold,
         )
 
-        self.function: Optional[str] = check_yaml.function.lower() if check_yaml.function else None
+        self.function: str = check_yaml.function.lower()
 
         if self.function and not contract_impl.data_source_impl.sql_dialect.supports_function(self.function):
             logger.error(

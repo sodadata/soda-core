@@ -1082,7 +1082,7 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         else None
     )
 
-    check_result_value: Optional[Number] = check_result.get_threshold_value()
+    check_result_value: Number = check_result.get_threshold_value()
 
     fail_threshold: SodaCloudThresholdDiagnostic = _build_fail_threshold(check_result)
 
@@ -1092,7 +1092,7 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         freshness=freshness_diagnostics,
         value=check_result_value,
         fail=fail_threshold,
-    ).model_dump()
+    ).model_dump(by_alias=True)
 
 
 def _map_remote_scan_status_to_contract_verification_status(

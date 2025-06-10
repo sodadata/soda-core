@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
@@ -129,7 +129,21 @@ class FreshnessCheckImpl(CheckImpl):
     def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
         max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
         if not isinstance(max_timestamp, datetime):
-            logger.error(f"Freshness column '{self.column}' does not have timestamp values: {max_timestamp}")
+            if isinstance(max_timestamp, date):
+                max_timestamp = datetime.combine(max_timestamp, datetime.min.time())
+            elif isinstance(max_timestamp, str):
+                max_timestamp = convert_str_to_datetime(max_timestamp)
+            else:
+                logger.error(
+                    f"Freshness metric '{self.max_timestamp_metric.type}' for column '{self.column}' "
+                    f"has an invalid data type '({type(max_timestamp).__name__})'. "
+                    f"Is the column a timestamp or a timestamp-compatible type?"
+                )
+
+        if not isinstance(max_timestamp, datetime):
+            logger.error(f"Freshness column '{self.column}' does not have timestamp values: '{max_timestamp}'")
+            max_timestamp = None
+
         return max_timestamp
 
     def _get_max_timestamp_utc(self, max_timestamp: Optional[datetime]) -> Optional[datetime]:
