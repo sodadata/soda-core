@@ -92,6 +92,9 @@ class FreshnessCheckImpl(CheckImpl):
 
         threshold_value: Optional[float] = None
         if data_timestamp_utc and max_timestamp_utc:
+            logger.debug(
+                f"Calculating freshness using '{max_timestamp}' as 'max' and '{data_timestamp}' as 'now' values"
+            )
             freshness = data_timestamp_utc - max_timestamp_utc
             freshness_in_seconds = freshness.total_seconds()
 
@@ -128,20 +131,25 @@ class FreshnessCheckImpl(CheckImpl):
 
     def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
         max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
-        if not isinstance(max_timestamp, datetime):
+        if max_timestamp is None:
+            logger.warning(
+                f"Freshness metric '{self.max_timestamp_metric.type}' for column '{self.column}' "
+                f"returned no value. Does the table or partition have rows?"
+            )
+            return None
+        elif not isinstance(max_timestamp, datetime):
+            logger.debug(
+                f"Attempting to convert freshness value '{max_timestamp}' of data type '{type(max_timestamp).__name__}' to datetime"
+            )
             if isinstance(max_timestamp, date):
                 max_timestamp = datetime.combine(max_timestamp, datetime.min.time())
             elif isinstance(max_timestamp, str):
                 max_timestamp = convert_str_to_datetime(max_timestamp)
-            else:
-                logger.error(
-                    f"Freshness metric '{self.max_timestamp_metric.type}' for column '{self.column}' "
-                    f"has an invalid data type '({type(max_timestamp).__name__})'. "
-                    f"Is the column a timestamp or a timestamp-compatible type?"
-                )
 
         if not isinstance(max_timestamp, datetime):
-            logger.error(f"Freshness column '{self.column}' does not have timestamp values: '{max_timestamp}'")
+            logger.error(
+                f"Freshness column '{self.column}' returned value '{max_timestamp}' of data type '{type(max_timestamp).__name__}' which is not a datetime or datetime-compatible type."
+            )
             max_timestamp = None
 
         return max_timestamp
