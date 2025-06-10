@@ -280,7 +280,7 @@ class CheckResult:
                 return n_str[:index]
         return n_str
 
-    def get_threshold_value(self) -> Number:
+    def get_threshold_value(self) -> Optional[Number]:
         if self.threshold_metric_name and self.diagnostic_metric_values:
             v = self.diagnostic_metric_values.get(self.threshold_metric_name)
             if isinstance(v, Number):
