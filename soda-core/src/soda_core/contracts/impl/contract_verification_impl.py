@@ -544,7 +544,7 @@ class ContractImpl:
         else:
             table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.WHITE_CHECK_MARK])
         if error_count > 0:
-            table_lines.append(["Runtime Errors {Emoticons.CROSS_MARK}", error_count, Emoticons.CROSS_MARK])
+            table_lines.append(["Runtime Errors", error_count, Emoticons.CROSS_MARK])
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
