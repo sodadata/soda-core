@@ -56,6 +56,7 @@ class ContractVerificationSessionImpl:
         contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
         data_source_impls: Optional[list[DataSourceImpl]] = None,
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
@@ -126,6 +127,7 @@ class ContractVerificationSessionImpl:
                 contract_yaml_sources=contract_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
                 provided_variable_values=variables,
+                data_timestamp=data_timestamp,
                 data_source_impls=data_source_impls,
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
@@ -140,6 +142,7 @@ class ContractVerificationSessionImpl:
         contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool,
         provided_variable_values: dict[str, str],
+        data_timestamp: Optional[str],
         data_source_impls: list[DataSourceImpl],
         data_source_yaml_sources: list[DataSourceYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
@@ -160,6 +163,7 @@ class ContractVerificationSessionImpl:
                     contract_yaml: ContractYaml = ContractYaml.parse(
                         contract_yaml_source=contract_yaml_source,
                         provided_variable_values=provided_variable_values,
+                        data_timestamp=data_timestamp
                     )
                     data_source_name: str = (
                         contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
