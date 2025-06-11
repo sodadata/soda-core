@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from io import StringIO
+from typing import Callable
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
@@ -50,13 +51,14 @@ logger: logging.Logger = soda_logger
 
 class ContractVerificationHandler:
     @classmethod
-    def instance(cls, identifier: Optional[str] = None) -> ContractVerificationHandler:
+    def instance(cls, identifier: Optional[str] = None) -> Optional[ContractVerificationHandler]:
         # TODO: replace with plugin extension mechanism
-        return Extensions.find_class_method(
+        create_method: Callable[..., Optional[ContractVerificationHandler]] = Extensions.find_class_method(
             module_name="soda.failed_rows_extractor.failed_rows_extractor",
             class_name="FailedRowsExtractor",
             method_name="create",
-        )()
+        )
+        return create_method() if create_method else None
 
     def handle(
         self,
