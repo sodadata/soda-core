@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from math import floor
-
 import logging
 from datetime import date, datetime, timedelta, timezone
+from math import floor
 
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
