@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import floor
+
 import logging
 from datetime import date, datetime, timedelta, timezone
 
@@ -87,7 +89,7 @@ class FreshnessCheckImpl(CheckImpl):
         data_timestamp_utc: datetime = self._get_now_timestamp_utc(data_timestamp)
         diagnostic_metric_values: dict[str, float] = {}
         freshness: Optional[timedelta] = None
-        freshness_in_seconds: Optional[float] = None
+        freshness_in_seconds: Optional[int] = None
         threshold_metric_name: str = f"freshness_in_{self.unit}s"
 
         threshold_value: Optional[float] = None
@@ -99,7 +101,7 @@ class FreshnessCheckImpl(CheckImpl):
                 f"Calculating freshness using '{max_timestamp}' as 'max' and '{data_timestamp}' as 'now' values"
             )
             freshness = data_timestamp_utc - max_timestamp_utc
-            freshness_in_seconds = freshness.total_seconds()
+            freshness_in_seconds = floor(freshness.total_seconds())
 
             if self.unit == "minute":
                 threshold_value = freshness_in_seconds / 60
