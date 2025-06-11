@@ -104,7 +104,7 @@ class InstructionState(Enum):
                 return status
         raise ValueError(f"Unknown InstructionState value: {value}")
 
-    
+
 class ContractType(Enum):
     DEFAULT = "default"
     TEST = "test"
@@ -277,7 +277,7 @@ class SodaCloud:
             return True
         else:
             return False
-        
+
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> str:
         command_json_dict: dict = {
             "type": "sodaCoreGenerateContractSkeleton",
@@ -725,7 +725,7 @@ class SodaCloud:
             )
 
         return response_dict.get("contents")
-    
+
     def fetch_contract(self, dataset_identifier: str, contract_type: ContractType) -> str:
         logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
         request = {
@@ -737,11 +737,15 @@ class SodaCloud:
         response_dict = response.json()
 
         if response.status_code != 200:
-            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}': {response_dict['message']}")
+            raise SodaCloudException(
+                f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}': {response_dict['message']}"
+            )
 
         return response_dict.get("contents")
-    
-    def poll_instruction_finished(self, instruction_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[RemoteScanStatus]]:
+
+    def poll_instruction_finished(
+        self, instruction_id: str, blocking_timeout_in_minutes: int
+    ) -> tuple[bool, Optional[RemoteScanStatus]]:
         """
         Returns a tuple of 2 values:
         * A boolean indicating if the instruction finished (true means instruction finished, false means there was a timeout or retry exceeded)
@@ -763,7 +767,7 @@ class SodaCloud:
                 continue
 
             response_body_dict: dict = response.json()
-            if not( "results" in response_body_dict and len(response_body_dict["results"]) == 1):
+            if not ("results" in response_body_dict and len(response_body_dict["results"]) == 1):
                 continue
             instruction_state = InstructionState.from_value(response_body_dict["results"][0]["state"])
             logger.info(f"Instruction {instruction_id} has state '{instruction_state.value_}'")
@@ -800,11 +804,11 @@ class SodaCloud:
             "id": instruction_id,
         }
         response = self._execute_query(request, request_log_name="get_instruction_state")
-        
+
         if response.status_code != 200:
             error_details = response.json().get("message", response.text)
             raise SodaCloudException(error_details)
-        
+
         return response
 
     def _poll_remote_scan_finished(
