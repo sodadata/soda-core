@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from io import StringIO
+from typing import Callable
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
@@ -12,6 +13,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.extensions import Extensions
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -47,6 +49,28 @@ from soda_core.contracts.impl.contract_yaml import (
 from tabulate import tabulate
 
 logger: logging.Logger = soda_logger
+
+
+class ContractVerificationHandler:
+    @classmethod
+    def instance(cls, identifier: Optional[str] = None) -> Optional[ContractVerificationHandler]:
+        # TODO: replace with plugin extension mechanism
+        create_method: Callable[..., Optional[ContractVerificationHandler]] = Extensions.find_class_method(
+            module_name="soda.failed_rows_extractor.failed_rows_extractor",
+            class_name="FailedRowsExtractor",
+            method_name="create",
+        )
+        return create_method() if create_method else None
+
+    def handle(
+        self,
+        contract_impl: ContractImpl,
+        data_source_impl: DataSourceImpl,
+        contract_verification_result: ContractVerificationResult,
+        soda_cloud: SodaCloud,
+        scan_id: str,
+    ):
+        pass
 
 
 class ContractVerificationSessionImpl:
@@ -462,17 +486,28 @@ class ContractImpl:
 
         contract_verification_result.log_records = self.logs.pop_log_records()
 
+        scan_id: Optional[str] = None
         if self.soda_cloud and self.publish_results:
             file_id: Optional[str] = self.soda_cloud.upload_contract_file(contract_verification_result.contract)
             if file_id:
                 # Side effect to pass file id to console logging later on. TODO reconsider this
                 contract.source.soda_cloud_file_id = file_id
                 # send_contract_result will use contract.source.soda_cloud_file_id
-                response_ok: bool = self.soda_cloud.send_contract_result(contract_verification_result)
-                if not response_ok:
+                scan_id = self.soda_cloud.send_contract_result(contract_verification_result)
+                if not scan_id:
                     contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+
+        contract_verification_handler: Optional[ContractVerificationHandler] = ContractVerificationHandler.instance()
+        if contract_verification_handler:
+            contract_verification_handler.handle(
+                contract_impl=self,
+                data_source_impl=self.data_source_impl,
+                contract_verification_result=contract_verification_result,
+                soda_cloud=self.soda_cloud,
+                scan_id=scan_id,
+            )
 
         return contract_verification_result
 
@@ -1066,6 +1101,12 @@ class CheckImpl:
     def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        """
+        Used in extensions
+        """
+        return None
+
 
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
@@ -1134,6 +1175,10 @@ class MetricImpl:
             return False
         return self.id == other.id
 
+    @abstractmethod
+    def sql_condition_expression(self) -> Optional[SqlExpression]:
+        pass
+
 
 class AggregationMetricImpl(MetricImpl):
     def __init__(
@@ -1155,6 +1200,12 @@ class AggregationMetricImpl(MetricImpl):
     @abstractmethod
     def sql_expression(self) -> SqlExpression:
         pass
+
+    @abstractmethod
+    def sql_condition_expression(self) -> SqlExpression:
+        """
+        Used in extensions
+        """
 
     def convert_db_value(self, value: any) -> any:
         return value
