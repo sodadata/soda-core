@@ -1,8 +1,6 @@
 from importlib import import_module
 from typing import Callable, Optional
 
-from soda_core.common.exceptions import ExtensionException
-
 
 class Extensions:
     @classmethod
