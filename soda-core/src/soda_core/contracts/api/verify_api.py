@@ -23,6 +23,7 @@ def verify_contracts_locally(
     dataset_identifiers: Optional[list[str]] = None,
     soda_cloud_file_path: Optional[str] = None,
     variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
     publish: bool = False,
 ) -> ContractVerificationSessionResult:
     """
@@ -34,6 +35,7 @@ def verify_contracts_locally(
         data_source_file_path=data_source_file_path,
         soda_cloud_file_path=soda_cloud_file_path,
         variables=variables,
+        data_timestamp=data_timestamp,
         publish=publish,
         use_agent=False,
     )
@@ -73,6 +75,7 @@ def verify_contracts(
     publish: bool,
     use_agent: bool,
     variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
@@ -112,6 +115,7 @@ def verify_contracts(
             data_source_yaml_sources=[data_source_yaml_source],
             soda_cloud_impl=soda_cloud_client,
             variables=variables,
+            data_timestamp=data_timestamp,
             only_validate_without_execute=False,
             soda_cloud_publish_results=publish,
             soda_cloud_use_agent=use_agent,
