@@ -83,6 +83,34 @@ class RemoteScanStatus(Enum):
         raise ValueError(f"Unknown RemoteScanStatus value: {value}")
 
 
+class InstructionState(Enum):
+    PENDING = ("pending", False)
+    SUBMITTED = ("submitted", False)
+    CANCELLED_REQUESTED = ("cancelledRequested", False)
+    TIME_OUT_REQUESTED = ("timeOutRequested", False)
+    CANCELLED = ("cancelled", True)
+    TIMED_OUT = ("timedOut", True)
+    FAILED = ("failed", True)
+    COMPLETED = ("completed", True)
+
+    def __init__(self, value: str, is_final_state: bool):
+        self.value_ = value
+        self.is_final_state = is_final_state
+
+    @classmethod
+    def from_value(cls, value: str) -> InstructionState:
+        for status in cls:
+            if status.value_ == value:
+                return status
+        raise ValueError(f"Unknown InstructionState value: {value}")
+
+
+class ContractType(Enum):
+    DEFAULT = "default"
+    TEST = "test"
+    DRAFT = "draft"
+
+
 class TimestampToCreatedLoggingFilter(logging.Filter):
     # The log record created timestamp cannot be passed into the constructor.
     # It has to be updated after it's creation.
@@ -249,6 +277,23 @@ class SodaCloud:
             return True
         else:
             return False
+
+    def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> str:
+        command_json_dict: dict = {
+            "type": "sodaCoreGenerateContractSkeleton",
+            "datasetIdentifier": dataset_identifier.to_string(),
+        }
+        response: Response = self._execute_command(
+            command_json_dict=command_json_dict, request_log_name="generate_contract_skeleton"
+        )
+        response_json = response.json()
+
+        if response.status_code != 200:
+            error_details = response_json.get("message", response.text)
+            raise SodaCloudException(error_details)
+
+        logger.info(f"{Emoticons.OK_HAND} Contract skeleton generation triggered on Soda Cloud")
+        return response_json["instructionId"]
 
     def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
         file_id: Optional[str] = self._upload_scan_yaml_file(
@@ -680,6 +725,91 @@ class SodaCloud:
             )
 
         return response_dict.get("contents")
+
+    def fetch_contract(self, dataset_identifier: str, contract_type: ContractType) -> str:
+        logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
+        request = {
+            "type": "sodaCoreContracts",
+            "identifier": dataset_identifier,
+            "contractType": contract_type.value,
+        }
+        response = self._execute_query(request, request_log_name="fetch_contract")
+        response_dict = response.json()
+
+        if response.status_code != 200:
+            raise SodaCloudException(
+                f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}': {response_dict['message']}"
+            )
+
+        return response_dict.get("contents")
+
+    def poll_instruction_finished(
+        self, instruction_id: str, blocking_timeout_in_minutes: int
+    ) -> tuple[bool, Optional[RemoteScanStatus]]:
+        """
+        Returns a tuple of 2 values:
+        * A boolean indicating if the instruction finished (true means instruction finished, false means there was a timeout or retry exceeded)
+        * The instruction state
+        """
+
+        blocking_timeout = datetime.now() + timedelta(minutes=blocking_timeout_in_minutes)
+        attempt = 0
+        while datetime.now() < blocking_timeout:
+            attempt += 1
+            max_wait: timedelta = blocking_timeout - datetime.now()
+            logger.debug(
+                f"Asking Soda Cloud if instruction {instruction_id} is already completed. Attempt {attempt}. Max wait: {max_wait}"
+            )
+            response = self._get_instruction_state(instruction_id)
+            logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
+            if not response:
+                logger.error(f"Failed to poll instruction state. " f"Response: {response}")
+                continue
+
+            response_body_dict: dict = response.json()
+            if not ("results" in response_body_dict and len(response_body_dict["results"]) == 1):
+                continue
+            instruction_state = InstructionState.from_value(response_body_dict["results"][0]["state"])
+            logger.info(f"Instruction {instruction_id} has state '{instruction_state.value_}'")
+
+            if instruction_state.is_final_state:
+                return True, instruction_state
+
+            time_to_wait_in_seconds: float = 5
+            next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+            if next_poll_time_str:
+                logger.debug(
+                    f"Soda Cloud suggested to ask instruction {instruction_id} status again at '{next_poll_time_str}' "
+                    f"via header X-Soda-Next-Poll-Time"
+                )
+                next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                if isinstance(next_poll_time, datetime):
+                    now = datetime.now(timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                else:
+                    time_to_wait_in_seconds = 60
+            if time_to_wait_in_seconds > 0:
+                logger.debug(
+                    f"Sleeping {time_to_wait_in_seconds} seconds before asking "
+                    f"Soda Cloud instruction {instruction_id} status again in ."
+                )
+                sleep(time_to_wait_in_seconds)
+
+        return False, None
+
+    def _get_instruction_state(self, instruction_id: str) -> Response:
+        request = {
+            "type": "sodaCoreInstructionsQuery",
+            "id": instruction_id,
+        }
+        response = self._execute_query(request, request_log_name="get_instruction_state")
+
+        if response.status_code != 200:
+            error_details = response.json().get("message", response.text)
+            raise SodaCloudException(error_details)
+
+        return response
 
     def _poll_remote_scan_finished(
         self, scan_id: str, blocking_timeout_in_minutes: int
