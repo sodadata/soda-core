@@ -22,6 +22,7 @@ from dbt.contracts.graph.parsed import (
 from dbt.contracts.results import RunResultOutput
 from dbt.node_types import NodeType
 from requests.structures import CaseInsensitiveDict
+from security import safe_requests
 from soda.cloud.dbt_config import DbtCloudConfig
 from soda.cloud.soda_cloud import SodaCloud
 from soda.common.json_helper import JsonHelper
@@ -265,7 +266,7 @@ class DbtCloud:
 
         self.scan._logs.info(f"Downloading artifact: {artifact}, from run: {run_id}")
 
-        response = requests.get(url, headers=headers)
+        response = safe_requests.get(url, headers=headers)
         if response.status_code != requests.codes.ok:
             response.raise_for_status()
 
@@ -279,7 +280,7 @@ class DbtCloud:
         headers["Content-Type"] = "application/json"
 
         query_params = {"job_definition_id": job_id, "order_by": "-finished_at"}
-        response = requests.get(url, headers=headers, params=query_params)
+        response = safe_requests.get(url, headers=headers, params=query_params)
 
         if response.status_code != requests.codes.ok:
             response.raise_for_status()
