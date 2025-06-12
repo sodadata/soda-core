@@ -51,7 +51,7 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
         assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
         assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
         assert str(check_result.freshness) == "1:00:00"
-        assert str(check_result.freshness_in_seconds) == "3600.0"
+        assert str(check_result.freshness_in_seconds) == "3600"
         assert str(check_result.unit) == "hour"
         assert get_diagnostic_value(check_result, "freshness_in_hours") == 1
 
@@ -78,7 +78,7 @@ def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
         assert str(check_result.data_timestamp) == "2025-01-05 11:00:00+00:00"
         assert str(check_result.data_timestamp_utc) == "2025-01-05 11:00:00+00:00"
         assert str(check_result.freshness) == "1 day, 2:00:00"
-        assert str(check_result.freshness_in_seconds) == "93600.0"
+        assert str(check_result.freshness_in_seconds) == "93600"
         assert str(check_result.unit) == "day"
         assert 1.08 < get_diagnostic_value(check_result, "freshness_in_days") < 1.09
 
@@ -112,7 +112,7 @@ def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
     assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
     assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
     assert str(check_result.freshness) == "1:00:00"
-    assert str(check_result.freshness_in_seconds) == "3600.0"
+    assert str(check_result.freshness_in_seconds) == "3600"
     assert str(check_result.unit) == "hour"
     assert 0.99 < get_diagnostic_value(check_result, "freshness_in_hours") < 1.01
 
