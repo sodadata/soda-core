@@ -997,7 +997,6 @@ class CheckImpl:
         self.check_yaml: CheckYaml = check_yaml
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
-        self.name: Optional[str] = check_yaml.name if check_yaml.name else self.type
         self.identity: str = self._build_identity(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -1023,7 +1022,7 @@ class CheckImpl:
         return Check(
             type=self.type,
             qualifier=self.check_yaml.qualifier,
-            name=self.name,
+            name=self.check_yaml.name,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,
