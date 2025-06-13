@@ -76,7 +76,6 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
         )
 
         self.metric_name = "duplicate_percent" if check_yaml.metric == "percent" else "duplicate_count"
-        self.name = check_yaml.name if check_yaml.name else self.type
 
         self.distinct_count_metric_impl: MetricImpl = self._resolve_metric(
             ColumnDistinctCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
@@ -237,7 +236,6 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         )
 
         self.metric_name = "duplicate_percent" if check_yaml.metric == "percent" else "duplicate_count"
-        self.name = check_yaml.name if check_yaml.name else self.type
 
         self.multi_column_distinct_count_metric_impl: MetricImpl = self._resolve_metric(
             MultiColumnDistinctCountMetricImpl(contract_impl=contract_impl, check_impl=self)
