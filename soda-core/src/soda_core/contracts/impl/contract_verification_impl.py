@@ -326,6 +326,11 @@ class ContractImpl:
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
         self.dataset_prefix: list[str] = dataset_identifier.prefixes
         self.dataset_name = dataset_identifier.dataset_name
+        self.dataset_identifier: DatasetIdentifier = DatasetIdentifier(
+            data_source_name=self.data_source_impl.name,
+            prefixes=self.dataset_prefix,
+            dataset_name=self.dataset_name,
+        )
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
