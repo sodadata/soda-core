@@ -995,6 +995,7 @@ class CheckImpl:
 
         self.contract_impl: ContractImpl = contract_impl
         self.check_yaml: CheckYaml = check_yaml
+        self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
         self.identity: str = self._build_identity(
@@ -1009,6 +1010,26 @@ class CheckImpl:
         self.queries: list[Query] = []
         self.skip: bool = False
 
+    __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
+        "schema": "Schema matches expected structure",
+        "row_count": "Row count meets expected threshold",
+        "freshness": "Data is fresh",
+        "missing": "No missing values",
+        "invalid": "No invalid values",
+        "duplicate": "No duplicate values",
+        "aggregate": "Metric function meets threshold",
+        "metric": "Metric meets threshold",
+        "failed_rows": "No rows violating the condition",
+    }
+
+    def _get_name_with_default(self, check_yaml: CheckYaml) -> str:
+        if isinstance(check_yaml.name, str):
+            return check_yaml.name
+        default_check_name: Optional[str] = self.__DEFAULT_CHECK_NAMES_BY_TYPE.get(check_yaml.type_name)
+        if isinstance(default_check_name, str):
+            return default_check_name
+        return check_yaml.type_name
+
     def _resolve_metric(self, metric_impl: MetricImpl) -> MetricImpl:
         resolved_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(metric_impl)
         self.metrics.append(resolved_metric_impl)
@@ -1022,7 +1043,7 @@ class CheckImpl:
         return Check(
             type=self.type,
             qualifier=self.check_yaml.qualifier,
-            name=self.check_yaml.name,
+            name=self.name,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,

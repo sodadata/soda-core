@@ -231,7 +231,7 @@ class CheckResult:
     def log_table_row(self) -> dict:
         row = {}
         row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"
-        row["Check"] = self._get_name_with_default(self.check)
+        row["Check"] = self.check.name
         row["Outcome"] = f"{self.outcome_emoticon} {self.outcome.name}"
 
         if is_verbose():
@@ -240,27 +240,6 @@ class CheckResult:
         row["Details"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
 
         return row
-
-    __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
-        "schema": "Schema matches expected structure",
-        "row_count": "Row count meets expected threshold",
-        "freshness": "Data is fresh",
-        "missing": "No missing values",
-        "invalid": "No invalid values",
-        "duplicate (col)": "No duplicate values",
-        "duplicate (multi-col)": "No duplicate values",
-        "aggregate": "Metric function meets threshold",
-        "metric": "Metric meets threshold",
-        "failed_rows": "No rows violating the condition",
-    }
-
-    def _get_name_with_default(self, check: Check) -> str:
-        if isinstance(check.name, str):
-            return check.name
-        default_check_name: Optional[str] = self.__DEFAULT_CHECK_NAMES_BY_TYPE.get(check.type)
-        if isinstance(default_check_name, str):
-            return default_check_name
-        return check.type
 
     def log_table_row_diagnostics(self, verbose: bool = True) -> str:
         diagnostics = []
