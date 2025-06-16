@@ -164,20 +164,23 @@ class FreshnessCheckImpl(CheckImpl):
         return self._datetime_to_utc(max_timestamp) if isinstance(max_timestamp, datetime) else None
 
     def _get_now_timestamp(self) -> Optional[datetime]:
-        if self.now_variable is None or self.now_variable == "soda.NOW":
-            now_timestamp_str: str = self.soda_variable_values.get("NOW")
+        if self.now_variable is None:
+            return self.contract_impl.contract_yaml.data_timestamp
         else:
             now_timestamp_str: str = self.resolved_variable_values.get(self.now_variable)
             if now_timestamp_str is None:
                 logger.error(f"Freshness variable '{self.now_variable}' not available")
-
-        if not isinstance(now_timestamp_str, str):
-            logger.error(f"Freshness variable '{self.now_variable}' is not available")
-        else:
-            now_timestamp: Optional[datetime] = convert_str_to_datetime(now_timestamp_str)
-            if not isinstance(now_timestamp, datetime):
-                logger.error(f"Freshness variable '{self.now_variable}' is not a timestamp: {now_timestamp_str}")
-            return now_timestamp
+                return None
+            if not isinstance(now_timestamp_str, str):
+                logger.error(
+                    f"Freshness variable '{self.now_variable}' has wrong " f"type: {type(now_timestamp_str).__name__}"
+                )
+                return None
+            else:
+                now_timestamp: Optional[datetime] = convert_str_to_datetime(now_timestamp_str)
+                if not isinstance(now_timestamp, datetime):
+                    logger.error(f"Freshness variable '{self.now_variable}' is not a timestamp: {now_timestamp_str}")
+                return now_timestamp
 
     def _get_now_timestamp_utc(self, now_timestamp: Optional[datetime]) -> Optional[datetime]:
         return self._datetime_to_utc(now_timestamp) if now_timestamp else None
