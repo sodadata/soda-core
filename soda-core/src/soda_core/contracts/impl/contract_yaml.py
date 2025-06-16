@@ -133,6 +133,7 @@ class ContractYaml:
         cls,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
@@ -140,20 +141,27 @@ class ContractYaml:
         return ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
+            data_timestamp=data_timestamp,
         )
 
     def __init__(
         self,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
+        data_timestamp: Optional[str] = None,
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = datetime.now(timezone.utc)
-        soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
+        soda_now: datetime = datetime.now(timezone.utc)
+        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, soda_now)
+
+        soda_variable_values: dict[str, str] = {
+            "NOW": convert_datetime_to_str(soda_now),
+            "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp),
+        }
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
             variable_yamls=self.variables,
@@ -384,6 +392,18 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
+
+    def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
+        if isinstance(data_timestamp, str):
+            parsed_data_timestamp = convert_str_to_datetime(data_timestamp)
+            if isinstance(parsed_data_timestamp, datetime):
+                return parsed_data_timestamp
+            else:
+                logging.error(
+                    f"Provided 'data_timestamp' value is not a correct ISO 8601 "
+                    f"timestamp format: '{data_timestamp}'"
+                )
+        return default_soda_now
 
 
 class VariableYaml:
