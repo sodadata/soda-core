@@ -185,7 +185,7 @@ class Check:
     column_name: Optional[str]
     type: str
     qualifier: Optional[str]
-    name: str  # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
+    name: Optional[str]
     identity: str
     definition: str
     column_name: Optional[str]

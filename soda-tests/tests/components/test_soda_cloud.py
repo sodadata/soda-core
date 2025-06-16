@@ -99,6 +99,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
                         must_be_less_than_or_equal: 2
                   - missing:
                       qualifier: 2
+                      name: Second missing check
                       threshold:
                         must_be_less_than_or_equal: 5
             checks:
@@ -133,6 +134,9 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     missing_percent = values["missing_percent"]
     assert 49.99 < missing_percent < 50.01
     assert isinstance(missing_percent, float)
+
+    assert "No missing values" == request_2.json["checks"][0]["name"]
+    assert "Second missing check" == request_2.json["checks"][1]["name"]
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
