@@ -89,14 +89,14 @@ class SqlDialect:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
 
-    def build_select_sql(self, select_elements: list) -> str:
+    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_order_by_lines(select_elements))
-        return "\n".join(statement_lines) + ";"
+        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []
