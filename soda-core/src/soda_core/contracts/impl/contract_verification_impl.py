@@ -345,10 +345,8 @@ class ContractImpl:
                 dataset_name=self.dataset_name,
             )
             # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
-            self.sql_qualified_dataset_name = (
-                data_source_impl.sql_dialect.qualify_dataset_name(
-                    dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
-                )
+            self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
+                dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
 
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
