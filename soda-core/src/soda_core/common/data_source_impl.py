@@ -6,6 +6,7 @@ from typing import Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import SqlDialect
@@ -202,6 +203,12 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
+
+    def qualify_dataset_name(self, dataset_identifier: DatasetIdentifier) -> str:
+        assert dataset_identifier.data_source_name == self.name
+        return self.sql_dialect.qualify_dataset_name(
+            dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
+        )
 
     def quote_identifier(self, identifier: str) -> str:
         c = self.sql_dialect._get_default_quote_char()

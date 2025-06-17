@@ -303,7 +303,7 @@ class ContractImpl:
         logs: Logs,
         contract_yaml: ContractYaml,
         only_validate_without_execute: bool,
-        data_source_impl: DataSourceImpl,
+        data_source_impl: Optional[DataSourceImpl],
         data_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
@@ -326,26 +326,30 @@ class ContractImpl:
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
         self.dataset_prefix: list[str] = dataset_identifier.prefixes
         self.dataset_name = dataset_identifier.dataset_name
-        self.dataset_identifier: DatasetIdentifier = DatasetIdentifier(
-            data_source_name=self.data_source_impl.name,
-            prefixes=self.dataset_prefix,
-            dataset_name=self.dataset_name,
-        )
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
         self.column_impls: list[ColumnImpl] = []
         self.check_impls: list[CheckImpl] = []
 
+        # TODO replace usage of self.soda_qualified_dataset_name with self.dataset_identifier
         self.soda_qualified_dataset_name = contract_yaml.dataset
+        # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
+        self.sql_qualified_dataset_name: Optional[str] = None
 
-        self.sql_qualified_dataset_name: Optional[str] = (
-            data_source_impl.sql_dialect.qualify_dataset_name(
-                dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
+        self.dataset_identifier: Optional[DatasetIdentifier] = None
+        if data_source_impl:
+            self.dataset_identifier = DatasetIdentifier(
+                data_source_name=self.data_source_impl.name,
+                prefixes=self.dataset_prefix,
+                dataset_name=self.dataset_name,
             )
-            if data_source_impl
-            else None
-        )
+            # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
+            self.sql_qualified_dataset_name = (
+                data_source_impl.sql_dialect.qualify_dataset_name(
+                    dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
+                )
+            )
 
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
@@ -362,9 +366,11 @@ class ContractImpl:
         )
 
         self._verify_duplicate_identities(self.all_check_impls)
-
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
-        self.queries: list[Query] = self._build_queries() if data_source_impl else []
+
+        self.queries: list[Query] = []
+        if data_source_impl:
+            self.queries = self._build_queries()
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
