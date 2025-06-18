@@ -5,6 +5,7 @@ from datetime import date, datetime
 from numbers import Number
 from textwrap import dedent, indent
 
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
 
 
@@ -26,6 +27,11 @@ class SqlDialect:
             f"{self.default_quote_char}{identifier}{self.default_quote_char}"
             if isinstance(identifier, str) and len(identifier) > 0
             else None
+        )
+
+    def build_fully_qualified_sql_name(self, dataset_identifier: DatasetIdentifier) -> str:
+        return self.qualify_dataset_name(
+            dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
 
     def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
