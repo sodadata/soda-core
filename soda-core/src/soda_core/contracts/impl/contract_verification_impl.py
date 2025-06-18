@@ -33,6 +33,7 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationStatus,
     DataSource,
     Measurement,
+    SodaException,
     Threshold,
     YamlFileContentInfo,
 )
@@ -1138,7 +1139,7 @@ class CheckImpl:
         """
         Used in extensions
         """
-        return None
+        raise SodaException(f"Check type '{self.type}' does not support get_threshold_metric_impl'")
 
 
 class MissingAndValidityCheckImpl(CheckImpl):

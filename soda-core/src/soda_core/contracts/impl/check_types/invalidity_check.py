@@ -98,7 +98,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
-                InvalidCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                InvalidCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
 
         self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
@@ -145,8 +145,11 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             diagnostic_metric_values=diagnostic_metric_values,
         )
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        return self.invalid_count_metric_impl
 
-class InvalidCountMetric(AggregationMetricImpl):
+
+class InvalidCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
