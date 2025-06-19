@@ -202,6 +202,7 @@ class ContractVerificationSessionImpl:
                         contract_yaml=contract_yaml,
                         only_validate_without_execute=only_validate_without_execute,
                         data_timestamp=contract_yaml.data_timestamp,
+                        execution_timestamp=contract_yaml.execution_timestamp,
                         data_source_impl=data_source_impl,
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
@@ -306,6 +307,7 @@ class ContractImpl:
         only_validate_without_execute: bool,
         data_source_impl: Optional[DataSourceImpl],
         data_timestamp: datetime,
+        execution_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
     ):
@@ -320,6 +322,7 @@ class ContractImpl:
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
 
+        self.execution_timestamp: datetime = execution_timestamp
         self.data_timestamp: datetime = data_timestamp
 
         self.dataset_name: Optional[str] = None

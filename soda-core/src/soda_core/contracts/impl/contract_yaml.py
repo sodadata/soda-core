@@ -155,11 +155,11 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        soda_now: datetime = datetime.now(timezone.utc)
-        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, soda_now)
+        self.execution_timestamp: datetime = datetime.now(timezone.utc)
+        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
 
         soda_variable_values: dict[str, str] = {
-            "NOW": convert_datetime_to_str(soda_now),
+            "NOW": convert_datetime_to_str(self.execution_timestamp),
             "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp),
         }
 
