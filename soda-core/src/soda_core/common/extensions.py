@@ -1,8 +1,6 @@
 from importlib import import_module
 from typing import Callable, Optional
 
-from soda_core.common.exceptions import ExtensionException
-
 
 class Extensions:
     @classmethod
@@ -11,7 +9,6 @@ class Extensions:
             module = import_module(module_name)
             class_ = getattr(module, class_name)
             return getattr(class_, method_name)
-        except AttributeError as e:
-            raise ExtensionException(
-                message=f"Feature '{class_name}.{method_name}' requires the Soda Extensions to be installed."
-            )
+        except (AttributeError, ModuleNotFoundError) as e:
+            # Extension not installed
+            return None

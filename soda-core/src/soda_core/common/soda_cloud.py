@@ -228,9 +228,9 @@ class SodaCloud:
         soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         return self._upload_scan_yaml_file(yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path)
 
-    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> bool:
+    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[dict]:
         """
-        Returns True if a 200 OK was received, False otherwise
+        Returns A scanId string if a 200 OK was received, None otherwise
         """
         contract_verification_result = _build_contract_result_json(
             contract_verification_result=contract_verification_result
@@ -241,14 +241,13 @@ class SodaCloud:
         )
         if response.status_code == 200:
             logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
-            response_json = response.json()
+            response_json: dict = response.json()
             if isinstance(response_json, dict):
                 cloud_url: Optional[str] = response_json.get("cloudUrl")
                 if isinstance(cloud_url, str):
                     logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
-            return True
-        else:
-            return False
+                return response_json
+        return None
 
     def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
         file_id: Optional[str] = self._upload_scan_yaml_file(
@@ -879,6 +878,9 @@ class SodaCloud:
             assert self.token, "No token in login response?!"
         return self.token
 
+    def send_failed_rows_diagnostics(self, scan_id: str, failed_rows_diagnostics: list[FailedRowsDiagnostic]):
+        print(f"TODO sending failed rows diagnostics for scan {scan_id} to Soda Cloud: {failed_rows_diagnostics}")
+
 
 def to_jsonnable(o) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
@@ -1196,3 +1198,25 @@ def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception:
     exc_cloud_log_dict["index"] = len(cloud_log_dicts)
     cloud_log_dicts.append(exc_cloud_log_dict)
     return cloud_log_dicts
+
+
+class FailedRowsDiagnostic:
+    def __init__(self, check_identity: str, name: str, query: str):
+        self.check_identity: str = check_identity
+        self.name: str = name
+        self.query: str = query
+
+
+class QuerySourceFailedRowsDiagnostic(FailedRowsDiagnostic):
+    def __init__(self, check_identity: str, name: str, query: str):
+        super().__init__(check_identity, name, query)
+
+
+class StoreKeysFailedRowsDiagnostic(FailedRowsDiagnostic):
+    def __init__(self, check_identity: str, name: str, query: str):
+        super().__init__(check_identity, name, query)
+
+
+class StoreDataFailedRowsDiagnostic(FailedRowsDiagnostic):
+    def __init__(self, check_identity: str, name: str, query: str):
+        super().__init__(check_identity, name, query)

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from io import StringIO
+from typing import Callable
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
@@ -12,6 +13,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.extensions import Extensions
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -31,6 +33,7 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationStatus,
     DataSource,
     Measurement,
+    SodaException,
     Threshold,
     YamlFileContentInfo,
 )
@@ -47,6 +50,28 @@ from soda_core.contracts.impl.contract_yaml import (
 from tabulate import tabulate
 
 logger: logging.Logger = soda_logger
+
+
+class ContractVerificationHandler:
+    @classmethod
+    def instance(cls, identifier: Optional[str] = None) -> Optional[ContractVerificationHandler]:
+        # TODO: replace with plugin extension mechanism
+        create_method: Callable[..., Optional[ContractVerificationHandler]] = Extensions.find_class_method(
+            module_name="soda.failed_rows_extractor.failed_rows_extractor",
+            class_name="FailedRowsExtractor",
+            method_name="create",
+        )
+        return create_method() if create_method else None
+
+    def handle(
+        self,
+        contract_impl: ContractImpl,
+        data_source_impl: DataSourceImpl,
+        contract_verification_result: ContractVerificationResult,
+        soda_cloud: SodaCloud,
+        soda_cloud_send_results_response_json: dict,
+    ):
+        pass
 
 
 class ContractVerificationSessionImpl:
@@ -279,7 +304,7 @@ class ContractImpl:
         logs: Logs,
         contract_yaml: ContractYaml,
         only_validate_without_execute: bool,
-        data_source_impl: DataSourceImpl,
+        data_source_impl: Optional[DataSourceImpl],
         data_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
@@ -308,15 +333,22 @@ class ContractImpl:
         self.column_impls: list[ColumnImpl] = []
         self.check_impls: list[CheckImpl] = []
 
+        # TODO replace usage of self.soda_qualified_dataset_name with self.dataset_identifier
         self.soda_qualified_dataset_name = contract_yaml.dataset
+        # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
+        self.sql_qualified_dataset_name: Optional[str] = None
 
-        self.sql_qualified_dataset_name: Optional[str] = (
-            data_source_impl.sql_dialect.qualify_dataset_name(
+        self.dataset_identifier: Optional[DatasetIdentifier] = None
+        if data_source_impl:
+            self.dataset_identifier = DatasetIdentifier(
+                data_source_name=self.data_source_impl.name,
+                prefixes=self.dataset_prefix,
+                dataset_name=self.dataset_name,
+            )
+            # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
+            self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
-            if data_source_impl
-            else None
-        )
 
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
@@ -333,9 +365,11 @@ class ContractImpl:
         )
 
         self._verify_duplicate_identities(self.all_check_impls)
-
         self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
-        self.queries: list[Query] = self._build_queries() if data_source_impl else []
+
+        self.queries: list[Query] = []
+        if data_source_impl:
+            self.queries = self._build_queries()
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
@@ -466,17 +500,29 @@ class ContractImpl:
 
         contract_verification_result.log_records = self.logs.pop_log_records()
 
+        soda_cloud_response_json: Optional[dict] = None
         if self.soda_cloud and self.publish_results:
             file_id: Optional[str] = self.soda_cloud.upload_contract_file(contract_verification_result.contract)
             if file_id:
                 # Side effect to pass file id to console logging later on. TODO reconsider this
                 contract.source.soda_cloud_file_id = file_id
                 # send_contract_result will use contract.source.soda_cloud_file_id
-                response_ok: bool = self.soda_cloud.send_contract_result(contract_verification_result)
-                if not response_ok:
+                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+                scan_id: Optional[str] = soda_cloud_response_json.get("scanId")
+                if not scan_id:
                     contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
+
+        contract_verification_handler: Optional[ContractVerificationHandler] = ContractVerificationHandler.instance()
+        if contract_verification_handler:
+            contract_verification_handler.handle(
+                contract_impl=self,
+                data_source_impl=self.data_source_impl,
+                contract_verification_result=contract_verification_result,
+                soda_cloud=self.soda_cloud,
+                soda_cloud_send_results_response_json=soda_cloud_response_json,
+            )
 
         return contract_verification_result
 
@@ -1090,6 +1136,12 @@ class CheckImpl:
     def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        """
+        Used in extensions
+        """
+        raise SodaException(f"Check type '{self.type}' does not support get_threshold_metric_impl'")
+
 
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
@@ -1158,6 +1210,10 @@ class MetricImpl:
             return False
         return self.id == other.id
 
+    @abstractmethod
+    def sql_condition_expression(self) -> Optional[SqlExpression]:
+        pass
+
 
 class AggregationMetricImpl(MetricImpl):
     def __init__(
@@ -1179,6 +1235,12 @@ class AggregationMetricImpl(MetricImpl):
     @abstractmethod
     def sql_expression(self) -> SqlExpression:
         pass
+
+    @abstractmethod
+    def sql_condition_expression(self) -> SqlExpression:
+        """
+        Used in extensions
+        """
 
     def convert_db_value(self, value: any) -> any:
         return value

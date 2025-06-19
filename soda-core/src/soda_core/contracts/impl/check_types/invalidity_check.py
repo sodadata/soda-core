@@ -98,7 +98,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
-                InvalidCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                InvalidCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
 
         self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
@@ -145,8 +145,11 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             diagnostic_metric_values=diagnostic_metric_values,
         )
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        return self.invalid_count_metric_impl
 
-class InvalidCountMetric(AggregationMetricImpl):
+
+class InvalidCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -162,15 +165,17 @@ class InvalidCountMetric(AggregationMetricImpl):
         )
 
     def sql_expression(self) -> SqlExpression:
+        return SUM(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
+
+    def sql_condition_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        invalid_count_condition: SqlExpression = AND.optional(
+        return AND.optional(
             [
                 SqlExpressionStr.optional(self.check_filter),
                 NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
                 self.missing_and_validity.is_invalid_expr(column_name),
             ]
         )
-        return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1)))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
