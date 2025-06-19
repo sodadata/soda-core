@@ -2,6 +2,7 @@ from textwrap import dedent
 
 from dotenv import load_dotenv
 from soda_core.common.logging_configuration import configure_logging
+from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_verification import ContractVerificationSession
 
@@ -31,13 +32,16 @@ def main():
     soda_cloud_yaml_str = dedent(
         """
         soda_cloud:
-          bla: bla
+          api_key_id: ${SODA_CLOUD_API_KEY_ID}
+          api_key_secret: ${SODA_CLOUD_API_KEY_SECRET}
     """
     ).strip()
 
+    soda_cloud: SodaCloud = SodaCloud.from_yaml_source(SodaCloudYamlSource.from_str(soda_cloud_yaml_str), provided_variable_values={})
+
     ContractVerificationSession.execute(
         contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
-        soda_cloud_yaml_source=SodaCloudYamlSource.from_str(soda_cloud_yaml_str),
+        soda_cloud_impl=soda_cloud,
         soda_cloud_use_agent=True,
         soda_cloud_use_agent_blocking_timeout_in_minutes=55,
     )

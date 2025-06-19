@@ -69,7 +69,7 @@ class ContractVerificationHandler:
         data_source_impl: DataSourceImpl,
         contract_verification_result: ContractVerificationResult,
         soda_cloud: SodaCloud,
-        scan_id: str,
+        soda_cloud_send_results_response_json: dict,
     ):
         pass
 
@@ -500,14 +500,15 @@ class ContractImpl:
 
         contract_verification_result.log_records = self.logs.pop_log_records()
 
-        scan_id: Optional[str] = None
+        soda_cloud_response_json: Optional[dict] = None
         if self.soda_cloud and self.publish_results:
             file_id: Optional[str] = self.soda_cloud.upload_contract_file(contract_verification_result.contract)
             if file_id:
                 # Side effect to pass file id to console logging later on. TODO reconsider this
                 contract.source.soda_cloud_file_id = file_id
                 # send_contract_result will use contract.source.soda_cloud_file_id
-                scan_id = self.soda_cloud.send_contract_result(contract_verification_result)
+                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+                scan_id: Optional[str] = soda_cloud_response_json.get("scanId")
                 if not scan_id:
                     contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
@@ -520,7 +521,7 @@ class ContractImpl:
                 data_source_impl=self.data_source_impl,
                 contract_verification_result=contract_verification_result,
                 soda_cloud=self.soda_cloud,
-                scan_id=scan_id,
+                soda_cloud_send_results_response_json=soda_cloud_response_json,
             )
 
         return contract_verification_result
