@@ -146,16 +146,16 @@ class DataSourceImpl(ABC):
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def is_different_data_type(self, expected_column: ColumnMetadata, actual_column_metadata: ColumnMetadata) -> bool:
+    def is_different_data_type(self, expected_column: ColumnMetadata, actual_column: ColumnMetadata) -> bool:
         canonical_expected_data_type: str = self.get_canonical_data_type(expected_column.data_type)
-        canonical_actual_data_type: str = self.get_canonical_data_type(actual_column_metadata.data_type)
+        canonical_actual_data_type: str = self.get_canonical_data_type(actual_column.data_type)
 
         if canonical_expected_data_type != canonical_actual_data_type:
             return True
 
         if (
             isinstance(expected_column.character_maximum_length, int)
-            and expected_column.character_maximum_length != actual_column_metadata.character_maximum_length
+            and expected_column.character_maximum_length != actual_column.character_maximum_length
         ):
             return True
 
