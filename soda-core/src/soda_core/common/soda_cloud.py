@@ -104,7 +104,7 @@ class ContractSkeletonGenerationState(Enum):
                 return status
         raise ValueError(f"Unknown ContractSkeletonGenerationState value: {value}")
 
-    
+
 class ContractType(Enum):
     DEFAULT = "default"
     TEST = "test"
@@ -277,7 +277,7 @@ class SodaCloud:
             return True
         else:
             return False
-        
+
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> str:
         command_json_dict: dict = {
             "type": "sodaCoreGenerateContractSkeleton",
@@ -725,73 +725,60 @@ class SodaCloud:
             )
 
         return response_dict.get("contents")
-    
-    def fetch_contract(self, dataset_identifier: str, contract_type: Optional[ContractType] = None, created_after: Optional[datetime] = None) -> str: 
+
+    def fetch_contract(
+        self,
+        dataset_identifier: str,
+        contract_type: Optional[ContractType] = None,
+        created_after: Optional[datetime] = None,
+    ) -> str:
         filter_msg_list = []
         if contract_type is not None:
             filter_msg_list.append(f"contract type '{str(contract_type)}'")
         if created_after is not None:
             filter_msg_list.append(f"created after '{str(created_after)}'")
         filter_msg = f" with filter(s) {', '.join(filter_msg_list)}" if filter_msg_list else ""
-        logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'{filter_msg}")
+        logger.info(
+            f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'{filter_msg}"
+        )
         and_expressions = [
             {
                 "type": "equals",
-                "left": {
-                    "type": "columnValue",
-                    "columnName": "identifier"
-                },
-                "right": {
-                    "type": "string",
-                    "value": dataset_identifier
-                }
+                "left": {"type": "columnValue", "columnName": "identifier"},
+                "right": {"type": "string", "value": dataset_identifier},
             }
         ]
         if contract_type:
             and_expressions.append(
                 {
                     "type": "equals",
-                    "left": {
-                        "type": "columnValue",
-                        "columnName": "contractType"
-                    },
-                    "right": {
-                        "type": "string",
-                        "value": contract_type.value
-                    }
+                    "left": {"type": "columnValue", "columnName": "contractType"},
+                    "right": {"type": "string", "value": contract_type.value},
                 }
             )
         if created_after:
             and_expressions.append(
                 {
                     "type": "greaterThanEqual",
-                    "left": {
-                        "type": "columnValue",
-                        "columnName": "created"
-                    },
-                    "right": {
-                        "type": "timestamp",
-                        "value": created_after
-                    }
+                    "left": {"type": "columnValue", "columnName": "created"},
+                    "right": {"type": "timestamp", "value": created_after},
                 }
             )
 
-        request = {
-            "type": "sodaCoreContracts",
-            "filter": {
-                "type": "and",
-                "andExpressions": and_expressions
-            }
-        }
+        request = {"type": "sodaCoreContracts", "filter": {"type": "and", "andExpressions": and_expressions}}
         response = self._execute_query(request, request_log_name="fetch_contract")
         response_dict = response.json()
 
         if response.status_code != 200:
-            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'{filter_msg}: {response_dict['message']}")
+            raise SodaCloudException(
+                f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'{filter_msg}: {response_dict['message']}"
+            )
 
         return response_dict.get("contents")
-    
-    def poll_contract_skeleton_generation(self, dataset_identifier: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[ContractSkeletonGenerationState]]:
+
+    def poll_contract_skeleton_generation(
+        self, dataset_identifier: str, blocking_timeout_in_minutes: int
+    ) -> tuple[bool, Optional[ContractSkeletonGenerationState]]:
         """
         Returns a tuple of 2 values:
         * A boolean indicating if the contract skeleton generation finished (true means generation finished, false means there was a timeout or retry exceeded)
@@ -807,7 +794,9 @@ class SodaCloud:
             logger.debug(
                 f"Asking Soda Cloud if a contract has been generated for dataset {dataset_identifier} after {start_time}. Attempt {attempt}. Max wait: {max_wait}"
             )
-            response = self._get_contract_skeleton_generation_state(dataset_identifier=dataset_identifier, created_after=start_time)
+            response = self._get_contract_skeleton_generation_state(
+                dataset_identifier=dataset_identifier, created_after=start_time
+            )
             logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
             if not response:
                 logger.error(f"Failed to poll contract skeleton generation state. " f"Response: {response}")
@@ -818,7 +807,9 @@ class SodaCloud:
                 continue
 
             contract_skeleton_generation_state = ContractSkeletonGenerationState.from_value(response_body_dict["state"])
-            logger.info(f"Contract skeleton generation for dataset {dataset_identifier} has state '{contract_skeleton_generation_state.value}'")
+            logger.info(
+                f"Contract skeleton generation for dataset {dataset_identifier} has state '{contract_skeleton_generation_state.value}'"
+            )
 
             if contract_skeleton_generation_state.is_final_state:
                 return True, contract_skeleton_generation_state
@@ -853,11 +844,11 @@ class SodaCloud:
             "createdAfter": created_after,
         }
         response = self._execute_query(request, request_log_name="get_contract_skeleton_generation_state")
-        
+
         if response.status_code != 200:
             error_details = response.json().get("message", response.text)
             raise SodaCloudException(error_details)
-        
+
         return response
 
     def _poll_remote_scan_finished(
