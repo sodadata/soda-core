@@ -13,6 +13,12 @@ class ColumnMetadata:
     data_type: str
     character_maximum_length: Optional[int]
 
+    def get_data_type_ddl(self) -> str:
+        if self.character_maximum_length is None:
+            return self.data_type
+        else:
+            return f"{self.data_type}({self.character_maximum_length})"
+
 
 class MetadataColumnsQuery:
     def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
