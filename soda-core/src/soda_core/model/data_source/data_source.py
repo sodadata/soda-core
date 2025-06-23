@@ -21,7 +21,7 @@ class DataSourceBase(
     connection_properties: DataSourceConnectionProperties = Field(
         ..., alias="connection", description="Data source connection details"
     )
-    failed_rows: Optional[FailedRowsConfigDatasource] = Field(..., description="Configuration for failed rows storage")
+    failed_rows: Optional[FailedRowsConfigDatasource] = Field(None, description="Configuration for failed rows storage")
 
     @classmethod
     def get_class_type(cls) -> str:

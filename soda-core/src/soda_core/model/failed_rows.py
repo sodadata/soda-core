@@ -55,7 +55,7 @@ class FailedRowsConfigOrganisation(FailedRowsConfigBase):
 class FailedRowsConfigDatasource(FailedRowsConfigBase):
     """Top-level configuration for failed rows, on data source level."""
 
-    path: Optional[str] = Field(..., description="Path to the warehouse location where failed rows will be stored.")
+    path: Optional[str] = Field(None, description="Path to the warehouse location where failed rows will be stored.")
     enabled_by_default: Optional[bool] = Field(
         True,
         description="Enable or disable the storage of failed rows by default. Does not override the `enabled` setting if `enabled` is set to false."
@@ -69,11 +69,11 @@ class FailedRowsConfigDatasource(FailedRowsConfigBase):
 class FailedRowsConfigContract(FailedRowsConfigBase):
     """Configuration for failed rows at the contract level."""
 
-    path: Optional[str] = Field(..., description="Path to the warehouse location where failed rows will be stored.")
-    strategy: Optional[FailedRowsStrategy] = Field(..., description="Strategy for storing failed rows.")
+    path: Optional[str] = Field(None, description="Path to the warehouse location where failed rows will be stored.")
+    strategy: Optional[FailedRowsStrategy] = Field(None, description="Strategy for storing failed rows.")
 
 
 class FailedRowsConfigCheck(FailedRowsConfigBase):
     """Configuration for failed rows at the check level."""
 
-    strategy: Optional[FailedRowsStrategy] = Field(..., description="Strategy for storing failed rows.")
+    strategy: Optional[FailedRowsStrategy] = Field(None, description="Strategy for storing failed rows.")
