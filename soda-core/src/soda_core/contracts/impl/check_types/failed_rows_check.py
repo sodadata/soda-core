@@ -15,12 +15,14 @@ from soda_core.contracts.contract_verification import (
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
     FailedRowsCheckYaml,
 )
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
     ContractImpl,
+    DerivedPercentageMetricImpl,
     MeasurementValues,
     MetricImpl,
     Query,
@@ -84,8 +86,21 @@ class FailedRowsCheckImpl(CheckImpl):
                 )
                 self.queries.append(failed_rows_count_query)
 
+        self.row_count_metric_impl: MetricImpl = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+        )
+        self.failed_rows_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
+            DerivedPercentageMetricImpl(
+                metric_type="failed_rows_percent",
+                fraction_metric_impl=self.query_metric_impl,
+                total_metric_impl=self.row_count_metric_impl,
+            )
+        )
+
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+
+        diagnostic_metric_values: dict[str, float] = {}
 
         metric_name: str = "failed_rows_count"
 
@@ -93,10 +108,16 @@ class FailedRowsCheckImpl(CheckImpl):
             measurement_values.get_value(self.query_metric_impl) if self.query_metric_impl else None
         )
 
-        diagnostic_metric_values: dict[str, float] = {}
-
         if isinstance(query_metric_value, Number):
             diagnostic_metric_values[metric_name] = query_metric_value
+
+            row_count_metric_value: Optional[Number] = measurement_values.get_value(self.row_count_metric_impl)
+            diagnostic_metric_values["row_count"] = row_count_metric_value
+
+            failed_rows_percent_metric_value: Optional[Number] = measurement_values.get_value(
+                self.failed_rows_percent_metric_impl
+            )
+            diagnostic_metric_values["failed_rows_percent"] = failed_rows_percent_metric_value
 
             if self.threshold:
                 if self.threshold.passes(query_metric_value):

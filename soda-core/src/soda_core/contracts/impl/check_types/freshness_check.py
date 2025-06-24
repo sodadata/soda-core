@@ -15,6 +15,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
 )
 from soda_core.contracts.impl.check_types.freshness_check_yaml import FreshnessCheckYaml
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -22,6 +23,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ColumnImpl,
     ContractImpl,
     MeasurementValues,
+    MetricImpl,
     ThresholdImpl,
 )
 
@@ -78,6 +80,9 @@ class FreshnessCheckImpl(CheckImpl):
                 unit=self.unit,
             )
         )
+        self.row_count_metric_impl: MetricImpl = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+        )
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
@@ -86,7 +91,9 @@ class FreshnessCheckImpl(CheckImpl):
         max_timestamp_utc: Optional[datetime] = self._get_max_timestamp_utc(max_timestamp)
         data_timestamp: datetime = self._get_now_timestamp()
         data_timestamp_utc: datetime = self._get_now_timestamp_utc(data_timestamp)
-        diagnostic_metric_values: dict[str, float] = {}
+        diagnostic_metric_values: dict[str, float] = {
+            "row_count": measurement_values.get_value(self.row_count_metric_impl),
+        }
         freshness: Optional[timedelta] = None
         freshness_in_seconds: Optional[int] = None
         threshold_metric_name: str = f"freshness_in_{self.unit}s"

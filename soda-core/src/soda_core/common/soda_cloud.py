@@ -8,7 +8,6 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from numbers import Number
 from tempfile import TemporaryFile
 from time import sleep
 from typing import Optional
@@ -30,15 +29,6 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
-from soda_core.common.soda_cloud_dto import (
-    SodaCloudDiagnostics,
-    SodaCloudFreshnessDiagnostics,
-    SodaCloudMetricValuesDiagnostics,
-    SodaCloudSchemaColumnInfo,
-    SodaCloudSchemaDataTypeMismatch,
-    SodaCloudSchemaDiagnostics,
-    SodaCloudThresholdDiagnostic,
-)
 from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
@@ -50,6 +40,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     ContractVerificationStatus,
+    SodaException,
     Threshold,
     YamlFileContentInfo,
 )
@@ -1032,73 +1023,112 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "column": check_result.check.column_name,
         "outcome": _translate_check_outcome_for_soda_cloud(check_result.outcome),
         "source": "soda-contract",
+        "diagnostics": _build_diagnostics_json_dict(check_result),
     }
-
-    diagnostics_json_dict: Optional[dict] = _build_diagnostics_json_dict(check_result)
-    if diagnostics_json_dict:
-        check_result_cloud_dict["diagnostics"] = diagnostics_json_dict
-
     return check_result_cloud_dict
 
 
 def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
+    soda_cloud_check_result_json: dict = _build_diagnostics_check_type_json_dict(check_result)
+    #  TODO: this default is here only because check.diaignostics.value is a required non-nullable field in the api.
+    # Re-think this when we switch to the new diagnostics format and/or api accepts Null or something else that reflects the Core model.
+    # A poor default, but it really needs to be a number and not None or Nan.
+    # It's guaranteed to be 0 for non-evaluated checks, which is not ideal, but better than stopping ingestion.
+    v4: dict = soda_cloud_check_result_json.get("v4")
+    v4["value"] = check_result.get_threshold_value() or 0
+    soda_cloud_threshold_dict: Optional[dict] = _build_fail_threshold(check_result)
+    if soda_cloud_threshold_dict:
+        v4["fail"] = soda_cloud_threshold_dict
+    return soda_cloud_check_result_json
+
+
+def _build_diagnostics_check_type_json_dict(check_result: CheckResult) -> Optional[dict]:
     from soda_core.contracts.impl.check_types.freshness_check import (
         FreshnessCheckResult,
     )
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
-    metric_values: Optional[SodaCloudMetricValuesDiagnostics] = (
-        SodaCloudMetricValuesDiagnostics(
-            thresholdMetricName=check_result.threshold_metric_name, values=check_result.diagnostic_metric_values
-        )
-        if check_result.diagnostic_metric_values
-        else None
-    )
+    if check_result.check.type == "missing":
+        return {
+            "v4": {
+                "type": "missing",
+                "failedRowsCount": check_result.diagnostic_metric_values.get("missing_count"),
+                "failedRowsPercent": check_result.diagnostic_metric_values.get("missing_percent"),
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            }
+        }
+    elif check_result.check.type == "invalid":
+        return {
+            "v4": {
+                "type": "invalid",
+                "failedRowsCount": check_result.diagnostic_metric_values.get("invalid_count"),
+                "failedRowsPercent": check_result.diagnostic_metric_values.get("invalid_percent"),
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            }
+        }
+    elif check_result.check.type == "duplicate":
+        return {
+            "v4": {
+                "type": "invalid",
+                "failedRowsCount": check_result.diagnostic_metric_values.get("duplicate_count"),
+                "failedRowsPercent": check_result.diagnostic_metric_values.get("duplicate_percent"),
+                "totalRowsTested": check_result.diagnostic_metric_values.get("valid_count"),
+            }
+        }
+    elif check_result.check.type == "failed_rows":
+        return {
+            "v4": {
+                "type": "invalid",
+                "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
+                "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            }
+        }
+    elif check_result.check.type == "aggregate":
+        return {
+            "v4": {
+                "type": "aggregate",
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            },
+        }
+    elif check_result.check.type == "metric":
+        return {
+            "v4": {
+                "type": "metric",
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            }
+        }
+    elif check_result.check.type == "row_count":
+        return {
+            "v4": {
+                "type": "rowCount",
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            }
+        }
+    elif isinstance(check_result, SchemaCheckResult):
+        return {
+            "v4": {
+                "type": "schema",
+                "expected": [_build_schema_column(expected) for expected in check_result.expected_columns],
+                "actual": [_build_schema_column(actual) for actual in check_result.actual_columns],
+            }
+        }
+    elif isinstance(check_result, FreshnessCheckResult):
+        return {
+            "v4": {
+                "type": "freshness",
+                "actualTimestamp": convert_datetime_to_str(check_result.max_timestamp),
+                "actualTimestampUtc": convert_datetime_to_str(check_result.max_timestamp_utc),
+                "expectedTimestamp": convert_datetime_to_str(check_result.data_timestamp),
+                "expectedTimestampUtc": convert_datetime_to_str(check_result.data_timestamp_utc),
+                "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            }
+        }
+    raise SodaException(f"Invalid check type: {type(check_result.check).__name__}")
 
-    schema_diagnostics: Optional[SodaCloudSchemaDiagnostics] = (
-        SodaCloudSchemaDiagnostics(
-            expectedColumns=_build_diagnostics_schema_column_info(check_result.expected_columns),
-            actualColumns=_build_diagnostics_schema_column_info(check_result.actual_columns),
-            expectedColumnNamesNotActual=check_result.expected_column_names_not_actual,
-            actualColumnNamesNotExpected=check_result.actual_column_names_not_expected,
-            columnDataTypeMismatches=_build_diagnostics_column_data_type_mismatches(
-                check_result.column_data_type_mismatches
-            ),
-            areColumnsOutOfOrder=check_result.are_columns_out_of_order,
-        )
-        if isinstance(check_result, SchemaCheckResult)
-        else None
-    )
 
-    freshness_diagnostics: Optional[SodaCloudFreshnessDiagnostics] = (
-        SodaCloudFreshnessDiagnostics(
-            maxTimestamp=check_result.max_timestamp,
-            maxTimestampUtc=check_result.max_timestamp_utc,
-            dataTimestamp=check_result.data_timestamp,
-            dataTimestampUtc=check_result.data_timestamp_utc,
-            freshness=check_result.freshness,
-            freshnessInSeconds=check_result.freshness_in_seconds,
-            unit=check_result.unit,
-        )
-        if isinstance(check_result, FreshnessCheckResult)
-        else None
-    )
-
-    #  TODO: this default is here only because check.diaignostics.value is a required non-nullable field in the api.
-    # Re-think this when we switch to the new diagnostics format and/or api accepts Null or something else that reflects the Core model.
-    # A poor default, but it really needs to be a number and not None or Nan.
-    # It's guaranteed to be 0 for non-evaluated checks, which is not ideal, but better than stopping ingestion.
-    check_result_value: Number = check_result.get_threshold_value() or 0
-
-    fail_threshold: SodaCloudThresholdDiagnostic = _build_fail_threshold(check_result)
-
-    return SodaCloudDiagnostics(
-        schema=schema_diagnostics,
-        metricValues=metric_values,
-        freshness=freshness_diagnostics,
-        value=check_result_value,
-        fail=fail_threshold,
-    ).model_dump(by_alias=True)
+def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
+    return {"name": column_metadata.column_name, "type": column_metadata.get_data_type_ddl()}
 
 
 def _map_remote_scan_status_to_contract_verification_status(
@@ -1114,43 +1144,31 @@ def _map_remote_scan_status_to_contract_verification_status(
         return ContractVerificationStatus.UNKNOWN
 
 
-def _build_fail_threshold(check_result: CheckResult) -> Optional[SodaCloudThresholdDiagnostic]:
+def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
     threshold: Threshold = check_result.check.threshold
     if threshold:
-        return SodaCloudThresholdDiagnostic(
-            greaterThan=threshold.must_be_less_than_or_equal,
-            greaterThanOrEqual=threshold.must_be_less_than,
-            lessThan=threshold.must_be_greater_than_or_equal,
-            lessThanOrEqual=threshold.must_be_greater_than,
-        )
+        return {
+            "greaterThan": threshold.must_be_less_than_or_equal,
+            "greaterThanOrEqual": threshold.must_be_less_than,
+            "lessThan": threshold.must_be_greater_than_or_equal,
+            "lessThanOrEqual": threshold.must_be_greater_than,
+        }
+    return None
 
 
-def _build_diagnostics_schema_column_info(
-    column_metadatas: list[ColumnMetadata],
-) -> Optional[list[SodaCloudSchemaColumnInfo]]:
-    return [
-        SodaCloudSchemaColumnInfo(
-            name=column_metadata.column_name,
-            dataType=column_metadata.data_type,
-            characterMaximumLength=column_metadata.character_maximum_length,
-        )
-        for column_metadata in column_metadatas
-    ]
-
-
-def _build_diagnostics_column_data_type_mismatches(
-    column_data_type_mismatches: list["ColumnDataTypeMismatch"],
-) -> list[SodaCloudSchemaDataTypeMismatch]:
-    return [
-        SodaCloudSchemaDataTypeMismatch(
-            column=column_data_type_mismatch.column,
-            expectedDataType=column_data_type_mismatch.expected_data_type,
-            actualDataType=column_data_type_mismatch.actual_data_type,
-            expectedCharacterMaximumLength=column_data_type_mismatch.expected_character_maximum_length,
-            actualCharacterMaximumLength=column_data_type_mismatch.actual_character_maximum_length,
-        )
-        for column_data_type_mismatch in column_data_type_mismatches
-    ]
+# def _build_diagnostics_column_data_type_mismatches(
+#     column_data_type_mismatches: list["ColumnDataTypeMismatch"],
+# ) -> list[SodaCloudSchemaDataTypeMismatch]:
+#     return [
+#         SodaCloudSchemaDataTypeMismatch(
+#             column=column_data_type_mismatch.column,
+#             expectedDataType=column_data_type_mismatch.expected_data_type,
+#             actualDataType=column_data_type_mismatch.actual_data_type,
+#             expectedCharacterMaximumLength=column_data_type_mismatch.expected_character_maximum_length,
+#             actualCharacterMaximumLength=column_data_type_mismatch.actual_character_maximum_length,
+#         )
+#         for column_data_type_mismatch in column_data_type_mismatches
+#     ]
 
 
 def _build_check_path(check_result: CheckResult) -> str:

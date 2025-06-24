@@ -144,6 +144,5 @@ def test_freshness_no_rows(data_source_test_helper: DataSourceTestHelper):
         assert check_result.freshness is None
         assert check_result.freshness_in_seconds is None
         assert str(check_result.unit) == "hour"
-        assert len(check_result.diagnostic_metric_values) == 0
 
         assert not contract_verification_result_t1.has_errors()

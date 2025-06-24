@@ -122,18 +122,13 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     assert "columns.age.checks.missing.2" in check_paths
     assert "checks.schema" in check_paths
 
-    metric_values: dict = request_2.json["checks"][0]["diagnostics"]["metricValues"]
-    assert metric_values["thresholdMetricName"] == "missing_count"
-    values: dict = metric_values["values"]
-    missing_count = values["missing_count"]
-    assert missing_count == 2
-    assert isinstance(missing_count, int)
-    row_count = values["row_count"]
-    assert row_count == 4
-    assert isinstance(row_count, int)
-    missing_percent = values["missing_percent"]
-    assert 49.99 < missing_percent < 50.01
-    assert isinstance(missing_percent, float)
+    diagnostics_v4: dict = request_2.json["checks"][0]["diagnostics"]["v4"]
+    assert diagnostics_v4["type"] == "missing"
+    assert diagnostics_v4["value"] == 2
+    assert diagnostics_v4["fail"]["greaterThan"] == 2
+    assert diagnostics_v4["failedRowsCount"] == 2
+    assert diagnostics_v4["failedRowsPercent"] == 50.0
+    assert diagnostics_v4["totalRowsTested"] == 4
 
     assert "No missing values" == request_2.json["checks"][0]["name"]
     assert "Second missing check" == request_2.json["checks"][1]["name"]
