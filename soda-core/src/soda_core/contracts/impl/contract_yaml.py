@@ -180,6 +180,10 @@ class ContractYaml:
 
         self.dataset = self.contract_yaml_object.read_dataset_identifier("dataset")
 
+        self.check_attributes = self.contract_yaml_object.read_object_opt(
+            "check_attributes", default_value={}
+        ).to_dict()
+
         self.filter: Optional[str] = self.contract_yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
@@ -572,6 +576,7 @@ class CheckYaml(ABC):
         self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
         if self.filter:
             self.filter = self.filter.strip()
+        self.attributes: dict[str, any] = check_yaml_object.read_object_opt("attributes", default_value={}).to_dict()
 
 
 class ThresholdCheckYaml(CheckYaml):

@@ -31,6 +31,8 @@ from soda_core.common.exceptions import (
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud_dto import (
+    CheckAttribute,
+    CheckAttributes,
     SodaCloudDiagnostics,
     SodaCloudFreshnessDiagnostics,
     SodaCloudMetricValuesDiagnostics,
@@ -1014,7 +1016,7 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "type": "generic",
         "checkType": check_result.check.type,
         "definition": check_result.check.definition,
-        "resourceAttributes": [],  # TODO
+        **_build_check_attributes(check_result.check.attributes).model_dump(by_alias=True),
         "location": {
             "filePath": (
                 check_result.contract.source.local_file_path
@@ -1196,3 +1198,7 @@ def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception:
     exc_cloud_log_dict["index"] = len(cloud_log_dicts)
     cloud_log_dicts.append(exc_cloud_log_dict)
     return cloud_log_dicts
+
+
+def _build_check_attributes(data: dict[str, Any]) -> CheckAttributes:
+    return CheckAttributes(check_attributes=[CheckAttribute.from_raw(k, v) for k, v in data.items()])
