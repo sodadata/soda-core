@@ -16,7 +16,7 @@ from soda_core.common.statements.metadata_columns_query import (
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
-from soda_core.contracts.contract_verification import DataSource
+from soda_core.contracts.contract_verification import DataSource, SodaException
 from soda_core.model.data_source.data_source import DataSourceBase
 
 logger: logging.Logger = soda_logger
@@ -205,7 +205,8 @@ class DataSourceImpl(ABC):
         return DataSource(name=self.name, type=self.type_name)
 
     def qualify_dataset_name(self, dataset_identifier: DatasetIdentifier) -> str:
-        assert dataset_identifier.data_source_name == self.name, "Please report this bug: incorrect data source used"
+        if dataset_identifier.data_source_name != self.name:
+            raise SodaException("Please report this bug: incorrect data source used")
         return self.sql_dialect.qualify_dataset_name(
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
