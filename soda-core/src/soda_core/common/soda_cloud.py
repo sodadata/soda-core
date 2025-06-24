@@ -1208,15 +1208,12 @@ class FailedRowsDiagnostic:
 
 
 class QuerySourceFailedRowsDiagnostic(FailedRowsDiagnostic):
-    def __init__(self, check_identity: str, name: str, query: str):
-        super().__init__(check_identity, name, query)
+    pass
 
 
 class StoreKeysFailedRowsDiagnostic(FailedRowsDiagnostic):
-    def __init__(self, check_identity: str, name: str, query: str):
-        super().__init__(check_identity, name, query)
+    pass
 
 
 class StoreDataFailedRowsDiagnostic(FailedRowsDiagnostic):
-    def __init__(self, check_identity: str, name: str, query: str):
-        super().__init__(check_identity, name, query)
+    pass

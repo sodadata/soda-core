@@ -5,15 +5,12 @@ from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from io import StringIO
-from typing import Callable
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
-from soda_core.common.extensions import Extensions
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -56,12 +53,15 @@ class ContractVerificationHandler:
     @classmethod
     def instance(cls, identifier: Optional[str] = None) -> Optional[ContractVerificationHandler]:
         # TODO: replace with plugin extension mechanism
-        create_method: Callable[..., Optional[ContractVerificationHandler]] = Extensions.find_class_method(
-            module_name="soda.failed_rows_extractor.failed_rows_extractor",
-            class_name="FailedRowsExtractor",
-            method_name="create",
-        )
-        return create_method() if create_method else None
+        try:
+            from soda.failed_rows_extractor.failed_rows_extractor import (
+                FailedRowsExtractor,
+            )
+
+            return FailedRowsExtractor.create()
+        except (AttributeError, ModuleNotFoundError) as e:
+            # Extension not installed
+            return None
 
     def handle(
         self,

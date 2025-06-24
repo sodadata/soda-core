@@ -205,7 +205,7 @@ class DataSourceImpl(ABC):
         return DataSource(name=self.name, type=self.type_name)
 
     def qualify_dataset_name(self, dataset_identifier: DatasetIdentifier) -> str:
-        assert dataset_identifier.data_source_name == self.name
+        assert dataset_identifier.data_source_name == self.name, "Please report this bug: incorrect data source used"
         return self.sql_dialect.qualify_dataset_name(
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
