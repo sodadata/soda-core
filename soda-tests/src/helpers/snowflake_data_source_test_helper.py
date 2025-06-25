@@ -34,11 +34,6 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
                 database: {self.dataset_prefix[0]}
         """
 
-    def create_test_schema_if_not_exists_sql(self) -> str:
-        sql_dialect: "SqlDialect" = self.data_source_impl.sql_dialect
-        schema_name: str = self.dataset_prefix[1]
-        return f"CREATE SCHEMA IF NOT EXISTS {sql_dialect.quote_default(schema_name)};"
-
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name.upper()
 

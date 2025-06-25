@@ -281,7 +281,8 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def create_test_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE SCHEMA IF NOT EXISTS {self.dataset_prefix[1]} AUTHORIZATION CURRENT_USER;"
+        schema_name: str = self.dataset_prefix[1]
+        return self.data_source_impl.sql_dialect.create_schema_if_not_exists_sql(schema_name)
 
     def drop_test_schema_if_exists(self) -> None:
         sql: str = self.drop_test_schema_if_exists_sql()

@@ -6,6 +6,7 @@ from typing import Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import SqlDialect
@@ -15,7 +16,7 @@ from soda_core.common.statements.metadata_columns_query import (
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
-from soda_core.contracts.contract_verification import DataSource
+from soda_core.contracts.contract_verification import DataSource, SodaException
 from soda_core.model.data_source.data_source import DataSourceBase
 
 logger: logging.Logger = soda_logger
@@ -145,16 +146,16 @@ class DataSourceImpl(ABC):
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def is_different_data_type(self, expected_column: ColumnMetadata, actual_column_metadata: ColumnMetadata) -> bool:
+    def is_different_data_type(self, expected_column: ColumnMetadata, actual_column: ColumnMetadata) -> bool:
         canonical_expected_data_type: str = self.get_canonical_data_type(expected_column.data_type)
-        canonical_actual_data_type: str = self.get_canonical_data_type(actual_column_metadata.data_type)
+        canonical_actual_data_type: str = self.get_canonical_data_type(actual_column.data_type)
 
         if canonical_expected_data_type != canonical_actual_data_type:
             return True
 
         if (
             isinstance(expected_column.character_maximum_length, int)
-            and expected_column.character_maximum_length != actual_column_metadata.character_maximum_length
+            and expected_column.character_maximum_length != actual_column.character_maximum_length
         ):
             return True
 
@@ -202,6 +203,13 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
+
+    def qualify_dataset_name(self, dataset_identifier: DatasetIdentifier) -> str:
+        if dataset_identifier.data_source_name != self.name:
+            raise SodaException("Please report this bug: incorrect data source used")
+        return self.sql_dialect.qualify_dataset_name(
+            dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
+        )
 
     def quote_identifier(self, identifier: str) -> str:
         c = self.sql_dialect._get_default_quote_char()

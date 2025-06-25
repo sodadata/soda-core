@@ -58,7 +58,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         )
 
         self.metric_name = "missing_percent" if check_yaml.metric == "percent" else "missing_count"
-        self.missing_count_metric = self._resolve_metric(
+        self.missing_count_metric_impl = self._resolve_metric(
             MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
@@ -69,7 +69,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
             DerivedPercentageMetricImpl(
                 metric_type="missing_percent",
-                fraction_metric_impl=self.missing_count_metric,
+                fraction_metric_impl=self.missing_count_metric_impl,
                 total_metric_impl=self.row_count_metric_impl,
             )
         )
@@ -79,7 +79,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
 
         diagnostic_metric_values: dict[str, float] = {}
 
-        missing_count: int = measurement_values.get_value(self.missing_count_metric)
+        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
         diagnostic_metric_values["missing_count"] = missing_count
 
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
@@ -104,6 +104,9 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
             diagnostic_metric_values=diagnostic_metric_values,
         )
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        return self.missing_count_metric_impl
+
 
 class MissingCountMetricImpl(AggregationMetricImpl):
     def __init__(
@@ -121,14 +124,16 @@ class MissingCountMetricImpl(AggregationMetricImpl):
         )
 
     def sql_expression(self) -> SqlExpression:
+        return SUM(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
+
+    def sql_condition_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
         not_missing_and_invalid_expr = self.missing_and_validity.is_missing_expr(column_name)
-        missing_count_condition: SqlExpression = (
+        return (
             not_missing_and_invalid_expr
             if not self.check_filter
             else AND([SqlExpressionStr(self.check_filter), not_missing_and_invalid_expr])
         )
-        return SUM(CASE_WHEN(missing_count_condition, LITERAL(1), LITERAL(0)))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
