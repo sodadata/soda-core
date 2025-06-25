@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.dict_helpers import assert_dict
 from helpers.mock_soda_cloud import (
     MockHttpMethod,
     MockRequest,
@@ -114,24 +115,47 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
     request_index += 1
     request_2: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
     assert request_2.url.endswith("api/command")
-    assert request_2.json["type"] == "sodaCoreInsertScanResults"
-    assert request_2.json["scanId"] == "env_var_scan_id"
-
-    check_paths: list[str] = [c["checkPath"].lower() for c in request_2.json["checks"]]
-    assert "columns.age.checks.missing" in check_paths
-    assert "columns.age.checks.missing.2" in check_paths
-    assert "checks.schema" in check_paths
-
-    diagnostics_v4: dict = request_2.json["checks"][0]["diagnostics"]["v4"]
-    assert diagnostics_v4["type"] == "missing"
-    assert diagnostics_v4["value"] == 2
-    assert diagnostics_v4["fail"]["greaterThan"] == 2
-    assert diagnostics_v4["failedRowsCount"] == 2
-    assert diagnostics_v4["failedRowsPercent"] == 50.0
-    assert diagnostics_v4["totalRowsTested"] == 4
-
-    assert "No missing values" == request_2.json["checks"][0]["name"]
-    assert "Second missing check" == request_2.json["checks"][1]["name"]
+    assert_dict(request_2.json, {
+        "type": "sodaCoreInsertScanResults",
+        "scanId": "env_var_scan_id",
+        "checks": [
+            {
+                "checkPath": "columns.age.checks.missing",
+                "name": "No missing values",
+                "diagnostics": {
+                    "value": 2,
+                    "fail": {
+                        "greaterThan": 2
+                    },
+                    "v4": {
+                        "type": "missing",
+                        "failedRowsCount": 2,
+                        "failedRowsPercent": 50.0,
+                        "totalRowsTested": 4,
+                    }
+                }
+            },
+            {
+                "checkPath": "columns.age.checks.missing.2",
+                "name": "Second missing check",
+                "diagnostics": {
+                    "value": 2,
+                    "fail": {
+                        "greaterThan": 5
+                    },
+                    "v4": {
+                        "type": "missing",
+                        "failedRowsCount": 2,
+                        "failedRowsPercent": 50.0,
+                        "totalRowsTested": 4,
+                    }
+                }
+            },
+            {
+                "checkPath": "checks.schema",
+            }
+        ]
+    })
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
