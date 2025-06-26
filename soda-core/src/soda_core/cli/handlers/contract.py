@@ -153,7 +153,7 @@ def handle_fetch_contract(
                 return ExitCode.LOG_ERRORS
 
     except (InvalidArgumentException, Exception) as exc:
-        soda_logger.exception(exc)
+        soda_logger.exception(f"Unexpected error during contract fetching: {exc}")
         return ExitCode.LOG_ERRORS
 
 
