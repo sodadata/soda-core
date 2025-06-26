@@ -34,9 +34,6 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
                 catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
         """
 
-    def create_test_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE SCHEMA IF NOT EXISTS {self.dataset_prefix[1]};"
-
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         return {
             TestDataType.TEXT: "varchar",

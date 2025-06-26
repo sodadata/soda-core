@@ -155,11 +155,11 @@ class ContractYaml:
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        soda_now: datetime = datetime.now(timezone.utc)
-        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, soda_now)
+        self.execution_timestamp: datetime = datetime.now(timezone.utc)
+        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
 
         soda_variable_values: dict[str, str] = {
-            "NOW": convert_datetime_to_str(soda_now),
+            "NOW": convert_datetime_to_str(self.execution_timestamp),
             "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp),
         }
 
@@ -574,6 +574,9 @@ class CheckYaml(ABC):
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
         self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
         self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
+        self.store_failed_rows: Optional[bool] = (
+            check_yaml_object.read_bool_opt("store_failed_rows", default_value=False) if check_yaml_object else None
+        )
         if self.filter:
             self.filter = self.filter.strip()
         self.attributes: dict[str, any] = check_yaml_object.read_object_opt("attributes", default_value={}).to_dict()
