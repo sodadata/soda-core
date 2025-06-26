@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from logging import ERROR, LogRecord
 from numbers import Number
-from typing import Optional
+from typing import Any, Optional
 
 from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
@@ -182,6 +182,11 @@ class Threshold:
 
 @dataclass
 class Check:
+    """Represents the state / essence of a check after it has been executed.
+
+    i.e. "after" CheckImpl has been executed and check result is being created.
+    """
+
     column_name: Optional[str]
     type: str
     qualifier: Optional[str]
@@ -192,6 +197,7 @@ class Check:
     contract_file_line: int
     contract_file_column: int
     threshold: Optional[Threshold]
+    attributes: Optional[dict[str, Any]]
 
 
 class CheckResult:

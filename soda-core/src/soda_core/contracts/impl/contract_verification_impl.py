@@ -327,6 +327,8 @@ class ContractImpl:
 
         self.dataset_name: Optional[str] = None
 
+        self.check_attributes: dict[str, any] = contract_yaml.check_attributes
+
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
         self.dataset_prefix: list[str] = dataset_identifier.prefixes
         self.dataset_name = dataset_identifier.dataset_name
@@ -1063,6 +1065,9 @@ class CheckImpl:
         self.queries: list[Query] = []
         self.skip: bool = False
 
+        # Merge check attributes with contract attributes
+        self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
+
     __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
         "schema": "Schema matches expected structure",
         "row_count": "Row count meets expected threshold",
@@ -1103,6 +1108,7 @@ class CheckImpl:
             contract_file_line=self.check_yaml.check_yaml_object.location.line,
             contract_file_column=self.check_yaml.check_yaml_object.location.column,
             threshold=self._build_threshold(),
+            attributes=self.attributes,
         )
 
     @classmethod

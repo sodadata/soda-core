@@ -262,14 +262,14 @@ class YamlObject(YamlValue):
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
         An error is generated if the value is missing or not a YAML object.
-        :return: a dict if the value for the key is a YAML object, otherwise None.
+        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
     def read_object_opt(self, key: str, default_value: Optional[dict] = None) -> Optional[YamlObject]:
         """
         An error is generated if the value is present and not a YAML object.
-        :return: a dict if the value for the key is a YAML object, otherwise None.
+        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(key=key, expected_type=dict, required=False, default_value=default_value)
 

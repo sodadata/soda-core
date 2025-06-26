@@ -29,6 +29,7 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
+from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
 from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
@@ -980,7 +981,7 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "type": "generic",
         "checkType": check_result.check.type,
         "definition": check_result.check.definition,
-        "resourceAttributes": [],  # TODO
+        **_build_check_attributes(check_result.check.attributes).model_dump(by_alias=True),
         "location": _build_check_location(check_result),
         "dataSource": check_result.contract.data_source_name,
         "table": check_result.contract.dataset_name,
@@ -1191,3 +1192,7 @@ def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception:
     exc_cloud_log_dict["index"] = len(cloud_log_dicts)
     cloud_log_dicts.append(exc_cloud_log_dict)
     return cloud_log_dicts
+
+
+def _build_check_attributes(data: dict[str, Any]) -> CheckAttributes:
+    return CheckAttributes(check_attributes=[CheckAttribute.from_raw(k, v) for k, v in data.items()])
