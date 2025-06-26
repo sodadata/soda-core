@@ -985,15 +985,6 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "checkType": check_result.check.type,
         "definition": check_result.check.definition,
         **_build_check_attributes(check_result.check.attributes).model_dump(by_alias=True),
-        "location": {
-            "filePath": (
-                check_result.contract.source.local_file_path
-                if isinstance(check_result.contract.source.local_file_path, str)
-                else "yamlstr.yml"
-            ),
-            "line": check_result.check.contract_file_line,
-            "col": check_result.check.contract_file_column,
-        },
         "location": _build_check_location(check_result),
         "dataSource": check_result.contract.data_source_name,
         "table": check_result.contract.dataset_name,
