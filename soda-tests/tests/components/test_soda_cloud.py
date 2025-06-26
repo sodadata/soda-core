@@ -1,7 +1,10 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
 import pytest
+from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.exceptions import SodaCloudException
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.dict_helpers import assert_dict
 from helpers.mock_soda_cloud import (
@@ -12,7 +15,7 @@ from helpers.mock_soda_cloud import (
 )
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud import ContractSkeletonGenerationState, SodaCloud
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import ContractVerificationResult
@@ -34,18 +37,17 @@ test_table_specification = (
     .build()
 )
 
+YAML_SOURCE: SodaCloudYamlSource = SodaCloudYamlSource.from_str("""
+soda_cloud:
+  host: dev.sodadata.io
+  api_key_id: some_key_id
+  api_key_secret: some_key_secret
+""")
+
 
 def test_soda_cloud_from_yaml_source_with_api_key_auth():
-    yaml_source = SodaCloudYamlSource.from_str(
-        """
-        soda_cloud:
-          host: dev.sodadata.io
-          api_key_id: some_key_id
-          api_key_secret: some_key_secret
-        """
-    )
     try:
-        soda_cloud = SodaCloud.from_yaml_source(yaml_source, provided_variable_values={})
+        soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
         assert soda_cloud.api_key_id == "some_key_id"
         assert soda_cloud.api_key_secret == "some_key_secret"
         assert not soda_cloud.token
@@ -313,3 +315,122 @@ def test_verify_contract_on_agent_permission_check():
     assert res.check_results == []
     assert res.measurements == []
     assert res.log_records is None
+
+@mock.patch('requests.post')
+def test_fetch_contract(mock_post):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+    mock_post.return_value = MockResponse(status_code=200, json_object={"results": [{"contents": "contract_contents"}]})
+
+    soda_cloud.fetch_contract(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
+    mock_post.assert_called_once_with(
+        url="https://dev.sodadata.io/api/query",
+        headers={"User-Agent": "SodaCore/4.0.0.b1"},
+        json={
+            "type": "sodaCoreContracts",
+            "filter": {
+                "type": "and",
+                "andExpressions": [
+                    {
+                        "type": "equals",
+                        "left": {
+                            "type": "columnValue",
+                            "columnName": "identifier"
+                        },
+                        "right": {
+                            "type": "string",
+                            "value": "test/some/schema/CUSTOMERS"
+                        }
+                    }
+                ]
+            },
+            "token": "some_token",
+        }
+    )
+
+
+# TODO: test fails because we're mocking datetime and this leads to errors when parsing the request into json (soda_cloud.py#1088)
+# @mock.patch('soda_core.common.soda_cloud.datetime')
+# @mock.patch('requests.post')
+# def test_poll_contract_skeleton_generation__completed(mock_post, mock_datetime):
+#     mock_datetime.now.return_value = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+#     mock_datetime._ClassInfo.return_value = type(datetime)
+#     soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+#     soda_cloud.token = "some_token"
+#     mock_post.return_value = MockResponse(status_code=200, json_object={"state": "completed"})
+
+#     finished, result_state = soda_cloud.poll_contract_skeleton_generation(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"), blocking_timeout_in_minutes=60)
+#     mock_post.assert_called_once_with(
+#         url="https://dev.sodadata.io/api/query",
+#         headers={"User-Agent": "SodaCore/4.0.0.b1"},
+#         json={
+#             "type": "sodaCoreContractSkeletonGenerationState",
+#             "datasetIdentifier": "test/some/schema/CUSTOMERS",
+#             "lastUpdatedAfter": "2025-01-01T12:00:00+00:00",
+#             "token": "some_token",
+#         }
+#     )
+#     assert finished is True
+#     assert result_state == ContractSkeletonGenerationState.COMPLETED
+
+@mock.patch('requests.post')
+def test_poll_contract_skeleton_generation__failed(mock_post):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+    mock_post.return_value = MockResponse(status_code=200, json_object={"state": "failed"})
+
+    finished, result_state = soda_cloud.poll_contract_skeleton_generation(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"), blocking_timeout_in_minutes=60)
+    assert finished is False
+    assert result_state == ContractSkeletonGenerationState.FAILED
+
+
+@mock.patch('soda_core.common.soda_cloud.datetime')
+def test_poll_contract_skeleton_generation__timeout(mock_datetime):
+    start_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    timeout_time = start_time + timedelta(minutes=60)
+    mock_datetime.now.side_effect = [
+        start_time,
+        timeout_time,
+    ]
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+
+    finished, result_state = soda_cloud.poll_contract_skeleton_generation(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"), blocking_timeout_in_minutes=60)
+    assert finished is False
+    assert result_state is None
+
+@mock.patch('requests.post')
+def test_trigger_contract_skeleton_generation__success(mock_post):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+    mock_post.return_value = MockResponse(status_code=200, json_object={"state": "completed"})
+
+    soda_cloud.trigger_contract_skeleton_generation(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
+    mock_post.assert_called_once_with(
+        url="https://dev.sodadata.io/api/command",
+        headers={"User-Agent": "SodaCore/4.0.0.b1"},
+        json={
+            "type": "sodaCoreGenerateContractSkeleton",
+            "datasetIdentifier": "test/some/schema/CUSTOMERS",
+            "token": "some_token",
+        }
+    )
+
+@mock.patch('requests.post')
+def test_trigger_contract_skeleton_generation__error(mock_post):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+    mock_post.return_value = MockResponse(status_code=400, json_object={"message": "error message"})
+
+    with pytest.raises(SodaCloudException):
+        soda_cloud.trigger_contract_skeleton_generation(dataset_identifier=DatasetIdentifier.parse("test/some/schema/CUSTOMERS"))
+
+    mock_post.assert_called_once_with(
+        url="https://dev.sodadata.io/api/command",
+        headers={"User-Agent": "SodaCore/4.0.0.b1"},
+        json={
+            "type": "sodaCoreGenerateContractSkeleton",
+            "datasetIdentifier": "test/some/schema/CUSTOMERS",
+            "token": "some_token",
+        }
+    )
