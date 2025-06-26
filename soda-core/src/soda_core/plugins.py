@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from importlib.metadata import entry_points
 from typing import Protocol, TypeVar, runtime_checkable
 
-from soda_core.cli.soda import cli_parser
+from soda_core.cli.cli import cli_parser
 
 logger = logging.getLogger(__name__)
 

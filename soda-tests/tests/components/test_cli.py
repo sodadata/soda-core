@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.cli.soda import create_cli_parser
+from soda_core.cli.cli import create_cli_parser
 
 # from soda_core.cli.soda import CLI
 
@@ -94,7 +94,7 @@ from soda_core.cli.soda import create_cli_parser
         ),
     ],
 )
-@patch("soda_core.cli.soda.handle_verify_contract")
+@patch("soda_core.cli.cli.handle_verify_contract")
 def test_cli_argument_mapping_for_contract_verify_command(mock_handler, args, expected):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = args
@@ -155,7 +155,7 @@ def test_verify_command_raises_exception_when_variables_are_incorrectly_formatte
     assert ExitCode.LOG_ERRORS == e.value.code
 
 
-@patch("soda_core.cli.soda.handle_publish_contract")
+@patch("soda_core.cli.cli.handle_publish_contract")
 def test_cli_argument_mapping_for_contract_publish_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
@@ -184,7 +184,7 @@ def test_cli_argument_mapping_for_contract_publish_command(mock_handler):
     )
 
 
-@patch("soda_core.cli.soda.handle_test_contract")
+@patch("soda_core.cli.cli.handle_test_contract")
 def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
@@ -211,7 +211,7 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     )
 
 
-@patch("soda_core.cli.soda.handle_create_data_source")
+@patch("soda_core.cli.cli.handle_create_data_source")
 def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
@@ -236,7 +236,7 @@ def test_cli_argument_mapping_for_data_source_create_command(mock_handler):
     mock_handler.assert_called_once_with("ds.yaml", "postgres")
 
 
-@patch("soda_core.cli.soda.handle_test_data_source")
+@patch("soda_core.cli.cli.handle_test_data_source")
 def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
@@ -259,7 +259,7 @@ def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
     mock_handler.assert_called_once_with("ds.yaml")
 
 
-@patch("soda_core.cli.soda.handle_create_soda_cloud")
+@patch("soda_core.cli.cli.handle_create_soda_cloud")
 def test_cli_argument_mapping_for_soda_cloud_create_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
@@ -282,7 +282,7 @@ def test_cli_argument_mapping_for_soda_cloud_create_command(mock_handler):
     mock_handler.assert_called_once_with("sc.yaml")
 
 
-@patch("soda_core.cli.soda.handle_test_soda_cloud")
+@patch("soda_core.cli.cli.handle_test_soda_cloud")
 def test_cli_argument_mapping_for_soda_cloud_test_command(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
