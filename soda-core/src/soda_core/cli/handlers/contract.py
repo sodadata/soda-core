@@ -42,6 +42,7 @@ def handle_verify_contract(
         return interpret_contract_verification_result(contract_verification_result)
 
     except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
+        soda_logger.exception(f"An unexpected exception occurred: {exc}")
         return ExitCode.LOG_ERRORS
 
 
@@ -88,7 +89,7 @@ def handle_publish_contract(
         soda_logger.error(f"Failed to parse contract: {exc}")
         return ExitCode.LOG_ERRORS
     except Exception as exc:
-        soda_logger.error(f"Failed to publish contract: {exc}")
+        soda_logger.exception(f"Failed to publish contract: {exc}")
         return ExitCode.LOG_ERRORS
 
 
@@ -152,7 +153,7 @@ def handle_fetch_contract(
                 return ExitCode.LOG_ERRORS
 
     except (InvalidArgumentException, Exception) as exc:
-        soda_logger.error(exc)
+        soda_logger.exception(exc)
         return ExitCode.LOG_ERRORS
 
 

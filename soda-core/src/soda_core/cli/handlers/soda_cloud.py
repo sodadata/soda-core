@@ -33,7 +33,7 @@ def handle_create_soda_cloud(soda_cloud_file_path: str) -> ExitCode:
         soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Created Soda Cloud configuration file '{soda_cloud_file_path}'")
         return ExitCode.OK
     except Exception as exc:
-        soda_logger.error(f"An unexpected exception occurred: {exc}")
+        soda_logger.exception(f"An unexpected exception occurred: {exc}")
         return ExitCode.LOG_ERRORS
 
 
