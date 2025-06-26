@@ -513,7 +513,11 @@ class ContractImpl:
                 contract.source.soda_cloud_file_id = file_id
                 # send_contract_result will use contract.source.soda_cloud_file_id
                 soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-                scan_id: Optional[str] = soda_cloud_response_json.get("scanId")
+
+                scan_id: Optional[str] = None
+                if soda_cloud_response_json:
+                    scan_id: Optional[str] = soda_cloud_response_json.get("scanId")
+
                 if not scan_id:
                     contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:

@@ -3,8 +3,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 
-def convert_datetime_to_str(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+def convert_datetime_to_str(dt: datetime) -> Optional[str]:
+    try:
+        return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+    except Exception as e:
+        return None
 
 
 def convert_str_to_datetime(date_string: str) -> Optional[datetime]:
@@ -22,5 +25,5 @@ def convert_str_to_datetime(date_string: str) -> Optional[datetime]:
             datetime_str_without_z_seconds = re.sub(r"\.(\d+)$", "", datetime_str_without_z)
             date_string = f"{datetime_str_without_z_seconds}+00:00"
         return datetime.fromisoformat(date_string)
-    except Exception as e:
+    except (Exception, AttributeError) as e:
         return None
