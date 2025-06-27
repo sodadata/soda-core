@@ -4,11 +4,7 @@ import logging
 
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    CheckResult,
-    Contract,
-)
+from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
     MultiColumnDuplicateCheckYaml,
@@ -107,10 +103,10 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {}
+        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
 
         distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
         if isinstance(distinct_count, Number):
@@ -140,7 +136,6 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             threshold_metric_name=self.metric_name,
@@ -265,10 +260,10 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {}
+        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
 
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
         if isinstance(distinct_count, Number):
@@ -298,7 +293,6 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             threshold_metric_name=self.metric_name,

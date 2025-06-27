@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import timezone
 from enum import Enum
 from io import StringIO
+from logging import LogRecord
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
@@ -355,6 +356,15 @@ class ContractImpl:
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
 
+        from soda_core.contracts.impl.check_types.row_count_check import (
+            RowCountMetricImpl,
+        )
+
+        self.row_count_metric_impl: MetricImpl = self.metrics_resolver.resolve_metric(
+            RowCountMetricImpl(contract_impl=self)
+        )
+        self.dataset_rows_tested: Optional[int] = None
+
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
 
@@ -445,11 +455,11 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractVerificationResult:
-        contract: Contract = self.build_contract()
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
-        contract_verification_status = ContractVerificationStatus.UNKNOWN
+        contract_verification_status: ContractVerificationStatus = ContractVerificationStatus.UNKNOWN
+        dataset_rows_tested: Optional[int] = None
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
@@ -462,60 +472,80 @@ class ContractImpl:
 
         if self.logs.has_errors():
             contract_verification_status = ContractVerificationStatus.ERROR
-        else:
+
+        elif not self.only_validate_without_execute:
             # Executing the queries will set the value of the metrics linked to queries
-            if not self.only_validate_without_execute:
-                for query in self.queries:
-                    query_measurements: list[Measurement] = query.execute()
-                    measurements.extend(query_measurements)
+            for query in self.queries:
+                query_measurements: list[Measurement] = query.execute()
+                measurements.extend(query_measurements)
+
+            measurement_values: MeasurementValues = MeasurementValues(measurements)
+
+            self.dataset_rows_tested = measurement_values.get_value(self.row_count_metric_impl)
 
             # Triggering the derived metrics to initialize their value based on their dependencies
             derived_metric_impls: list[DerivedMetricImpl] = [
                 derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedMetricImpl)
             ]
-            measurement_values: MeasurementValues = MeasurementValues(measurements)
-            if not self.only_validate_without_execute:
-                for derived_metric_impl in derived_metric_impls:
-                    measurement_values.derive_value(derived_metric_impl)
+            for derived_metric_impl in derived_metric_impls:
+                measurement_values.derive_value(derived_metric_impl)
 
             if self.data_source_impl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
-                    check_result: CheckResult = check_impl.evaluate(
-                        measurement_values=measurement_values, contract=contract
-                    )
+                    check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
             contract_verification_status = _get_contract_verification_status(self.logs.records, check_results)
 
+            logger.info(
+                self.build_log_summary(
+                    soda_qualified_dataset_name=self.soda_qualified_dataset_name, check_results=check_results
+                )
+            )
+
+        log_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
+
+        soda_cloud_file_id: Optional[str] = None
+        sending_results_to_soda_cloud_failed: bool = False
+        contract_yaml_source_str_original = self.contract_yaml.contract_yaml_source.yaml_str_original
+        soda_cloud_file_path: str = f"{self.soda_qualified_dataset_name.lower()}.yml"
+        soda_cloud_response_json: Optional[dict] = None
+
+        if self.soda_cloud and self.publish_results:
+            soda_cloud_file_id = self.soda_cloud.upload_contract_file(
+                contract_yaml_source_str=contract_yaml_source_str_original, soda_cloud_file_path=soda_cloud_file_path
+            )
+
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
-            contract=contract,
+            contract=Contract(
+                data_source_name=self.data_source_impl.name if self.data_source_impl else None,
+                dataset_prefix=self.dataset_prefix,
+                dataset_name=self.dataset_name,
+                soda_qualified_dataset_name=self.soda_qualified_dataset_name,
+                source=YamlFileContentInfo(
+                    source_content_str=contract_yaml_source_str_original,
+                    local_file_path=self.contract_yaml.contract_yaml_source.file_path,
+                    soda_cloud_file_id=soda_cloud_file_id,
+                ),
+            ),
             data_source=data_source,
             data_timestamp=self.data_timestamp,
             started_timestamp=self.started_timestamp,
             ended_timestamp=datetime.now(tz=timezone.utc),
             measurements=measurements,
             check_results=check_results,
-            sending_results_to_soda_cloud_failed=False,
+            sending_results_to_soda_cloud_failed=sending_results_to_soda_cloud_failed,
             status=contract_verification_status,
+            log_records=log_records,
         )
 
-        if not self.only_validate_without_execute:
-            logger.info(self.build_log_summary(contract_verification_result))
-
-        contract_verification_result.log_records = self.logs.pop_log_records()
-
-        soda_cloud_response_json: Optional[dict] = None
-        if self.soda_cloud and self.publish_results:
-            file_id: Optional[str] = self.soda_cloud.upload_contract_file(contract_verification_result.contract)
-            if file_id:
-                # Side effect to pass file id to console logging later on. TODO reconsider this
-                contract.source.soda_cloud_file_id = file_id
-                # send_contract_result will use contract.source.soda_cloud_file_id
-                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-                scan_id: Optional[str] = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-                if not scan_id:
-                    contract_verification_result.sending_results_to_soda_cloud_failed = True
+        if soda_cloud_file_id:
+            # send_contract_result will use contract.source.soda_cloud_file_id
+            soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+            scan_id: Optional[str] = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
+            if not scan_id:
+                contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -531,14 +561,14 @@ class ContractImpl:
 
         return contract_verification_result
 
-    def build_log_summary(self, contract_verification_result: ContractVerificationResult) -> str:
+    def build_log_summary(self, soda_qualified_dataset_name: str, check_results: list[CheckResult]) -> str:
         summary_lines: list[str] = []
 
         failed_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
 
-        for check_result in contract_verification_result.check_results:
+        for check_result in check_results:
             if check_result.is_failed:
                 failed_count += 1
             elif check_result.is_not_evaluated:
@@ -568,20 +598,16 @@ class ContractImpl:
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
-        summary_lines.append(
-            f"\n### Contract results for {contract_verification_result.contract.soda_qualified_dataset_name}"
-        )
-        summary_lines.append(self.build_summary_table(contract_verification_result))
+        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
+        summary_lines.append(self.build_summary_table(check_results))
 
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
         summary_lines.append(f"# Summary:\n{overview_table}\n")
 
         return "\n".join(summary_lines)
 
-    def build_summary_table(self, contract_verification_result: ContractVerificationResult) -> str:
-        overview_table_data = [
-            check_result.log_table_row() for check_result in contract_verification_result.check_results
-        ]
+    def build_summary_table(self, check_results: list[CheckResult]) -> str:
+        overview_table_data = [check_result.log_table_row() for check_result in check_results]
 
         # Sort by column name, check name and check outcome
         overview_table_data.sort(key=lambda row: (row["Column"], row["Check"], row["Outcome"]))
@@ -595,18 +621,6 @@ class ContractImpl:
                 previous_column_name = row["Column"]
 
         return tabulate(overview_table_data, headers="keys", tablefmt="grid")
-
-    def build_contract(self) -> Contract:
-        return Contract(
-            data_source_name=self.data_source_impl.name if self.data_source_impl else None,
-            dataset_prefix=self.dataset_prefix,
-            dataset_name=self.dataset_name,
-            soda_qualified_dataset_name=self.soda_qualified_dataset_name,
-            source=YamlFileContentInfo(
-                source_content_str=self.contract_yaml.contract_yaml_source.yaml_str_original,
-                local_file_path=self.contract_yaml.contract_yaml_source.file_path,
-            ),
-        )
 
     @classmethod
     def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl]):
@@ -1094,7 +1108,7 @@ class CheckImpl:
         return resolved_metric_impl
 
     @abstractmethod
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         pass
 
     def _build_check_info(self) -> Check:
@@ -1109,6 +1123,7 @@ class CheckImpl:
             contract_file_column=self.check_yaml.check_yaml_object.location.column,
             threshold=self._build_threshold(),
             attributes=self.attributes,
+            location=self.check_yaml.check_yaml_object.location,
         )
 
     @classmethod
