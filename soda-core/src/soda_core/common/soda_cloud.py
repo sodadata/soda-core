@@ -789,8 +789,12 @@ class SodaCloud:
                     is_retry=False,
                 )
             elif response.status_code != 200:
-                logger.error(
-                    f"Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
+                verbose_message: str = (
+                    "" if logger.isEnabledFor(logging.DEBUG) else "Enable verbose mode to see more details."
+                )
+                logger.error(f"Soda Cloud error for {request_type} `{request_log_name}`. {verbose_message}")
+                logger.debug(
+                    f"Status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
             else:
