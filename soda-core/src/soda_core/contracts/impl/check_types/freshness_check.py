@@ -117,7 +117,7 @@ class FreshnessCheckImpl(CheckImpl):
                 threshold_value = freshness_in_seconds / (60 * 60 * 24)
 
             if threshold_value is not None:
-                diagnostic_metric_values = {threshold_metric_name: threshold_value}
+                diagnostic_metric_values[threshold_metric_name] = threshold_value
 
             if self.threshold:
                 if self.threshold.passes(threshold_value):

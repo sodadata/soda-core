@@ -77,12 +77,6 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 
     data_source_test_helper.enable_soda_cloud_mock(
         [
-            # MockResponse(
-            #     status_code=200,
-            #     json_object={
-            #       "allowed": True,
-            #     }
-            # ),
             MockResponse(status_code=200, json_object={"fileId": "777ggg"})
         ]
     )

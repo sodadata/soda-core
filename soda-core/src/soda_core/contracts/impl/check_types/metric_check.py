@@ -13,6 +13,7 @@ from soda_core.contracts.contract_verification import (
     Measurement,
 )
 from soda_core.contracts.impl.check_types.metric_check_yaml import MetricCheckYaml
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -78,6 +79,9 @@ class MetricCheckImpl(CheckImpl):
                     sql=self.metric_check_yaml.query,
                 )
                 self.queries.append(metric_query)
+        self.row_count_metric_impl: MetricImpl = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+        )
 
     def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
@@ -85,7 +89,9 @@ class MetricCheckImpl(CheckImpl):
         metric_name: str = "metric_value"
         numeric_metric_value: Optional[Number] = measurement_values.get_value(self.numeric_metric_impl)
 
-        diagnostic_metric_values: dict[str, float] = {}
+        diagnostic_metric_values: dict[str, float] = {
+            "row_count": measurement_values.get_value(self.row_count_metric_impl),
+        }
 
         if isinstance(numeric_metric_value, Number):
             diagnostic_metric_values[metric_name] = numeric_metric_value
