@@ -9,7 +9,6 @@ from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
-    Contract,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
@@ -97,10 +96,10 @@ class FailedRowsCheckImpl(CheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {}
+        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
 
         metric_name: str = "failed_rows_count"
 
@@ -126,7 +125,6 @@ class FailedRowsCheckImpl(CheckImpl):
                     outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             threshold_metric_name=metric_name,

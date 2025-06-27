@@ -6,14 +6,8 @@ from math import floor
 
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import (
-    Check,
-    CheckOutcome,
-    CheckResult,
-    Contract,
-)
+from soda_core.contracts.contract_verification import Check, CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.freshness_check_yaml import FreshnessCheckYaml
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
@@ -84,16 +78,14 @@ class FreshnessCheckImpl(CheckImpl):
             RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         max_timestamp: Optional[datetime] = self._get_max_timestamp(measurement_values)
         max_timestamp_utc: Optional[datetime] = self._get_max_timestamp_utc(max_timestamp)
         data_timestamp: datetime = self._get_now_timestamp()
         data_timestamp_utc: datetime = self._get_now_timestamp_utc(data_timestamp)
-        diagnostic_metric_values: dict[str, float] = {
-            "row_count": measurement_values.get_value(self.row_count_metric_impl),
-        }
+        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
         freshness: Optional[timedelta] = None
         freshness_in_seconds: Optional[int] = None
         threshold_metric_name: str = f"freshness_in_{self.unit}s"
@@ -117,7 +109,7 @@ class FreshnessCheckImpl(CheckImpl):
                 threshold_value = freshness_in_seconds / (60 * 60 * 24)
 
             if threshold_value is not None:
-                diagnostic_metric_values = {threshold_metric_name: threshold_value}
+                diagnostic_metric_values[threshold_metric_name] = threshold_value
 
             if self.threshold:
                 if self.threshold.passes(threshold_value):
@@ -128,7 +120,6 @@ class FreshnessCheckImpl(CheckImpl):
         freshness_str: Optional[str] = str(freshness) if freshness is not None else None
 
         return FreshnessCheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             threshold_metric_name=threshold_metric_name,
@@ -234,7 +225,6 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
 class FreshnessCheckResult(CheckResult):
     def __init__(
         self,
-        contract: Contract,
         check: Check,
         outcome: CheckOutcome,
         threshold_metric_name: str,
@@ -248,7 +238,6 @@ class FreshnessCheckResult(CheckResult):
         unit: Optional[str],
     ):
         super().__init__(
-            contract=contract,
             check=check,
             outcome=outcome,
             threshold_metric_name=threshold_metric_name,
@@ -262,28 +251,28 @@ class FreshnessCheckResult(CheckResult):
         self.freshness_in_seconds: Optional[int] = freshness_in_seconds
         self.unit: Optional[str] = unit
 
-    def log_summary(self, logs: Logs) -> None:
-        super().log_summary(logs)
-
-        if self.max_timestamp is None:
-            logger.info("  Max timestamp has no value. Did the table or partition have rows?")
-        elif isinstance(self.max_timestamp, datetime):
-            logger.debug(f"  Max timestamp was {self.max_timestamp}")
-        else:
-            logger.error(
-                f"  Invalid data type for max timestamp ({type(self.max_timestamp).__name__}). "
-                f"Is the column a timestamp?"
-            )
-        if isinstance(self.max_timestamp_utc, datetime):
-            logger.info(f"  Max timestamp in UTC was {self.max_timestamp_utc}")
-        if isinstance(self.data_timestamp, datetime):
-            logger.debug(f"  Data timestamp was {self.data_timestamp}")
-        if isinstance(self.data_timestamp_utc, datetime):
-            logger.info(f"  Data timestamp in UTC was {self.data_timestamp_utc}")
-
-        if isinstance(self.freshness, str):
-            logger.debug(f"  Freshness was {self.freshness}")
-        if isinstance(self.freshness, str):
-            logger.debug(f"  Freshness in seconds was {self.freshness_in_seconds}")
-        if isinstance(self.unit, str):
-            logger.debug(f"  Unit was {self.unit}")
+    # def log_summary(self, logs: Logs) -> None:
+    #     super().log_summary(logs)
+    #
+    #     if self.max_timestamp is None:
+    #         logger.info("  Max timestamp has no value. Did the table or partition have rows?")
+    #     elif isinstance(self.max_timestamp, datetime):
+    #         logger.debug(f"  Max timestamp was {self.max_timestamp}")
+    #     else:
+    #         logger.error(
+    #             f"  Invalid data type for max timestamp ({type(self.max_timestamp).__name__}). "
+    #             f"Is the column a timestamp?"
+    #         )
+    #     if isinstance(self.max_timestamp_utc, datetime):
+    #         logger.info(f"  Max timestamp in UTC was {self.max_timestamp_utc}")
+    #     if isinstance(self.data_timestamp, datetime):
+    #         logger.debug(f"  Data timestamp was {self.data_timestamp}")
+    #     if isinstance(self.data_timestamp_utc, datetime):
+    #         logger.info(f"  Data timestamp in UTC was {self.data_timestamp_utc}")
+    #
+    #     if isinstance(self.freshness, str):
+    #         logger.debug(f"  Freshness was {self.freshness}")
+    #     if isinstance(self.freshness, str):
+    #         logger.debug(f"  Freshness in seconds was {self.freshness_in_seconds}")
+    #     if isinstance(self.unit, str):
+    #         logger.debug(f"  Unit was {self.unit}")
