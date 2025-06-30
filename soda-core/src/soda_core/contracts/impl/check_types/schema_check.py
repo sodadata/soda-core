@@ -16,7 +16,6 @@ from soda_core.contracts.contract_verification import (
     Check,
     CheckOutcome,
     CheckResult,
-    Contract,
     Measurement,
     Threshold,
 )
@@ -107,7 +106,7 @@ class SchemaCheckImpl(CheckImpl):
             )
             self.queries.append(schema_query)
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         expected_column_names_not_actual: list[str] = []
@@ -175,7 +174,6 @@ class SchemaCheckImpl(CheckImpl):
             )
 
         return SchemaCheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             expected_columns=self.expected_columns,
@@ -229,7 +227,6 @@ class SchemaQuery(Query):
 class SchemaCheckResult(CheckResult):
     def __init__(
         self,
-        contract: Contract,
         check: Check,
         outcome: CheckOutcome,
         expected_columns: list[ColumnMetadata],
@@ -249,7 +246,6 @@ class SchemaCheckResult(CheckResult):
         diagnostic_metric_values = {"schema_events_count": schema_events}
 
         super().__init__(
-            contract=contract,
             check=check,
             outcome=outcome,
             threshold_metric_name="schema_events_count",

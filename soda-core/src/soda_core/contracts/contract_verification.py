@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 
 logger: logging.Logger = soda_logger
@@ -198,18 +199,17 @@ class Check:
     contract_file_column: int
     threshold: Optional[Threshold]
     attributes: Optional[dict[str, Any]]
+    location: Optional[Location]
 
 
 class CheckResult:
     def __init__(
         self,
-        contract: Contract,
         check: Check,
         outcome: CheckOutcome,
         threshold_metric_name: Optional[str] = None,
         diagnostic_metric_values: Optional[dict[str, float]] = None,
     ):
-        self.contract: Contract = contract
         self.check: Check = check
         self.threshold_metric_name: Optional[str] = threshold_metric_name
         self.outcome: CheckOutcome = outcome

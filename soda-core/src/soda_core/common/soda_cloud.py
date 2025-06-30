@@ -214,10 +214,8 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def upload_contract_file(self, contract: Contract) -> Optional[str]:
-        contract_yaml_source_str = contract.source.source_content_str
+    def upload_contract_file(self, contract_yaml_source_str: str, soda_cloud_file_path: str) -> Optional[str]:
         logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
-        soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         return self._upload_scan_yaml_file(yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path)
 
     def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[dict]:
@@ -789,8 +787,12 @@ class SodaCloud:
                     is_retry=False,
                 )
             elif response.status_code != 200:
+                verbose_message: str = (
+                    "" if logger.isEnabledFor(logging.DEBUG) else "Enable verbose mode to see more details."
+                )
+                logger.error(f"Soda Cloud error for {request_type} `{request_log_name}`. {verbose_message}")
                 logger.debug(
-                    f"Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
+                    f"Status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
             else:
@@ -922,10 +924,16 @@ def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
 
 
-def _build_check_results_cloud_json_dicts(check_results: Optional[list[CheckResult]]) -> Optional[list[dict]]:
+def _build_check_results_cloud_json_dicts(
+    contract_verification_result: ContractVerificationResult,
+) -> Optional[list[dict]]:
+    check_results: Optional[list[CheckResult]] = contract_verification_result.check_results
+    contract: Contract = contract_verification_result.contract
     if not check_results:
         return None
-    return [_build_check_result_cloud_dict(check_result) for check_result in check_results]
+    return [
+        _build_check_result_cloud_dict(contract=contract, check_result=check_result) for check_result in check_results
+    ]
 
 
 def _build_scan_definition_name(contract_verification_result: ContractVerificationResult) -> str:
@@ -956,24 +964,28 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "hasErrors": contract_verification_result.has_errors(),
             "hasWarnings": False,
             "hasFailures": contract_verification_result.is_failed(),
-            "checks": _build_check_results_cloud_json_dicts(contract_verification_result.check_results),
+            "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
-            "contract": {
-                "fileId": contract_verification_result.contract.source.soda_cloud_file_id,
-                "metadata": {
-                    "source": {
-                        "type": "local",
-                        # TODO: make contract metadata verification optional on BE?
-                        "filePath": contract_verification_result.contract.source.local_file_path or "REMOTE",
-                    }
-                },
-            },
+            "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
         }
     )
 
 
-def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
+def _build_contract_cloud_json_dict(contract: Contract):
+    return {
+        "fileId": contract.source.soda_cloud_file_id,
+        "metadata": {
+            "source": {
+                "type": "local",
+                # TODO: make contract metadata verification optional on BE?
+                "filePath": contract.source.local_file_path or "REMOTE",
+            }
+        },
+    }
+
+
+def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
         "checkPath": _build_check_path(check_result),
@@ -983,9 +995,9 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
         "definition": check_result.check.definition,
         **_build_check_attributes(check_result.check.attributes).model_dump(by_alias=True),
         "location": _build_check_location(check_result),
-        "dataSource": check_result.contract.data_source_name,
-        "table": check_result.contract.dataset_name,
-        "datasetPrefix": check_result.contract.dataset_prefix,
+        "dataSource": contract.data_source_name,
+        "table": contract.dataset_name,
+        "datasetPrefix": contract.dataset_prefix,
         "column": check_result.check.column_name,
         "outcome": _build_check_outcome_for_soda_cloud(check_result.outcome),
         "source": "soda-contract",
@@ -995,18 +1007,14 @@ def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
 
 def _build_check_location(check_result: CheckResult) -> dict:
     return {
-        "filePath": _build_file_path(check_result),
+        "filePath": _build_file_path(check_result.check.location),
         "line": check_result.check.contract_file_line,
         "col": check_result.check.contract_file_column,
     }
 
 
-def _build_file_path(check_result: CheckResult) -> str:
-    return (
-        check_result.contract.source.local_file_path
-        if isinstance(check_result.contract.source.local_file_path, str)
-        else "yamlstr.yml"
-    )
+def _build_file_path(location: Location) -> str:
+    return location.file_path if isinstance(location.file_path, str) else "yamlstr.yml"
 
 
 def _build_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
@@ -1034,61 +1042,75 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
 
     if check_result.check.type == "missing":
         return {
-            "type": "missing",
+            "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("missing_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("missing_percent"),
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
         }
     elif check_result.check.type == "invalid":
         return {
-            "type": "invalid",
+            "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("invalid_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("invalid_percent"),
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
         }
     elif check_result.check.type == "duplicate":
         return {
-            "type": "invalid",
+            "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("duplicate_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("duplicate_percent"),
-            "totalRowsTested": check_result.diagnostic_metric_values.get("valid_count"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
         }
     elif check_result.check.type == "failed_rows":
         return {
-            "type": "invalid",
+            "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            # There is no check filter allowed for failed rows so no check rows tested is needed
         }
     elif check_result.check.type == "aggregate":
         return {
-            "type": "aggregate",
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "type": check_result.check.type,
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            # We skip the checkRowsTested because it causes extra compute.
+            # To be re-evaluated when we have users asking for it.
         }
     elif check_result.check.type == "metric":
         return {
-            "type": "metric",
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "type": check_result.check.type,
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
         }
     elif check_result.check.type == "row_count":
         return {
-            "type": "rowCount",
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "type": check_result.check.type,
+            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
         }
     elif isinstance(check_result, SchemaCheckResult):
         return {
-            "type": "schema",
+            "type": check_result.check.type,
             "expected": [_build_schema_column(expected) for expected in check_result.expected_columns],
             "actual": [_build_schema_column(actual) for actual in check_result.actual_columns],
+            # To be added later if we need it
+            # "actualColumnsNotExpected": [...],
+            # "expectedColumnsNotActual": [...],
+            # "columnDataTypeMismatches": [...],
         }
     elif isinstance(check_result, FreshnessCheckResult):
         return {
             "type": "freshness",
+            # Check the console logs!
             "actualTimestamp": convert_datetime_to_str(check_result.max_timestamp),
             "actualTimestampUtc": convert_datetime_to_str(check_result.max_timestamp_utc),
             "expectedTimestamp": convert_datetime_to_str(check_result.data_timestamp),
             "expectedTimestampUtc": convert_datetime_to_str(check_result.data_timestamp_utc),
-            "totalRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            # We skip the checkRowsTested because it causes extra compute.
+            # To be re-evaluated when we have users asking for it.
         }
     raise SodaException(f"Invalid check type: {type(check_result.check).__name__}")
 

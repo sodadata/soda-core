@@ -9,7 +9,6 @@ from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
-    Contract,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.metric_check_yaml import MetricCheckYaml
@@ -79,13 +78,13 @@ class MetricCheckImpl(CheckImpl):
                 )
                 self.queries.append(metric_query)
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         metric_name: str = "metric_value"
         numeric_metric_value: Optional[Number] = measurement_values.get_value(self.numeric_metric_impl)
 
-        diagnostic_metric_values: dict[str, float] = {}
+        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
 
         if isinstance(numeric_metric_value, Number):
             diagnostic_metric_values[metric_name] = numeric_metric_value
@@ -97,7 +96,6 @@ class MetricCheckImpl(CheckImpl):
                     outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             threshold_metric_name=metric_name,
