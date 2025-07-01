@@ -1306,6 +1306,8 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
 
     def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
         fraction: int = measurement_values.get_value(self.fraction_metric_impl)
+        if fraction is None:
+            return 0
         total: int = measurement_values.get_value(self.total_metric_impl)
         return (fraction * 100 / total) if total != 0 else 0
 
