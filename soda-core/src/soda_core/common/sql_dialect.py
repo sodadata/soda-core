@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from datetime import date, datetime
 from numbers import Number
 from textwrap import dedent, indent
@@ -86,7 +85,9 @@ class SqlDialect:
         return "TRUE" if boolean is True else "FALSE"
 
     def escape_string(self, value: str):
-        return re.sub(r"(\\.)", r"\\\1", value)
+        # string_literal: str = re.sub(r"(\\.)", r"\\\1", value)
+        string_literal: str = value.replace("'", "''")
+        return string_literal
 
     def escape_regex(self, value: str):
         return value
