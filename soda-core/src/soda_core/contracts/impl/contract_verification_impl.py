@@ -1151,9 +1151,22 @@ class CheckImpl:
         return "/".join(parts)
 
     def _build_definition(self) -> str:
+        source_contract_yaml_dict: dict = self.contract_impl.contract_yaml.contract_yaml_object.yaml_dict
+
+        contract_dict: dict = {}
+        if "filter" in source_contract_yaml_dict:
+            contract_dict["filter"] = source_contract_yaml_dict.get("filter")
+
+        check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
+
+        if self.column_impl:
+            contract_dict["columns"] = [{"name": self.column_impl.column_yaml.name, "checks": [check_dict]}]
+        else:
+            contract_dict["checks"] = [check_dict]
+
         text_stream = StringIO()
         yaml = YAML()
-        yaml.dump(self.check_yaml.check_yaml_object.to_dict(), text_stream)
+        yaml.dump(contract_dict, text_stream)
         text_stream.seek(0)
         return text_stream.read()
 
