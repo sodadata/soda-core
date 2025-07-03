@@ -111,7 +111,7 @@ class FailedRowsCheckImpl(CheckImpl):
             diagnostic_metric_values[metric_name] = query_metric_value
 
             row_count_metric_value: Optional[Number] = measurement_values.get_value(self.row_count_metric_impl)
-            diagnostic_metric_values["row_count"] = row_count_metric_value
+            diagnostic_metric_values["check_rows_tested"] = row_count_metric_value
 
             failed_rows_percent_metric_value: Optional[Number] = measurement_values.get_value(
                 self.failed_rows_percent_metric_impl

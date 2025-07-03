@@ -122,7 +122,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         row_count: int = measurement_values.get_value(self.row_count_metric)
         invalid_percent: float = 0
         if isinstance(row_count, Number):
-            diagnostic_metric_values["row_count"] = row_count
+            diagnostic_metric_values["check_rows_tested"] = row_count
 
             if row_count > 0:
                 invalid_percent = measurement_values.get_value(self.invalid_percent_metric)

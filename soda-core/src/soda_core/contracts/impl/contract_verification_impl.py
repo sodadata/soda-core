@@ -643,6 +643,10 @@ class ContractImpl:
                 )
             checks_by_identity[check_impl.identity] = check_impl
 
+    @classmethod
+    def compute_data_quality_score(cls, total_failed_rows_count: int, total_rows_count: int) -> float:
+        return 100 - (total_failed_rows_count * 100 / total_rows_count)
+
 
 def _get_contract_verification_status(
     log_records: list[logging.LogRecord], check_results: list[CheckResult]
@@ -1151,11 +1155,9 @@ class CheckImpl:
         return "/".join(parts)
 
     def _build_definition(self) -> str:
-        source_contract_yaml_dict: dict = self.contract_impl.contract_yaml.contract_yaml_object.yaml_dict
-
         contract_dict: dict = {}
-        if "filter" in source_contract_yaml_dict:
-            contract_dict["filter"] = source_contract_yaml_dict.get("filter")
+        if self.contract_impl.contract_yaml.filter:
+            contract_dict["filter"] = self.contract_impl.contract_yaml.filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 

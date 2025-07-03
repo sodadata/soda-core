@@ -52,7 +52,7 @@ def test_row_count_with_check_filter(data_source_test_helper: DataSourceTestHelp
 
     assert get_diagnostic_value(
             check_result=contract_verification_result.check_results[0],
-            diagnostic_name="row_count"
+            diagnostic_name="check_rows_tested"
         ) == 2
 
 

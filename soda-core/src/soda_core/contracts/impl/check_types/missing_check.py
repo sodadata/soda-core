@@ -79,7 +79,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         diagnostic_metric_values["missing_count"] = missing_count
 
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-        diagnostic_metric_values["row_count"] = row_count
+        diagnostic_metric_values["check_rows_tested"] = row_count
 
         missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
         diagnostic_metric_values["missing_percent"] = missing_percent

@@ -74,7 +74,7 @@ class FreshnessCheckImpl(CheckImpl):
                 unit=self.unit,
             )
         )
-        self.row_count_metric_impl: MetricImpl = self._resolve_metric(
+        self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
             RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
         )
 
@@ -85,7 +85,12 @@ class FreshnessCheckImpl(CheckImpl):
         max_timestamp_utc: Optional[datetime] = self._get_max_timestamp_utc(max_timestamp)
         data_timestamp: datetime = self._get_now_timestamp()
         data_timestamp_utc: datetime = self._get_now_timestamp_utc(data_timestamp)
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
+
+        check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        diagnostic_metric_values: dict[str, float] = {
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "check_rows_tested": check_rows_tested,
+        }
         freshness: Optional[timedelta] = None
         freshness_in_seconds: Optional[int] = None
         threshold_metric_name: str = f"freshness_in_{self.unit}s"

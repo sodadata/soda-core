@@ -45,8 +45,10 @@ def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
     check_result: CheckResult = contract_verification_result.check_results[0]
     assert get_diagnostic_value(check_result, "distinct_count") == 9
     assert get_diagnostic_value(check_result, "duplicate_count") == 0
-    assert get_diagnostic_value(check_result, "valid_count") == 9
+    assert get_diagnostic_value(check_result, "missing_count") == 1
     assert get_diagnostic_value(check_result, "duplicate_percent") == 0
+    assert get_diagnostic_value(check_result, "dataset_rows_tested") == 10
+    assert get_diagnostic_value(check_result, "check_rows_tested") == 10
 
 
 def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):
@@ -146,13 +148,12 @@ def test_duplicate_with_column_missing_and_validity(data_source_test_helper: Dat
             columns:
               - name: age
                 missing_values: [2]
-                valid_values: [1, 2, 3]
                 checks:
                   - duplicate:
             """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "duplicate_count") == 3
+    assert get_diagnostic_value(check_result, "duplicate_count") == 4
 
 
 def test_duplicate_with_check_missing_and_validity_and_filter(data_source_test_helper: DataSourceTestHelper):
@@ -165,8 +166,6 @@ def test_duplicate_with_check_missing_and_validity_and_filter(data_source_test_h
               - name: age
                 checks:
                   - duplicate:
-                      missing_values: [2]
-                      valid_values: [1, 2, 3]
                       filter: |
                         {data_source_test_helper.quote_column("country")} = 'BE'
             """,
