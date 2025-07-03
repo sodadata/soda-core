@@ -272,28 +272,26 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
-
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
-
-        threshold_value: Optional[Number] = None
+        duplicate_count: int = 0
+        duplicate_percent: float = 0
 
         if isinstance(row_count, Number) and isinstance(distinct_count, Number):
-            duplicate_count: int = row_count - distinct_count
-            diagnostic_metric_values["duplicate_count"] = duplicate_count
+            duplicate_count = row_count - distinct_count
+            if row_count > 0:
+                duplicate_percent = duplicate_count * 100 / row_count
 
-            duplicate_percent: float = 0
-            if isinstance(row_count, Number):
-                diagnostic_metric_values["check_rows_tested"] = row_count
+        diagnostic_metric_values: dict[str, float] = {
+            "duplicate_count": duplicate_count,
+            "duplicate_percent": duplicate_percent,
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
-                if row_count > 0:
-                    duplicate_percent = duplicate_count * 100 / row_count
-                diagnostic_metric_values["duplicate_percent"] = duplicate_percent
-
-                threshold_value: Optional[Number] = (
-                    duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
-                )
+        threshold_value: Optional[Number] = (
+            duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
+        )
 
         if self.threshold and isinstance(threshold_value, Number):
             if self.threshold.passes(threshold_value):
