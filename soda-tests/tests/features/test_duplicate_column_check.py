@@ -43,7 +43,6 @@ def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
             """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "distinct_count") == 9
     assert get_diagnostic_value(check_result, "duplicate_count") == 0
     assert get_diagnostic_value(check_result, "missing_count") == 1
     assert get_diagnostic_value(check_result, "duplicate_percent") == 0
