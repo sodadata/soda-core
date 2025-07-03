@@ -1030,7 +1030,7 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
         #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
         "value": check_result.get_threshold_value() or 0,
         "fail": _build_fail_threshold(check_result),
-        "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
+        # "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
 
 
