@@ -77,7 +77,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        function_value: Optional[Number] = measurement_values.get_value(self.aggregate_metric)
+        function_value: Optional[float | int] = measurement_values.get_value(self.aggregate_metric)
         check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric)
 
         diagnostic_metric_values: dict[str, float] = {
@@ -97,7 +97,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.function,
+            threshold_value=function_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

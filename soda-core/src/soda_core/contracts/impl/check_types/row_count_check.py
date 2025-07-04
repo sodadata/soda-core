@@ -77,7 +77,7 @@ class RowCountCheckImpl(CheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.row_count_metric.type,
+            threshold_value=row_count,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

@@ -1,4 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
@@ -36,12 +37,47 @@ test_table_specification = (
 def test_dataset_duplicate(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    data_source_test_helper.enable_soda_cloud_mock([
+        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+    ])
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str="""
             checks:
               - duplicate:
                   columns: ['rep', 'country', 'zip']
+            """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+
+    multicolumn_duplicate_diagnostics: dict = check_json["diagnostics"]["v4"]
+    assert 15 < multicolumn_duplicate_diagnostics["failedRowsPercent"] < 16
+    del multicolumn_duplicate_diagnostics["failedRowsPercent"]
+
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "duplicate",
+        "failedRowsCount": 2,
+        # "failedRowsPercent": 15.384615384615385, # float value tested and removed above
+        "datasetRowsTested": 13,
+        "checkRowsTested": 13,
+    }
+
+
+def test_dataset_duplicate_percent(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - duplicate:
+                  columns: ['rep', 'country', 'zip']
+                  threshold:
+                    metric: percent
+                    must_be_greater_than: 10
             """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]

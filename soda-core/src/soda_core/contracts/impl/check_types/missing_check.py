@@ -95,7 +95,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

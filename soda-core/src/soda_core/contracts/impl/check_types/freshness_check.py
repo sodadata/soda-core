@@ -127,7 +127,7 @@ class FreshnessCheckImpl(CheckImpl):
         return FreshnessCheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=threshold_metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
             max_timestamp=max_timestamp,
             max_timestamp_utc=max_timestamp_utc,
@@ -232,7 +232,7 @@ class FreshnessCheckResult(CheckResult):
         self,
         check: Check,
         outcome: CheckOutcome,
-        threshold_metric_name: str,
+        threshold_value: Optional[float | int],
         diagnostic_metric_values: Optional[dict[str, float]],
         max_timestamp: Optional[datetime],
         max_timestamp_utc: Optional[datetime],
@@ -245,7 +245,7 @@ class FreshnessCheckResult(CheckResult):
         super().__init__(
             check=check,
             outcome=outcome,
-            threshold_metric_name=threshold_metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
         self.max_timestamp: Optional[datetime] = max_timestamp

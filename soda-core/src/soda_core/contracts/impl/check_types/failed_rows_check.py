@@ -21,7 +21,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     CheckParser,
     ColumnImpl,
     ContractImpl,
-    DerivedPercentageMetricImpl,
     MeasurementValues,
     MetricImpl,
     Query,
@@ -67,67 +66,82 @@ class FailedRowsCheckImpl(CheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
-        self.query_metric_impl: Optional[MetricImpl] = None
+        self.failed_rows_count_metric_impl: Optional[MetricImpl] = None
         if self.failed_rows_check_yaml.expression:
-            self.query_metric_impl = self._resolve_metric(
+            self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            )
+            self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+                RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
 
         elif self.failed_rows_check_yaml.query:
-            self.query_metric_impl = self._resolve_metric(
+            self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
             if contract_impl.data_source_impl:
                 failed_rows_count_query: Query = FailedRowsCountQuery(
                     data_source_impl=contract_impl.data_source_impl,
-                    metrics=[self.query_metric_impl],
+                    metrics=[self.failed_rows_count_metric_impl],
                     failed_rows_query=self.failed_rows_check_yaml.query,
                 )
                 self.queries.append(failed_rows_count_query)
 
-        self.row_count_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
-        )
-        self.failed_rows_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
-            DerivedPercentageMetricImpl(
-                metric_type="failed_rows_percent",
-                fraction_metric_impl=self.query_metric_impl,
-                total_metric_impl=self.row_count_metric_impl,
-            )
-        )
-
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
+        failed_rows_count: Optional[int] = measurement_values.get_value(self.failed_rows_count_metric_impl)
 
-        metric_name: str = "failed_rows_count"
+        diagnostic_metric_values: dict[str, float] = {}
+        threshold_value: Optional[float] = None
+        threshold_metric_name = "failed_rows_count"
 
-        query_metric_value: Optional[Number] = (
-            measurement_values.get_value(self.query_metric_impl) if self.query_metric_impl else None
-        )
+        if self.failed_rows_check_yaml.expression:
+            check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
+            failed_rows_percent: Optional[float] = 0
+            if (
+                isinstance(check_rows_tested, Number)
+                and isinstance(failed_rows_count, Number)
+                and check_rows_tested > 0
+            ):
+                failed_rows_percent = failed_rows_count * 100 / check_rows_tested
 
-        if isinstance(query_metric_value, Number):
-            diagnostic_metric_values[metric_name] = query_metric_value
+            if self.failed_rows_check_yaml.metric == "percent":
+                threshold_value = failed_rows_percent
+                threshold_metric_name = "failed_rows_percent"
+            else:
+                threshold_value = failed_rows_count
 
-            row_count_metric_value: Optional[Number] = measurement_values.get_value(self.row_count_metric_impl)
-            diagnostic_metric_values["check_rows_tested"] = row_count_metric_value
+            diagnostic_metric_values = {
+                "failed_rows_count": failed_rows_count,
+                "failed_rows_percent": failed_rows_percent,
+                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                "check_rows_tested": check_rows_tested,
+            }
 
-            failed_rows_percent_metric_value: Optional[Number] = measurement_values.get_value(
-                self.failed_rows_percent_metric_impl
-            )
-            diagnostic_metric_values["failed_rows_percent"] = failed_rows_percent_metric_value
+        elif self.failed_rows_check_yaml.query:
+            threshold_value = failed_rows_count
 
-            if self.threshold:
-                if self.threshold.passes(query_metric_value):
-                    outcome = CheckOutcome.PASSED
-                else:
-                    outcome = CheckOutcome.FAILED
+            diagnostic_metric_values = {
+                "failed_rows_count": failed_rows_count,
+                # TODO remove these 3 after
+                # https://linear.app/sodadata/issue/DTL-922/fix-backend-diagnostics-mismatches-from-core
+                # is done
+                "failed_rows_percent": 0,
+                "dataset_rows_tested": 0,
+                "check_rows_tested": 0,
+            }
+
+        if self.threshold and isinstance(threshold_value, Number):
+            if self.threshold.passes(threshold_value):
+                outcome = CheckOutcome.PASSED
+            else:
+                outcome = CheckOutcome.FAILED
 
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

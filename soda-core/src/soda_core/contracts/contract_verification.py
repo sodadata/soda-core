@@ -207,11 +207,11 @@ class CheckResult:
         self,
         check: Check,
         outcome: CheckOutcome,
-        threshold_metric_name: Optional[str] = None,
+        threshold_value: Optional[float | int] = None,
         diagnostic_metric_values: Optional[dict[str, float]] = None,
     ):
         self.check: Check = check
-        self.threshold_metric_name: Optional[str] = threshold_metric_name
+        self.threshold_value: Optional[float | int] = threshold_value
         self.outcome: CheckOutcome = outcome
         self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
 
@@ -287,12 +287,6 @@ class CheckResult:
             if significant_numbers_after_comma > 2:
                 return n_str[:index]
         return n_str
-
-    def get_threshold_value(self) -> Optional[Number]:
-        if self.threshold_metric_name and self.diagnostic_metric_values:
-            v = self.diagnostic_metric_values.get(self.threshold_metric_name)
-            if isinstance(v, Number):
-                return v
 
 
 class Measurement:

@@ -139,12 +139,12 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
                     "fail": {
                         "greaterThan": 2
                     },
-                    # "v4": {
-                    #     "type": "missing",
-                    #     "failedRowsCount": 2,
-                    #     "failedRowsPercent": 50.0,
-                    #     "datasetRowsTested": 4,
-                    # }
+                    "v4": {
+                        "type": "missing",
+                        "failedRowsCount": 2,
+                        "failedRowsPercent": 50.0,
+                        "datasetRowsTested": 4,
+                    }
                 }
             },
             {
@@ -155,12 +155,12 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
                     "fail": {
                         "greaterThan": 5
                     },
-                    # "v4": {
-                    #     "type": "missing",
-                    #     "failedRowsCount": 2,
-                    #     "failedRowsPercent": 50.0,
-                    #     "datasetRowsTested": 4,
-                    # }
+                    "v4": {
+                        "type": "missing",
+                        "failedRowsCount": 2,
+                        "failedRowsPercent": 50.0,
+                        "datasetRowsTested": 4,
+                    }
                 }
             },
             {

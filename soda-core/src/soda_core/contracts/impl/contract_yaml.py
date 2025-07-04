@@ -591,7 +591,7 @@ class ThresholdCheckYaml(CheckYaml):
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:
             self.metric = self.read_metric(threshold_yaml_object)
-            self.unit = threshold_yaml_object.read_string_opt("unit")
+            self.unit = self.read_unit(threshold_yaml_object)
             self.threshold = ThresholdYaml(threshold_yaml_object)
 
     def read_metric(self, check_yaml_object: YamlObject) -> Optional[str]:
@@ -616,10 +616,15 @@ class ThresholdCheckYaml(CheckYaml):
     def read_unit(self, check_yaml_object: YamlObject) -> Optional[str]:
         unit: Optional[str] = check_yaml_object.read_string_opt("unit")
         if unit:
-            valid_units: list[str] = self.get_valid_metrics()
+            valid_units: list[str] = self.get_valid_units()
+            if len(valid_units) == 0:
+                logger.error(
+                    msg=f"'unit' not allowed",
+                    extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+                )
             if unit not in valid_units:
                 logger.error(
-                    msg=f"'metric' must be in {valid_units}",
+                    msg=f"'metric' must be in {valid_units}, but was {unit}",
                     extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("unit")},
                 )
         return unit

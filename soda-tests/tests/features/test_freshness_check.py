@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
@@ -15,7 +16,7 @@ test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("freshness")
     .column_integer("id")
-    .column_timestamp("created_at")
+    .column_timestamp_tz("created_at")
     .rows(
         rows=[
             (1, datetime(year=2025, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone.utc)),
@@ -33,6 +34,10 @@ test_table_specification = (
 def test_freshness(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    data_source_test_helper.enable_soda_cloud_mock([
+        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+    ])
+
     contract_yaml_str: str = f"""
         checks:
           - freshness:
@@ -41,19 +46,30 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
                 must_be_less_than: 2
     """
 
-    with freeze_time(datetime(year=2025, month=1, day=4, hour=10, minute=0, second=0)):
+    with freeze_time(datetime(year=2025, month=1, day=4, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
         contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
         check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
-        assert str(check_result.max_timestamp) == "2025-01-04 09:00:00"
-        assert str(check_result.max_timestamp_utc) == "2025-01-04 09:00:00+00:00"
-        assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
-        assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
+        assert convert_datetime_to_str(check_result.max_timestamp) == "2025-01-04T09:00:00+00:00"
+        assert convert_datetime_to_str(check_result.max_timestamp_utc) == "2025-01-04T09:00:00+00:00"
+        assert convert_datetime_to_str(check_result.data_timestamp) == "2025-01-04T10:00:00+00:00"
+        assert convert_datetime_to_str(check_result.data_timestamp_utc) == "2025-01-04T10:00:00+00:00"
         assert str(check_result.freshness) == "1:00:00"
         assert str(check_result.freshness_in_seconds) == "3600"
         assert str(check_result.unit) == "hour"
         assert get_diagnostic_value(check_result, "freshness_in_hours") == 1
+
+        soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+        check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+        assert check_json["diagnostics"]["v4"] == {
+            "type": "freshness",
+            "actualTimestamp": "2025-01-04T09:00:00+00:00",
+            "actualTimestampUtc": "2025-01-04T09:00:00+00:00",
+            "expectedTimestamp": "2025-01-04T10:00:00+00:00",
+            "expectedTimestampUtc": "2025-01-04T10:00:00+00:00",
+            "datasetRowsTested": 6,
+        }
 
 
 def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
@@ -68,15 +84,15 @@ def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
                 must_be_less_than: 1
     """
 
-    with freeze_time(datetime(year=2025, month=1, day=5, hour=11, minute=0, second=0)):
+    with freeze_time(datetime(year=2025, month=1, day=5, hour=11, minute=0, second=0, tzinfo=timezone.utc)):
         contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
         check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
-        assert str(check_result.max_timestamp) == "2025-01-04 09:00:00"
-        assert str(check_result.max_timestamp_utc) == "2025-01-04 09:00:00+00:00"
-        assert str(check_result.data_timestamp) == "2025-01-05 11:00:00+00:00"
-        assert str(check_result.data_timestamp_utc) == "2025-01-05 11:00:00+00:00"
+        assert convert_datetime_to_str(check_result.max_timestamp) == "2025-01-04T09:00:00+00:00"
+        assert convert_datetime_to_str(check_result.max_timestamp_utc) == "2025-01-04T09:00:00+00:00"
+        assert convert_datetime_to_str(check_result.data_timestamp) == "2025-01-05T11:00:00+00:00"
+        assert convert_datetime_to_str(check_result.data_timestamp_utc) == "2025-01-05T11:00:00+00:00"
         assert str(check_result.freshness) == "1 day, 2:00:00"
         assert str(check_result.freshness_in_seconds) == "93600"
         assert str(check_result.unit) == "day"
@@ -106,11 +122,12 @@ def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
             )
         },
     )
+
     check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
-    assert str(check_result.max_timestamp) == "2025-01-04 09:00:00"
-    assert str(check_result.max_timestamp_utc) == "2025-01-04 09:00:00+00:00"
-    assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
-    assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
+    assert convert_datetime_to_str(check_result.max_timestamp) == "2025-01-04T09:00:00+00:00"
+    assert convert_datetime_to_str(check_result.max_timestamp_utc) == "2025-01-04T09:00:00+00:00"
+    assert convert_datetime_to_str(check_result.data_timestamp) == "2025-01-04T10:00:00+00:00"
+    assert convert_datetime_to_str(check_result.data_timestamp_utc) == "2025-01-04T10:00:00+00:00"
     assert str(check_result.freshness) == "1:00:00"
     assert str(check_result.freshness_in_seconds) == "3600"
     assert str(check_result.unit) == "hour"
