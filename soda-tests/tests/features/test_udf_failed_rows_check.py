@@ -51,7 +51,7 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
     del multicolumn_duplicate_diagnostics["failedRowsPercent"]
 
     assert check_json["diagnostics"]["v4"] == {
-        "type": "failedRows",
+        "type": "failed_rows",
         "failedRowsCount": 2,
         # "failedRowsPercent": 66.66666666666667, # float value tested and removed above
         "datasetRowsTested": 3,
@@ -85,7 +85,7 @@ def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
     assert check_json["diagnostics"]["v4"] == {
-        "type": "failedRows",
+        "type": "failed_rows",
         "failedRowsCount": 2,
 
         # TODO remove after issue DTL-922 is fixed

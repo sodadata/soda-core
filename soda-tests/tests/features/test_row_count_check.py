@@ -44,7 +44,7 @@ def test_row_count(data_source_test_helper: DataSourceTestHelper):
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
     assert check_json["diagnostics"]["v4"] == {
-        "type": "rowCount",
+        "type": "row_count",
         "datasetRowsTested": 3,
         "checkRowsTested": 3,
     }

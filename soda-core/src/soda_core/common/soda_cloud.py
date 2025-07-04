@@ -1066,7 +1066,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         }
     elif check_result.check.type == "failed_rows":
         return {
-            "type": "failedRows",
+            "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
@@ -1085,7 +1085,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         }
     elif check_result.check.type == "row_count":
         return {
-            "type": "rowCount",
+            "type": check_result.check.type,
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
         }
