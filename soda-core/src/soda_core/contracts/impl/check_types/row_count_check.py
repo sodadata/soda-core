@@ -70,14 +70,14 @@ class RowCountCheckImpl(CheckImpl):
                 outcome = CheckOutcome.FAILED
 
         diagnostic_metric_values: dict[str, float] = {
-            "row_count": row_count,
+            "check_rows_tested": row_count,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
 
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.row_count_metric.type,
+            threshold_value=row_count,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

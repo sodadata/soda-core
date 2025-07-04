@@ -248,7 +248,7 @@ class SchemaCheckResult(CheckResult):
         super().__init__(
             check=check,
             outcome=outcome,
-            threshold_metric_name="schema_events_count",
+            threshold_value=schema_events,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

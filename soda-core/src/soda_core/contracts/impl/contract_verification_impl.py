@@ -643,6 +643,10 @@ class ContractImpl:
                 )
             checks_by_identity[check_impl.identity] = check_impl
 
+    @classmethod
+    def compute_data_quality_score(cls, total_failed_rows_count: int, total_rows_count: int) -> float:
+        return 100 - (total_failed_rows_count * 100 / total_rows_count)
+
 
 def _get_contract_verification_status(
     log_records: list[logging.LogRecord], check_results: list[CheckResult]
@@ -1151,9 +1155,20 @@ class CheckImpl:
         return "/".join(parts)
 
     def _build_definition(self) -> str:
+        contract_dict: dict = {}
+        if self.contract_impl.contract_yaml.filter:
+            contract_dict["filter"] = self.contract_impl.contract_yaml.filter
+
+        check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
+
+        if self.column_impl:
+            contract_dict["columns"] = [{"name": self.column_impl.column_yaml.name, "checks": [check_dict]}]
+        else:
+            contract_dict["checks"] = [check_dict]
+
         text_stream = StringIO()
         yaml = YAML()
-        yaml.dump(self.check_yaml.check_yaml_object.to_dict(), text_stream)
+        yaml.dump(contract_dict, text_stream)
         text_stream.seek(0)
         return text_stream.read()
 

@@ -113,20 +113,16 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
-
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
-        if isinstance(invalid_count, Number):
-            diagnostic_metric_values["invalid_count"] = invalid_count
-
         row_count: int = measurement_values.get_value(self.row_count_metric)
-        invalid_percent: float = 0
-        if isinstance(row_count, Number):
-            diagnostic_metric_values["row_count"] = row_count
+        invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
 
-            if row_count > 0:
-                invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
-            diagnostic_metric_values["invalid_percent"] = invalid_percent
+        diagnostic_metric_values: dict[str, float] = {
+            "invalid_count": invalid_count,
+            "invalid_percent": invalid_percent,
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 
@@ -139,7 +135,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

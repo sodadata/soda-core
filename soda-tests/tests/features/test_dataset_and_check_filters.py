@@ -66,4 +66,4 @@ def test_dataset_filter_combined_with_check_filters(data_source_test_helper: Dat
     assert get_diagnostic_value(check_result, "invalid_count") == 2
 
     check_result = contract_verification_result.check_results[2]
-    assert get_diagnostic_value(check_result, "row_count") == 5
+    assert get_diagnostic_value(check_result, "check_rows_tested") == 5
