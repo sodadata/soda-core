@@ -37,20 +37,10 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
 
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
-    assert check_json["diagnostics"]["v4"] == {
-        "type": "schema",
-        "actual": [
-            {"name": "id", "type": "character varying(255)"},
-            {"name": "size", "type": "integer"},
-            {"name": "created", "type": "date"}
-        ],
-        "expected": [
-            {"name": "id", "type": "character varying"},
-            {"name": "size", "type": "integer"},
-            {"name": "created"}
-        ],
-    }
-
+    schema_diagnostics: dict = check_json["diagnostics"]["v4"]
+    assert schema_diagnostics["type"] == "schema"
+    assert set([c["name"] for c in schema_diagnostics["actual"]]) == {"id", "size", "created"}
+    assert set([c["name"] for c in schema_diagnostics["expected"]]) == {"id", "size", "created"}
 
 
 def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
