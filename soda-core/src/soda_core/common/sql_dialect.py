@@ -59,6 +59,9 @@ class SqlDialect:
             return self.literal_boolean(o)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
 
+    def supports_varchar_length(self) -> bool:
+        return True
+
     def literal_number(self, value: Number):
         if value is None:
             return None
@@ -476,3 +479,11 @@ class SqlDialect:
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
+
+    # Very lightweight dialect-specific interpretation of dataset prefixes.
+    def get_database_prefix_index(self) -> int | None:
+        return 0
+
+    # Very lightweight dialect-specific interpretation of dataset prefixes.
+    def get_schema_prefix_index(self) -> int | None:
+        return 1

@@ -13,11 +13,12 @@ from tabulate import tabulate
 
 
 class DataSourceConnection(ABC):
-    def __init__(self, name: str, connection_properties: dict):
+    def __init__(self, name: str, connection_properties: dict, connection: Optional[object] = None):
         self.name: str = name
         self.connection_properties: dict = connection_properties
-        self.connection: Optional[object] = None
-        # Auto-open on creation.  See DataSource.open_connection()
+        self.connection: Optional[object] = connection
+
+        # Auto-open on creation if no connection already supplied. See DataSource.open_connection()
         self.open_connection()
 
     def __enter__(self):

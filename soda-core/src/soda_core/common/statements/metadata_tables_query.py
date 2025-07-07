@@ -50,7 +50,10 @@ class MetadataTablesQuery:
         select: list = [
             FROM(
                 self.sql_dialect.table_tables(),
-                table_prefix=[database_name, self.sql_dialect.schema_information_schema()],
+                table_prefix=[
+                    *([database_name] if database_name else []),
+                    self.sql_dialect.schema_information_schema(),
+                ],
             ),
             SELECT(
                 [

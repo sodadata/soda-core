@@ -15,7 +15,7 @@ class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
         """
         Builds the full SQL query to query table names from the data source metadata.
 
-        Databrics specific:
+        Databricks specific:
         - type and char length are in the same column, full_data_type, e.g. varchar(255), we have to parse that from the result
         - everything is forced to lowercase in Databricks
         """

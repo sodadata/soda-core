@@ -1,5 +1,6 @@
 from typing import Dict, Optional, Union
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import (
     InvalidArgumentException,
     InvalidDataSourceConfigurationException,
@@ -19,6 +20,7 @@ soda_telemetry = SodaTelemetry()
 
 def verify_contracts_locally(
     data_source_file_path: Optional[str],
+    data_sources: Optional[list[DataSourceImpl]] = [],
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     dataset_identifiers: Optional[list[str]] = None,
     soda_cloud_file_path: Optional[str] = None,
@@ -33,6 +35,7 @@ def verify_contracts_locally(
         contract_file_paths=contract_file_paths,
         dataset_identifiers=dataset_identifiers,
         data_source_file_path=data_source_file_path,
+        data_sources=data_sources,
         soda_cloud_file_path=soda_cloud_file_path,
         variables=variables,
         data_timestamp=data_timestamp,
@@ -78,6 +81,7 @@ def verify_contracts(
     data_timestamp: Optional[str] = None,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
+    data_sources: list[DataSourceImpl] = [],
 ) -> ContractVerificationSessionResult:
     soda_cloud_client: Optional[SodaCloud] = None
     try:
@@ -87,8 +91,15 @@ def verify_contracts(
         if isinstance(contract_file_paths, str):
             contract_file_paths = [contract_file_paths]
 
+        # TODO: verify the path where connection is provided
         validate_verify_arguments(
-            contract_file_paths, dataset_identifiers, data_source_file_path, publish, use_agent, soda_cloud_client
+            contract_file_paths,
+            dataset_identifiers,
+            data_source_file_path,
+            data_sources,
+            publish,
+            use_agent,
+            soda_cloud_client,
         )
 
         contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
@@ -103,16 +114,21 @@ def verify_contracts(
                 "We currently only support a single data source configuration. Please pass a single dataset identifier."
             )
 
-        data_source_yaml_source = _create_datasource_yamls(
-            data_source_file_path,
-            dataset_identifiers,
-            soda_cloud_client,
-            use_agent,
-        )
+        data_source_yaml_sources: list[DataSourceYamlSource] = []
+        if data_source_file_path or dataset_identifiers:
+            data_source_yaml_sources.append(
+                _create_datasource_yamls(
+                    data_source_file_path,
+                    dataset_identifiers,
+                    soda_cloud_client,
+                    use_agent,
+                )
+            )
 
         contract_verification_result = ContractVerificationSession.execute(
             contract_yaml_sources=contract_yaml_sources,
-            data_source_yaml_sources=[data_source_yaml_source],
+            data_source_yaml_sources=data_source_yaml_sources,
+            data_source_impls=data_sources,
             soda_cloud_impl=soda_cloud_client,
             variables=variables,
             data_timestamp=data_timestamp,
@@ -139,6 +155,7 @@ def validate_verify_arguments(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
+    data_sources: Optional[list[DataSourceImpl]],
     publish: bool,
     use_agent: bool,
     soda_cloud_client: Optional[SodaCloud],
@@ -164,7 +181,7 @@ def validate_verify_arguments(
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
 
-    if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent:
+    if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent and not data_sources:
         raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
 
 
