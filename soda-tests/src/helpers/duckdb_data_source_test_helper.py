@@ -42,3 +42,9 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
             TestDataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
             TestDataType.BOOLEAN: "BOOLEAN",
         }
+
+    def drop_test_schema_if_exists(self) -> None:
+        """
+        In-memory DuckDB does not support schemas, so this method is a no-op.
+        """
+        pass
