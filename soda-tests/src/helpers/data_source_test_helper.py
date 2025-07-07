@@ -307,7 +307,11 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def drop_test_schema_if_exists_sql(self) -> str:
-        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[1]} CASCADE;"
+        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
+        if schema_index is None:
+            raise AssertionError("Data source does not support schemas")
+
+        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[schema_index]} CASCADE;"
 
     def ensure_test_table(self, test_table_specification: TestTableSpecification) -> TestTable:
         """
