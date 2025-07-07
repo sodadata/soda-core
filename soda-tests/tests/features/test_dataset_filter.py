@@ -91,7 +91,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
         assert get_diagnostic_value(check_result=check_result, diagnostic_name="invalid_count") == 0
 
         check_result = contract_verification_result_t1.check_results[1]
-        assert get_diagnostic_value(check_result=check_result, diagnostic_name="row_count") == 2
+        assert get_diagnostic_value(check_result=check_result, diagnostic_name="check_rows_tested") == 2
         assert get_diagnostic_value(check_result=check_result, diagnostic_name="missing_count") == 0
 
     with freeze_time(t2):
@@ -103,7 +103,7 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
         assert get_diagnostic_value(check_result=invalid_check_result, diagnostic_name="invalid_count") == 1
 
         row_count_check_result: CheckResult = contract_verification_result_t2.check_results[1]
-        assert get_diagnostic_value(check_result=row_count_check_result, diagnostic_name="row_count") == 4
+        assert get_diagnostic_value(check_result=row_count_check_result, diagnostic_name="check_rows_tested") == 4
         assert get_diagnostic_value(check_result=row_count_check_result, diagnostic_name="missing_count") == 1
 
 

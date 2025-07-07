@@ -10,6 +10,7 @@ from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     MultiColumnDuplicateCheckYaml,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
+from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
@@ -25,7 +26,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MissingAndValidityCheckImpl,
     ThresholdImpl,
     ThresholdType,
-    ValidCountMetric,
 )
 
 logger: logging.Logger = soda_logger
@@ -77,19 +77,22 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             ColumnDistinctCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
-        self.valid_count_metric_impl = self._resolve_metric(
-            ValidCountMetric(
+        self.check_rows_tested_metric_impl = self._resolve_metric(
+            RowCountMetricImpl(
                 contract_impl=contract_impl,
-                column_impl=column_impl,
                 check_impl=self,
             )
+        )
+
+        self.missing_count_metric_impl = self._resolve_metric(
+            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.duplicate_count_metric_impl = self._resolve_metric(
             DuplicateCountMetricImpl(
                 metric_type="duplicate_count",
                 distinct_count_metric_impl=self.distinct_count_metric_impl,
-                valid_count_metric_impl=self.valid_count_metric_impl,
+                valid_count_metric_impl=self.check_rows_tested_metric_impl,
                 check_filter=self.check_yaml.filter,
                 missing_and_validity=self.missing_and_validity,
             )
@@ -99,7 +102,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             DerivedPercentageMetricImpl(
                 metric_type="duplicate_percent",
                 fraction_metric_impl=self.duplicate_count_metric_impl,
-                total_metric_impl=self.valid_count_metric_impl,
+                total_metric_impl=self.check_rows_tested_metric_impl,
             )
         )
 
@@ -109,20 +112,28 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
         diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
 
         distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
-        if isinstance(distinct_count, Number):
-            diagnostic_metric_values["distinct_count"] = distinct_count
 
-        duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
-        if isinstance(duplicate_count, Number):
+        check_rows_tested_count: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        if isinstance(check_rows_tested_count, Number):
+            diagnostic_metric_values["check_rows_tested"] = check_rows_tested_count
+
+        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
+        if isinstance(missing_count, Number):
+            diagnostic_metric_values["missing_count"] = missing_count
+
+        duplicate_count: int = 0
+        duplicate_percent: float = 0
+        if (
+            isinstance(check_rows_tested_count, Number)
+            and isinstance(missing_count, Number)
+            and isinstance(distinct_count, Number)
+        ):
+            duplicate_count: int = check_rows_tested_count - missing_count - distinct_count
             diagnostic_metric_values["duplicate_count"] = duplicate_count
 
-        valid_count: int = measurement_values.get_value(self.valid_count_metric_impl)
-        duplicate_percent: float = 0
-        if isinstance(valid_count, Number):
-            diagnostic_metric_values["valid_count"] = valid_count
-
-            if valid_count > 0:
-                duplicate_percent = measurement_values.get_value(self.duplicate_percent_metric_impl)
+            non_missing_total: int = check_rows_tested_count - missing_count
+            if non_missing_total > 0:
+                duplicate_percent: float = duplicate_count * 100 / non_missing_total
             diagnostic_metric_values["duplicate_percent"] = duplicate_percent
 
         threshold_value: Optional[Number] = (
@@ -138,7 +149,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 
@@ -160,15 +171,13 @@ class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
 
     def sql_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-
-        filters: list = [SqlExpressionStr.optional(self.check_filter)]
+        filters: list[SqlExpression] = [SqlExpressionStr.optional(self.check_filter)]
         if self.missing_and_validity:
             filters.append(
                 NOT(
                     OR.optional(
                         [
                             self.missing_and_validity.is_missing_expr(column_name),
-                            self.missing_and_validity.is_invalid_expr(column_name),
                         ]
                     )
                 )
@@ -243,44 +252,42 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
             )
         )
 
-        self.duplicate_count_metric_impl = self._resolve_metric(
-            MultiColumnDuplicateCountMetricImpl(
-                metric_type="duplicate_count",
-                multi_column_distinct_count_metric_impl=self.multi_column_distinct_count_metric_impl,
-                row_count_metric_impl=self.row_count_metric_impl,
-                check_filter=self.check_yaml.filter,
-            )
-        )
-
-        self.duplicate_percent_metric_impl = self._resolve_metric(
-            DerivedPercentageMetricImpl(
-                metric_type="duplicate_percent",
-                fraction_metric_impl=self.duplicate_count_metric_impl,
-                total_metric_impl=self.row_count_metric_impl,
-            )
-        )
+        # self.duplicate_count_metric_impl = self._resolve_metric(
+        #     MultiColumnDuplicateCountMetricImpl(
+        #         metric_type="duplicate_count",
+        #         multi_column_distinct_count_metric_impl=self.multi_column_distinct_count_metric_impl,
+        #         row_count_metric_impl=self.row_count_metric_impl,
+        #         check_filter=self.check_yaml.filter,
+        #     )
+        # )
+        #
+        # self.duplicate_percent_metric_impl = self._resolve_metric(
+        #     DerivedPercentageMetricImpl(
+        #         metric_type="duplicate_percent",
+        #         fraction_metric_impl=self.duplicate_count_metric_impl,
+        #         total_metric_impl=self.row_count_metric_impl,
+        #     )
+        # )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
-
-        distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
-        if isinstance(distinct_count, Number):
-            diagnostic_metric_values["distinct_count"] = distinct_count
-
-        duplicate_count: int = measurement_values.get_value(self.duplicate_count_metric_impl)
-        if isinstance(duplicate_count, Number):
-            diagnostic_metric_values["duplicate_count"] = duplicate_count
-
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
+        distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
+        duplicate_count: int = 0
         duplicate_percent: float = 0
-        if isinstance(row_count, Number):
-            diagnostic_metric_values["row_count"] = row_count
 
+        if isinstance(row_count, Number) and isinstance(distinct_count, Number):
+            duplicate_count = row_count - distinct_count
             if row_count > 0:
-                duplicate_percent = measurement_values.get_value(self.duplicate_percent_metric_impl)
-            diagnostic_metric_values["duplicate_percent"] = duplicate_percent
+                duplicate_percent = duplicate_count * 100 / row_count
+
+        diagnostic_metric_values: dict[str, float] = {
+            "duplicate_count": duplicate_count,
+            "duplicate_percent": duplicate_percent,
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         threshold_value: Optional[Number] = (
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
@@ -295,7 +302,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

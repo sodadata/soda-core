@@ -73,16 +73,16 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
-
         missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
-        diagnostic_metric_values["missing_count"] = missing_count
-
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-        diagnostic_metric_values["row_count"] = row_count
-
         missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
-        diagnostic_metric_values["missing_percent"] = missing_percent
+
+        diagnostic_metric_values: dict[str, float] = {
+            "missing_count": missing_count,
+            "missing_percent": missing_percent,
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         threshold_value: Optional[Number] = missing_percent if self.metric_name == "missing_percent" else missing_count
 
@@ -95,7 +95,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.metric_name,
+            threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

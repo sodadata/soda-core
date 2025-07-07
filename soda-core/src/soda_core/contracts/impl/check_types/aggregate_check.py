@@ -6,6 +6,7 @@ from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.aggregate_check_yaml import AggregateCheckYaml
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -69,11 +70,20 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
             )
         )
 
+        self.check_rows_tested_metric = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+        )
+
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        function_value: Optional[Number] = measurement_values.get_value(self.aggregate_metric)
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
+        function_value: Optional[float | int] = measurement_values.get_value(self.aggregate_metric)
+        check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric)
+
+        diagnostic_metric_values: dict[str, float] = {
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "check_rows_tested": check_rows_tested,
+        }
 
         if isinstance(function_value, Number):
             diagnostic_metric_values[self.function] = function_value
@@ -87,7 +97,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
         return CheckResult(
             check=self._build_check_info(),
             outcome=outcome,
-            threshold_metric_name=self.function,
+            threshold_value=function_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
 

@@ -1028,7 +1028,7 @@ def _build_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
 def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
     return {
         #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
-        "value": check_result.get_threshold_value() or 0,
+        "value": check_result.threshold_value or 0,
         "fail": _build_fail_threshold(check_result),
         "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
@@ -1046,7 +1046,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsCount": check_result.diagnostic_metric_values.get("missing_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("missing_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
-            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "invalid":
         return {
@@ -1054,7 +1054,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsCount": check_result.diagnostic_metric_values.get("invalid_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("invalid_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
-            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "duplicate":
         return {
@@ -1062,7 +1062,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsCount": check_result.diagnostic_metric_values.get("duplicate_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("duplicate_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
-            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "failed_rows":
         return {
@@ -1070,14 +1070,13 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
             "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
-            # There is no check filter allowed for failed rows so no check rows tested is needed
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "aggregate":
         return {
             "type": check_result.check.type,
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
-            # We skip the checkRowsTested because it causes extra compute.
-            # To be re-evaluated when we have users asking for it.
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "metric":
         return {
@@ -1087,7 +1086,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     elif check_result.check.type == "row_count":
         return {
             "type": check_result.check.type,
-            "checkRowsTested": check_result.diagnostic_metric_values.get("row_count"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
         }
     elif isinstance(check_result, SchemaCheckResult):

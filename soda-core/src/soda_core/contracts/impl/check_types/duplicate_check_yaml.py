@@ -41,3 +41,6 @@ class MultiColumnDuplicateCheckYaml(ThresholdCheckYaml):
         if self.columns:
             if len(self.columns) == 0:
                 logger.error("'columns' must be a list of column names, but was empty")
+
+    def get_valid_metrics(self) -> list[str]:
+        return ["count", "percent"]

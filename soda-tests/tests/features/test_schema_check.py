@@ -1,4 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestDataType, TestTableSpecification
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
@@ -16,6 +17,10 @@ test_table_specification = (
 def test_schema(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    data_source_test_helper.enable_soda_cloud_mock([
+        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+    ])
+
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
@@ -29,6 +34,13 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
               - name: created
         """,
     )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+    schema_diagnostics: dict = check_json["diagnostics"]["v4"]
+    assert schema_diagnostics["type"] == "schema"
+    assert set([c["name"] for c in schema_diagnostics["actual"]]) == {"id", "size", "created"}
+    assert set([c["name"] for c in schema_diagnostics["expected"]]) == {"id", "size", "created"}
 
 
 def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
