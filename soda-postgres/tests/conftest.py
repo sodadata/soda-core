@@ -1,3 +1,4 @@
+from helpers.test_fixtures import *  # noqa: F401
 from soda_core.common.logging_configuration import configure_logging
 
 
