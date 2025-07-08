@@ -2,6 +2,8 @@ from textwrap import dedent, indent
 
 import pytest
 
+from pathlib import Path
+
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
@@ -11,6 +13,10 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
 )
 
+import pandas as pd
+import polars as pl
+
+# Teset table spec is just used to build the contract, the actual data is in the df/csv/etc
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("row_count")
@@ -25,30 +31,42 @@ test_table_specification = (
     .build()
 )
 
+contract_str = f"""
+    columns:
+        - name: id
+          data_type: text
+          checks:
+            - missing:
+    checks:
+        - row_count:
+            threshold:
+                must_be: 3
+"""
 
-def test_row_count(data_source_test_helper: DataSourceTestHelper):
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    # data_source_test_helper.enable_soda_cloud_mock(
-    #     [
-    #         MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    #     ]
-    # )
+def test_df(data_source_test_helper: DataSourceTestHelper):
+    test_df = pd.DataFrame.from_dict({"id": [1, 2, 3]})
+
+    test_table = data_source_test_helper._create_test_table_python_object(test_table_specification)
+
+    con = data_source_test_helper.data_source_impl.connection.connection
+    con.register(test_table.unique_name, test_df)
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=f"""
-            checks:
-              - row_count:
-                    threshold:
-                        must_be: 3
-        """,
+        contract_yaml_str=contract_str,
     )
 
-    # soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
-    # check_json: dict = soda_core_insert_scan_results_command["checks"][0]
-    # assert check_json["diagnostics"]["v4"] == {
-    #     "type": "row_count",
-    #     "datasetRowsTested": 3,
-    #     "checkRowsTested": 3,
-    # }
+
+def test_polars(data_source_test_helper: DataSourceTestHelper):
+    test_df = pl.DataFrame({"id": [1, 2, 3]})
+
+    test_table = data_source_test_helper._create_test_table_python_object(test_table_specification)
+
+    con = data_source_test_helper.data_source_impl.connection.connection
+    con.register(test_table.unique_name, test_df)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=contract_str,
+    )

@@ -4,3 +4,4 @@ python-dotenv~=1.0
 tbump~=6.11
 pre-commit~=4.1.0
 freezegun
+polars # Used in duckdb tests

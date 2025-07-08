@@ -527,7 +527,7 @@ class DataSourceTestHelper:
         return dqn
 
     def test_method_ended(self) -> None:
-        # self.data_source_impl.data_source_connection.rollback()
+        # self.data_source_impl.data_source_connection.rollback() #TODO: this was originally done to theoretically speed up tests, but needs some datasource-specific work.
         self.soda_cloud = None
         self.use_agent = False
 
