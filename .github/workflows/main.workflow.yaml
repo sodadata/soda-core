@@ -81,6 +81,7 @@ jobs:
           if [ "${{ matrix.package }}" = "postgres" ]; then
             python -m pytest -ra soda-tests/tests/components
           fi
+          python -m pytest -ra soda-${{ matrix.package }}/tests
 
   define-matrix:
     if: github.ref_name == 'v4'
