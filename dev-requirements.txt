@@ -48,6 +48,8 @@ polars==1.31.0
     # via -r dev-requirements.in
 pre-commit==4.1.0
     # via -r dev-requirements.in
+pyarrow==20.0.0
+    # via -r dev-requirements.in
 pyproject-hooks==1.2.0
     # via
     #   build
