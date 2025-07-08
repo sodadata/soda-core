@@ -1,4 +1,3 @@
-from helpers.test_fixtures import *
 from soda_core.common.logging_configuration import configure_logging
 
 
