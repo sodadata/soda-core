@@ -1,1 +1,2 @@
-#  Add Databricks-specific tests here
+def test_databricks():
+    """Add Databricks-specific tests here"""
