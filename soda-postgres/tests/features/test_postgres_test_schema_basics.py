@@ -19,16 +19,16 @@ def test_postgres_schema_pass(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: schema
+              - schema:
             columns:
               - name: id
                 data_type: varchar
               - name: size
-                data_type: varchar(255)
+                data_type: character varying
               - name: created
                 data_type: character varying
               - name: destroyed
-                data_type: character varying(255)
+                data_type: character varying
         """,
     )
 
@@ -40,7 +40,7 @@ def test_postgres_schema_fail(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
-              - type: schema
+              - schema:
             columns:
               - name: id
                 data_type: varchar(16)

@@ -2,6 +2,7 @@ import pytest
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
+from helpers.test_fixtures import is_in_memory_data_source
 from pydantic import SecretStr
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -45,6 +46,10 @@ def test_data_source_env_var_resolving(env_vars: dict):
     assert connection_properties.database == "soda_test"
 
 
+@pytest.mark.skipif(
+    is_in_memory_data_source(),
+    reason="Creation of new connection is tested, data is not there with in-memory data sources",
+)
 def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
