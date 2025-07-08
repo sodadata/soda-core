@@ -77,7 +77,6 @@ def verify_contracts(
     contract_file_paths: Optional[Union[str, list[str]]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
-    data_sources: Optional[list[DataSourceImpl]],
     soda_cloud_file_path: Optional[str],
     publish: bool,
     use_agent: bool,
@@ -85,6 +84,7 @@ def verify_contracts(
     data_timestamp: Optional[str] = None,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
+    data_sources: Optional[list[DataSourceImpl]] = None,
 ) -> ContractVerificationSessionResult:
     soda_cloud_client: Optional[SodaCloud] = None
     try:
