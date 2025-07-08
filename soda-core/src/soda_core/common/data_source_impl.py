@@ -56,26 +56,16 @@ class DataSourceImpl(ABC):
         validated_model = model_class.model_validate(data_source_yaml.yaml_dict)
         return impl_class(data_source_model=validated_model)
 
-    @classmethod
-    def create(cls, data_source_model: DataSourceBase) -> "DataSourceImpl":
-        type_name = data_source_model.get_class_type()
-        loader = cls.__implementation_classes.get(type_name)
-        if not loader:
-            raise ImportError(
-                f"No implementation found for type '{type_name}'. " f"Install the required plugin or check your YAML."
-            )
-        impl_class = loader()
-        return impl_class(data_source_model=data_source_model)
-
     def __init__(
         self,
         data_source_model: DataSourceBase,
+        connection: Optional[DataSourceConnection] = None,
     ):
         self.data_source_model: DataSourceBase = data_source_model
         self.name: str = data_source_model.name
         self.type_name: str = data_source_model.get_class_type()
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
-        self.data_source_connection: Optional[DataSourceConnection] = None
+        self.data_source_connection: Optional[DataSourceConnection] = connection
 
     def __init_subclass__(cls, model_class: Type[DataSourceBase], **kwargs):
         super().__init_subclass__(**kwargs)
@@ -95,8 +85,12 @@ class DataSourceImpl(ABC):
         pass
 
     def __enter__(self) -> None:
-        self.open_connection()
+        return self.connection
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_connection()
+
+    @property
     def connection(self) -> DataSourceConnection:
         if not self.has_open_connection():
             self.open_connection()
@@ -114,9 +108,6 @@ class DataSourceImpl(ABC):
             isinstance(self.data_source_connection, DataSourceConnection)
             and self.data_source_connection.connection is not None
         )
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close_connection()
 
     def close_connection(self) -> None:
         if self.data_source_connection:
