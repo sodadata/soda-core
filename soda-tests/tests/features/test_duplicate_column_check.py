@@ -1,5 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse
+from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
@@ -34,9 +34,7 @@ test_table_specification = (
 def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock([
-        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    ])
+    mock_soda_cloud: MockSodaCloud = data_source_test_helper.enable_soda_cloud_mock()
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -48,15 +46,21 @@ def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
             """,
     )
 
-    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
-    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
-    assert check_json["diagnostics"]["v4"] == {
-        "type": "duplicate",
-        "failedRowsCount": 0,
-        "failedRowsPercent": 0.0,
-        "datasetRowsTested": 10,
-        "checkRowsTested": 10,
-    }
+    mock_soda_cloud.get_request_insert_scan_results().assert_json_subdict({
+        "checks": [
+            {
+                "diagnostics": {
+                    "v4": {
+                        "type": "duplicate",
+                        "failedRowsCount": 0,
+                        "failedRowsPercent": 0.0,
+                        "datasetRowsTested": 10,
+                        "checkRowsTested": 10,
+                    }
+                }
+            }
+        ]
+    })
 
 
 def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):

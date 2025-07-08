@@ -8,7 +8,7 @@ from helpers.mock_soda_cloud import (
     MockHttpMethod,
     MockRequest,
     MockResponse,
-    MockSodaCloud,
+    MockSodaCloud, SequentialResponseRequestHandler,
 )
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
@@ -75,29 +75,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 
     env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
 
-    data_source_test_helper.enable_soda_cloud_mock(
-        [
-            MockResponse(status_code=200, json_object={"fileId": "777ggg"}),
-            MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={
-                "scanId": "ssscanid",
-                "checks": [
-                    {
-                        "id": "123e4567-e89b-12d3-a456-426655440000",
-                        "identities": [
-                            "0e741893"
-                        ]
-                    },
-                    {
-                        "id": "456e4567-e89b-12d3-a456-426655441111",
-                        "identities": [
-                            "c12087d5"
-                        ]
-                    },
-                ]
-            }),
-
-        ]
-    )
+    mock_soda_cloud: MockSodaCloud = data_source_test_helper.enable_soda_cloud_mock()
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -120,15 +98,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
         """,
     )
 
-    request_index = 0
-    request_1: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
-    assert request_1.url.endswith("api/scan/upload")
-
-    request_index += 1
-    request_2: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
-    assert request_2.url.endswith("api/command")
-    assert_dict(request_2.json, {
-        "type": "sodaCoreInsertScanResults",
+    mock_soda_cloud.get_request_insert_scan_results().assert_json_subdict({
         "scanId": "env_var_scan_id",
         "checks": [
             {
@@ -173,18 +143,23 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock(
-        [
+    data_source_test_helper.enable_soda_cloud_mock_based_on_sequential_responses(
+        responses=[
             MockResponse(
                 status_code=200,
                 json_object={
                     "allowed": True,
                 },
             ),
-            MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fffileid"}),
-            MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"scanId": "ssscanid"}),
             MockResponse(
-                method=MockHttpMethod.GET,
+                status_code=200,
+                json_object={"fileId": "fffileid"}
+            ),
+            MockResponse(
+                status_code=200,
+                json_object={"scanId": "ssscanid"}
+            ),
+            MockResponse(
                 status_code=200,
                 headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now(timezone.utc))},
                 json_object={
@@ -193,7 +168,6 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
                 },
             ),
             MockResponse(
-                method=MockHttpMethod.GET,
                 status_code=200,
                 json_object={
                     "scanId": "ssscanid",
@@ -203,7 +177,6 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
                 },
             ),
             MockResponse(
-                method=MockHttpMethod.GET,
                 status_code=200,
                 json_object={
                     "content": [
@@ -248,26 +221,31 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
 
 
 def test_publish_contract():
-    responses = [
-        MockResponse(
-            status_code=200,
-            json_object={
-                "allowed": True,
-            },
-        ),
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id"}),
-        MockResponse(
-            method=MockHttpMethod.POST,
-            json_object={
-                "publishedContract": {
-                    "checksum": "check",
-                    "fileId": "fake_file_id",
-                },
-                "metadata": {"source": {"filePath": "yaml_string", "type": "local"}},
-            },
-        ),
-    ]
-    mock_cloud = MockSodaCloud(responses)
+    mock_cloud = MockSodaCloud(request_handlers=[
+        SequentialResponseRequestHandler(
+            responses=[
+                MockResponse(
+                    status_code=200,
+                    json_object={
+                        "allowed": True,
+                    },
+                ),
+                MockResponse(
+                    status_code=200,
+                    json_object={"fileId": "fake_file_id"}
+                ),
+                MockResponse(
+                    json_object={
+                        "publishedContract": {
+                            "checksum": "check",
+                            "fileId": "fake_file_id",
+                        },
+                        "metadata": {"source": {"filePath": "yaml_string", "type": "local"}},
+                    },
+                ),
+            ]
+        )
+    ])
 
     res = mock_cloud.publish_contract(
         ContractYaml.parse(
@@ -290,16 +268,20 @@ def test_publish_contract():
 
 
 def test_verify_contract_on_agent_permission_check():
-    responses = [
-        MockResponse(
-            status_code=200,
-            json_object={
-                "allowed": False,
-                "reason": "missingManageContracts",
-            },
-        ),
-    ]
-    mock_cloud = MockSodaCloud(responses)
+    mock_cloud = MockSodaCloud(
+        request_handlers=[
+            SequentialResponseRequestHandler(
+                responses=[
+                    MockResponse(
+                        status_code=200,
+                        json_object={
+                            "allowed": False,
+                            "reason": "missingManageContracts",
+                        },
+                    ),
+                ]
+            )
+    ])
 
     res = mock_cloud.verify_contract_on_agent(
         ContractYaml.parse(

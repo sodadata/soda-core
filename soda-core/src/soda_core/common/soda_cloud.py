@@ -801,7 +801,7 @@ class SodaCloud:
                 )
 
             return response
-        except SodaCloudAuthenticationFailedException:
+        except (SodaCloudAuthenticationFailedException, AssertionError):
             raise
         except Exception as e:
             logger.critical(
