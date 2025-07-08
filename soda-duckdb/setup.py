@@ -6,7 +6,7 @@ package_name = "soda-duckdb"
 package_version = "4.0.0b1"
 description = "Soda DuckDB V4"
 
-requires = [f"soda-core=={package_version}", "duckdb>=1.2.0"]
+requires = [f"soda-core=={package_version}", "duckdb>=1.2.0", "pytz"]
 
 setup(
     name=package_name,
