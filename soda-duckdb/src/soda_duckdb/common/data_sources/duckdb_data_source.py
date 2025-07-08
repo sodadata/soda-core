@@ -101,7 +101,7 @@ class DuckDBDataSourceConnection(DataSourceConnection):
                 if (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format(config))) is not None:
                     connection = DuckDBDataSourceConnectionWrapper(duckdb.connect(":default:"))
                     connection.sql(
-                        f"CREATE TABLE {self.extract_dataset_name(config)} AS SELECT * FROM {read_function}('{self.database}')"
+                        f"CREATE TABLE {self.extract_dataset_name(config)} AS SELECT * FROM {read_function}('{config.database}')"
                     )
 
                     return connection
