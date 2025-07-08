@@ -135,7 +135,9 @@ def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelpe
                   - invalid:
         """,
     )
-    assert get_diagnostic_value(
-            check_result=contract_verification_result.check_results[0],
-            diagnostic_name="invalid_count"
-        ) == 0
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 0
+    )

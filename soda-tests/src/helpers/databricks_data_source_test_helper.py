@@ -3,13 +3,7 @@ from __future__ import annotations
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.test_table import (
-    TestColumn,
-    TestDataType,
-    TestTable,
-    TestTableSpecification,
-)
+from helpers.test_table import TestDataType
 
 
 class DatabricksDataSourceTestHelper(DataSourceTestHelper):

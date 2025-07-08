@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timezone
 
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -6,10 +6,7 @@ from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
-from soda_core.contracts.contract_verification import (
-    CheckResult,
-    ContractVerificationResult,
-)
+from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.freshness_check import FreshnessCheckResult
 
 test_table_specification = (
@@ -34,9 +31,11 @@ test_table_specification = (
 def test_freshness(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock([
-        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    ])
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     contract_yaml_str: str = f"""
         checks:

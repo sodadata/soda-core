@@ -5,8 +5,8 @@ from pydantic import Field, field_validator
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_duckdb.model.data_source.duckdb_connection_properties import (
     DuckDBConnectionProperties,
-    DuckDBStandardConnectionProperties,
     DuckDBExistingConnectionProperties,
+    DuckDBStandardConnectionProperties,
 )
 
 

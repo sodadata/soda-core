@@ -1,8 +1,7 @@
-import pytest
-
 import logging
 import os
 
+import pytest
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logs import Logs
@@ -63,19 +62,14 @@ def test_yaml_error_invalid_top_level_element(logs: Logs):
         file_path="yaml_string.yml",
     )
 
-    with pytest.raises(
-        YamlParserException, match="YAML file 'yaml_string.yml' root must be an object, but was a list"
-    ):
+    with pytest.raises(YamlParserException, match="YAML file 'yaml_string.yml' root must be an object, but was a list"):
         _ = yaml_source.parse()
 
 
 def test_yaml_error_empty_yaml_str(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(yaml_str="", file_path="yaml_string.yml")
-    with pytest.raises(
-        YamlParserException, match="YAML file 'yaml_string.yml' root must be an object, but was empty"
-    ):
+    with pytest.raises(YamlParserException, match="YAML file 'yaml_string.yml' root must be an object, but was empty"):
         _ = yaml_source.parse()
-
 
 
 def test_yaml_nested_level(logs: Logs):

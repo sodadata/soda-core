@@ -1,6 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import REGEX_LIKE, TUPLE
+from soda_core.common.sql_ast import TUPLE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSourceConnection,

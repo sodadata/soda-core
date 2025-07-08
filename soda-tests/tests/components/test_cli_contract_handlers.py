@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
-import pytest
 
+import pytest
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
     handle_publish_contract,
@@ -14,7 +14,6 @@ from soda_core.contracts.contract_publication import (
     ContractPublicationResultList,
 )
 from soda_core.contracts.contract_verification import ContractVerificationSession
-from unittest.mock import MagicMock, patch
 
 
 @pytest.mark.parametrize(

@@ -1,11 +1,7 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
-from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import (
-    CheckResult,
-    ContractVerificationResult,
-)
+from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -29,9 +25,11 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
     end_quoted = data_source_test_helper.quote_column("end")
     start_quoted = data_source_test_helper.quote_column("start")
 
-    data_source_test_helper.enable_soda_cloud_mock([
-        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    ])
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
@@ -65,9 +63,11 @@ def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
     end_quoted = data_source_test_helper.quote_column("end")
     start_quoted = data_source_test_helper.quote_column("start")
 
-    data_source_test_helper.enable_soda_cloud_mock([
-        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    ])
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
@@ -87,7 +87,6 @@ def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
-
         # TODO remove after issue DTL-922 is fixed
         "datasetRowsTested": 0,
         "checkRowsTested": 0,
