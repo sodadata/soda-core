@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-
 from helpers.test_table import TestDataType
 
 
@@ -47,4 +46,3 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
         """
         In-memory DuckDB does not support schemas, so this method is a no-op.
         """
-        pass

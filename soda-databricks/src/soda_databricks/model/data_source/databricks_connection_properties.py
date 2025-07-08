@@ -1,15 +1,14 @@
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Literal, Optional, Dict, Literal, ClassVar
+from abc import ABC
+from typing import ClassVar, Dict, Optional
 
 from pydantic import Field, SecretStr
-from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
 
 
-class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC): ...
+class DatabricksConnectionProperties(DataSourceConnectionProperties, ABC):
+    ...
 
 
 class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):

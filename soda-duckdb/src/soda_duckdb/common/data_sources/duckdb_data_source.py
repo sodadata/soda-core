@@ -1,26 +1,21 @@
+from collections import namedtuple
+from pathlib import Path
+
+from duckdb import DuckDBPyConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
+from soda_duckdb.model.data_source.duckdb_connection_properties import (
+    DuckDBConnectionProperties,
+    DuckDBExistingConnectionProperties,
+    DuckDBStandardConnectionProperties,
+)
+from soda_duckdb.model.data_source.duckdb_data_source import DuckDBDataSource
 from soda_duckdb.model.data_source.duckdb_data_source import (
     DuckDBDataSource as DuckDBDataSourceModel,
 )
-
-from soda_duckdb.model.data_source.duckdb_data_source import DuckDBDataSource
-from soda_duckdb.model.data_source.duckdb_connection_properties import (
-    DuckDBConnectionProperties,
-    DuckDBStandardConnectionProperties,
-    DuckDBExistingConnectionProperties,
-)
-from soda_core.model.data_source.data_source_connection_properties import DataSourceConnectionProperties
-from pathlib import Path
-
-from soda_core.common.exceptions import DataSourceConnectionException
-from collections import namedtuple
-
-from duckdb import DuckDBPyConnection
-
-from soda_core.common.sql_ast import *
-
 
 DuckDBColumn = namedtuple(
     "DuckDBColumn", ["name", "type_code", "display_size", "internal_size", "precision", "scale", "null_ok"]

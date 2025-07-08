@@ -1,7 +1,7 @@
 ## See https://pre-commit.com for more information
 ## See https://pre-commit.com/hooks.html for more hooks
 
-files: ^soda-core/|^soda-postgres/
+files: ^soda-[^/]+/
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
@@ -22,12 +22,12 @@ repos:
       - id: autoflake
         args: ["--in-place", "--remove-all-unused-imports"]
         exclude: ^soda-core/tests/conftest\.py$
-#  - repo: https://github.com/asottile/pyupgrade
-#    rev: v3.3.1
-#    hooks:
-#      - id: pyupgrade
-#        exclude: _models?\.py$
-#        args: [--py38-plus, --keep-runtime-typing]
+  #  - repo: https://github.com/asottile/pyupgrade
+  #    rev: v3.3.1
+  #    hooks:
+  #      - id: pyupgrade
+  #        exclude: _models?\.py$
+  #        args: [--py38-plus, --keep-runtime-typing]
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
     hooks:

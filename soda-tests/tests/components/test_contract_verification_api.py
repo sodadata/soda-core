@@ -1,21 +1,22 @@
-import pytest
+from unittest.mock import MagicMock, patch
 
+import pytest
 from soda_core.common.exceptions import (
-    YamlParserException,
     InvalidArgumentException,
     SodaCloudException,
+    YamlParserException,
 )
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api.verify_api import (
     ContractVerificationSession,
-    all_none_or_empty, verify_contracts,
+    all_none_or_empty,
+    verify_contracts,
 )
 from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
     SodaException,
 )
-from unittest.mock import patch, MagicMock
 
 
 def test_contract_verification_file_api():
@@ -74,7 +75,7 @@ def test_handle_verify_contract_raises_exception_when_using_dataset_names_withou
     with pytest.raises(
         InvalidArgumentException,
         match="A Soda Cloud configuration file is required to use the -d/--dataset argument."
-        "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        "Please provide the '--soda-cloud' argument with a valid configuration file path.",
     ):
         _ = verify_contracts(
             contract_file_paths=None,
@@ -88,11 +89,12 @@ def test_handle_verify_contract_raises_exception_when_using_dataset_names_withou
             blocking_timeout_in_minutes=10,
         )
 
+
 def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_cloud_configuration():
     with pytest.raises(
         InvalidArgumentException,
         match="A Soda Cloud configuration file is required to use the -p/--publish argument. "
-              "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        "Please provide the '--soda-cloud' argument with a valid configuration file path.",
     ):
         _ = verify_contracts(
             contract_file_paths=None,
@@ -109,11 +111,10 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
 
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_or_dataset_identifiers(
-    mock_cloud_client
+    mock_cloud_client,
 ):
     with pytest.raises(
-        InvalidArgumentException,
-        match="At least one of -c/--contract or -d/--dataset arguments is required."
+        InvalidArgumentException, match="At least one of -c/--contract or -d/--dataset arguments is required."
     ):
         _ = verify_contracts(
             contract_file_paths=None,
@@ -130,11 +131,10 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
 
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configuration_or_dataset_identifiers(
-    mock_cloud_client
+    mock_cloud_client,
 ):
     with pytest.raises(
-        InvalidArgumentException,
-        match="At least one of -ds/--data-source or -d/--dataset value is required."
+        InvalidArgumentException, match="At least one of -ds/--data-source or -d/--dataset value is required."
     ):
         _ = verify_contracts(
             contract_file_paths=["contract.yaml"],
@@ -152,7 +152,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
 @pytest.mark.skip(reason="Needs mocking of Contract verification.")
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configuration_or_dataset_identifiers_and_remote(
-    mock_cloud_client
+    mock_cloud_client,
 ):
     mock_cloud_client.return_value = MagicMock(spec=SodaCloud)
 
@@ -170,8 +170,6 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
         )
     except Exception as exc:
         pytest.fail(f"An unexpected exception was raised: {exc}")
-
-
 
 
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")

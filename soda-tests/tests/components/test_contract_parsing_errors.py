@@ -1,9 +1,9 @@
-import pytest
-
 import re
+
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_functions import dedent_and_strip
-from soda_core.common.exceptions import InvalidDatasetQualifiedNameException, YamlParserException
+from soda_core.common.exceptions import YamlParserException
 
 
 def test_parsing_error_wrong_type(data_source_test_helper: DataSourceTestHelper):
@@ -63,7 +63,7 @@ def test_error_duplicate_column_names(data_source_test_helper: DataSourceTestHel
 def test_error_no_dataset(data_source_test_helper: DataSourceTestHelper):
     with pytest.raises(
         YamlParserException,
-        match=re.escape("The YAML is missing the required 'dataset' property, in yaml_string.yml[0,0]")
+        match=re.escape("The YAML is missing the required 'dataset' property, in yaml_string.yml[0,0]"),
     ):
         data_source_test_helper.assert_contract_error(
             contract_yaml_str=f"""

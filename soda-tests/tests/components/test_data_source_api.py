@@ -1,8 +1,7 @@
 import pytest
-
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestTableSpecification
 from helpers.test_fixtures import is_in_memory_data_source
+from helpers.test_table import TestTableSpecification
 from pydantic import SecretStr
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult

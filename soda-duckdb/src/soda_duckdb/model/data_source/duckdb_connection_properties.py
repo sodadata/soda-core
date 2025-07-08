@@ -1,13 +1,11 @@
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Literal, Optional, Dict, Literal, ClassVar
+from abc import ABC
+from typing import Dict, Optional
 
-from pydantic import Field, SecretStr
-from soda_core.model.data_source.data_source import DataSourceBase
+from duckdb import DuckDBPyConnection
+from pydantic import Field
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
-from duckdb import DuckDBPyConnection
 
 
 class DuckDBConnectionProperties(DataSourceConnectionProperties, ABC):

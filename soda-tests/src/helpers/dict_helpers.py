@@ -8,7 +8,7 @@ def assert_dict(actual: dict, expected: dict):
 def _assert_recursive_equals(path: list[str], actual: Any, expected: Any):
     if isinstance(expected, dict) and isinstance(actual, dict):
         for key, value in expected.items():
-            _assert_recursive_equals(path=path+[key], actual=actual.get(key), expected=value)
+            _assert_recursive_equals(path=path + [key], actual=actual.get(key), expected=value)
     elif isinstance(expected, list) and isinstance(actual, list):
         for index, element in enumerate(expected):
             superset_value = actual[index] if len(actual) > index else None

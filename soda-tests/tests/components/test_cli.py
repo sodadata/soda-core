@@ -2,8 +2,8 @@ import sys
 from unittest.mock import patch
 
 import pytest
-from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.cli import create_cli_parser
+from soda_core.cli.exit_codes import ExitCode
 
 # from soda_core.cli.soda import CLI
 

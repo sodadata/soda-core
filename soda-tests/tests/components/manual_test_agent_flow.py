@@ -37,7 +37,9 @@ def main():
     """
     ).strip()
 
-    soda_cloud: SodaCloud = SodaCloud.from_yaml_source(SodaCloudYamlSource.from_str(soda_cloud_yaml_str), provided_variable_values={})
+    soda_cloud: SodaCloud = SodaCloud.from_yaml_source(
+        SodaCloudYamlSource.from_str(soda_cloud_yaml_str), provided_variable_values={}
+    )
 
     ContractVerificationSession.execute(
         contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
