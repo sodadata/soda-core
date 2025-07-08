@@ -19,8 +19,8 @@ soda_telemetry = SodaTelemetry()
 
 
 def verify_contracts_locally(
-    data_source_file_path: Optional[str],
-    data_sources: Optional[list[DataSourceImpl]] = [],
+    data_source_file_path: Optional[str] = None,
+    data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     dataset_identifiers: Optional[list[str]] = None,
     soda_cloud_file_path: Optional[str] = None,
@@ -31,6 +31,9 @@ def verify_contracts_locally(
     """
     Verifies the contract locally.
     """
+    if not isinstance(data_sources, list):
+        data_sources = [data_sources]
+
     return verify_contracts(
         contract_file_paths=contract_file_paths,
         dataset_identifiers=dataset_identifiers,
@@ -74,6 +77,7 @@ def verify_contracts(
     contract_file_paths: Optional[Union[str, list[str]]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
+    data_sources: Optional[list[DataSourceImpl]],
     soda_cloud_file_path: Optional[str],
     publish: bool,
     use_agent: bool,
@@ -81,7 +85,6 @@ def verify_contracts(
     data_timestamp: Optional[str] = None,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
-    data_sources: list[DataSourceImpl] = [],
 ) -> ContractVerificationSessionResult:
     soda_cloud_client: Optional[SodaCloud] = None
     try:
