@@ -1,5 +1,5 @@
 import pytest
-from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
+from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud, SequentialResponseRequestHandler
 from soda_core.common.exceptions import InvalidDatasetQualifiedNameException, YamlParserException
 from soda_core.contracts.contract_publication import (
     ContractPublication,
@@ -65,33 +65,36 @@ def test_contract_publication_fails_on_missing_contract_file():
 
 
 def test_contract_publication_returns_result_for_each_added_contract():
-    responses = [
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": "true"}),
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id"}),
-        MockResponse(
-            method=MockHttpMethod.POST,
-            json_object={
-                "publishedContract": {
-                    "checksum": "check",
-                    "fileId": "fake_file_id",
-                },
-                "metadata": {"source": {"filePath": "contract1.yml", "type": "local"}},
-            },
-        ),
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"allowed": "true"}),
-        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fake_file_id2"}),
-        MockResponse(
-            method=MockHttpMethod.POST,
-            json_object={
-                "publishedContract": {
-                    "checksum": "check",
-                    "fileId": "fake_file_id2",
-                },
-                "metadata": {"source": {"filePath": "contract2.yml", "type": "local"}},
-            },
-        ),
-    ]
-    mock_cloud = MockSodaCloud(responses)
+    mock_cloud = MockSodaCloud(
+        request_handlers=[
+            SequentialResponseRequestHandler(
+                responses=[
+                    MockResponse(status_code=200, json_object={"allowed": "true"}),
+                    MockResponse(status_code=200, json_object={"fileId": "fake_file_id"}),
+                    MockResponse(
+                        json_object={
+                            "publishedContract": {
+                                "checksum": "check",
+                                "fileId": "fake_file_id",
+                            },
+                            "metadata": {"source": {"filePath": "contract1.yml", "type": "local"}},
+                        },
+                    ),
+                    MockResponse(status_code=200, json_object={"allowed": "true"}),
+                    MockResponse(status_code=200, json_object={"fileId": "fake_file_id2"}),
+                    MockResponse(
+                        json_object={
+                            "publishedContract": {
+                                "checksum": "check",
+                                "fileId": "fake_file_id2",
+                            },
+                            "metadata": {"source": {"filePath": "contract2.yml", "type": "local"}},
+                        },
+                    ),
+                ]
+            )
+        ]
+    )
 
     contract_publication_result = (
         ContractPublication.builder()

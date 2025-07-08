@@ -2,7 +2,7 @@ from datetime import datetime, timezone, tzinfo
 
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse
+from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.common.datetime_conversions import convert_datetime_to_str
@@ -34,9 +34,7 @@ test_table_specification = (
 def test_freshness(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock([
-        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    ])
+    mock_soda_cloud: MockSodaCloud = data_source_test_helper.enable_soda_cloud_mock()
 
     contract_yaml_str: str = f"""
         checks:
@@ -60,16 +58,22 @@ def test_freshness(data_source_test_helper: DataSourceTestHelper):
         assert str(check_result.unit) == "hour"
         assert get_diagnostic_value(check_result, "freshness_in_hours") == 1
 
-        soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
-        check_json: dict = soda_core_insert_scan_results_command["checks"][0]
-        assert check_json["diagnostics"]["v4"] == {
-            "type": "freshness",
-            "actualTimestamp": "2025-01-04T09:00:00+00:00",
-            "actualTimestampUtc": "2025-01-04T09:00:00+00:00",
-            "expectedTimestamp": "2025-01-04T10:00:00+00:00",
-            "expectedTimestampUtc": "2025-01-04T10:00:00+00:00",
-            "datasetRowsTested": 6,
-        }
+        mock_soda_cloud.get_request_insert_scan_results().assert_json_subdict({
+            "checks": [
+                {
+                    "diagnostics": {
+                        "v4": {
+                            "type": "freshness",
+                            "actualTimestamp": "2025-01-04T09:00:00+00:00",
+                            "actualTimestampUtc": "2025-01-04T09:00:00+00:00",
+                            "expectedTimestamp": "2025-01-04T10:00:00+00:00",
+                            "expectedTimestampUtc": "2025-01-04T10:00:00+00:00",
+                            "datasetRowsTested": 6,
+                        }
+                    }
+                }
+            ]
+        })
 
 
 def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):

@@ -8,7 +8,7 @@ import string
 from textwrap import dedent
 from typing import Optional
 
-from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.mock_soda_cloud import MockResponse, MockSodaCloud, SequentialResponseRequestHandler
 from helpers.test_table import (
     TestColumn,
     TestDataType,
@@ -102,8 +102,15 @@ class DataSourceTestHelper:
         if logs.has_errors():
             raise AssertionError(str(logs))
 
-    def enable_soda_cloud_mock(self, responses: list[MockResponse]):
-        self.soda_cloud = MockSodaCloud(responses)
+    def enable_soda_cloud_mock(self) -> MockSodaCloud:
+        self.soda_cloud = MockSodaCloud()
+        return self.soda_cloud
+
+    def enable_soda_cloud_mock_based_on_sequential_responses(self, responses: list[MockResponse]) -> MockSodaCloud:
+        self.soda_cloud = MockSodaCloud(request_handlers=[
+            SequentialResponseRequestHandler(responses=responses)
+        ])
+        return self.soda_cloud
 
     def _create_data_source_impl(self) -> "DataSourceImpl":
         """

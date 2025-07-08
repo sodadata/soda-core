@@ -1,5 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse, MockHttpMethod
+from helpers.mock_soda_cloud import MockResponse, MockHttpMethod, MockSodaCloud, MockRequest
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
@@ -30,9 +30,7 @@ test_table_specification = (
 def test_aggregate_function_avg(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    data_source_test_helper.enable_soda_cloud_mock([
-        MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
-    ])
+    mock_soda_cloud: MockSodaCloud = data_source_test_helper.enable_soda_cloud_mock()
 
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -49,13 +47,19 @@ def test_aggregate_function_avg(data_source_test_helper: DataSourceTestHelper):
     check_result: CheckResult = contract_verification_result.check_results[0]
     assert get_diagnostic_value(check_result, "avg") == 5
 
-    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
-    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
-    assert check_json["diagnostics"]["v4"] == {
-        "type": "aggregate",
-        "datasetRowsTested": 5,
-        "checkRowsTested": 5
-    }
+    mock_soda_cloud.get_request_insert_scan_results().assert_json_subdict({
+        "checks": [
+            {
+                "diagnostics": {
+                    "v4": {
+                        "type": "aggregate",
+                        "datasetRowsTested": 5,
+                        "checkRowsTested": 5
+                    }
+                }
+            }
+        ]
+    })
 
 
 def test_aggregate_function_avg_with_missing(data_source_test_helper: DataSourceTestHelper):
