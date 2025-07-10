@@ -31,11 +31,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
 
 class DatabricksSqlDialect(SqlDialect):
-    def __init__(self):
-        super().__init__()
-
-    def _get_default_quote_char(self) -> str:
-        return "`"
+    DEFAULT_QUOTE_CHAR = "`"
 
     def column_data_type(self) -> str:
         return self.default_casify("full_data_type")

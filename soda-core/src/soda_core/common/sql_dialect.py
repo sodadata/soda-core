@@ -9,21 +9,17 @@ from soda_core.common.sql_ast import *
 
 
 class SqlDialect:
+    DEFAULT_QUOTE_CHAR = '"'
+
     """
     Extends DataSource with all logic to builds the SQL queries.
     Specific DataSource's can customize their SQL queries by subclassing SqlDialect,
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
 
-    def __init__(self):
-        self.default_quote_char = self._get_default_quote_char()
-
-    def _get_default_quote_char(self) -> str:
-        return '"'
-
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
-            f"{self.default_quote_char}{identifier}{self.default_quote_char}"
+            f"{self.DEFAULT_QUOTE_CHAR}{identifier}{self.DEFAULT_QUOTE_CHAR}"
             if isinstance(identifier, str) and len(identifier) > 0
             else None
         )

@@ -50,6 +50,7 @@ jobs:
           - "snowflake"
         #   - "databricks"
           - "duckdb"
+          - "bigquery"
 
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}

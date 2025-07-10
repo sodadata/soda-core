@@ -52,6 +52,7 @@ class MetadataTablesQuery:
                 self.sql_dialect.table_tables(),
                 table_prefix=[
                     *([database_name] if database_name else []),
+                    schema_name,  # TODO: only for bigquery right now
                     self.sql_dialect.schema_information_schema(),
                 ],
             ),

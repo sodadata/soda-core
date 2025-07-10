@@ -203,5 +203,5 @@ class DataSourceImpl(ABC):
         )
 
     def quote_identifier(self, identifier: str) -> str:
-        c = self.sql_dialect._get_default_quote_char()
+        c = self.sql_dialect.DEFAULT_QUOTE_CHAR
         return f"{c}{identifier}{c}"

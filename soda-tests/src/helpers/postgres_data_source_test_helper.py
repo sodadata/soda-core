@@ -6,9 +6,6 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class PostgresDataSourceTestHelper(DataSourceTestHelper):
-    def __init__(self):
-        super().__init__()
-
     def _create_database_name(self) -> str | None:
         return os.getenv("POSTGRES_DATABASE", "soda_test")
 
