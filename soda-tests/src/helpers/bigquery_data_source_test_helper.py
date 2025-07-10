@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 
-from helpers.test_table import TestDataType
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestDataType
 
 
 class BigQueryDataSourceTestHelper(DataSourceTestHelper):
