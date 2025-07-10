@@ -7,9 +7,6 @@ from helpers.test_table import TestDataType
 
 
 class DuckdbDataSourceTestHelper(DataSourceTestHelper):
-    def __init__(self):
-        super().__init__()
-
     def _create_dataset_prefix(self) -> list[str]:
         schema_name: str = self._create_schema_name()
         return [schema_name]

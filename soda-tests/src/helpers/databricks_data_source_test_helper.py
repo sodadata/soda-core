@@ -7,9 +7,6 @@ from helpers.test_table import TestDataType
 
 
 class DatabricksDataSourceTestHelper(DataSourceTestHelper):
-    def __init__(self):
-        super().__init__()
-
     def _create_database_name(self) -> str | None:
         return os.getenv("DATABRICKS_DATABASE", "soda_test")
 
