@@ -39,6 +39,10 @@ class ExtensionException(SodaCoreException):
     """Indicates that the extensions are not installed."""
 
 
+class FailedContractSkeletonGenerationException(SodaCoreException):
+    """Indicates that the contract skeleton generation failed."""
+
+
 class InvalidRegexException(InvalidContractException):
     """Indicates the regex is invalid."""
 
