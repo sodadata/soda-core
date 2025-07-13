@@ -6,7 +6,7 @@ from helpers.test_table import TestTableSpecification
 # Teset table spec is just used to build the contract, the actual data is in the df/csv/etc
 test_table_specification = (
     TestTableSpecification.builder()
-    .table_purpose("row_count")
+    .table_purpose("row_count_duckdb")
     .column_text("id")
     .rows(
         rows=[
