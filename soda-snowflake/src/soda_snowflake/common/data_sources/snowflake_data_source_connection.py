@@ -24,6 +24,6 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
         config: SnowflakeConnectionProperties,
     ):
         return connector.connect(
-            application="Soda Core",
+            application="Soda",
             **config.to_connection_kwargs(),
         )
