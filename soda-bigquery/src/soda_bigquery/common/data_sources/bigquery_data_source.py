@@ -1,7 +1,9 @@
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSourceConnection,
 )
-from soda_bigquery.common.statements.metadata_columns_query import BigQueryMetadataColumnsQuery
+from soda_bigquery.common.statements.metadata_columns_query import (
+    BigQueryMetadataColumnsQuery,
+)
 from soda_bigquery.common.statements.metadata_tables_query import (
     BigQueryMetadataTablesQuery,
 )
@@ -10,7 +12,13 @@ from soda_bigquery.model.data_source.bigquery_data_source import (
 )
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import CASE_WHEN, DISTINCT, REGEX_LIKE, TUPLE, SqlExpression
+from soda_core.common.sql_ast import (
+    CASE_WHEN,
+    DISTINCT,
+    REGEX_LIKE,
+    TUPLE,
+    SqlExpression,
+)
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -36,7 +44,7 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
             location=self.get_location(),
         )
         return super_metadata_tables_query
-    
+
     def create_metadata_columns_query(self) -> BigQueryMetadataColumnsQuery:
         super_metadata_columns_query = BigQueryMetadataColumnsQuery(
             sql_dialect=self.sql_dialect,
@@ -61,7 +69,7 @@ class BigQuerySqlDialect(SqlDialect):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
-    
+
     def _build_case_when_sql(self, case_when: CASE_WHEN, in_distinct: bool = False) -> str:
         if_expression_statement = None
         else_expression_statement = None
@@ -69,11 +77,13 @@ class BigQuerySqlDialect(SqlDialect):
             if_expression_statement = self._build_tuple_sql_in_distinct(case_when.if_expression)
         else:
             if_expression_statement = self.build_expression_sql(case_when.if_expression)
-        
+
         if in_distinct and isinstance(case_when.else_expression, TUPLE):
             else_expression_statement = self._build_tuple_sql_in_distinct(case_when.else_expression)
         else:
-            else_expression_statement = self.build_expression_sql(case_when.else_expression) if case_when.else_expression else None
+            else_expression_statement = (
+                self.build_expression_sql(case_when.else_expression) if case_when.else_expression else None
+            )
 
         return (
             f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
@@ -81,14 +91,16 @@ class BigQuerySqlDialect(SqlDialect):
             + (f"ELSE {else_expression_statement} " if else_expression_statement else "")
             + "END"
         )
-    
+
     def _build_distinct_sql(self, distinct: DISTINCT) -> str:
         expressions: list[SqlExpression] = (
             distinct.expression if isinstance(distinct.expression, list) else [distinct.expression]
         )
         result_list = []
         for e in expressions:
-            if isinstance(e, TUPLE):  # BigQuery does not support DISTINCT on multiple columns, so we have to trick it using a TO_JSON_STRING
+            if isinstance(
+                e, TUPLE
+            ):  # BigQuery does not support DISTINCT on multiple columns, so we have to trick it using a TO_JSON_STRING
                 result_list.append(self._build_tuple_sql_in_distinct(e))
             elif isinstance(e, CASE_WHEN):
                 result_list.append(self._build_case_when_sql(e, in_distinct=True))
@@ -97,6 +109,6 @@ class BigQuerySqlDialect(SqlDialect):
 
         result = ", ".join(result_list)
         return f"DISTINCT({result})"
-    
+
     def supports_varchar_length(self) -> bool:
         return False

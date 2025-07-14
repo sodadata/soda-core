@@ -5,8 +5,10 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
-from soda_core.common.statements.metadata_columns_query import ColumnMetadata, MetadataColumnsQuery
-
+from soda_core.common.statements.metadata_columns_query import (
+    ColumnMetadata,
+    MetadataColumnsQuery,
+)
 
 
 class BigQueryMetadataColumnsQuery(MetadataColumnsQuery):
@@ -61,7 +63,9 @@ class BigQueryMetadataColumnsQuery(MetadataColumnsQuery):
     def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         return [
             ColumnMetadata(
-                column_name=column_name, data_type=data_type, character_maximum_length=None  # BigQuery does not support character_maximum_length
+                column_name=column_name,
+                data_type=data_type,
+                character_maximum_length=None,  # BigQuery does not support character_maximum_length
             )
             for column_name, data_type in query_result.rows
         ]

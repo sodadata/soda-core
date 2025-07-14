@@ -35,7 +35,7 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
             TestDataType.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
             TestDataType.BOOLEAN: "BOOL",
         }
-    
+
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         """
         DataSourceTestHelpers can override this method as an easy way
