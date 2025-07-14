@@ -72,16 +72,21 @@ class DataSourceConnection(ABC):
             logger.debug(f"SQL query fetchall: \n{sql}")
             cursor.execute(sql)
             rows = cursor.fetchall()
+            formatted_rows = self.format_rows(rows)
+            headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
             table_text: str = tabulate(
-                rows,
-                headers=[self._execute_query_get_result_row_column_name(c) for c in cursor.description],
+                formatted_rows,
+                headers=headers,
                 tablefmt="github",
             )
 
             logger.debug(f"SQL query result:\n{table_text}")
-            return QueryResult(rows=rows, columns=cursor.description)
+            return QueryResult(rows=formatted_rows, columns=cursor.description)
         finally:
             cursor.close()
+
+    def format_rows(self, rows: list[tuple]) -> list[tuple]:
+        return rows
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column.name

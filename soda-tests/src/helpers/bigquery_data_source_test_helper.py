@@ -35,3 +35,6 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
             TestDataType.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
             TestDataType.BOOLEAN: "BOOL",
         }
+
+    def quote_column(self, column_name: str) -> str:
+        return self.data_source_impl.sql_dialect.quote_default(column_name)

@@ -1,6 +1,9 @@
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSourceConnection,
 )
+from soda_bigquery.common.statements.metadata_tables_query import (
+    BigQueryMetadataTablesQuery,
+)
 from soda_bigquery.model.data_source.bigquery_data_source import (
     BigQueryDataSource as BigQueryDataSourceModel,
 )
@@ -21,6 +24,17 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return BigQueryDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def get_location(self) -> str:
+        return self.data_source_model.connection_properties.location
+
+    def create_metadata_tables_query(self) -> BigQueryMetadataTablesQuery:
+        super_metadata_tables_query = BigQueryMetadataTablesQuery(
+            sql_dialect=self.sql_dialect,
+            data_source_connection=self.data_source_connection,
+            location=self.get_location(),
+        )
+        return super_metadata_tables_query
 
 
 class BigQuerySqlDialect(SqlDialect):

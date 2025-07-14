@@ -6,6 +6,7 @@ import logging
 from google.api_core.client_info import ClientInfo
 from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
+from google.cloud.bigquery.table import Row
 from google.oauth2.service_account import Credentials
 from soda_bigquery.model.data_source.bigquery_connection_properties import (
     BigQueryConnectionProperties,
@@ -46,3 +47,7 @@ class BigQueryDataSourceConnection(DataSourceConnection):
         )
 
         return dbapi.Connection(self.client)
+
+    def format_rows(self, rows: list[Row]) -> list[tuple]:
+        formatted_rows = [tuple(r.values()) for r in rows]
+        return formatted_rows
