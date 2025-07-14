@@ -35,7 +35,11 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         )
 
     def get_location(self) -> str:
-        return self.data_source_model.connection_properties.location
+        location = self.data_source_model.connection_properties.location
+        if location is None:
+            # TODO: this is a temporary fix to set location always to US
+            location = "US"
+        return location
 
     def create_metadata_tables_query(self) -> BigQueryMetadataTablesQuery:
         super_metadata_tables_query = BigQueryMetadataTablesQuery(
