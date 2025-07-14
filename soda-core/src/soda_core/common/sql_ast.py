@@ -30,6 +30,10 @@ class BaseSqlExpression:
         elif isinstance(expression, BaseSqlExpression):
             expression.set_parent_node(self)
 
+    def check_context(self, context_node: type[BaseSqlExpression]) -> bool:
+        parent_nodes = self.get_parent_nodes()
+        return any(type(node) == context_node for node in parent_nodes)
+
 
 @dataclass
 class SELECT(BaseSqlExpression):
@@ -104,12 +108,14 @@ class WITH(BaseSqlExpression):
 
 @dataclass
 class SqlExpression(BaseSqlExpression):
-    pass
+    def __init__(self):
+        super().__init__()
 
 
 @dataclass
 class STAR(SqlExpression):
-    pass
+    def __init__(self):
+        super().__init__()
 
 
 @dataclass
@@ -290,32 +296,38 @@ class Operator(SqlExpression):
 
 @dataclass
 class EQ(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
 class NEQ(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
 class GT(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
 class GTE(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
 class LT(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
 class LTE(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
@@ -346,12 +358,14 @@ class REGEX_LIKE(SqlExpression):
 
 @dataclass
 class LIKE(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
 class NOT_LIKE(Operator):
-    pass
+    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
+        super().__init__(left, right)
 
 
 @dataclass
@@ -444,4 +458,5 @@ class ORDER_BY_DESC(BaseSqlExpression):
 
 @dataclass
 class ORDINAL_POSITION(BaseSqlExpression):
-    pass
+    def __init__(self):
+        super().__init__()
