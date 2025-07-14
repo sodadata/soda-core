@@ -1,14 +1,15 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
+from soda_databricks.common.statements.databricks_metadata_columns_query import (
+    DatabricksMetadataColumnsQuery,
+)
 from soda_databricks.model.data_source.databricks_data_source import (
     DatabricksDataSource as DatabricksDataSourceModel,
 )
-from soda_databricks.common.statements.databricks_metadata_columns_query import DatabricksMetadataColumnsQuery
 
 
 class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceModel):

@@ -15,13 +15,18 @@ from typing import Optional
 
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 
+verbose_mode: bool = False
+
 
 def configure_logging(
-    verbose: bool = True,
+    verbose: bool = False,
 ) -> None:
     """
     Used exposing the Soda log configurations.
     """
+    global verbose_mode
+    verbose_mode = verbose
+
     sys.stderr = sys.stdout
     for logger_to_mute in [
         "urllib3",
@@ -45,6 +50,10 @@ def configure_logging(
         # https://docs.python.org/3/library/logging.html#logrecord-attributes
         handlers=[SodaConsoleHandler()],
     )
+
+
+def is_verbose() -> bool:
+    return verbose_mode
 
 
 class SodaConsoleHandler(StreamHandler):

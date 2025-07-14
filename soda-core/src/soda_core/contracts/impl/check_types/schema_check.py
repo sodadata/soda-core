@@ -7,16 +7,15 @@ from typing import Optional
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
     MetadataColumnsQuery,
 )
+from soda_core.common.utils import format_items
 from soda_core.contracts.contract_verification import (
     Check,
     CheckOutcome,
     CheckResult,
-    Contract,
     Measurement,
     Threshold,
 )
@@ -107,7 +106,7 @@ class SchemaCheckImpl(CheckImpl):
             )
             self.queries.append(schema_query)
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         expected_column_names_not_actual: list[str] = []
@@ -141,7 +140,7 @@ class SchemaCheckImpl(CheckImpl):
                     actual_column_metadata
                     and expected_column.data_type
                     and self.contract_impl.data_source_impl.is_different_data_type(
-                        expected_column=expected_column, actual_column_metadata=actual_column_metadata
+                        expected_column=expected_column, actual_column=actual_column_metadata
                     )
                 ):
                     column_data_type_mismatches.append(
@@ -175,7 +174,6 @@ class SchemaCheckImpl(CheckImpl):
             )
 
         return SchemaCheckResult(
-            contract=contract,
             check=self._build_check_info(),
             outcome=outcome,
             expected_columns=self.expected_columns,
@@ -229,7 +227,6 @@ class SchemaQuery(Query):
 class SchemaCheckResult(CheckResult):
     def __init__(
         self,
-        contract: Contract,
         check: Check,
         outcome: CheckOutcome,
         expected_columns: list[ColumnMetadata],
@@ -239,17 +236,22 @@ class SchemaCheckResult(CheckResult):
         column_data_type_mismatches: list[ColumnDataTypeMismatch],
         are_columns_out_of_order: bool,
     ):
+        schema_events = sum(
+            (
+                len(expected_column_names_not_actual),
+                len(actual_column_names_not_expected),
+                len(column_data_type_mismatches),
+            )
+        )
+        diagnostic_metric_values = {"schema_events_count": schema_events}
+
         super().__init__(
-            contract=contract,
             check=check,
             outcome=outcome,
-            metric_value=(
-                len(expected_column_names_not_actual)
-                + len(actual_column_names_not_expected)
-                + len(column_data_type_mismatches)
-            ),
-            diagnostics=[],
+            threshold_value=schema_events,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
+
         self.expected_columns: list[ColumnMetadata] = expected_columns
         self.actual_columns: list[ColumnMetadata] = actual_columns
         self.expected_column_names_not_actual: list[str] = expected_column_names_not_actual
@@ -257,42 +259,39 @@ class SchemaCheckResult(CheckResult):
         self.column_data_type_mismatches: list[ColumnDataTypeMismatch] = column_data_type_mismatches
         self.are_columns_out_of_order: bool = are_columns_out_of_order
 
-    def log_summary(self, logs: Logs) -> None:
-        super().log_summary(logs)
+    def log_table_row_diagnostics(self, verbose: bool = True) -> str:
+        diagnostics = []
 
-        def opt_data_type(data_type: Optional[str]) -> str:
-            if isinstance(data_type, str):
-                return f"[{data_type}]"
-            else:
-                return ""
+        data_delimiter = "\n" if verbose else " "
+        category_delimiter = "\n\n" if verbose else "\n"
 
-        expected_columns_str: str = ", ".join(
-            [
-                f"{expected_column.column_name}{opt_data_type(expected_column.data_type)}"
-                for expected_column in self.expected_columns
-            ]
-        )
-        logger.info(f"  Expected schema: {expected_columns_str}")
-
-        actual_columns_str: str = ", ".join(
-            [f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns]
-        )
-        logger.info(f"  Actual schema: {actual_columns_str}")
-
-        for column in self.actual_column_names_not_expected:
-            logger.info(f"  Column '{column}' was present and not allowed")
-
-        for column in self.expected_column_names_not_actual:
-            logger.info(f"  Column '{column}' was missing")
-
-        for data_type_mismatch in self.column_data_type_mismatches:
-            logger.info(
-                f"  Column '{data_type_mismatch.column}': Expected type '{data_type_mismatch.get_expected()}', "
-                f"but was '{data_type_mismatch.get_actual()}'"
+        if self.actual_column_names_not_expected:
+            diagnostics.append(
+                f"Present, not expected columns:{data_delimiter}{format_items(self.actual_column_names_not_expected, verbose=verbose)}"
             )
 
+        if self.expected_column_names_not_actual:
+            diagnostics.append(
+                f"Missing columns:{data_delimiter}{format_items(self.expected_column_names_not_actual, verbose=verbose)}"
+            )
+
+        if self.column_data_type_mismatches:
+            mismatches = [
+                f"{data_type_mismatch.column}: {data_type_mismatch.get_expected()} -> {data_type_mismatch.get_actual()}"
+                for data_type_mismatch in self.column_data_type_mismatches
+            ]
+            diagnostics.append(f"Data type mismatches:{data_delimiter}{format_items(mismatches,verbose=verbose)}")
+
         if self.are_columns_out_of_order:
-            logger.info(f"  There are columns out of order")
+            diagnostics.append("There are columns out of order")
+
+        if verbose:
+            actual_columns = [
+                f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns
+            ]
+            diagnostics.append(f"Actual schema:{data_delimiter}{format_items(actual_columns, verbose=verbose)}")
+
+        return category_delimiter.join(diagnostics)
 
     def dataset_does_not_exists(self) -> bool:
         """

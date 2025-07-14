@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from logging import ERROR, LogRecord
 from numbers import Number
-from typing import Optional
+from typing import Any, Optional
 
+from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.logs import Logs
+from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 
 logger: logging.Logger = soda_logger
@@ -23,6 +23,7 @@ class ContractVerificationSession:
         contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
         data_source_impls: Optional[list["DataSourceImpl"]] = None,
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional["SodaCloud"] = None,
@@ -39,6 +40,7 @@ class ContractVerificationSession:
             contract_yaml_sources=contract_yaml_sources,
             only_validate_without_execute=only_validate_without_execute,
             variables=variables,
+            data_timestamp=data_timestamp,
             data_source_impls=data_source_impls,
             data_source_yaml_sources=data_source_yaml_sources,
             soda_cloud_impl=soda_cloud_impl,
@@ -67,6 +69,24 @@ class ContractVerificationSessionResult:
         for contract_verification_result in self.contract_verification_results:
             errors.extend(contract_verification_result.get_errors())
         return errors
+
+    def get_number_of_checks(self) -> int:
+        return sum(
+            contract_verification_result.get_number_of_checks()
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    def get_number_of_checks_passed(self) -> int:
+        return sum(
+            contract_verification_result.get_number_of_checks_passed()
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    def get_number_of_checks_failed(self) -> int:
+        return sum(
+            contract_verification_result.get_number_of_checks_failed()
+            for contract_verification_result in self.contract_verification_results
+        )
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
@@ -163,44 +183,110 @@ class Threshold:
 
 @dataclass
 class Check:
+    """Represents the state / essence of a check after it has been executed.
+
+    i.e. "after" CheckImpl has been executed and check result is being created.
+    """
+
     column_name: Optional[str]
     type: str
     qualifier: Optional[str]
-    name: str  # Short description used in UI. Required. Between 1 and 4000 chars.  User defined with key 'name' or auto-generated.
+    name: Optional[str]
     identity: str
     definition: str
     column_name: Optional[str]
     contract_file_line: int
     contract_file_column: int
     threshold: Optional[Threshold]
+    attributes: Optional[dict[str, Any]]
+    location: Optional[Location]
 
 
-class CheckResult(ABC):
+class CheckResult:
     def __init__(
         self,
-        contract: Contract,
         check: Check,
-        metric_value: Optional[Number],
         outcome: CheckOutcome,
-        diagnostics: list[Diagnostic],
+        threshold_value: Optional[float | int] = None,
+        diagnostic_metric_values: Optional[dict[str, float]] = None,
     ):
-        self.contract: Contract = contract
         self.check: Check = check
-        self.metric_value: Optional[Number] = metric_value
+        self.threshold_value: Optional[float | int] = threshold_value
         self.outcome: CheckOutcome = outcome
-        self.diagnostics: list[Diagnostic] = diagnostics
+        self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
 
-    def log_summary(self, logs: Logs) -> None:
-        outcome_emoticon: str = (
-            Emoticons.WHITE_CHECK_MARK
-            if self.outcome == CheckOutcome.PASSED
-            else Emoticons.POLICE_CAR_LIGHT
-            if self.outcome == CheckOutcome.FAILED
-            else Emoticons.SEE_NO_EVIL
-        )
-        logger.info(f"{outcome_emoticon} Check {self.outcome.name} {self.check.name}")
-        for diagnostic in self.diagnostics:
-            logger.info(f"  {diagnostic.log_line()}")
+    @property
+    def outcome_emoticon(self) -> str:
+        if self.outcome == CheckOutcome.PASSED:
+            return Emoticons.WHITE_CHECK_MARK
+        elif self.outcome == CheckOutcome.FAILED:
+            return Emoticons.CROSS_MARK
+        else:
+            return Emoticons.QUESTION_MARK
+
+    @property
+    def is_passed(self) -> bool:
+        return self.outcome == CheckOutcome.PASSED
+
+    @property
+    def is_failed(self) -> bool:
+        return self.outcome == CheckOutcome.FAILED
+
+    @property
+    def is_not_evaluated(self) -> bool:
+        return self.outcome == CheckOutcome.NOT_EVALUATED
+
+    def log_table_row(self) -> dict:
+        row = {}
+        row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"
+        row["Check"] = self.check.name
+        row["Outcome"] = f"{self.outcome_emoticon} {self.outcome.name}"
+
+        if is_verbose():
+            row["Check Type"] = self.check.type
+            row["Identity"] = self.check.identity
+        row["Details"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
+
+        return row
+
+    def log_table_row_diagnostics(self, verbose: bool = True) -> str:
+        diagnostics = []
+
+        if self.diagnostic_metric_values:
+            for metric_name, value in self.diagnostic_metric_values.items():
+                formatted_value = value
+                if not verbose:
+                    formatted_value = self._log_console_format(value)
+                diagnostics.append(f"{metric_name}: {formatted_value}")
+        return "\n".join(diagnostics)
+
+    @classmethod
+    def _log_console_format(cls, n: Number) -> str:
+        """
+        Couldn't find nicer & simpler code to format:
+        * Full number before the comma,
+        * At least 2 significant digits after comma
+        * Trunc (not round) after 2 significant digits after comma
+        """
+        if n == int(n):
+            return str(n)
+        n_str = str(n)
+        if "e" in n_str:
+            n_str = f"{n:.20f}"
+        is_index_after_comma = False
+        is_after_first_significant_number = False
+        significant_numbers_after_comma = 0
+        for index in range(0, len(n_str)):
+            c = n_str[index]
+            if is_index_after_comma and c != "0":
+                is_after_first_significant_number = True
+            elif not is_index_after_comma and c == ".":
+                is_index_after_comma = True
+            if is_after_first_significant_number:
+                significant_numbers_after_comma += 1
+            if significant_numbers_after_comma > 2:
+                return n_str[:index]
+        return n_str
 
 
 class Measurement:
@@ -210,29 +296,11 @@ class Measurement:
         self.value: any = value
 
 
-@dataclass
-class Diagnostic:
-    name: str
-
-    @abstractmethod
-    def log_line(self) -> str:
-        pass
-
-
-@dataclass
-class MeasuredNumericValueDiagnostic(Diagnostic):
-    value: float
-
-    def log_line(self) -> str:
-        return f"Actual {self.name} was {self.value}"
-
-
-@dataclass
-class TextDiagnostic(Diagnostic):
-    value: str
-
-    def log_line(self) -> str:
-        return f"{self.name} was {self.value}"
+class ContractVerificationStatus(Enum):
+    UNKNOWN = "UNKNOWN"
+    FAILED = "FAILED"
+    PASSED = "PASSED"
+    ERROR = "ERROR"
 
 
 class ContractVerificationResult:
@@ -248,6 +316,7 @@ class ContractVerificationResult:
         data_timestamp: Optional[datetime],
         started_timestamp: datetime,
         ended_timestamp: datetime,
+        status: ContractVerificationStatus,
         measurements: list[Measurement],
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
@@ -262,6 +331,7 @@ class ContractVerificationResult:
         self.check_results: list[CheckResult] = check_results
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.log_records: Optional[list[LogRecord]] = log_records
+        self.status = status
 
     def get_logs(self) -> list[str]:
         return [r.msg for r in self.log_records]
@@ -276,9 +346,7 @@ class ContractVerificationResult:
         return "\n".join(self.get_errors())
 
     def has_errors(self) -> bool:
-        if self.log_records is None:
-            return False
-        return any(r.levelno >= ERROR for r in self.log_records)
+        return self.status is ContractVerificationStatus.ERROR
 
     def is_failed(self) -> bool:
         """
@@ -287,14 +355,23 @@ class ContractVerificationResult:
         Only looks at check results.
         Ignores execution errors in the logs.
         """
-        return any(check_result.outcome == CheckOutcome.FAILED for check_result in self.check_results)
+        return self.status is ContractVerificationStatus.FAILED
 
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
-        return not self.is_failed()
+        return self.status is ContractVerificationStatus.PASSED
 
     def is_ok(self) -> bool:
         return not self.is_failed() and not self.has_errors()
+
+    def get_number_of_checks(self) -> int:
+        return len(self.check_results)
+
+    def get_number_of_checks_passed(self) -> int:
+        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
+
+    def get_number_of_checks_failed(self) -> int:
+        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])

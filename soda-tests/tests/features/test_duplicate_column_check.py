@@ -1,4 +1,5 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
@@ -33,6 +34,12 @@ test_table_specification = (
 def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str="""
@@ -42,11 +49,16 @@ def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
                   - duplicate:
             """,
     )
-    check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "distinct_count") == 9
-    assert get_diagnostic_value(check_result, "duplicate_count") == 0
-    assert get_diagnostic_value(check_result, "valid_count") == 9
-    assert get_diagnostic_value(check_result, "duplicate_percent") == 0
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "duplicate",
+        "failedRowsCount": 0,
+        "failedRowsPercent": 0.0,
+        "datasetRowsTested": 10,
+        "checkRowsTested": 10,
+    }
 
 
 def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):
@@ -116,7 +128,7 @@ def test_duplicate_metric_typo_error(data_source_test_helper: DataSourceTestHelp
                         metric: percentttt
             """,
     )
-    assert "'metric' must be in ['count', 'percent']" == contract_verification_result.get_errors_str()
+    assert "'metric' must be in ['count', 'percent']" in contract_verification_result.get_errors_str()
 
 
 def test_duplicate_with_check_filter(data_source_test_helper: DataSourceTestHelper):
@@ -146,13 +158,12 @@ def test_duplicate_with_column_missing_and_validity(data_source_test_helper: Dat
             columns:
               - name: age
                 missing_values: [2]
-                valid_values: [1, 2, 3]
                 checks:
                   - duplicate:
             """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "duplicate_count") == 3
+    assert get_diagnostic_value(check_result, "duplicate_count") == 4
 
 
 def test_duplicate_with_check_missing_and_validity_and_filter(data_source_test_helper: DataSourceTestHelper):
@@ -165,8 +176,6 @@ def test_duplicate_with_check_missing_and_validity_and_filter(data_source_test_h
               - name: age
                 checks:
                   - duplicate:
-                      missing_values: [2]
-                      valid_values: [1, 2, 3]
                       filter: |
                         {data_source_test_helper.quote_column("country")} = 'BE'
             """,

@@ -49,6 +49,7 @@ jobs:
           - "postgres"
           - "snowflake"
           - "databricks"
+          - "duckdb"
 
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
@@ -59,6 +60,7 @@ jobs:
       DATABRICKS_HTTP_PATH: ${{ vars.DATABRICKS_CI_HTTP_PATH }}
       DATABRICKS_CATALOG: ${{ vars.DATABRICKS_CI_CATALOG }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CI_TOKEN }}
+      SODA_CORE_TELEMETRY_LOCAL_DEBUG_MODE: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -79,6 +81,7 @@ jobs:
           if [ "${{ matrix.package }}" = "postgres" ]; then
             python -m pytest -ra soda-tests/tests/components
           fi
+          python -m pytest -ra soda-${{ matrix.package }}/tests
 
   define-matrix:
     if: github.ref_name == 'v4'

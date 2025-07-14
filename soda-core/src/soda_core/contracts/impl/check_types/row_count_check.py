@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    CheckResult,
-    Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
-)
+from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
@@ -65,7 +59,7 @@ class RowCountCheckImpl(CheckImpl):
 
         self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
         row_count: int = measurement_values.get_value(self.row_count_metric)
 
@@ -75,23 +69,26 @@ class RowCountCheckImpl(CheckImpl):
             else:
                 outcome = CheckOutcome.FAILED
 
-        diagnostics: list[Diagnostic] = [MeasuredNumericValueDiagnostic(name="row_count", value=row_count)]
+        diagnostic_metric_values: dict[str, float] = {
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
-            metric_value=row_count,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_value=row_count,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 
 class RowCountMetricImpl(AggregationMetricImpl):
-    def __init__(self, contract_impl: ContractImpl, check_impl: CheckImpl):
+    def __init__(self, contract_impl: ContractImpl, check_impl: Optional[CheckImpl] = None):
+        check_filter = check_impl.check_yaml.filter if check_impl else None
         super().__init__(
             contract_impl=contract_impl,
             metric_type="row_count",
-            check_filter=check_impl.check_yaml.filter,
+            check_filter=check_filter,
             missing_and_validity=None,
         )
 

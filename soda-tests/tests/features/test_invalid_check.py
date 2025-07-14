@@ -1,11 +1,9 @@
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.mock_soda_cloud import MockResponse
+from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
-from soda_core.contracts.contract_verification import (
-    ContractVerificationResult,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
-)
+from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -46,13 +44,31 @@ test_table_specification = (
 def test_valid_count(data_source_test_helper: DataSourceTestHelper, contract_yaml_str: str):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table, contract_yaml_str=contract_yaml_str
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "invalid",
+        "failedRowsCount": 1,
+        "failedRowsPercent": 25.0,
+        "datasetRowsTested": 4,
+        "checkRowsTested": 4,
+    }
 
 
 def test_valid_values_with_null(data_source_test_helper: DataSourceTestHelper):
@@ -68,10 +84,12 @@ def test_valid_values_with_null(data_source_test_helper: DataSourceTestHelper):
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
 
 
 def test_invalid_values(data_source_test_helper: DataSourceTestHelper):
@@ -87,10 +105,12 @@ def test_invalid_values(data_source_test_helper: DataSourceTestHelper):
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
 
 
 def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHelper):
@@ -108,10 +128,12 @@ def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHe
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
 
 
 def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelper):
@@ -128,10 +150,12 @@ def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelp
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
 
 
 def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTestHelper):
@@ -149,10 +173,12 @@ def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTest
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
 
 
 def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelper):
@@ -178,10 +204,12 @@ def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelpe
                   - invalid:
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 1 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
 
 
 def test_valid_values_with_check_filter(data_source_test_helper: DataSourceTestHelper):
@@ -198,7 +226,9 @@ def test_valid_values_with_check_filter(data_source_test_helper: DataSourceTestH
                       filter: '{data_source_test_helper.quote_column("age")} < 2'
         """,
     )
-    diagnostic: Diagnostic = contract_verification_result.check_results[0].diagnostics[0]
-    assert isinstance(diagnostic, MeasuredNumericValueDiagnostic)
-    assert "invalid_count" == diagnostic.name
-    assert 0 == diagnostic.value
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 0
+    )

@@ -3,13 +3,7 @@ from __future__ import annotations
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.test_table import (
-    TestColumn,
-    TestDataType,
-    TestTable,
-    TestTableSpecification,
-)
+from helpers.test_table import TestDataType
 
 
 class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
@@ -33,11 +27,6 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
                 password: {os.getenv("SNOWFLAKE_PASSWORD")}
                 database: {self.dataset_prefix[0]}
         """
-
-    def create_test_schema_if_not_exists_sql(self) -> str:
-        sql_dialect: "SqlDialect" = self.data_source_impl.sql_dialect
-        schema_name: str = self.dataset_prefix[1]
-        return f"CREATE SCHEMA IF NOT EXISTS {sql_dialect.quote_default(schema_name)};"
 
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name.upper()

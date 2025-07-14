@@ -1,8 +1,11 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_fixtures import is_in_memory_data_source
 from helpers.test_table import TestTableSpecification
 from pydantic import SecretStr
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import DataSourceYamlSource
 
@@ -42,6 +45,10 @@ def test_data_source_env_var_resolving(env_vars: dict):
     assert connection_properties.database == "soda_test"
 
 
+@pytest.mark.skipif(
+    is_in_memory_data_source(),
+    reason="Creation of new connection is tested, data is not there with in-memory data sources",
+)
 def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -58,5 +65,5 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
 def test_empty_data_source_file():
     logs: Logs = Logs()
     data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_str("")
-    data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
-    assert "Data Source YAML string root must be an object, but was empty" in logs.get_errors_str()
+    with pytest.raises(YamlParserException, match="Data Source YAML string root must be an object, but was empty"):
+        data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)

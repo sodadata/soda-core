@@ -39,7 +39,7 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
         soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'")
         return ExitCode.OK
     except Exception as exc:
-        soda_logger.error(f"An unexpected exception occurred: {exc}")
+        soda_logger.exception(f"An unexpected exception occurred: {exc}")
         return ExitCode.LOG_ERRORS
 
 

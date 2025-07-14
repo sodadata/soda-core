@@ -10,6 +10,7 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
+from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 
@@ -154,34 +155,29 @@ class YamlSource:
         self.resolve_on_read_soda_variable_values = soda_values
         self.resolve_on_read_use_env_vars = use_env_vars
 
-    def parse(self) -> Optional[YamlObject]:
+    def parse(self) -> YamlObject:
         self._ensure_yaml_str()
-        if isinstance(self.yaml_str, str):
-            try:
-                root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(self.yaml_str)
-                if isinstance(root_yaml_object, dict):
-                    return YamlObject(self, root_yaml_object)
-                else:
-                    location = Location(file_path=self.file_path, line=0, column=0)
-                    yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
-                    yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
-                    logger.error(
-                        msg=f"{self.description} root must be an object, " f"but was {yaml_type}",
-                        extra={
-                            ExtraKeys.LOCATION: location,
-                        },
-                    )
+        location = Location(file_path=self.file_path)
+        if not isinstance(self.yaml_str, str):
+            raise YamlParserException("YAML source is not a string", str(location))
 
-            except MarkedYAMLError as e:
-                mark = e.context_mark if e.context_mark else e.problem_mark
-                line = mark.line + 1
-                col = mark.column + 1
-                location = Location(file_path=self.file_path, line=line, column=col)
-                logger.error(
-                    msg=f"YAML syntax error in {self.description}",
-                    exc_info=True,
-                    extra={ExtraKeys.LOCATION: location},
+        try:
+            root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(self.yaml_str)
+            if isinstance(root_yaml_object, dict):
+                return YamlObject(self, root_yaml_object)
+            else:
+                yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
+                yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
+                raise YamlParserException(
+                    f"{self.description} root must be an object, " f"but was {yaml_type}", str(location)
                 )
+
+        except MarkedYAMLError as e:
+            mark = e.context_mark if e.context_mark else e.problem_mark
+            line = mark.line + 1
+            col = mark.column + 1
+            location = Location(file_path=self.file_path, line=line, column=col)
+            raise YamlParserException(f"YAML syntax error", str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
@@ -247,6 +243,7 @@ class YamlObject(YamlValue):
     def has_key(self, key: str) -> bool:
         return key in self.yaml_dict
 
+    # TODO: should we move this into the `ContractYaml` class?
     def read_dataset_identifier(self, yaml_key: str, required: bool = True) -> Optional[str]:
         dataset_qualified_name: Optional[str] = self.read_string_opt(yaml_key)
         if isinstance(dataset_qualified_name, str):
@@ -259,20 +256,20 @@ class YamlObject(YamlValue):
                 )
                 return None
         elif required:
-            logger.error(msg=f"'{yaml_key}' is required", extra={ExtraKeys.LOCATION: self.location})
+            raise YamlParserException("The YAML is missing the required 'dataset' property", str(self.location))
         return dataset_qualified_name
 
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
         An error is generated if the value is missing or not a YAML object.
-        :return: a dict if the value for the key is a YAML object, otherwise None.
+        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
     def read_object_opt(self, key: str, default_value: Optional[dict] = None) -> Optional[YamlObject]:
         """
         An error is generated if the value is present and not a YAML object.
-        :return: a dict if the value for the key is a YAML object, otherwise None.
+        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
         """
         return self.read_value(key=key, expected_type=dict, required=False, default_value=default_value)
 
@@ -406,12 +403,7 @@ class YamlObject(YamlValue):
             value = self.yaml_dict.get(key)
         else:
             if required:
-                logger.error(
-                    msg=f"{key_description} is required",
-                    extra={
-                        ExtraKeys.LOCATION: self.location,
-                    },
-                )
+                raise YamlParserException(f"{key_description} is required", str(location))
             value = default_value
 
         if expected_type is not None and not isinstance(value, expected_type) and value != default_value:
@@ -423,7 +415,7 @@ class YamlObject(YamlValue):
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
             logger.error(
-                msg=(f"{key_description} expected a {expected_type.__name__}, " f"but was {actual_type_str}"),
+                msg=f"{key_description} expected a {expected_type.__name__}, " f"but was {actual_type_str}",
                 extra={
                     ExtraKeys.LOCATION: location,
                 },

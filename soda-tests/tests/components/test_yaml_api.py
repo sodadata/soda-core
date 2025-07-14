@@ -1,7 +1,9 @@
 import logging
 import os
 
+import pytest
 from helpers.test_functions import dedent_and_strip
+from soda_core.common.exceptions import YamlParserException
 from soda_core.common.logs import Logs
 from soda_core.common.yaml import YamlList, YamlObject, YamlSource
 
@@ -45,11 +47,8 @@ def test_yaml_file(logs: Logs):
 def test_yaml_error_file_not_found(logs: Logs):
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/unexisting.yml"
     yaml_source: YamlSource = YamlSource.from_file_path(file_path=test_yaml_api_file_path)
-    yaml_object: YamlObject = yaml_source.parse()
-    errors_str = logs.get_errors_str()
-    assert "unexisting.yml' does not exist" in errors_str
-    assert logs.has_errors()
-    assert yaml_object is None
+    with pytest.raises(YamlParserException, match="YAML source is not a string, in"):
+        _ = yaml_source.parse()
 
 
 def test_yaml_error_invalid_top_level_element(logs: Logs):
@@ -62,20 +61,15 @@ def test_yaml_error_invalid_top_level_element(logs: Logs):
         ),
         file_path="yaml_string.yml",
     )
-    yaml_object: YamlObject = yaml_source.parse()
-    errors_str = logs.get_errors_str()
-    assert "YAML file 'yaml_string.yml' root must be an object, but was a list" in errors_str
-    assert logs.has_errors()
-    assert yaml_object is None
+
+    with pytest.raises(YamlParserException, match="YAML file 'yaml_string.yml' root must be an object, but was a list"):
+        _ = yaml_source.parse()
 
 
 def test_yaml_error_empty_yaml_str(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(yaml_str="", file_path="yaml_string.yml")
-    yaml_object: YamlObject = yaml_source.parse()
-    errors_str = logs.get_errors_str()
-    assert "YAML file 'yaml_string.yml' root must be an object, but was empty" in errors_str
-    assert logs.has_errors()
-    assert yaml_object is None
+    with pytest.raises(YamlParserException, match="YAML file 'yaml_string.yml' root must be an object, but was empty"):
+        _ = yaml_source.parse()
 
 
 def test_yaml_nested_level(logs: Logs):

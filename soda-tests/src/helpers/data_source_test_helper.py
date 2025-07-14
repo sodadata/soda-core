@@ -57,6 +57,12 @@ class DataSourceTestHelper:
             )
 
             return DatabricksDataSourceTestHelper()
+        elif test_datasource == "duckdb":
+            from helpers.duckdb_data_source_test_helper import (
+                DuckdbDataSourceTestHelper,
+            )
+
+            return DuckdbDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -265,10 +271,18 @@ class DataSourceTestHelper:
             self.drop_test_schema_if_exists()
 
     def query_existing_test_table_names(self):
+        database: Optional[str] = None
+        if self.data_source_impl.sql_dialect.get_database_prefix_index() is not None:
+            database = self.dataset_prefix[self.data_source_impl.sql_dialect.get_database_prefix_index()]
+
+        schema: Optional[str] = None
+        if self.data_source_impl.sql_dialect.get_schema_prefix_index() is not None:
+            schema = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
-            database_name=self.dataset_prefix[0],
-            schema_name=self.dataset_prefix[1],
+            database_name=database,
+            schema_name=schema,
             include_table_name_like_filters=["SODATEST_%"],
         )
         return [
@@ -281,14 +295,23 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def create_test_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE SCHEMA IF NOT EXISTS {self.dataset_prefix[1]} AUTHORIZATION CURRENT_USER;"
+        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
+        if schema_index is None:
+            raise AssertionError("Data source does not support schemas")
+
+        schema_name: str = self.dataset_prefix[schema_index]
+        return self.data_source_impl.sql_dialect.create_schema_if_not_exists_sql(schema_name)
 
     def drop_test_schema_if_exists(self) -> None:
         sql: str = self.drop_test_schema_if_exists_sql()
         self.data_source_impl.execute_update(sql)
 
     def drop_test_schema_if_exists_sql(self) -> str:
-        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[1]} CASCADE;"
+        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
+        if schema_index is None:
+            raise AssertionError("Data source does not support schemas")
+
+        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[schema_index]} CASCADE;"
 
     def ensure_test_table(self, test_table_specification: TestTableSpecification) -> TestTable:
         """
@@ -493,7 +516,9 @@ class DataSourceTestHelper:
         checks_contract_yaml_str = dedent(contract_yaml_str).strip()
         if test_table:
             header_contract_yaml_str: str = f"dataset: {self.build_dqn(test_table)}\n"
-            checks_contract_yaml_str = header_contract_yaml_str + checks_contract_yaml_str
+            # This asserts that any "columns" statement in a check is single line.
+            columns_contract_yaml_str: str = "columns: []\n" if not "columns:\n" in checks_contract_yaml_str else ""
+            checks_contract_yaml_str = header_contract_yaml_str + columns_contract_yaml_str + checks_contract_yaml_str
         return checks_contract_yaml_str
 
     def build_dqn(self, test_table: TestTable) -> str:
@@ -502,7 +527,7 @@ class DataSourceTestHelper:
         return dqn
 
     def test_method_ended(self) -> None:
-        self.data_source_impl.data_source_connection.rollback()
+        # self.data_source_impl.data_source_connection.rollback() #TODO: this was originally done to theoretically speed up tests, but needs some datasource-specific work.
         self.soda_cloud = None
         self.use_agent = False
 

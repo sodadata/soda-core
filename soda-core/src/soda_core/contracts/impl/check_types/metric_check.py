@@ -9,12 +9,10 @@ from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
-    Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.metric_check_yaml import MetricCheckYaml
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -69,6 +67,10 @@ class MetricCheckImpl(CheckImpl):
             self.numeric_metric_impl = self._resolve_metric(
                 MetricExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
+            self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+                RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+            )
+
         elif self.metric_check_yaml.query:
             self.numeric_metric_impl = self._resolve_metric(
                 MetricQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
@@ -81,15 +83,26 @@ class MetricCheckImpl(CheckImpl):
                 )
                 self.queries.append(metric_query)
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         numeric_metric_value: Optional[Number] = measurement_values.get_value(self.numeric_metric_impl)
-        diagnostics: list[Diagnostic] = []
+
+        diagnostic_metric_values: dict[str, float] = {}
+
+        if self.metric_check_yaml.expression:
+            diagnostic_metric_values: dict[str, float] = {
+                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            }
+        elif self.metric_check_yaml.query:
+            # TODO delete this after
+            # https://linear.app/sodadata/issue/DTL-922/fix-backend-diagnostics-mismatches-from-core
+            # is done
+            diagnostic_metric_values: dict[str, float] = {
+                "dataset_rows_tested": 0,
+            }
 
         if isinstance(numeric_metric_value, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="metric_value", value=numeric_metric_value))
-
             if self.threshold:
                 if self.threshold.passes(numeric_metric_value):
                     outcome = CheckOutcome.PASSED
@@ -97,11 +110,10 @@ class MetricCheckImpl(CheckImpl):
                     outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
-            metric_value=numeric_metric_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_value=numeric_metric_value,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

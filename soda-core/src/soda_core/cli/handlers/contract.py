@@ -1,178 +1,49 @@
+from os.path import dirname, exists
+from pathlib import Path
 from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.exceptions import (
+    ContractParserException,
     InvalidArgumentException,
     InvalidDataSourceConfigurationException,
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core.common.yaml import ContractYamlSource
+from soda_core.contracts.api import test_contracts, verify_contracts
 from soda_core.contracts.contract_publication import ContractPublication
-from soda_core.contracts.contract_verification import (
-    ContractVerificationSession,
-    ContractVerificationSessionResult,
-)
+from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 
 
 def handle_verify_contract(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
+    soda_cloud_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
     publish: bool,
     verbose: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
-    soda_cloud_client: Optional[SodaCloud],
 ) -> ExitCode:
     try:
-        validate_verify_arguments(
-            contract_file_paths, dataset_identifiers, data_source_file_path, publish, use_agent, soda_cloud_client
-        )
-
-        contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
-
-        if len(contract_yaml_sources) == 0:
-            soda_logger.debug("No contracts given. Exiting.")
-            return ExitCode.OK
-
-        # TODO: decide on implications of this
-        if dataset_identifiers and len(dataset_identifiers) > 1:
-            raise InvalidArgumentException(
-                "We currently only support a single data source configuration. Please pass a single dataset identifier."
-            )
-
-        data_source_yaml_source = _create_datasource_yamls(
-            data_source_file_path,
-            dataset_identifiers,
-            soda_cloud_client,
-            use_agent,
-        )
-
-        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=contract_yaml_sources,
-            data_source_yaml_sources=[data_source_yaml_source],
-            soda_cloud_impl=soda_cloud_client,
+        contract_verification_result = verify_contracts(
+            contract_file_paths=contract_file_paths,
+            dataset_identifiers=dataset_identifiers,
+            data_source_file_path=data_source_file_path,
+            soda_cloud_file_path=soda_cloud_file_path,
             variables=variables,
-            soda_cloud_publish_results=publish,
-            soda_cloud_use_agent=use_agent,
-            soda_cloud_verbose=verbose,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            publish=publish,
+            verbose=verbose,
+            use_agent=use_agent,
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
         )
 
-        return interpret_contract_verification_result(contract_verification_session_result)
+        return interpret_contract_verification_result(contract_verification_result)
 
     except (InvalidArgumentException, InvalidDataSourceConfigurationException, Exception) as exc:
-        soda_logger.error(exc)
-        if soda_cloud_client:
-            soda_cloud_client.mark_scan_as_failed(exc=exc)
+        soda_logger.exception(f"An unexpected exception occurred: {exc}")
         return ExitCode.LOG_ERRORS
-
-
-def _create_contract_yamls(
-    contract_file_paths: Optional[list[str]],
-    dataset_identifiers: Optional[list[str]],
-    soda_cloud_client: SodaCloud,
-) -> list[ContractYamlSource]:
-    contract_yaml_sources = []
-
-    if contract_file_paths:
-        contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
-
-    if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
-        for dataset_identifier in dataset_identifiers:
-            contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
-            if not contract:
-                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
-                continue
-            contract_yaml_sources.append(ContractYamlSource.from_str(contract))
-
-    if not contract_yaml_sources:
-        soda_logger.debug("No contracts given. Exiting.")
-        return []
-
-    return contract_yaml_sources
-
-
-def _create_datasource_yamls(
-    data_source_file_path: Optional[str],
-    dataset_identifiers: Optional[list[str]],
-    soda_cloud_client: SodaCloud,
-    use_agent: bool,
-) -> Optional[DataSourceYamlSource]:
-    if data_source_file_path:
-        return DataSourceYamlSource.from_file_path(data_source_file_path)
-
-    if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
-        if len(dataset_identifiers) > 1:
-            raise InvalidDataSourceConfigurationException(
-                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
-                f"Please pass a single dataset identifier."
-            )
-
-        dataset_identifier = dataset_identifiers[0]
-        soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
-        data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
-
-        return DataSourceYamlSource.from_str(data_source_config)
-
-    # By this point, we can only progress if we are using an agent.
-    # Then the agent will provide the data source config.
-    if use_agent:
-        return None
-
-    raise InvalidDataSourceConfigurationException(
-        "No data source configuration provided and no dataset identifiers given. "
-        "Please provide a data source configuration file or a dataset identifier."
-    )
-
-
-def validate_verify_arguments(
-    contract_file_paths: Optional[list[str]],
-    dataset_identifiers: Optional[list[str]],
-    data_source_file_path: Optional[str],
-    publish: bool,
-    use_agent: bool,
-    soda_cloud_client: Optional[SodaCloud],
-) -> None:
-    if publish and not soda_cloud_client:
-        raise InvalidArgumentException(
-            "A Soda Cloud configuration file is required to use the -p/--publish argument. "
-            "Please provide the '--soda-cloud' argument with a valid configuration file path."
-        )
-
-    if use_agent and not soda_cloud_client:
-        raise InvalidArgumentException(
-            "A Soda Cloud configuration file is required to use the -a/--agent argument. "
-            "Please provide the '--soda-cloud' argument with a valid configuration file path."
-        )
-
-    if all_none_or_empty(contract_file_paths, dataset_identifiers):
-        raise InvalidArgumentException("At least one of -c/--contract or -d/--dataset arguments is required.")
-
-    if dataset_identifiers and not soda_cloud_client:
-        raise InvalidArgumentException(
-            "A Soda Cloud configuration file is required to use the -d/--dataset argument."
-            "Please provide the '--soda-cloud' argument with a valid configuration file path."
-        )
-
-    if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent:
-        raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
-
-
-def all_none_or_empty(*args: list | None) -> bool:
-    return all(x is None or len(x) == 0 for x in args)
-
-
-def is_using_remote_contract(
-    contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]
-) -> bool:
-    return (contract_file_paths is None or len(contract_file_paths) == 0) and dataset_identifiers is not None
-
-
-def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
-    return not data_source_file_path and not all_none_or_empty(dataset_identifiers)
 
 
 def contract_verification_is_not_sent_to_cloud(
@@ -199,37 +70,115 @@ def handle_publish_contract(
     contract_file_paths: Optional[list[str]],
     soda_cloud_file_path: Optional[str],
 ) -> ExitCode:
-    contract_publication_builder = ContractPublication.builder()
+    try:
+        contract_publication_builder = ContractPublication.builder()
 
-    for contract_file_path in contract_file_paths:
-        contract_publication_builder.with_contract_yaml_file(contract_file_path)
+        for contract_file_path in contract_file_paths:
+            contract_publication_builder.with_contract_yaml_file(contract_file_path)
 
-    if soda_cloud_file_path:
-        contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
+        if soda_cloud_file_path:
+            contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
 
-    contract_publication_result = contract_publication_builder.build().execute()
-    if contract_publication_result.has_errors():
-        # TODO: detect/deal with exit code 4?
+        contract_publication_result = contract_publication_builder.build().execute()
+        if contract_publication_result.has_errors():
+            # TODO: detect/deal with exit code 4?
+            return ExitCode.LOG_ERRORS
+        else:
+            return ExitCode.OK
+    except ContractParserException as exc:
+        soda_logger.error(f"Failed to parse contract: {exc}")
         return ExitCode.LOG_ERRORS
-    else:
-        return ExitCode.OK
+    except Exception as exc:
+        soda_logger.exception(f"Failed to publish contract: {exc}")
+        return ExitCode.LOG_ERRORS
 
 
 def handle_test_contract(
     contract_file_paths: Optional[list[str]],
     variables: Optional[Dict[str, str]],
-    data_source_file_path: Optional[str],
 ) -> ExitCode:
     for contract_file_path in contract_file_paths:
-        contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-            contract_yaml_sources=[ContractYamlSource.from_file_path(contract_file_path)],
-            only_validate_without_execute=True,
-            variables=variables,
-        )
-        if contract_verification_session_result.has_errors():
+        contract_verification_result = test_contracts(contract_file_paths=[contract_file_path], variables=variables)
+        if contract_verification_result.has_errors():
             return ExitCode.LOG_ERRORS
         else:
             soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")
             return ExitCode.OK
 
     return ExitCode.OK
+
+
+def handle_fetch_contract(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_file_path: Optional[str],
+) -> ExitCode:
+    from soda_core.common.soda_cloud import SodaCloud
+
+    soda_cloud_client: Optional[SodaCloud] = None
+    try:
+        if soda_cloud_file_path:
+            soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path)
+
+        validate_fetch_arguments(contract_file_paths, dataset_identifiers, soda_cloud_client)
+
+        # fetch contract YAML strings
+        contract_yaml_sources = []
+        if soda_cloud_client:
+            for dataset_identifier in dataset_identifiers:
+                contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
+                if not contract:
+                    soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping fetch")
+                    continue
+                contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+        if not contract_yaml_sources or len(contract_yaml_sources) == 0:
+            soda_logger.debug("No contracts given. Exiting.")
+            return ExitCode.OK
+
+        # write to local contract YAML files
+        for contract_file_path, contract_yaml in zip(contract_file_paths, contract_yaml_sources):
+            dir_name = dirname(contract_file_path)
+            try:
+                Path(dir_name).mkdir(parents=True, exist_ok=True)
+                if exists(contract_file_path):
+                    action = "Updated"
+                else:
+                    action = "Created"
+                with open(contract_file_path, "w") as contract_file:
+                    contract_file.write(contract_yaml.yaml_str)
+                soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK}  {action} contract source file '{contract_file_path}'")
+                return ExitCode.OK
+            except Exception as exc:
+                soda_logger.error(f"An unexpected exception occurred: {exc}")
+                return ExitCode.LOG_ERRORS
+
+    except (InvalidArgumentException, Exception) as exc:
+        soda_logger.exception(f"Unexpected error during contract fetching: {exc}")
+        return ExitCode.LOG_ERRORS
+
+
+def validate_fetch_arguments(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_file_path: Optional[str],
+) -> None:
+    if not contract_file_paths:
+        raise InvalidArgumentException(
+            "A Soda Data Contract file path is required to use the fetch command. "
+            "Please provide the '-f/--file' argument with a valid contract file path."
+        )
+    if not dataset_identifiers:
+        raise InvalidArgumentException(
+            "A Soda Cloud dataset identifier is required to use the fetch command. "
+            "Please provide the '-d/--dataset' argument with a valid dataset identifier."
+        )
+    if not soda_cloud_file_path:
+        raise InvalidArgumentException(
+            "A Soda Cloud configuration file is required to use the fetch command. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
+    if len(contract_file_paths) != len(dataset_identifiers):
+        raise InvalidArgumentException(
+            "The number of contract file paths must match the number of dataset identifiers. "
+            "Ensure that each contract corresponds to a specific dataset."
+        )

@@ -3,13 +3,7 @@ from __future__ import annotations
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.test_table import (
-    TestColumn,
-    TestDataType,
-    TestTable,
-    TestTableSpecification,
-)
+from helpers.test_table import TestDataType
 
 
 class DatabricksDataSourceTestHelper(DataSourceTestHelper):
@@ -33,9 +27,6 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
                 access_token: {os.getenv("DATABRICKS_TOKEN")}
                 catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
         """
-
-    def create_test_schema_if_not_exists_sql(self) -> str:
-        return f"CREATE SCHEMA IF NOT EXISTS {self.dataset_prefix[1]};"
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         return {

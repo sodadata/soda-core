@@ -11,6 +11,7 @@ from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
+from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import (
@@ -132,6 +133,7 @@ class ContractYaml:
         cls,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
     ) -> Optional[ContractYaml]:
         check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
         if not check_types_have_been_registered:
@@ -139,20 +141,27 @@ class ContractYaml:
         return ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
+            data_timestamp=data_timestamp,
         )
 
     def __init__(
         self,
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
+        data_timestamp: Optional[str] = None,
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
-        self.contract_yaml_object: Optional[YamlObject] = contract_yaml_source.parse()
+        self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
-        self.data_timestamp: datetime = datetime.now(timezone.utc)
-        soda_variable_values: dict[str, str] = {"NOW": convert_datetime_to_str(self.data_timestamp)}
+        self.execution_timestamp: datetime = datetime.now(timezone.utc)
+        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
+
+        soda_variable_values: dict[str, str] = {
+            "NOW": convert_datetime_to_str(self.execution_timestamp),
+            "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp),
+        }
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
             variable_yamls=self.variables,
@@ -169,28 +178,17 @@ class ContractYaml:
             resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
         )
 
-        if (
-            self.contract_yaml_object
-            and self.contract_yaml_object.has_key("datasource")
-            and not self.contract_yaml_object.has_key("data_source")
-        ):
-            logger.error(
-                msg="Key `datasource` must be 2 words. " "Please change to `data_source`.",
-                extra={
-                    ExtraKeys.LOCATION: self.contract_yaml_object.create_location_from_yaml_dict_key("datasource"),
-                },
-            )
+        self.dataset = self.contract_yaml_object.read_dataset_identifier("dataset")
 
-        self.dataset: Optional[str] = (
-            self.contract_yaml_object.read_dataset_identifier("dataset") if self.contract_yaml_object else None
-        )
-        self.filter: Optional[str] = (
-            self.contract_yaml_object.read_string_opt("filter") if self.contract_yaml_object else None
-        )
+        self.check_attributes = self.contract_yaml_object.read_object_opt(
+            "check_attributes", default_value={}
+        ).to_dict()
+
+        self.filter: Optional[str] = self.contract_yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
 
-        self.columns: Optional[list[Optional[ColumnYaml]]] = self._parse_columns(self.contract_yaml_object)
+        self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
 
     def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
@@ -303,10 +301,14 @@ class ContractYaml:
 
         return variable_values
 
-    def _parse_columns(self, contract_yaml_object: YamlObject) -> Optional[list[Optional[ColumnYaml]]]:
+    def _parse_columns(self, contract_yaml_object: YamlObject) -> list[ColumnYaml]:
         columns: Optional[list[Optional[ColumnYaml]]] = None
         if contract_yaml_object:
             column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
+            if not column_yaml_objects:
+                raise ContractParserException(
+                    "The contract is missing the required 'columns' property", str(contract_yaml_object.location)
+                )
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
                 column_locations_by_name: dict[str, list[Optional[Location]]] = {}
@@ -338,10 +340,14 @@ class ContractYaml:
         self, checks_containing_yaml_object: YamlObject, column_yaml: Optional[ColumnYaml] = None
     ) -> Optional[list[Optional[CheckYaml]]]:
         checks: Optional[list[Optional[CheckYaml]]] = None
-
         if checks_containing_yaml_object:
             checks_yaml_list: YamlList = checks_containing_yaml_object.read_list_opt("checks")
             if checks_yaml_list:
+                if len(list(checks_yaml_list)) == 0:
+                    raise ContractParserException(
+                        "The 'checks' property must not be an empty list"
+                        "Please add at least one check or remove the 'checks' property."
+                    )
                 checks = []
                 for check_index, check_yaml_object in enumerate(checks_yaml_list):
                     check_type_name: Optional[str] = None
@@ -390,6 +396,18 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
+
+    def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
+        if isinstance(data_timestamp, str):
+            parsed_data_timestamp = convert_str_to_datetime(data_timestamp)
+            if isinstance(parsed_data_timestamp, datetime):
+                return parsed_data_timestamp
+            else:
+                logging.error(
+                    f"Provided 'data_timestamp' value is not a correct ISO 8601 "
+                    f"timestamp format: '{data_timestamp}'"
+                )
+        return default_soda_now
 
 
 class VariableYaml:
@@ -556,8 +574,12 @@ class CheckYaml(ABC):
         qualifier = check_yaml_object.read_value("qualifier") if check_yaml_object else None
         self.qualifier: Optional[str] = str(qualifier) if qualifier is not None else None
         self.filter: Optional[str] = check_yaml_object.read_string_opt("filter") if check_yaml_object else None
+        self.store_failed_rows: Optional[bool] = (
+            check_yaml_object.read_bool_opt("store_failed_rows", default_value=False) if check_yaml_object else None
+        )
         if self.filter:
             self.filter = self.filter.strip()
+        self.attributes: dict[str, any] = check_yaml_object.read_object_opt("attributes", default_value={}).to_dict()
 
 
 class ThresholdCheckYaml(CheckYaml):
@@ -569,7 +591,7 @@ class ThresholdCheckYaml(CheckYaml):
         threshold_yaml_object: YamlObject = check_yaml_object.read_object_opt("threshold")
         if threshold_yaml_object:
             self.metric = self.read_metric(threshold_yaml_object)
-            self.unit = threshold_yaml_object.read_string_opt("unit")
+            self.unit = self.read_unit(threshold_yaml_object)
             self.threshold = ThresholdYaml(threshold_yaml_object)
 
     def read_metric(self, check_yaml_object: YamlObject) -> Optional[str]:
@@ -594,10 +616,15 @@ class ThresholdCheckYaml(CheckYaml):
     def read_unit(self, check_yaml_object: YamlObject) -> Optional[str]:
         unit: Optional[str] = check_yaml_object.read_string_opt("unit")
         if unit:
-            valid_units: list[str] = self.get_valid_metrics()
+            valid_units: list[str] = self.get_valid_units()
+            if len(valid_units) == 0:
+                logger.error(
+                    msg=f"'unit' not allowed",
+                    extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("metric")},
+                )
             if unit not in valid_units:
                 logger.error(
-                    msg=f"'metric' must be in {valid_units}",
+                    msg=f"'metric' must be in {valid_units}, but was {unit}",
                     extra={ExtraKeys.LOCATION: check_yaml_object.create_location_from_yaml_dict_key("unit")},
                 )
         return unit

@@ -10,7 +10,7 @@ from enum import Enum
 from logging import LogRecord
 from tempfile import TemporaryFile
 from time import sleep
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 from requests import Response
@@ -29,6 +29,8 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
+from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
+from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -38,6 +40,8 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     Contract,
     ContractVerificationResult,
+    ContractVerificationStatus,
+    SodaException,
     Threshold,
     YamlFileContentInfo,
 )
@@ -210,17 +214,15 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def upload_contract_file(self, contract: Contract) -> Optional[str]:
-        contract_yaml_source_str = contract.source.source_content_str
+    def upload_contract_file(self, contract_yaml_source_str: str, soda_cloud_file_path: str) -> Optional[str]:
         logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
-        soda_cloud_file_path: str = f"{contract.soda_qualified_dataset_name.lower()}.yml"
         return self._upload_scan_yaml_file(yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path)
 
-    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> bool:
+    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[dict]:
         """
-        Returns True if a 200 OK was received, False otherwise
+        Returns A scanId string if a 200 OK was received, None otherwise
         """
-        contract_verification_result = _build_contract_result_json(
+        contract_verification_result = _build_contract_result_json_dict(
             contract_verification_result=contract_verification_result
         )
         contract_verification_result["type"] = "sodaCoreInsertScanResults"
@@ -229,14 +231,13 @@ class SodaCloud:
         )
         if response.status_code == 200:
             logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
-            response_json = response.json()
+            response_json: dict = response.json()
             if isinstance(response_json, dict):
                 cloud_url: Optional[str] = response_json.get("cloudUrl")
                 if isinstance(cloud_url, str):
                     logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
-            return True
-        else:
-            return False
+                return response_json
+        return None
 
     def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
         file_id: Optional[str] = self._upload_scan_yaml_file(
@@ -351,13 +352,14 @@ class SodaCloud:
         response: Response = self._execute_command(
             command_json_dict=publish_contract_command, request_log_name="publish_contract"
         )
-
-        if response.status_code == 200:
-            logger.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
-        else:
-            logger.critical(f"Failed ot publish on Soda Cloud")
-
         response_json = response.json()
+
+        if response.status_code != 200:
+            error_details = response_json.get("message", response.text)
+            raise SodaCloudException(error_details)
+
+        logger.info(f"{Emoticons.OK_HAND} Contract published on Soda Cloud")
+
         source_metadata = (
             response_json["metadata"]["source"]
             if "metadata" in response_json and "source" in response_json["metadata"]
@@ -457,6 +459,7 @@ class SodaCloud:
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
             log_records=None,
+            status=ContractVerificationStatus.UNKNOWN,
         )
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
@@ -505,9 +508,11 @@ class SodaCloud:
             logger.warning("Did not receive a Scan ID from Soda Cloud")
             return verification_result
 
-        scan_is_finished, contract_dataset_cloud_url = self._poll_remote_scan_finished(
+        scan_is_finished, contract_dataset_cloud_url, scan_status = self._poll_remote_scan_finished(
             scan_id=scan_id, blocking_timeout_in_minutes=blocking_timeout_in_minutes
         )
+
+        verification_result.status = _map_remote_scan_status_to_contract_verification_status(scan_status)
 
         logger.debug(f"Asking Soda Cloud the logs of scan {scan_id}")
         logs_response: Response = self._get_scan_logs(scan_id=scan_id)
@@ -665,7 +670,9 @@ class SodaCloud:
 
         return response_dict.get("contents")
 
-    def _poll_remote_scan_finished(self, scan_id: str, blocking_timeout_in_minutes: int) -> tuple[bool, Optional[str]]:
+    def _poll_remote_scan_finished(
+        self, scan_id: str, blocking_timeout_in_minutes: int
+    ) -> tuple[bool, Optional[str], Optional[RemoteScanStatus]]:
         """
         Returns a tuple of 2 values:
         * A boolean indicating if the scan finished (true means scan finished. false means there was a timeout or retry exceeded)
@@ -682,42 +689,46 @@ class SodaCloud:
             )
             response = self._get_scan_status(scan_id)
             logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
-            if response:
-                response_body_dict: Optional[dict] = response.json() if response else None
-                scan_state: str = response_body_dict.get("state") if response_body_dict else None
-                contract_dataset_cloud_url: Optional[str] = (
-                    response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
-                )
-
-                logger.info(f"Scan {scan_id} has state '{scan_state}'")
-
-                if RemoteScanStatus.from_value(scan_state).is_final_state:
-                    return True, contract_dataset_cloud_url
-
-                time_to_wait_in_seconds: float = 5
-                next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
-                if next_poll_time_str:
-                    logger.debug(
-                        f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
-                        f"via header X-Soda-Next-Poll-Time"
-                    )
-                    next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
-                    if isinstance(next_poll_time, datetime):
-                        now = datetime.now(timezone.utc)
-                        time_to_wait = next_poll_time - now
-                        time_to_wait_in_seconds = time_to_wait.total_seconds()
-                    else:
-                        time_to_wait_in_seconds = 60
-                if time_to_wait_in_seconds > 0:
-                    logger.debug(
-                        f"Sleeping {time_to_wait_in_seconds} seconds before asking "
-                        f"Soda Cloud scan {scan_id} status again in ."
-                    )
-                    sleep(time_to_wait_in_seconds)
-            else:
+            if not response:
                 logger.error(f"Failed to poll remote scan status. " f"Response: {response}")
+                continue
 
-        return False, None
+            response_body_dict: Optional[dict] = response.json() if response else None
+            contract_dataset_cloud_url: Optional[str] = (
+                response_body_dict.get("contractDatasetCloudUrl") if response_body_dict else None
+            )
+
+            if "state" not in response_body_dict:
+                continue
+            scan_state = RemoteScanStatus.from_value(response_body_dict["state"])
+
+            logger.info(f"Scan {scan_id} has state '{scan_state.value_}'")
+
+            if scan_state.is_final_state:
+                return True, contract_dataset_cloud_url, scan_state
+
+            time_to_wait_in_seconds: float = 5
+            next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+            if next_poll_time_str:
+                logger.debug(
+                    f"Soda Cloud suggested to ask scan {scan_id} status again at '{next_poll_time_str}' "
+                    f"via header X-Soda-Next-Poll-Time"
+                )
+                next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                if isinstance(next_poll_time, datetime):
+                    now = datetime.now(timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                else:
+                    time_to_wait_in_seconds = 60
+            if time_to_wait_in_seconds > 0:
+                logger.debug(
+                    f"Sleeping {time_to_wait_in_seconds} seconds before asking "
+                    f"Soda Cloud scan {scan_id} status again in ."
+                )
+                sleep(time_to_wait_in_seconds)
+
+        return False, None, None
 
     def _get_scan_status(self, scan_id: str) -> Response:
         return self._execute_rest_get(
@@ -776,8 +787,12 @@ class SodaCloud:
                     is_retry=False,
                 )
             elif response.status_code != 200:
+                verbose_message: str = (
+                    "" if logger.isEnabledFor(logging.DEBUG) else "Enable verbose mode to see more details."
+                )
+                logger.error(f"Soda Cloud error for {request_type} `{request_log_name}`. {verbose_message}")
                 logger.debug(
-                    f"Soda Cloud error for {request_type} {request_log_name} | status_code:{response.status_code} | "
+                    f"Status_code:{response.status_code} | "
                     f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
                 )
             else:
@@ -857,24 +872,31 @@ class SodaCloud:
             assert self.token, "No token in login response?!"
         return self.token
 
+    def send_failed_rows_diagnostics(self, scan_id: str, failed_rows_diagnostics: list[FailedRowsDiagnostic]):
+        print(f"TODO sending failed rows diagnostics for scan {scan_id} to Soda Cloud: {failed_rows_diagnostics}")
 
-def to_jsonnable(o) -> object:
+
+def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
         return o
     if isinstance(o, dict):
-        for key, value in o.items():
-            update = False
-            if not isinstance(key, str):
-                del o[key]
-                key = str(key)
-                update = True
+        for key in list(o.keys()):
+            value = o[key]
+            if value is not None:
+                update = False
+                if not isinstance(key, str):
+                    del o[key]
+                    key = str(key)
+                    update = True
 
-            jsonnable_value = to_jsonnable(value)
-            if value is not jsonnable_value:
-                value = jsonnable_value
-                update = True
-            if update:
-                o[key] = value
+                jsonnable_value = to_jsonnable(value)
+                if value is not jsonnable_value:
+                    value = jsonnable_value
+                    update = True
+                if update:
+                    o[key] = value
+            elif remove_null_values_in_dicts:
+                del o[key]
         return o
     if isinstance(o, tuple):
         return to_jsonnable(list(o))
@@ -902,35 +924,34 @@ def to_jsonnable(o) -> object:
     raise RuntimeError(f"Do not know how to jsonize {o} ({type(o)})")
 
 
-def _build_contract_result_json(contract_verification_result: ContractVerificationResult) -> dict:
-    check_result_cloud_json_dicts = [
-        _build_check_result_cloud_dict(check_result)
-        for check_result in contract_verification_result.check_results
-        # TODO ask m1no if this should be ported
-        # if check.check_type == CheckType.CLOUD
-        # and (check.outcome is not None or check.force_send_results_to_cloud is True)
-        # and check.archetype is None
+def _build_check_results_cloud_json_dicts(
+    contract_verification_result: ContractVerificationResult,
+) -> Optional[list[dict]]:
+    check_results: Optional[list[CheckResult]] = contract_verification_result.check_results
+    contract: Contract = contract_verification_result.contract
+    if not check_results:
+        return None
+    return [
+        _build_check_result_cloud_dict(contract=contract, check_result=check_result) for check_result in check_results
     ]
 
-    log_cloud_json_dicts: list[dict] = [
-        _build_log_cloud_json_dict(log_record, index)
-        for index, log_record in enumerate(contract_verification_result.log_records)
-        # TODO ask m1no if this should be ported
-        # if check.check_type == CheckType.CLOUD
-        # and (check.outcome is not None or check.force_send_results_to_cloud is True)
-        # and check.archetype is None
-    ]
 
-    # The scan definition name is still required on result ingestion to link to the contract
-    # and determine if we're dealing with a default or test contract.
-    scan_definition_name = contract_verification_result.contract.soda_qualified_dataset_name
-    if "SODA_SCAN_DEFINITION" in os.environ:
-        scan_definition_name = os.environ["SODA_SCAN_DEFINITION"]
+def _build_scan_definition_name(contract_verification_result: ContractVerificationResult) -> str:
+    scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
+    if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
+        return scan_definition_name
+    else:
+        return contract_verification_result.contract.soda_qualified_dataset_name
 
-    contract_result_json: dict = to_jsonnable(  # type: ignore
+
+def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
+    return to_jsonnable(  # type: ignore
         {
-            "definitionName": scan_definition_name,
+            "scanId": os.environ.get("SODA_SCAN_ID", None),
+            # The scan definition name is still required on result ingestion to link to the contract
+            # and determine if we're dealing with a default or test contract.
+            "definitionName": _build_scan_definition_name(contract_verification_result),
             "defaultDataSource": contract_verification_result.data_source.name,
             "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
             # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
@@ -943,40 +964,60 @@ def _build_contract_result_json(contract_verification_result: ContractVerificati
             "hasErrors": contract_verification_result.has_errors(),
             "hasWarnings": False,
             "hasFailures": contract_verification_result.is_failed(),
-            # "metrics": [metric.get_cloud_dict() for metric in contract_result._metrics],
-            # If archetype is not None, it means that check is automated monitoring
-            "checks": check_result_cloud_json_dicts,
-            # "queries": querys,
-            # "automatedMonitoringChecks": automated_monitoring_checks,
-            # "profiling": profiling,
-            # "metadata": [
-            #     discover_tables_result.get_cloud_dict()
-            #     for discover_tables_result in contract_result._discover_tables_result_tables
-            # ],
-            "logs": log_cloud_json_dicts,
+            "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
+            "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
-            "contract": {
-                "fileId": contract_verification_result.contract.source.soda_cloud_file_id,
-                "metadata": {
-                    "source": {
-                        "type": "local",
-                        # TODO: make contract metadata verification optional on BE?
-                        "filePath": contract_verification_result.contract.source.local_file_path or "REMOTE",
-                    }
-                },
-            },
+            "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
         }
     )
 
-    if "SODA_SCAN_ID" in os.environ:
-        soda_scan_id = os.environ["SODA_SCAN_ID"]
-        logger.debug(f"Using SODA_SCAN_ID from environment variable: {soda_scan_id}")
-        contract_result_json["scanId"] = soda_scan_id
 
-    return contract_result_json
+def _build_contract_cloud_json_dict(contract: Contract):
+    return {
+        "fileId": contract.source.soda_cloud_file_id,
+        "metadata": {
+            "source": {
+                "type": "local",
+                # TODO: make contract metadata verification optional on BE?
+                "filePath": contract.source.local_file_path or "REMOTE",
+            }
+        },
+    }
 
 
-def _translate_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
+def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
+    return {
+        "identities": {"vc1": check_result.check.identity},
+        "checkPath": _build_check_path(check_result),
+        "name": check_result.check.name,
+        "type": "generic",
+        "checkType": check_result.check.type,
+        "definition": check_result.check.definition,
+        **_build_check_attributes(check_result.check.attributes).model_dump(by_alias=True),
+        "location": _build_check_location(check_result),
+        "dataSource": contract.data_source_name,
+        "table": contract.dataset_name,
+        "datasetPrefix": contract.dataset_prefix,
+        "column": check_result.check.column_name,
+        "outcome": _build_check_outcome_for_soda_cloud(check_result.outcome),
+        "source": "soda-contract",
+        "diagnostics": _build_diagnostics_json_dict(check_result),
+    }
+
+
+def _build_check_location(check_result: CheckResult) -> dict:
+    return {
+        "filePath": _build_file_path(check_result.check.location),
+        "line": check_result.check.contract_file_line,
+        "col": check_result.check.contract_file_column,
+    }
+
+
+def _build_file_path(location: Location) -> str:
+    return location.file_path if isinstance(location.file_path, str) else "yamlstr.yml"
+
+
+def _build_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
     if outcome == CheckOutcome.PASSED:
         return "pass"
     elif outcome == CheckOutcome.FAILED:
@@ -984,51 +1025,141 @@ def _translate_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
     return "unevaluated"
 
 
-def _build_check_result_cloud_dict(check_result: CheckResult) -> dict:
-    check_result_cloud_dict: dict = {
-        "identities": {"vc1": check_result.check.identity},
-        "checkPath": _build_check_path(check_result),
-        "name": check_result.check.name,
-        "type": "generic",
-        "checkType": check_result.check.type,
-        "definition": check_result.check.definition,
-        "resourceAttributes": [],  # TODO
-        "location": {
-            "filePath": (
-                check_result.contract.source.local_file_path
-                if isinstance(check_result.contract.source.local_file_path, str)
-                else "yamlstr.yml"
-            ),
-            "line": check_result.check.contract_file_line,
-            "col": check_result.check.contract_file_column,
-        },
-        "dataSource": check_result.contract.data_source_name,
-        "table": check_result.contract.dataset_name,
-        "datasetPrefix": check_result.contract.dataset_prefix,
-        "column": check_result.check.column_name,
-        # "metrics": [
-        #         "metric-contract://SnowflakeCon_GLOBAL_BI_BUSINESS/GLOBAL_BI/BUSINESS/ORDERSCUBE-SnowflakeCon_GLOBAL_BI_BUSINESS-percentage_of_missing_orders > 100-7253408e"
-        # ],
-        "outcome": _translate_check_outcome_for_soda_cloud(check_result.outcome),
-        "source": "soda-contract",
+def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
+    return {
+        #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
+        "value": check_result.threshold_value or 0,
+        "fail": _build_fail_threshold(check_result),
+        "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
-    if check_result.metric_value is not None and check_result.check.threshold is not None:
-        t: Threshold = check_result.check.threshold
-        fail_threshold: dict = {}
-        if t.must_be_less_than_or_equal is not None:
-            fail_threshold["greaterThan"] = t.must_be_less_than_or_equal
-        if t.must_be_less_than is not None:
-            fail_threshold["greaterThanOrEqual"] = t.must_be_less_than
-        if t.must_be_greater_than_or_equal is not None:
-            fail_threshold["lessThan"] = t.must_be_greater_than_or_equal
-        if t.must_be_greater_than is not None:
-            fail_threshold["lessThanOrEqual"] = t.must_be_greater_than
-        check_result_cloud_dict["diagnostics"] = {
-            "blocks": [],
-            "value": check_result.metric_value,
-            "fail": fail_threshold,
+
+
+def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Optional[dict]:
+    from soda_core.contracts.impl.check_types.freshness_check import (
+        FreshnessCheckResult,
+    )
+    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
+
+    if check_result.check.type == "missing":
+        return {
+            "type": check_result.check.type,
+            "failedRowsCount": check_result.diagnostic_metric_values.get("missing_count"),
+            "failedRowsPercent": check_result.diagnostic_metric_values.get("missing_percent"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
-    return check_result_cloud_dict
+    elif check_result.check.type == "invalid":
+        return {
+            "type": check_result.check.type,
+            "failedRowsCount": check_result.diagnostic_metric_values.get("invalid_count"),
+            "failedRowsPercent": check_result.diagnostic_metric_values.get("invalid_percent"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+        }
+    elif check_result.check.type == "duplicate":
+        return {
+            "type": check_result.check.type,
+            "failedRowsCount": check_result.diagnostic_metric_values.get("duplicate_count"),
+            "failedRowsPercent": check_result.diagnostic_metric_values.get("duplicate_percent"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+        }
+    elif check_result.check.type == "failed_rows":
+        return {
+            "type": check_result.check.type,
+            "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
+            "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+        }
+    elif check_result.check.type == "aggregate":
+        return {
+            "type": check_result.check.type,
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+        }
+    elif check_result.check.type == "metric":
+        return {
+            "type": check_result.check.type,
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+        }
+    elif check_result.check.type == "row_count":
+        return {
+            "type": check_result.check.type,
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+        }
+    elif isinstance(check_result, SchemaCheckResult):
+        return {
+            "type": check_result.check.type,
+            "expected": [_build_schema_column(expected) for expected in check_result.expected_columns],
+            "actual": [_build_schema_column(actual) for actual in check_result.actual_columns],
+            # To be added later if we need it
+            # "actualColumnsNotExpected": [...],
+            # "expectedColumnsNotActual": [...],
+            # "columnDataTypeMismatches": [...],
+        }
+    elif isinstance(check_result, FreshnessCheckResult):
+        return {
+            "type": "freshness",
+            # Check the console logs!
+            "actualTimestamp": convert_datetime_to_str(check_result.max_timestamp),
+            "actualTimestampUtc": convert_datetime_to_str(check_result.max_timestamp_utc),
+            "expectedTimestamp": convert_datetime_to_str(check_result.data_timestamp),
+            "expectedTimestampUtc": convert_datetime_to_str(check_result.data_timestamp_utc),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            # We skip the checkRowsTested because it causes extra compute.
+            # To be re-evaluated when we have users asking for it.
+        }
+    raise SodaException(f"Invalid check type: {type(check_result.check).__name__}")
+
+
+def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
+    return {
+        "name": column_metadata.column_name,
+        # The type includes the max char length if specified in the metadata eg VARCHAR(255)
+        "type": column_metadata.get_data_type_ddl(),
+    }
+
+
+def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
+    threshold: Threshold = check_result.check.threshold
+    if threshold:
+        return {
+            "greaterThan": threshold.must_be_less_than_or_equal,
+            "greaterThanOrEqual": threshold.must_be_less_than,
+            "lessThan": threshold.must_be_greater_than_or_equal,
+            "lessThanOrEqual": threshold.must_be_greater_than,
+        }
+    return None
+
+
+def _map_remote_scan_status_to_contract_verification_status(
+    scan_status: RemoteScanStatus,
+) -> ContractVerificationStatus:
+    if scan_status in (RemoteScanStatus.COMPLETED, RemoteScanStatus.COMPLETED_WITH_WARNINGS):
+        return ContractVerificationStatus.PASSED
+    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
+        return ContractVerificationStatus.FAILED
+    elif scan_status in RemoteScanStatus.COMPLETED_WITH_ERRORS:
+        return ContractVerificationStatus.ERROR
+    else:
+        return ContractVerificationStatus.UNKNOWN
+
+
+# def _build_diagnostics_column_data_type_mismatches(
+#     column_data_type_mismatches: list["ColumnDataTypeMismatch"],
+# ) -> list[SodaCloudSchemaDataTypeMismatch]:
+#     return [
+#         SodaCloudSchemaDataTypeMismatch(
+#             column=column_data_type_mismatch.column,
+#             expectedDataType=column_data_type_mismatch.expected_data_type,
+#             actualDataType=column_data_type_mismatch.actual_data_type,
+#             expectedCharacterMaximumLength=column_data_type_mismatch.expected_character_maximum_length,
+#             actualCharacterMaximumLength=column_data_type_mismatch.actual_character_maximum_length,
+#         )
+#         for column_data_type_mismatch in column_data_type_mismatches
+#     ]
 
 
 def _build_check_path(check_result: CheckResult) -> str:
@@ -1042,6 +1173,12 @@ def _build_check_path(check_result: CheckResult) -> str:
     if check.qualifier:
         parts.append(check.qualifier)
     return ".".join(parts)
+
+
+def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optional[list[dict]]:
+    if not log_records:
+        return None
+    return [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
 
 
 def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
@@ -1076,3 +1213,7 @@ def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception:
     exc_cloud_log_dict["index"] = len(cloud_log_dicts)
     cloud_log_dicts.append(exc_cloud_log_dict)
     return cloud_log_dicts
+
+
+def _build_check_attributes(data: dict[str, Any]) -> CheckAttributes:
+    return CheckAttributes(check_attributes=[CheckAttribute.from_raw(k, v) for k, v in data.items()])

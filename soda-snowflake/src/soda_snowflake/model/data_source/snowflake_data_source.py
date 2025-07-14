@@ -5,10 +5,10 @@ from pydantic import Field, field_validator
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_snowflake.model.data_source.snowflake_connection_properties import (
     SnowflakeConnectionProperties,
-    SnowflakePasswordAuth,
-    SnowflakeKeyPairAuth,
     SnowflakeJWTAuth,
+    SnowflakeKeyPairAuth,
     SnowflakeOAuthAuth,
+    SnowflakePasswordAuth,
     SnowflakeSSOAuth,
 )
 

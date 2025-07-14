@@ -1,28 +1,19 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.contract import (
-    ContractVerificationSession,
-    all_none_or_empty,
     handle_publish_contract,
     handle_test_contract,
-    handle_verify_contract, )
+    handle_verify_contract,
+)
 from soda_core.common.logs import Logs
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
     ContractPublicationResultList,
 )
-
-
-@pytest.mark.parametrize(
-    "array, expected", [(["a", "b"], False), (["a", None], False), ([None, None], False), ([], True), (None, True)]
-)
-def test_all_none_or_empty(array, expected):
-    is_all_none_or_empty = all_none_or_empty(array)
-    assert is_all_none_or_empty == expected
+from soda_core.contracts.contract_verification import ContractVerificationSession
 
 
 @pytest.mark.parametrize(
@@ -36,8 +27,11 @@ def test_all_none_or_empty(array, expected):
         (True, True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
     ],
 )
-@patch.object(ContractVerificationSession, "execute")
-def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failures, cloud_failed, expected_exit_code):
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
+@patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
+def test_handle_verify_contract_exit_codes(
+    mock_execute, mock_cloud_client, has_errors, has_failures, cloud_failed, expected_exit_code
+):
     mock_contract_result = MagicMock()
     mock_contract_result.sending_results_to_soda_cloud_failed = cloud_failed
 
@@ -48,155 +42,19 @@ def test_handle_verify_contract_exit_codes(mock_execute, has_errors, has_failure
 
     mock_execute.return_value = mock_result
 
-    mock_cloud = MagicMock()
-
     exit_code = handle_verify_contract(
         contract_file_paths=["contract.yaml"],
         dataset_identifiers=None,
         data_source_file_path="ds.yaml",
+        soda_cloud_file_path="sc.yaml",
         variables={},
         publish=True,
         verbose=False,
         use_agent=False,
         blocking_timeout_in_minutes=10,
-        soda_cloud_client=mock_cloud,
     )
 
     assert exit_code == expected_exit_code
-
-
-def test_handle_verify_contract_returns_exit_code_3_when_using_dataset_names_without_cloud_configuration(caplog):
-    exit_code = handle_verify_contract(
-        contract_file_paths=None,
-        dataset_identifiers=["some_dataset"],
-        data_source_file_path="ds.yaml",
-        variables={},
-        publish=False,
-        use_agent=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=None,
-    )
-    assert (
-        "A Soda Cloud configuration file is required to use the -d/--dataset argument."
-        "Please provide the '--soda-cloud' argument with a valid configuration file path."
-    ) in caplog.messages
-    assert exit_code == ExitCode.LOG_ERRORS
-
-
-def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_cloud_configuration(caplog):
-    exit_code = handle_verify_contract(
-        contract_file_paths=None,
-        dataset_identifiers=["some_dataset"],
-        data_source_file_path="ds.yaml",
-        variables={},
-        publish=True,
-        use_agent=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=None,
-    )
-
-    assert (
-        "A Soda Cloud configuration file is required to use the -p/--publish argument. "
-        "Please provide the '--soda-cloud' argument with a valid configuration file path."
-    ) in caplog.messages
-    assert exit_code == ExitCode.LOG_ERRORS
-
-
-def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_or_dataset_identifiers(caplog):
-    exit_code = handle_verify_contract(
-        contract_file_paths=None,
-        dataset_identifiers=None,
-        data_source_file_path="ds.yaml",
-        variables={},
-        publish=True,
-        use_agent=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=MagicMock(),
-    )
-
-    assert "At least one of -c/--contract or -d/--dataset arguments is required." in caplog.messages
-    assert exit_code == ExitCode.LOG_ERRORS
-
-
-def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configuration_or_dataset_identifiers(caplog):
-    exit_code = handle_verify_contract(
-        contract_file_paths=["contract.yaml"],
-        dataset_identifiers=None,
-        data_source_file_path=None,
-        variables={},
-        publish=True,
-        use_agent=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=MagicMock(),
-    )
-
-    assert "At least one of -ds/--data-source or -d/--dataset value is required." in caplog.messages
-    assert exit_code == ExitCode.LOG_ERRORS
-
-
-@pytest.mark.skip(reason="Needs mocking of Contract verification.")
-def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configuration_or_dataset_identifiers_and_remote(
-    caplog,
-):
-    exit_code = handle_verify_contract(
-        contract_file_paths=["contract.yaml"],
-        dataset_identifiers=None,
-        data_source_file_path=None,
-        variables={},
-        publish=True,
-        use_agent=True,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=MagicMock(),
-    )
-
-    assert "At least one of -ds/--data-source or -d/--dataset value is required." not in caplog.messages
-    assert exit_code == ExitCode.OK
-
-
-def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud_returns_errors(caplog):
-    mock_cloud = MagicMock()
-    mock_cloud.fetch_contract_for_dataset.return_value = None
-
-    _ = handle_verify_contract(
-        contract_file_paths=None,
-        dataset_identifiers=["my/super/awesome/identifier"],
-        data_source_file_path="ds.yaml",
-        variables={},
-        publish=True,
-        use_agent=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=mock_cloud,
-    )
-
-    assert (
-        "Could not fetch contract for dataset 'my/super/awesome/identifier': skipping verification" in caplog.messages
-    )
-
-
-def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(caplog):
-    mock_cloud = MagicMock()
-    mock_cloud.fetch_contract_for_dataset.return_value = None
-
-    exit_code = handle_verify_contract(
-        contract_file_paths=None,
-        dataset_identifiers=["my/super/awesome/identifier"],
-        data_source_file_path="ds.yaml",
-        variables={},
-        publish=True,
-        use_agent=False,
-        verbose=False,
-        blocking_timeout_in_minutes=10,
-        soda_cloud_client=mock_cloud,
-    )
-
-    assert "No contracts given. Exiting." in caplog.messages
-    assert exit_code == ExitCode.OK
 
 
 @pytest.mark.parametrize(
@@ -245,7 +103,8 @@ def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit
     mock_execute.return_value = mock_result
 
     exit_code = handle_test_contract(
-        contract_file_paths=["contract.yaml"], variables={}, data_source_file_path="ds.yaml"
+        contract_file_paths=["contract.yaml"],
+        variables={},
     )
 
     assert exit_code == expected_exit_code

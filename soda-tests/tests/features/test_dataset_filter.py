@@ -2,6 +2,7 @@ from datetime import datetime
 
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckResult,
@@ -87,11 +88,11 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
         check_result: CheckResult = contract_verification_result_t1.check_results[0]
-        assert next(d.value for d in check_result.diagnostics if d.name == "invalid_count") == 0
+        assert get_diagnostic_value(check_result=check_result, diagnostic_name="invalid_count") == 0
 
         check_result = contract_verification_result_t1.check_results[1]
-        assert next(d.value for d in check_result.diagnostics if d.name == "row_count") == 2
-        assert next(d.value for d in check_result.diagnostics if d.name == "missing_count") == 0
+        assert get_diagnostic_value(check_result=check_result, diagnostic_name="check_rows_tested") == 2
+        assert get_diagnostic_value(check_result=check_result, diagnostic_name="missing_count") == 0
 
     with freeze_time(t2):
         # On the second time partition t2 (17th) the filter should fail
@@ -99,11 +100,11 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
             test_table=test_table, contract_yaml_str=contract_yaml_str
         )
         invalid_check_result: CheckResult = contract_verification_result_t2.check_results[0]
-        assert next(d.value for d in invalid_check_result.diagnostics if d.name == "invalid_count") == 1
+        assert get_diagnostic_value(check_result=invalid_check_result, diagnostic_name="invalid_count") == 1
 
         row_count_check_result: CheckResult = contract_verification_result_t2.check_results[1]
-        assert next(d.value for d in row_count_check_result.diagnostics if d.name == "row_count") == 4
-        assert next(d.value for d in row_count_check_result.diagnostics if d.name == "missing_count") == 1
+        assert get_diagnostic_value(check_result=row_count_check_result, diagnostic_name="check_rows_tested") == 4
+        assert get_diagnostic_value(check_result=row_count_check_result, diagnostic_name="missing_count") == 1
 
 
 def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSourceTestHelper):

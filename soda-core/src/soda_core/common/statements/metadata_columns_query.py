@@ -13,6 +13,12 @@ class ColumnMetadata:
     data_type: str
     character_maximum_length: Optional[int]
 
+    def get_data_type_ddl(self) -> str:
+        if self.character_maximum_length is None:
+            return self.data_type
+        else:
+            return f"{self.data_type}({self.character_maximum_length})"
+
 
 class MetadataColumnsQuery:
     def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
@@ -23,8 +29,15 @@ class MetadataColumnsQuery:
         """
         Builds the full SQL query to query table names from the data source metadata.
         """
-        database_name: str = dataset_prefix[0]
-        schema_name: str = dataset_prefix[1]
+
+        database_name: Optional[str] = None
+        if (db_index := self.sql_dialect.get_database_prefix_index()) is not None:
+            database_name = dataset_prefix[db_index]
+
+        schema_name: Optional[str] = None
+        if (schema_index := self.sql_dialect.get_schema_prefix_index()) is not None:
+            schema_name = dataset_prefix[schema_index]
+
         return self.sql_dialect.build_select_sql(
             [
                 SELECT(
@@ -35,12 +48,19 @@ class MetadataColumnsQuery:
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
-                    [database_name, self.sql_dialect.schema_information_schema()]
+                    [
+                        *([database_name] if database_name else []),
+                        self.sql_dialect.schema_information_schema(),
+                    ]
                 ),
                 WHERE(
                     AND(
                         [
-                            EQ(self.sql_dialect.column_table_catalog(), LITERAL(database_name)),
+                            *(
+                                [EQ(self.sql_dialect.column_table_catalog(), LITERAL(database_name))]
+                                if database_name
+                                else []
+                            ),
                             EQ(self.sql_dialect.column_table_schema(), LITERAL(schema_name)),
                             EQ(self.sql_dialect.column_table_name(), LITERAL(dataset_name)),
                         ]

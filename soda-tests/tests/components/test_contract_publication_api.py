@@ -1,6 +1,6 @@
 import pytest
 from helpers.mock_soda_cloud import MockHttpMethod, MockResponse, MockSodaCloud
-from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
+from soda_core.common.exceptions import YamlParserException
 from soda_core.contracts.contract_publication import (
     ContractPublication,
     ContractPublicationResult,
@@ -40,7 +40,7 @@ def test_contract_publication_fails_on_missing_contract_file():
         ),
     ]
     mock_cloud = MockSodaCloud(responses)
-    with pytest.raises(InvalidDatasetQualifiedNameException):
+    with pytest.raises(YamlParserException):
         contract_publication_result: ContractPublicationResult = (
             ContractPublication.builder()
             .with_contract_yaml_file("../soda/mydb/myschema/table.yml")

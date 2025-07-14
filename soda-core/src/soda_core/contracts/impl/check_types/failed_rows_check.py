@@ -9,14 +9,12 @@ from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
-    Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
     FailedRowsCheckYaml,
 )
+from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
     CheckImpl,
@@ -68,49 +66,83 @@ class FailedRowsCheckImpl(CheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
-        self.query_metric_impl: Optional[MetricImpl] = None
+        self.failed_rows_count_metric_impl: Optional[MetricImpl] = None
         if self.failed_rows_check_yaml.expression:
-            self.query_metric_impl = self._resolve_metric(
+            self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            )
+            self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+                RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
 
         elif self.failed_rows_check_yaml.query:
-            self.query_metric_impl = self._resolve_metric(
+            self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
             if contract_impl.data_source_impl:
                 failed_rows_count_query: Query = FailedRowsCountQuery(
                     data_source_impl=contract_impl.data_source_impl,
-                    metrics=[self.query_metric_impl],
+                    metrics=[self.failed_rows_count_metric_impl],
                     failed_rows_query=self.failed_rows_check_yaml.query,
                 )
                 self.queries.append(failed_rows_count_query)
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        query_metric_value: Optional[Number] = (
-            measurement_values.get_value(self.query_metric_impl) if self.query_metric_impl else None
-        )
+        failed_rows_count: Optional[int] = measurement_values.get_value(self.failed_rows_count_metric_impl)
 
-        diagnostics: list[Diagnostic] = []
+        diagnostic_metric_values: dict[str, float] = {}
+        threshold_value: Optional[float] = None
+        threshold_metric_name = "failed_rows_count"
 
-        if isinstance(query_metric_value, Number):
-            metric_name: str = "failed_rows_count"
-            diagnostics.append(MeasuredNumericValueDiagnostic(name=metric_name, value=query_metric_value))
+        if self.failed_rows_check_yaml.expression:
+            check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
+            failed_rows_percent: Optional[float] = 0
+            if (
+                isinstance(check_rows_tested, Number)
+                and isinstance(failed_rows_count, Number)
+                and check_rows_tested > 0
+            ):
+                failed_rows_percent = failed_rows_count * 100 / check_rows_tested
 
-            if self.threshold:
-                if self.threshold.passes(query_metric_value):
-                    outcome = CheckOutcome.PASSED
-                else:
-                    outcome = CheckOutcome.FAILED
+            if self.failed_rows_check_yaml.metric == "percent":
+                threshold_value = failed_rows_percent
+                threshold_metric_name = "failed_rows_percent"
+            else:
+                threshold_value = failed_rows_count
+
+            diagnostic_metric_values = {
+                "failed_rows_count": failed_rows_count,
+                "failed_rows_percent": failed_rows_percent,
+                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                "check_rows_tested": check_rows_tested,
+            }
+
+        elif self.failed_rows_check_yaml.query:
+            threshold_value = failed_rows_count
+
+            diagnostic_metric_values = {
+                "failed_rows_count": failed_rows_count,
+                # TODO remove these 3 after
+                # https://linear.app/sodadata/issue/DTL-922/fix-backend-diagnostics-mismatches-from-core
+                # is done
+                "failed_rows_percent": 0,
+                "dataset_rows_tested": 0,
+                "check_rows_tested": 0,
+            }
+
+        if self.threshold and isinstance(threshold_value, Number):
+            if self.threshold.passes(threshold_value):
+                outcome = CheckOutcome.PASSED
+            else:
+                outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
-            metric_value=query_metric_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_value=threshold_value,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
 

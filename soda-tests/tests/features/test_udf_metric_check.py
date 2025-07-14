@@ -1,5 +1,4 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
     CheckResult,
@@ -43,7 +42,7 @@ def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "metric_value") == 10
+    assert check_result.threshold_value == 10
 
 
 # Ensure this test is skipped on other data sources than
@@ -68,4 +67,4 @@ def test_metric_query(data_source_test_helper: DataSourceTestHelper):
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "metric_value") == 10
+    assert check_result.threshold_value == 10

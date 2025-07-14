@@ -9,9 +9,6 @@ from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
-    Contract,
-    Diagnostic,
-    MeasuredNumericValueDiagnostic,
     Measurement,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
@@ -81,7 +78,6 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         # TODO create better support in class hierarchy for common vs specific stuff.  name is common.  see other check type impls
 
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
-        self.name = check_yaml.name if check_yaml.name else self.type
 
         self.invalid_count_metric_impl: Optional[MetricImpl] = None
         if self.missing_and_validity.has_reference_data():
@@ -101,7 +97,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
-                InvalidCountMetric(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                InvalidCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
 
         self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
@@ -114,22 +110,19 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues, contract: Contract) -> CheckResult:
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostics: list[Diagnostic] = []
         invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
-        if isinstance(invalid_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="invalid_count", value=invalid_count))
-
         row_count: int = measurement_values.get_value(self.row_count_metric)
-        invalid_percent: float = 0
-        if isinstance(row_count, Number):
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="row_count", value=row_count))
+        invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
 
-            if row_count > 0:
-                invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
-            diagnostics.append(MeasuredNumericValueDiagnostic(name="invalid_percent", value=invalid_percent))
+        diagnostic_metric_values: dict[str, float] = {
+            "invalid_count": invalid_count,
+            "invalid_percent": invalid_percent,
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 
@@ -140,15 +133,17 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 outcome = CheckOutcome.FAILED
 
         return CheckResult(
-            contract=contract,
             check=self._build_check_info(),
-            metric_value=threshold_value,
             outcome=outcome,
-            diagnostics=diagnostics,
+            threshold_value=threshold_value,
+            diagnostic_metric_values=diagnostic_metric_values,
         )
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        return self.invalid_count_metric_impl
 
-class InvalidCountMetric(AggregationMetricImpl):
+
+class InvalidCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -164,15 +159,17 @@ class InvalidCountMetric(AggregationMetricImpl):
         )
 
     def sql_expression(self) -> SqlExpression:
+        return SUM(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
+
+    def sql_condition_expression(self) -> SqlExpression:
         column_name: str = self.column_impl.column_yaml.name
-        invalid_count_condition: SqlExpression = AND.optional(
+        return AND.optional(
             [
                 SqlExpressionStr.optional(self.check_filter),
                 NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
                 self.missing_and_validity.is_invalid_expr(column_name),
             ]
         )
-        return SUM(CASE_WHEN(invalid_count_condition, LITERAL(1)))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

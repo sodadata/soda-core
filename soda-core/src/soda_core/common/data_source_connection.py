@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from importlib.util import find_spec
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
@@ -10,14 +9,16 @@ from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
 
+from tabulate import tabulate
+
 
 class DataSourceConnection(ABC):
-    def __init__(self, name: str, connection_properties: dict):
+    def __init__(self, name: str, connection_properties: dict, connection: Optional[object] = None):
         self.name: str = name
         self.connection_properties: dict = connection_properties
-        self.is_tabulate_available: bool = bool(find_spec(name="tabulate"))
-        self.connection: Optional[object] = None
-        # Auto-open on creation.  See DataSource.open_connection()
+        self.connection: Optional[object] = connection
+
+        # Auto-open on creation if no connection already supplied. See DataSource.open_connection()
         self.open_connection()
 
     def __enter__(self):
@@ -71,16 +72,13 @@ class DataSourceConnection(ABC):
             logger.debug(f"SQL query fetchall: \n{sql}")
             cursor.execute(sql)
             rows = cursor.fetchall()
-            if self.is_tabulate_available:
-                from tabulate import tabulate
+            table_text: str = tabulate(
+                rows,
+                headers=[self._execute_query_get_result_row_column_name(c) for c in cursor.description],
+                tablefmt="github",
+            )
 
-                table_text: str = tabulate(
-                    rows, headers=[self._execute_query_get_result_row_column_name(c) for c in cursor.description]
-                )
-
-                logger.debug(f"SQL query result:\n{table_text}")
-            else:
-                logger.debug(f"SQL query result: {len(rows)} rows")
+            logger.debug(f"SQL query result:\n{table_text}")
             return QueryResult(rows=rows, columns=cursor.description)
         finally:
             cursor.close()

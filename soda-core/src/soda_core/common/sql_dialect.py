@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import re
 from datetime import date, datetime
 from numbers import Number
 from textwrap import dedent, indent
 
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
 
 
@@ -26,6 +26,11 @@ class SqlDialect:
             f"{self.default_quote_char}{identifier}{self.default_quote_char}"
             if isinstance(identifier, str) and len(identifier) > 0
             else None
+        )
+
+    def build_fully_qualified_sql_name(self, dataset_identifier: DatasetIdentifier) -> str:
+        return self.qualify_dataset_name(
+            dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
 
     def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
@@ -54,6 +59,9 @@ class SqlDialect:
             return self.literal_boolean(o)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
 
+    def supports_varchar_length(self) -> bool:
+        return True
+
     def literal_number(self, value: Number):
         if value is None:
             return None
@@ -80,19 +88,25 @@ class SqlDialect:
         return "TRUE" if boolean is True else "FALSE"
 
     def escape_string(self, value: str):
-        return re.sub(r"(\\.)", r"\\\1", value)
+        # string_literal: str = re.sub(r"(\\.)", r"\\\1", value)
+        string_literal: str = value.replace("'", "''")
+        return string_literal
 
     def escape_regex(self, value: str):
         return value
 
-    def build_select_sql(self, select_elements: list) -> str:
+    def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
+        quoted_schema_name: str = self.quote_default(schema_name)
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
+
+    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_order_by_lines(select_elements))
-        return "\n".join(statement_lines) + ";"
+        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
         select_field_sqls: list[str] = []
@@ -465,3 +479,11 @@ class SqlDialect:
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
+
+    # Very lightweight dialect-specific interpretation of dataset prefixes.
+    def get_database_prefix_index(self) -> int | None:
+        return 0
+
+    # Very lightweight dialect-specific interpretation of dataset prefixes.
+    def get_schema_prefix_index(self) -> int | None:
+        return 1
