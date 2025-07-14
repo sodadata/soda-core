@@ -326,6 +326,10 @@ class DataSourceTestHelper:
         if self.existing_test_table_names is None:
             self.existing_test_table_names = self.query_existing_test_table_names()
 
+        # Specifically for BigQuery; when developing locally, the metadata might lag behind from the actual state of the tables.
+        # Uncomment this to force the test table to be recreated every time.
+        # self.existing_test_table_names = []
+
         test_table: TestTable = self.test_tables.get(test_table_specification.unique_name)
         if not test_table:
             test_table = self._create_test_table_python_object(test_table_specification)
