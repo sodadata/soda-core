@@ -72,3 +72,15 @@ class BigQuerySqlDialect(SqlDialect):
 
     def supports_varchar_length(self) -> bool:
         return False
+
+    def quote_column(self, column_name: str) -> str:
+        return self.quote_default(column_name)
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"timestamp('{datetime_in_iso8601}')"
+
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        return f"date_trunc(timestamp({timestamp_literal}), day)"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"{timestamp_literal} + interval 1 day"

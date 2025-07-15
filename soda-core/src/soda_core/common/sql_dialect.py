@@ -483,3 +483,15 @@ class SqlDialect:
     # Very lightweight dialect-specific interpretation of dataset prefixes.
     def get_schema_prefix_index(self) -> int | None:
         return 1
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"timestamp '{datetime_in_iso8601}'"
+
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        return f"date_trunc('day', {timestamp_literal})"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"{timestamp_literal} + interval '1 day'"
+
+    def quote_column(self, column_name: str) -> str:
+        return f'"{column_name}"'
