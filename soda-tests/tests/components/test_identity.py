@@ -65,9 +65,9 @@ def test_identity_stable(data_source_test_helper: DataSourceTestHelper):
         for check_result in check_results:
             print(check_result.check.identity)
 
-        assert check_results[0].check.identity == "40add3fc"
-        assert check_results[1].check.identity == "374236b5"
-        assert check_results[2].check.identity == "0032a191"
-        assert check_results[3].check.identity == "cdea1973"
-        assert check_results[4].check.identity == "88220ce2"
-        assert check_results[5].check.identity == "87ae1449"
+        assert check_results[0].check.identity == "576d36fc"
+        assert check_results[1].check.identity == "01c19ef9"
+        assert check_results[2].check.identity == "7652c6f4"
+        assert check_results[3].check.identity == "836ad5de"
+        assert check_results[4].check.identity == "c2423bf1"
+        assert check_results[5].check.identity == "1651a1a7"
