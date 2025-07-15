@@ -12,7 +12,7 @@ class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
     location: Optional[str] = Field(None, description="BigQuery location")
     client_options: Optional[dict] = Field(None, description="Client options")
     storage_project_id: Optional[str] = Field(None, description="Storage project ID")
-    labels: Optional[dict] = Field(None, description="Labels")
+    labels: Optional[dict] = Field({}, description="Labels")
     auth_scopes: Optional[list[str]] = Field(
         [
             "https://www.googleapis.com/auth/bigquery",

@@ -1,4 +1,5 @@
 import os
+import tempfile
 from dataclasses import dataclass
 from textwrap import dedent
 from typing import Optional
@@ -10,12 +11,15 @@ from soda_core.common.yaml import DataSourceYamlSource
 
 
 @dataclass
-class BigQueryTestConnection:
+class TestConnection:
     test_name: str
     connection_yaml_str: str
-    valid_yaml: bool
-    valid_connection_params: bool
-    query_should_succeed: bool
+    valid_yaml: Optional[bool] = True
+    valid_connection_params: Optional[bool] = True
+    query_should_succeed: Optional[bool] = True
+    expected_yaml_log: Optional[str] = None
+    expected_connection_log: Optional[str] = None
+    expected_query_log: Optional[str] = None
     expected_yaml_error: Optional[str] = None
     expected_connection_error: Optional[str] = None
     expected_query_error: Optional[str] = None
@@ -27,100 +31,138 @@ class BigQueryTestConnection:
     def create_data_source_impl(self, data_source_yaml_source: DataSourceYamlSource) -> DataSourceImpl:
         return DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
+    def test(self):
+        logs = Logs()
+        data_source_yaml = self.create_data_source_yaml()
+        if self.valid_yaml:
+            data_source_impl = self.create_data_source_impl(data_source_yaml)
+            assert not logs.has_errors()
+            if self.expected_yaml_log:
+                assert self.expected_yaml_log in logs.get_logs_str()
+        else:
+            with pytest.raises(Exception) as exc_info:
+                self.create_data_source_impl(data_source_yaml)
 
-test_connections: list[BigQueryTestConnection] = [
-    BigQueryTestConnection(
+            assert self.expected_yaml_error in str(exc_info.value)
+            return
+
+        if self.valid_connection_params:
+            data_source_impl.open_connection()
+            assert not logs.has_errors()
+            if self.expected_connection_log:
+                assert self.expected_connection_log in logs.get_logs_str()
+
+        else:
+            data_source_impl.open_connection()
+            assert logs.has_errors()
+            assert self.expected_connection_error in logs.get_errors_str()
+            return
+
+        if self.query_should_succeed:
+            data_source_impl.execute_query("SELECT 1")
+            assert not logs.has_errors()
+            if self.expected_query_log:
+                assert self.expected_query_log in logs.get_logs_str()
+        else:
+            with pytest.raises(Exception) as exc_info:
+                data_source_impl.execute_query("SELECT 1")
+            assert self.expected_query_error in str(exc_info.value)
+            return
+
+        data_source_impl.close_connection()
+
+
+BIGQUERY_ACCOUNT_INFO_JSON = os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")
+BIGQUERY_LOCATION = os.getenv("BIGQUERY_LOCATION", "US")
+with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+    temp_file.write(BIGQUERY_ACCOUNT_INFO_JSON.encode())
+    BIGQUERY_ACCOUNT_INFO_JSON_PATH = temp_file.name
+
+
+test_connections: list[TestConnection] = [
+    TestConnection(
         test_name="connection_basic",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
                 connection:
-                    account_info_json: '{os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")}'
-                    location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    location: '{BIGQUERY_LOCATION}'
             """,
-        valid_yaml=True,
-        valid_connection_params=True,
-        query_should_succeed=True,
     ),
-    BigQueryTestConnection(
+    TestConnection(
         test_name="connection_basic_bad_yaml",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
                 connection:
-                    account_info_jsosn: '{os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")}'
-                    location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
+                    account_info_jsosn: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    location: '{BIGQUERY_LOCATION}'
             """,
         valid_yaml=False,
         expected_yaml_error="""BigQueryJSONStringAuth.account_info_json\n  Field required [type=missing, input_value={\'account_info_jsosn\'""",
-        valid_connection_params=True,
-        expected_connection_error=None,
-        query_should_succeed=True,
-        expected_query_error=None,
     ),
-    BigQueryTestConnection(
+    TestConnection(
         test_name="connection_basic_bad_credentials",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
                 connection:
                     account_info_json: 'BAD_CREDENTIALS'
-                    location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
+                    location: '{BIGQUERY_LOCATION}'
             """,
-        valid_yaml=True,
         valid_connection_params=False,
         expected_connection_error="Could not connect to 'BIGQUERY_TEST_DS'",
-        query_should_succeed=False,
     ),
-    BigQueryTestConnection(
+    TestConnection(
         test_name="connection_basic_bad_location",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
                 connection:
-                    account_info_json: '{os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")}'
-                    location: '{os.getenv("BIGQUERY_LOCATION", "XX")}'
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    location: 'XX'
             """,
-        valid_yaml=True,
-        valid_connection_params=True,
         query_should_succeed=False,
         expected_query_error="Location XX does not support this operation",
+    ),
+    TestConnection(
+        test_name="connection_json_path_missing",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json_path: 'missing.json'
+                    location: '{BIGQUERY_LOCATION}'
+            """,
+        valid_connection_params=False,
+        expected_connection_error="No such file or directory",
+    ),
+    TestConnection(
+        test_name="connection_json_path",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json_path: '{BIGQUERY_ACCOUNT_INFO_JSON_PATH}'
+                    location: '{BIGQUERY_LOCATION}'
+            """,
+    ),
+    TestConnection(
+        test_name="connection_default_credentials",
+        connection_yaml_str="""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    use_context_auth: true
+            """,
+        expected_connection_log="Using application default credentials.",
+        query_should_succeed=False,
+        expected_query_error="invalid_grant: Bad Request",
     ),
 ]
 
 
-class TestBigQueryAuth:
-    @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
-    def test_connection_scenarios(self, test_connection: BigQueryTestConnection):
-        logs = Logs()
-        data_source_yaml = test_connection.create_data_source_yaml()
-        if test_connection.valid_yaml:
-            data_source_impl = test_connection.create_data_source_impl(data_source_yaml)
-            assert not logs.has_errors()
-        else:
-            with pytest.raises(Exception) as exc_info:
-                test_connection.create_data_source_impl(data_source_yaml)
-
-            assert test_connection.expected_yaml_error in str(exc_info.value)
-            return
-
-        if test_connection.valid_connection_params:
-            data_source_impl.open_connection()
-            assert not logs.has_errors()
-
-        else:
-            data_source_impl.open_connection()
-            assert logs.has_errors()
-            assert test_connection.expected_connection_error in logs.get_errors_str()
-            return
-
-        if test_connection.query_should_succeed:
-            data_source_impl.execute_query("SELECT 1")
-            assert not logs.has_errors()
-        else:
-            with pytest.raises(Exception) as exc_info:
-                data_source_impl.execute_query("SELECT 1")
-            assert test_connection.expected_query_error in str(exc_info.value)
-            return
-
-        data_source_impl.close_connection()
+@pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
+def test_bigquery_connections(test_connection: TestConnection):
+    test_connection.test()
