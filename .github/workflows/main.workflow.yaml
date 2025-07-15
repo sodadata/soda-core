@@ -79,7 +79,7 @@ jobs:
           export TEST_DATASOURCE=${{ matrix.package }}
           python -m pytest -ra soda-tests/tests/features -m "ci or not ci"
           if [ "${{ matrix.package }}" = "postgres" ]; then
-            python -m pytest -ra soda-tests/tests/components
+            python -m pytest -ra soda-tests/tests/components -m "ci or not ci"
           fi
           python -m pytest -ra soda-${{ matrix.package }}/tests
 
