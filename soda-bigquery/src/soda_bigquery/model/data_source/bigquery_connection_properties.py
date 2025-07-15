@@ -6,6 +6,8 @@ from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
 
+CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
+
 
 class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
     project_id: Optional[str] = Field(None, description="BigQuery project ID")
@@ -28,14 +30,14 @@ class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
 class BigQueryJSONStringAuth(BigQueryConnectionProperties):
     """BigQuery authentication using JSON string"""
 
-    use_context_auth: Optional[Literal[False]] = Field(False, description="Use context authentication")
+    use_context_auth: Optional[Literal[False]] = Field(False, description=CONTEXT_AUTHENTICATION_DESCRIPTION)
     account_info_json: SecretStr = Field(..., description="Service account JSON as string", min_length=1)
 
 
 class BigQueryJSONFileAuth(BigQueryConnectionProperties):
     """BigQuery authentication using JSON file path"""
 
-    use_context_auth: Optional[Literal[False]] = Field(False, description="Use context authentication")
+    use_context_auth: Optional[Literal[False]] = Field(False, description=CONTEXT_AUTHENTICATION_DESCRIPTION)
     account_info_json_path: str = Field(..., description="Path to service account JSON file", min_length=1)
 
 
@@ -46,4 +48,4 @@ class BigQueryContextAuth(BigQueryConnectionProperties):
     The user may optionally provide JSON credentials; they will be ignored.
     """
 
-    use_context_auth: Literal[True] = Field(description="Use context authentication")
+    use_context_auth: Literal[True] = Field(description=CONTEXT_AUTHENTICATION_DESCRIPTION)

@@ -43,7 +43,6 @@ class BigQueryDataSourceConnection(DataSourceConnection):
             scopes=config.auth_scopes,
         )
         self.project_id = account_info_dict.get("project_id")
-        return
 
     def _load_optional_impersonated_credentials(self, config: BigQueryConnectionProperties):
         if config.impersonation_account:

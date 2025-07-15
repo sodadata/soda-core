@@ -4,7 +4,17 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.sql_dialect import *
+from soda_core.common.sql_ast import (
+    AND,
+    EQ,
+    FROM,
+    LITERAL,
+    ORDER_BY_ASC,
+    ORDINAL_POSITION,
+    SELECT,
+    WHERE,
+)
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
     MetadataColumnsQuery,
