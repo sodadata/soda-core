@@ -56,7 +56,12 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
 
         self.function: str = check_yaml.function.lower()
 
-        if self.function and not contract_impl.data_source_impl.sql_dialect.supports_function(self.function):
+        # Check if the function is supported by the data source, if data source is available. It is not during `soda contract test`.
+        if (
+            self.function
+            and self.contract_impl.data_source_impl
+            and not contract_impl.data_source_impl.sql_dialect.supports_function(self.function)
+        ):
             logger.error(
                 msg=f"Aggregate function '{check_yaml.function}' is not supported on "
                 f"'{contract_impl.data_source_impl.type_name}'",

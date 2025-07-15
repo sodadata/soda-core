@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
@@ -24,6 +25,7 @@ test_table_specification = (
 )
 
 
+@pytest.mark.ci
 def test_identity_stable(data_source_test_helper: DataSourceTestHelper):
     """
     This test verifies that the identity mechanism does not change over time.
@@ -31,10 +33,6 @@ def test_identity_stable(data_source_test_helper: DataSourceTestHelper):
     This is achieved by hardcoding the identity in the test.
     """
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-
-    # Change the data source to make sure consistent identity for checks is maintained. This makes the test a little less robust, but makes it possible to run it both locally and in CI, and accross data soure types.
-    data_source_test_helper.data_source_impl.name = "soda_test"
-    data_source_test_helper.data_source_impl.dataset_prefix = ["soda_test_prefix"]
 
     with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
         contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
@@ -67,9 +65,9 @@ def test_identity_stable(data_source_test_helper: DataSourceTestHelper):
         for check_result in check_results:
             print(check_result.check.identity)
 
-        assert check_results[0].check.identity == "6df8679b"
-        assert check_results[1].check.identity == "b8069379"
-        assert check_results[2].check.identity == "d17b51ed"
-        assert check_results[3].check.identity == "57344df9"
-        assert check_results[4].check.identity == "bbbacf2b"
-        assert check_results[5].check.identity == "815f1922"
+        assert check_results[0].check.identity == "40add3fc"
+        assert check_results[1].check.identity == "374236b5"
+        assert check_results[2].check.identity == "0032a191"
+        assert check_results[3].check.identity == "cdea1973"
+        assert check_results[4].check.identity == "88220ce2"
+        assert check_results[5].check.identity == "87ae1449"
