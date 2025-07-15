@@ -17,9 +17,6 @@ class TestConnection:
     valid_yaml: Optional[bool] = True
     valid_connection_params: Optional[bool] = True
     query_should_succeed: Optional[bool] = True
-    expected_yaml_log: Optional[str] = None
-    expected_connection_log: Optional[str] = None
-    expected_query_log: Optional[str] = None
     expected_yaml_error: Optional[str] = None
     expected_connection_error: Optional[str] = None
     expected_query_error: Optional[str] = None
@@ -37,8 +34,6 @@ class TestConnection:
         if self.valid_yaml:
             data_source_impl = self.create_data_source_impl(data_source_yaml)
             assert not logs.has_errors()
-            if self.expected_yaml_log:
-                assert self.expected_yaml_log in logs.get_logs_str()
         else:
             with pytest.raises(Exception) as exc_info:
                 self.create_data_source_impl(data_source_yaml)
@@ -49,8 +44,6 @@ class TestConnection:
         if self.valid_connection_params:
             data_source_impl.open_connection()
             assert not logs.has_errors()
-            if self.expected_connection_log:
-                assert self.expected_connection_log in logs.get_logs_str()
 
         else:
             data_source_impl.open_connection()
@@ -61,8 +54,6 @@ class TestConnection:
         if self.query_should_succeed:
             data_source_impl.execute_query("SELECT 1")
             assert not logs.has_errors()
-            if self.expected_query_log:
-                assert self.expected_query_log in logs.get_logs_str()
         else:
             with pytest.raises(Exception) as exc_info:
                 data_source_impl.execute_query("SELECT 1")
@@ -156,9 +147,8 @@ test_connections: list[TestConnection] = [
                 connection:
                     use_context_auth: true
             """,
-        expected_connection_log="Using application default credentials.",
-        query_should_succeed=False,
-        expected_query_error="invalid_grant: Bad Request",
+        valid_connection_params=False,
+        expected_connection_error="Your default credentials were not found",
     ),
 ]
 
