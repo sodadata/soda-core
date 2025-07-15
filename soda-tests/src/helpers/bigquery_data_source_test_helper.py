@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -8,7 +9,10 @@ from helpers.test_table import TestDataType
 
 class BigQueryDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
-        return os.getenv("BIGQUERY_DATABASE", "soda-testing-su5upe")
+        # Parse the dataset name from the account info json
+        account_info_json = json.loads(os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "{}"))
+        database_name = account_info_json.get("project_id", "soda-testing-dataset")
+        return database_name
 
     def _create_data_source_yaml_str(self) -> str:
         """
@@ -20,9 +24,9 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
             name: BIGQUERY_TEST_DS
             connection:
                 account_info_json: '{os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")}'
-                location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
 
         """
+        # location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
 
     def _get_create_table_sql_type_dict(self) -> dict[str, str]:
         return {
