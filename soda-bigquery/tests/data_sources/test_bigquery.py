@@ -150,6 +150,41 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="Your default credentials were not found",
     ),
+    TestConnection(
+        test_name="connection_impersonation_account",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    impersonation_account: 'test@test.com'
+            """,
+        query_should_succeed=False,
+        expected_query_error="Unable to acquire impersonated credentials",
+    ),
+    TestConnection(
+        test_name="connection_extra_field_accepted",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    extra_field: 'extra_value'
+            """,
+    ),
+    # TODO this one failed with an empty region which is unexpected, need to dive deeper
+    # TestConnection(
+    #     test_name="connection_default_project_overwritten",
+    #     connection_yaml_str=f"""
+    #             type: bigquery
+    #             name: BIGQUERY_TEST_DS
+    #             connection:
+    #                 account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+    #                 project_id: 'test_project'
+    #         """,
+    #     query_should_succeed=False,
+    #     expected_query_error="Project test_project does not exist",
+    # ),
 ]
 
 

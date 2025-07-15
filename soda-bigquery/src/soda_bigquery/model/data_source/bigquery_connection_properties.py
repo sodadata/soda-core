@@ -11,7 +11,6 @@ class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
     project_id: Optional[str] = Field(None, description="BigQuery project ID")
     location: Optional[str] = Field(None, description="BigQuery location")
     client_options: Optional[dict] = Field(None, description="Client options")
-    storage_project_id: Optional[str] = Field(None, description="Storage project ID")
     labels: Optional[dict] = Field({}, description="Labels")
     auth_scopes: Optional[list[str]] = Field(
         [

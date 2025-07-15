@@ -56,7 +56,7 @@ class BigQueryDataSourceConnection(DataSourceConnection):
             self.credentials = impersonated_credentials.Credentials(
                 source_credentials=self.credentials,
                 target_principal=str(config.impersonation_account),
-                target_scopes=self.config.auth_scopes,
+                target_scopes=config.auth_scopes,
                 delegates=delegates,
             )
 
@@ -66,7 +66,6 @@ class BigQueryDataSourceConnection(DataSourceConnection):
         self.location = config.location
         self.client_options = config.client_options
 
-        self.storage_project_id = config.storage_project_id if config.storage_project_id else self.project_id
         self.labels = config.labels
 
     def _create_connection(
