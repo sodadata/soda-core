@@ -159,6 +159,7 @@ class SqlDialect:
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):
+            # return expression
             return self.quote_default(expression)
         elif isinstance(expression, Number):
             return str(expression)
