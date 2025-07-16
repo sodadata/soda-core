@@ -1,68 +1,10 @@
 import os
 import tempfile
-from dataclasses import dataclass
-from textwrap import dedent
-from typing import Optional
 
 import pytest
-from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.logs import Logs
-from soda_core.common.yaml import DataSourceYamlSource
+from helpers.test_connection import TestConnection
 
-
-@dataclass
-class TestConnection:
-    test_name: str
-    connection_yaml_str: str
-    valid_yaml: Optional[bool] = True
-    valid_connection_params: Optional[bool] = True
-    query_should_succeed: Optional[bool] = True
-    expected_yaml_error: Optional[str] = None
-    expected_connection_error: Optional[str] = None
-    expected_query_error: Optional[str] = None
-
-    def create_data_source_yaml(self) -> DataSourceYamlSource:
-        connection_yaml_str = dedent(self.connection_yaml_str).strip()
-        return DataSourceYamlSource.from_str(yaml_str=connection_yaml_str)
-
-    def create_data_source_impl(self, data_source_yaml_source: DataSourceYamlSource) -> DataSourceImpl:
-        return DataSourceImpl.from_yaml_source(data_source_yaml_source)
-
-    def test(self):
-        logs = Logs()
-        data_source_yaml = self.create_data_source_yaml()
-        if self.valid_yaml:
-            data_source_impl = self.create_data_source_impl(data_source_yaml)
-            assert not logs.has_errors()
-        else:
-            with pytest.raises(Exception) as exc_info:
-                self.create_data_source_impl(data_source_yaml)
-
-            assert self.expected_yaml_error in str(exc_info.value)
-            return
-
-        if self.valid_connection_params:
-            data_source_impl.open_connection()
-            assert not logs.has_errors()
-
-        else:
-            data_source_impl.open_connection()
-            assert logs.has_errors()
-            assert self.expected_connection_error in logs.get_errors_str()
-            return
-
-        if self.query_should_succeed:
-            data_source_impl.execute_query("SELECT 1")
-            assert not logs.has_errors()
-        else:
-            with pytest.raises(Exception) as exc_info:
-                data_source_impl.execute_query("SELECT 1")
-            assert self.expected_query_error in str(exc_info.value)
-            return
-
-        data_source_impl.close_connection()
-
-
+# define environment variables used in test cases
 BIGQUERY_ACCOUNT_INFO_JSON = os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")
 BIGQUERY_LOCATION = os.getenv("BIGQUERY_LOCATION", "US")
 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -70,6 +12,7 @@ with tempfile.NamedTemporaryFile(delete=False) as temp_file:
     BIGQUERY_ACCOUNT_INFO_JSON_PATH = temp_file.name
 
 
+# define test cases and expected behavior (passing unless otherwise specified)
 test_connections: list[TestConnection] = [
     TestConnection(  # correct connection, should work
         test_name="correct_json",
@@ -248,6 +191,7 @@ test_connections: list[TestConnection] = [
 ]
 
 
+# run tests.  parameterization means each test case will show up as an individual test
 @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
 def test_bigquery_connections(test_connection: TestConnection):
     test_connection.test()
