@@ -1142,6 +1142,7 @@ class CheckImpl:
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
+
         return identity_hash_builder.get_hash()
 
     def build_identity_path(self) -> str:
