@@ -23,6 +23,7 @@ from soda_core.common.exceptions import (
     ContractNotFoundException,
     DatasetNotFoundException,
     DataSourceNotFoundException,
+    FailedContractSkeletonGenerationException,
     InvalidSodaCloudConfigurationException,
     SodaCloudAuthenticationFailedException,
     SodaCloudException,
@@ -73,6 +74,25 @@ class RemoteScanStatus(Enum):
             if status.value_ == value:
                 return status
         raise ValueError(f"Unknown RemoteScanStatus value: {value}")
+
+
+class ContractSkeletonGenerationState(Enum):
+    PENDING = "pending"
+    FAILED = "failed"
+    COMPLETED = "completed"
+
+    @classmethod
+    def from_value(cls, value: str) -> ContractSkeletonGenerationState:
+        for status in cls:
+            if status.value == value:
+                return status
+        raise ValueError(f"Unknown ContractSkeletonGenerationState value: {value}")
+
+
+class ContractType(Enum):
+    DEFAULT = "default"
+    TEST = "test"
+    DRAFT = "draft"
 
 
 class TimestampToCreatedLoggingFilter(logging.Filter):
@@ -238,6 +258,22 @@ class SodaCloud:
                     logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
                 return response_json
         return None
+
+    def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
+        command_json_dict: dict = {
+            "type": "sodaCoreGenerateContractSkeleton",
+            "datasetIdentifier": dataset_identifier.to_string(),
+        }
+        response: Response = self._execute_command(
+            command_json_dict=command_json_dict, request_log_name="generate_contract_skeleton"
+        )
+        response_json = response.json()
+
+        if response.status_code != 200:
+            error_details = response_json.get("message", response.text)
+            raise SodaCloudException(error_details)
+
+        logger.info(f"{Emoticons.OK_HAND} Contract skeleton generation triggered on Soda Cloud")
 
     def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
         file_id: Optional[str] = self._upload_scan_yaml_file(
@@ -669,6 +705,139 @@ class SodaCloud:
             )
 
         return response_dict.get("contents")
+
+    def fetch_contract(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        contract_type: Optional[ContractType] = None,
+        created_after: Optional[datetime] = None,
+    ) -> str:
+        filter_msg_list = []
+        if contract_type is not None:
+            filter_msg_list.append(f"contract type '{str(contract_type)}'")
+        if created_after is not None:
+            filter_msg_list.append(f"created after '{str(created_after)}'")
+        filter_msg = f" with filter(s) {', '.join(filter_msg_list)}" if filter_msg_list else ""
+        logger.info(
+            f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier.to_string()}'{filter_msg}"
+        )
+        and_expressions = [
+            {
+                "type": "equals",
+                "left": {"type": "columnValue", "columnName": "identifier"},
+                "right": {"type": "string", "value": dataset_identifier.to_string()},
+            }
+        ]
+        if contract_type:
+            and_expressions.append(
+                {
+                    "type": "equals",
+                    "left": {"type": "columnValue", "columnName": "contractType"},
+                    "right": {"type": "string", "value": contract_type.value},
+                }
+            )
+        if created_after:
+            and_expressions.append(
+                {
+                    "type": "greaterThanEqual",
+                    "left": {"type": "columnValue", "columnName": "created"},
+                    "right": {"type": "timestamp", "value": created_after},
+                }
+            )
+
+        request = {"type": "sodaCoreContracts", "filter": {"type": "and", "andExpressions": and_expressions}}
+        response = self._execute_query(request, request_log_name="fetch_contract")
+        response_dict = response.json()
+
+        if response.status_code != 200 or response_dict.get("results", None) is None:
+            raise SodaCloudException(
+                f"Failed to retrieve contract contents for dataset '{dataset_identifier.to_string()}'{filter_msg}: {response_dict['message']}"
+            )
+
+        results = response_dict.get("results")
+        if len(results) == 0:
+            raise SodaCloudException(f"No contract found for dataset '{dataset_identifier.to_string()}'{filter_msg}.")
+        if len(results) > 1:
+            raise SodaCloudException(
+                f"Multiple contracts found for dataset '{dataset_identifier.to_string()}'{filter_msg} while expecting exactly one."
+            )
+
+        return results[0].get("contents")
+
+    def poll_contract_skeleton_generation(
+        self, dataset_identifier: DatasetIdentifier, blocking_timeout_in_minutes: int
+    ) -> ContractSkeletonGenerationState:
+        start_time = datetime.now(tz=timezone.utc)
+        blocking_timeout = start_time + timedelta(minutes=blocking_timeout_in_minutes)
+        attempt = 0
+        time_to_wait_in_seconds: float = 5
+
+        while datetime.now(tz=timezone.utc) < blocking_timeout:
+            attempt += 1
+            max_wait: timedelta = blocking_timeout - datetime.now(tz=timezone.utc)
+            logger.debug(
+                f"Asking Soda Cloud if a contract has been generated for dataset {dataset_identifier.to_string()} after {start_time}. Attempt {attempt}. Max wait: {max_wait}"
+            )
+            contract_skeleton_generation_state, next_poll_time_str = self._get_contract_skeleton_generation_state(
+                dataset_identifier=dataset_identifier, created_after=start_time
+            )
+
+            if contract_skeleton_generation_state != ContractSkeletonGenerationState.PENDING:
+                return contract_skeleton_generation_state
+
+            if next_poll_time_str:
+                logger.debug(
+                    f"Soda Cloud suggested to ask contract skeleton generation for dataset {dataset_identifier.to_string()} status again at '{next_poll_time_str}' "
+                    f"via header X-Soda-Next-Poll-Time"
+                )
+                next_poll_time: Optional[datetime] = convert_str_to_datetime(next_poll_time_str)
+                if isinstance(next_poll_time, datetime):
+                    now = datetime.now(tz=timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                else:
+                    time_to_wait_in_seconds = 60
+
+            if time_to_wait_in_seconds > 0:
+                logger.debug(
+                    f"Sleeping {time_to_wait_in_seconds} seconds before asking "
+                    f"Soda Cloud contract skeleton generation for dataset {dataset_identifier.to_string()} status again in ."
+                )
+                sleep(time_to_wait_in_seconds)
+
+        raise FailedContractSkeletonGenerationException(
+            f"Contract skeleton generation for dataset {dataset_identifier.to_string()} timed out after {blocking_timeout_in_minutes} minutes."
+        )
+
+    def _get_contract_skeleton_generation_state(
+        self, dataset_identifier: DatasetIdentifier, created_after: datetime
+    ) -> tuple[Optional[ContractSkeletonGenerationState], Optional[str]]:
+        request = {
+            "type": "sodaCoreContractSkeletonGenerationState",
+            "datasetIdentifier": dataset_identifier.to_string(),
+            "lastUpdatedAfter": created_after,
+        }
+        response = self._execute_query(request, request_log_name="get_contract_skeleton_generation_state")
+
+        if response is None:
+            logger.error("Failed to poll contract skeleton generation state.")
+            return None, None
+
+        logger.debug(f"Soda Cloud responded with {json.dumps(dict(response.headers))}\n{response.text}")
+        if response.status_code != 200:
+            error_details = response.json().get("message", response.text)
+            raise SodaCloudException(error_details)
+
+        response_body_dict: dict = response.json()
+        if "state" not in response_body_dict:
+            return None, response.headers.get("X-Soda-Next-Poll-Time", None)
+
+        contract_skeleton_generation_state = ContractSkeletonGenerationState.from_value(response_body_dict["state"])
+        logger.info(
+            f"Contract skeleton generation for dataset {dataset_identifier.to_string()} has state '{contract_skeleton_generation_state}'"
+        )
+
+        return contract_skeleton_generation_state, response.headers.get("X-Soda-Next-Poll-Time", None)
 
     def _poll_remote_scan_finished(
         self, scan_id: str, blocking_timeout_in_minutes: int
