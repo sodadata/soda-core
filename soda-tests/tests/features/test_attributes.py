@@ -45,7 +45,7 @@ def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
                             threshold:
                                 must_be: 2
                         - invalid:
-                            valid_values: ['1', '2', '3']
+                            valid_values: [1, 2, 3]
                         - missing:
                         - duplicate:
                     - name: created_at
@@ -89,7 +89,7 @@ def test_attributes_individual_apply_and_override(data_source_test_helper: DataS
                             attributes:
                                 description: "Test description"
                         - invalid:
-                            valid_values: ['1', '2', '3']
+                            valid_values: [1, 2, 3]
                             attributes:
                                 description: "Test description"
                         - missing:

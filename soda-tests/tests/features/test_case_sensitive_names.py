@@ -37,7 +37,7 @@ def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
                             threshold:
                                 must_be: 2
                         - invalid:
-                            valid_values: ['1', '2', '3']
+                            valid_values: [1, 2, 3]
                         - missing:
                         - duplicate:
                     - name: CreatedAt
