@@ -221,7 +221,12 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         return id_properties
 
     def sql_expression(self) -> SqlExpression:
-        return MAX(self.column)
+        max_expression = self.column
+
+        if self.check_filter:
+            max_expression = CASE_WHEN(SqlExpressionStr(self.check_filter), self.column)
+
+        return MAX(max_expression)
 
     def convert_db_value(self, value) -> any:
         return value
