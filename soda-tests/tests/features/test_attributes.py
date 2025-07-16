@@ -63,7 +63,7 @@ def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
             }
 
 
-def test_attributes_individual_apply(data_source_test_helper: DataSourceTestHelper):
+def test_attributes_individual_apply_and_override(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
@@ -76,6 +76,9 @@ def test_attributes_individual_apply(data_source_test_helper: DataSourceTestHelp
         contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
             test_table=test_table,
             contract_yaml_str=f"""
+                check_attributes:
+                    description_global: "Test description"
+                    description: "Default description - will be overridden by column attributes"
                 columns:
                     - name: id
                       checks:
@@ -110,5 +113,6 @@ def test_attributes_individual_apply(data_source_test_helper: DataSourceTestHelp
         )
         for check_result in contract_verification_result.check_results:
             assert check_result.check.attributes == {
+                "description_global": "Test description",
                 "description": "Test description",
             }
