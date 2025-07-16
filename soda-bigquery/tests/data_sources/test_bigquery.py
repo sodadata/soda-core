@@ -71,8 +71,8 @@ with tempfile.NamedTemporaryFile(delete=False) as temp_file:
 
 
 test_connections: list[TestConnection] = [
-    TestConnection(
-        test_name="connection_basic",
+    TestConnection(  # correct connection, should work
+        test_name="correct_json",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -81,8 +81,8 @@ test_connections: list[TestConnection] = [
                     location: '{BIGQUERY_LOCATION}'
             """,
     ),
-    TestConnection(
-        test_name="connection_basic_bad_yaml",
+    TestConnection(  # missing required field, should fail
+        test_name="yaml_missing_required",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -93,8 +93,8 @@ test_connections: list[TestConnection] = [
         valid_yaml=False,
         expected_yaml_error="""BigQueryJSONStringAuth.account_info_json\n  Field required [type=missing, input_value={\'account_info_jsosn\'""",
     ),
-    TestConnection(
-        test_name="connection_basic_bad_credentials",
+    TestConnection(  # passing bad credentials, should parse, but fail to connect
+        test_name="incorrect_json",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -105,20 +105,8 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="Could not connect to 'BIGQUERY_TEST_DS'",
     ),
-    TestConnection(
-        test_name="connection_basic_bad_location",
-        connection_yaml_str=f"""
-                type: bigquery
-                name: BIGQUERY_TEST_DS
-                connection:
-                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
-                    location: 'XX'
-            """,
-        query_should_succeed=False,
-        expected_query_error="Location XX does not support this operation",
-    ),
-    TestConnection(
-        test_name="connection_json_path_missing",
+    TestConnection(  # passing bad path, should parse, but fail to connect
+        test_name="json_path_issing",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -129,8 +117,8 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="No such file or directory",
     ),
-    TestConnection(
-        test_name="connection_json_path",
+    TestConnection(  # passing good path, should work
+        test_name="correct_json_path",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -139,8 +127,10 @@ test_connections: list[TestConnection] = [
                     location: '{BIGQUERY_LOCATION}'
             """,
     ),
-    TestConnection(
-        test_name="connection_default_credentials",
+    TestConnection(  # use application default credentials, should fail
+        # note if you have credentials in your env, you should remove them if you want this test to pass
+        # otherwise you'll get a different error and the test will fail
+        test_name="app_default_creds",
         connection_yaml_str="""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -150,8 +140,8 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="Your default credentials were not found",
     ),
-    TestConnection(
-        test_name="connection_impersonation_account",
+    TestConnection(  # impersonation account, should fail at query stage
+        test_name="impersonation_account",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -162,8 +152,21 @@ test_connections: list[TestConnection] = [
         query_should_succeed=False,
         expected_query_error="Unable to acquire impersonated credentials",
     ),
-    TestConnection(
-        test_name="connection_extra_field_accepted",
+    TestConnection(  # prove that delegates are propagating correctly
+        test_name="impersonation_account_with_invalid_delegates",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    impersonation_account: 'test@test.com'
+                    delegates: ['invalid_delegate']
+            """,
+        query_should_succeed=False,
+        expected_query_error="Invalid form of account ID invalid_delegate",
+    ),
+    TestConnection(  # prove that extra fields are accepted and passed through without error
+        test_name="extra_field_accepted",
         connection_yaml_str=f"""
                 type: bigquery
                 name: BIGQUERY_TEST_DS
@@ -172,19 +175,76 @@ test_connections: list[TestConnection] = [
                     extra_field: 'extra_value'
             """,
     ),
-    # TODO this one failed with an empty region which is unexpected, need to dive deeper
-    # TestConnection(
-    #     test_name="connection_default_project_overwritten",
-    #     connection_yaml_str=f"""
-    #             type: bigquery
-    #             name: BIGQUERY_TEST_DS
-    #             connection:
-    #                 account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
-    #                 project_id: 'test_project'
-    #         """,
-    #     query_should_succeed=False,
-    #     expected_query_error="Project test_project does not exist",
-    # ),
+    TestConnection(  # prove that custom project_id is being set and used
+        test_name="custom_project_id",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    project_id: 'awesome-highway-297419'
+            """,
+        query_should_succeed=False,
+        expected_query_error="User does not have bigquery.jobs.create permission in project awesome-highway-297419",
+    ),
+    TestConnection(  # prove that location is being set at all
+        test_name="new_invalid_location",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    location: 'XX'
+            """,
+        query_should_succeed=False,
+        expected_query_error="Location XX does not support this operation",
+    ),
+    TestConnection(  # prove that a valid location is propagating correctly
+        test_name="new_valid_location",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    location: 'asia-east1'
+            """,
+    ),
+    TestConnection(  # prove that auth scopes are propagating correctly
+        test_name="invalid_auth_scopes",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    auth_scopes: ['invalid']
+            """,
+        query_should_succeed=False,
+        expected_query_error="No access token in response",
+    ),
+    TestConnection(  # prove that labels are propagating correctly
+        test_name="invalid_labels",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    labels: {{'-invalid-': "invalid"}}
+            """,
+        query_should_succeed=False,
+        expected_query_error='Label key "-invalid-" has invalid characters.',
+    ),
+    TestConnection(  # prove that client options are propagating correctly
+        test_name="invalid_client_options",
+        connection_yaml_str=f"""
+                type: bigquery
+                name: BIGQUERY_TEST_DS
+                connection:
+                    account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
+                    client_options: {{'-invalid-': "invalid"}}
+            """,
+        valid_connection_params=False,
+        expected_connection_error="ClientOptions does not accept an option '-invalid-'",
+    ),
 ]
 
 
