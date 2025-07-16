@@ -77,9 +77,9 @@ jobs:
           pip install -e soda-tests
           pip install -e soda-${{ matrix.package }}
           export TEST_DATASOURCE=${{ matrix.package }}
-          python -m pytest -ra soda-tests/tests/features -m "ci or not ci"
+          python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.package }}" = "postgres" ]; then
-            python -m pytest -ra soda-tests/tests/components -m "ci or not ci"
+            python -m pytest -ra soda-tests/tests/components
           fi
           python -m pytest -ra soda-${{ matrix.package }}/tests
 
