@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import random
@@ -170,6 +171,7 @@ class DataSourceTestHelper:
         else:
             python_version = os.getenv("PYTHON_VERSION")
             python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
+            timestamp = datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S_%f")
 
             def generate_random_alpha_num_str(length: int) -> str:
                 return "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
@@ -181,12 +183,12 @@ class DataSourceTestHelper:
                 schema_name_parts.append("ci")
                 schema_name_parts.append(github_head_ref_short)
                 schema_name_parts.append(python_version_short)
-                schema_name_parts.append(generate_random_alpha_num_str(5))
+                schema_name_parts.append(timestamp)
 
             else:
                 schema_name_parts.append("ci_main")
                 schema_name_parts.append(python_version_short)
-                schema_name_parts.append(generate_random_alpha_num_str(5))
+                schema_name_parts.append(timestamp)
 
         schema_name_raw = "_".join(schema_name_parts)
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
