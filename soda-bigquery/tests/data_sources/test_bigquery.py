@@ -125,10 +125,10 @@ test_connections: list[TestConnection] = [
                 name: BIGQUERY_TEST_DS
                 connection:
                     account_info_json: '{BIGQUERY_ACCOUNT_INFO_JSON}'
-                    project_id: 'awesome-highway-297419'
+                    project_id: 'bigquery-public-data'
             """,
         query_should_succeed=False,
-        expected_query_error="User does not have bigquery.jobs.create permission in project awesome-highway-297419",
+        expected_query_error="User does not have bigquery.jobs.create permission in project bigquery-public-data",
     ),
     TestConnection(  # prove that location is being set at all
         test_name="new_invalid_location",
