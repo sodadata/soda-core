@@ -15,7 +15,7 @@ from soda_bigquery.model.data_source.bigquery_data_source import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import DISTINCT, REGEX_LIKE, TUPLE
+from soda_core.common.sql_ast import COUNT, DISTINCT, REGEX_LIKE, TUPLE
 from soda_core.common.sql_dialect import SqlDialect
 
 logger: logging.Logger = soda_logger
@@ -70,7 +70,7 @@ class BigQuerySqlDialect(SqlDialect):
         return identifier.upper()
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
-        if tuple.check_context(DISTINCT):
+        if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
             return self._build_tuple_sql_in_distinct(tuple)
         return f"[{super()._build_tuple_sql(tuple)}]"
 

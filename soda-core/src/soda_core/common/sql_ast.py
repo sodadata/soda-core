@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Optional
+
+from soda_core.common.logging_constants import soda_logger
+
+logger: logging.Logger = soda_logger
 
 
 class BaseSqlExpression:
@@ -43,6 +48,14 @@ class SELECT(BaseSqlExpression):
         super().__init__()
         self.fields = fields
         self.handle_parent_node_update(fields)
+
+        # Check that the select contains a distinct and has multiple fields -> give a warning
+        if isinstance(fields, list) and len(fields) > 1:
+            if any(isinstance(field, DISTINCT) for field in fields):
+                logger.warning(
+                    """Found DISTINCT in a SELECT statement with multiple fields.
+                               This might have unintended consequences."""
+                )
 
 
 @dataclass
