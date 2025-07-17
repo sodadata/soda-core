@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-databricks"
-package_version = "4.0.0b1"
+package_version = "4.0.0b2"
 description = "Soda Databricks V4"
 
 requires = [f"soda-core=={package_version}", "databricks-sql-connector"]
