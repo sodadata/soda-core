@@ -16,7 +16,7 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
         Called in _create_data_source_impl to initialized self.data_source_impl
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
-        return f"""
+        return """
             type: duckdb
             name: duckdb-test-ds
             connection:

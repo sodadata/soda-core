@@ -20,7 +20,7 @@ class DuckDBStandardConnectionProperties(DuckDBConnectionProperties):
         ":memory:", description="Path to the DuckDB database file or ':memory:' for in-memory database"
     )
     read_only: bool = Field(False, description="If True, the database is opened in read-only mode")
-    configuration: Dict[str, str] = Field(dict(), description="Optional configuration dictionary for DuckDB")
+    configuration: Dict[str, str] = Field({}, description="Optional configuration dictionary for DuckDB")
 
 
 class DuckDBExistingConnectionProperties(DuckDBConnectionProperties, arbitrary_types_allowed=True):
