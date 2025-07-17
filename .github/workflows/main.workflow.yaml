@@ -115,7 +115,15 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install tbump build twine
-          tbump --only-patch --non-interactive 4.0.0.dev${GITHUB_RUN_NUMBER}
+
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Using tag version: $VERSION"
+          else
+            VERSION="4.0.0.dev${GITHUB_RUN_NUMBER}"
+            echo "No tag found, using dev version: $VERSION"
+          fi
+          tbump --only-patch --non-interactive "$VERSION"
           cd ${{ matrix.modules }}
           python3 -m build
       - name: Publish package to pypi
