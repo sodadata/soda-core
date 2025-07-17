@@ -31,15 +31,15 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         )
 
     def get_location(self) -> str:
-        location = self.data_source_model.connection_properties.location
-        if location is None:
-            if self.cached_location is not None:
-                location = self.cached_location
-            else:
-                result = self.execute_query("SELECT @@location")
-                location = result.rows[0][0]
-                logger.info(f"Detected BigQuery location: {location}")
-                self.cached_location = location
+        if self.cached_location is not None:
+            location = self.cached_location
+        elif self.data_source_model.connection_properties.location is not None:
+            location = self.data_source_model.connection_properties.location
+        else:
+            result = self.execute_query("SELECT @@location")
+            location = result.rows[0][0]
+            logger.info(f"Detected BigQuery location: {location}")
+            self.cached_location = location
         return location
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
@@ -68,7 +68,7 @@ class BigQuerySqlDialect(SqlDialect):
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
             return self._build_tuple_sql_in_distinct(tuple)
-        return f"[{super()._build_tuple_sql(tuple)}]"
+        return f"{super()._build_tuple_sql(tuple)}"
 
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"TO_JSON_STRING(STRUCT({super()._build_tuple_sql(tuple)}))"
@@ -79,9 +79,6 @@ class BigQuerySqlDialect(SqlDialect):
 
     def supports_varchar_length(self) -> bool:
         return False
-
-    def quote_column(self, column_name: str) -> str:
-        return self.quote_default(column_name)
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"timestamp('{datetime_in_iso8601}')"

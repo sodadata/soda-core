@@ -494,4 +494,4 @@ class SqlDialect:
         return f"{timestamp_literal} + interval '1 day'"
 
     def quote_column(self, column_name: str) -> str:
-        return f'"{column_name}"'
+        return self.quote_default(column_name)
