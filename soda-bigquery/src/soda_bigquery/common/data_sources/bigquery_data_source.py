@@ -3,12 +3,6 @@ import logging
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSourceConnection,
 )
-from soda_bigquery.common.statements.metadata_columns_query import (
-    BigQueryMetadataColumnsQuery,
-)
-from soda_bigquery.common.statements.metadata_tables_query import (
-    BigQueryMetadataTablesQuery,
-)
 from soda_bigquery.model.data_source.bigquery_data_source import (
     BigQueryDataSource as BigQueryDataSourceModel,
 )
@@ -17,6 +11,8 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import COUNT, DISTINCT, REGEX_LIKE, TUPLE
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
+from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
 logger: logging.Logger = soda_logger
 
@@ -46,19 +42,19 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
                 self.cached_location = location
         return location
 
-    def create_metadata_tables_query(self) -> BigQueryMetadataTablesQuery:
-        super_metadata_tables_query = BigQueryMetadataTablesQuery(
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        super_metadata_tables_query = MetadataTablesQuery(
             sql_dialect=self.sql_dialect,
             data_source_connection=self.data_source_connection,
-            location=self.get_location(),
+            prefixes=[f"region-{self.get_location()}"],
         )
         return super_metadata_tables_query
 
-    def create_metadata_columns_query(self) -> BigQueryMetadataColumnsQuery:
-        super_metadata_columns_query = BigQueryMetadataColumnsQuery(
+    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+        super_metadata_columns_query = MetadataColumnsQuery(
             sql_dialect=self.sql_dialect,
             data_source_connection=self.data_source_connection,
-            location=self.get_location(),
+            prefixes=[f"region-{self.get_location()}"],
         )
         return super_metadata_columns_query
 
