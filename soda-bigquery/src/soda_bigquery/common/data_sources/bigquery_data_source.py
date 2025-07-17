@@ -1,10 +1,10 @@
 import logging
 
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
-    BigQueryDataSourceConnection,
-)
-from soda_bigquery.model.data_source.bigquery_data_source import (
     BigQueryDataSource as BigQueryDataSourceModel,
+)
+from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
+    BigQueryDataSourceConnection,
 )
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl

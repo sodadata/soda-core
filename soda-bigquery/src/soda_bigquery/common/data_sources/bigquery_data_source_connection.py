@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+from abc import ABC
+from typing import Literal, Optional, Union
 
 from google.api_core.client_info import ClientInfo
 from google.auth import default, impersonated_credentials
@@ -9,19 +11,69 @@ from google.cloud import bigquery
 from google.cloud.bigquery import dbapi
 from google.cloud.bigquery.table import Row
 from google.oauth2.service_account import Credentials
-from soda_bigquery.model.data_source.bigquery_connection_properties import (
-    BigQueryConnectionProperties,
-    BigQueryContextAuth,
-    BigQueryJSONFileAuth,
-    BigQueryJSONStringAuth,
-)
+from pydantic import Field, SecretStr
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
+from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
 
 logger: logging.Logger = soda_logger
+
+
+CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
+
+
+class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
+    project_id: Optional[str] = Field(None, description="BigQuery project ID")
+    location: Optional[str] = Field(None, description="BigQuery location")
+    client_options: Optional[dict] = Field(None, description="Client options")
+    labels: Optional[dict] = Field({}, description="Labels")
+    auth_scopes: Optional[list[str]] = Field(
+        [
+            "https://www.googleapis.com/auth/bigquery",
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/drive",
+        ],
+        description="Authentication scopes",
+    )
+    impersonation_account: Optional[str] = Field(None, description="Impersonation account")
+    delegates: Optional[list[str]] = Field(None, description="Delegates")
+
+
+class BigQueryJSONStringAuth(BigQueryConnectionProperties):
+    """BigQuery authentication using JSON string"""
+
+    use_context_auth: Optional[Literal[False]] = Field(False, description=CONTEXT_AUTHENTICATION_DESCRIPTION)
+    account_info_json: SecretStr = Field(..., description="Service account JSON as string", min_length=1)
+
+
+class BigQueryJSONFileAuth(BigQueryConnectionProperties):
+    """BigQuery authentication using JSON file path"""
+
+    use_context_auth: Optional[Literal[False]] = Field(False, description=CONTEXT_AUTHENTICATION_DESCRIPTION)
+    account_info_json_path: str = Field(..., description="Path to service account JSON file", min_length=1)
+
+
+class BigQueryContextAuth(BigQueryConnectionProperties):
+    """BigQuery authentication using context.
+
+    If use_context_auth is True, then application default credentials will be used.
+    The user may optionally provide JSON credentials; they will be ignored.
+    """
+
+    use_context_auth: Literal[True] = Field(description=CONTEXT_AUTHENTICATION_DESCRIPTION)
+
+
+class BigQueryDataSource(DataSourceBase, ABC):
+    type: Literal["bigquery"] = Field("bigquery")
+
+    connection_properties: Union[
+        BigQueryJSONStringAuth,
+        BigQueryJSONFileAuth,
+        BigQueryContextAuth,
+    ] = Field(..., alias="connection", description="BigQuery connection configuration")
 
 
 class BigQueryDataSourceConnection(DataSourceConnection):
