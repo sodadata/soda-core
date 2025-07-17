@@ -41,7 +41,7 @@ class DataSourceTestHelper:
     @classmethod
     def create(cls, test_datasource: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":
-            from helpers.postgres_data_source_test_helper import (
+            from soda_postgres.test_helpers.postgres_data_source_test_helper import (
                 PostgresDataSourceTestHelper,
             )
 
@@ -59,7 +59,7 @@ class DataSourceTestHelper:
 
             return DatabricksDataSourceTestHelper()
         elif test_datasource == "duckdb":
-            from helpers.duckdb_data_source_test_helper import (
+            from soda_duckdb.test_helpers.duckdb_data_source_test_helper import (
                 DuckdbDataSourceTestHelper,
             )
 
