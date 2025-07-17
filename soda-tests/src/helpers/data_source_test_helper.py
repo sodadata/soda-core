@@ -47,7 +47,7 @@ class DataSourceTestHelper:
 
             return PostgresDataSourceTestHelper()
         elif test_datasource == "snowflake":
-            from helpers.snowflake_data_source_test_helper import (
+            from soda_snowflake.test_helpers.snowflake_data_source_test_helper import (
                 SnowflakeDataSourceTestHelper,
             )
 
