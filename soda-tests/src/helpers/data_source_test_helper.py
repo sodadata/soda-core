@@ -65,7 +65,7 @@ class DataSourceTestHelper:
 
             return DuckdbDataSourceTestHelper()
         elif test_datasource == "bigquery":
-            from helpers.bigquery_data_source_test_helper import (
+            from soda_bigquery.test_helpers.bigquery_data_source_test_helper import (
                 BigQueryDataSourceTestHelper,
             )
 
