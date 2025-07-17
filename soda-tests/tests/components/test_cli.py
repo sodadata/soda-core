@@ -38,7 +38,7 @@ from soda_core.cli.exit_codes import ExitCode
             [
                 ["a.yaml", "b.yaml"],
                 ["some/remote/dataset/identifier"],
-                "ds.yaml",
+                ["ds.yaml"],
                 "cloud.yaml",
                 {"key1": "value1", "key2": "value2"},
                 True,
@@ -69,7 +69,7 @@ from soda_core.cli.exit_codes import ExitCode
             [
                 None,
                 ["some-dataset"],
-                "ds.yaml",
+                ["ds.yaml"],
                 "cloud.yaml",
                 {"key1": "value1"},
                 True,
@@ -90,7 +90,7 @@ from soda_core.cli.exit_codes import ExitCode
                 "-sc",
                 "cloud.yaml",
             ],
-            [None, ["some-dataset"], "ds.yaml", "cloud.yaml", {}, False, False, False, 60],
+            [None, ["some-dataset"], ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60],
         ),
     ],
 )

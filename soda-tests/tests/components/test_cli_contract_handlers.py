@@ -45,7 +45,7 @@ def test_handle_verify_contract_exit_codes(
     exit_code = handle_verify_contract(
         contract_file_paths=["contract.yaml"],
         dataset_identifiers=None,
-        data_source_file_path="ds.yaml",
+        data_source_file_paths=["ds.yaml"],
         soda_cloud_file_path="sc.yaml",
         variables={},
         publish=True,
