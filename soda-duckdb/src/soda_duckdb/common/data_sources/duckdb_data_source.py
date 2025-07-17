@@ -7,14 +7,15 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
-from soda_duckdb.model.data_source.duckdb_connection_properties import (
+from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBConnectionProperties,
+)
+from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
+    DuckDBDataSource as DuckDBDataSourceModel,
+)
+from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBExistingConnectionProperties,
     DuckDBStandardConnectionProperties,
-)
-from soda_duckdb.model.data_source.duckdb_data_source import DuckDBDataSource
-from soda_duckdb.model.data_source.duckdb_data_source import (
-    DuckDBDataSource as DuckDBDataSourceModel,
 )
 
 DuckDBColumn = namedtuple(
