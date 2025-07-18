@@ -176,7 +176,7 @@ class ContractVerificationSessionImpl:
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
 
-        data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impl_by_name(
+        data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
             data_source_impls=data_source_impls,
             data_source_yaml_sources=data_source_yaml_sources,
             provided_variable_values=provided_variable_values,
@@ -219,7 +219,7 @@ class ContractVerificationSessionImpl:
         return contract_verification_results
 
     @classmethod
-    def _build_data_source_impl_by_name(
+    def _build_data_source_impls_by_name(
         cls,
         data_source_impls: list[DataSourceImpl],
         data_source_yaml_sources: list[DataSourceYamlSource],
