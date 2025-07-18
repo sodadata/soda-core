@@ -6,6 +6,8 @@ on:
   push:
     branches:
       - '*'
+    tags:
+      - "*"
 
 env:
   PROJECT_NAME: soda-core
