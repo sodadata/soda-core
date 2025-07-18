@@ -110,19 +110,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Debug GITHUB_REF
+        run: echo "GITHUB_REF=$GITHUB_REF"
       - name: Release ${{ matrix.modules }}
         run: |
           python -m venv .venv
           source .venv/bin/activate
           pip install tbump build twine
 
-          VERSION=${GITHUB_REF#refs/tags/}
-          if echo "$GITHUB_REF" | grep -q '^refs/tags/'; then
+          if [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
             echo "Using tag version: $VERSION"
           else
             VERSION="4.0.0.dev${GITHUB_RUN_NUMBER}"
             echo "No tag found, using dev version: $VERSION"
           fi
+
           tbump --only-patch --non-interactive "$VERSION"
           cd ${{ matrix.modules }}
           python3 -m build
