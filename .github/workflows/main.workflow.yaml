@@ -117,7 +117,7 @@ jobs:
           pip install tbump build twine
 
           VERSION=${GITHUB_REF#refs/tags/}
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             echo "Using tag version: $VERSION"
           else
             VERSION="4.0.0.dev${GITHUB_RUN_NUMBER}"
