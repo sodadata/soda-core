@@ -131,7 +131,7 @@ class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
 
     @classmethod
     def from_existing_cursor(cls, cursor: DuckDBPyConnection, name: str) -> DataSourceImpl:
-        ds_model = DuckDBDataSource(
+        ds_model = DuckDBDataSourceModel(
             name=name,
             connection_properties=DuckDBExistingConnectionProperties(
                 duckdb_connection=cursor,
