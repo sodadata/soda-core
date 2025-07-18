@@ -6,7 +6,7 @@ from soda_core.common.exceptions import (
     InvalidDataSourceConfigurationException,
     SodaCloudException,
 )
-from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_verification import (
@@ -20,6 +20,7 @@ soda_telemetry = SodaTelemetry()
 
 def verify_contracts_locally(
     data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
     data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     dataset_identifiers: Optional[list[str]] = None,
@@ -38,6 +39,7 @@ def verify_contracts_locally(
         contract_file_paths=contract_file_paths,
         dataset_identifiers=dataset_identifiers,
         data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
         data_sources=data_sources,
         soda_cloud_file_path=soda_cloud_file_path,
         variables=variables,
@@ -52,6 +54,7 @@ def verify_contracts_on_agent(
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     dataset_identifiers: Optional[list[str]] = None,
     data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
     variables: Optional[Dict[str, str]] = None,
     publish: bool = False,
     verbose: bool = False,
@@ -64,6 +67,7 @@ def verify_contracts_on_agent(
         contract_file_paths=contract_file_paths,
         dataset_identifiers=dataset_identifiers,
         data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
         soda_cloud_file_path=soda_cloud_file_path,
         variables=variables,
         publish=publish,
@@ -85,7 +89,15 @@ def verify_contracts(
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
     data_sources: Optional[list[DataSourceImpl]] = None,
+    data_source_file_paths: Optional[list[str]] = None,
 ) -> ContractVerificationSessionResult:
+    if not data_source_file_paths:
+        data_source_file_paths = []
+
+    # Backward compatibility for single data source file path - append to the list of data source file paths
+    if data_source_file_path and data_source_file_path not in data_source_file_paths:
+        data_source_file_paths.append(data_source_file_path)
+
     soda_cloud_client: Optional[SodaCloud] = None
     try:
         if soda_cloud_file_path:
@@ -98,7 +110,7 @@ def verify_contracts(
         validate_verify_arguments(
             contract_file_paths,
             dataset_identifiers,
-            data_source_file_path,
+            data_source_file_paths,
             data_sources,
             publish,
             use_agent,
@@ -111,17 +123,11 @@ def verify_contracts(
             soda_logger.debug("No contracts given. Exiting.")
             return ContractVerificationSessionResult(contract_verification_results=[])
 
-        # TODO: decide on implications of this
-        if dataset_identifiers and len(dataset_identifiers) > 1:
-            raise InvalidArgumentException(
-                "We currently only support a single data source configuration. Please pass a single dataset identifier."
-            )
-
         data_source_yaml_sources: list[DataSourceYamlSource] = []
-        if data_source_file_path or dataset_identifiers:
-            data_source_yaml_sources.append(
+        if data_source_file_paths or dataset_identifiers:
+            data_source_yaml_sources.extend(
                 _create_datasource_yamls(
-                    data_source_file_path,
+                    data_source_file_paths,
                     dataset_identifiers,
                     soda_cloud_client,
                     use_agent,
@@ -157,7 +163,7 @@ def verify_contracts(
 def validate_verify_arguments(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
-    data_source_file_path: Optional[str],
+    data_source_file_paths: Optional[list[str]],
     data_sources: Optional[list[DataSourceImpl]],
     publish: bool,
     use_agent: bool,
@@ -184,7 +190,7 @@ def validate_verify_arguments(
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
 
-    if all_none_or_empty(dataset_identifiers) and not data_source_file_path and not use_agent and not data_sources:
+    if all_none_or_empty(dataset_identifiers) and not data_source_file_paths and not use_agent and not data_sources:
         raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
 
 
@@ -236,26 +242,34 @@ def _create_contract_yamls(
 
 
 def _create_datasource_yamls(
-    data_source_file_path: Optional[str],
+    data_source_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
     soda_cloud_client: SodaCloud,
     use_agent: bool,
 ) -> Optional[DataSourceYamlSource]:
-    if data_source_file_path:
-        return DataSourceYamlSource.from_file_path(data_source_file_path)
+    data_source_yamls: list[DataSourceYamlSource] = []
 
-    if is_using_remote_datasource(dataset_identifiers, data_source_file_path) and soda_cloud_client:
-        if len(dataset_identifiers) > 1:
-            raise InvalidDataSourceConfigurationException(
-                f"{Emoticons.EXPLODING_HEAD} We currently only support a single data source configuration. "
-                f"Please pass a single dataset identifier."
+    if data_source_file_paths:
+        for data_source_file_path in data_source_file_paths:
+            soda_logger.debug(f"Using local data source config: {data_source_file_path}")
+            data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
+
+    if dataset_identifiers:
+        for dataset_identifier in dataset_identifiers:
+            soda_logger.debug(
+                f"No local data source config for '{dataset_identifier}', trying to fetch data source config from cloud"
             )
+            data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
 
-        dataset_identifier = dataset_identifiers[0]
-        soda_logger.debug("No local data source config, trying to fetch data source config from cloud")
-        data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
+            if not data_source_config:
+                soda_logger.error(
+                    f"Could not fetch data source configuration for dataset '{dataset_identifier}': skipping fetch."
+                )
+            else:
+                data_source_yamls.append(DataSourceYamlSource.from_str(data_source_config))
 
-        return DataSourceYamlSource.from_str(data_source_config)
+    if data_source_yamls:
+        return data_source_yamls
 
     # By this point, we can only progress if we are using an agent.
     # Then the agent will provide the data source config.

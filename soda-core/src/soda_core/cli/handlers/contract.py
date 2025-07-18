@@ -18,7 +18,7 @@ from soda_core.contracts.contract_verification import ContractVerificationSessio
 def handle_verify_contract(
     contract_file_paths: Optional[list[str]],
     dataset_identifiers: Optional[list[str]],
-    data_source_file_path: Optional[str],
+    data_source_file_paths: Optional[str],
     soda_cloud_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
     publish: bool,
@@ -30,7 +30,8 @@ def handle_verify_contract(
         contract_verification_result = verify_contracts(
             contract_file_paths=contract_file_paths,
             dataset_identifiers=dataset_identifiers,
-            data_source_file_path=data_source_file_path,
+            data_source_file_path=None,
+            data_source_file_paths=data_source_file_paths,
             soda_cloud_file_path=soda_cloud_file_path,
             variables=variables,
             publish=publish,
