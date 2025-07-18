@@ -128,7 +128,7 @@ class BigQueryDataSourceConnection(DataSourceConnection):
         self._apply_optional_params(config)
 
         client_info = ClientInfo(
-            user_agent="soda-library",
+            user_agent="soda-core",
         )
         default_query_job_config = bigquery.QueryJobConfig(labels=self.labels)
         self.client = bigquery.Client(
