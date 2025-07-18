@@ -10,8 +10,15 @@ logger: logging.Logger = soda_logger
 
 
 class BaseSqlExpression:
-    def __init__(self):
-        self.parent_node: Optional[BaseSqlExpression] = None
+    # Initialize this outside of __init__ to avoid super().__init__() in child dataclasses
+    parent_node: Optional[BaseSqlExpression] = None
+
+    def __init__(self):  # Technically not needed, but it's here for clarity
+        self.parent_node = None
+
+    # Create __post_init__ to avoid errors when using super().__post_init__() in child dataclasses
+    def __post_init__(self):
+        pass
 
     def get_parent_node(self) -> Optional[BaseSqlExpression]:
         return self.parent_node
@@ -44,14 +51,13 @@ class BaseSqlExpression:
 class SELECT(BaseSqlExpression):
     fields: SqlExpression | str | list[SqlExpression | str]
 
-    def __init__(self, fields: SqlExpression | str | list[SqlExpression | str]):
-        super().__init__()
-        self.fields = fields
-        self.handle_parent_node_update(fields)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.fields)
 
         # Check that the select contains a distinct and has multiple fields -> give a warning
-        if isinstance(fields, list) and len(fields) > 1:
-            if any(isinstance(field, DISTINCT) for field in fields):
+        if isinstance(self.fields, list) and len(self.fields) > 1:
+            if any(isinstance(field, DISTINCT) for field in self.fields):
                 logger.warning(
                     """Found DISTINCT in a SELECT statement with multiple fields.
                                This might have unintended consequences."""
@@ -63,6 +69,9 @@ class FROM(BaseSqlExpression):
     table_name: str
     table_prefix: Optional[list[str]] = None
     alias: Optional[str] = None
+
+    def __post_init__(self):
+        super().__post_init__()
 
     def AS(self, alias: str) -> FROM:
         self.alias = alias
@@ -77,16 +86,10 @@ class FROM(BaseSqlExpression):
 class LEFT_INNER_JOIN(FROM, BaseSqlExpression):
     on_condition: Optional[SqlExpression] = None
 
-    def __init__(
-        self,
-        table_name: str,
-        table_prefix: Optional[list[str]] = None,
-        alias: Optional[str] = None,
-        on_condition: Optional[SqlExpression] = None,
-    ):
-        super().__init__(table_name, table_prefix, alias)
-        if on_condition is not None:
-            self.ON(on_condition)
+    def __post_init__(self):
+        super().__post_init__()
+        if self.on_condition is not None:
+            self.ON(self.on_condition)
 
     def ON(self, on_condition: SqlExpression) -> FROM:
         self.on_condition = on_condition
@@ -98,10 +101,9 @@ class LEFT_INNER_JOIN(FROM, BaseSqlExpression):
 class WHERE(BaseSqlExpression):
     condition: SqlExpression
 
-    def __init__(self, condition: SqlExpression):
-        super().__init__()
-        self.condition = condition
-        self.handle_parent_node_update(condition)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.condition)
 
 
 @dataclass
@@ -109,9 +111,8 @@ class WITH(BaseSqlExpression):
     alias: str
     cte_query: list | str | None = None
 
-    def __init__(self, alias: str):
-        super().__init__()
-        self.alias = alias
+    def __post_init__(self):
+        super().__post_init__()
 
     def AS(self, cte_query: list | str) -> WITH:
         self.cte_query = cte_query
@@ -121,44 +122,41 @@ class WITH(BaseSqlExpression):
 
 @dataclass
 class SqlExpression(BaseSqlExpression):
-    def __init__(self):
-        super().__init__()
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class STAR(SqlExpression):
-    def __init__(self):
-        super().__init__()
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class COUNT(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
 class DISTINCT(SqlExpression):
     expression: SqlExpression | str | list[SqlExpression | str]
 
-    def __init__(self, expression: SqlExpression | str | list[SqlExpression | str]):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
 class SUM(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
@@ -176,49 +174,38 @@ class CASE_WHEN(SqlExpression):
     if_expression: SqlExpression | str
     else_expression: SqlExpression | str | None = None
 
-    def __init__(
-        self,
-        condition: SqlExpression | str,
-        if_expression: SqlExpression | str,
-        else_expression: SqlExpression | str | None = None,
-    ):
-        super().__init__()
-        self.condition = condition
-        self.if_expression = if_expression
-        self.else_expression = else_expression
-        self.handle_parent_node_update(condition)
-        self.handle_parent_node_update(if_expression)
-        self.handle_parent_node_update(else_expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.condition)
+        self.handle_parent_node_update(self.if_expression)
+        self.handle_parent_node_update(self.else_expression)
 
 
 @dataclass
 class TUPLE(SqlExpression):
     expressions: list[SqlExpression | str]
 
-    def __init__(self, expressions: list[SqlExpression | str]):
-        super().__init__()
-        self.expressions = expressions
-        self.handle_parent_node_update(expressions)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expressions)
 
 
 @dataclass
 class IS_NULL(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
 class IS_NOT_NULL(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
@@ -226,32 +213,28 @@ class IN(SqlExpression):
     expression: SqlExpression | str
     list_expression: list[SqlExpression]
 
-    def __init__(self, expression: SqlExpression | str, list_expression: list[SqlExpression]):
-        super().__init__()
-        self.expression = expression
-        self.list_expression = list_expression
-        self.handle_parent_node_update(expression)
-        self.handle_parent_node_update(list_expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+        self.handle_parent_node_update(self.list_expression)
 
 
 @dataclass
 class LOWER(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
 class LENGTH(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
@@ -272,21 +255,18 @@ class FUNCTION(SqlExpression):
     name: str
     args: list[SqlExpression | str]
 
-    def __init__(self, name: str, args: list[SqlExpression | str]):
-        super().__init__()
-        self.name = name
-        self.args = args
-        self.handle_parent_node_update(args)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.args)
 
 
 @dataclass
 class MAX(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
@@ -299,58 +279,55 @@ class Operator(SqlExpression):
     left: SqlExpression | str
     right: SqlExpression | str
 
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__()
-        self.left = left
-        self.right = right
-        self.handle_parent_node_update(left)
-        self.handle_parent_node_update(right)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.left)
+        self.handle_parent_node_update(self.right)
 
 
 @dataclass
 class EQ(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class NEQ(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class GT(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class GTE(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class LT(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class LTE(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class NOT(SqlExpression):
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
     @classmethod
     def optional(cls, expression: SqlExpression | str | None) -> Optional[NOT]:
@@ -362,33 +339,30 @@ class REGEX_LIKE(SqlExpression):
     expression: SqlExpression | str
     regex_pattern: str
 
-    def __init__(self, expression: SqlExpression | str, regex_pattern: str):
-        super().__init__()
-        self.expression = expression
-        self.regex_pattern = regex_pattern
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
 class LIKE(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class NOT_LIKE(Operator):
-    def __init__(self, left: SqlExpression | str, right: SqlExpression | str):
-        super().__init__(left, right)
+    def __post_init__(self):
+        super().__post_init__()
 
 
 @dataclass
 class AND(SqlExpression):
     clauses: SqlExpression | str | list[SqlExpression]
 
-    def __init__(self, clauses: SqlExpression | str | list[SqlExpression]):
-        super().__init__()
-        self.clauses = clauses
-        self.handle_parent_node_update(clauses)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.clauses)
 
     def _get_clauses_as_list(self) -> list[SqlExpression]:
         if isinstance(self.clauses, list):
@@ -415,10 +389,9 @@ class AND(SqlExpression):
 class OR(SqlExpression):
     clauses: SqlExpression | str | list[SqlExpression]
 
-    def __init__(self, clauses: SqlExpression | str | list[SqlExpression]):
-        super().__init__()
-        self.clauses = clauses
-        self.handle_parent_node_update(clauses)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.clauses)
 
     def _get_clauses_as_list(self) -> list[SqlExpression]:
         if isinstance(self.clauses, list):
@@ -449,10 +422,9 @@ class ORDER_BY_ASC(BaseSqlExpression):
 
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
@@ -463,13 +435,12 @@ class ORDER_BY_DESC(BaseSqlExpression):
 
     expression: SqlExpression | str
 
-    def __init__(self, expression: SqlExpression | str):
-        super().__init__()
-        self.expression = expression
-        self.handle_parent_node_update(expression)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
 class ORDINAL_POSITION(BaseSqlExpression):
-    def __init__(self):
-        super().__init__()
+    def __post_init__(self):
+        super().__post_init__()
