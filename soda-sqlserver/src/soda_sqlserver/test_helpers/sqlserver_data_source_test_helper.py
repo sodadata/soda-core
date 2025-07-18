@@ -47,4 +47,6 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
         DataSourceTestHelpers can override this method as an easy way
         to customize the get_schema_check_sql_type behavior
         """
-        return self._get_create_table_sql_type_dict()
+        my_dict = self._get_create_table_sql_type_dict()
+        my_dict[TestDataType.TEXT] = "varchar"
+        return my_dict
