@@ -52,6 +52,7 @@ jobs:
           - "snowflake"
         #   - "databricks"
           - "duckdb"
+          - "bigquery"
 
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
@@ -62,6 +63,7 @@ jobs:
       DATABRICKS_HTTP_PATH: ${{ vars.DATABRICKS_CI_HTTP_PATH }}
       DATABRICKS_CATALOG: ${{ vars.DATABRICKS_CI_CATALOG }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CI_TOKEN }}
+      BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
       SODA_CORE_TELEMETRY_LOCAL_DEBUG_MODE: "true"
 
     steps:

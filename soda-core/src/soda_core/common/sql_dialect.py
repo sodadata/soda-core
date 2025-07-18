@@ -9,21 +9,17 @@ from soda_core.common.sql_ast import *
 
 
 class SqlDialect:
+    DEFAULT_QUOTE_CHAR = '"'
+
     """
     Extends DataSource with all logic to builds the SQL queries.
     Specific DataSource's can customize their SQL queries by subclassing SqlDialect,
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
 
-    def __init__(self):
-        self.default_quote_char = self._get_default_quote_char()
-
-    def _get_default_quote_char(self) -> str:
-        return '"'
-
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
-            f"{self.default_quote_char}{identifier}{self.default_quote_char}"
+            f"{self.DEFAULT_QUOTE_CHAR}{identifier}{self.DEFAULT_QUOTE_CHAR}"
             if isinstance(identifier, str) and len(identifier) > 0
             else None
         )
@@ -487,3 +483,15 @@ class SqlDialect:
     # Very lightweight dialect-specific interpretation of dataset prefixes.
     def get_schema_prefix_index(self) -> int | None:
         return 1
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"timestamp '{datetime_in_iso8601}'"
+
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        return f"date_trunc('day', {timestamp_literal})"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"{timestamp_literal} + interval '1 day'"
+
+    def quote_column(self, column_name: str) -> str:
+        return self.quote_default(column_name)
