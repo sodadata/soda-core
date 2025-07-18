@@ -4,6 +4,7 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_ast import LENGTH
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SQLServerDataSource as SQLServerDataSourceModel,
@@ -42,3 +43,15 @@ class SQLServerSqlDialect(SqlDialect):
                         WHERE   name = N'{schema_name}' )
         EXEC('CREATE SCHEMA [{schema_name}]');
         """
+
+    def _build_length_sql(self, length: LENGTH) -> str:
+        return f"LEN({self.build_expression_sql(length.expression)})"
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"'{datetime_in_iso8601}'"
+
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        return f"DATETRUNC(DAY, {timestamp_literal})"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"DATEADD(DAY, 1, {timestamp_literal})"

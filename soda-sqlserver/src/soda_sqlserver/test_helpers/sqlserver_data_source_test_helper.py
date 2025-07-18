@@ -31,7 +31,7 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
         """
 
     def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        return {  # TODO: this is a placeholder, need to update this to match SQL Server types
+        return {
             TestDataType.TEXT: "varchar(255)",
             TestDataType.INTEGER: "int",
             TestDataType.DECIMAL: "float",
