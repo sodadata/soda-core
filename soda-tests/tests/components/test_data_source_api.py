@@ -56,8 +56,11 @@ def test_data_source_api(data_source_test_helper: DataSourceTestHelper):
     data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
     with data_source_impl:
+        id_quoted = data_source_test_helper.quote_column(
+            "id"
+        )  # Order by required since some DB engines don't guarantee row order
         query_result: QueryResult = data_source_impl.data_source_connection.execute_query(
-            f"SELECT * FROM {test_table.qualified_name}"
+            f"SELECT * FROM {test_table.qualified_name} ORDER BY {id_quoted}"
         )
         assert query_result.rows[0][0] == "1"
 

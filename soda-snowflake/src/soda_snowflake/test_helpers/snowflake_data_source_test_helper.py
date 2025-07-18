@@ -7,9 +7,6 @@ from helpers.test_table import TestDataType
 
 
 class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
-    def __init__(self):
-        super().__init__()
-
     def _create_database_name(self) -> str | None:
         return os.getenv("SNOWFLAKE_DATABASE", "soda_test")
 

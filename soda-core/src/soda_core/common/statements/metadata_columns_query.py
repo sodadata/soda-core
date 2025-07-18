@@ -21,9 +21,15 @@ class ColumnMetadata:
 
 
 class MetadataColumnsQuery:
-    def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
+    def __init__(
+        self,
+        sql_dialect: SqlDialect,
+        data_source_connection: DataSourceConnection,
+        prefixes: Optional[list[str]] = None,  # Note: if we use prefixes, we will not use the database_name
+    ):
         self.sql_dialect = sql_dialect
         self.data_source_connection: DataSourceConnection = data_source_connection
+        self.prefixes = prefixes
 
     def build_sql(self, dataset_prefix: Optional[list[str]], dataset_name: str) -> Optional[str]:
         """
@@ -38,18 +44,27 @@ class MetadataColumnsQuery:
         if (schema_index := self.sql_dialect.get_schema_prefix_index()) is not None:
             schema_name = dataset_prefix[schema_index]
 
+        if self.prefixes is not None:
+            prefixes = self.prefixes
+        else:
+            prefixes = [database_name] if database_name else []
+
         return self.sql_dialect.build_select_sql(
             [
                 SELECT(
                     [
                         self.sql_dialect.column_column_name(),
                         self.sql_dialect.column_data_type(),
-                        self.sql_dialect.column_data_type_max_length(),
+                        *(
+                            [self.sql_dialect.column_data_type_max_length()]
+                            if self.sql_dialect.supports_varchar_length()
+                            else []
+                        ),
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
                     [
-                        *([database_name] if database_name else []),
+                        *prefixes,
                         self.sql_dialect.schema_information_schema(),
                     ]
                 ),
@@ -71,9 +86,15 @@ class MetadataColumnsQuery:
         )
 
     def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
-        return [
-            ColumnMetadata(
-                column_name=column_name, data_type=data_type, character_maximum_length=character_maximum_length
-            )
-            for column_name, data_type, character_maximum_length in query_result.rows
-        ]
+        if self.sql_dialect.supports_varchar_length():
+            return [
+                ColumnMetadata(
+                    column_name=column_name, data_type=data_type, character_maximum_length=character_maximum_length
+                )
+                for column_name, data_type, character_maximum_length in query_result.rows
+            ]
+        else:
+            return [
+                ColumnMetadata(column_name=column_name, data_type=data_type, character_maximum_length=None)
+                for column_name, data_type in query_result.rows
+            ]

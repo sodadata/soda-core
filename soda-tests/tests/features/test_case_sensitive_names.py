@@ -26,7 +26,7 @@ def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
     with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
         data_source_test_helper.assert_contract_pass(
             test_table=test_table,
-            contract_yaml_str=f"""
+            contract_yaml_str="""
                 check_attributes:
                     description: "Test description"
                 columns:
@@ -37,7 +37,7 @@ def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
                             threshold:
                                 must_be: 2
                         - invalid:
-                            valid_values: ['1', '2', '3']
+                            valid_values: [1, 2, 3]
                         - missing:
                         - duplicate:
                     - name: CreatedAt

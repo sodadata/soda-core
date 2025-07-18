@@ -3,3 +3,4 @@ soda-tests
 soda-postgres
 soda-snowflake
 soda-duckdb
+soda-bigquery

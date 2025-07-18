@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import random
@@ -40,13 +41,13 @@ class DataSourceTestHelper:
     @classmethod
     def create(cls, test_datasource: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":
-            from helpers.postgres_data_source_test_helper import (
+            from soda_postgres.test_helpers.postgres_data_source_test_helper import (
                 PostgresDataSourceTestHelper,
             )
 
             return PostgresDataSourceTestHelper()
         elif test_datasource == "snowflake":
-            from helpers.snowflake_data_source_test_helper import (
+            from soda_snowflake.test_helpers.snowflake_data_source_test_helper import (
                 SnowflakeDataSourceTestHelper,
             )
 
@@ -58,11 +59,17 @@ class DataSourceTestHelper:
 
             return DatabricksDataSourceTestHelper()
         elif test_datasource == "duckdb":
-            from helpers.duckdb_data_source_test_helper import (
+            from soda_duckdb.test_helpers.duckdb_data_source_test_helper import (
                 DuckdbDataSourceTestHelper,
             )
 
             return DuckdbDataSourceTestHelper()
+        elif test_datasource == "bigquery":
+            from soda_bigquery.test_helpers.bigquery_data_source_test_helper import (
+                BigQueryDataSourceTestHelper,
+            )
+
+            return BigQueryDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -164,6 +171,7 @@ class DataSourceTestHelper:
         else:
             python_version = os.getenv("PYTHON_VERSION")
             python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
+            timestamp = datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S_%f")
 
             def generate_random_alpha_num_str(length: int) -> str:
                 return "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
@@ -175,12 +183,12 @@ class DataSourceTestHelper:
                 schema_name_parts.append("ci")
                 schema_name_parts.append(github_head_ref_short)
                 schema_name_parts.append(python_version_short)
-                schema_name_parts.append(generate_random_alpha_num_str(5))
+                schema_name_parts.append(timestamp)
 
             else:
                 schema_name_parts.append("ci_main")
                 schema_name_parts.append(python_version_short)
-                schema_name_parts.append(generate_random_alpha_num_str(5))
+                schema_name_parts.append(timestamp)
 
         schema_name_raw = "_".join(schema_name_parts)
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
@@ -319,6 +327,10 @@ class DataSourceTestHelper:
         """
         if self.existing_test_table_names is None:
             self.existing_test_table_names = self.query_existing_test_table_names()
+
+        # Specifically for BigQuery; when developing locally, the metadata might lag behind from the actual state of the tables.
+        # Uncomment this to force the test table to be recreated every time.
+        # self.existing_test_table_names = []
 
         test_table: TestTable = self.test_tables.get(test_table_specification.unique_name)
         if not test_table:
@@ -531,14 +543,6 @@ class DataSourceTestHelper:
         self.soda_cloud = None
         self.use_agent = False
 
-    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
-        return f"timestamp '{datetime_in_iso8601}'"
-
-    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
-        return f"date_trunc('day', {timestamp_literal})"
-
-    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
-        return f"{timestamp_literal} + interval '1 day'"
-
     def quote_column(self, column_name: str) -> str:
-        return f'"{column_name}"'
+        """For shorter notation in the tests, we can just point it to the dialect."""
+        return self.data_source_impl.sql_dialect.quote_column(column_name)

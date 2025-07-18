@@ -3,10 +3,10 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import TUPLE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
-    SnowflakeDataSourceConnection,
-)
-from soda_snowflake.model.data_source.snowflake_data_source import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
+)
+from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
+    SnowflakeDataSourceConnection,
 )
 
 

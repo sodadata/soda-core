@@ -16,9 +16,15 @@ class FullyQualifiedTableName:
 
 
 class MetadataTablesQuery:
-    def __init__(self, sql_dialect: SqlDialect, data_source_connection: DataSourceConnection):
+    def __init__(
+        self,
+        sql_dialect: SqlDialect,
+        data_source_connection: DataSourceConnection,
+        prefixes: Optional[list[str]] = None,
+    ):
         self.sql_dialect = sql_dialect
         self.data_source_connection: DataSourceConnection = data_source_connection
+        self.prefixes = prefixes
 
     def execute(
         self,
@@ -47,11 +53,17 @@ class MetadataTablesQuery:
         """
         Builds the full SQL query statement to query table names from the data source metadata.
         """
+
+        if self.prefixes is not None:
+            prefixes = self.prefixes
+        else:
+            prefixes = [database_name] if database_name else []
+
         select: list = [
             FROM(
                 self.sql_dialect.table_tables(),
                 table_prefix=[
-                    *([database_name] if database_name else []),
+                    *prefixes,
                     self.sql_dialect.schema_information_schema(),
                 ],
             ),
