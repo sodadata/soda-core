@@ -4,6 +4,7 @@ from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
@@ -53,9 +54,11 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     referenced_test_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
 
-    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
-    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
-    end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
+    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    now_literal: str = sql_dialect.sql_expr_timestamp_literal("${soda.NOW}")
+    start_ts_value: str = sql_dialect.sql_expr_timestamp_truncate_day(now_literal)
+    end_ts_value: str = sql_dialect.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
 
     contract_yaml_str: str = f"""
@@ -110,9 +113,11 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
 def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    now_literal: str = data_source_test_helper.sql_expr_timestamp_literal("${soda.NOW}")
-    start_ts_value: str = data_source_test_helper.sql_expr_timestamp_truncate_day(now_literal)
-    end_ts_value: str = data_source_test_helper.sql_expr_timestamp_add_day("${var.START_TS}")
+    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    now_literal: str = sql_dialect.sql_expr_timestamp_literal("${soda.NOW}")
+    start_ts_value: str = sql_dialect.sql_expr_timestamp_truncate_day(now_literal)
+    end_ts_value: str = sql_dialect.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
 
     contract_yaml_str: str = f"""

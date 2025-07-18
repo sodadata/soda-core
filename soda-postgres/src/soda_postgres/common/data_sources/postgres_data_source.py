@@ -3,10 +3,10 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
-    PostgresDataSourceConnection,
-)
-from soda_postgres.model.data_source.postgres_data_source import (
     PostgresDataSource as PostgresDataSourceModel,
+)
+from soda_postgres.common.data_sources.postgres_data_source_connection import (
+    PostgresDataSourceConnection,
 )
 
 
