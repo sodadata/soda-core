@@ -495,3 +495,6 @@ class SqlDialect:
 
     def quote_column(self, column_name: str) -> str:
         return self.quote_default(column_name)
+
+    def supports_regex_advanced(self) -> bool:
+        return True  # Default to true, but specific dialects can override to false

@@ -116,13 +116,18 @@ def test_invalid_values(data_source_test_helper: DataSourceTestHelper):
 def test_invalid_count_valid_regex_sql(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    if data_source_test_helper.data_source_impl.sql_dialect.supports_regex_advanced():
+        regex_pattern = "^[123]$"
+    else:
+        regex_pattern = "[123]"
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
                 valid_format:
-                  regex: ^[123]$
+                  regex: '{regex_pattern}'
                   name: one-two-threes
                 checks:
                   - invalid:
@@ -161,13 +166,18 @@ def test_invalid_count_valid_min_max(data_source_test_helper: DataSourceTestHelp
 def test_invalid_count_invalid_regex_sql(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    if data_source_test_helper.data_source_impl.sql_dialect.supports_regex_advanced():
+        regex_pattern = "^[X]$"
+    else:
+        regex_pattern = "[X]"
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
                 invalid_format:
-                  regex: ^[X]$
+                  regex: '{regex_pattern}'
                   name: all X-es
                 checks:
                   - invalid:
@@ -192,13 +202,18 @@ def test_invalid_count_valid_format(data_source_test_helper: DataSourceTestHelpe
     #                 "single_digit_test_format": "^[0-9]$"
     #             }
 
+    if data_source_test_helper.data_source_impl.sql_dialect.supports_regex_advanced():
+        regex_pattern = "^[0-9]$"
+    else:
+        regex_pattern = "[0-9]"
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             columns:
               - name: id
                 valid_format:
-                  regex: ^[0-9]$
+                  regex: '{regex_pattern}'
                   name: single_digit_test_format
                 checks:
                   - invalid:
