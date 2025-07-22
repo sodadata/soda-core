@@ -55,17 +55,11 @@ class OracleDataSourceConnection(DataSourceConnection):
         try:
             if isinstance(config, OracleConnectionString):
                 return oracledb.connect(
-                    user=config.user, 
-                    password=config.password.get_secret_value(), 
-                    dsn=config.connect_string
+                    user=config.user, password=config.password.get_secret_value(), dsn=config.connect_string
                 )
             elif isinstance(config, OracleHostPortService):
                 dsn = f"{config.host}:{config.port}/{config.service_name}"
-                return oracledb.connect(
-                    user=config.user,
-                    password=config.password.get_secret_value(),
-                    dsn=dsn
-                )
+                return oracledb.connect(user=config.user, password=config.password.get_secret_value(), dsn=dsn)
             else:
                 raise ValueError(f"Unsupported Oracle connection configuration type: {type(config)}")
         except Exception as e:

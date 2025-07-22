@@ -1,20 +1,23 @@
 import logging
-from datetime import date, datetime
+from datetime import datetime
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COUNT, DISTINCT, REGEX_LIKE, TUPLE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_oracle.common.statements.oracle_metadata_tables_query import OracleMetadataTablesQuery
-from soda_oracle.common.statements.oracle_metadata_columns_query import OracleMetadataColumnsQuery
 from soda_oracle.common.data_sources.oracle_data_source_connection import (
     OracleDataSource as OracleDataSourceModel,
 )
 from soda_oracle.common.data_sources.oracle_data_source_connection import (
     OracleDataSourceConnection,
+)
+from soda_oracle.common.statements.oracle_metadata_columns_query import (
+    OracleMetadataColumnsQuery,
+)
+from soda_oracle.common.statements.oracle_metadata_tables_query import (
+    OracleMetadataTablesQuery,
 )
 
 logger: logging.Logger = soda_logger
@@ -23,7 +26,7 @@ logger: logging.Logger = soda_logger
 class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
     def __init__(self, data_source_model: OracleDataSourceModel):
         super().__init__(data_source_model=data_source_model)
-    
+
     def _create_sql_dialect(self) -> SqlDialect:
         return OracleSqlDialect()
 
@@ -32,7 +35,6 @@ class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
         """Oracle-specific metadata tables query using ALL_TABLES view"""
         return OracleMetadataTablesQuery(
@@ -72,14 +74,14 @@ class OracleSqlDialect(SqlDialect):
             end if;
         end;
         """
-    
+
     def schema_information_schema(self):
         # Oracle just has top-level metadata views, no dedicated metadata schema
         return None
-    
+
     def table_tables(self) -> str:
         return "ALL_TABLES"
-    
+
     def table_columns(self) -> str:
         return "ALL_TAB_COLUMNS"
 
@@ -88,25 +90,25 @@ class OracleSqlDialect(SqlDialect):
 
     def column_table_name(self) -> str:
         return "TABLE_NAME"
-    
+
     def column_table_catalog(self) -> str:
         """Oracle does not have database catalog concept, return None to skip filtering"""
         return None
-    
+
     def column_column_name(self) -> str:
         return "COLUMN_NAME"
-    
+
     def column_data_type(self) -> str:
         return "DATA_TYPE"
-    
+
     def column_data_type_max_length(self) -> str:
         return "DATA_LENGTH"
-    
+
     def literal_date(self, date_value) -> str:
         """Oracle-specific date literal format"""
         date_string = date_value.strftime("%Y-%m-%d")
         return f"DATE'{date_string}'".strip()
-    
+
     def literal_datetime(self, datetime_value) -> str:
         """Oracle-specific timestamp literal format"""
         if datetime.tzinfo:
@@ -116,24 +118,23 @@ class OracleSqlDialect(SqlDialect):
             datetime_str_formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         return f"TIMESTAMP '{datetime_str_formatted}'".strip()
-    
+
     # todo check this
     # def build_select_sql(self, select_elements: list, add_semicolon: bool = False) -> str:
     #     """Oracle-specific SELECT SQL generation - Oracle doesn't like semicolons in some contexts"""
     #     return super().build_select_sql(select_elements, add_semicolon)
-    
 
     # TODO check this
     # def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
     #     """Oracle-specific timestamp literal using TO_TIMESTAMP"""
     #     # Convert ISO8601 timestamp to Oracle format
     #     # Example: '2025-04-16T12:00:00+00:00' -> TO_TIMESTAMP('2025-04-16 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
-        
+
     #     # Handle special case for ${soda.NOW} placeholder - in tests this should get substituted
     #     # with actual timestamp values, so this is mainly for non-test usage
     #     if datetime_in_iso8601 == "${soda.NOW}":
     #         return "CAST(CURRENT_TIMESTAMP AS TIMESTAMP)"
-        
+
     #     # Clean the datetime string for Oracle
     #     datetime_clean = datetime_in_iso8601
     #     if 'T' in datetime_clean:
@@ -143,19 +144,19 @@ class OracleSqlDialect(SqlDialect):
     #     elif '+' in datetime_clean:
     #         # Remove any timezone offset like +01:00, -05:00, etc.
     #         datetime_clean = datetime_clean.split('+')[0].split('-')[0]
-            
+
     #     return f"TO_TIMESTAMP('{datetime_clean}', 'YYYY-MM-DD HH24:MI:SS')"
-    
-    # TODO check this   
+
+    # TODO check this
     # def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
     #     """Oracle-specific date truncation using TRUNC"""
     #     return f"TRUNC({timestamp_literal})"
-    
+
     # TODO check this
     # def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
     #     """Oracle-specific date addition using + 1"""
     #     return f"{timestamp_literal} + 1"
-    
+
     # def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
     #     """
     #     Oracle-specific table name qualification - Oracle only supports schema.table, not database.schema.table
@@ -169,26 +170,26 @@ class OracleSqlDialect(SqlDialect):
     #             dataset_name_caseified = self.default_casify(dataset_name)
     #             return f"{self.quote_default(schema_name_caseified)}.{self.quote_default(dataset_name_caseified)}"
     #     return self.quote_default(self.default_casify(dataset_name))
-    
+
     # def build_fully_qualified_sql_name(self, dataset_identifier) -> str:
     #     """
     #     Oracle-specific fully qualified table name - handle Oracle's two-part naming
     #     """
     #     return self.qualify_dataset_name(
-    #         dataset_prefix=dataset_identifier.prefixes, 
+    #         dataset_prefix=dataset_identifier.prefixes,
     #         dataset_name=dataset_identifier.dataset_name
     #     )
-    
+
     # def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: list[str] = None) -> str:
     #     """
     #     Oracle-specific qualified table name generation - use Oracle's two-part naming
     #     """
     #     return self.qualify_dataset_name(dataset_prefix, dataset_name)
-    
+
     # def _build_from_part(self, from_part) -> str:
     #     """Oracle-specific FROM clause - Oracle doesn't always like AS with table aliases"""
     #     from soda_core.common.sql_ast import FROM
-        
+
     #     from_parts: list[str] = [
     #         self._build_qualified_quoted_dataset_name(
     #             dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
@@ -200,11 +201,11 @@ class OracleSqlDialect(SqlDialect):
     #         from_parts.append(f"{self.quote_default(from_part.alias)}")
 
     #     return " ".join(from_parts)
-    
+
     # def _build_left_inner_join_part(self, left_inner_join) -> str:
     #     """Oracle-specific LEFT JOIN - Oracle doesn't like AS with table aliases in joins"""
     #     from soda_core.common.sql_ast import LEFT_INNER_JOIN
-        
+
     #     from_parts: list[str] = []
 
     #     if isinstance(left_inner_join, LEFT_INNER_JOIN):
@@ -224,12 +225,12 @@ class OracleSqlDialect(SqlDialect):
     #         from_parts.append(f"ON {self.build_expression_sql(left_inner_join.on_condition)}")
 
     #     return " ".join(from_parts)
-    
+
     # def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
     #     """Oracle-specific CTE handling with consistent case sensitivity"""
     #     from soda_core.common.sql_ast import WITH
     #     from textwrap import dedent, indent
-        
+
     #     cte_lines: list[str] = []
     #     for select_element in select_elements:
     #         if isinstance(select_element, WITH):
@@ -248,13 +249,13 @@ class OracleSqlDialect(SqlDialect):
     #                 cte_lines.extend(indented_nested_query.split("\n"))
     #                 cte_lines.append(f")")
     #     return cte_lines
-    
+
     # def _build_distinct_sql(self, distinct) -> str:
     #     """Oracle-specific DISTINCT handling for multiple columns"""
     #     from soda_core.common.sql_ast import DISTINCT
-        
+
     #     expressions = distinct.expression if isinstance(distinct.expression, list) else [distinct.expression]
-        
+
     #     if len(expressions) > 1:
     #         # Oracle doesn't support DISTINCT(col1, col2), use DISTINCT col1, col2
     #         field_expression_str = ", ".join([self.build_expression_sql(e) for e in expressions])
@@ -263,11 +264,11 @@ class OracleSqlDialect(SqlDialect):
     #         # Single column DISTINCT works normally
     #         field_expression_str = self.build_expression_sql(expressions[0])
     #         return f"DISTINCT({field_expression_str})"
-    
+
     # def _build_count_sql(self, count) -> str:
     #     """Oracle-specific COUNT handling for DISTINCT with multiple columns"""
     #     from soda_core.common.sql_ast import COUNT, DISTINCT, TUPLE
-        
+
     #     if isinstance(count.expression, DISTINCT):
     #         # Handle COUNT(DISTINCT(...))
     #         distinct_expr = count.expression
@@ -284,4 +285,3 @@ class OracleSqlDialect(SqlDialect):
     #     else:
     #         # Regular COUNT
     #         return f"COUNT({self.build_expression_sql(count.expression)})"
-        

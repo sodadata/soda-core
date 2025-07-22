@@ -82,22 +82,16 @@ class MetadataTablesQuery:
         ]
 
         if database_name:
-            database_column_name: Optional[str] = (
-                self.sql_dialect.column_table_catalog()
-            )
+            database_column_name: Optional[str] = self.sql_dialect.column_table_catalog()
             if database_column_name:
                 database_name_lower: str = database_name.lower()
-                select.append(
-                    WHERE(EQ(LOWER(database_column_name), LITERAL(database_name_lower)))
-                )
+                select.append(WHERE(EQ(LOWER(database_column_name), LITERAL(database_name_lower))))
 
         if schema_name:
             schema_column_name: Optional[str] = self.sql_dialect.column_table_schema()
             if schema_column_name:
                 schema_name_lower: str = schema_name.lower()
-                select.append(
-                    WHERE(EQ(LOWER(schema_column_name), LITERAL(schema_name_lower)))
-                )
+                select.append(WHERE(EQ(LOWER(schema_column_name), LITERAL(schema_name_lower))))
 
         table_name_column = self.sql_dialect.column_table_name()
 

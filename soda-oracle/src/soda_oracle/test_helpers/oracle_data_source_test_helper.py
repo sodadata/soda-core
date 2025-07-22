@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import json
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class OracleDataSourceTestHelper(DataSourceTestHelper):
-    def _create_database_name(self) -> str | None:        
+    def _create_database_name(self) -> str | None:
         # Oracle doesn't have the concept of separate databases like other systems
         # The service name or SID effectively serves as the database identifier
         connect_string = os.getenv("ORACLE_CONNECTSTRING")
@@ -66,7 +64,7 @@ class OracleDataSourceTestHelper(DataSourceTestHelper):
     # def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
     #     """Oracle-specific CREATE TABLE - Oracle doesn't like semicolons in some contexts"""
     #     return f"CREATE TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n)"
-    
+
     # def _drop_test_table_sql_statement(self, table_name_qualified_quoted: str) -> str:
     #     """Oracle-specific DROP TABLE - Oracle doesn't like semicolons in some contexts"""
     #     return f"DROP TABLE {table_name_qualified_quoted}"

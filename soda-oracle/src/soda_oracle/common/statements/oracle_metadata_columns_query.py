@@ -27,7 +27,7 @@
 #         select_statement = [
 #             FROM(
 #                 self.sql_dialect.table_columns(),
-#                 # Oracle doesn't use information_schema, just query ALL_TAB_COLUMNS directly  
+#                 # Oracle doesn't use information_schema, just query ALL_TAB_COLUMNS directly
 #                 table_prefix=prefixes,
 #             ),
 #             SELECT(

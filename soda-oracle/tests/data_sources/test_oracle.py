@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 from helpers.test_connection import TestConnection
@@ -120,7 +119,7 @@ test_connections: list[TestConnection] = [
             """,
         valid_yaml=False,
         expected_yaml_error="Field required",
-    )
+    ),
 ]
 
 
@@ -131,7 +130,7 @@ def test_oracle_connections(test_connection: TestConnection):
     print(f"Debug: ORACLE_USER={repr(ORACLE_USER)}, ORACLE_PASSWORD={repr(ORACLE_PASSWORD)}")
     print(f"Debug: has_oracle_env_vars_for_host_port={has_oracle_env_vars_for_host_port}")
     print(f"Debug: test_name={test_connection.test_name}")
-    
+
     # Skip tests that require actual Oracle connection when env vars are not set
     if test_connection.test_name == "correct_connect_string":
         if not has_oracle_env_vars:
@@ -139,5 +138,5 @@ def test_oracle_connections(test_connection: TestConnection):
     elif test_connection.test_name == "correct_host_port_service":
         if not has_oracle_env_vars_for_host_port:
             pytest.skip("Oracle environment variables not set (ORACLE_USERNAME, ORACLE_PASSWORD)")
-    
+
     test_connection.test()
