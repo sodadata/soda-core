@@ -39,6 +39,7 @@ class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
     enable_tracing: Optional[bool] = Field(False, description="Whether to enable tracing")
     login_timeout: Optional[int] = Field(0, description="Login timeout")
     scope: Optional[str] = Field(None, description="Scope for the connection")
+    autocommit: Optional[bool] = Field(False, description="Whether to use autocommit")
 
 
 class SQLServerPasswordAuth(SQLServerConnectionProperties):
@@ -169,6 +170,7 @@ class SQLServerDataSourceConnection(DataSourceConnection):
                 self.build_connection_string(config),
                 attrs_before=self._get_pyodbc_attrs(),
                 timeout=int(config.login_timeout),
+                autocommit=config.autocommit,
             )
 
             self.connection.add_output_converter(-155, handle_datetimeoffset)

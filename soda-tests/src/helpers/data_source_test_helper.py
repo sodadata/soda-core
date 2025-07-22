@@ -76,6 +76,12 @@ class DataSourceTestHelper:
             )
 
             return SqlServerDataSourceTestHelper()
+        elif test_datasource == "synapse":
+            from soda_synapse.test_helpers.synapse_data_source_test_helper import (
+                SynapseDataSourceTestHelper,
+            )
+
+            return SynapseDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
