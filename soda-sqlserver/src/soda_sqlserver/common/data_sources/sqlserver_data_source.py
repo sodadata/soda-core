@@ -36,7 +36,6 @@ class SQLServerSqlDialect(SqlDialect):
         return f"[{identifier}]" if isinstance(identifier, str) and len(identifier) > 0 else None
 
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
-        # quoted_schema_name: str = self.quote_default(schema_name)
         return f"""
         IF NOT EXISTS ( SELECT  *
                         FROM    sys.schemas

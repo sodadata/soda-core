@@ -26,7 +26,6 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
     host: str = Field(..., description="Host name of the SQL Server instance")
     port: int = Field(..., description="Port number of the SQL Server instance")
-    user: str = Field(..., description="Username for authentication")
     database: str = Field(..., description="Name of the database to use")
 
     # Optional fields
@@ -45,6 +44,7 @@ class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
 class SQLServerPasswordAuth(SQLServerConnectionProperties):
     """SQL Server authentication using password"""
 
+    user: str = Field(..., description="Username for authentication")
     password: SecretStr = Field(..., description="Password for authentication")
     authentication: Literal["sql"] = "sql"
 
@@ -56,13 +56,13 @@ class SQLServerActiveDirectoryAuthentication(SQLServerConnectionProperties):
 
 
 class SQLServerActiveDirectoryInteractiveAuthentication(SQLServerActiveDirectoryAuthentication):
-    # Uses the "user" field from the parent class
+    user: str = Field(..., description="Username for authentication")
     authentication: Literal["activedirectoryinteractive"] = "activedirectoryinteractive"
 
 
 class SQLServerActiveDirectoryPasswordAuthentication(SQLServerActiveDirectoryAuthentication):
     authentication: Literal["activedirectorypassword"] = "activedirectorypassword"
-    # Uses the "user" field from the parent class
+    user: str = Field(..., description="Username for authentication")
     password: SecretStr = Field(..., description="Password for authentication")
 
 
