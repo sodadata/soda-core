@@ -50,7 +50,7 @@ jobs:
         package:
           - "postgres"
           - "snowflake"
-        #   - "databricks"
+          - "databricks"
           - "duckdb"
           - "bigquery"
 
