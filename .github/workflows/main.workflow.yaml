@@ -77,6 +77,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
+          
       - name: Run tests
         run: |
           python -m venv .venv
