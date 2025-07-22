@@ -29,7 +29,9 @@ class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
     database: str = Field(..., description="Name of the database to use")
 
     # Optional fields
-    driver: Optional[str] = Field(None, description="Driver name for the SQL Server instance")
+    driver: Optional[str] = Field(
+        "ODBC Driver 18 for SQL Server", description="Driver name for the SQL Server instance"
+    )
     trust_server_certificate: Optional[bool] = Field(False, description="Whether to trust the server certificate")
     trusted_connection: Optional[bool] = Field(False, description="Whether to use trusted connection")
     encrypt: Optional[bool] = Field(False, description="Whether to encrypt the connection")
@@ -46,27 +48,27 @@ class SQLServerPasswordAuth(SQLServerConnectionProperties):
     authentication: Literal["sql"] = "sql"
 
 
-# class SQLServerActiveDirectoryAuthentication(SQLServerConnectionProperties):
-#     authentication: Literal[
-#         "activedirectoryinteractive", "activedirectorypassword", "activedirectoryserviceprincipal"
-#     ] = Field(..., description="Authentication type")
+class SQLServerActiveDirectoryAuthentication(SQLServerConnectionProperties):
+    authentication: Literal[
+        "activedirectoryinteractive", "activedirectorypassword", "activedirectoryserviceprincipal"
+    ] = Field(..., description="Authentication type")
 
 
-# class SQLServerActiveDirectoryInteractiveAuthentication(SQLServerActiveDirectoryAuthentication):
-#     authentication: Literal["activedirectoryinteractive"] = "activedirectoryinteractive"
-#     # Uses the "user" field from the parent class
+class SQLServerActiveDirectoryInteractiveAuthentication(SQLServerActiveDirectoryAuthentication):
+    # Uses the "user" field from the parent class
+    authentication: Literal["activedirectoryinteractive"] = "activedirectoryinteractive"
 
 
-# class SQLServerActiveDirectoryPasswordAuthentication(SQLServerActiveDirectoryAuthentication):
-#     authentication: Literal["activedirectorypassword"] = "activedirectorypassword"
-#     # Uses the "user" field from the parent class
-#     password: SecretStr = Field(..., description="Password for authentication")
+class SQLServerActiveDirectoryPasswordAuthentication(SQLServerActiveDirectoryAuthentication):
+    authentication: Literal["activedirectorypassword"] = "activedirectorypassword"
+    # Uses the "user" field from the parent class
+    password: SecretStr = Field(..., description="Password for authentication")
 
 
-# class SQLServerActiveDirectoryServicePrincipalAuthentication(SQLServerActiveDirectoryAuthentication):
-#     authentication: Literal["activedirectoryserviceprincipal"] = "activedirectoryserviceprincipal"
-#     client_id: str = Field(..., description="Client ID for authentication")
-#     client_secret: SecretStr = Field(..., description="Client secret for authentication")
+class SQLServerActiveDirectoryServicePrincipalAuthentication(SQLServerActiveDirectoryAuthentication):
+    authentication: Literal["activedirectoryserviceprincipal"] = "activedirectoryserviceprincipal"
+    client_id: str = Field(..., description="Client ID for authentication")
+    client_secret: SecretStr = Field(..., description="Client secret for authentication")
 
 
 class SQLServerDataSource(DataSourceBase, ABC):
@@ -74,9 +76,9 @@ class SQLServerDataSource(DataSourceBase, ABC):
 
     connection_properties: Union[
         SQLServerPasswordAuth,
-        # SQLServerActiveDirectoryInteractiveAuthentication,
-        # SQLServerActiveDirectoryPasswordAuthentication,
-        # SQLServerActiveDirectoryServicePrincipalAuthentication,
+        SQLServerActiveDirectoryInteractiveAuthentication,
+        SQLServerActiveDirectoryPasswordAuthentication,
+        SQLServerActiveDirectoryServicePrincipalAuthentication,
     ] = Field(..., alias="connection", description="SQL Server connection configuration")
 
 
@@ -142,17 +144,16 @@ class SQLServerDataSourceConnection(DataSourceConnection):
         elif config.authentication.lower() == "activedirectoryinteractive":
             conn_params.append("Authentication=ActiveDirectoryInteractive")
             conn_params.append(f"UID={{{config.user}}}")
-        # TODO: Fix these
-        elif self.authentication.lower() == "activedirectorypassword":
+        elif config.authentication.lower() == "activedirectorypassword":
             conn_params.append("Authentication=ActiveDirectoryPassword")
-            conn_params.append(f"UID={{{self.username}}}")
-            conn_params.append(f"PWD={{{self.password}}}")
-        elif self.authentication.lower() == "activedirectoryserviceprincipal":
+            conn_params.append(f"UID={{{config.user}}}")
+            conn_params.append(f"PWD={{{config.password.get_secret_value()}}}")
+        elif config.authentication.lower() == "activedirectoryserviceprincipal":
             conn_params.append("Authentication=ActiveDirectoryServicePrincipal")
-            conn_params.append(f"UID={{{self.client_id}}}")
-            conn_params.append(f"PWD={{{self.client_secret}}}")
-        elif "activedirectory" in self.authentication.lower():
-            conn_params.append(f"Authentication={self.authentication}")
+            conn_params.append(f"UID={{{config.client_id}}}")
+            conn_params.append(f"PWD={{{config.client_secret.get_secret_value()}}}")
+        elif "activedirectory" in config.authentication.lower():
+            conn_params.append(f"Authentication={config.authentication}")
 
         conn_params.append(f"APP=soda-core-fabric/INSERT_VERSION_HERE")  # TODO: insert version here
 

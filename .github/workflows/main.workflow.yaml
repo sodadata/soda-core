@@ -53,6 +53,7 @@ jobs:
         #   - "databricks"
           - "duckdb"
           - "bigquery"
+          - "sqlserver"
 
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
@@ -65,6 +66,10 @@ jobs:
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CI_TOKEN }}
       BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
       SODA_CORE_TELEMETRY_LOCAL_DEBUG_MODE: "true"
+      SQLSERVER_USERNAME: SA
+      SQLSERVER_PASSWORD: Password1!
+      SQLSERVER_DATABASE: master
+      SQLSERVER_SCHEMA: dbo
 
     steps:
       - uses: actions/checkout@v4
