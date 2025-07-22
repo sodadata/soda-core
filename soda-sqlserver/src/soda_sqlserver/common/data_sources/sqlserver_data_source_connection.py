@@ -107,7 +107,6 @@ class SQLServerDataSourceConnection(DataSourceConnection):
         super().__init__(name, connection_properties)
 
     def build_connection_string(self, config: SQLServerConnectionProperties):
-        connection_parameters_string = None
         conn_params = []
 
         conn_params.append(f"DRIVER={{{config.driver}}}")
@@ -119,9 +118,6 @@ class SQLServerDataSourceConnection(DataSourceConnection):
             conn_params.append(f"SERVER={config.host}")
         else:
             conn_params.append(f"SERVER={config.host},{int(config.port)}")
-
-        if connection_parameters_string:
-            conn_params.append(connection_parameters_string)
 
         if config.trusted_connection:
             conn_params.append("Trusted_Connection=YES")
