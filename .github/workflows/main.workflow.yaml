@@ -24,12 +24,27 @@ jobs:
           python-version: "3.10"
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
-  test:
+  define-test-matrix:
     runs-on: ubuntu-24.04
     needs: [check]
+    outputs:
+      modules: ${{ steps.modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Define modules
+        id: modules
+        run: |
+          if [ -z "${{ inputs.dataSource }}" ]; then
+            echo modules=$(bash scripts/test_matrix.sh) >> "$GITHUB_OUTPUT"
+          else
+            echo modules=["${{ inputs.dataSource }}"] >> "$GITHUB_OUTPUT"
+          fi
+  test:
+    runs-on: ubuntu-24.04
+    needs: [define-test-matrix]
     services:
       postgres:
-        image: "postgres:15.10-alpine3.21"
+        image: ${{ ( matrix.modules == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
           POSTGRES_USER: soda_test
           POSTGRES_DB: soda_test
@@ -47,13 +62,7 @@ jobs:
         python-version:
           - "3.10"
           - "3.11"
-        package:
-          - "postgres"
-          - "snowflake"
-        #   - "databricks"
-          - "duckdb"
-          - "bigquery"
-
+        modules: ${{ fromJSON(needs.define-test-matrix.outputs.modules) }}
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
       SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
@@ -79,13 +88,13 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
-          pip install -e soda-${{ matrix.package }}
-          export TEST_DATASOURCE=${{ matrix.package }}
+          pip install -e soda-${{ matrix.modules }}
+          export TEST_DATASOURCE=${{ matrix.modules }}
           python -m pytest -ra soda-tests/tests/features
-          if [ "${{ matrix.package }}" = "postgres" ]; then
+          if [ "${{ matrix.modules }}" = "postgres" ]; then
             python -m pytest -ra soda-tests/tests/components
           fi
-          python -m pytest -ra soda-${{ matrix.package }}/tests
+          python -m pytest -ra soda-${{ matrix.modules }}/tests
 
   define-matrix:
     if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
