@@ -62,9 +62,14 @@ class MetadataTablesQuery:
         select: list = [
             FROM(
                 self.sql_dialect.table_tables(),
+                # Some databases have no information schema, will return None, table_prefix needs to be [] not [None]
                 table_prefix=[
-                    *prefixes,
-                    self.sql_dialect.schema_information_schema(),
+                    p
+                    for p in [
+                        *prefixes,
+                        self.sql_dialect.schema_information_schema(),
+                    ]
+                    if p
                 ],
             ),
             SELECT(
@@ -77,16 +82,22 @@ class MetadataTablesQuery:
         ]
 
         if database_name:
-            database_column_name: Optional[str] = self.sql_dialect.column_table_catalog()
+            database_column_name: Optional[str] = (
+                self.sql_dialect.column_table_catalog()
+            )
             if database_column_name:
                 database_name_lower: str = database_name.lower()
-                select.append(WHERE(EQ(LOWER(database_column_name), LITERAL(database_name_lower))))
+                select.append(
+                    WHERE(EQ(LOWER(database_column_name), LITERAL(database_name_lower)))
+                )
 
         if schema_name:
             schema_column_name: Optional[str] = self.sql_dialect.column_table_schema()
             if schema_column_name:
                 schema_name_lower: str = schema_name.lower()
-                select.append(WHERE(EQ(LOWER(schema_column_name), LITERAL(schema_name_lower))))
+                select.append(
+                    WHERE(EQ(LOWER(schema_column_name), LITERAL(schema_name_lower)))
+                )
 
         table_name_column = self.sql_dialect.column_table_name()
 
@@ -95,7 +106,10 @@ class MetadataTablesQuery:
                 WHERE(
                     OR(
                         [
-                            LIKE(LOWER(table_name_column), LITERAL(include_table_name_like_filter.lower()))
+                            LIKE(
+                                LOWER(table_name_column),
+                                LITERAL(include_table_name_like_filter.lower()),
+                            )
                             for include_table_name_like_filter in include_table_name_like_filters
                         ]
                     )
@@ -105,7 +119,12 @@ class MetadataTablesQuery:
         if exclude_table_name_like_filters:
             for exclude_table_name_like_filter in exclude_table_name_like_filters:
                 select.append(
-                    WHERE(NOT_LIKE(LOWER(table_name_column), LITERAL(exclude_table_name_like_filter.lower())))
+                    WHERE(
+                        NOT_LIKE(
+                            LOWER(table_name_column),
+                            LITERAL(exclude_table_name_like_filter.lower()),
+                        )
+                    )
                 )
 
         return select

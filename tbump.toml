@@ -40,3 +40,7 @@ search = 'package_version = "{current_version}"'
 [[file]]
 src = "soda-bigquery/setup.py"
 search = 'package_version = "{current_version}"'
+
+[[file]]
+src = "soda-oracle/setup.py"
+search = 'package_version = "{current_version}"'
