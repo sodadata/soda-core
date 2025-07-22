@@ -8,6 +8,7 @@ from typing import Literal, Optional, Union
 
 import pyodbc
 from pydantic import Field, SecretStr
+from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
@@ -106,7 +107,6 @@ class SQLServerDataSourceConnection(DataSourceConnection):
         super().__init__(name, connection_properties)
 
     def build_connection_string(self, config: SQLServerConnectionProperties):
-        # connection_parameters_string = self.get_connection_parameters_string()
         connection_parameters_string = None
         conn_params = []
 
@@ -120,7 +120,7 @@ class SQLServerDataSourceConnection(DataSourceConnection):
         else:
             conn_params.append(f"SERVER={config.host},{int(config.port)}")
 
-        if connection_parameters_string and connection_parameters_string != "":
+        if connection_parameters_string:
             conn_params.append(connection_parameters_string)
 
         if config.trusted_connection:
@@ -155,7 +155,7 @@ class SQLServerDataSourceConnection(DataSourceConnection):
         elif "activedirectory" in config.authentication.lower():
             conn_params.append(f"Authentication={config.authentication}")
 
-        conn_params.append(f"APP=soda-core-fabric/INSERT_VERSION_HERE")  # TODO: insert version here
+        conn_params.append(f"APP=soda-core-fabric/{SODA_CORE_VERSION}")
 
         conn_str = ";".join(conn_params)
 

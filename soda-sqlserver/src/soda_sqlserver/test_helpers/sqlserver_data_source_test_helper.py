@@ -27,6 +27,7 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
                 password: '{os.getenv("SQLSERVER_PASSWORD", "Password1!")}'
                 trust_server_certificate: true
                 driver: '{os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server")}'
+                login_timeout: 10
 
         """
 

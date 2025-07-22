@@ -69,7 +69,6 @@ jobs:
       SQLSERVER_USERNAME: SA
       SQLSERVER_PASSWORD: Password1!
       SQLSERVER_DATABASE: master
-      SQLSERVER_SCHEMA: dbo
 
     steps:
       - uses: actions/checkout@v4
