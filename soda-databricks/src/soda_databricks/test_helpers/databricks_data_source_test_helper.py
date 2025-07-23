@@ -8,7 +8,7 @@ from helpers.test_table import TestDataType
 
 class DatabricksDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
-        return os.getenv("DATABRICKS_DATABASE", "soda_test")
+        return os.getenv("DATABRICKS_CATALOG", "unity_catalog")
 
     def _create_data_source_yaml_str(self) -> str:
         """
