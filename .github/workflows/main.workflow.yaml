@@ -54,8 +54,22 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --health-start-period 10s
         ports:
           - 5432:5432
+      sqlserver:
+        image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: Password1!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd = /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q "SELECT 1" -C
+          --health-interval 1s
+          --health-timeout 2s
+          --health-retries 10
+          --health-start-period 10s
     strategy:
       fail-fast: false
       matrix:
