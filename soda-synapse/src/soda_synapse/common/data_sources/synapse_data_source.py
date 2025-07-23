@@ -32,7 +32,3 @@ class SynapseDataSourceImpl(SQLServerDataSourceImpl, model_class=SynapseDataSour
 
 class SynapseSqlDialect(SQLServerSqlDialect):
     pass
-    # def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
-    #     return f"""
-    #     CREATE SCHEMA [{schema_name}];
-    #     """

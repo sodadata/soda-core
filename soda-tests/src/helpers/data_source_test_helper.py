@@ -466,7 +466,9 @@ class DataSourceTestHelper:
 
             return self._insert_test_table_rows_sql_statement(test_table.qualified_name, rows_sql)
 
-    def _insert_test_table_rows_sql_statement(self, table_name_qualified_quoted, rows_sql, columns: list[str] = None):
+    def _insert_test_table_rows_sql_statement(
+        self, table_name_qualified_quoted, rows_sql
+    ):  # Note: in Synapse, we need to specify the columns, so there is an additional argument there
         return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
 
     def _drop_test_table(self, table_name: str) -> None:

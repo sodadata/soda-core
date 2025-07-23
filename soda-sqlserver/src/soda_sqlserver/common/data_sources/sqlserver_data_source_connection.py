@@ -21,6 +21,7 @@ logger: logging.Logger = soda_logger
 
 
 CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
+USER_DESCRIPTION = "Username for authentication"
 
 
 class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -45,7 +46,7 @@ class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
 class SQLServerPasswordAuth(SQLServerConnectionProperties):
     """SQL Server authentication using password"""
 
-    user: str = Field(..., description="Username for authentication")
+    user: str = Field(..., description=USER_DESCRIPTION)
     password: SecretStr = Field(..., description="Password for authentication")
     authentication: Literal["sql"] = "sql"
 
@@ -57,13 +58,13 @@ class SQLServerActiveDirectoryAuthentication(SQLServerConnectionProperties):
 
 
 class SQLServerActiveDirectoryInteractiveAuthentication(SQLServerActiveDirectoryAuthentication):
-    user: str = Field(..., description="Username for authentication")
+    user: str = Field(..., description=USER_DESCRIPTION)
     authentication: Literal["activedirectoryinteractive"] = "activedirectoryinteractive"
 
 
 class SQLServerActiveDirectoryPasswordAuthentication(SQLServerActiveDirectoryAuthentication):
     authentication: Literal["activedirectorypassword"] = "activedirectorypassword"
-    user: str = Field(..., description="Username for authentication")
+    user: str = Field(..., description=USER_DESCRIPTION)
     password: SecretStr = Field(..., description="Password for authentication")
 
 
