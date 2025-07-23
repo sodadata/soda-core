@@ -4,7 +4,6 @@ import json
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class BigQueryDataSourceTestHelper(DataSourceTestHelper):
@@ -27,7 +26,6 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
 
         """
         # location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
-
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         """

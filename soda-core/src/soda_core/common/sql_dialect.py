@@ -38,7 +38,7 @@ class SqlDialect:
     def text_col_type(self, length: Optional[int] = 255) -> str:
         """Get the column type specificier for a variable length text column of a specific length."""
         if self.supports_varchar_length():
-            return self.get_sql_type_dict()[DBDataType.TEXT] + f"({length})" # e.g. VARCHAR(255)
+            return self.get_sql_type_dict()[DBDataType.TEXT] + f"({length})"  # e.g. VARCHAR(255)
         else:
             # if db engine doesn't support varchar length, probably no need to override this method
             return self.get_sql_type_dict()[DBDataType.TEXT]  # e.g. VARCHAR

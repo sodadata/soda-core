@@ -67,7 +67,7 @@ class MetadataTablesQuery:
                     self.sql_dialect.schema_information_schema(),
                 ],
             ),
-            SELECT(                
+            SELECT(
                 [
                     self.sql_dialect.column_table_catalog(),
                     self.sql_dialect.column_table_schema(),
