@@ -27,7 +27,7 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
 
     def _get_create_table_sql_type_dict(self) -> dict[str, str]:
         return {
-            TestDataType.TEXT: "varchar",
+            TestDataType.TEXT: "string",
             TestDataType.INTEGER: "integer",
             TestDataType.DECIMAL: "double",
             TestDataType.DATE: "date",
