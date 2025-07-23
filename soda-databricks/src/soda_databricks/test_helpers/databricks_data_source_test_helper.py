@@ -25,7 +25,7 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
                 catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
         """
 
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
+    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
         return {
             TestDataType.TEXT: "varchar",
             TestDataType.INTEGER: "integer",
@@ -36,3 +36,6 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
             TestDataType.TIMESTAMP_TZ: "timestamp",
             TestDataType.BOOLEAN: "boolean",
         }
+
+    def _get_contract_data_type_dict(self) -> dict[str, str]:
+        return self._get_create_table_sql_type_dict()
