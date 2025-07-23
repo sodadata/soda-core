@@ -113,6 +113,25 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="Login failed for user '",
     ),
+    TestConnection(
+        test_name="activedirectoryserviceprincipal",
+        connection_yaml_str=f"""
+                type: sqlserver
+                name: SQLSERVER_TEST_DS
+                connection:
+                    host: '{SQLSERVER_HOST}'
+                    port: '{SQLSERVER_PORT}'
+                    database: '{SQLSERVER_DATABASE}'
+                    user: '{SQLSERVER_USERNAME}'
+                    client_id: 'some_id'
+                    client_secret: 'some_secret'
+                    authentication: 'activedirectoryserviceprincipal'
+                    driver: '{SQLSERVER_DRIVER}'
+                    trust_server_certificate: '{SQLSERVER_TRUST_SERVER_CERTIFICATE}'
+            """,
+        valid_connection_params=False,
+        expected_connection_error="Login failed for user '",
+    ),
 ]
 
 
