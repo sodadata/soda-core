@@ -28,17 +28,6 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         """
         # location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
 
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        return {
-            TestDataType.TEXT: "STRING",
-            TestDataType.INTEGER: "INT64",
-            TestDataType.DECIMAL: "FLOAT64",
-            TestDataType.DATE: "DATE",
-            TestDataType.TIME: "TIME",
-            TestDataType.TIMESTAMP: "TIMESTAMP",
-            TestDataType.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
-            TestDataType.BOOLEAN: "BOOL",
-        }
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         """

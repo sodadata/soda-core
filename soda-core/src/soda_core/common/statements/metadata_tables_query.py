@@ -10,7 +10,7 @@ from soda_core.common.sql_dialect import SqlDialect
 
 @dataclass
 class FullyQualifiedTableName:
-    database_name: str
+    database_name: Optional[str]
     schema_name: str
     table_name: str
 
@@ -67,12 +67,13 @@ class MetadataTablesQuery:
                     self.sql_dialect.schema_information_schema(),
                 ],
             ),
-            SELECT(
-                [
+            # Remove nulls (e.g. Oracle has no table catalog column, will return None)
+            SELECT(                
+                [col for col in [
                     self.sql_dialect.column_table_catalog(),
                     self.sql_dialect.column_table_schema(),
                     self.sql_dialect.column_table_name(),
-                ]
+                ] if col]
             ),
         ]
 
@@ -111,11 +112,16 @@ class MetadataTablesQuery:
         return select
 
     def get_results(self, query_result: QueryResult) -> list[FullyQualifiedTableName]:
-        return [
-            FullyQualifiedTableName(
-                database_name=database_name,
-                schema_name=schema_name,
-                table_name=table_name,
-            )
-            for database_name, schema_name, table_name in query_result.rows
-        ]
+        result = []
+        for row in query_result.rows:
+            if len(row) == 2:  # database_name is optional
+                row = (None, ) + row
+            database_name, schema_name, table_name = row
+            result.append(
+                FullyQualifiedTableName(
+                    database_name=database_name,
+                    schema_name=schema_name,
+                    table_name=table_name,
+                )
+            )            
+        return result

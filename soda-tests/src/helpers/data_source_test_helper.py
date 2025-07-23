@@ -202,16 +202,7 @@ class DataSourceTestHelper:
         DataSourceTestHelpers can override this method as an easy way
         to customize the get_create_table_sql_type behavior
         """
-        return {
-            TestDataType.TEXT: "VARCHAR(255)",
-            TestDataType.INTEGER: "INT",
-            TestDataType.DECIMAL: "FLOAT",
-            TestDataType.DATE: "DATE",
-            TestDataType.TIME: "TIME",
-            TestDataType.TIMESTAMP: "TIMESTAMP",
-            TestDataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
-            TestDataType.BOOLEAN: "BOOLEAN",
-        }
+        return self.data_source_impl.sql_dialect.get_sql_type_dict()
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         """

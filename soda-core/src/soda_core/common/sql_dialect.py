@@ -8,6 +8,24 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
 
 
+class DBDataType:
+    """
+    DBDataTypes contains data source-neutral constants for referring to the basic, common column data types.
+    """
+
+    __test__ = False
+
+    TEXT = "text"
+    TEXT_WITH_LENGTH = "text(255)"
+    INTEGER = "integer"
+    DECIMAL = "decimal"
+    DATE = "date"
+    TIME = "time"
+    TIMESTAMP = "timestamp"
+    TIMESTAMP_TZ = "timestamptz"
+    BOOLEAN = "boolean"
+
+
 class SqlDialect:
     DEFAULT_QUOTE_CHAR = '"'
 
@@ -16,6 +34,27 @@ class SqlDialect:
     Specific DataSource's can customize their SQL queries by subclassing SqlDialect,
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
+
+    def text_col_type(self, length: Optional[int] = 255) -> str:
+        """Get the column type specificier for a variable length text column of a specific length."""
+        if self.supports_varchar_length():
+            return self.get_sql_type_dict()[DBDataType.TEXT] + f"({length})" # e.g. VARCHAR(255)
+        else:
+            # if db engine doesn't support varchar length, probably no need to override this method
+            return self.get_sql_type_dict()[DBDataType.TEXT]  # e.g. VARCHAR
+
+    def get_sql_type_dict(self) -> dict[str, str]:
+        return {
+            DBDataType.TEXT: "VARCHAR",
+            DBDataType.TEXT_WITH_LENGTH: "VARCHAR(255)",
+            DBDataType.INTEGER: "INT",
+            DBDataType.DECIMAL: "FLOAT",
+            DBDataType.DATE: "DATE",
+            DBDataType.TIME: "TIME",
+            DBDataType.TIMESTAMP: "TIMESTAMP",
+            DBDataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
+            DBDataType.BOOLEAN: "BOOLEAN",
+        }
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
