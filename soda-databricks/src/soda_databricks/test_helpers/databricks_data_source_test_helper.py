@@ -8,7 +8,7 @@ from helpers.test_table import TestDataType
 
 class DatabricksDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
-        return os.getenv("DATABRICKS_DATABASE", "soda_test")
+        return os.getenv("DATABRICKS_CATALOG", "unity_catalog")
 
     def _create_data_source_yaml_str(self) -> str:
         """
@@ -25,14 +25,17 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
                 catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
         """
 
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
+    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
         return {
-            TestDataType.TEXT: "varchar",
+            TestDataType.TEXT: "string",
             TestDataType.INTEGER: "integer",
-            TestDataType.DECIMAL: "double precision",
+            TestDataType.DECIMAL: "double",
             TestDataType.DATE: "date",
             TestDataType.TIME: "time",
-            TestDataType.TIMESTAMP: "timestamp without time zone",
-            TestDataType.TIMESTAMP_TZ: "timestamp with time zone",
+            TestDataType.TIMESTAMP: "timestamp_ntz",
+            TestDataType.TIMESTAMP_TZ: "timestamp",
             TestDataType.BOOLEAN: "boolean",
         }
+
+    def _get_contract_data_type_dict(self) -> dict[str, str]:
+        return self._get_create_table_sql_type_dict()
