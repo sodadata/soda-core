@@ -27,12 +27,12 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         return {
-            TestDataType.TEXT: "varchar",
-            TestDataType.INTEGER: "integer",
-            TestDataType.DECIMAL: "double precision",
-            TestDataType.DATE: "date",
-            TestDataType.TIME: "time",
-            TestDataType.TIMESTAMP: "timestamp without time zone",
-            TestDataType.TIMESTAMP_TZ: "timestamp with time zone",
-            TestDataType.BOOLEAN: "boolean",
+            TestDataType.TEXT: "VARCHAR",
+            TestDataType.INTEGER: "INTEGER",
+            TestDataType.DECIMAL: "DOUBLE",
+            TestDataType.DATE: "DATE",
+            TestDataType.TIME: "TIME",
+            TestDataType.TIMESTAMP: "TIMESTAMP_NTZ",
+            TestDataType.TIMESTAMP_TZ: "TIMESTAMP",
+            TestDataType.BOOLEAN: "BOOLEAN",
         }
