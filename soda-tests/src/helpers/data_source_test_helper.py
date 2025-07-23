@@ -53,7 +53,7 @@ class DataSourceTestHelper:
 
             return SnowflakeDataSourceTestHelper()
         elif test_datasource == "databricks":
-            from helpers.databricks_data_source_test_helper import (
+            from soda_databricks.test_helpers.databricks_data_source_test_helper import (
                 DatabricksDataSourceTestHelper,
             )
 
