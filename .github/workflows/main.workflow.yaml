@@ -44,7 +44,7 @@ jobs:
     needs: [define-test-matrix]
     services:
       postgres:
-        image: ${{ ( matrix.modules == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
+        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
           POSTGRES_USER: soda_test
           POSTGRES_DB: soda_test
@@ -54,15 +54,29 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --health-start-period 10s
         ports:
           - 5432:5432
+      sqlserver:
+        image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: Password1!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd = /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q "SELECT 1" -C
+          --health-interval 1s
+          --health-timeout 2s
+          --health-retries 10
+          --health-start-period 10s
     strategy:
       fail-fast: false
       matrix:
         python-version:
           - "3.10"
           - "3.11"
-        modules: ${{ fromJSON(needs.define-test-matrix.outputs.modules) }}
+        module: ${{ fromJSON(needs.define-test-matrix.outputs.modules) }}
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
       SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
@@ -99,13 +113,13 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
-          pip install -e soda-${{ matrix.modules }}
-          export TEST_DATASOURCE=${{ matrix.modules }}
+          pip install -e soda-${{ matrix.module }}
+          export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
-          if [ "${{ matrix.modules }}" = "postgres" ]; then
+          if [ "${{ matrix.module }}" = "postgres" ]; then
             python -m pytest -ra soda-tests/tests/components
           fi
-          python -m pytest -ra soda-${{ matrix.modules }}/tests
+          python -m pytest -ra soda-${{ matrix.module }}/tests
 
   define-matrix:
     if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
@@ -127,7 +141,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modules: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
+        module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.10
@@ -136,7 +150,7 @@ jobs:
           python-version: "3.10"
       - name: Debug GITHUB_REF
         run: echo "GITHUB_REF=$GITHUB_REF"
-      - name: Release ${{ matrix.modules }}
+      - name: Release ${{ matrix.module }}
         run: |
           python -m venv .venv
           source .venv/bin/activate
@@ -151,12 +165,12 @@ jobs:
             tbump --only-patch --non-interactive "$VERSION"
           fi
 
-          cd ${{ matrix.modules }}
+          cd ${{ matrix.module }}
           python3 -m build
       - name: Publish package to pypi
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: ${{ matrix.modules }}/dist
+          packages-dir: ${{ matrix.module }}/dist
           user: ${{ secrets.DEV_PYPI_USERNAME }}
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}

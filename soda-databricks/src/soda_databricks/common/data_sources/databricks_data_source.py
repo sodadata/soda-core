@@ -35,3 +35,6 @@ class DatabricksSqlDialect(SqlDialect):
 
     def column_data_type(self) -> str:
         return self.default_casify("full_data_type")
+
+    def supports_varchar_length(self) -> bool:
+        return False
