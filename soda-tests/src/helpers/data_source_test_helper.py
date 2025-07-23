@@ -351,10 +351,10 @@ class DataSourceTestHelper:
             existing_test_table_names_lower: list[str] = [
                 existing_test_table_name.lower() for existing_test_table_name in self.existing_test_table_names
             ]
-            if (
+            if test_table_specification.unique_name.lower() not in existing_test_table_names_lower or (
                 test_table_specification.unique_name.lower()
-                not in existing_test_table_names_lower
-                # or not self.verify_test_table_row_count(test_table_specification) # TODO: fix this
+                in existing_test_table_names_lower  # Table must exist to be verified
+                and not self.verify_test_table_row_count(test_table_specification)
             ):
                 obsolete_table_names = [
                     existing_test_table
@@ -378,11 +378,21 @@ class DataSourceTestHelper:
         return test_table
 
     def verify_test_table_row_count(self, test_table_specification: TestTableSpecification) -> bool:
+        expected_row_values = test_table_specification.row_values
+        if expected_row_values is None:
+            expected_row_values = (
+                []
+            )  # This is a table that is not expected to have any rows. We should check that as well!
         row_count_sql = f"SELECT COUNT(*) FROM {self.data_source_impl.sql_dialect.qualify_dataset_name(self.dataset_prefix, test_table_specification.unique_name)}"
         row_count = self.data_source_impl.execute_query(row_count_sql)
-        if row_count.rows[0][0] != len(test_table_specification.row_values):
+        try:
+            row_count_int = int(row_count.rows[0][0])
+        except ValueError:
+            row_count_int = None
+
+        if row_count_int is not None and row_count_int != len(expected_row_values):
             logger.warning(
-                f"Test table {test_table_specification.unique_name} has {row_count.rows[0][0]} rows, expected {len(test_table_specification.row_values)}"
+                f"Test table {test_table_specification.unique_name} has {row_count_int} rows, expected {len(expected_row_values)}"
             )
             logger.warning(f"Attempting to drop and recreate table {test_table_specification.unique_name}")
             return False
