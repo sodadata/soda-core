@@ -351,7 +351,10 @@ class DataSourceTestHelper:
             existing_test_table_names_lower: list[str] = [
                 existing_test_table_name.lower() for existing_test_table_name in self.existing_test_table_names
             ]
-            if test_table_specification.unique_name.lower() not in existing_test_table_names_lower:
+            if (
+                test_table_specification.unique_name.lower() not in existing_test_table_names_lower
+                or not self.verify_test_table_row_count(test_table_specification)
+            ):
                 obsolete_table_names = [
                     existing_test_table
                     for existing_test_table in self.existing_test_table_names
@@ -372,6 +375,17 @@ class DataSourceTestHelper:
             logger.debug(f"Test table {test_table.unique_name} already exists")
 
         return test_table
+
+    def verify_test_table_row_count(self, test_table_specification: TestTableSpecification) -> bool:
+        row_count_sql = f"SELECT COUNT(*) FROM {self.data_source_impl.sql_dialect.qualify_dataset_name(self.dataset_prefix, test_table_specification.unique_name)}"
+        row_count = self.data_source_impl.execute_query(row_count_sql)
+        if row_count.rows[0][0] != len(test_table_specification.row_values):
+            logger.warning(
+                f"Test table {test_table_specification.unique_name} has {row_count.rows[0][0]} rows, expected {len(test_table_specification.row_values)}"
+            )
+            logger.warning(f"Attempting to drop and recreate table {test_table_specification.unique_name}")
+            return False
+        return True
 
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
         columns: list[TestColumn] = []
@@ -441,7 +455,7 @@ class DataSourceTestHelper:
 
             return self._insert_test_table_rows_sql_statement(test_table.qualified_name, rows_sql)
 
-    def _insert_test_table_rows_sql_statement(self, table_name_qualified_quoted, rows_sql):
+    def _insert_test_table_rows_sql_statement(self, table_name_qualified_quoted, rows_sql, columns: list[str] = None):
         return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
 
     def _drop_test_table(self, table_name: str) -> None:
