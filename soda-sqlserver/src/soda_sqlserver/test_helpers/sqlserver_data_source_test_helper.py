@@ -54,8 +54,9 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
         schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
         schema_name = self.dataset_prefix[schema_index]
 
+        # Note: this is a copy from library.
+        # However, we only use the drop table statement, as we do not create any primary keys or something like that (at this point)
         return f"""
-
         /* Drop all tables */
         DECLARE @name VARCHAR(128)
         DECLARE @SQL VARCHAR(254)

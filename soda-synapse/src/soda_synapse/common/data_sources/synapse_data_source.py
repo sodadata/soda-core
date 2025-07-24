@@ -31,4 +31,5 @@ class SynapseDataSourceImpl(SQLServerDataSourceImpl, model_class=SynapseDataSour
 
 
 class SynapseSqlDialect(SQLServerSqlDialect):
-    pass
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
