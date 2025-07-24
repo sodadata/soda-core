@@ -8,6 +8,21 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
 
 
+class DBDataType:
+    """
+    DBDataTypes contains data source-neutral constants for referring to the basic, common column data types.
+    """
+
+    TEXT = "text"
+    INTEGER = "integer"
+    DECIMAL = "decimal"
+    DATE = "date"
+    TIME = "time"
+    TIMESTAMP = "timestamp"
+    TIMESTAMP_TZ = "timestamptz"
+    BOOLEAN = "boolean"
+
+
 class SqlDialect:
     DEFAULT_QUOTE_CHAR = '"'
 
@@ -16,6 +31,33 @@ class SqlDialect:
     Specific DataSource's can customize their SQL queries by subclassing SqlDialect,
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
+
+    def text_col_type(self, length: Optional[int] = 255) -> str:
+        """Get the column type specificier for a variable length text column of a specific length."""
+        if self.supports_varchar_length():
+            return self.get_contract_type_dict()[DBDataType.TEXT] + f"({length})"  # e.g. VARCHAR(255)
+        else:
+            # if db engine doesn't support varchar length, probably no need to override this method
+            return self.get_contract_type_dict()[DBDataType.TEXT]  # e.g. VARCHAR
+
+    def get_sql_type_dict(self) -> dict[str, str]:
+        """Data type that is used in the create table statement.
+        This can include the length of the column, e.g. VARCHAR(255)"""
+        return self.get_contract_type_dict()
+
+    def get_contract_type_dict(self) -> dict[str, str]:
+        """Data type that is used in the contract.
+        This does **NOT** include the length of the column, e.g. VARCHAR"""
+        return {
+            DBDataType.TEXT: "character varying",
+            DBDataType.INTEGER: "integer",
+            DBDataType.DECIMAL: "double precision",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "timestamp without time zone",
+            DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
+            DBDataType.BOOLEAN: "boolean",
+        }
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
@@ -57,6 +99,12 @@ class SqlDialect:
 
     def supports_varchar_length(self) -> bool:
         return True
+
+    def default_varchar_length(self) -> Optional[int]:
+        """Some data sources have a default length for varchar types (such as Snowflake).
+        We want to use this if it's available.
+        If it is not available, return None."""
+        return None
 
     def literal_number(self, value: Number):
         if value is None:
