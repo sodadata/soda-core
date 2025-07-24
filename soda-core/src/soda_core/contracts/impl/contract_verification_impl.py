@@ -6,6 +6,7 @@ from datetime import timezone
 from enum import Enum
 from io import StringIO
 from logging import LogRecord
+from typing import Protocol
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
@@ -205,14 +206,15 @@ class ContractVerificationSessionImpl:
                         data_timestamp=contract_yaml.data_timestamp,
                         execution_timestamp=contract_yaml.execution_timestamp,
                         data_source_impl=data_source_impl,
+                        all_data_source_impls=data_source_impls_by_name,
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
                     contract_verification_results.append(contract_verification_result)
-                except Exception:
-                    raise
+                except Exception as e:
+                    raise e
         finally:
             for data_source_impl in opened_data_sources:
                 data_source_impl.close_connection()
@@ -300,13 +302,28 @@ class ContractVerificationSessionImpl:
         return contract_verification_results
 
 
+class ContractImplExtension(Protocol):
+    def parse_checks(self, contract_impl: ContractImpl) -> list[CheckImpl]:
+        return []
+
+    def build_queries(self, contract_impl: ContractImpl) -> list[Query]:
+        return []
+
+
 class ContractImpl:
+    contract_impl_extensions: dict[str, type[ContractImplExtension]] = {}
+
+    @classmethod
+    def register_extension(cls, name: str, extension_cls: type[ContractImplExtension]) -> None:
+        cls.contract_impl_extensions[name] = extension_cls
+
     def __init__(
         self,
         logs: Logs,
         contract_yaml: ContractYaml,
         only_validate_without_execute: bool,
         data_source_impl: Optional[DataSourceImpl],
+        all_data_source_impls: dict[str, DataSourceImpl],
         data_timestamp: datetime,
         execution_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
@@ -316,6 +333,7 @@ class ContractImpl:
         self.contract_yaml: ContractYaml = contract_yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
         self.data_source_impl: DataSourceImpl = data_source_impl
+        self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.publish_results: bool = publish_results
 
@@ -330,9 +348,9 @@ class ContractImpl:
 
         self.check_attributes: dict[str, any] = contract_yaml.check_attributes
 
-        dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
-        self.dataset_prefix: list[str] = dataset_identifier.prefixes
-        self.dataset_name = dataset_identifier.dataset_name
+        self.dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
+        self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
+        self.dataset_name = self.dataset_identifier.dataset_name
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
@@ -344,13 +362,7 @@ class ContractImpl:
         # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
         self.sql_qualified_dataset_name: Optional[str] = None
 
-        self.dataset_identifier: Optional[DatasetIdentifier] = None
         if data_source_impl:
-            self.dataset_identifier = DatasetIdentifier(
-                data_source_name=self.data_source_impl.name,
-                prefixes=self.dataset_prefix,
-                dataset_name=self.dataset_name,
-            )
             # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
             self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
@@ -405,6 +417,13 @@ class ContractImpl:
                 if check_yaml:
                     check = CheckImpl.parse_check(contract_impl=self, check_yaml=check_yaml)
                     check_impls.append(check)
+
+        for extension in self.contract_impl_extensions.values():
+            try:
+                check_impls.extend(extension.parse_checks(contract_impl=self))
+            except Exception as e:
+                logger.error(f"Error parsing checks with extension {extension.__class__.__name__}: {e}")
+
         return check_impls
 
     def _build_queries(self) -> list[Query]:
@@ -415,8 +434,14 @@ class ContractImpl:
             queries.extend(check.queries)
 
         for metric in self.metrics:
+            # Only build aggregation queries for metrics of known origin. Extensions might build their own queries.
+            # Known origin means that the metric does not have any specific datasource/dataset associated or the ones that are linked are the same as the contract's datasource and dataset.
             if isinstance(metric, AggregationMetricImpl):
-                aggregation_metrics.append(metric)
+                if (metric.data_source_impl is None and metric.dataset_identifier is None) or (
+                    metric.data_source_impl == self.data_source_impl
+                    and metric.dataset_identifier == self.dataset_identifier
+                ):
+                    aggregation_metrics.append(metric)
 
         from soda_core.contracts.impl.check_types.schema_check import SchemaQuery
 
@@ -443,7 +468,16 @@ class ContractImpl:
             last_aggregation_query: AggregationQuery = aggregation_queries[-1]
             last_aggregation_query.append_aggregation_metric(aggregation_metric)
 
-        return schema_queries + aggregation_queries + other_queries
+        all_queries: list[Query] = schema_queries + aggregation_queries + other_queries
+
+        for extension in self.contract_impl_extensions.values():
+            try:
+                extension_queries: list[Query] = extension.build_queries(contract_impl=self)
+                all_queries.extend(extension_queries)
+            except Exception as e:
+                logger.error(f"Error building queries with extension {extension.__class__.__name__}: {e}")
+
+        return all_queries
 
     def _parse_columns(self, contract_yaml: ContractYaml) -> list[ColumnImpl]:
         columns: list[ColumnImpl] = []
@@ -1200,12 +1234,24 @@ class MetricImpl:
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
         missing_and_validity: Optional[MissingAndValidity] = None,
+        # Associate metric with a non-contract data source if needed. Build queries accordingly.
+        data_source_impl: Optional[DataSourceImpl] = None,
+        # Associate metric with a non-contract dataset if needed. Build queries accordingly.
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
         self.check_filter: Optional[str] = check_filter
         self.missing_and_validity: Optional[MissingAndValidity] = missing_and_validity
+        self.dataset_identifier = dataset_identifier or contract_impl.dataset_identifier
+
+        self.data_source_impl: Optional[DataSourceImpl] = None
+        if self.contract_impl.data_source_impl:
+            self.data_source_impl = self.contract_impl.data_source_impl
+        if data_source_impl:
+            self.data_source_impl = data_source_impl
+
         self.id: str = self._build_id()
 
     def _build_id(self) -> str:
@@ -1218,8 +1264,9 @@ class MetricImpl:
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, any] = {"type": self.type}
 
-        if self.contract_impl and self.contract_impl.contract_yaml:
-            id_properties["dataset"] = self.contract_impl.contract_yaml.dataset
+        if self.data_source_impl:
+            id_properties["data_source"] = self.data_source_impl.name
+        id_properties["dataset"] = self.dataset_identifier.dataset_name
         if self.column_impl:
             id_properties["column"] = self.column_impl.column_yaml.name
         if self.check_filter:
@@ -1263,6 +1310,8 @@ class AggregationMetricImpl(MetricImpl):
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
         missing_and_validity: Optional[MissingAndValidity] = None,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1270,6 +1319,8 @@ class AggregationMetricImpl(MetricImpl):
             column_impl=column_impl,
             check_filter=check_filter,
             missing_and_validity=missing_and_validity,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     @abstractmethod

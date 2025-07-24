@@ -110,7 +110,7 @@ class DataSourceImpl(ABC):
         )
 
     def close_connection(self) -> None:
-        if self.data_source_connection:
+        if self.has_open_connection():
             self.data_source_connection.close_connection()
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
@@ -120,10 +120,10 @@ class DataSourceImpl(ABC):
         return MetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
 
     def execute_query(self, sql: str) -> QueryResult:
-        return self.data_source_connection.execute_query(sql=sql)
+        return self.connection.execute_query(sql=sql)
 
     def execute_update(self, sql: str) -> UpdateResult:
-        return self.data_source_connection.execute_update(sql=sql)
+        return self.connection.execute_update(sql=sql)
 
     def get_max_aggregation_query_length(self) -> int:
         # What is the maximum query length of common analytical databases?
