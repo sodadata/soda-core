@@ -1,7 +1,9 @@
+from typing import Optional
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import TUPLE
-from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )
@@ -32,3 +34,18 @@ class SnowflakeSqlDialect(SqlDialect):
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         return f"ARRAY_CONSTRUCT{super()._build_tuple_sql(tuple)}"
+
+    def default_varchar_length(self) -> Optional[int]:
+        return 16777216
+
+    def get_contract_type_dict(self) -> dict[str, str]:
+        return {
+            DBDataType.TEXT: "TEXT",
+            DBDataType.INTEGER: "NUMBER",
+            DBDataType.DECIMAL: "FLOAT",
+            DBDataType.DATE: "DATE",
+            DBDataType.TIME: "TIME",
+            DBDataType.TIMESTAMP: "TIMESTAMP_NTZ",
+            DBDataType.TIMESTAMP_TZ: "TIMESTAMP_TZ",
+            DBDataType.BOOLEAN: "BOOLEAN",
+        }

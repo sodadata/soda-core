@@ -10,12 +10,7 @@ from textwrap import dedent
 from typing import Optional
 
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from helpers.test_table import (
-    TestColumn,
-    TestDataType,
-    TestTable,
-    TestTableSpecification,
-)
+from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import SqlDialect
@@ -214,32 +209,14 @@ class DataSourceTestHelper:
         DataSourceTestHelpers can override this method as an easy way
         to customize the get_create_table_sql_type behavior
         """
-        return {
-            TestDataType.TEXT: "VARCHAR(255)",
-            TestDataType.INTEGER: "INT",
-            TestDataType.DECIMAL: "FLOAT",
-            TestDataType.DATE: "DATE",
-            TestDataType.TIME: "TIME",
-            TestDataType.TIMESTAMP: "TIMESTAMP",
-            TestDataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
-            TestDataType.BOOLEAN: "BOOLEAN",
-        }
+        return self.data_source_impl.sql_dialect.get_sql_type_dict()
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         """
         DataSourceTestHelpers can override this method as an easy way
         to customize the get_schema_check_sql_type behavior
         """
-        return {
-            TestDataType.TEXT: "character varying",
-            TestDataType.INTEGER: "integer",
-            TestDataType.DECIMAL: "double precision",
-            TestDataType.DATE: "date",
-            TestDataType.TIME: "time",
-            TestDataType.TIMESTAMP: "timestamp without time zone",
-            TestDataType.TIMESTAMP_TZ: "timestamp with time zone",
-            TestDataType.BOOLEAN: "boolean",
-        }
+        return self.data_source_impl.sql_dialect.get_contract_type_dict()
 
     def get_create_table_sql_type(self, test_data_type: str) -> str:
         """
