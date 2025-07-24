@@ -13,7 +13,8 @@ class TestDataType:
 
     __test__ = False
 
-    TEXT = "text"
+    TEXT = "text(255)"
+    TEXT_WITHOUT_LENGTH = "text"
     INTEGER = "integer"
     DECIMAL = "decimal"
     DATE = "date"

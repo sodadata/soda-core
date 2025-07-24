@@ -15,8 +15,8 @@ class DBDataType:
 
     __test__ = False
 
-    TEXT = "text"
-    TEXT_WITH_LENGTH = "text(255)"
+    TEXT_WITHOUT_LENGTH = "text"
+    TEXT = "text(255)"
     INTEGER = "integer"
     DECIMAL = "decimal"
     DATE = "date"
@@ -38,22 +38,22 @@ class SqlDialect:
     def text_col_type(self, length: Optional[int] = 255) -> str:
         """Get the column type specificier for a variable length text column of a specific length."""
         if self.supports_varchar_length():
-            return self.get_sql_type_dict()[DBDataType.TEXT] + f"({length})"  # e.g. VARCHAR(255)
+            return self.get_sql_type_dict()[DBDataType.TEXT_WITHOUT_LENGTH] + f"({length})"  # e.g. VARCHAR(255)
         else:
             # if db engine doesn't support varchar length, probably no need to override this method
             return self.get_sql_type_dict()[DBDataType.TEXT]  # e.g. VARCHAR
 
     def get_sql_type_dict(self) -> dict[str, str]:
         return {
-            DBDataType.TEXT: "VARCHAR",
-            DBDataType.TEXT_WITH_LENGTH: "VARCHAR(255)",
-            DBDataType.INTEGER: "INT",
-            DBDataType.DECIMAL: "FLOAT",
-            DBDataType.DATE: "DATE",
-            DBDataType.TIME: "TIME",
-            DBDataType.TIMESTAMP: "TIMESTAMP",
-            DBDataType.TIMESTAMP_TZ: "TIMESTAMPTZ",
-            DBDataType.BOOLEAN: "BOOLEAN",
+            DBDataType.TEXT_WITHOUT_LENGTH: "character varying",
+            DBDataType.TEXT: "character varying(255)",
+            DBDataType.INTEGER: "integer",
+            DBDataType.DECIMAL: "double precision",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "timestamp without time zone",
+            DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
+            DBDataType.BOOLEAN: "boolean",
         }
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:

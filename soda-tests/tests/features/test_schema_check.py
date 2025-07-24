@@ -70,10 +70,12 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
 
     data_type_map = data_source_test_helper._get_contract_data_type_dict()
 
-    varchar_lengh = data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length()
-
-    assert f"{data_type_map[TestDataType.TEXT]}{'(255)' if varchar_lengh else ''}" == length_mismatch.get_actual()
-    assert f"{data_type_map[TestDataType.TEXT]}(512)" == length_mismatch.get_expected()
+    # varchar_lengh = data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length()
+    # expected is ttext_type_col(255)
+    varchar = lambda length: data_source_test_helper.data_source_impl.sql_dialect.text_col_type(length)
+    
+    assert varchar(255) == length_mismatch.get_actual()
+    assert varchar(512) == length_mismatch.get_expected()
 
     type_mismatch = schema_check_result.column_data_type_mismatches[1]
     assert data_type_map[TestDataType.DATE] == type_mismatch.get_actual()

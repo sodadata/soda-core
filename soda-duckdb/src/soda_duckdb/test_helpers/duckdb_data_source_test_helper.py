@@ -29,7 +29,8 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         return {
-            TestDataType.TEXT: "VARCHAR",
+            TestDataType.TEXT_WITHOUT_LENGTH: "VARCHAR",
+            TestDataType.TEXT: "VARCHAR(255)",
             TestDataType.INTEGER: "INTEGER",
             TestDataType.DECIMAL: "DOUBLE",
             TestDataType.DATE: "DATE",

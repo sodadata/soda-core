@@ -210,7 +210,8 @@ class DataSourceTestHelper:
         to customize the get_schema_check_sql_type behavior
         """
         return {
-            TestDataType.TEXT: "character varying",
+            TestDataType.TEXT_WITHOUT_LENGTH: "character varying",
+            TestDataType.TEXT: "character varying(255)",
             TestDataType.INTEGER: "integer",
             TestDataType.DECIMAL: "double precision",
             TestDataType.DATE: "date",
