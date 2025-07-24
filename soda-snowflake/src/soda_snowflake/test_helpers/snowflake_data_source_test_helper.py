@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
@@ -27,19 +26,3 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
 
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name.upper()
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_schema_check_sql_type behavior
-        """
-        return {
-            TestDataType.TEXT: "TEXT",
-            TestDataType.INTEGER: "NUMBER",
-            TestDataType.DECIMAL: "FLOAT",
-            TestDataType.DATE: "DATE",
-            TestDataType.TIME: "TIME",
-            TestDataType.TIMESTAMP: "TIMESTAMP_NTZ",
-            TestDataType.TIMESTAMP_TZ: "TIMESTAMP_TZ",
-            TestDataType.BOOLEAN: "BOOLEAN",
-        }

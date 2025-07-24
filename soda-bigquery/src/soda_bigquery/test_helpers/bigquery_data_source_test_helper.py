@@ -4,7 +4,6 @@ import json
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class BigQueryDataSourceTestHelper(DataSourceTestHelper):
@@ -27,18 +26,6 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
 
         """
         # location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
-
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        return {
-            TestDataType.TEXT: "STRING",
-            TestDataType.INTEGER: "INT64",
-            TestDataType.DECIMAL: "FLOAT64",
-            TestDataType.DATE: "DATE",
-            TestDataType.TIME: "TIME",
-            TestDataType.TIMESTAMP: "TIMESTAMP",
-            TestDataType.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
-            TestDataType.BOOLEAN: "BOOL",
-        }
 
     def _get_contract_data_type_dict(self) -> dict[str, str]:
         """

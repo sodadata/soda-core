@@ -1,6 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -38,3 +38,15 @@ class DatabricksSqlDialect(SqlDialect):
 
     def supports_varchar_length(self) -> bool:
         return False
+
+    def get_contract_type_dict(self) -> dict[str, str]:
+        return {
+            DBDataType.TEXT: "string",
+            DBDataType.INTEGER: "integer",
+            DBDataType.DECIMAL: "double",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "timestamp_ntz",
+            DBDataType.TIMESTAMP_TZ: "timestamp",
+            DBDataType.BOOLEAN: "boolean",
+        }

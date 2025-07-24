@@ -1,7 +1,9 @@
+from typing import Optional
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import REGEX_LIKE
-from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
@@ -34,3 +36,11 @@ class PostgresSqlDialect(SqlDialect):
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name} AUTHORIZATION CURRENT_USER;"
+
+    def default_varchar_length(self) -> Optional[int]:
+        return 255
+
+    def get_sql_type_dict(self) -> dict[str, str]:
+        base_dict = super().get_sql_type_dict()
+        base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
+        return base_dict
