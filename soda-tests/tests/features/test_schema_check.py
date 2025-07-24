@@ -73,7 +73,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
     # varchar_lengh = data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length()
     # expected is ttext_type_col(255)
     varchar = lambda length: data_source_test_helper.data_source_impl.sql_dialect.text_col_type(length)
-    
+
     assert varchar(255) == length_mismatch.get_actual()
     assert varchar(512) == length_mismatch.get_expected()
 
