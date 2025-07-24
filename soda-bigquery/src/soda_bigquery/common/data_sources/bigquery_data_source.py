@@ -67,7 +67,7 @@ class BigQuerySqlDialect(SqlDialect):
         """No length in BigQuery"""
         return "STRING"
 
-    def get_sql_type_dict(self) -> dict[str, str]:
+    def get_contract_type_dict(self) -> dict[str, str]:
         return {
             DBDataType.TEXT: "STRING",
             DBDataType.INTEGER: "INT64",

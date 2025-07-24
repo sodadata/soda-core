@@ -97,8 +97,6 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
 
     data_type_map = data_source_test_helper._get_contract_data_type_dict()
 
-    # varchar_lengh = data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length()
-    # expected is ttext_type_col(255)
     varchar = lambda length: data_source_test_helper.data_source_impl.sql_dialect.text_col_type(length)
 
     default_varchar_length = data_source_test_helper.data_source_impl.sql_dialect.default_varchar_length()
