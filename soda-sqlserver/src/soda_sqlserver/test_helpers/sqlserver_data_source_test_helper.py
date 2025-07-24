@@ -4,7 +4,6 @@ import os
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class SqlServerDataSourceTestHelper(DataSourceTestHelper):
@@ -28,27 +27,6 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
                 trust_server_certificate: true
                 driver: '{os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server")}'
         """
-
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        return {
-            TestDataType.TEXT: "varchar(255)",
-            TestDataType.INTEGER: "int",
-            TestDataType.DECIMAL: "float",
-            TestDataType.DATE: "date",
-            TestDataType.TIME: "time",
-            TestDataType.TIMESTAMP: "datetime",
-            TestDataType.TIMESTAMP_TZ: "datetimeoffset",
-            TestDataType.BOOLEAN: "bit",
-        }
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_schema_check_sql_type behavior
-        """
-        my_dict = self._get_create_table_sql_type_dict()
-        my_dict[TestDataType.TEXT] = "varchar"
-        return my_dict
 
     def drop_test_schema_if_exists_sql(self):
         schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()

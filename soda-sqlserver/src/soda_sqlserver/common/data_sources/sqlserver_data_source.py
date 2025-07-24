@@ -5,7 +5,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import COUNT, DISTINCT, LENGTH, REGEX_LIKE, TUPLE
-from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SQLServerDataSource as SQLServerDataSourceModel,
 )
@@ -66,3 +66,20 @@ class SQLServerSqlDialect(SqlDialect):
 
     def supports_regex_advanced(self) -> bool:
         return False
+
+    def get_sql_type_dict(self) -> dict[str, str]:
+        base_dict = super().get_sql_type_dict()
+        base_dict[DBDataType.TEXT] = "varchar(255)"
+        return base_dict
+
+    def get_contract_type_dict(self) -> dict[str, str]:
+        return {
+            DBDataType.TEXT: "varchar",
+            DBDataType.INTEGER: "int",
+            DBDataType.DECIMAL: "float",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "datetime",
+            DBDataType.TIMESTAMP_TZ: "datetimeoffset",
+            DBDataType.BOOLEAN: "bit",
+        }
