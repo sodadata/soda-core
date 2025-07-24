@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class DatabricksDataSourceTestHelper(DataSourceTestHelper):
@@ -24,18 +23,3 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
                 access_token: {os.getenv("DATABRICKS_TOKEN")}
                 catalog: {os.getenv("DATABRICKS_CATALOG", "unity_catalog")}
         """
-
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        return {
-            TestDataType.TEXT: "string",
-            TestDataType.INTEGER: "integer",
-            TestDataType.DECIMAL: "double",
-            TestDataType.DATE: "date",
-            TestDataType.TIME: "time",
-            TestDataType.TIMESTAMP: "timestamp_ntz",
-            TestDataType.TIMESTAMP_TZ: "timestamp",
-            TestDataType.BOOLEAN: "boolean",
-        }
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        return self._get_create_table_sql_type_dict()

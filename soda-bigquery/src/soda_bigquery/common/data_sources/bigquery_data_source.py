@@ -69,7 +69,6 @@ class BigQuerySqlDialect(SqlDialect):
 
     def get_sql_type_dict(self) -> dict[str, str]:
         return {
-            DBDataType.TEXT_WITHOUT_LENGTH: "STRING",
             DBDataType.TEXT: "STRING",
             DBDataType.INTEGER: "INT64",
             DBDataType.DECIMAL: "FLOAT64",

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestDataType
 
 
 class DuckdbDataSourceTestHelper(DataSourceTestHelper):
@@ -26,19 +25,6 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
 
     def _create_schema_name(self) -> Optional[str]:
         return "main"
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        return {
-            TestDataType.TEXT_WITHOUT_LENGTH: "VARCHAR",
-            TestDataType.TEXT: "VARCHAR(255)",
-            TestDataType.INTEGER: "INTEGER",
-            TestDataType.DECIMAL: "DOUBLE",
-            TestDataType.DATE: "DATE",
-            TestDataType.TIME: "TIME",
-            TestDataType.TIMESTAMP: "TIMESTAMP",
-            TestDataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
-            TestDataType.BOOLEAN: "BOOLEAN",
-        }
 
     def drop_test_schema_if_exists(self) -> None:
         """

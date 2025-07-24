@@ -4,24 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
-
-
-class TestDataType:
-    """
-    TestDataTypes contains data source-neutral constants for referring to the basic, common column data types.
-    """
-
-    __test__ = False
-
-    TEXT = "text(255)"
-    TEXT_WITHOUT_LENGTH = "text"
-    INTEGER = "integer"
-    DECIMAL = "decimal"
-    DATE = "date"
-    TIME = "time"
-    TIMESTAMP = "timestamp"
-    TIMESTAMP_TZ = "timestamptz"
-    BOOLEAN = "boolean"
+from soda_core.common.sql_dialect import DBDataType
 
 
 class TestColumnSpecification:
@@ -63,28 +46,28 @@ class TestTableSpecificationBuilder:
         return self
 
     def column_text(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.TEXT)
+        return self.column(name=name, test_data_type=DBDataType.TEXT)
 
     def column_integer(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.INTEGER)
+        return self.column(name=name, test_data_type=DBDataType.INTEGER)
 
     def column_decimal(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.DECIMAL)
+        return self.column(name=name, test_data_type=DBDataType.DECIMAL)
 
     def column_date(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.DATE)
+        return self.column(name=name, test_data_type=DBDataType.DATE)
 
     def column_time(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.TIME)
+        return self.column(name=name, test_data_type=DBDataType.TIME)
 
     def column_timestamp(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.TIMESTAMP)
+        return self.column(name=name, test_data_type=DBDataType.TIMESTAMP)
 
     def column_timestamp_tz(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.TIMESTAMP_TZ)
+        return self.column(name=name, test_data_type=DBDataType.TIMESTAMP_TZ)
 
     def column_boolean(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=TestDataType.BOOLEAN)
+        return self.column(name=name, test_data_type=DBDataType.BOOLEAN)
 
     def rows(self, rows: list[tuple]) -> TestTableSpecificationBuilder:
         """
