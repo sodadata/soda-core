@@ -102,7 +102,7 @@ class SqlDialect:
     def supports_varchar_length(self) -> bool:
         return True
 
-    def default_varchar_length(self) -> int:
+    def default_varchar_length(self) -> Optional[int]:
         """Some data sources have a default length for varchar types (such as Snowflake).
         We want to use this if it's available.
         If it is not available, return None."""

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import TUPLE
@@ -33,7 +35,7 @@ class SnowflakeSqlDialect(SqlDialect):
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         return f"ARRAY_CONSTRUCT{super()._build_tuple_sql(tuple)}"
 
-    def default_varchar_length(self) -> int:
+    def default_varchar_length(self) -> Optional[int]:
         return 16777216
 
     def get_contract_type_dict(self) -> dict[str, str]:
