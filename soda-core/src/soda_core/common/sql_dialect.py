@@ -13,8 +13,6 @@ class DBDataType:
     DBDataTypes contains data source-neutral constants for referring to the basic, common column data types.
     """
 
-    __test__ = False
-
     TEXT = "text"
     INTEGER = "integer"
     DECIMAL = "decimal"
