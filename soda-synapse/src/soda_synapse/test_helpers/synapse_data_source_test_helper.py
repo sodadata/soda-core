@@ -59,3 +59,13 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
             f"INSERT INTO {table_name_qualified_quoted} ({','.join([self.quote_column(column) for column in columns])}) \n"
             f"{rows_sql};"
         )
+
+    def drop_test_schema_if_exists(self) -> None:
+        # First find all the tables in the schema
+        table_names: list[str] = self.query_existing_test_table_names(return_fully_qualified_table_names=True)
+        for fully_qualified_table_name in table_names:
+            table_identifier = f"{fully_qualified_table_name.database_name}.{fully_qualified_table_name.schema_name}.{fully_qualified_table_name.table_name}"
+            self.data_source_impl.execute_update(f"DROP TABLE {table_identifier};")
+        # Drop the schema
+        schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+        self.data_source_impl.execute_update(f"DROP SCHEMA {schema_name};")

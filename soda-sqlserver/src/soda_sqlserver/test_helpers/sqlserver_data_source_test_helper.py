@@ -48,4 +48,7 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
             PRINT 'Dropped Table: ' + @name
             SELECT @name = (SELECT TOP 1 [name] FROM sysobjects WHERE [type] = 'U' AND category = 0 AND [name] > @name ORDER BY [name])
         END
+
+        /* Drop the schema */
+        DROP SCHEMA {schema_name};
         """
