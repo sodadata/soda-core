@@ -1,0 +1,199 @@
+import logging
+from datetime import datetime
+from typing import Optional
+
+from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
+from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
+from soda_oracle.common.data_sources.oracle_data_source_connection import (
+    OracleDataSource as OracleDataSourceModel,
+)
+from soda_oracle.common.data_sources.oracle_data_source_connection import (
+    OracleDataSourceConnection,
+)
+
+logger: logging.Logger = soda_logger
+
+
+class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
+    def __init__(self, data_source_model: OracleDataSourceModel):
+        super().__init__(data_source_model=data_source_model)
+
+    def _create_sql_dialect(self) -> SqlDialect:
+        return OracleSqlDialect()
+
+    def _create_data_source_connection(self) -> DataSourceConnection:
+        return OracleDataSourceConnection(
+            name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+        )
+
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        """Oracle does not use database prefixes like other systems"""
+        return MetadataTablesQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection, prefixes=[]
+        )
+
+    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+        """Oracle does not use database prefixes like other systems"""
+        return MetadataColumnsQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection, prefixes=[]
+        )
+
+    # def create_metadata_tables_query(self) -> MetadataTablesQuery:
+    #     """Oracle-specific metadata tables query using ALL_TABLES view"""
+    #     return OracleMetadataTablesQuery(
+    #         sql_dialect=self.sql_dialect,
+    #         data_source_connection=self.data_source_connection,
+    #         prefixes=[],  # Oracle doesn't use database prefixes like other systems
+    #     )
+
+    # def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+    #     """Oracle-specific metadata columns query using ALL_TAB_COLUMNS view"""
+    #     return OracleMetadataColumnsQuery(
+    #         sql_dialect=self.sql_dialect,
+    #         data_source_connection=self.data_source_connection,
+    #         prefixes=[],  # Oracle doesn't use database prefixes like other systems
+    #     )
+
+
+class OracleSqlDialect(SqlDialect):
+    DEFAULT_QUOTE_CHAR = '"'
+
+    def default_casify(self, identifier: str) -> str:
+        return identifier.upper()
+
+    def get_sql_type_dict(self) -> dict[str, str]:
+        """Data type that is used in the create table statement.
+        This can include the length of the column, e.g. VARCHAR(255)"""
+        result = self.get_contract_type_dict()
+        result[DBDataType.TEXT] = "VARCHAR2(255)"
+        result[DBDataType.INTEGER] = "NUMBER(10)"
+        result[DBDataType.DECIMAL] = "NUMBER(10, 2)"
+
+        return result
+
+    def get_contract_type_dict(self) -> dict[str, str]:
+        """Data type that is used in the contract.
+        This does **NOT** include the length of the column, e.g. VARCHAR"""
+        return {
+            DBDataType.TEXT: "VARCHAR2",
+            DBDataType.INTEGER: "NUMBER",
+            DBDataType.DECIMAL: "NUMBER",
+            DBDataType.DATE: "DATE",
+            DBDataType.TIME: "TIME",
+            DBDataType.TIMESTAMP: "TIMESTAMP",
+            DBDataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
+            DBDataType.BOOLEAN: "BOOLEAN",
+        }
+
+    # def quote_default(self, identifier: Optional[str]) -> Optional[str]:
+    #     """Oracle identifiers need to be in all-caps"""
+    #     if isinstance(identifier, str) and len(identifier) > 0:
+    #         identifier = identifier.upper()
+    #     return super().quote_default(identifier)
+
+    def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
+        """Dataset identifiers need to be in all-caps"""
+        name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
+        name_parts.append(dataset_name)
+        quoted_name_parts: list[str] = [self.quote_default(name_part.upper()) for name_part in name_parts if name_part]
+        return ".".join(quoted_name_parts)
+
+    def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
+        """
+        Dataset identifiers need to be in all-caps
+        """
+        parts: list[str] = list(dataset_prefix) if dataset_prefix else []
+        parts.append(dataset_name)
+        parts = [self.quote_default(p.upper()) for p in parts if p]
+        return ".".join(parts)
+
+    def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
+        # Code lifted from soda-library
+        return f"""
+        declare
+            userexist integer;
+        begin
+            select count(*) into userexist from dba_users where username='{self.default_casify(schema_name)}';
+            if (userexist = 0) then
+                execute immediate 'create user {self.default_casify(schema_name)}';
+                execute immediate 'ALTER USER {self.default_casify(schema_name)} QUOTA UNLIMITED ON SYSTEM';
+                execute immediate 'ALTER SESSION SET TIME_ZONE = ''+00:00''';
+            end if;
+        end;
+        """
+
+    def schema_information_schema(self):
+        # Oracle just has top-level metadata views, no dedicated metadata schema
+        return None
+
+    def get_database_prefix_index(self) -> int | None:
+        """Oracle DQNs do not include database"""
+        return None
+
+    def get_schema_prefix_index(self) -> int | None:
+        """Oracle DQNs do not include database"""
+        return 0
+
+    def build_select_sql(self, select_elements: list, add_semicolon: bool = False) -> str:
+        """Oracle does not use semicolons, set to False by default."""
+        return super().build_select_sql(select_elements, add_semicolon)
+
+    def table_tables(self) -> str:
+        return "ALL_TABLES"
+
+    def table_columns(self) -> str:
+        return "ALL_TAB_COLUMNS"
+
+    def column_table_schema(self) -> str:
+        return "OWNER"
+
+    def column_table_name(self) -> str:
+        return "TABLE_NAME"
+
+    def column_table_catalog(self) -> str:
+        """Oracle does not have database catalog concept, return None to skip filtering"""
+        return None
+
+    def column_column_name(self) -> str:
+        return "COLUMN_NAME"
+
+    def column_data_type(self) -> str:
+        return "DATA_TYPE"
+
+    def column_data_type_max_length(self) -> str:
+        return "DATA_LENGTH"
+
+    def literal_date(self, date_value) -> str:
+        """Oracle-specific date literal format"""
+        date_string = date_value.strftime("%Y-%m-%d")
+        return f"DATE'{date_string}'".strip()
+
+    def literal_datetime(self, datetime_value) -> str:
+        """Oracle-specific timestamp literal format"""
+        if datetime.tzinfo:
+            datetime_str = datetime.strftime("%Y-%m-%d %H:%M:%S %z")
+            datetime_str_formatted = datetime_str[:-2] + ":" + datetime_str[-2:]
+        else:
+            datetime_str_formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+        return f"TIMESTAMP '{datetime_str_formatted}'".strip()
+
+    def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
+        """Oracle-specific date truncation using TRUNC"""
+        return f"TRUNC({timestamp_literal}, 'DD')"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        """Oracle uses all caps"""
+        return f"{timestamp_literal} + INTERVAL '1' DAY"
+
+    def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
+        """Oracle-specific timestamp literal with timezone support"""
+        return f"TO_TIMESTAMP_TZ('{datetime_in_iso8601}', 'YYYY-MM-DD\"T\"HH24:MI:SS\"+\"TZH:TZM')"
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        """Oracle-specific timestamp literal with timezone support"""
+        return f"TIMESTAMP '{datetime_in_iso8601}'"

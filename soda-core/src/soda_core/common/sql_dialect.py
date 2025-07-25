@@ -532,6 +532,9 @@ class SqlDialect:
     def get_schema_prefix_index(self) -> int | None:
         return 1
 
+    def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
+        return self.sql_expr_timestamp_literal(datetime_in_iso8601)
+
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"timestamp '{datetime_in_iso8601}'"
 

@@ -4,3 +4,4 @@ soda-postgres
 soda-snowflake
 soda-duckdb
 soda-bigquery
+soda-oracle
