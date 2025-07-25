@@ -303,6 +303,9 @@ class ContractVerificationSessionImpl:
 
 
 class ContractImplExtension(Protocol):
+    def __init__(self, contract_impl: ContractImpl):
+        self.contract_impl: ContractImpl = contract_impl
+
     def parse_checks(self, contract_impl: ContractImpl) -> list[CheckImpl]:
         return []
 
@@ -377,6 +380,16 @@ class ContractImpl:
         )
         self.dataset_rows_tested: Optional[int] = None
 
+        self.extensions: list[ContractImplExtension] = []
+        for extension_cls in ContractImpl.contract_impl_extensions.values():
+            try:
+                extension = extension_cls(self)
+                self.extensions.append(extension)
+            except Exception as e:
+                logger.error(
+                    f"Error extending contract implementation with extension {extension_cls.__name__}: {e}",
+                )
+
         self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
         self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
 
@@ -418,7 +431,7 @@ class ContractImpl:
                     check = CheckImpl.parse_check(contract_impl=self, check_yaml=check_yaml)
                     check_impls.append(check)
 
-        for extension in self.contract_impl_extensions.values():
+        for extension in self.extensions:
             try:
                 check_impls.extend(extension.parse_checks(contract_impl=self))
             except Exception as e:
@@ -470,7 +483,7 @@ class ContractImpl:
 
         all_queries: list[Query] = schema_queries + aggregation_queries + other_queries
 
-        for extension in self.contract_impl_extensions.values():
+        for extension in self.extensions:
             try:
                 extension_queries: list[Query] = extension.build_queries(contract_impl=self)
                 all_queries.extend(extension_queries)

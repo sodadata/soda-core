@@ -21,7 +21,7 @@ from soda_core.common.yaml import (
     YamlObject,
     YamlValue,
 )
-from soda_core.model.reconciliation import ReconciliationBase
+from soda_core.model.reconciliation import ReconciliationYaml
 
 logger: logging.Logger = soda_logger
 
@@ -29,6 +29,7 @@ from typing import Protocol
 
 
 class ContractYamlExtension(Protocol):
+    # Extend the contract YAML object. Can modify the state of the contract YAML.
     def extend(self, contract_yaml: "ContractYaml") -> None:
         ...
 
@@ -63,16 +64,6 @@ class ContractYaml:
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
         )
-
-        for extension_cls in cls.contract_yaml_extensions.values():
-            try:
-                extension = extension_cls()
-                extension.extend(contract_yaml)
-            except Exception as e:
-                logger.error(
-                    f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
-                )
-
         return contract_yaml
 
     def __init__(
@@ -122,8 +113,16 @@ class ContractYaml:
         self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
 
-        # Used in extensions.
-        self.reconciliation: Optional[ReconciliationBase] = None
+        self.reconciliation: Optional[ReconciliationYaml] = self._parse_reconciliation(self.contract_yaml_object)
+
+        for extension_cls in ContractYaml.contract_yaml_extensions.values():
+            try:
+                extension = extension_cls()
+                extension.extend(self)
+            except Exception as e:
+                logger.error(
+                    f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
+                )
 
     def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
@@ -329,6 +328,18 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
+
+    def _parse_reconciliation(self, contract_yaml_object: YamlObject) -> ReconciliationYaml | None:
+        reconciliation_yaml_object: YamlObject | None = contract_yaml_object.read_object_opt("reconciliation")
+
+        if reconciliation_yaml_object:
+            recon_check_yamls = self._parse_checks(reconciliation_yaml_object)
+            recon_data = reconciliation_yaml_object.yaml_dict
+            recon_data["checks"] = recon_check_yamls
+
+            return ReconciliationYaml.model_validate(recon_data)
+
+        return None
 
     def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
         if isinstance(data_timestamp, str):
