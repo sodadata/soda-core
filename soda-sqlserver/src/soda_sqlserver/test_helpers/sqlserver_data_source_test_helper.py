@@ -28,27 +28,13 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
                 driver: '{os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server")}'
         """
 
-    def drop_test_schema_if_exists_sql(self):
-        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
-        schema_name = self.dataset_prefix[schema_index]
-
-        # Note: this is a copy from library.
-        # However, we only use the drop table statement, as we do not create any primary keys or something like that (at this point)
-        return f"""
-        /* Drop all tables */
-        DECLARE @name VARCHAR(128)
-        DECLARE @SQL VARCHAR(254)
-
-        SELECT @name = (SELECT TOP 1 [name] FROM sysobjects WHERE [type] = 'U' AND category = 0 ORDER BY [name])
-
-        WHILE @name IS NOT NULL
-        BEGIN
-            SELECT @SQL = 'DROP TABLE [{schema_name}].[' + RTRIM(@name) +']'
-            EXEC (@SQL)
-            PRINT 'Dropped Table: ' + @name
-            SELECT @name = (SELECT TOP 1 [name] FROM sysobjects WHERE [type] = 'U' AND category = 0 AND [name] > @name ORDER BY [name])
-        END
-
-        /* Drop the schema */
-        DROP SCHEMA {schema_name};
-        """
+    def drop_test_schema_if_exists(self) -> None:
+        # First find all the tables in the schema
+        table_names: list[str] = self.query_existing_test_table_names(return_fully_qualified_table_names=True)
+        for fully_qualified_table_name in table_names:
+            table_identifier = f"{fully_qualified_table_name.database_name}.{fully_qualified_table_name.schema_name}.{fully_qualified_table_name.table_name}"
+            self.data_source_impl.execute_update(f"DROP TABLE {table_identifier};")
+        # Drop the schema if we found any tables
+        if len(table_names) > 0:
+            schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+            self.data_source_impl.execute_update(f"DROP SCHEMA {schema_name};")
