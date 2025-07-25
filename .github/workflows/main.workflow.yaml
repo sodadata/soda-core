@@ -91,6 +91,12 @@ jobs:
       SQLSERVER_USERNAME: SA
       SQLSERVER_PASSWORD: Password1!
       SQLSERVER_DATABASE: master
+      SYNAPSE_HOST: ${{ secrets.MICROSOFT_SYNAPSE_CI_HOST }}
+      SYNAPSE_PORT: 1443
+      SYNAPSE_DATABASE: sodacisynapse
+      SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
+      SYNAPSE_CLIENT_ID: ${{ secrets.MICROSOFT_SYNAPSE_CI_USER }}
+      SYNAPSE_CLIENT_SECRET: ${{ secrets.MICROSOFT_SYNAPSE_CI_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
