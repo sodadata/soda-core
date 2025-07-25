@@ -92,7 +92,6 @@ jobs:
       SQLSERVER_PASSWORD: Password1!
       SQLSERVER_DATABASE: master
       SYNAPSE_HOST: ${{ vars.MICROSOFT_SYNAPSE_CI_HOST }}
-      SYNAPSE_PORT: 1443
       SYNAPSE_DATABASE: sodacisynapse
       SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SYNAPSE_CLIENT_ID: ${{ secrets.MICROSOFT_SYNAPSE_CI_USER }}
