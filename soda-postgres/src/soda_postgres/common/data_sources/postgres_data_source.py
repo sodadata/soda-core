@@ -1,3 +1,5 @@
+from typing import Optional
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import REGEX_LIKE
@@ -35,7 +37,10 @@ class PostgresSqlDialect(SqlDialect):
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name} AUTHORIZATION CURRENT_USER;"
 
+    def default_varchar_length(self) -> Optional[int]:
+        return 255
+
     def get_sql_type_dict(self) -> dict[str, str]:
         base_dict = super().get_sql_type_dict()
-        base_dict[DBDataType.TEXT] = "character varying(255)"
+        base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
         return base_dict

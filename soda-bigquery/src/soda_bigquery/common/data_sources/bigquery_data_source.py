@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSource as BigQueryDataSourceModel,
@@ -62,10 +61,6 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
-
-    def text_col_type(self, length: Optional[int] = 255) -> str:
-        """No length in BigQuery"""
-        return "STRING"
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
