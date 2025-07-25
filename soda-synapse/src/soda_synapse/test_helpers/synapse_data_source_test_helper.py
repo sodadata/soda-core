@@ -66,6 +66,7 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
         for fully_qualified_table_name in table_names:
             table_identifier = f"{fully_qualified_table_name.database_name}.{fully_qualified_table_name.schema_name}.{fully_qualified_table_name.table_name}"
             self.data_source_impl.execute_update(f"DROP TABLE {table_identifier};")
-        # Drop the schema
-        schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
-        self.data_source_impl.execute_update(f"DROP SCHEMA {schema_name};")
+        # Drop the schema if we found any tables
+        if len(table_names) > 0:
+            schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+            self.data_source_impl.execute_update(f"DROP SCHEMA {schema_name};")
