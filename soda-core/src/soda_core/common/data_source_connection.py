@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logging_constants import soda_logger
