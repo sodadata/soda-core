@@ -19,28 +19,29 @@ logger: logging.Logger = soda_logger
 
 class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
     """Oracle-specific implementation of DataSourceImpl
-    
+
     NOTE: Oracle uses a 3-part DQN format (datasource/schema/table), not a 4-part (datasource/database/schema/table).
     This is done for the following reasons:
     - Oracle does not use a database field anywhere in SQL or metadata, it is always implicit via the connection
     - The 'service name' is the database identifier, and this is sometimes but not always available in connection params
-    - There are two connection methods, host/port/service_name, and connectstring.  
+    - There are two connection methods, host/port/service_name, and connectstring.
     - The latter passes through directly to the driver i.e. oracledb.connect(user=user, password=password, dsn=connectstring)
     - There are several different allowed formats for connectstring
         (see 4.2 https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html#connection-strings)
-    - It is possible to extract service name from connectstring, and an earlier draft of this code in soda-library 
+    - It is possible to extract service name from connectstring, and an earlier draft of this code in soda-library
     did so, but it involved a lot of string parsing and regexes and creates complexity and rigidity which is likely to bite us
     - If we drop database from DQN, we can make the connection layer very lightweight, and since
     database is not used in SQL or metadata, it doesn't affect the rest of the implementation
     - There is already a precedent for 3-part DQN in this codebase (duckDB)
-    
+
     There is currently not a good way to tell if a data source uses 3-part or 4-part DQN aside from looking at the code.
-    We considered implementing a parsing layer but you sometimes get DQNs passed in as top-level strings without 
-    knowing which database engine they are written for.  We might consider extending the spec to include a protocol 
+    We considered implementing a parsing layer but you sometimes get DQNs passed in as top-level strings without
+    knowing which database engine they are written for.  We might consider extending the spec to include a protocol
     like oracle://datasource/schema/table, but that would be a breaking change to product so we leave it for now.
 
 
     """
+
     def __init__(self, data_source_model: OracleDataSourceModel):
         super().__init__(data_source_model=data_source_model)
 
@@ -63,7 +64,6 @@ class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
         return MetadataColumnsQuery(
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection, prefixes=[]
         )
-
 
 
 class OracleSqlDialect(SqlDialect):

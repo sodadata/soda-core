@@ -40,7 +40,6 @@ test_connections: list[TestConnection] = [
                 port: {ORACLE_PORT}
                 service_name: '{ORACLE_SERVICE_NAME}'
             """,
-
     ),
     TestConnection(  # missing required field user, should fail
         test_name="yaml_missing_user",
