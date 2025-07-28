@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from datetime import timezone
 from typing import Literal, Union
 
 import oracledb
-from datetime import timezone
 from pydantic import Field, SecretStr
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
@@ -47,22 +47,20 @@ class OracleDataSource(DataSourceBase, ABC):
 
 def _output_type_handler(cursor, name, default_type, size, precision, scale):
     """Default oracledb engine will strip timezone info from TIMESTAMP_TZ columns. This handler will add it back.
-    
-    Diagnosed due to failure in test_freshness 
+
+    Diagnosed due to failure in test_freshness
     """
     if default_type == oracledb.DB_TYPE_TIMESTAMP_TZ:
         return cursor.var(
             oracledb.DB_TYPE_TIMESTAMP_TZ,
             arraysize=cursor.arraysize,
-            outconverter=lambda val: val.replace(tzinfo=timezone.utc) if val and val.tzinfo is None else val
+            outconverter=lambda val: val.replace(tzinfo=timezone.utc) if val and val.tzinfo is None else val,
         )
 
 
 class OracleDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
-
-
 
     def _post_connection_hook(self):
         self.connection.outputtypehandler = _output_type_handler
