@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Callable
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logging_constants import soda_logger
@@ -99,6 +99,20 @@ class DataSourceConnection(ABC):
             updates = cursor.execute(sql)
             self.commit()
             return updates
+        finally:
+            cursor.close()
+
+    def execute_query_one_by_one(self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None]) -> None:
+        """
+        usage: execute_query_one_by_one("SELECT ...", lambda row, description: your_handle_row(row))
+        """
+        # noinspection PyUnresolvedReferences
+        cursor = self.connection.cursor()
+        try:
+            logger.debug(f"SQL query fetch one-by-one: \n{sql}")
+            cursor.execute(sql)
+            for row in cursor:
+                row_callback(row, cursor.description)
         finally:
             cursor.close()
 
