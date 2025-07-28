@@ -65,8 +65,8 @@ class MetadataTablesQuery:
                 table_prefix=[
                     prefix
                     for prefix in [
-                        *prefixes,
-                        self.sql_dialect.schema_information_schema(),  # this could be None for some data sources e.g. Oracle
+                        *prefixes,  # this could be None for some data sources e.g. Oracle
+                        self.sql_dialect.schema_information_schema(),
                     ]
                     if prefix
                 ],

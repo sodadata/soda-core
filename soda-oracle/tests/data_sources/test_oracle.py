@@ -11,10 +11,6 @@ ORACLE_HOST = os.getenv("ORACLE_HOST", "oracle.databases")
 ORACLE_PORT = os.getenv("ORACLE_PORT", "1521")
 ORACLE_SERVICE_NAME = os.getenv("ORACLE_SERVICE_NAME", "soda")
 
-# Check if we have the required environment variables for actual connection tests
-has_oracle_env_vars = bool(ORACLE_USER and ORACLE_PASSWORD and ORACLE_CONNECTSTRING)
-has_oracle_env_vars_for_host_port = bool(ORACLE_USER and ORACLE_PASSWORD)
-
 # define test cases and expected behavior (passing unless otherwise specified)
 test_connections: list[TestConnection] = [
     TestConnection(  # correct connection with connect string, should work
@@ -40,7 +36,6 @@ test_connections: list[TestConnection] = [
                 port: {ORACLE_PORT}
                 service_name: '{ORACLE_SERVICE_NAME}'
             """,
-
     ),
     TestConnection(  # missing required field user, should fail
         test_name="yaml_missing_user",
