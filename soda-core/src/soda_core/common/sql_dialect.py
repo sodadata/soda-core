@@ -139,6 +139,12 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
+    def create_table_if_not_exists_sql(self, fully_qualified_table_name: str) -> str:
+        """Only the 'CREATE TABLE IF NOT EXISTS' part should be in here.
+        The column definitions should be added later.
+        Note that the table name is already fully qualified (that means we expect the correct quoting!)"""
+        return f"CREATE TABLE IF NOT EXISTS {fully_qualified_table_name}"  # We explicitly ommit the `;` here, as we might have different ways of dealing with the table columns.
+
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"

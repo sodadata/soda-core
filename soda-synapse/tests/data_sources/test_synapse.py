@@ -142,5 +142,5 @@ test_connections: list[TestConnection] = [
 
 
 @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
-def test_sqlserver_connections(test_connection: TestConnection):
+def test_synapse_connections(test_connection: TestConnection):
     test_connection.test()

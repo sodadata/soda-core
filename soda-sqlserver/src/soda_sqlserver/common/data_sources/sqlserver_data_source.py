@@ -43,6 +43,11 @@ class SQLServerSqlDialect(SqlDialect):
         EXEC('CREATE SCHEMA [{schema_name}]');
         """
 
+    def create_table_if_not_exists_sql(self, fully_qualified_table_name: str) -> str:
+        return f"IF OBJECT_ID('{fully_qualified_table_name}', 'U') IS NULL CREATE TABLE {fully_qualified_table_name}"
+        # For reference, you can also use the following string, however that requires the table name itself:
+        # f"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '{table_name}') CREATE TABLE {fully_qualified_table_name}"
+
     def _build_length_sql(self, length: LENGTH) -> str:
         return f"LEN({self.build_expression_sql(length.expression)})"
 
