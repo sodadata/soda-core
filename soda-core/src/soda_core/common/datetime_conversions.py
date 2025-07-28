@@ -2,13 +2,12 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-
 def convert_datetime_to_str(dt: datetime) -> Optional[str]:
     try:
+        # Attention, if dt does not have timezone info, Python will assume dt is in the local system timezone (e.g. UTC+1)
         return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
     except Exception as e:
         return None
-
 
 def convert_str_to_datetime(date_string: str) -> Optional[datetime]:
     """

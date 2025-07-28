@@ -24,6 +24,10 @@ class OracleDataSourceTestHelper(DataSourceTestHelper):
         """No semicolon at the end of the statement for Oracle"""
         return super()._create_test_table_sql_statement(table_name_qualified_quoted, columns_sql).replace(";", "")
 
+    def _drop_test_table_sql_statement(self, table_name_qualified_quoted: str) -> str:
+        """No semicolon at the end of the statement for Oracle"""
+        return f"DROP TABLE {table_name_qualified_quoted}"
+
     # def _create_test_table_sql(self, test_table: TestTable) -> str:
     #     sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
     #     columns_sql: str = ",\n".join(

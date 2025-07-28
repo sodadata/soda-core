@@ -59,6 +59,11 @@ class SqlDialect:
             DBDataType.BOOLEAN: "boolean",
         }
 
+    def add_data_type_default_length(self, data_type: str) -> str:
+        """In some cases data type metadata includes a length e.g. DATE(7) for DATE columns in Oracle.
+        Return data type with default length if it exists.  Used in testing column type mismatches."""
+        return data_type
+
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
             f"{self.DEFAULT_QUOTE_CHAR}{identifier}{self.DEFAULT_QUOTE_CHAR}"
@@ -306,6 +311,9 @@ class SqlDialect:
         sql_lines.append(from_sql_line)
         return sql_lines
 
+    def _alias_format(self, alias: str) -> str:
+        return f"AS {self.quote_default(alias)}"
+
     def _build_from_part(self, from_part: FROM) -> str:
         # "fully".qualified"."tablename" [AS "table_alias"]
 
@@ -316,7 +324,7 @@ class SqlDialect:
         ]
 
         if isinstance(from_part.alias, str):
-            from_parts.append(f"AS {self.quote_default(from_part.alias)}")
+            from_parts.append(self._alias_format(from_part.alias))
 
         return " ".join(from_parts)
 
@@ -335,7 +343,7 @@ class SqlDialect:
         )
 
         if isinstance(left_inner_join.alias, str):
-            from_parts.append(f"AS {self.quote_default(left_inner_join.alias)}")
+            from_parts.append(self._alias_format(left_inner_join.alias))
 
         if isinstance(left_inner_join, LEFT_INNER_JOIN):
             from_parts.append(f"ON {self.build_expression_sql(left_inner_join.on_condition)}")

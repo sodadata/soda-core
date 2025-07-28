@@ -63,10 +63,10 @@ class MetadataColumnsQuery:
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
-                    [
+                    [id for id in [  # prefixes can be None if information schema is top-level, e.g. Oracle 
                         *prefixes,
                         self.sql_dialect.schema_information_schema(),
-                    ]
+                    ] if id]
                 ),
                 WHERE(
                     AND(

@@ -33,6 +33,13 @@ class DataSourceConnection(ABC):
         Exceptions do not need to be handled.  They will be handled by the calling method.
         """
 
+
+    def _post_connection_hook(self):
+        """
+        Called after connection is created, e.g. in case you need to modify the connection object (see Oracle).
+        """
+        pass
+
     def open_connection(self) -> None:
         """
         Ensures that an open connection is available.
@@ -45,6 +52,7 @@ class DataSourceConnection(ABC):
             try:
                 logger.debug(f"'{self.name}' connection properties: {self.connection_properties}")
                 self.connection = self._create_connection(self.connection_properties)
+                self._post_connection_hook()
             except Exception as e:
                 logger.error(msg=f"Could not connect to '{self.name}': {e}", exc_info=True)
 

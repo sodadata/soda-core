@@ -109,7 +109,8 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
         assert varchar(512) == length_mismatch.get_expected()
 
     type_mismatch = schema_check_result.column_data_type_mismatches[index_of_type_mismatch]
-    assert data_type_map[DBDataType.DATE] == type_mismatch.get_actual()
+    expected_data_type = data_source_test_helper.data_source_impl.sql_dialect.add_data_type_default_length(data_type_map[DBDataType.DATE])
+    assert expected_data_type == type_mismatch.get_actual()
     assert data_type_map[DBDataType.TEXT] == type_mismatch.get_expected()
 
 

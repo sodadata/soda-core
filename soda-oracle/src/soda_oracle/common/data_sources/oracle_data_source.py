@@ -6,6 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.sql_ast import ORDINAL_POSITION
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_oracle.common.data_sources.oracle_data_source_connection import (
@@ -62,8 +63,8 @@ class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
 class OracleSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = '"'
 
-    def default_casify(self, identifier: str) -> str:
-        return identifier.upper()
+    # def default_casify(self, identifier: str) -> str:
+    #     return identifier.upper()
 
     def get_sql_type_dict(self) -> dict[str, str]:
         """Data type that is used in the create table statement.
@@ -89,27 +90,34 @@ class OracleSqlDialect(SqlDialect):
             DBDataType.BOOLEAN: "BOOLEAN",
         }
 
+    def add_data_type_default_length(self, data_type: str) -> str:
+        """In some cases data type metadata includes a length e.g. DATE(7) for DATE columns in Oracle.
+        Return data type with default length if it exists.  Used in testing column type mismatches."""
+        if data_type == self.get_contract_type_dict()[DBDataType.DATE]:
+            return data_type + "(7)"
+        return data_type
+
     # def quote_default(self, identifier: Optional[str]) -> Optional[str]:
     #     """Oracle identifiers need to be in all-caps"""
     #     if isinstance(identifier, str) and len(identifier) > 0:
     #         identifier = identifier.upper()
     #     return super().quote_default(identifier)
 
-    def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
-        """Dataset identifiers need to be in all-caps"""
-        name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
-        name_parts.append(dataset_name)
-        quoted_name_parts: list[str] = [self.quote_default(name_part.upper()) for name_part in name_parts if name_part]
-        return ".".join(quoted_name_parts)
+    # def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
+    #     """Dataset identifiers need to be in all-caps"""
+    #     name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
+    #     name_parts.append(dataset_name)
+    #     quoted_name_parts: list[str] = [self.quote_default(name_part.upper()) for name_part in name_parts if name_part]
+    #     return ".".join(quoted_name_parts)
 
-    def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
-        """
-        Dataset identifiers need to be in all-caps
-        """
-        parts: list[str] = list(dataset_prefix) if dataset_prefix else []
-        parts.append(dataset_name)
-        parts = [self.quote_default(p.upper()) for p in parts if p]
-        return ".".join(parts)
+    # def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
+    #     """
+    #     Dataset identifiers need to be in all-caps
+    #     """
+    #     parts: list[str] = list(dataset_prefix) if dataset_prefix else []
+    #     parts.append(dataset_name)
+    #     parts = [self.quote_default(p.upper()) for p in parts if p]
+    #     return ".".join(parts)
 
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         # Code lifted from soda-library
@@ -117,10 +125,10 @@ class OracleSqlDialect(SqlDialect):
         declare
             userexist integer;
         begin
-            select count(*) into userexist from dba_users where username='{self.default_casify(schema_name)}';
+            select count(*) into userexist from dba_users where username='{schema_name}';
             if (userexist = 0) then
-                execute immediate 'create user {self.default_casify(schema_name)}';
-                execute immediate 'ALTER USER {self.default_casify(schema_name)} QUOTA UNLIMITED ON SYSTEM';
+                execute immediate 'create user {self.quote_default(schema_name)}';
+                execute immediate 'ALTER USER {self.quote_default(schema_name)} QUOTA UNLIMITED ON SYSTEM';
                 execute immediate 'ALTER SESSION SET TIME_ZONE = ''+00:00''';
             end if;
         end;
@@ -141,6 +149,9 @@ class OracleSqlDialect(SqlDialect):
     def build_select_sql(self, select_elements: list, add_semicolon: bool = False) -> str:
         """Oracle does not use semicolons, set to False by default."""
         return super().build_select_sql(select_elements, add_semicolon)
+
+    def _build_ordinal_position_sql(self, ordinal_position: ORDINAL_POSITION) -> str:
+        return "COLUMN_ID"
 
     def table_tables(self) -> str:
         return "ALL_TABLES"
@@ -174,11 +185,11 @@ class OracleSqlDialect(SqlDialect):
 
     def literal_datetime(self, datetime_value) -> str:
         """Oracle-specific timestamp literal format"""
-        if datetime.tzinfo:
-            datetime_str = datetime.strftime("%Y-%m-%d %H:%M:%S %z")
+        if datetime_value.tzinfo:
+            datetime_str = datetime_value.strftime("%Y-%m-%d %H:%M:%S %z")
             datetime_str_formatted = datetime_str[:-2] + ":" + datetime_str[-2:]
         else:
-            datetime_str_formatted = datetime.strftime("%Y-%m-%d %H:%M:%S")
+            datetime_str_formatted = datetime_value.strftime("%Y-%m-%d %H:%M:%S")
 
         return f"TIMESTAMP '{datetime_str_formatted}'".strip()
 
@@ -197,3 +208,9 @@ class OracleSqlDialect(SqlDialect):
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         """Oracle-specific timestamp literal with timezone support"""
         return f"TIMESTAMP '{datetime_in_iso8601}'"
+
+
+    def _alias_format(self, alias: str) -> str:
+        """ No "AS" in Oracle """
+        return self.quote_default(alias)
+    
