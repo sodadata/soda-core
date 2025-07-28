@@ -3,9 +3,7 @@ import logging
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import ORDINAL_POSITION
-
-from soda_core.common.sql_ast import COUNT, DISTINCT, TUPLE
+from soda_core.common.sql_ast import COUNT, DISTINCT, ORDINAL_POSITION, TUPLE
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
@@ -97,7 +95,6 @@ class OracleSqlDialect(SqlDialect):
             return data_type + "(7)"
         return data_type
 
-
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
             return self._build_tuple_sql_in_distinct(tuple)
@@ -109,6 +106,7 @@ class OracleSqlDialect(SqlDialect):
 
         Instead we approximate TO_JSON_STRING(STRUCT) by concatting all the columns.
         """
+
         def format_element_expression(e: str) -> str:
             """Use CHR(31) (unit seperator) as delimiter because it is highly unlikely to be appear in the data.
             If it does appear, replace with string '#US#'.  Also replace NULL with a string value to prevent
@@ -116,7 +114,9 @@ class OracleSqlDialect(SqlDialect):
             return f"REPLACE(NVL(TO_CHAR({e}), '__UNDEF__'), CHR(31), '#US#')"
 
         concat_delim = " || CHR(31) || \n"  # use ASCII unit separator as delimieter
-        elements: str = concat_delim.join(format_element_expression(self.build_expression_sql(e)) for e in tuple.expressions)
+        elements: str = concat_delim.join(
+            format_element_expression(self.build_expression_sql(e)) for e in tuple.expressions
+        )
         return elements
 
     # def quote_default(self, identifier: Optional[str]) -> Optional[str]:
