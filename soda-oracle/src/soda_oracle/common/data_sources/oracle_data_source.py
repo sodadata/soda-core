@@ -20,6 +20,29 @@ logger: logging.Logger = soda_logger
 
 
 class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
+    """Oracle-specific implementation of DataSourceImpl
+    
+    NOTE: Oracle uses a 3-part DQN format (datasource/schema/table), not a 4-part (datasource/database/schema/table).
+    This is done for the following reasons:
+    - Oracle does not use a database field anywhere in SQL or metadata, it is always implicit via the connection
+    - The 'service name' is the database identifier, and this is sometimes but not always available in connection params
+    - There are two connection methods, host/port/service_name, and connectstring.  
+    - The latter passes through directly to the driver i.e. oracledb.connect(user=user, password=password, dsn=connectstring)
+    - There are several different allowed formats for connectstring
+        (see 4.2 https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html#connection-strings)
+    - It is possible to extract service name from connectstring, and an earlier draft of this code in soda-library 
+    did so, but it involved a lot of string parsing and regexes and creates complexity and rigidity which is likely to bite us
+    - If we drop database from DQN, we can make the connection layer very lightweight, and since
+    database is not used in SQL or metadata, it doesn't affect the rest of the implementation
+    - There is already a precedent for 3-part DQN in this codebase (duckDB)
+    
+    There is currently not a good way to tell if a data source uses 3-part or 4-part DQN aside from looking at the code.
+    We considered implementing a parsing layer but you sometimes get DQNs passed in as top-level strings without 
+    knowing which database engine they are written for.  We might consider extending the spec to include a protocol 
+    like oracle://datasource/schema/table, but that would be a breaking change to product so we leave it for now.
+
+
+    """
     def __init__(self, data_source_model: OracleDataSourceModel):
         super().__init__(data_source_model=data_source_model)
 
@@ -43,28 +66,10 @@ class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
             sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection, prefixes=[]
         )
 
-    # def create_metadata_tables_query(self) -> MetadataTablesQuery:
-    #     """Oracle-specific metadata tables query using ALL_TABLES view"""
-    #     return OracleMetadataTablesQuery(
-    #         sql_dialect=self.sql_dialect,
-    #         data_source_connection=self.data_source_connection,
-    #         prefixes=[],  # Oracle doesn't use database prefixes like other systems
-    #     )
-
-    # def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-    #     """Oracle-specific metadata columns query using ALL_TAB_COLUMNS view"""
-    #     return OracleMetadataColumnsQuery(
-    #         sql_dialect=self.sql_dialect,
-    #         data_source_connection=self.data_source_connection,
-    #         prefixes=[],  # Oracle doesn't use database prefixes like other systems
-    #     )
 
 
 class OracleSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = '"'
-
-    # def default_casify(self, identifier: str) -> str:
-    #     return identifier.upper()
 
     def get_sql_type_dict(self) -> dict[str, str]:
         """Data type that is used in the create table statement.
@@ -118,28 +123,6 @@ class OracleSqlDialect(SqlDialect):
         concat_delim = " || CHR(31) || \n"  # use ASCII unit separator as delimieter
         elements: str = concat_delim.join(format_element_expression(self.build_expression_sql(e)) for e in tuple.expressions)
         return elements
-
-    # def quote_default(self, identifier: Optional[str]) -> Optional[str]:
-    #     """Oracle identifiers need to be in all-caps"""
-    #     if isinstance(identifier, str) and len(identifier) > 0:
-    #         identifier = identifier.upper()
-    #     return super().quote_default(identifier)
-
-    # def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
-    #     """Dataset identifiers need to be in all-caps"""
-    #     name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
-    #     name_parts.append(dataset_name)
-    #     quoted_name_parts: list[str] = [self.quote_default(name_part.upper()) for name_part in name_parts if name_part]
-    #     return ".".join(quoted_name_parts)
-
-    # def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
-    #     """
-    #     Dataset identifiers need to be in all-caps
-    #     """
-    #     parts: list[str] = list(dataset_prefix) if dataset_prefix else []
-    #     parts.append(dataset_name)
-    #     parts = [self.quote_default(p.upper()) for p in parts if p]
-    #     return ".".join(parts)
 
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         # Code lifted from soda-library

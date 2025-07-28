@@ -16,10 +16,6 @@ from soda_core.model.data_source.data_source_connection_properties import (
 
 logger: logging.Logger = soda_logger
 
-
-CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
-
-
 class OracleConnectionProperties(DataSourceConnectionProperties):
     user: str = Field(..., description="Database user")
     password: SecretStr = Field(..., description="Database password")
@@ -46,10 +42,7 @@ class OracleDataSource(DataSourceBase, ABC):
 
 
 def _output_type_handler(cursor, name, default_type, size, precision, scale):
-    """Default oracledb engine will strip timezone info from TIMESTAMP_TZ columns. This handler will add it back.
-
-    Diagnosed due to failure in test_freshness
-    """
+    """Default oracledb engine will strip timezone info from TIMESTAMP_TZ columns. This handler will add it back."""
     if default_type == oracledb.DB_TYPE_TIMESTAMP_TZ:
         return cursor.var(
             oracledb.DB_TYPE_TIMESTAMP_TZ,
@@ -63,6 +56,7 @@ class OracleDataSourceConnection(DataSourceConnection):
         super().__init__(name, connection_properties)
 
     def _post_connection_hook(self):
+        """Correct default behavior which strips timezone info from TIMESTAMP_TZ columns."""
         self.connection.outputtypehandler = _output_type_handler
 
     def _create_connection(

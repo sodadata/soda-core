@@ -7,9 +7,9 @@ from helpers.test_connection import TestConnection
 ORACLE_USER = os.getenv("ORACLE_USERNAME")
 ORACLE_PASSWORD = os.getenv("ORACLE_PASSWORD")
 ORACLE_CONNECTSTRING = os.getenv("ORACLE_CONNECTSTRING")
-ORACLE_HOST = os.getenv("ORACLE_HOST", "localhost")
+ORACLE_HOST = os.getenv("ORACLE_HOST", "oracle.databases")
 ORACLE_PORT = os.getenv("ORACLE_PORT", "1521")
-ORACLE_SERVICE_NAME = os.getenv("ORACLE_SERVICE_NAME", "XE")
+ORACLE_SERVICE_NAME = os.getenv("ORACLE_SERVICE_NAME", "soda")
 
 # Check if we have the required environment variables for actual connection tests
 has_oracle_env_vars = bool(ORACLE_USER and ORACLE_PASSWORD and ORACLE_CONNECTSTRING)
@@ -40,6 +40,7 @@ test_connections: list[TestConnection] = [
                 port: {ORACLE_PORT}
                 service_name: '{ORACLE_SERVICE_NAME}'
             """,
+
     ),
     TestConnection(  # missing required field user, should fail
         test_name="yaml_missing_user",
@@ -126,17 +127,4 @@ test_connections: list[TestConnection] = [
 # run tests.  parameterization means each test case will show up as an individual test
 @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
 def test_oracle_connections(test_connection: TestConnection):
-    # Debug: print environment variable values
-    print(f"Debug: ORACLE_USER={repr(ORACLE_USER)}, ORACLE_PASSWORD={repr(ORACLE_PASSWORD)}")
-    print(f"Debug: has_oracle_env_vars_for_host_port={has_oracle_env_vars_for_host_port}")
-    print(f"Debug: test_name={test_connection.test_name}")
-
-    # Skip tests that require actual Oracle connection when env vars are not set
-    if test_connection.test_name == "correct_connect_string":
-        if not has_oracle_env_vars:
-            pytest.skip("Oracle environment variables not set (ORACLE_USERNAME, ORACLE_PASSWORD, ORACLE_CONNECTSTRING)")
-    elif test_connection.test_name == "correct_host_port_service":
-        if not has_oracle_env_vars_for_host_port:
-            pytest.skip("Oracle environment variables not set (ORACLE_USERNAME, ORACLE_PASSWORD)")
-
     test_connection.test()
