@@ -1,13 +1,12 @@
 import logging
-from datetime import datetime
-from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.sql_ast import ORDINAL_POSITION
+
 from soda_core.common.sql_ast import COUNT, DISTINCT, TUPLE
+from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_oracle.common.data_sources.oracle_data_source_connection import (
@@ -232,8 +231,6 @@ class OracleSqlDialect(SqlDialect):
         """Oracle-specific timestamp literal with timezone support"""
         return f"TIMESTAMP '{datetime_in_iso8601}'"
 
-
     def _alias_format(self, alias: str) -> str:
-        """ No "AS" in Oracle """
+        """No "AS" in Oracle"""
         return self.quote_default(alias)
-    
