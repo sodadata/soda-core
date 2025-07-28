@@ -1,5 +1,4 @@
 from typing import Optional
-from datetime import datetime
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -45,16 +44,3 @@ class PostgresSqlDialect(SqlDialect):
         base_dict = super().get_sql_type_dict()
         base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
         return base_dict
-
-    def literal_datetime(self, datetime_value: datetime) -> str:
-        """PostgreSQL-specific timestamp literal format with timezone support"""
-        if datetime_value.tzinfo:
-            # Convert to UTC and format with timezone info
-            utc_datetime = datetime_value.astimezone()
-            datetime_str = utc_datetime.strftime("%Y-%m-%d %H:%M:%S %z")
-            datetime_str_formatted = datetime_str[:-2] + ":" + datetime_str[-2:]
-            return f"'{datetime_str_formatted}'"
-        else:
-            # No timezone info, treat as local time
-            datetime_str_formatted = datetime_value.strftime("%Y-%m-%d %H:%M:%S")
-            return f"'{datetime_str_formatted}'"

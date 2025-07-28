@@ -79,6 +79,9 @@ def test_dataset_filter(data_source_test_helper: DataSourceTestHelper):
               column: country_code
             checks:
               - invalid:
+
+          - name: size
+            checks:
               - missing:
     """
 
@@ -112,7 +115,7 @@ def test_dataset_filter_in_user_defined_variable(data_source_test_helper: DataSo
 
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
-    now_literal: str = sql_dialect.sql_expr_timestamp_literal("${soda.NOW}")
+    now_literal: str = sql_dialect.sql_expr_timestamp_with_tz_literal("${soda.NOW}")
     start_ts_value: str = sql_dialect.sql_expr_timestamp_truncate_day(now_literal)
     end_ts_value: str = sql_dialect.sql_expr_timestamp_add_day("${var.START_TS}")
     column_name_quoted: str = data_source_test_helper.data_source_impl.quote_identifier("updated")
