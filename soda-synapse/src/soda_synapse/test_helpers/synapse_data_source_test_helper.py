@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from helpers.test_table import TestTable
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
     SqlServerDataSourceTestHelper,
 )
@@ -33,14 +31,3 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
                 driver: '{os.getenv("SYNAPSE_DRIVER", "ODBC Driver 18 for SQL Server")}'
                 autocommit: true
         """
-
-    def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
-        if test_table.row_values:
-            insert_into_sql = self.data_source_impl.sql_dialect.build_insert_into_sql(
-                INSERT_INTO(
-                    fully_qualified_table_name=test_table.qualified_name,
-                    values=[VALUES_ROW(row) for row in test_table.row_values],
-                    columns=[column.name for column in test_table.columns.values()],
-                )
-            )
-            return insert_into_sql

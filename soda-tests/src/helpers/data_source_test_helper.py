@@ -13,6 +13,7 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -432,23 +433,14 @@ class DataSourceTestHelper:
 
     def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
-
-            def literalize_row(row: tuple) -> list[str]:
-                return [self.data_source_impl.sql_dialect.literal(value) for value in row]
-
-            literal_row_values = [literalize_row(row_values) for row_values in test_table.row_values]
-
-            def format_literal_row_values(row: list[str]) -> str:
-                return ",".join(row)
-
-            rows_sql = ",\n".join([f"  ({format_literal_row_values(row)})" for row in literal_row_values])
-
-            return self._insert_test_table_rows_sql_statement(test_table.qualified_name, rows_sql)
-
-    def _insert_test_table_rows_sql_statement(
-        self, table_name_qualified_quoted, rows_sql
-    ):  # Note: in Synapse, we need to specify the columns, so there is an additional argument there
-        return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
+            insert_into_sql = self.data_source_impl.sql_dialect.build_insert_into_sql(
+                INSERT_INTO(
+                    fully_qualified_table_name=test_table.qualified_name,
+                    values=[VALUES_ROW(row) for row in test_table.row_values],
+                    columns=[column.name for column in test_table.columns.values()],
+                )
+            )
+            return insert_into_sql
 
     def _drop_test_table(self, table_name: str) -> None:
         sql: str = self._drop_test_table_sql(table_name)
