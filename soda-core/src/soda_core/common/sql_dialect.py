@@ -215,6 +215,15 @@ class SqlDialect:
         columns_sql: str = " (" + ", ".join([self.build_expression_sql(column) for column in insert_into.columns]) + ")"
         return columns_sql
 
+    def build_insert_into_via_select_sql(
+        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
+    ) -> str:
+        insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
+        insert_into_sql += (
+            "(" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False) + ")"
+        )
+        return insert_into_sql + (";" if add_semicolon else "")
+
     def _build_insert_into_values_sql(self, insert_into: INSERT_INTO) -> str:
         values_sql: str = " VALUES\n" + ",\n".join(
             [self._build_insert_into_values_row_sql(value) for value in insert_into.values]

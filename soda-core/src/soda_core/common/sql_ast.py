@@ -493,6 +493,16 @@ class INSERT_INTO(BaseSqlExpression):
 
 
 @dataclass
+class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
+    fully_qualified_table_name: str
+    select_elements: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
+
+
+@dataclass
 class VALUES_ROW(BaseSqlExpression):
     values: list[SqlExpression | str]
 
