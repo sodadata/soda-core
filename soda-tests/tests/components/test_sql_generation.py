@@ -65,3 +65,30 @@ def test_sql_ast_modeling_cte():
         'SELECT SUM("size")\n'
         'FROM "customers_filtered";'
     )
+
+
+def test_sql_ast_create_table_if_not_exists():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_create_table_statement = sql_dialect.build_create_table(
+        CREATE_TABLE_IF_NOT_EXISTS(
+            fully_qualified_table_name='"customers"',
+            columns=[
+                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
+                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
+                CREATE_TABLE_COLUMN(name="age", type=DBDataType.INTEGER, nullable=True, default=LITERAL(25)),
+            ],
+        )
+    )
+    assert (
+        my_create_table_statement
+        == 'CREATE TABLE IF NOT EXISTS "customers" ("id" integer NOT NULL, "name" character varying(255), "age" integer DEFAULT 25);'
+    )
+
+
+# def test_sql_ast_insert_into():
+#     sql_dialect: SqlDialect = SqlDialect()
+
+#     assert sql_dialect.build_insert_into_sql(
+#         INSERT_INTO(fully_qualified_table_name="customers", values=[LITERAL(1), LITERAL("John"), LITERAL(25)])
+#     ) == "INSERT INTO customers (id, name, age) VALUES (1, 'John', 25);"
