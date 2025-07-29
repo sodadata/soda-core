@@ -112,7 +112,7 @@ def test_sql_ast_insert_into_no_columns():
         )
     )
 
-    assert my_insert_into_statement == ('INSERT INTO "customers" VALUES\n' "(1, 'John', 25),\n" "(2, 'Jane', 30);")
+    assert my_insert_into_statement == ('INSERT INTO "customers" VALUES\n' + "(1, 'John', 25),\n" + "(2, 'Jane', 30);")
 
 
 def test_sql_ast_insert_into_with_columns():
