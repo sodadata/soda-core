@@ -4,7 +4,15 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COUNT, DISTINCT, LENGTH, REGEX_LIKE, TUPLE
+from soda_core.common.sql_ast import (
+    COUNT,
+    CREATE_TABLE,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    DISTINCT,
+    LENGTH,
+    REGEX_LIKE,
+    TUPLE,
+)
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SQLServerDataSource as SQLServerDataSourceModel,
@@ -43,10 +51,14 @@ class SQLServerSqlDialect(SqlDialect):
         EXEC('CREATE SCHEMA [{schema_name}]');
         """
 
-    def create_table_if_not_exists_sql(self, fully_qualified_table_name: str) -> str:
-        return f"IF OBJECT_ID('{fully_qualified_table_name}', 'U') IS NULL CREATE TABLE {fully_qualified_table_name}"
-        # For reference, you can also use the following string, however that requires the table name itself:
-        # f"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '{table_name}') CREATE TABLE {fully_qualified_table_name}"
+    def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
+        if_not_exists_sql: str = (
+            f"IF OBJECT_ID('{create_table.fully_qualified_table_name}', 'U') IS NULL"
+            if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS)
+            else ""
+        )
+        create_table_sql: str = f"{if_not_exists_sql} CREATE TABLE {create_table.fully_qualified_table_name} "
+        return create_table_sql
 
     def _build_length_sql(self, length: LENGTH) -> str:
         return f"LEN({self.build_expression_sql(length.expression)})"

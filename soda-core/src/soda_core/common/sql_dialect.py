@@ -127,12 +127,6 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
-    def create_table_if_not_exists_sql(self, fully_qualified_table_name: str) -> str:
-        """Only the 'CREATE TABLE IF NOT EXISTS' part should be in here.
-        The column definitions should be added later.
-        Note that the table name is already fully qualified (that means we expect the correct quoting!)"""
-        return f"CREATE TABLE IF NOT EXISTS {fully_qualified_table_name}"  # We explicitly ommit the `;` here, as we might have different ways of dealing with the table columns.
-
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
@@ -143,8 +137,7 @@ class SqlDialect:
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
-        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
-        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        create_table_sql = self._build_create_table_statement_sql(create_table)
 
         create_table_sql = (
             create_table_sql
@@ -153,6 +146,11 @@ class SqlDialect:
             + "\n)"
         )
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
+        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
+        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        return create_table_sql
 
     def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         column_name_quoted: str = self.quote_default(create_table_column.name)
