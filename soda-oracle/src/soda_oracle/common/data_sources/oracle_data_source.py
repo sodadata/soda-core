@@ -3,7 +3,14 @@ import logging
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COUNT, DISTINCT, ORDINAL_POSITION, TUPLE
+from soda_core.common.sql_ast import (
+    COUNT,
+    CREATE_TABLE,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    DISTINCT,
+    ORDINAL_POSITION,
+    TUPLE,
+)
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
@@ -217,3 +224,9 @@ class OracleSqlDialect(SqlDialect):
     def _alias_format(self, alias: str) -> str:
         """No "AS" in Oracle"""
         return self.quote_default(alias)
+
+    def build_create_table_sql(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = False
+    ) -> str:
+        """No semicolon for Oracle"""
+        return super().build_create_table_sql(create_table, add_semicolon)
