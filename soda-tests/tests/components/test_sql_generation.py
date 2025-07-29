@@ -83,8 +83,11 @@ def test_sql_ast_create_table_if_not_exists():
         )
     )
     assert (
-        my_create_table_statement
-        == 'CREATE TABLE IF NOT EXISTS "customers" ("id" integer NOT NULL, "name" character varying(255), "age" integer DEFAULT 25);'
+        my_create_table_statement == 'CREATE TABLE IF NOT EXISTS "customers" (\n'
+        '\t"id" integer NOT NULL,\n'
+        '\t"name" character varying(255),\n'
+        '\t"age" integer DEFAULT 25\n'
+        ");"
     )
 
 
@@ -101,7 +104,7 @@ def test_sql_ast_insert_into_no_columns():
         )
     )
 
-    assert my_insert_into_statement == "INSERT INTO \"customers\" VALUES (1, 'John', 25), (2, 'Jane', 30);"
+    assert my_insert_into_statement == ('INSERT INTO "customers" VALUES\n' "(1, 'John', 25),\n" "(2, 'Jane', 30);")
 
 
 def test_sql_ast_insert_into_with_columns():
@@ -118,8 +121,9 @@ def test_sql_ast_insert_into_with_columns():
         )
     )
     assert (
-        my_insert_into_statement
-        == 'INSERT INTO "customers" ("id", "name", "age") VALUES (1, \'John\', 25), (2, \'Jane\', 30);'
+        my_insert_into_statement == 'INSERT INTO "customers" ("id", "name", "age") VALUES\n'
+        "(1, 'John', 25),\n"
+        "(2, 'Jane', 30);"
     )
 
 
@@ -138,6 +142,7 @@ def test_sql_ast_insert_into_with_datetimes():
         )
     )
     assert (
-        my_insert_into_statement
-        == f"INSERT INTO \"customers\" VALUES (1, 'John', 25, '{now.isoformat()}'), (2, 'Jane', 30, '{now.isoformat()}');"
+        my_insert_into_statement == f'INSERT INTO "customers" VALUES\n'
+        f"(1, 'John', 25, '{now.isoformat()}'),\n"
+        f"(2, 'Jane', 30, '{now.isoformat()}');"
     )

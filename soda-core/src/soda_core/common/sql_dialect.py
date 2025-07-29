@@ -142,9 +142,9 @@ class SqlDialect:
 
         create_table_sql = (
             create_table_sql
-            + "("
-            + ", ".join([self.build_create_table_column(column) for column in create_table.columns])
-            + ")"
+            + "(\n"
+            + ",\n".join([self.build_create_table_column(column) for column in create_table.columns])
+            + "\n)"
         )
         return create_table_sql + (";" if add_semicolon else "")
 
@@ -157,7 +157,7 @@ class SqlDialect:
             f" DEFAULT {self.literal(create_table_column.default)}" if create_table_column.default else ""
         )
 
-        return f"{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
+        return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         column_type_sql: str = self.get_contract_type_dict()[create_table_column.type]
@@ -183,7 +183,7 @@ class SqlDialect:
         return columns_sql
 
     def _build_insert_into_values_sql(self, insert_into: INSERT_INTO) -> str:
-        values_sql: str = " VALUES " + ", ".join(
+        values_sql: str = " VALUES\n" + ",\n".join(
             [self._build_insert_into_values_row_sql(value) for value in insert_into.values]
         )
         return values_sql
