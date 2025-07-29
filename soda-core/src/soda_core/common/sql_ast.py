@@ -466,10 +466,14 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 @dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
-    type: DBDataType
+    type: DBDataType | str
     length: Optional[int] = None
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None
+    # If True, the type will be looked up in the contract type dict.
+    # This allows for our custom DBDataTypes to be used in the CREATE TABLE statement :).
+    # We have to do this, because in soda-extensions we sometimes get data types from the metadata query. We don't want to convert them into DBDataTypes, instead we use them as is.
+    do_type_lookup: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -479,7 +483,7 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
 @dataclass
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
-    values: list[VALUES]
+    values: list[VALUES_ROW]
     columns: Optional[list[COLUMN]] = None
 
     def __post_init__(self):
@@ -489,7 +493,7 @@ class INSERT_INTO(BaseSqlExpression):
 
 
 @dataclass
-class VALUES(BaseSqlExpression):
+class VALUES_ROW(BaseSqlExpression):
     values: list[SqlExpression | str]
 
     def __post_init__(self):

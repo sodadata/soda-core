@@ -72,13 +72,19 @@ def test_sql_ast_modeling_cte():
 def test_sql_ast_create_table_if_not_exists():
     sql_dialect: SqlDialect = SqlDialect()
 
-    my_create_table_statement = sql_dialect.build_create_table(
+    my_create_table_statement = sql_dialect.build_create_table_sql(
         CREATE_TABLE_IF_NOT_EXISTS(
             fully_qualified_table_name='"customers"',
             columns=[
-                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
-                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
-                CREATE_TABLE_COLUMN(name="age", type=DBDataType.INTEGER, nullable=True, default=LITERAL(25)),
+                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False, do_type_lookup=True),
+                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True, do_type_lookup=True),
+                CREATE_TABLE_COLUMN(
+                    name="age", type=DBDataType.INTEGER, nullable=True, default=LITERAL(25), do_type_lookup=True
+                ),
+                CREATE_TABLE_COLUMN(name="my_float", type=DBDataType.DECIMAL, nullable=True, do_type_lookup=True),
+                CREATE_TABLE_COLUMN(
+                    name="custom_type", type="my_own_datatype", nullable=True
+                ),  # This is not in the contract type dict.
             ],
         )
     )
@@ -86,7 +92,9 @@ def test_sql_ast_create_table_if_not_exists():
         my_create_table_statement == 'CREATE TABLE IF NOT EXISTS "customers" (\n'
         '\t"id" integer NOT NULL,\n'
         '\t"name" character varying(255),\n'
-        '\t"age" integer DEFAULT 25\n'
+        '\t"age" integer DEFAULT 25,\n'
+        '\t"my_float" double precision,\n'
+        '\t"custom_type" my_own_datatype\n'
         ");"
     )
 
@@ -98,8 +106,8 @@ def test_sql_ast_insert_into_no_columns():
         INSERT_INTO(
             fully_qualified_table_name='"customers"',
             values=[
-                VALUES([LITERAL(1), LITERAL("John"), LITERAL(25)]),
-                VALUES([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
+                VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL(25)]),
+                VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
             ],
         )
     )
@@ -115,8 +123,8 @@ def test_sql_ast_insert_into_with_columns():
             fully_qualified_table_name='"customers"',
             columns=[COLUMN("id"), COLUMN("name"), COLUMN("age")],
             values=[
-                VALUES([LITERAL(1), LITERAL("John"), LITERAL(25)]),
-                VALUES([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
+                VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL(25)]),
+                VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
             ],
         )
     )
@@ -136,8 +144,8 @@ def test_sql_ast_insert_into_with_datetimes():
         INSERT_INTO(
             fully_qualified_table_name='"customers"',
             values=[
-                VALUES([LITERAL(1), LITERAL("John"), LITERAL(25), LITERAL(now)]),
-                VALUES([LITERAL(2), LITERAL("Jane"), LITERAL(30), LITERAL(now)]),
+                VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL(25), LITERAL(now)]),
+                VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL(30), LITERAL(now)]),
             ],
         )
     )
