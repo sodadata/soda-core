@@ -6,21 +6,7 @@ from textwrap import dedent, indent
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
-
-
-class DBDataType:
-    """
-    DBDataTypes contains data source-neutral constants for referring to the basic, common column data types.
-    """
-
-    TEXT = "text"
-    INTEGER = "integer"
-    DECIMAL = "decimal"
-    DATE = "date"
-    TIME = "time"
-    TIMESTAMP = "timestamp"
-    TIMESTAMP_TZ = "timestamptz"
-    BOOLEAN = "boolean"
+from soda_core.common.sql_datatypes import DBDataType
 
 
 class SqlDialect:
@@ -100,6 +86,8 @@ class SqlDialect:
             return self.literal_list(o)
         elif isinstance(o, bool):
             return self.literal_boolean(o)
+        elif isinstance(o, LITERAL):  # If someone passes a LITERAL object, we want to use the value
+            return self.literal(o.value)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
 
     def supports_varchar_length(self) -> bool:
@@ -147,6 +135,93 @@ class SqlDialect:
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
+
+    #########################################################
+    # CREATE TABLE
+    #########################################################
+    def build_create_table_sql(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
+    ) -> str:
+        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
+        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+
+        create_table_sql = (
+            create_table_sql
+            + "(\n"
+            + ",\n".join([self._build_create_table_column(column) for column in create_table.columns])
+            + "\n)"
+        )
+        return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        column_name_quoted: str = self.quote_default(create_table_column.name)
+        column_type_sql: str = self._build_create_table_column_type(create_table_column)
+
+        is_nullable_sql: str = " NOT NULL" if create_table_column.nullable is False else ""
+        default_sql: str = (
+            f" DEFAULT {self.literal(create_table_column.default)}" if create_table_column.default else ""
+        )
+
+        return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
+
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        if create_table_column.do_type_lookup:
+            column_type_sql: str = self.get_contract_type_dict()[create_table_column.type]
+        else:
+            column_type_sql: str = (
+                create_table_column.type
+            )  # If we don't need to do the lookup, we just use the type as is.
+
+        # If there is a length, we need to add it to the column type.
+        if create_table_column.length:
+            # If the type is TEXT and the length is provided, we need to add the length to the column type.
+            # But only if we are doing a type lookup.
+            if create_table_column.type == DBDataType.TEXT and create_table_column.do_type_lookup:
+                column_type_sql = self.text_col_type(create_table_column.length)
+            # If the type is not a TEXT, we just add the length to the column type.
+            # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
+            # Note that a user can still pass a custom type with the desired length as well.
+            else:
+                column_type_sql = column_type_sql + f"({create_table_column.length})"
+        return column_type_sql
+
+    #########################################################
+    # DROP TABLE
+    #########################################################
+    def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = True) -> str:
+        if_exists_sql: str = "IF EXISTS " if isinstance(drop_table, DROP_TABLE_IF_EXISTS) else ""
+        return f"DROP TABLE {if_exists_sql}{drop_table.fully_qualified_table_name}" + (";" if add_semicolon else "")
+
+    #########################################################
+    # INSERT INTO
+    #########################################################
+    def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
+        insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
+        if insert_into.columns:
+            insert_into_sql += self._build_insert_into_columns_sql(insert_into)
+        insert_into_sql += self._build_insert_into_values_sql(insert_into)
+        return insert_into_sql + (";" if add_semicolon else "")
+
+    def _build_insert_into_columns_sql(self, insert_into: INSERT_INTO) -> str:
+        columns_sql: str = " (" + ", ".join([self.build_expression_sql(column) for column in insert_into.columns]) + ")"
+        return columns_sql
+
+    def _build_insert_into_values_sql(self, insert_into: INSERT_INTO) -> str:
+        values_sql: str = " VALUES\n" + ",\n".join(
+            [self._build_insert_into_values_row_sql(value) for value in insert_into.values]
+        )
+        return values_sql
+
+    def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
+        values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
+        values_sql = values_sql.encode("unicode_escape").decode(
+            "utf-8"
+        )  # This escapes values that contain newlines correctly.
+        return values_sql
+
+    #########################################################
+    # SELECT
+    #########################################################
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
