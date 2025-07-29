@@ -8,8 +8,11 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
+    INSERT_INTO,
     ORDINAL_POSITION,
     TUPLE,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
@@ -230,3 +233,11 @@ class OracleSqlDialect(SqlDialect):
     ) -> str:
         """No semicolon for Oracle"""
         return super().build_create_table_sql(create_table, add_semicolon)
+
+    def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = False) -> str:
+        """No semicolon for Oracle"""
+        return super().build_drop_table_sql(drop_table, add_semicolon)
+
+    def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = False) -> str:
+        """No semicolon for Oracle"""
+        return super().build_insert_into_sql(insert_into, add_semicolon)

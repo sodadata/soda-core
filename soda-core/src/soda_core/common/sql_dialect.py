@@ -202,6 +202,11 @@ class SqlDialect:
         insert_into_sql += self._build_insert_into_values_sql(insert_into)
         return insert_into_sql + (";" if add_semicolon else "")
 
+    def build_insert_into_via_select_sql(self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True) -> str:
+        insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
+        insert_into_sql += "(" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=add_semicolon) + ")"
+        return insert_into_sql + (";" if add_semicolon else "")
+
     def _build_insert_into_columns_sql(self, insert_into: INSERT_INTO) -> str:
         columns_sql: str = " (" + ", ".join([self.build_expression_sql(column) for column in insert_into.columns]) + ")"
         return columns_sql
