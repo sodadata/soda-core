@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 from helpers.test_table import TestTable
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
     SqlServerDataSourceTestHelper,
 )
@@ -35,27 +36,11 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
 
     def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
-
-            def literalize_row(row: tuple) -> list[str]:
-                return [self.data_source_impl.sql_dialect.literal(value) for value in row]
-
-            literal_row_values = [literalize_row(row_values) for row_values in test_table.row_values]
-
-            def format_literal_row_values(row: list[str]) -> str:
-                return ",".join(row)
-
-            rows_sql = " UNION ALL \nSELECT ".join([f"{format_literal_row_values(row)}" for row in literal_row_values])
-
-            rows_sql = f"SELECT {rows_sql}"
-
-            return self._insert_test_table_rows_sql_statement(
-                test_table.qualified_name, rows_sql, list(test_table.columns.keys())
+            insert_into_sql = self.data_source_impl.sql_dialect.build_insert_into_sql(
+                INSERT_INTO(
+                    fully_qualified_table_name=test_table.qualified_name,
+                    values=[VALUES_ROW(row) for row in test_table.row_values],
+                    columns=[column.name for column in test_table.columns.values()],
+                )
             )
-
-    def _insert_test_table_rows_sql_statement(
-        self, table_name_qualified_quoted: str, rows_sql: str, columns: list[str] = None
-    ) -> str:
-        return (
-            f"INSERT INTO {table_name_qualified_quoted} ({','.join([self.quote_column(column) for column in columns])}) \n"
-            f"{rows_sql};"
-        )
+            return insert_into_sql
