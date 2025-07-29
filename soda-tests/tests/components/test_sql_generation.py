@@ -154,3 +154,19 @@ def test_sql_ast_insert_into_with_datetimes():
         f"(1, 'John', 25, '{now.isoformat()}'),\n"
         f"(2, 'Jane', 30, '{now.isoformat()}');"
     )
+
+
+def test_sql_ast_drop_table():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_drop_table_statement = sql_dialect.build_drop_table_sql(DROP_TABLE(fully_qualified_table_name='"customers"'))
+    assert my_drop_table_statement == 'DROP TABLE "customers";'
+
+
+def test_sql_ast_drop_table_if_exists():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_drop_table_statement = sql_dialect.build_drop_table_sql(
+        DROP_TABLE_IF_EXISTS(fully_qualified_table_name='"customers"')
+    )
+    assert my_drop_table_statement == 'DROP TABLE IF EXISTS "customers";'

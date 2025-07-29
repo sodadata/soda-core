@@ -499,3 +499,17 @@ class VALUES_ROW(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.values)
+
+
+@dataclass
+class DROP_TABLE(BaseSqlExpression):
+    fully_qualified_table_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class DROP_TABLE_IF_EXISTS(DROP_TABLE):
+    def __post_init__(self):
+        super().__post_init__()
