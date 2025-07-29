@@ -8,11 +8,11 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
     INSERT_INTO,
     ORDINAL_POSITION,
     TUPLE,
-    DROP_TABLE,
-    DROP_TABLE_IF_EXISTS,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
