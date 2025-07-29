@@ -9,6 +9,8 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
     LENGTH,
     REGEX_LIKE,
     TUPLE,
@@ -50,6 +52,14 @@ class SQLServerSqlDialect(SqlDialect):
                         WHERE   name = N'{schema_name}' )
         EXEC('CREATE SCHEMA [{schema_name}]');
         """
+
+    def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = True) -> str:
+        if_exists_sql: str = (
+            f"IF OBJECT_ID('{drop_table.fully_qualified_table_name}', 'U') IS NOT NULL"
+            if isinstance(drop_table, DROP_TABLE_IF_EXISTS)
+            else ""
+        )
+        return f"{if_exists_sql} DROP TABLE {drop_table.fully_qualified_table_name}" + (";" if add_semicolon else "")
 
     def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
         if_not_exists_sql: str = (
