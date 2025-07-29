@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from soda_core.common.sql_dialect import *
 
 
@@ -86,9 +88,56 @@ def test_sql_ast_create_table_if_not_exists():
     )
 
 
-# def test_sql_ast_insert_into():
-#     sql_dialect: SqlDialect = SqlDialect()
+def test_sql_ast_insert_into_no_columns():
+    sql_dialect: SqlDialect = SqlDialect()
 
-#     assert sql_dialect.build_insert_into_sql(
-#         INSERT_INTO(fully_qualified_table_name="customers", values=[LITERAL(1), LITERAL("John"), LITERAL(25)])
-#     ) == "INSERT INTO customers (id, name, age) VALUES (1, 'John', 25);"
+    my_insert_into_statement = sql_dialect.build_insert_into_sql(
+        INSERT_INTO(
+            fully_qualified_table_name='"customers"',
+            values=[
+                VALUES([LITERAL(1), LITERAL("John"), LITERAL(25)]),
+                VALUES([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
+            ],
+        )
+    )
+
+    assert my_insert_into_statement == "INSERT INTO \"customers\" VALUES (1, 'John', 25), (2, 'Jane', 30);"
+
+
+def test_sql_ast_insert_into_with_columns():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_insert_into_statement = sql_dialect.build_insert_into_sql(
+        INSERT_INTO(
+            fully_qualified_table_name='"customers"',
+            columns=[COLUMN("id"), COLUMN("name"), COLUMN("age")],
+            values=[
+                VALUES([LITERAL(1), LITERAL("John"), LITERAL(25)]),
+                VALUES([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
+            ],
+        )
+    )
+    assert (
+        my_insert_into_statement
+        == 'INSERT INTO "customers" ("id", "name", "age") VALUES (1, \'John\', 25), (2, \'Jane\', 30);'
+    )
+
+
+def test_sql_ast_insert_into_with_datetimes():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    now = datetime.now()
+
+    my_insert_into_statement = sql_dialect.build_insert_into_sql(
+        INSERT_INTO(
+            fully_qualified_table_name='"customers"',
+            values=[
+                VALUES([LITERAL(1), LITERAL("John"), LITERAL(25), LITERAL(now)]),
+                VALUES([LITERAL(2), LITERAL("Jane"), LITERAL(30), LITERAL(now)]),
+            ],
+        )
+    )
+    assert (
+        my_insert_into_statement
+        == f"INSERT INTO \"customers\" VALUES (1, 'John', 25, '{now.isoformat()}'), (2, 'Jane', 30, '{now.isoformat()}');"
+    )

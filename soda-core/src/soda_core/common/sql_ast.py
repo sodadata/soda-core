@@ -480,7 +480,7 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
     values: list[VALUES]
-    columns: Optional[list[SqlExpression | str]] = None
+    columns: Optional[list[COLUMN]] = None
 
     def __post_init__(self):
         super().__post_init__()

@@ -131,6 +131,9 @@ class SqlDialect:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
 
+    #########################################################
+    # CREATE TABLE
+    #########################################################
     def build_create_table(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
@@ -164,6 +167,34 @@ class SqlDialect:
             else:
                 column_type_sql = column_type_sql + f"({create_table_column.length})"
         return column_type_sql
+
+    #########################################################
+    # INSERT INTO
+    #########################################################
+    def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
+        insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
+        if insert_into.columns:
+            insert_into_sql += self._build_insert_into_columns_sql(insert_into)
+        insert_into_sql += self._build_insert_into_values_sql(insert_into)
+        return insert_into_sql + (";" if add_semicolon else "")
+
+    def _build_insert_into_columns_sql(self, insert_into: INSERT_INTO) -> str:
+        columns_sql: str = " (" + ", ".join([self.build_expression_sql(column) for column in insert_into.columns]) + ")"
+        return columns_sql
+
+    def _build_insert_into_values_sql(self, insert_into: INSERT_INTO) -> str:
+        values_sql: str = " VALUES " + ", ".join(
+            [self._build_insert_into_values_row_sql(value) for value in insert_into.values]
+        )
+        return values_sql
+
+    def _build_insert_into_values_row_sql(self, values: VALUES) -> str:
+        values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
+        return values_sql
+
+    #########################################################
+    # SELECT
+    #########################################################
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
