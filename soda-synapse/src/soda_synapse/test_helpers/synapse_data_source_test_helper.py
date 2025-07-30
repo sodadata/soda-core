@@ -29,5 +29,4 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
                 client_secret: '{os.getenv("SYNAPSE_CLIENT_SECRET")}'
                 trust_server_certificate: true
                 driver: '{os.getenv("SYNAPSE_DRIVER", "ODBC Driver 18 for SQL Server")}'
-                autocommit: true
         """

@@ -73,3 +73,6 @@ class SynapseDataSource(DataSourceBase, ABC):
 class SynapseDataSourceConnection(SQLServerDataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
+
+    def _get_autocommit_setting(self) -> bool:
+        return True  # Synapse requires autocommit to be True.
