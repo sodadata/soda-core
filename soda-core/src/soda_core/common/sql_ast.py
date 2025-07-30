@@ -473,7 +473,7 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
     # If True, the type will be looked up in the contract type dict.
     # This allows for our custom DBDataTypes to be used in the CREATE TABLE statement :).
     # We have to do this, because in soda-extensions we sometimes get data types from the metadata query. We don't want to convert them into DBDataTypes, instead we use them as is.
-    do_type_lookup: bool = False
+    # do_type_lookup: bool = False
 
     def __post_init__(self):
         super().__post_init__()

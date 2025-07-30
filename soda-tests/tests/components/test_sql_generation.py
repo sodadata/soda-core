@@ -76,12 +76,10 @@ def test_sql_ast_create_table_if_not_exists():
         CREATE_TABLE_IF_NOT_EXISTS(
             fully_qualified_table_name='"customers"',
             columns=[
-                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False, do_type_lookup=True),
-                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True, do_type_lookup=True),
-                CREATE_TABLE_COLUMN(
-                    name="age", type=DBDataType.INTEGER, nullable=True, default=LITERAL(25), do_type_lookup=True
-                ),
-                CREATE_TABLE_COLUMN(name="my_float", type=DBDataType.DECIMAL, nullable=True, do_type_lookup=True),
+                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
+                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
+                CREATE_TABLE_COLUMN(name="age", type=DBDataType.INTEGER, nullable=True, default=LITERAL(25)),
+                CREATE_TABLE_COLUMN(name="my_float", type=DBDataType.DECIMAL, nullable=True),
                 CREATE_TABLE_COLUMN(
                     name="custom_type", type="my_own_datatype", nullable=True
                 ),  # This is not in the contract type dict.

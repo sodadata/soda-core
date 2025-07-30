@@ -160,7 +160,7 @@ class SqlDialect:
         return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        if create_table_column.do_type_lookup:
+        if isinstance(create_table_column.type, DBDataType):
             column_type_sql: str = self.get_contract_type_dict()[create_table_column.type]
         else:
             column_type_sql: str = (
@@ -171,7 +171,7 @@ class SqlDialect:
         if create_table_column.length:
             # If the type is TEXT and the length is provided, we need to add the length to the column type.
             # But only if we are doing a type lookup.
-            if create_table_column.type == DBDataType.TEXT and create_table_column.do_type_lookup:
+            if create_table_column.type == DBDataType.TEXT and isinstance(create_table_column.type, DBDataType):
                 column_type_sql = self.text_col_type(create_table_column.length)
             # If the type is not a TEXT, we just add the length to the column type.
             # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
