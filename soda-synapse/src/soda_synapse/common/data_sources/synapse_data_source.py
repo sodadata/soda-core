@@ -43,7 +43,5 @@ class SynapseSqlDialect(SQLServerSqlDialect):
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "SELECT " + ", ".join([self.literal(value) for value in values.values])
-        values_sql = values_sql.encode("unicode_escape").decode(
-            "utf-8"
-        )  # This escapes values that contain newlines correctly.
+        values_sql = self.encode_string_for_sql(values_sql)
         return values_sql

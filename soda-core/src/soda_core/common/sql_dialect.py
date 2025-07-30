@@ -213,9 +213,7 @@ class SqlDialect:
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
-        values_sql = values_sql.encode("unicode_escape").decode(
-            "utf-8"
-        )  # This escapes values that contain newlines correctly.
+        values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
 
     #########################################################
@@ -625,3 +623,7 @@ class SqlDialect:
 
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false
+
+    def encode_string_for_sql(self, string: str) -> str:
+        """This escapes values that contain newlines correctly."""
+        return string.encode("unicode_escape").decode("utf-8")
