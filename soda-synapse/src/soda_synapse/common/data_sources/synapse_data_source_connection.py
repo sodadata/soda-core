@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 from pydantic import Field
 from soda_core.common.logging_constants import soda_logger
@@ -28,7 +28,9 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 
 # All of these classes are just copies of the SQLServerConnectionProperties classes, but with the Synapse type
 class SynapseConnectionProperties(SQLServerConnectionProperties, ABC):
-    pass
+    autocommit: Optional[bool] = Field(
+        True, description="Whether to use autocommit"
+    )  # Synapse requires autocommit to be True.
 
 
 class SynapsePasswordAuth(SQLServerPasswordAuth, SynapseConnectionProperties):
