@@ -201,7 +201,3 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.qualify_dataset_name(
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
-
-    def quote_identifier(self, identifier: str) -> str:
-        c = self.sql_dialect.DEFAULT_QUOTE_CHAR
-        return f"{c}{identifier}{c}"
