@@ -107,14 +107,11 @@ class DataSourceConnection(ABC):
         usage: execute_query_one_by_one("SELECT ...", lambda row, description: your_handle_row(row))
         """
         # noinspection PyUnresolvedReferences
-        cursor = self.connection.cursor()
-        try:
+        with self.connection.cursor() as cursor:
             logger.debug(f"SQL query fetch one-by-one: \n{sql}")
             cursor.execute(sql)
             for row in cursor:
                 row_callback(row, cursor.description)
-        finally:
-            cursor.close()
 
     def commit(self) -> None:
         # noinspection PyUnresolvedReferences
