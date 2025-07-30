@@ -1,24 +1,25 @@
 import logging
 import re
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import (
+    CASE_WHEN,
+    COLUMN,
     COUNT,
     CREATE_TABLE,
     CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
+    EQ,
     INSERT_INTO,
     INSERT_INTO_VIA_SELECT,
-    ORDINAL_POSITION,
-    TUPLE,
-    COLUMN,
-    CASE_WHEN,
     IS_NOT_NULL,
     LITERAL,
-    EQ
+    ORDINAL_POSITION,
+    TUPLE,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
@@ -101,11 +102,10 @@ class OracleSqlDialect(SqlDialect):
 
     def format_metadata_data_type(self, data_type: str) -> str:
         """Oracle sometimes modifies data types to include precision (e.g. TIMESTAMP as TIMESTAMP(6)) in column metadata
-        
+
         We don't want data type comparisons to fail, so strip this extra information.
         """
-        return re.sub(r'\(\d+\)', '', data_type)
-
+        return re.sub(r"\(\d+\)", "", data_type)
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
@@ -193,18 +193,18 @@ class OracleSqlDialect(SqlDialect):
         - CHAR_USED='B' means "byte mode" in which case DATA_LENGTH is the max storage size in bytes, and CHAR_LENGTH is null
 
         The text storage mode is determined by user settings and defaults to BYTE.  Max string length for BYTE
-        columns depends on the character set used and will be at most one character per byte, and may be 
+        columns depends on the character set used and will be at most one character per byte, and may be
         significantly less.  We will assume one character per byte for now.
 
         DATA_LENGTH is populated for all fields, so we only want to use it for character columns, i.e. if CHAR_USED is not null
-          
-        """ 
-        return COLUMN(CASE_WHEN(
+
+        """
+        return COLUMN(
+            CASE_WHEN(
                 IS_NOT_NULL(COLUMN("CHAR_USED")),
-                CASE_WHEN(EQ(COLUMN("CHAR_USED"), LITERAL("C")), COLUMN("CHAR_LENGTH"), COLUMN("DATA_LENGTH"))                
-            )).AS("MAX_LENGTH")
-        
-        
+                CASE_WHEN(EQ(COLUMN("CHAR_USED"), LITERAL("C")), COLUMN("CHAR_LENGTH"), COLUMN("DATA_LENGTH")),
+            )
+        ).AS("MAX_LENGTH")
 
     def literal_date(self, date_value) -> str:
         """Oracle-specific date literal format"""

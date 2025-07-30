@@ -6,6 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_dialect import *
 
+
 @dataclass
 class ColumnMetadata:
     column_name: str
@@ -93,7 +94,9 @@ class MetadataColumnsQuery:
             return [
                 ColumnMetadata(
                     # Format data_type value here if needed -- default no-op
-                    column_name=column_name, data_type=self.sql_dialect.format_metadata_data_type(data_type), character_maximum_length=character_maximum_length
+                    column_name=column_name,
+                    data_type=self.sql_dialect.format_metadata_data_type(data_type),
+                    character_maximum_length=character_maximum_length,
                 )
                 for column_name, data_type, character_maximum_length in query_result.rows
             ]
