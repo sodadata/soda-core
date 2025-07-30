@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_datatypes import DBDataType
 
 logger: logging.Logger = soda_logger
 
@@ -442,5 +443,83 @@ class ORDER_BY_DESC(BaseSqlExpression):
 
 @dataclass
 class ORDINAL_POSITION(BaseSqlExpression):
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class CREATE_TABLE(BaseSqlExpression):
+    fully_qualified_table_name: str
+    columns: list[CREATE_TABLE_COLUMN]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.columns)
+
+
+@dataclass
+class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class CREATE_TABLE_COLUMN(BaseSqlExpression):
+    name: str
+    type: DBDataType | str
+    length: Optional[int] = None
+    nullable: Optional[bool] = None
+    default: Optional[SqlExpression | str] = None
+    # If True, the type will be looked up in the contract type dict.
+    # This allows for our custom DBDataTypes to be used in the CREATE TABLE statement :).
+    # We have to do this, because in soda-extensions we sometimes get data types from the metadata query. We don't want to convert them into DBDataTypes, instead we use them as is.
+    # do_type_lookup: bool = False
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.default)
+
+
+@dataclass
+class INSERT_INTO(BaseSqlExpression):
+    fully_qualified_table_name: str
+    values: list[VALUES_ROW]
+    columns: Optional[list[COLUMN]] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.columns)
+        self.handle_parent_node_update(self.values)
+
+
+@dataclass
+class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
+    fully_qualified_table_name: str
+    select_elements: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
+
+
+@dataclass
+class VALUES_ROW(BaseSqlExpression):
+    values: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.values)
+
+
+@dataclass
+class DROP_TABLE(BaseSqlExpression):
+    fully_qualified_table_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class DROP_TABLE_IF_EXISTS(DROP_TABLE):
     def __post_init__(self):
         super().__post_init__()
