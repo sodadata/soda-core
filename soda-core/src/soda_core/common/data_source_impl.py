@@ -122,6 +122,9 @@ class DataSourceImpl(ABC):
     def execute_query(self, sql: str) -> QueryResult:
         return self.data_source_connection.execute_query(sql=sql)
 
+    def execute_query_one_by_one(self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None]) -> None:
+        return self.data_source_connection.execute_query_one_by_one(sql=sql, row_callback=row_callback)
+
     def execute_update(self, sql: str) -> UpdateResult:
         return self.data_source_connection.execute_update(sql=sql)
 
