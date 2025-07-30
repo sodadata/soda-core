@@ -143,7 +143,7 @@ class YamlSource:
         soda_values: Optional[dict[str, str]] = None,
         use_env_vars: bool = True
     ) -> None:
-        
+
 
 
     @classmethod

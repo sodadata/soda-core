@@ -4,8 +4,11 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.file import File
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import VariableResolver, YamlObject, Yaml
-from soda_core.contracts.contract_verification import ContractVerificationResult, SodaException
+from soda_core.common.yaml import VariableResolver, Yaml, YamlObject
+from soda_core.contracts.contract_verification import (
+    ContractVerificationResult,
+    SodaException,
+)
 from soda_core.contracts.impl.diagnostics_configuration import DiagnosticsConfiguration
 
 
@@ -54,6 +57,7 @@ def verify_contract_locally(
             logs=logs,
         )
 
+
 def _execute_locally_impl(
     data_source_impl: DataSourceImpl,
     soda_cloud_impl: SodaCloud,
@@ -66,9 +70,6 @@ def _execute_locally_impl(
     diagnostics_configuration: Optional[DiagnosticsConfiguration],
     logs: Logs,
 ) -> ContractVerificationResult:
-
-
-
     contract_yaml: ContractYaml = ContractYaml.parse(
         contract_yaml_source=contract_yaml_source,
         provided_variable_values=variables,
@@ -90,10 +91,7 @@ def _execute_locally_impl(
 
 
 def _build_data_source_impl(
-    data_source_file_path: Optional[str],
-    data_source_yaml_str: Optional[str],
-    variables: dict[str, str],
-    logs: Logs
+    data_source_file_path: Optional[str], data_source_yaml_str: Optional[str], variables: dict[str, str], logs: Logs
 ) -> DataSourceImpl:
     data_source_yaml_object: YamlObject = _parse_yaml_object(
         file_path=data_source_file_path,
@@ -104,17 +102,11 @@ def _build_data_source_impl(
         logs=logs,
     )
 
-    return DataSourceImpl.parse(
-        data_source_yaml_object=data_source_yaml_object,
-        logs=logs
-    )
+    return DataSourceImpl.parse(data_source_yaml_object=data_source_yaml_object, logs=logs)
 
 
 def _build_soda_cloud(
-    soda_cloud_file_path: Optional[str],
-    soda_cloud_yaml_str: Optional[str],
-    variables: dict[str, str],
-    logs: Logs
+    soda_cloud_file_path: Optional[str], soda_cloud_yaml_str: Optional[str], variables: dict[str, str], logs: Logs
 ) -> SodaCloud:
     soda_cloud_yaml_object: YamlObject = _parse_yaml_object(
         file_path=soda_cloud_file_path,
@@ -125,10 +117,7 @@ def _build_soda_cloud(
         logs=logs,
     )
 
-    return SodaCloud.parse(
-        data_source_yaml_object=soda_cloud_yaml_object,
-        logs=logs
-    )
+    return SodaCloud.parse(data_source_yaml_object=soda_cloud_yaml_object, logs=logs)
 
 
 def _parse_yaml_object(
@@ -151,14 +140,10 @@ def _parse_yaml_object(
         yaml_str = File.read(file_path)
 
     if yaml_str is None:
-        raise SodaException(
-            f"No {file_path_variable_name} nor {yaml_str_variable_name} specified"
-        )
+        raise SodaException(f"No {file_path_variable_name} nor {yaml_str_variable_name} specified")
 
     if not isinstance(yaml_str, str):
-        raise SodaException(
-            f"Expected {yaml_str_variable_name} to be a string, but was {type(yaml_str).__name__}"
-        )
+        raise SodaException(f"Expected {yaml_str_variable_name} to be a string, but was {type(yaml_str).__name__}")
 
     resolved_yaml_str: str = VariableResolver.resolve(
         source_text=yaml_str, variable_values=variables, use_env_vars=True
