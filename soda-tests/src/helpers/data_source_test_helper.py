@@ -13,6 +13,7 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -65,6 +66,18 @@ class DataSourceTestHelper:
             )
 
             return BigQueryDataSourceTestHelper()
+        elif test_datasource == "sqlserver":
+            from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
+                SqlServerDataSourceTestHelper,
+            )
+
+            return SqlServerDataSourceTestHelper()
+        elif test_datasource == "synapse":
+            from soda_synapse.test_helpers.synapse_data_source_test_helper import (
+                SynapseDataSourceTestHelper,
+            )
+
+            return SynapseDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -255,7 +268,7 @@ class DataSourceTestHelper:
         if self.is_cicd:
             self.drop_test_schema_if_exists()
 
-    def query_existing_test_table_names(self):
+    def query_existing_test_tables(self) -> list[FullyQualifiedTableName]:
         database: Optional[str] = None
         if self.data_source_impl.sql_dialect.get_database_prefix_index() is not None:
             database = self.dataset_prefix[self.data_source_impl.sql_dialect.get_database_prefix_index()]
@@ -270,6 +283,10 @@ class DataSourceTestHelper:
             schema_name=schema,
             include_table_name_like_filters=["SODATEST_%"],
         )
+        return fully_qualified_table_names
+
+    def query_existing_test_table_names(self) -> list[str]:
+        fully_qualified_table_names = self.query_existing_test_tables()
         return [
             fully_qualified_test_table_name.table_name
             for fully_qualified_test_table_name in fully_qualified_table_names
@@ -316,7 +333,10 @@ class DataSourceTestHelper:
             existing_test_table_names_lower: list[str] = [
                 existing_test_table_name.lower() for existing_test_table_name in self.existing_test_table_names
             ]
-            if test_table_specification.unique_name.lower() not in existing_test_table_names_lower:
+            if (
+                test_table_specification.unique_name.lower() not in existing_test_table_names_lower
+                or not self.verify_test_table_row_count(test_table_specification)
+            ):
                 obsolete_table_names = [
                     existing_test_table
                     for existing_test_table in self.existing_test_table_names
@@ -337,6 +357,27 @@ class DataSourceTestHelper:
             logger.debug(f"Test table {test_table.unique_name} already exists")
 
         return test_table
+
+    def verify_test_table_row_count(self, test_table_specification: TestTableSpecification) -> bool:
+        expected_row_values = test_table_specification.row_values
+        if expected_row_values is None:
+            expected_row_values = (
+                []
+            )  # This is a table that is not expected to have any rows. We should check that as well!
+        row_count_sql = f"SELECT COUNT(*) FROM {self.data_source_impl.sql_dialect.qualify_dataset_name(self.dataset_prefix, test_table_specification.unique_name)}"
+        row_count = self.data_source_impl.execute_query(row_count_sql)
+        try:
+            row_count_int = int(row_count.rows[0][0])
+        except ValueError:
+            row_count_int = None
+
+        if row_count_int is not None and row_count_int != len(expected_row_values):
+            logger.warning(
+                f"Test table {test_table_specification.unique_name} has {row_count_int} rows, expected {len(expected_row_values)}"
+            )
+            logger.warning(f"Attempting to drop and recreate table {test_table_specification.unique_name}")
+            return False
+        return True
 
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
         columns: list[TestColumn] = []
@@ -393,21 +434,14 @@ class DataSourceTestHelper:
 
     def _insert_test_table_rows_sql(self, test_table: TestTable) -> str:
         if test_table.row_values:
-
-            def literalize_row(row: tuple) -> list[str]:
-                return [self.data_source_impl.sql_dialect.literal(value) for value in row]
-
-            literal_row_values = [literalize_row(row_values) for row_values in test_table.row_values]
-
-            def format_literal_row_values(row: list[str]) -> str:
-                return ",".join(row)
-
-            rows_sql = ",\n".join([f"  ({format_literal_row_values(row)})" for row in literal_row_values])
-
-            return self._insert_test_table_rows_sql_statement(test_table.qualified_name, rows_sql)
-
-    def _insert_test_table_rows_sql_statement(self, table_name_qualified_quoted, rows_sql):
-        return f"INSERT INTO {table_name_qualified_quoted} VALUES \n" f"{rows_sql};"
+            insert_into_sql = self.data_source_impl.sql_dialect.build_insert_into_sql(
+                INSERT_INTO(
+                    fully_qualified_table_name=test_table.qualified_name,
+                    values=[VALUES_ROW(row) for row in test_table.row_values],
+                    columns=[column.name for column in test_table.columns.values()],
+                )
+            )
+            return insert_into_sql
 
     def _drop_test_table(self, table_name: str) -> None:
         sql: str = self._drop_test_table_sql(table_name)

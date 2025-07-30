@@ -627,3 +627,10 @@ class SqlDialect:
 
     def quote_column(self, column_name: str) -> str:
         return self.quote_default(column_name)
+
+    def supports_regex_advanced(self) -> bool:
+        return True  # Default to true, but specific dialects can override to false
+
+    def encode_string_for_sql(self, string: str) -> str:
+        """This escapes values that contain newlines correctly."""
+        return string.encode("unicode_escape").decode("utf-8")
