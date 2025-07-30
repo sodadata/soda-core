@@ -71,6 +71,7 @@ class ContractVerificationHandler:
         contract_verification_result: ContractVerificationResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
+        dwh_data_source_file_path: Optional[str] = None
     ):
         pass
 
@@ -90,6 +91,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        dwh_data_source_file_path: Optional[str] = None,
     ):
         # Start capturing logs
         logs: Logs = Logs()
@@ -158,6 +160,7 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
+                dwh_data_source_file_path=dwh_data_source_file_path
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -173,6 +176,7 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: list[DataSourceYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
+        dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
         contract_verification_results: list[ContractVerificationResult] = []
 
@@ -208,6 +212,7 @@ class ContractVerificationSessionImpl:
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
+                        dwh_data_source_file_path=dwh_data_source_file_path
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
                     contract_verification_results.append(contract_verification_result)
@@ -311,6 +316,7 @@ class ContractImpl:
         execution_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
+        dwh_data_source_file_path: Optional[str] = None
     ):
         self.logs: Logs = logs
         self.contract_yaml: ContractYaml = contract_yaml
@@ -385,6 +391,8 @@ class ContractImpl:
         self.queries: list[Query] = []
         if data_source_impl:
             self.queries = self._build_queries()
+
+        self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
@@ -557,6 +565,7 @@ class ContractImpl:
                 contract_verification_result=contract_verification_result,
                 soda_cloud=self.soda_cloud,
                 soda_cloud_send_results_response_json=soda_cloud_response_json,
+                dwh_data_source_file_path=self.dwh_data_source_file_path
             )
 
         return contract_verification_result
