@@ -28,6 +28,40 @@ class YamlParser:
         return stream.getvalue()
 
 
+class Yaml:
+
+    __yaml_parser = YamlParser()
+
+    @classmethod
+    def parse(cls, yaml_str: str, file_path: str) -> YamlObject:
+        location = Location(file_path=file_path)
+        if not isinstance(yaml_str, str):
+            raise YamlParserException("YAML source is not a string", str(location))
+
+        try:
+            root_yaml_object: any = cls.__yaml_parser.ruamel_yaml_parser.load(yaml_str)
+            if isinstance(root_yaml_object, dict):
+                yaml_source: YamlSource = YamlSource(file_path=file_path, yaml_str=yaml_str)
+                return YamlObject(
+                    yaml_source=yaml_source,
+                    yaml_dict=root_yaml_object
+                )
+            else:
+                yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
+                yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
+                raise YamlParserException(
+                    f"{file_path} root must be an object, but was {yaml_type}", str(location)
+                )
+
+        except MarkedYAMLError as e:
+            mark = e.context_mark if e.context_mark else e.problem_mark
+            line = mark.line + 1
+            col = mark.column + 1
+            location = Location(file_path=file_path, line=line, column=col)
+            raise YamlParserException(f"YAML syntax error", str(location))
+
+
+# Deprecated
 class FileType(str, Enum):
     DATA_SOURCE = "Data Source"
     SODA_CLOUD = "Soda Cloud"
@@ -102,6 +136,15 @@ class YamlSource:
 
     def __str__(self) -> str:
         return self.description
+
+    def resolve_variables(
+        self,
+        var_values: Optional[dict[str, str]] = None,
+        soda_values: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True
+    ) -> None:
+        
+
 
     @classmethod
     def _build_description(cls, file_type: str, file_path: Optional[str]) -> str:

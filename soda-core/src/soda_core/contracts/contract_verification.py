@@ -20,6 +20,7 @@ class ContractVerificationSession:
     @classmethod
     def execute(
         cls,
+        contract_yaml_source: Optional[ContractYamlSource],
         contract_yaml_sources: list[ContractYamlSource],
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
