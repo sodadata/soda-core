@@ -8,7 +8,6 @@ description = "Soda Synapse V4"
 
 requires = [
     f"soda-core=={package_version}",
-    "pyodbc",
     f"soda-sqlserver=={package_version}",
 ]
 
