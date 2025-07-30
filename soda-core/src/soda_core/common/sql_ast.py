@@ -240,7 +240,7 @@ class LENGTH(SqlExpression):
 
 @dataclass
 class COLUMN(SqlExpression):
-    name: str
+    name: SqlExpression | str   # Modified to allow SQL expressions, e.g. if you need to use a case statement to generate a column during SELECT
     table_alias: Optional[str] = None
     field_alias: Optional[str] = None
 

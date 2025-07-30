@@ -1,5 +1,5 @@
 import logging
-
+import re
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
@@ -11,8 +11,14 @@ from soda_core.common.sql_ast import (
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     INSERT_INTO,
+    INSERT_INTO_VIA_SELECT,
     ORDINAL_POSITION,
     TUPLE,
+    COLUMN,
+    CASE_WHEN,
+    IS_NOT_NULL,
+    LITERAL,
+    EQ
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
@@ -79,16 +85,6 @@ class OracleDataSourceImpl(DataSourceImpl, model_class=OracleDataSourceModel):
 class OracleSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = '"'
 
-    def get_sql_type_dict(self) -> dict[str, str]:
-        """Data type that is used in the create table statement.
-        This can include the length of the column, e.g. VARCHAR(255)"""
-        result = self.get_contract_type_dict()
-        result[DBDataType.TEXT] = "VARCHAR2(255)"
-        result[DBDataType.INTEGER] = "NUMBER(10)"
-        result[DBDataType.DECIMAL] = "NUMBER(10, 2)"
-
-        return result
-
     def get_contract_type_dict(self) -> dict[str, str]:
         """Data type that is used in the contract.
         This does **NOT** include the length of the column, e.g. VARCHAR"""
@@ -103,12 +99,13 @@ class OracleSqlDialect(SqlDialect):
             DBDataType.BOOLEAN: "BOOLEAN",
         }
 
-    def add_data_type_default_length(self, data_type: str) -> str:
-        """In some cases data type metadata includes a length e.g. DATE(7) for DATE columns in Oracle.
-        Return data type with default length if it exists.  Used in testing column type mismatches."""
-        if data_type == self.get_contract_type_dict()[DBDataType.DATE]:
-            return data_type + "(7)"
-        return data_type
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """Oracle sometimes modifies data types to include precision (e.g. TIMESTAMP as TIMESTAMP(6)) in column metadata
+        
+        We don't want data type comparisons to fail, so strip this extra information.
+        """
+        return re.sub(r'\(\d+\)', '', data_type)
+
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
@@ -191,7 +188,23 @@ class OracleSqlDialect(SqlDialect):
         return "DATA_TYPE"
 
     def column_data_type_max_length(self) -> str:
-        return "DATA_LENGTH"
+        """Oracle has two different ways to store text data:
+        - CHAR_USED='C' means "char mode" in which case CHAR_LENGTH is the max string length in characters
+        - CHAR_USED='B' means "byte mode" in which case DATA_LENGTH is the max storage size in bytes, and CHAR_LENGTH is null
+
+        The text storage mode is determined by user settings and defaults to BYTE.  Max string length for BYTE
+        columns depends on the character set used and will be at most one character per byte, and may be 
+        significantly less.  We will assume one character per byte for now.
+
+        DATA_LENGTH is populated for all fields, so we only want to use it for character columns, i.e. if CHAR_USED is not null
+          
+        """ 
+        return COLUMN(CASE_WHEN(
+                IS_NOT_NULL(COLUMN("CHAR_USED")),
+                CASE_WHEN(EQ(COLUMN("CHAR_USED"), LITERAL("C")), COLUMN("CHAR_LENGTH"), COLUMN("DATA_LENGTH"))                
+            )).AS("MAX_LENGTH")
+        
+        
 
     def literal_date(self, date_value) -> str:
         """Oracle-specific date literal format"""
@@ -241,3 +254,9 @@ class OracleSqlDialect(SqlDialect):
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = False) -> str:
         """No semicolon for Oracle"""
         return super().build_insert_into_sql(insert_into, add_semicolon)
+
+    def build_insert_into_via_select_sql(
+        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = False
+    ) -> str:
+        """No semicolon for Oracle"""
+        return super().build_insert_into_via_select_sql(insert_into_via_select, add_semicolon)

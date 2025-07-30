@@ -45,11 +45,6 @@ class SqlDialect:
             DBDataType.BOOLEAN: "boolean",
         }
 
-    def add_data_type_default_length(self, data_type: str) -> str:
-        """In some cases data type metadata includes a length e.g. DATE(7) for DATE columns in Oracle.
-        Return data type with default length if it exists.  Used in testing column type mismatches."""
-        return data_type
-
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
             f"{self.DEFAULT_QUOTE_CHAR}{identifier}{self.DEFAULT_QUOTE_CHAR}"
@@ -356,7 +351,7 @@ class SqlDialect:
 
     def _build_column_sql(self, column: COLUMN) -> str:
         table_alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
-        column_sql: str = self.quote_default(column.name)
+        column_sql: str = self.build_expression_sql(column.name)   # Now supports any expression.  If string is passed, will default to old quote_default behavior
         field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
         return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
@@ -647,3 +642,7 @@ class SqlDialect:
 
     def quote_column(self, column_name: str) -> str:
         return self.quote_default(column_name)
+
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
+        return data_type
