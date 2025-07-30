@@ -268,7 +268,7 @@ class DataSourceTestHelper:
         if self.is_cicd:
             self.drop_test_schema_if_exists()
 
-    def query_existing_test_table_names(self, return_fully_qualified_table_names: bool = False):
+    def query_existing_test_tables(self) -> list[FullyQualifiedTableName]:
         database: Optional[str] = None
         if self.data_source_impl.sql_dialect.get_database_prefix_index() is not None:
             database = self.dataset_prefix[self.data_source_impl.sql_dialect.get_database_prefix_index()]
@@ -283,8 +283,10 @@ class DataSourceTestHelper:
             schema_name=schema,
             include_table_name_like_filters=["SODATEST_%"],
         )
-        if return_fully_qualified_table_names:
-            return fully_qualified_table_names
+        return fully_qualified_table_names
+
+    def query_existing_test_table_names(self) -> list[str]:
+        fully_qualified_table_names = self.query_existing_test_tables()
         return [
             fully_qualified_test_table_name.table_name
             for fully_qualified_test_table_name in fully_qualified_table_names

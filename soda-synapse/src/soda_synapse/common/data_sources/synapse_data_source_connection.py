@@ -7,9 +7,6 @@ from typing import Literal, Optional, Union
 from pydantic import Field
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
-from soda_core.model.data_source.data_source_connection_properties import (
-    DataSourceConnectionProperties,
-)
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SQLServerActiveDirectoryAuthentication,
     SQLServerActiveDirectoryInteractiveAuthentication,
@@ -71,8 +68,5 @@ class SynapseDataSource(DataSourceBase, ABC):
 
 
 class SynapseDataSourceConnection(SQLServerDataSourceConnection):
-    def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
-        super().__init__(name, connection_properties)
-
     def _get_autocommit_setting(self) -> bool:
         return True  # Synapse requires autocommit to be True.

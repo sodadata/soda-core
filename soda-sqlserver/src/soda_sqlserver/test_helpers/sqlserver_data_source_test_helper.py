@@ -33,7 +33,7 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
         The logic is the same: drop all tables, and then drop the schema if it exists.
         This is a more "manual" approach, but it is more readable and works with Synapse."""
         # First find all the tables in the schema
-        table_names: list[str] = self.query_existing_test_table_names(return_fully_qualified_table_names=True)
+        table_names: list[str] = self.query_existing_test_tables()
         for fully_qualified_table_name in table_names:
             table_identifier = f"{fully_qualified_table_name.database_name}.{fully_qualified_table_name.schema_name}.{fully_qualified_table_name.table_name}"
             self.data_source_impl.execute_update(f"DROP TABLE {table_identifier};")
