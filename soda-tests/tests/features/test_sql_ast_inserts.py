@@ -24,9 +24,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
     dataset_prefix = data_source_test_helper.dataset_prefix
-    quote = data_source_impl.sql_dialect.quote_default
 
-    my_table_name = f"{quote(dataset_prefix[0])}.{quote(dataset_prefix[1])}.{quote('my_test_test_table')}"
+    my_table_name = sql_dialect.qualify_dataset_name(dataset_prefix, "my_test_test_table")
 
     # Drop table if exists
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
