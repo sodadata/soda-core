@@ -1,5 +1,6 @@
 import hashlib
 
+
 def fips_safe_hasher(digest_size: int):
     """
     Returns a hash object that mimics hashlib.blake2b.
@@ -8,6 +9,7 @@ def fips_safe_hasher(digest_size: int):
     try:
         return hashlib.blake2b(digest_size=digest_size)
     except (TypeError, ValueError, AttributeError):
+
         class TruncatedSHA256:
             def __init__(self):
                 self._hasher = hashlib.sha256()
@@ -17,9 +19,9 @@ def fips_safe_hasher(digest_size: int):
                 self._hasher.update(data)
 
             def digest(self):
-                return self._hasher.digest()[:self.digest_size]
+                return self._hasher.digest()[: self.digest_size]
 
             def hexdigest(self):
-                return self._hasher.hexdigest()[:self.digest_size * 2]
+                return self._hasher.hexdigest()[: self.digest_size * 2]
 
         return TruncatedSHA256()
