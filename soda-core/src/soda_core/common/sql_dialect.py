@@ -196,7 +196,7 @@ class SqlDialect:
     #########################################################
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
-        if insert_into.columns:
+        if insert_into.columns or self._does_datasource_require_columns_for_insert():
             insert_into_sql += self._build_insert_into_columns_sql(insert_into)
         insert_into_sql += self._build_insert_into_values_sql(insert_into)
         return insert_into_sql + (";" if add_semicolon else "")
@@ -209,7 +209,7 @@ class SqlDialect:
         self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
     ) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
-        if insert_into_via_select.columns:
+        if insert_into_via_select.columns or self._does_datasource_require_columns_for_insert():
             insert_into_sql += self._build_insert_into_columns_sql(insert_into_via_select) + "\n"
         insert_into_sql += (
             "(\n" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False) + "\n)"
@@ -224,10 +224,11 @@ class SqlDialect:
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
-        values_sql = values_sql.encode("unicode_escape").decode(
-            "utf-8"
-        )  # This escapes values that contain newlines correctly.
+        values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
+
+    def _does_datasource_require_columns_for_insert(self) -> bool:
+        return False  # Default to false, but specific dialects can override to true.
 
     #########################################################
     # SELECT

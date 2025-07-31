@@ -470,10 +470,6 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
     length: Optional[int] = None
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None
-    # If True, the type will be looked up in the contract type dict.
-    # This allows for our custom DBDataTypes to be used in the CREATE TABLE statement :).
-    # We have to do this, because in soda-extensions we sometimes get data types from the metadata query. We don't want to convert them into DBDataTypes, instead we use them as is.
-    # do_type_lookup: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -486,7 +482,8 @@ class INSERT_INTO(BaseSqlExpression):
     values: list[VALUES_ROW]
     columns: Optional[
         list[COLUMN]
-    ] = None  # Sqlserver and synapse REQUIRE these to be specified. (Maybe there is a workaround for this using metadata to automatically determine the columns?)
+    ] = None  # For SQLServer and Synapse, if the columns are not specified, the metadata query is used to determine the columns.
+    # The order of values that is inserted should be the ordinal position of the columns!
 
     def __post_init__(self):
         super().__post_init__()
@@ -500,7 +497,8 @@ class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     select_elements: list[SqlExpression | str]
     columns: Optional[
         list[COLUMN]
-    ] = None  # Sqlserver and synapse REQUIRE these to be specified. (Maybe there is a workaround for this using metadata to automatically determine the columns?)
+    ] = None  # For SQLServer and Synapse, if the columns are not specified, the metadata query is used to determine the columns.
+    # The order of values that is inserted should be the ordinal position of the columns!
 
     def __post_init__(self):
         super().__post_init__()
