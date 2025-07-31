@@ -484,7 +484,9 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
     values: list[VALUES_ROW]
-    columns: Optional[list[COLUMN]] = None
+    columns: Optional[
+        list[COLUMN]
+    ] = None  # Sqlserver and synapse REQUIRE these to be specified. (Maybe there is a workaround for this using metadata to automatically determine the columns?)
 
     def __post_init__(self):
         super().__post_init__()
@@ -496,10 +498,14 @@ class INSERT_INTO(BaseSqlExpression):
 class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
     select_elements: list[SqlExpression | str]
+    columns: Optional[
+        list[COLUMN]
+    ] = None  # Sqlserver and synapse REQUIRE these to be specified. (Maybe there is a workaround for this using metadata to automatically determine the columns?)
 
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.select_elements)
+        self.handle_parent_node_update(self.columns)
 
 
 @dataclass

@@ -154,6 +154,35 @@ def test_sql_ast_insert_into_with_datetimes():
     )
 
 
+def test_sql_ast_insert_into_via_select():
+    sql_dialect: SqlDialect = SqlDialect()
+    my_insert_into_statement = sql_dialect.build_insert_into_via_select_sql(
+        INSERT_INTO_VIA_SELECT(
+            fully_qualified_table_name='"customers"',
+            select_elements=[
+                SELECT(COLUMN("name").IN("C")),
+                FROM("customers").AS("C").IN(["sdb", "mschm"]),
+                WHERE(GTE("colA", LITERAL(25))),
+                AND(EQ("colB", LITERAL("XXX"))),
+                AND(LIKE("colC", LITERAL("%xxx"))),
+            ],
+            columns=[COLUMN("name"), COLUMN("age")],
+        )
+    )
+    assert (
+        my_insert_into_statement
+        == 'INSERT INTO "customers"\n'
+        + ' ("name", "age")\n'
+        + "(\n"
+        + 'SELECT "C"."name"\n'
+        + 'FROM "sdb"."mschm"."customers" AS "C"\n'
+        + 'WHERE "colA" >= 25\n'
+        + "  AND \"colB\" = 'XXX'\n"
+        + "  AND \"colC\" like '%xxx'\n"
+        + ");"
+    )
+
+
 def test_sql_ast_drop_table():
     sql_dialect: SqlDialect = SqlDialect()
 

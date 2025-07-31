@@ -137,8 +137,7 @@ class SqlDialect:
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
-        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
-        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        create_table_sql = self._build_create_table_statement_sql(create_table)
 
         create_table_sql = (
             create_table_sql
@@ -147,6 +146,11 @@ class SqlDialect:
             + "\n)"
         )
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
+        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
+        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        return create_table_sql
 
     def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         column_name_quoted: str = self.quote_default(create_table_column.name)
@@ -205,8 +209,10 @@ class SqlDialect:
         self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
     ) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
+        if insert_into_via_select.columns:
+            insert_into_sql += self._build_insert_into_columns_sql(insert_into_via_select) + "\n"
         insert_into_sql += (
-            "(" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False) + ")"
+            "(\n" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False) + "\n)"
         )
         return insert_into_sql + (";" if add_semicolon else "")
 
