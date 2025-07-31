@@ -47,7 +47,7 @@ def verify_contracts_locally(
         data_timestamp=data_timestamp,
         publish=publish,
         use_agent=False,
-        dwh_data_source_file_path=dwh_data_source_file_path
+        dwh_data_source_file_path=dwh_data_source_file_path,
     )
 
 
@@ -149,7 +149,7 @@ def verify_contracts(
             soda_cloud_use_agent=use_agent,
             soda_cloud_verbose=verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
-            dwh_data_source_file_path=dwh_data_source_file_path
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
         soda_telemetry.ingest_contract_verification_session_result(

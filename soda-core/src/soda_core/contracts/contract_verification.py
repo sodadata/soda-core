@@ -49,7 +49,7 @@ class ContractVerificationSession:
             soda_cloud_use_agent=soda_cloud_use_agent,
             soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
-            dwh_data_source_file_path=dwh_data_source_file_path
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
 

@@ -197,15 +197,11 @@ class SqlDialect:
     # INSERT INTO
     #########################################################
     def build_insert_sql(self, insert: InsertSqlStatement) -> str:
-        columns: str = (
-            "(" + ", ".join(self.quote_column(c) for c in insert.columns) + ") "
-            if insert.columns else ""
-        )
+        columns: str = "(" + ", ".join(self.quote_column(c) for c in insert.columns) + ") " if insert.columns else ""
         if insert.values:
-            values: str = ",\n  ".join([
-                ("(" + ", ".join([self.literal(value) for value in row]) + ")")
-                for row in insert.values
-            ])
+            values: str = ",\n  ".join(
+                [("(" + ", ".join([self.literal(value) for value in row]) + ")") for row in insert.values]
+            )
             return f"INSERT INTO {insert.fully_qualified_table_name} {columns}VALUES\n  {values}"
         if insert.select:
             select_sql: str = indent(self.build_select_sql(insert.select, add_semicolon=False), "  ")
