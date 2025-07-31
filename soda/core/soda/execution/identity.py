@@ -3,6 +3,7 @@ from datetime import timedelta
 from hashlib import blake2b
 from numbers import Number
 from typing import Optional
+from soda.common.hash_utils import fips_safe_hasher
 
 
 class Identity:
@@ -63,7 +64,8 @@ class ConsistentHashBuilder:
     def get_blake2b(self) -> blake2b:
         # Lazy initialization of blake2b in order to return None in the self.get_hash(self) in case nothing was added
         if self.blake2b is None:
-            self.blake2b = blake2b(digest_size=int(self.hash_string_length / 2))
+            #self.blake2b = blake2b(digest_size=int(self.hash_string_length / 2))
+            self.blake2b = fips_safe_hasher(digest_size=int(self.hash_string_length / 2))
         return self.blake2b
 
     def add(self, value: Optional[str]):
