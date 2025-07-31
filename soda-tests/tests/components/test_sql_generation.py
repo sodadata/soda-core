@@ -168,3 +168,57 @@ def test_sql_ast_drop_table_if_exists():
         DROP_TABLE_IF_EXISTS(fully_qualified_table_name='"customers"')
     )
     assert my_drop_table_statement == 'DROP TABLE IF EXISTS "customers";'
+
+
+def test_sql_insert_values_new_style():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_sql_str(
+        InsertSqlStatement(
+            fully_qualified_table_name='"slfc"."customers"',
+            columns=["c1", "c2"],
+            values=[[LITERAL(1), LITERAL("a")], [LITERAL(2), LITERAL("b")]],
+        )
+    ) == (
+        'INSERT INTO "slfc"."customers" ("c1", "c2") VALUES\n'
+        "  (1, 'a'),\n"
+        "  (2, 'b')"
+    )
+
+
+def test_sql_insert_values_no_columns_new_style():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_sql_str(
+        InsertSqlStatement(
+            fully_qualified_table_name='"slfc"."customers"',
+            values=[[LITERAL(1), LITERAL("a")], [LITERAL(2), LITERAL("b")]],
+        )
+    ) == (
+        'INSERT INTO "slfc"."customers" VALUES\n'
+        "  (1, 'a'),\n"
+        "  (2, 'b')"
+    )
+
+
+def test_sql_insert_select_new_style():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_sql_str(
+        InsertSqlStatement(
+            fully_qualified_table_name='"slfc"."customers"',
+            columns=["c1", "c2"],
+            select=[
+                SELECT(["colA", "colB"]),
+                FROM("customers_source"),
+                WHERE(EQ("colA", LITERAL(25)))
+            ],
+        )
+    ) == (
+        'INSERT INTO "slfc"."customers" ("c1", "c2") (\n'
+        '  SELECT "colA",\n'
+        '         "colB"\n'
+        '  FROM "customers_source"\n'
+        '  WHERE "colA" = 25\n'
+        ")"
+    )

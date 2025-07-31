@@ -481,6 +481,19 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
 
 
 @dataclass
+class SqlStatement:
+    pass
+
+
+@dataclass
+class InsertSqlStatement(SqlStatement):
+    fully_qualified_table_name: str
+    values: Optional[list[list[LITERAL]]] = None
+    select: Optional[list] = None
+    columns: Optional[list[str]] = None
+
+
+@dataclass
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
     values: list[VALUES_ROW]
