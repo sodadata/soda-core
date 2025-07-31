@@ -169,7 +169,6 @@ def test_sql_ast_drop_table_if_exists():
     )
     assert my_drop_table_statement == 'DROP TABLE IF EXISTS "customers";'
 
-
 def test_sql_insert_values_new_style():
     sql_dialect: SqlDialect = SqlDialect()
 
