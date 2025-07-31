@@ -3,7 +3,20 @@ import datetime
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import (
+    COLUMN,
+    CREATE_TABLE_COLUMN,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
+    FROM,
+    INSERT_INTO,
+    LITERAL,
+    ORDER_BY_ASC,
+    SELECT,
+    VALUES_ROW,
+    DBDataType,
+)
 from soda_core.common.sql_dialect import SqlDialect
 
 
