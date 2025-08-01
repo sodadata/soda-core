@@ -475,15 +475,17 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
         super().__post_init__()
         self.handle_parent_node_update(self.default)
 
+    def convert_to_standard_column(
+        self, table_alias: Optional[str] = None, field_alias: Optional[str] = None
+    ) -> COLUMN:
+        return COLUMN(name=self.name, table_alias=table_alias, field_alias=field_alias)
+
 
 @dataclass
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
     values: list[VALUES_ROW]
-    columns: Optional[
-        list[COLUMN]
-    ] = None  # For SQLServer and Synapse, if the columns are not specified, the metadata query is used to determine the columns.
-    # The order of values that is inserted should be the ordinal position of the columns!
+    columns: list[COLUMN]  # The order of values that is inserted should be the ordinal position of the columns!
 
     def __post_init__(self):
         super().__post_init__()
@@ -495,10 +497,7 @@ class INSERT_INTO(BaseSqlExpression):
 class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
     select_elements: list[SqlExpression | str]
-    columns: Optional[
-        list[COLUMN]
-    ] = None  # For SQLServer and Synapse, if the columns are not specified, the metadata query is used to determine the columns.
-    # The order of values that is inserted should be the ordinal position of the columns!
+    columns: list[COLUMN]  # The order of values that is inserted should be the ordinal position of the columns!
 
     def __post_init__(self):
         super().__post_init__()

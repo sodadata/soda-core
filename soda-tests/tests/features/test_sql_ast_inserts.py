@@ -31,16 +31,20 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
     data_source_impl.execute_update(drop_table_sql)
 
+    create_table_columns = [
+        CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
+        CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
+        CREATE_TABLE_COLUMN(name="small_text", type=DBDataType.TEXT, length=3, nullable=True),
+        CREATE_TABLE_COLUMN(name="my_date", type=DBDataType.DATE, nullable=True),
+    ]
+
+    standard_columns = [column.convert_to_standard_column() for column in create_table_columns]
+
     # First create the table
     create_table_sql = sql_dialect.build_create_table_sql(
         CREATE_TABLE_IF_NOT_EXISTS(
             fully_qualified_table_name=my_table_name,
-            columns=[
-                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
-                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
-                CREATE_TABLE_COLUMN(name="small_text", type=DBDataType.TEXT, length=3, nullable=True),
-                CREATE_TABLE_COLUMN(name="my_date", type=DBDataType.DATE, nullable=True),
-            ],
+            columns=create_table_columns,
         )
     )
     data_source_impl.execute_update(create_table_sql)
@@ -65,6 +69,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                 VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL("a"), LITERAL("2021-01-01")]),
                 VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL("b"), LITERAL("2021-01-02")]),
             ],
+            columns=standard_columns,
         )
     )
     data_source_impl.execute_update(insert_into_sql)
