@@ -485,7 +485,9 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
     values: list[VALUES_ROW]
-    columns: list[COLUMN]  # The order of values that is inserted should be the ordinal position of the columns!
+    columns: list[
+        COLUMN
+    ]  # The order of values that is inserted should be in the same order as the columns defined here!
 
     def __post_init__(self):
         super().__post_init__()
@@ -497,7 +499,9 @@ class INSERT_INTO(BaseSqlExpression):
 class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
     select_elements: list[SqlExpression | str]
-    columns: list[COLUMN]  # The order of values that is inserted should be the ordinal position of the columns!
+    columns: list[
+        COLUMN
+    ]  # The order of values that is inserted should be in the same order as the columns defined here!
 
     def __post_init__(self):
         super().__post_init__()
