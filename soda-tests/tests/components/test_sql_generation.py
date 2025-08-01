@@ -97,22 +97,6 @@ def test_sql_ast_create_table_if_not_exists():
     )
 
 
-def test_sql_ast_insert_into_no_columns():
-    sql_dialect: SqlDialect = SqlDialect()
-
-    my_insert_into_statement = sql_dialect.build_insert_into_sql(
-        INSERT_INTO(
-            fully_qualified_table_name='"customers"',
-            values=[
-                VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL(25)]),
-                VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL(30)]),
-            ],
-        )
-    )
-
-    assert my_insert_into_statement == ('INSERT INTO "customers" VALUES\n' + "(1, 'John', 25),\n" + "(2, 'Jane', 30);")
-
-
 def test_sql_ast_insert_into_with_columns():
     sql_dialect: SqlDialect = SqlDialect()
 
@@ -145,12 +129,42 @@ def test_sql_ast_insert_into_with_datetimes():
                 VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL(25), LITERAL(now)]),
                 VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL(30), LITERAL(now)]),
             ],
+            columns=[COLUMN("id"), COLUMN("name"), COLUMN("age"), COLUMN("my_date")],
         )
     )
     assert (
-        my_insert_into_statement == f'INSERT INTO "customers" VALUES\n'
+        my_insert_into_statement == f'INSERT INTO "customers" ("id", "name", "age", "my_date") VALUES\n'
         f"(1, 'John', 25, '{now.isoformat()}'),\n"
         f"(2, 'Jane', 30, '{now.isoformat()}');"
+    )
+
+
+def test_sql_ast_insert_into_via_select():
+    sql_dialect: SqlDialect = SqlDialect()
+    my_insert_into_statement = sql_dialect.build_insert_into_via_select_sql(
+        INSERT_INTO_VIA_SELECT(
+            fully_qualified_table_name='"customers"',
+            select_elements=[
+                SELECT(COLUMN("name").IN("C")),
+                FROM("customers").AS("C").IN(["sdb", "mschm"]),
+                WHERE(GTE("colA", LITERAL(25))),
+                AND(EQ("colB", LITERAL("XXX"))),
+                AND(LIKE("colC", LITERAL("%xxx"))),
+            ],
+            columns=[COLUMN("name"), COLUMN("age")],
+        )
+    )
+    assert (
+        my_insert_into_statement
+        == 'INSERT INTO "customers"\n'
+        + ' ("name", "age")\n'
+        + "(\n"
+        + 'SELECT "C"."name"\n'
+        + 'FROM "sdb"."mschm"."customers" AS "C"\n'
+        + 'WHERE "colA" >= 25\n'
+        + "  AND \"colB\" = 'XXX'\n"
+        + "  AND \"colC\" like '%xxx'\n"
+        + ");"
     )
 
 

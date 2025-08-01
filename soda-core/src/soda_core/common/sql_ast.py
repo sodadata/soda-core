@@ -470,21 +470,24 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
     length: Optional[int] = None
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None
-    # If True, the type will be looked up in the contract type dict.
-    # This allows for our custom DBDataTypes to be used in the CREATE TABLE statement :).
-    # We have to do this, because in soda-extensions we sometimes get data types from the metadata query. We don't want to convert them into DBDataTypes, instead we use them as is.
-    # do_type_lookup: bool = False
 
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.default)
+
+    def convert_to_standard_column(
+        self, table_alias: Optional[str] = None, field_alias: Optional[str] = None
+    ) -> COLUMN:
+        return COLUMN(name=self.name, table_alias=table_alias, field_alias=field_alias)
 
 
 @dataclass
 class INSERT_INTO(BaseSqlExpression):
     fully_qualified_table_name: str
     values: list[VALUES_ROW]
-    columns: Optional[list[COLUMN]] = None
+    columns: list[
+        COLUMN
+    ]  # The order of values that is inserted should be in the same order as the columns defined here!
 
     def __post_init__(self):
         super().__post_init__()
@@ -496,10 +499,14 @@ class INSERT_INTO(BaseSqlExpression):
 class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
     select_elements: list[SqlExpression | str]
+    columns: list[
+        COLUMN
+    ]  # The order of values that is inserted should be in the same order as the columns defined here!
 
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.select_elements)
+        self.handle_parent_node_update(self.columns)
 
 
 @dataclass
