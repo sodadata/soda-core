@@ -41,10 +41,3 @@ search = 'package_version = "{current_version}"'
 src = "soda-bigquery/setup.py"
 search = 'package_version = "{current_version}"'
 
-[[file]]
-src = "soda-sqlserver/setup.py"
-search = 'package_version = "{current_version}"'
-
-[[file]]
-src = "soda-synapse/setup.py"
-search = 'package_version = "{current_version}"'
