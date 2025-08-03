@@ -88,6 +88,14 @@ jobs:
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CI_TOKEN }}
       BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
       SODA_CORE_TELEMETRY_LOCAL_DEBUG_MODE: "true"
+      SQLSERVER_USERNAME: SA
+      SQLSERVER_PASSWORD: Password1!
+      SQLSERVER_DATABASE: master
+      SYNAPSE_HOST: ${{ vars.MICROSOFT_SYNAPSE_CI_HOST }}
+      SYNAPSE_DATABASE: sodacisynapse
+      SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
+      SYNAPSE_CLIENT_ID: ${{ secrets.MICROSOFT_SYNAPSE_CI_USER }}
+      SYNAPSE_CLIENT_SECRET: ${{ secrets.MICROSOFT_SYNAPSE_CI_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +103,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
+          
       - name: Run tests
         run: |
           python -m venv .venv
@@ -102,6 +118,9 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
+          if [ "${{ matrix.module }}" = "synapse" ]; then
+            pip install -e soda-sqlserver
+          fi
           pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features

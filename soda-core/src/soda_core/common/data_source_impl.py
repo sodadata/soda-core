@@ -122,6 +122,9 @@ class DataSourceImpl(ABC):
     def execute_query(self, sql: str) -> QueryResult:
         return self.data_source_connection.execute_query(sql=sql)
 
+    def execute_query_one_by_one(self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None]) -> None:
+        return self.data_source_connection.execute_query_one_by_one(sql=sql, row_callback=row_callback)
+
     def execute_update(self, sql: str) -> UpdateResult:
         return self.data_source_connection.execute_update(sql=sql)
 
@@ -201,7 +204,3 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.qualify_dataset_name(
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
-
-    def quote_identifier(self, identifier: str) -> str:
-        c = self.sql_dialect.DEFAULT_QUOTE_CHAR
-        return f"{c}{identifier}{c}"

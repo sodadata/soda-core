@@ -2,13 +2,13 @@
 
 from setuptools import setup
 
-package_name = "soda-bigquery"
+package_name = "soda-sqlserver"
 package_version = "4.0.0b10"
-description = "Soda BigQuery V4"
+description = "Soda SQL Server V4"
 
 requires = [
     f"soda-core=={package_version}",
-    "google-cloud-bigquery>=2.25.0",
+    "pyodbc",
 ]
 
 setup(
@@ -17,8 +17,8 @@ setup(
     install_requires=requires,
     package_dir={"": "src"},
     entry_points={
-        "soda.plugins.data_source.bigquery": [
-            "BigqueryDataSourceImpl = soda_bigquery.common.data_sources.bigquery_data_source:BigQueryDataSourceImpl",
+        "soda.plugins.data_source.sqlserver": [
+            "SqlServerDataSourceImpl = soda_sqlserver.common.data_sources.sqlserver_data_source:SqlServerDataSourceImpl",
         ],
     },
 )

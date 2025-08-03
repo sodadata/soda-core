@@ -137,8 +137,7 @@ class SqlDialect:
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
-        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
-        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        create_table_sql = self._build_create_table_statement_sql(create_table)
 
         create_table_sql = (
             create_table_sql
@@ -147,6 +146,11 @@ class SqlDialect:
             + "\n)"
         )
         return create_table_sql + (";" if add_semicolon else "")
+
+    def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
+        if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
+        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        return create_table_sql
 
     def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         column_name_quoted: str = self.quote_default(create_table_column.name)
@@ -160,7 +164,7 @@ class SqlDialect:
         return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        if create_table_column.do_type_lookup:
+        if isinstance(create_table_column.type, DBDataType):
             column_type_sql: str = self.get_contract_type_dict()[create_table_column.type]
         else:
             column_type_sql: str = (
@@ -171,7 +175,7 @@ class SqlDialect:
         if create_table_column.length:
             # If the type is TEXT and the length is provided, we need to add the length to the column type.
             # But only if we are doing a type lookup.
-            if create_table_column.type == DBDataType.TEXT and create_table_column.do_type_lookup:
+            if create_table_column.type == DBDataType.TEXT and isinstance(create_table_column.type, DBDataType):
                 column_type_sql = self.text_col_type(create_table_column.length)
             # If the type is not a TEXT, we just add the length to the column type.
             # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
@@ -192,18 +196,8 @@ class SqlDialect:
     #########################################################
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
-        if insert_into.columns:
-            insert_into_sql += self._build_insert_into_columns_sql(insert_into)
+        insert_into_sql += self._build_insert_into_columns_sql(insert_into)
         insert_into_sql += self._build_insert_into_values_sql(insert_into)
-        return insert_into_sql + (";" if add_semicolon else "")
-
-    def build_insert_into_via_select_sql(
-        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
-    ) -> str:
-        insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
-        insert_into_sql += (
-            "(" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=add_semicolon) + ")"
-        )
         return insert_into_sql + (";" if add_semicolon else "")
 
     def _build_insert_into_columns_sql(self, insert_into: INSERT_INTO) -> str:
@@ -214,8 +208,9 @@ class SqlDialect:
         self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
     ) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
+        insert_into_sql += self._build_insert_into_columns_sql(insert_into_via_select) + "\n"
         insert_into_sql += (
-            "(" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False) + ")"
+            "(\n" + self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False) + "\n)"
         )
         return insert_into_sql + (";" if add_semicolon else "")
 
@@ -227,9 +222,7 @@ class SqlDialect:
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
-        values_sql = values_sql.encode("unicode_escape").decode(
-            "utf-8"
-        )  # This escapes values that contain newlines correctly.
+        values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
 
     #########################################################
@@ -648,3 +641,10 @@ class SqlDialect:
     def format_metadata_data_type(self, data_type: str) -> str:
         """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
         return data_type
+        
+    def supports_regex_advanced(self) -> bool:
+        return True  # Default to true, but specific dialects can override to false
+
+    def encode_string_for_sql(self, string: str) -> str:
+        """This escapes values that contain newlines correctly."""
+        return string.encode("unicode_escape").decode("utf-8")

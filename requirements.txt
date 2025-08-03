@@ -5,3 +5,5 @@ soda-snowflake
 soda-duckdb
 soda-bigquery
 soda-oracle
+soda-sqlserver
+soda-synapse
