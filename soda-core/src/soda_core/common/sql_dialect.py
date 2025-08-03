@@ -641,7 +641,7 @@ class SqlDialect:
     def format_metadata_data_type(self, data_type: str) -> str:
         """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
         return data_type
-        
+
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false
 
