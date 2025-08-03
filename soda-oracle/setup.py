@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-oracle"
-package_version = "4.0.0b9"
+package_version = "4.0.0b10"
 description = "Soda oracle V4"
 
 requires = [
