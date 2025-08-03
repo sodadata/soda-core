@@ -66,8 +66,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
             INSERT_INTO(
                 fully_qualified_table_name=my_table_name,
                 values=[
-                    VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL("a"), LITERAL("2021-01-01")]),
-                    VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL("b"), LITERAL("2021-01-02")]),
+                    VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL("a"), LITERAL(datetime.date(2021, 1, 1))]),
+                    VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL("b"), LITERAL(datetime.date(2021, 1, 2))]),
                 ],
                 columns=standard_columns,
             )
@@ -111,8 +111,9 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[1][2] == "b"
         assert result.rows[2][2] is None
 
-        assert result.rows[0][3] == datetime.date(2021, 1, 1)
-        assert result.rows[1][3] == datetime.date(2021, 1, 2)
+        # some db engines (e.g. oracle) store dates with a time of 00:00:00
+        assert result.rows[0][3] in [datetime.date(2021, 1, 1), datetime.datetime(2021, 1, 1, 0, 0, 0)]
+        assert result.rows[1][3] in [datetime.date(2021, 1, 2), datetime.datetime(2021, 1, 2, 0, 0, 0)]
         assert result.rows[2][3] is None
 
     finally:

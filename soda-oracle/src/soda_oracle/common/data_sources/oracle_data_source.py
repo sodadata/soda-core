@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import date
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -260,3 +261,7 @@ class OracleSqlDialect(SqlDialect):
     ) -> str:
         """No semicolon for Oracle"""
         return super().build_insert_into_via_select_sql(insert_into_via_select, add_semicolon)
+
+    def literal_date(self, date: date):
+        date_string = date.strftime("%Y-%m-%d")
+        return f"TO_DATE('{date_string}', 'YYYY-MM-DD')"
