@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
