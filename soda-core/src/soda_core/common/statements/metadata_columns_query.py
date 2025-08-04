@@ -64,7 +64,7 @@ class MetadataColumnsQuery:
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
-                    join_prefixes(prefixes, self.sql_dialect.schema_information_schema())                    
+                    join_prefixes(prefixes, self.sql_dialect.schema_information_schema())
                 ),
                 WHERE(
                     AND(
