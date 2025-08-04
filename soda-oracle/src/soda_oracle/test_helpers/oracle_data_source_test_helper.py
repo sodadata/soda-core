@@ -17,7 +17,7 @@ class OracleDataSourceTestHelper(DataSourceTestHelper):
         if connect_string and "/" in connect_string:
             # Extract service name from connect string like "host:port/service_name"
             service_name = connect_string.split("/")[-1]
-            return service_name 
+            return service_name
         return "soda"
 
     def _create_dataset_prefix(self) -> list[str]:
