@@ -101,7 +101,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=f"""
+        contract_yaml_str="""
             columns:
               - name: id
               - name: age
@@ -122,7 +122,8 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 
     request_index = 0
     request_1: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]
-    assert request_1.url.endswith("api/scan/upload")
+    assert request_1.url.endswith("api/command")
+    assert request_1.json["type"] == "sodaCoreUploadContractFile"
 
     request_index += 1
     request_2: MockRequest = data_source_test_helper.soda_cloud.requests[request_index]

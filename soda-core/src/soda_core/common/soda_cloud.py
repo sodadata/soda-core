@@ -8,7 +8,6 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
-from tempfile import TemporaryFile
 from time import sleep
 from typing import Any, Optional
 
@@ -32,7 +31,7 @@ from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
 from soda_core.common.statements.metadata_columns_query import ColumnMetadata
-from soda_core.common.version import SODA_CORE_VERSION, clean_soda_core_version
+from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
@@ -234,10 +233,6 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def upload_contract_file(self, contract_yaml_source_str: str, soda_cloud_file_path: str) -> Optional[str]:
-        logger.debug(f"Sending results to Soda Cloud {Emoticons.CLOUD}")
-        return self._upload_scan_yaml_file(yaml_str=contract_yaml_source_str, soda_cloud_file_path=soda_cloud_file_path)
-
     def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[dict]:
         """
         Returns A scanId string if a 200 OK was received, None otherwise
@@ -276,9 +271,7 @@ class SodaCloud:
         logger.info(f"{Emoticons.OK_HAND} Contract skeleton generation triggered on Soda Cloud")
 
     def send_contract_skeleton(self, contract_yaml_str: str, soda_cloud_file_path: str) -> None:
-        file_id: Optional[str] = self._upload_scan_yaml_file(
-            yaml_str=contract_yaml_str, soda_cloud_file_path=soda_cloud_file_path
-        )
+        file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str)
         if file_id:
             command_json_dict: dict = {
                 "type": "sodaCoreUpsertDraftContract",
@@ -293,50 +286,30 @@ class SodaCloud:
 
             logger.debug(f"Response from Soda Cloud: {response.json()}")
 
-    def _upload_scan_yaml_file(
-        self,
-        yaml_str: str,
-        soda_cloud_file_path: str,
-    ) -> Optional[str]:
+    def _upload_contract_yaml_file(self, contract_yaml: str) -> Optional[str]:
         """
         Returns a Soda Cloud fileId or None if something is wrong.
         """
         try:
-            with TemporaryFile() as temp_file:
-                rows_json_bytes = bytearray(yaml_str, "utf-8")
-                temp_file.write(rows_json_bytes)
-
-                file_size_in_bytes = temp_file.tell()
-                temp_file.seek(0)
-
-                headers = {
-                    "Authorization": self._get_token(),
-                    "Content-Type": "application/yaml",
-                    "Is-V3": "true",
-                    "File-Path": soda_cloud_file_path,
-                    "Soda-Library-Version": clean_soda_core_version(),
-                }
-
-                if file_size_in_bytes == 0:
-                    # because of https://github.com/psf/requests/issues/4215 we can't send content size
-                    # when the size is 0 since requests blocks then on I/O indefinitely
-                    logger.warning("Empty file upload detected, not sending Content-Length header")
-                else:
-                    headers["Content-Length"] = str(file_size_in_bytes)
-
-                upload_response = self._http_post(url=f"{self.api_url}/scan/upload", headers=headers, data=temp_file)
-                upload_response_json = upload_response.json()
-
-                if isinstance(upload_response_json, dict) and "fileId" in upload_response_json:
-                    return upload_response_json.get("fileId")
-                else:
-                    logger.critical(f"No fileId received in response: {upload_response_json}")
-                    return None
+            upload_contract_command: dict = {
+                "type": "sodaCoreUploadContractFile",
+                "contents": contract_yaml,
+            }
+            response: Response = self._execute_command(
+                command_json_dict=upload_contract_command, request_log_name="upload_contract_file"
+            )
+            response_json = response.json()
+            if isinstance(response_json, dict) and "fileId" in response_json:
+                return response_json.get("fileId")
+            else:
+                logger.critical(f"No fileId received in response: {response_json}")
+                return None
         except Exception as e:
             logger.critical(
-                msg=f"Soda cloud error: Could not upload contract " f"to Soda Cloud: {e}",
+                msg=f"Soda cloud error: Could not upload contract file to Soda Cloud: {e}",
                 exc_info=True,
             )
+            return None
 
     def test_connection(self) -> None:
         """
@@ -368,12 +341,7 @@ class SodaCloud:
                 logger.error(f"Skipping contract publication because of insufficient permissions: {reason}")
             return ContractPublicationResult(contract=None)
 
-        soda_cloud_file_path: str = (
-            contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
-        )
-        file_id: Optional[str] = self._upload_scan_yaml_file(
-            yaml_str=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
-        )
+        file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
             logger.critical("Uploading the contract file failed")
             return ContractPublicationResult(contract=None)
@@ -382,7 +350,12 @@ class SodaCloud:
             "type": "sodaCorePublishContract",
             "contract": {
                 "fileId": file_id,
-                "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
+                "metadata": {
+                    "source": {
+                        "type": "local",
+                        "filePath": contract_local_file_path,
+                    },
+                },
             },
         }
         response: Response = self._execute_command(
@@ -509,12 +482,7 @@ class SodaCloud:
                 logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
             return verification_result
 
-        soda_cloud_file_path: str = (
-            contract_local_file_path if isinstance(contract_local_file_path, str) else "contract.yml"
-        )
-        file_id: Optional[str] = self._upload_scan_yaml_file(
-            yaml_str=contract_yaml_str_original, soda_cloud_file_path=soda_cloud_file_path
-        )
+        file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
             logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
             return []
@@ -523,7 +491,12 @@ class SodaCloud:
             "type": "sodaCoreVerifyContract" if publish_results else "sodaCoreTestContract",
             "contract": {
                 "fileId": file_id,
-                "metadata": {"source": {"type": "local", "filePath": contract_local_file_path}},
+                "metadata": {
+                    "source": {
+                        "type": "local",
+                        "filePath": contract_local_file_path,
+                    },
+                },
             },
             "verbose": verbose,
             "variables": variables,

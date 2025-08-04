@@ -509,13 +509,10 @@ class ContractImpl:
         soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
         contract_yaml_source_str_original = self.contract_yaml.contract_yaml_source.yaml_str_original
-        soda_cloud_file_path: str = f"{self.soda_qualified_dataset_name.lower()}.yml"
         soda_cloud_response_json: Optional[dict] = None
 
         if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud.upload_contract_file(
-                contract_yaml_source_str=contract_yaml_source_str_original, soda_cloud_file_path=soda_cloud_file_path
-            )
+            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
 
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=Contract(
