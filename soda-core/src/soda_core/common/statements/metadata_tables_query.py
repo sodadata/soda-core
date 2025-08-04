@@ -66,13 +66,9 @@ class MetadataTablesQuery:
             ),
             SELECT(
                 [
-                    col
-                    for col in [
-                        self.sql_dialect.column_table_catalog(),  # this could be None for some data sources e.g. Oracle
-                        self.sql_dialect.column_table_schema(),
-                        self.sql_dialect.column_table_name(),
-                    ]
-                    if col
+                    self.sql_dialect.column_table_catalog() or COLUMN(LITERAL(None), field_alias="database_name"),
+                    self.sql_dialect.column_table_schema(),
+                    self.sql_dialect.column_table_name(),
                 ]
             ),
         ]
@@ -113,10 +109,6 @@ class MetadataTablesQuery:
 
     def get_results(self, query_result: QueryResult) -> list[FullyQualifiedTableName]:
         return [
-            FullyQualifiedTableName(  # database_name is not present for some data sources e.g. Oracle
-                database_name=row[0] if len(row) > 2 else None,
-                schema_name=row[-2],
-                table_name=row[-1],
-            )
-            for row in query_result.rows
+            FullyQualifiedTableName(database_name=database_name, schema_name=schema_name, table_name=table_name)
+            for database_name, schema_name, table_name in query_result.rows
         ]
