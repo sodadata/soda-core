@@ -54,22 +54,15 @@ class MetadataTablesQuery:
         Builds the full SQL query statement to query table names from the data source metadata.
         """
 
+        join_prefixes = lambda prefixes, schema: [*prefixes, schema] if schema else prefixes
         if self.prefixes is not None:
             prefixes = self.prefixes
         else:
             prefixes = [database_name] if database_name else []
-
         select: list = [
             FROM(
                 self.sql_dialect.table_tables(),
-                table_prefix=[
-                    prefix
-                    for prefix in [
-                        *prefixes,  # this could be None for some data sources e.g. Oracle
-                        self.sql_dialect.schema_information_schema(),
-                    ]
-                    if prefix
-                ],
+                table_prefix=join_prefixes(prefixes, self.sql_dialect.schema_information_schema())                
             ),
             SELECT(
                 [

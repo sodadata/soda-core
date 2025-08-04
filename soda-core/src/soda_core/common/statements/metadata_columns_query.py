@@ -44,6 +44,7 @@ class MetadataColumnsQuery:
         if (schema_index := self.sql_dialect.get_schema_prefix_index()) is not None:
             schema_name = dataset_prefix[schema_index]
 
+        join_prefixes = lambda prefixes, schema: [*prefixes, schema] if schema else prefixes
         if self.prefixes is not None:
             prefixes = self.prefixes
         else:
@@ -63,14 +64,7 @@ class MetadataColumnsQuery:
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
-                    [
-                        id
-                        for id in [  # prefixes can be None if information schema is top-level, e.g. Oracle
-                            *prefixes,
-                            self.sql_dialect.schema_information_schema(),
-                        ]
-                        if id
-                    ]
+                    join_prefixes(prefixes, self.sql_dialect.schema_information_schema())                    
                 ),
                 WHERE(
                     AND(
