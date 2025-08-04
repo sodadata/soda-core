@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 
@@ -8,10 +9,15 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 class OracleDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
         connect_string = os.getenv("ORACLE_CONNECTSTRING")
+        if connect_string and "SERVICE_NAME" in connect_string:
+            pattern = r"\(SERVICE_NAME=(.+?)\)"
+            match = re.search(pattern, connect_string)
+            if match:
+                return match.group(1)
         if connect_string and "/" in connect_string:
             # Extract service name from connect string like "host:port/service_name"
             service_name = connect_string.split("/")[-1]
-            return service_name
+            return service_name 
         return "soda"
 
     def _create_dataset_prefix(self) -> list[str]:
