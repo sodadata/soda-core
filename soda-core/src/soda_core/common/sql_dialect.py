@@ -346,7 +346,7 @@ class SqlDialect:
         table_alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
         column_sql: str = self.build_expression_sql(
             column.name
-        )  # Now supports any expression.  If string is passed, will default to old quote_default behavior
+        )  # If column.name is a SqlExpression, it will be compiled; if a string, it will be quoted
         field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
         return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
