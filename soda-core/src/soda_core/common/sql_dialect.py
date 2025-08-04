@@ -624,6 +624,12 @@ class SqlDialect:
         return 1
 
     def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
+        """Convert to a SQL representation of a timestamp with timezone.
+        
+        By default this will return the standard SQL timestamp representation but may be overridden.
+        We may wish to add some logic to detect timezones in datetime and return the appropriate representation.
+        For now it's up to the user to decide which representation to use.
+        """
         return self.sql_expr_timestamp_literal(datetime_in_iso8601)
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
