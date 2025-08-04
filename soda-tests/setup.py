@@ -10,7 +10,7 @@ if sys.version_info < (3, 9):
     sys.exit(1)
 
 package_name = "soda-tests"
-package_version = "4.0.0b10"
+package_version = "4.0.0b11"
 description = "Soda Core V4 Tests"
 
 requires = [

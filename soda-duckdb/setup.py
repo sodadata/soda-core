@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-duckdb"
-package_version = "4.0.0b10"
+package_version = "4.0.0b11"
 description = "Soda DuckDB V4"
 
 requires = [f"soda-core=={package_version}", "duckdb>=1.2.0", "pytz"]
