@@ -8,13 +8,13 @@ from pydantic import Field
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SQLServerActiveDirectoryAuthentication,
-    SQLServerActiveDirectoryInteractiveAuthentication,
-    SQLServerActiveDirectoryPasswordAuthentication,
-    SQLServerActiveDirectoryServicePrincipalAuthentication,
-    SQLServerConnectionProperties,
-    SQLServerDataSourceConnection,
-    SQLServerPasswordAuth,
+    SqlServerActiveDirectoryAuthentication,
+    SqlServerActiveDirectoryInteractiveAuthentication,
+    SqlServerActiveDirectoryPasswordAuthentication,
+    SqlServerActiveDirectoryServicePrincipalAuthentication,
+    SqlServerConnectionProperties,
+    SqlServerDataSourceConnection,
+    SqlServerPasswordAuth,
 )
 
 logger: logging.Logger = soda_logger
@@ -24,34 +24,34 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 
 
 # All of these classes are just copies of the SQLServerConnectionProperties classes, but with the Synapse type
-class SynapseConnectionProperties(SQLServerConnectionProperties, ABC):
+class SynapseConnectionProperties(SqlServerConnectionProperties, ABC):
     autocommit: Optional[bool] = Field(
         True, description="Whether to use autocommit"
     )  # Synapse requires autocommit to be True.
 
 
-class SynapsePasswordAuth(SQLServerPasswordAuth, SynapseConnectionProperties):
+class SynapsePasswordAuth(SqlServerPasswordAuth, SynapseConnectionProperties):
     pass
 
 
-class SynapseActiveDirectoryAuthentication(SQLServerActiveDirectoryAuthentication, SynapseConnectionProperties):
+class SynapseActiveDirectoryAuthentication(SqlServerActiveDirectoryAuthentication, SynapseConnectionProperties):
     pass
 
 
 class SynapseActiveDirectoryInteractiveAuthentication(
-    SQLServerActiveDirectoryInteractiveAuthentication, SynapseConnectionProperties
+    SqlServerActiveDirectoryInteractiveAuthentication, SynapseConnectionProperties
 ):
     pass
 
 
 class SynapseActiveDirectoryPasswordAuthentication(
-    SQLServerActiveDirectoryPasswordAuthentication, SynapseConnectionProperties
+    SqlServerActiveDirectoryPasswordAuthentication, SynapseConnectionProperties
 ):
     pass
 
 
 class SynapseActiveDirectoryServicePrincipalAuthentication(
-    SQLServerActiveDirectoryServicePrincipalAuthentication, SynapseConnectionProperties
+    SqlServerActiveDirectoryServicePrincipalAuthentication, SynapseConnectionProperties
 ):
     pass
 
@@ -67,6 +67,6 @@ class SynapseDataSource(DataSourceBase, ABC):
     ] = Field(..., alias="connection", description="Synapse connection configuration")
 
 
-class SynapseDataSourceConnection(SQLServerDataSourceConnection):
+class SynapseDataSourceConnection(SqlServerDataSourceConnection):
     def _get_autocommit_setting(self) -> bool:
         return True  # Synapse requires autocommit to be True.
