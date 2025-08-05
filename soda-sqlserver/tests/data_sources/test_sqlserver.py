@@ -78,7 +78,7 @@ test_connections: list[TestConnection] = [
                     trust_server_certificate: '{SQLSERVER_TRUST_SERVER_CERTIFICATE}'
             """,
         valid_yaml=False,
-        expected_yaml_error="validation errors for SQLServerDataSource",
+        expected_yaml_error="validation errors for SqlServerDataSource",
     ),
     TestConnection(
         test_name="missing_hostname",
@@ -94,7 +94,7 @@ test_connections: list[TestConnection] = [
                     trust_server_certificate: '{SQLSERVER_TRUST_SERVER_CERTIFICATE}'
             """,
         valid_yaml=False,
-        expected_yaml_error="validation errors for SQLServerDataSource",
+        expected_yaml_error="validation errors for SqlServerDataSource",
     ),
     TestConnection(
         test_name="wrong_password",

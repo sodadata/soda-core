@@ -24,7 +24,7 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 USER_DESCRIPTION = "Username for authentication"
 
 
-class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
+class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
     host: str = Field(..., description="Host name of the SQL Server instance")
     port: int = Field(..., description="Port number of the SQL Server instance")
     database: str = Field(..., description="Name of the database to use")
@@ -42,7 +42,7 @@ class SQLServerConnectionProperties(DataSourceConnectionProperties, ABC):
     scope: Optional[str] = Field(None, description="Scope for the connection")
 
 
-class SQLServerPasswordAuth(SQLServerConnectionProperties):
+class SqlServerPasswordAuth(SqlServerConnectionProperties):
     """SQL Server authentication using password"""
 
     user: str = Field(..., description=USER_DESCRIPTION)
@@ -50,37 +50,37 @@ class SQLServerPasswordAuth(SQLServerConnectionProperties):
     authentication: Literal["sql"] = "sql"
 
 
-class SQLServerActiveDirectoryAuthentication(SQLServerConnectionProperties):
+class SqlServerActiveDirectoryAuthentication(SqlServerConnectionProperties):
     authentication: Literal[
         "activedirectoryinteractive", "activedirectorypassword", "activedirectoryserviceprincipal"
     ] = Field(..., description="Authentication type")
 
 
-class SQLServerActiveDirectoryInteractiveAuthentication(SQLServerActiveDirectoryAuthentication):
+class SqlServerActiveDirectoryInteractiveAuthentication(SqlServerActiveDirectoryAuthentication):
     user: str = Field(..., description=USER_DESCRIPTION)
     authentication: Literal["activedirectoryinteractive"] = "activedirectoryinteractive"
 
 
-class SQLServerActiveDirectoryPasswordAuthentication(SQLServerActiveDirectoryAuthentication):
+class SqlServerActiveDirectoryPasswordAuthentication(SqlServerActiveDirectoryAuthentication):
     authentication: Literal["activedirectorypassword"] = "activedirectorypassword"
     user: str = Field(..., description=USER_DESCRIPTION)
     password: SecretStr = Field(..., description="Password for authentication")
 
 
-class SQLServerActiveDirectoryServicePrincipalAuthentication(SQLServerActiveDirectoryAuthentication):
+class SqlServerActiveDirectoryServicePrincipalAuthentication(SqlServerActiveDirectoryAuthentication):
     authentication: Literal["activedirectoryserviceprincipal"] = "activedirectoryserviceprincipal"
     client_id: str = Field(..., description="Client ID for authentication")
     client_secret: SecretStr = Field(..., description="Client secret for authentication")
 
 
-class SQLServerDataSource(DataSourceBase, ABC):
+class SqlServerDataSource(DataSourceBase, ABC):
     type: Literal["sqlserver"] = Field("sqlserver")
 
     connection_properties: Union[
-        SQLServerPasswordAuth,
-        SQLServerActiveDirectoryInteractiveAuthentication,
-        SQLServerActiveDirectoryPasswordAuthentication,
-        SQLServerActiveDirectoryServicePrincipalAuthentication,
+        SqlServerPasswordAuth,
+        SqlServerActiveDirectoryInteractiveAuthentication,
+        SqlServerActiveDirectoryPasswordAuthentication,
+        SqlServerActiveDirectoryServicePrincipalAuthentication,
     ] = Field(..., alias="connection", description="SQL Server connection configuration")
 
 
@@ -103,11 +103,11 @@ def handle_datetimeoffset(dto_value):
     )
 
 
-class SQLServerDataSourceConnection(DataSourceConnection):
+class SqlServerDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
 
-    def build_connection_string(self, config: SQLServerConnectionProperties):
+    def build_connection_string(self, config: SqlServerConnectionProperties):
         conn_params = []
 
         conn_params.append(f"DRIVER={{{config.driver}}}")
@@ -163,7 +163,7 @@ class SQLServerDataSourceConnection(DataSourceConnection):
 
     def _create_connection(
         self,
-        config: SQLServerConnectionProperties,
+        config: SqlServerConnectionProperties,
     ):
         try:
             self.connection = pyodbc.connect(

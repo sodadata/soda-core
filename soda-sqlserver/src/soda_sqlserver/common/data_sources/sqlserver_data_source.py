@@ -17,29 +17,29 @@ from soda_core.common.sql_ast import (
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SQLServerDataSource as SQLServerDataSourceModel,
+    SqlServerDataSource as SqlServerDataSourceModel,
 )
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SQLServerDataSourceConnection,
+    SqlServerDataSourceConnection,
 )
 
 logger: logging.Logger = soda_logger
 
 
-class SQLServerDataSourceImpl(DataSourceImpl, model_class=SQLServerDataSourceModel):
-    def __init__(self, data_source_model: SQLServerDataSourceModel):
+class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceModel):
+    def __init__(self, data_source_model: SqlServerDataSourceModel):
         super().__init__(data_source_model=data_source_model)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SQLServerSqlDialect()
+        return SqlServerSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
-        return SQLServerDataSourceConnection(
+        return SqlServerDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
 
-class SQLServerSqlDialect(SqlDialect):
+class SqlServerSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
