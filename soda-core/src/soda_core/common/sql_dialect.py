@@ -7,6 +7,7 @@ from textwrap import dedent, indent
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_datatypes import DBDataType
+from soda_core.contracts.contract_verification import SodaException
 
 
 class SqlDialect:
@@ -131,6 +132,11 @@ class SqlDialect:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
 
+    def build_sql_str(self, sql_statement: SqlStatement) -> str:
+        if isinstance(sql_statement, InsertSqlStatement):
+            return self.build_insert_sql(sql_statement)
+        raise SodaException(f"Unsupported SQL statement: {sql_statement}")
+
     #########################################################
     # CREATE TABLE
     #########################################################
@@ -194,6 +200,18 @@ class SqlDialect:
     #########################################################
     # INSERT INTO
     #########################################################
+    def build_insert_sql(self, insert: InsertSqlStatement) -> str:
+        columns: str = "(" + ", ".join(self.quote_column(c) for c in insert.columns) + ") " if insert.columns else ""
+        if insert.values:
+            values: str = ",\n  ".join(
+                [("(" + ", ".join([self.literal(value) for value in row]) + ")") for row in insert.values]
+            )
+            return f"INSERT INTO {insert.fully_qualified_table_name} {columns}VALUES\n  {values}"
+        if insert.select:
+            select_sql: str = indent(self.build_select_sql(insert.select, add_semicolon=False), "  ")
+            return f"INSERT INTO {insert.fully_qualified_table_name} {columns}(\n{select_sql}\n)"
+        raise SodaException(f"Invalid insert statement: {insert}")
+
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
         insert_into_sql += self._build_insert_into_columns_sql(insert_into)

@@ -31,6 +31,7 @@ class ContractVerificationSession:
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        dwh_data_source_file_path: Optional[str] = None,
     ) -> ContractVerificationSessionResult:
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
@@ -48,6 +49,7 @@ class ContractVerificationSession:
             soda_cloud_use_agent=soda_cloud_use_agent,
             soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
 
