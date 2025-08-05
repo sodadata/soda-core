@@ -64,6 +64,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert metadata_result.rows[3][0] == "my_date"
 
         # Then insert into the table
+        tz = pytz.timezone("America/Los_Angeles")  # to test a non-UTC timezone
         insert_into_sql = sql_dialect.build_insert_into_sql(
             INSERT_INTO(
                 fully_qualified_table_name=my_table_name,
@@ -74,8 +75,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                             LITERAL("John"),
                             LITERAL("a"),
                             LITERAL(datetime.date(2021, 1, 1)),
-                            LITERAL(datetime.datetime(2021, 1, 1, 12, 10, 0)),
-                            LITERAL(datetime.datetime(2021, 1, 1, 12, 10, 0, tzinfo=datetime.timezone.utc)),
+                            LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0)),
+                            LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)),
                         ]
                     ),
                     VALUES_ROW(
@@ -84,8 +85,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                             LITERAL("Jane"),
                             LITERAL("b"),
                             LITERAL(datetime.date(2021, 1, 2)),
-                            LITERAL(datetime.datetime(2021, 1, 2, 12, 10, 0)),
-                            LITERAL(datetime.datetime(2021, 1, 2, 12, 10, 0, tzinfo=pytz.timezone("America/New_York"))),
+                            LITERAL(datetime.datetime(2021, 1, 2, 10, 0, 0)),
+                            LITERAL(tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))),
                         ]
                     ),
                 ],
@@ -138,12 +139,12 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[1][3] in [datetime.date(2021, 1, 2), datetime.datetime(2021, 1, 2, 0, 0, 0)]
         assert result.rows[2][3] is None
 
-        assert result.rows[0][4] == datetime.datetime(2021, 1, 1, 12, 10, 0)
-        assert result.rows[1][4] == datetime.datetime(2021, 1, 2, 12, 10, 0)
+        assert result.rows[0][4] == datetime.datetime(2021, 1, 1, 10, 0, 0)
+        assert result.rows[1][4] == datetime.datetime(2021, 1, 2, 10, 0, 0)
         assert result.rows[2][4] is None
 
-        assert result.rows[0][5] == datetime.datetime(2021, 1, 1, 12, 10, 0, tzinfo=datetime.timezone.utc)
-        assert result.rows[1][5] == datetime.datetime(2021, 1, 2, 12, 10, 0, tzinfo=pytz.timezone("America/New_York"))
+        assert result.rows[0][5] == datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        assert result.rows[1][5] == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
         assert result.rows[2][5] is None
 
     finally:
