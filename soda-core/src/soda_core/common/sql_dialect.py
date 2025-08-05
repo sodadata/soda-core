@@ -554,7 +554,7 @@ class SqlDialect:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
 
-    def schema_information_schema(self) -> str:
+    def schema_information_schema(self) -> str | None:
         """
         Name of the schema that has the metadata
         """
@@ -605,9 +605,9 @@ class SqlDialect:
         """
         return self.default_casify("data_type")
 
-    def column_data_type_max_length(self) -> str:
+    def column_data_type_max_length(self) -> str | COLUMN:
         """
-        Name of the column that has the max data type length in the tables metadata table.
+        Name or definition of the column that has the max data type length in the tables metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("character_maximum_length")
