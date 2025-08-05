@@ -86,6 +86,12 @@ class DataSourceTestHelper:
             )
 
             return SynapseDataSourceTestHelper()
+        elif test_datasource == "fabric":
+            from soda_fabric.test_helpers.fabric_data_source_test_helper import (
+                FabricDataSourceTestHelper,
+            )
+
+            return FabricDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
