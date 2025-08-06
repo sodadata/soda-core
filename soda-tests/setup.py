@@ -15,6 +15,7 @@ description = "Soda Core V4 Tests"
 
 requires = [
     f"soda-core=={package_version}",
+    "pytz"
 ]
 
 setup(

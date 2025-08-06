@@ -165,7 +165,7 @@ class SqlDialect:
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         if isinstance(create_table_column.type, DBDataType):
-            column_type_sql: str = self.get_contract_type_dict()[create_table_column.type]
+            column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
         else:
             column_type_sql: str = (
                 create_table_column.type
