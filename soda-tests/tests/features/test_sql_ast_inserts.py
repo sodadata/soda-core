@@ -140,8 +140,14 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[1][3] in [datetime.date(2021, 1, 2), datetime.datetime(2021, 1, 2, 0, 0, 0)]
         assert result.rows[2][3] is None
 
-        assert result.rows[0][4] in [datetime.datetime(2021, 1, 1, 10, 0, 0), datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)]
-        assert result.rows[1][4] in [datetime.datetime(2021, 1, 2, 10, 0, 0), datetime.datetime(2021, 1, 2, 10, 0, 0, tzinfo=datetime.timezone.utc)]
+        assert result.rows[0][4] in [
+            datetime.datetime(2021, 1, 1, 10, 0, 0),
+            datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc),
+        ]
+        assert result.rows[1][4] in [
+            datetime.datetime(2021, 1, 2, 10, 0, 0),
+            datetime.datetime(2021, 1, 2, 10, 0, 0, tzinfo=datetime.timezone.utc),
+        ]
         assert result.rows[2][4] is None
 
         assert result.rows[0][5] == datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)
