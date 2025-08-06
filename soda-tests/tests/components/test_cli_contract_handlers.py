@@ -52,6 +52,7 @@ def test_handle_verify_contract_exit_codes(
         verbose=False,
         use_agent=False,
         blocking_timeout_in_minutes=10,
+        diagnostics_warehouse_file_path=None,
     )
 
     assert exit_code == expected_exit_code
