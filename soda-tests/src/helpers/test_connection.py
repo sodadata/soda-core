@@ -52,8 +52,9 @@ class TestConnection:
 
             if self.valid_connection_params:
                 data_source_impl.open_connection()
-                assert not logs.has_errors()
-
+                if logs.has_errors():
+                    error_msg = "Connection failed unexpectedly with error: " + logs.get_errors_str()
+                    raise RuntimeError(error_msg)
             else:
                 data_source_impl.open_connection()
                 assert logs.has_errors()
@@ -63,7 +64,9 @@ class TestConnection:
 
             if self.query_should_succeed:
                 data_source_impl.execute_query("SELECT 1")
-                assert not logs.has_errors()
+                if logs.has_errors():
+                    error_msg = "Query failed unexpectedly with error: " + logs.get_errors_str()
+                    raise RuntimeError(error_msg)
             else:
                 with pytest.raises(Exception) as exc_info:
                     data_source_impl.execute_query("SELECT 1")

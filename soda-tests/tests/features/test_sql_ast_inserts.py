@@ -1,5 +1,6 @@
 import datetime
 
+import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -36,6 +37,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
             CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
             CREATE_TABLE_COLUMN(name="small_text", type=DBDataType.TEXT, length=3, nullable=True),
             CREATE_TABLE_COLUMN(name="my_date", type=DBDataType.DATE, nullable=True),
+            CREATE_TABLE_COLUMN(name="my_timestamp", type=DBDataType.TIMESTAMP, nullable=True),
+            CREATE_TABLE_COLUMN(name="my_timestamp_tz", type=DBDataType.TIMESTAMP_TZ, nullable=True),
         ]
 
         standard_columns = [column.convert_to_standard_column() for column in create_table_columns]
@@ -62,12 +65,31 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert metadata_result.rows[3][0] == "my_date"
 
         # Then insert into the table
+        tz = pytz.timezone("America/Los_Angeles")  # to test a non-UTC timezone
         insert_into_sql = sql_dialect.build_insert_into_sql(
             INSERT_INTO(
                 fully_qualified_table_name=my_table_name,
                 values=[
-                    VALUES_ROW([LITERAL(1), LITERAL("John"), LITERAL("a"), LITERAL("2021-01-01")]),
-                    VALUES_ROW([LITERAL(2), LITERAL("Jane"), LITERAL("b"), LITERAL("2021-01-02")]),
+                    VALUES_ROW(
+                        [
+                            LITERAL(1),
+                            LITERAL("John"),
+                            LITERAL("a"),
+                            LITERAL(datetime.date(2021, 1, 1)),
+                            LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0)),
+                            LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)),
+                        ]
+                    ),
+                    VALUES_ROW(
+                        [
+                            LITERAL(2),
+                            LITERAL("Jane"),
+                            LITERAL("b"),
+                            LITERAL(datetime.date(2021, 1, 2)),
+                            LITERAL(datetime.datetime(2021, 1, 2, 10, 0, 0)),
+                            LITERAL(tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))),
+                        ]
+                    ),
                 ],
                 columns=standard_columns,
             )
@@ -94,6 +116,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                         COLUMN("name"),
                         COLUMN("small_text"),
                         COLUMN("my_date"),
+                        COLUMN("my_timestamp"),
+                        COLUMN("my_timestamp_tz"),
                     ]
                 ),
                 FROM(my_table_name[1:-1]),
@@ -111,9 +135,24 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[1][2] == "b"
         assert result.rows[2][2] is None
 
-        assert result.rows[0][3] == datetime.date(2021, 1, 1)
-        assert result.rows[1][3] == datetime.date(2021, 1, 2)
+        # some db engines (e.g. oracle) store dates with a time of 00:00:00
+        assert result.rows[0][3] in [datetime.date(2021, 1, 1), datetime.datetime(2021, 1, 1, 0, 0, 0)]
+        assert result.rows[1][3] in [datetime.date(2021, 1, 2), datetime.datetime(2021, 1, 2, 0, 0, 0)]
         assert result.rows[2][3] is None
+
+        assert result.rows[0][4] in [
+            datetime.datetime(2021, 1, 1, 10, 0, 0),
+            datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc),
+        ]
+        assert result.rows[1][4] in [
+            datetime.datetime(2021, 1, 2, 10, 0, 0),
+            datetime.datetime(2021, 1, 2, 10, 0, 0, tzinfo=datetime.timezone.utc),
+        ]
+        assert result.rows[2][4] is None
+
+        assert result.rows[0][5] == datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        assert result.rows[1][5] == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
+        assert result.rows[2][5] is None
 
     finally:
         # Then drop the table to clean up

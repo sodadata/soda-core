@@ -54,22 +54,19 @@ class MetadataTablesQuery:
         Builds the full SQL query statement to query table names from the data source metadata.
         """
 
+        join_prefixes = lambda prefixes, schema: [*prefixes, schema] if schema else prefixes
         if self.prefixes is not None:
             prefixes = self.prefixes
         else:
             prefixes = [database_name] if database_name else []
-
         select: list = [
             FROM(
                 self.sql_dialect.table_tables(),
-                table_prefix=[
-                    *prefixes,
-                    self.sql_dialect.schema_information_schema(),
-                ],
+                table_prefix=join_prefixes(prefixes, self.sql_dialect.schema_information_schema()),
             ),
             SELECT(
                 [
-                    self.sql_dialect.column_table_catalog(),
+                    self.sql_dialect.column_table_catalog() or COLUMN(LITERAL(None), field_alias="database_name"),
                     self.sql_dialect.column_table_schema(),
                     self.sql_dialect.column_table_name(),
                 ]
@@ -112,10 +109,6 @@ class MetadataTablesQuery:
 
     def get_results(self, query_result: QueryResult) -> list[FullyQualifiedTableName]:
         return [
-            FullyQualifiedTableName(
-                database_name=database_name,
-                schema_name=schema_name,
-                table_name=table_name,
-            )
+            FullyQualifiedTableName(database_name=database_name, schema_name=schema_name, table_name=table_name)
             for database_name, schema_name, table_name in query_result.rows
         ]

@@ -262,7 +262,7 @@ class LENGTH(SqlExpression):
 
 @dataclass
 class COLUMN(SqlExpression):
-    name: str
+    name: SqlExpression | str  # Use SqlExpression if you need to generate and/or rename a column dymamically, e.g. using a CASE statement
     table_alias: Optional[str] = None
     field_alias: Optional[str] = None
 
