@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
@@ -64,3 +65,8 @@ class FabricSqlDialect(SQLServerSqlDialect):
         super_dict[DBDataType.TIMESTAMP] = "datetime2(6)"
         super_dict[DBDataType.TIMESTAMP_TZ] = "datetime2(6)"
         return super_dict
+
+    def literal_datetime_with_tz(self, datetime: datetime):
+        # Fabric does not support datetimeoffset (for timezones)
+        # So we will convert the timestamp to UTC and then convert it to a string
+        return f"'{datetime.astimezone(timezone.utc).isoformat()}'"

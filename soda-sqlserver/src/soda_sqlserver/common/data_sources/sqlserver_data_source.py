@@ -43,6 +43,11 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 class SqlServerSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
 
+    def literal_date(self, date: date):
+        """Technically dates can be passed directly as strings, but this is more explicit."""
+        date_string = date.strftime("%Y-%m-%d")
+        return f"CAST('{date_string}' AS DATE)"
+
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return f"[{identifier}]" if isinstance(identifier, str) and len(identifier) > 0 else None
 
