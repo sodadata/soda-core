@@ -66,6 +66,14 @@ class DataSourceTestHelper:
             )
 
             return BigQueryDataSourceTestHelper()
+
+        elif test_datasource == "oracle":
+            from soda_oracle.test_helpers.oracle_data_source_test_helper import (
+                OracleDataSourceTestHelper,
+            )
+
+            return OracleDataSourceTestHelper()
+
         elif test_datasource == "sqlserver":
             from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
                 SqlServerDataSourceTestHelper,

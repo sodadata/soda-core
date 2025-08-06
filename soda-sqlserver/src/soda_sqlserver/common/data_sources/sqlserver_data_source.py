@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -110,3 +111,8 @@ class SqlServerSqlDialect(SqlDialect):
             DBDataType.TIMESTAMP_TZ: "datetimeoffset",
             DBDataType.BOOLEAN: "bit",
         }
+
+    def literal_date(self, date: date):
+        """Technically dates can be passed directly as strings, but this is more explicit."""
+        date_string = date.strftime("%Y-%m-%d")
+        return f"CAST('{date_string}' AS DATE)"

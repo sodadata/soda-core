@@ -171,7 +171,7 @@ class SqlDialect:
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         if isinstance(create_table_column.type, DBDataType):
-            column_type_sql: str = self.get_contract_type_dict()[create_table_column.type]
+            column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
         else:
             column_type_sql: str = (
                 create_table_column.type
@@ -362,7 +362,9 @@ class SqlDialect:
 
     def _build_column_sql(self, column: COLUMN) -> str:
         table_alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
-        column_sql: str = self.quote_default(column.name)
+        column_sql: str = self.build_expression_sql(
+            column.name
+        )  # If column.name is a SqlExpression, it will be compiled; if a string, it will be quoted
         field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
         return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
@@ -410,6 +412,9 @@ class SqlDialect:
         sql_lines.append(from_sql_line)
         return sql_lines
 
+    def _alias_format(self, alias: str) -> str:
+        return f"AS {self.quote_default(alias)}"
+
     def _build_from_part(self, from_part: FROM) -> str:
         # "fully".qualified"."tablename" [AS "table_alias"]
 
@@ -420,7 +425,7 @@ class SqlDialect:
         ]
 
         if isinstance(from_part.alias, str):
-            from_parts.append(f"AS {self.quote_default(from_part.alias)}")
+            from_parts.append(self._alias_format(from_part.alias))
 
         return " ".join(from_parts)
 
@@ -439,7 +444,7 @@ class SqlDialect:
         )
 
         if isinstance(left_inner_join.alias, str):
-            from_parts.append(f"AS {self.quote_default(left_inner_join.alias)}")
+            from_parts.append(self._alias_format(left_inner_join.alias))
 
         if isinstance(left_inner_join, LEFT_INNER_JOIN):
             from_parts.append(f"ON {self.build_expression_sql(left_inner_join.on_condition)}")
@@ -567,7 +572,7 @@ class SqlDialect:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
 
-    def schema_information_schema(self) -> str:
+    def schema_information_schema(self) -> str | None:
         """
         Name of the schema that has the metadata
         """
@@ -618,9 +623,9 @@ class SqlDialect:
         """
         return self.default_casify("data_type")
 
-    def column_data_type_max_length(self) -> str:
+    def column_data_type_max_length(self) -> str | COLUMN:
         """
-        Name of the column that has the max data type length in the tables metadata table.
+        Name or definition of the column that has the max data type length in the tables metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("character_maximum_length")
@@ -636,6 +641,15 @@ class SqlDialect:
     def get_schema_prefix_index(self) -> int | None:
         return 1
 
+    def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
+        """Convert to a SQL representation of a timestamp with timezone.
+
+        By default this will return the standard SQL timestamp representation but may be overridden.
+        We may wish to add some logic to detect timezones in datetime and return the appropriate representation.
+        For now it's up to the user to decide which representation to use.
+        """
+        return self.sql_expr_timestamp_literal(datetime_in_iso8601)
+
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"timestamp '{datetime_in_iso8601}'"
 
@@ -647,6 +661,10 @@ class SqlDialect:
 
     def quote_column(self, column_name: str) -> str:
         return self.quote_default(column_name)
+
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
+        return data_type
 
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false

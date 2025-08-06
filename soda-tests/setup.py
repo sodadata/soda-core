@@ -13,9 +13,7 @@ package_name = "soda-tests"
 package_version = "4.0.0b11"
 description = "Soda Core V4 Tests"
 
-requires = [
-    f"soda-core=={package_version}",
-]
+requires = [f"soda-core=={package_version}", "pytz"]
 
 setup(
     name=package_name,
