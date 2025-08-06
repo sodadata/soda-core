@@ -75,7 +75,10 @@ class SqlDialect:
         elif isinstance(o, str):
             return self.literal_string(o)
         elif isinstance(o, datetime):
-            return self.literal_datetime(o)
+            if o.tzinfo is None:
+                return self.literal_datetime(o)
+            else:
+                return self.literal_datetime_with_tz(o)
         elif isinstance(o, date):
             return self.literal_date(o)
         elif isinstance(o, list) or isinstance(o, set) or isinstance(o, tuple):
@@ -116,6 +119,12 @@ class SqlDialect:
 
     def literal_datetime(self, datetime: datetime):
         return f"'{datetime.isoformat()}'"
+
+    def literal_datetime_with_tz(self, datetime: datetime):
+        # Can be overloaded if the subclass does not support timezones (may have to do conversion yourself)
+        # We assume that all timestamps are stored in UTC.
+        # See Fabric for an example
+        return self.literal_datetime(datetime)
 
     def literal_boolean(self, boolean: bool):
         return "TRUE" if boolean is True else "FALSE"
