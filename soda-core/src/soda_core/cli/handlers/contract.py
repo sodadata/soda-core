@@ -25,7 +25,7 @@ def handle_verify_contract(
     verbose: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
-    diagnostics_warehouse_file_path: Optional[str]
+    diagnostics_warehouse_file_path: Optional[str],
 ) -> ExitCode:
     try:
         contract_verification_result = verify_contracts(

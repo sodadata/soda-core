@@ -186,7 +186,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             verbose,
             use_agent,
             blocking_timeout_in_minutes,
-            diagnostics_warehouse_file_path
+            diagnostics_warehouse_file_path,
         )
 
         exit_with_code(exit_code)

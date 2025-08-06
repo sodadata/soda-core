@@ -94,7 +94,7 @@ from soda_core.cli.exit_codes import ExitCode
             ],
             [None, ["some-dataset"], ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None],
         ),
-(
+        (
             [
                 "soda",
                 "contract",
@@ -108,7 +108,18 @@ from soda_core.cli.exit_codes import ExitCode
                 "-dw",
                 "diagnostics_warehouse.yaml",
             ],
-            [None, ["some-dataset"], ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, "diagnostics_warehouse.yaml"],
+            [
+                None,
+                ["some-dataset"],
+                ["ds.yaml"],
+                "cloud.yaml",
+                {},
+                False,
+                False,
+                False,
+                60,
+                "diagnostics_warehouse.yaml",
+            ],
         ),
     ],
 )
