@@ -1,19 +1,23 @@
 from __future__ import annotations
 
-from typing import Optional, Type
-from pydantic import BaseModel
 from enum import Enum
+from typing import Optional, Type
 
+from pydantic import BaseModel
 from soda_core.common.soda_cloud import SodaCloud
+
 
 class IRequestStatus(str, Enum):
     pass
 
+
 class IContractRequest(BaseModel):
     pass
 
+
 class IContractProposal(BaseModel):
     pass
+
 
 class IContractRequestExtension:
     _registry: dict[str, Type[IContractRequestExtension]] = {}
@@ -26,7 +30,7 @@ class IContractRequestExtension:
     @classmethod
     def instance(cls, identifier: Optional[str] = None) -> IContractRequestExtension:
         if not cls._registry:
-            raise NotImplementedError(f"No contract request extension implementations registered.")
+            raise NotImplementedError("No contract request extension implementations registered.")
         if not identifier:
             identifier = next(iter(cls._registry))
         impl_cls = cls._registry[identifier]
@@ -38,8 +42,10 @@ class IContractRequestExtension:
         request_number: int,
         proposal_number: Optional[int] = None,
     ) -> IContractProposal:
-        raise NotImplementedError("No implementation for fetch_contract_proposal() yet. Please install an appropriate plugin.")
-    
+        raise NotImplementedError(
+            "No implementation for fetch_contract_proposal() yet. Please install an appropriate plugin."
+        )
+
     def push_contract_proposal(
         self,
         soda_cloud: SodaCloud,
@@ -47,12 +53,16 @@ class IContractRequestExtension:
         contents: str,
         comment: Optional[str] = None,
     ) -> IContractProposal:
-        raise NotImplementedError("No implementation for push_contract_proposal() yet. Please install an appropriate plugin.")
-    
+        raise NotImplementedError(
+            "No implementation for push_contract_proposal() yet. Please install an appropriate plugin."
+        )
+
     def transition_contract_request(
         self,
         soda_cloud: SodaCloud,
         request_number: int,
         status: IRequestStatus,
     ) -> IContractRequest:
-        raise NotImplementedError("No implementation for transition_contract_request() yet. Please install an appropriate plugin.")
+        raise NotImplementedError(
+            "No implementation for transition_contract_request() yet. Please install an appropriate plugin."
+        )
