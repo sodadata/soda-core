@@ -11,13 +11,13 @@ from pydantic import Field
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
-    SQLServerActiveDirectoryAuthentication,
-    SQLServerActiveDirectoryInteractiveAuthentication,
-    SQLServerActiveDirectoryPasswordAuthentication,
-    SQLServerActiveDirectoryServicePrincipalAuthentication,
-    SQLServerConnectionProperties,
-    SQLServerDataSourceConnection,
-    SQLServerPasswordAuth,
+    SqlServerActiveDirectoryAuthentication,
+    SqlServerActiveDirectoryInteractiveAuthentication,
+    SqlServerActiveDirectoryPasswordAuthentication,
+    SqlServerActiveDirectoryServicePrincipalAuthentication,
+    SqlServerConnectionProperties,
+    SqlServerDataSourceConnection,
+    SqlServerPasswordAuth,
 )
 
 logger: logging.Logger = soda_logger
@@ -27,34 +27,34 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 
 
 # All of these classes are just copies of the SQLServerConnectionProperties classes, but with the Synapse type
-class FabricConnectionProperties(SQLServerConnectionProperties, ABC):
+class FabricConnectionProperties(SqlServerConnectionProperties, ABC):
     autocommit: Optional[bool] = Field(
         True, description="Whether to use autocommit"
     )  # Synapse requires autocommit to be True.
 
 
-class FabricPasswordAuth(SQLServerPasswordAuth, FabricConnectionProperties):
+class FabricPasswordAuth(SqlServerPasswordAuth, FabricConnectionProperties):
     pass
 
 
-class FabricActiveDirectoryAuthentication(SQLServerActiveDirectoryAuthentication, FabricConnectionProperties):
+class FabricActiveDirectoryAuthentication(SqlServerActiveDirectoryAuthentication, FabricConnectionProperties):
     pass
 
 
 class FabricActiveDirectoryInteractiveAuthentication(
-    SQLServerActiveDirectoryInteractiveAuthentication, FabricConnectionProperties
+    SqlServerActiveDirectoryInteractiveAuthentication, FabricConnectionProperties
 ):
     pass
 
 
 class FabricActiveDirectoryPasswordAuthentication(
-    SQLServerActiveDirectoryPasswordAuthentication, FabricConnectionProperties
+    SqlServerActiveDirectoryPasswordAuthentication, FabricConnectionProperties
 ):
     pass
 
 
 class FabricActiveDirectoryServicePrincipalAuthentication(
-    SQLServerActiveDirectoryServicePrincipalAuthentication, FabricConnectionProperties
+    SqlServerActiveDirectoryServicePrincipalAuthentication, FabricConnectionProperties
 ):
     pass
 
@@ -84,11 +84,11 @@ def handle_datetime2(dto_value):
     )
 
 
-class FabricDataSourceConnection(SQLServerDataSourceConnection):
+class FabricDataSourceConnection(SqlServerDataSourceConnection):
     def _get_autocommit_setting(self) -> bool:
         return True  # Synapse requires autocommit to be True.
 
-    def _create_connection(self, config: SQLServerConnectionProperties):
+    def _create_connection(self, config: SqlServerConnectionProperties):
         my_connection = super()._create_connection(config)
         my_connection.add_output_converter(pyodbc.SQL_TYPE_TIMESTAMP, handle_datetime2)
         return my_connection

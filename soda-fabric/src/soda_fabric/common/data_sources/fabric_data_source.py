@@ -13,14 +13,14 @@ from soda_fabric.common.data_sources.fabric_data_source_connection import (
     FabricDataSourceConnection,
 )
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
-    SQLServerDataSourceImpl,
-    SQLServerSqlDialect,
+    SqlServerDataSourceImpl,
+    SqlServerSqlDialect,
 )
 
 logger: logging.Logger = soda_logger
 
 
-class FabricDataSourceImpl(SQLServerDataSourceImpl, model_class=FabricDataSourceModel):
+class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSourceModel):
     def __init__(self, data_source_model: FabricDataSourceModel):
         super().__init__(data_source_model=data_source_model)
 
@@ -33,7 +33,7 @@ class FabricDataSourceImpl(SQLServerDataSourceImpl, model_class=FabricDataSource
         )
 
 
-class FabricSqlDialect(SQLServerSqlDialect):
+class FabricSqlDialect(SqlServerSqlDialect):
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 
