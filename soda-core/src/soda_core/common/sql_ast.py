@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_datatypes import DBDataType
@@ -129,8 +129,13 @@ class SqlExpression(BaseSqlExpression):
 
 @dataclass
 class STAR(SqlExpression):
+    table_alias: Optional[str] = None
+
     def __post_init__(self):
         super().__post_init__()
+
+    def IN(self, table_alias: str) -> STAR:
+        return STAR(table_alias=table_alias)
 
 
 @dataclass
@@ -498,7 +503,7 @@ class INSERT_INTO(BaseSqlExpression):
 @dataclass
 class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
-    select_elements: list[SqlExpression | str]
+    select_elements: list[Any]
     columns: list[
         COLUMN
     ]  # The order of values that is inserted should be in the same order as the columns defined here!
@@ -511,7 +516,7 @@ class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
 
 @dataclass
 class VALUES_ROW(BaseSqlExpression):
-    values: list[SqlExpression | str]
+    values: list[Any]
 
     def __post_init__(self):
         super().__post_init__()
