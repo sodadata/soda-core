@@ -116,8 +116,3 @@ class SqlServerSqlDialect(SqlDialect):
             DBDataType.TIMESTAMP_TZ: "datetimeoffset",
             DBDataType.BOOLEAN: "bit",
         }
-
-    def literal_date(self, date: date):
-        """Technically dates can be passed directly as strings, but this is more explicit."""
-        date_string = date.strftime("%Y-%m-%d")
-        return f"CAST('{date_string}' AS DATE)"
