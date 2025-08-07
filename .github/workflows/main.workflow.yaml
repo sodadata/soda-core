@@ -96,6 +96,11 @@ jobs:
       SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SYNAPSE_CLIENT_ID: ${{ secrets.MICROSOFT_SYNAPSE_CI_USER }}
       SYNAPSE_CLIENT_SECRET: ${{ secrets.MICROSOFT_SYNAPSE_CI_PASSWORD }}
+      FABRIC_HOST: ${{ vars.MICROSOFT_FABRIC_CI_HOST }}
+      FABRIC_DATABASE: ${{ vars.MICROSOFT_FABRIC_CI_DATABASE }}
+      FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
+      FABRIC_CLIENT_ID: ${{ secrets.MICROSOFT_FABRIC_CI_USER }}
+      FABRIC_CLIENT_SECRET: ${{ secrets.MICROSOFT_FABRIC_CI_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
