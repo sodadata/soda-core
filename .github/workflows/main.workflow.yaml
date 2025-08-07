@@ -99,7 +99,7 @@ jobs:
       FABRIC_HOST: ${{ vars.MICROSOFT_FABRIC_CI_HOST }}
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
-      FABRIC_CLIENT_ID: ${{ secrets.MICROSOFT_FABRIC_CI_USER }}
+      FABRIC_CLIENT_ID: ${{ secrets.MICROSOFT_FABRIC_CI_USERNAME }}
       FABRIC_CLIENT_SECRET: ${{ secrets.MICROSOFT_FABRIC_CI_PASSWORD }}
 
     steps:
