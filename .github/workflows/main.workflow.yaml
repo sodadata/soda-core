@@ -123,7 +123,7 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
-          if [ "${{ matrix.module }}" = "synapse" ]; then
+          if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
           pip install -e soda-${{ matrix.module }}
