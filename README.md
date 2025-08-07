@@ -10,8 +10,8 @@
 
 <hr />
 
-> [!IMPORTANT]  
-> **🚀 Soda's Launch Week is Coming: June 9–13 — Register to win a $1000+ mechanical keyboard. [Register now!](https://launch.soda.io/launch-week?utm_source=soda+core&utm_medium=banner&utm_campaign=launch+week)**
+> 
+> **Be the first to try Soda’s new AI-powered metrics observability and collaborative data contracts — all in Soda Cloud. [Request a demo!](https://www.soda.io/schedule-a-demo)**
 
 <hr />
 
