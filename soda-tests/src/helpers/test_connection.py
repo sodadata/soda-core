@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from textwrap import dedent
-from typing import Optional, Any
+from typing import Any, Optional
 
 import pytest
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -34,11 +34,11 @@ class TestConnection:
     def create_data_source_impl(self, data_source_yaml_source: DataSourceYamlSource) -> DataSourceImpl:
         return DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
-    def test(self, monkeypatch: Optional[pytest.MonkeyPatch]=None):
+    def test(self, monkeypatch: Optional[pytest.MonkeyPatch] = None):
         if self.monkeypatches:
             for module, mock in self.monkeypatches.items():
                 monkeypatch.setattr(module, mock)
-        
+
         logs = Logs()
         data_source_yaml = self.create_data_source_yaml()
         data_source_impl = None
