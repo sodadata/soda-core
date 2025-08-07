@@ -153,6 +153,15 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         help="Show more detailed logs on the console.",
     )
 
+    # TODO: move into extensions
+    verify_parser.add_argument(
+        "-dw",
+        "--diagnostics-warehouse",
+        type=str,
+        nargs="?",
+        help="Specify the path to the diagnostics warehouse configuration file. ",
+    )
+
     def handle(args):
         contract_file_paths = args.contract
         dataset_identifiers = args.dataset
@@ -165,6 +174,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         verbose = args.verbose
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
+        diagnostics_warehouse_file_path = args.diagnostics_warehouse
 
         exit_code = handle_verify_contract(
             contract_file_paths,
@@ -176,6 +186,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             verbose,
             use_agent,
             blocking_timeout_in_minutes,
+            diagnostics_warehouse_file_path,
         )
 
         exit_with_code(exit_code)

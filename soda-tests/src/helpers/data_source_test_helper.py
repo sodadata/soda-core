@@ -66,6 +66,14 @@ class DataSourceTestHelper:
             )
 
             return BigQueryDataSourceTestHelper()
+
+        elif test_datasource == "oracle":
+            from soda_oracle.test_helpers.oracle_data_source_test_helper import (
+                OracleDataSourceTestHelper,
+            )
+
+            return OracleDataSourceTestHelper()
+
         elif test_datasource == "sqlserver":
             from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
                 SqlServerDataSourceTestHelper,
@@ -493,11 +501,13 @@ class DataSourceTestHelper:
         test_table: TestTable,
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
+        dwh_data_source_file_path: Optional[str] = None,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
         if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
             raise AssertionError(f"No contract verification result session")
@@ -512,11 +522,13 @@ class DataSourceTestHelper:
         test_table: TestTable,
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
+        dwh_data_source_file_path: Optional[str] = None,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
         if contract_verification_session_result.is_ok():
             raise AssertionError(f"Expected contract verification failed")
@@ -527,6 +539,7 @@ class DataSourceTestHelper:
         contract_yaml_str: str,
         test_table: Optional[TestTable] = None,
         variables: Optional[dict] = None,
+        dwh_data_source_file_path: Optional[str] = None,
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
@@ -538,6 +551,7 @@ class DataSourceTestHelper:
             soda_cloud_impl=self.soda_cloud,
             soda_cloud_use_agent=self.use_agent,
             soda_cloud_publish_results=self.publish_results,
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):

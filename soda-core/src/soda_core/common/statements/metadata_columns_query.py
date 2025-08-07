@@ -44,6 +44,7 @@ class MetadataColumnsQuery:
         if (schema_index := self.sql_dialect.get_schema_prefix_index()) is not None:
             schema_name = dataset_prefix[schema_index]
 
+        join_prefixes = lambda prefixes, schema: [*prefixes, schema] if schema else prefixes
         if self.prefixes is not None:
             prefixes = self.prefixes
         else:
@@ -63,10 +64,7 @@ class MetadataColumnsQuery:
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
-                    [
-                        *prefixes,
-                        self.sql_dialect.schema_information_schema(),
-                    ]
+                    join_prefixes(prefixes, self.sql_dialect.schema_information_schema())
                 ),
                 WHERE(
                     AND(
@@ -89,7 +87,10 @@ class MetadataColumnsQuery:
         if self.sql_dialect.supports_varchar_length():
             return [
                 ColumnMetadata(
-                    column_name=column_name, data_type=data_type, character_maximum_length=character_maximum_length
+                    # Format data_type value here if needed -- default no-op
+                    column_name=column_name,
+                    data_type=self.sql_dialect.format_metadata_data_type(data_type),
+                    character_maximum_length=character_maximum_length,
                 )
                 for column_name, data_type, character_maximum_length in query_result.rows
             ]

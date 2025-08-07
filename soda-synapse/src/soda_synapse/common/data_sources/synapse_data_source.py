@@ -5,8 +5,8 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
-    SQLServerDataSourceImpl,
-    SQLServerSqlDialect,
+    SqlServerDataSourceImpl,
+    SqlServerSqlDialect,
 )
 from soda_synapse.common.data_sources.synapse_data_source_connection import (
     SynapseDataSource as SynapseDataSourceModel,
@@ -18,7 +18,7 @@ from soda_synapse.common.data_sources.synapse_data_source_connection import (
 logger: logging.Logger = soda_logger
 
 
-class SynapseDataSourceImpl(SQLServerDataSourceImpl, model_class=SynapseDataSourceModel):
+class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSourceModel):
     def __init__(self, data_source_model: SynapseDataSourceModel):
         super().__init__(data_source_model=data_source_model)
 
@@ -31,7 +31,7 @@ class SynapseDataSourceImpl(SQLServerDataSourceImpl, model_class=SynapseDataSour
         )
 
 
-class SynapseSqlDialect(SQLServerSqlDialect):
+class SynapseSqlDialect(SqlServerSqlDialect):
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 

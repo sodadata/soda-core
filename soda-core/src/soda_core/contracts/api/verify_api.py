@@ -28,6 +28,7 @@ def verify_contracts_locally(
     variables: Optional[Dict[str, str]] = None,
     data_timestamp: Optional[str] = None,
     publish: bool = False,
+    dwh_data_source_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
@@ -46,6 +47,7 @@ def verify_contracts_locally(
         data_timestamp=data_timestamp,
         publish=publish,
         use_agent=False,
+        dwh_data_source_file_path=dwh_data_source_file_path,
     )
 
 
@@ -90,6 +92,7 @@ def verify_contracts(
     blocking_timeout_in_minutes: int = 60,
     data_sources: Optional[list[DataSourceImpl]] = None,
     data_source_file_paths: Optional[list[str]] = None,
+    dwh_data_source_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
     if not data_source_file_paths:
         data_source_file_paths = []
@@ -146,6 +149,7 @@ def verify_contracts(
             soda_cloud_use_agent=use_agent,
             soda_cloud_verbose=verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
         soda_telemetry.ingest_contract_verification_session_result(
