@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 from helpers.test_connection import TestConnection
@@ -26,7 +25,7 @@ test_connections: list[TestConnection] = [
                     user: '{REDSHIFT_USERNAME}'
                     password: '{REDSHIFT_PASSWORD}'
             """,
-    )    
+    )
 ]
 
 

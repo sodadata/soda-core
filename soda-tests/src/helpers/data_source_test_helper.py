@@ -90,6 +90,7 @@ class DataSourceTestHelper:
             from soda_redshift.test_helpers.redshift_data_source_test_helper import (
                 RedshiftDataSourceTestHelper,
             )
+
             return RedshiftDataSourceTestHelper()
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")

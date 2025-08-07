@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 from abc import ABC
-from pathlib import Path
 from typing import Literal, Optional, Union
+
 import boto3
-
-
 import psycopg2
-from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
-from soda_core.common.data_source_connection import DataSourceConnection
+from pydantic import Field, IPvAnyAddress, SecretStr
 from soda_core.common.aws_credentials import AwsCredentials
-
+from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
-
 
 
 class RedshiftConnectionProperties(DataSourceConnectionProperties):
@@ -51,7 +47,6 @@ class RedshiftDataSource(DataSourceBase, ABC):
     ] = Field(..., alias="connection", description="Redshift connection configuration")
 
 
-
 class RedshiftDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
@@ -82,7 +77,6 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         self,
         config: RedshiftConnectionProperties,
     ):
-
         if isinstance(config, RedshiftUserPassConnection):
             username = config.user
             password = config.password.get_secret_value()
@@ -96,7 +90,6 @@ class RedshiftDataSourceConnection(DataSourceConnection):
                 profile_name=config.profile_name,
             )
             username, password = self.__get_cluster_credentials(aws_credentials)
-        
 
         keepalives_params = {}
         if config.keepalives_idle:
@@ -112,6 +105,6 @@ class RedshiftDataSourceConnection(DataSourceConnection):
             host=config.host,
             port=config.port,
             connect_timeout=config.connect_timeout,
-            database=config.database,            
+            database=config.database,
             **keepalives_params,
         )
