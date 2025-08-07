@@ -51,7 +51,7 @@ class RedshiftDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
 
-    def __get_cluster_credentials(self, aws_credentials: AwsCredentials):
+    def _get_cluster_credentials(self, aws_credentials: AwsCredentials):
         resolved_aws_credentials = aws_credentials.resolve_role(
             role_session_name="soda_redshift_get_cluster_credentials"
         )
@@ -65,21 +65,37 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         )
 
         cluster_name = self.host.split(".")[0]
-        username = self.username
+        user = self.user
         db_name = self.database
+        # Note  user is used here to get database credentials, therefore it's required even if AWS creds are provided
         cluster_creds = client.get_cluster_credentials(
-            DbUser=username, DbName=db_name, ClusterIdentifier=cluster_name, AutoCreate=False, DurationSeconds=3600
+            DbUser=user, DbName=db_name, ClusterIdentifier=cluster_name, AutoCreate=False, DurationSeconds=3600
         )
 
         return cluster_creds["DbUser"], cluster_creds["DbPassword"]
+
+    def _load_params(self, config: RedshiftConnectionProperties):
+        self.user = config.user
+        self.host = config.host
+        self.port = config.port
+        self.database = config.database
+        self.connect_timeout = config.connect_timeout
+        self.keepalives_params = {}
+        if config.keepalives_idle:
+            self.keepalives_params["keepalives_idle"] = config.keepalives_idle
+        if config.keepalives_interval:
+            self.keepalives_params["keepalives_interval"] = config.keepalives_interval
+        if config.keepalives_count:
+            self.keepalives_params["keepalives_count"] = config.keepalives_count
 
     def _create_connection(
         self,
         config: RedshiftConnectionProperties,
     ):
+        self._load_params(config)
+
         if isinstance(config, RedshiftUserPassConnection):
-            username = config.user
-            password = config.password.get_secret_value()
+            self.password = config.password.get_secret_value()
         elif isinstance(config, RedshiftKeyConnection):
             aws_credentials = AwsCredentials(
                 access_key_id=config.access_key_id,
@@ -89,22 +105,14 @@ class RedshiftDataSourceConnection(DataSourceConnection):
                 region_name=config.region,
                 profile_name=config.profile_name,
             )
-            username, password = self.__get_cluster_credentials(aws_credentials)
-
-        keepalives_params = {}
-        if config.keepalives_idle:
-            keepalives_params["keepalives_idle"] = config.keepalives_idle
-        if config.keepalives_interval:
-            keepalives_params["keepalives_interval"] = config.keepalives_interval
-        if config.keepalives_count:
-            keepalives_params["keepalives_count"] = config.keepalives_count
+            self.user, self.password = self._get_cluster_credentials(aws_credentials)
 
         return psycopg2.connect(
-            user=username,
-            password=password,
-            host=config.host,
-            port=config.port,
-            connect_timeout=config.connect_timeout,
-            database=config.database,
-            **keepalives_params,
+            user=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            connect_timeout=self.connect_timeout,
+            database=self.database,
+            **self.keepalives_params,
         )
