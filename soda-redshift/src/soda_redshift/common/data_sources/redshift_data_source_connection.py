@@ -107,7 +107,7 @@ class RedshiftDataSourceConnection(DataSourceConnection):
             )
             self.user, self.password = self._get_cluster_credentials(aws_credentials)
 
-        return psycopg2.connect(
+        conn = psycopg2.connect(
             user=self.user,
             password=self.password,
             host=self.host,
@@ -116,3 +116,8 @@ class RedshiftDataSourceConnection(DataSourceConnection):
             database=self.database,
             **self.keepalives_params,
         )
+        
+        # Redshift can optionally support case sensitive identifiers but only if the following is set
+        # Our customers might be using case sensitive tables and columns, so we set this to true to make sure we can handle them
+        conn.cursor().execute("SET enable_case_sensitive_identifier TO true;")  
+        return conn 

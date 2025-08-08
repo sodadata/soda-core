@@ -2,7 +2,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import REGEX_LIKE
+from soda_core.common.sql_ast import REGEX_LIKE, TUPLE, COUNT, DISTINCT
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
@@ -35,7 +35,7 @@ class RedshiftSqlDialect(SqlDialect):
 
     def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
         quoted_schema_name: str = self.quote_default(schema_name)
-        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name} AUTHORIZATION CURRENT_USER;"
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
 
     def default_varchar_length(self) -> Optional[int]:
         return 255
@@ -44,3 +44,29 @@ class RedshiftSqlDialect(SqlDialect):
         base_dict = super().get_sql_type_dict()
         base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
         return base_dict
+
+
+    def _build_tuple_sql(self, tuple: TUPLE) -> str:
+        if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
+            return self._build_tuple_sql_in_distinct(tuple)
+        return f"{super()._build_tuple_sql(tuple)}"
+
+    def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
+        """
+        Redshift does not support DISTINCT on tuples and has nothing like BigQuery's TO_JSON_STRING(STRUCT).
+
+        Instead we approximate TO_JSON_STRING(STRUCT) by concatting all the columns.
+        """
+
+        def format_element_expression(e: str) -> str:
+            """Use CHR(31) (unit seperator) as delimiter because it is highly unlikely to be appear in the data.
+            If it does appear, replace with string '#US#'.  Also replace NULL with a string value to prevent
+            cascading NULLS in the concat operation."""
+            return f"REPLACE(COALESCE(CAST({e} AS VARCHAR), '__UNDEF__'), CHR(31), '#US#')"
+
+        concat_delim = " || CHR(31) || \n"  # use ASCII unit separator as delimieter
+        elements: str = concat_delim.join(
+            format_element_expression(self.build_expression_sql(e)) for e in tuple.expressions
+        )
+        # Use FNV_HASH to convert the string rep into a hash value with a fixed length, will be more performant in COUNT DISTINCT
+        return f"FNV_HASH({elements})"
