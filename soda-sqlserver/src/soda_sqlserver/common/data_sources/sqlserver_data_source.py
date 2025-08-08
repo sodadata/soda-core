@@ -45,14 +45,14 @@ class SqlServerSqlDialect(SqlDialect):
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return f"[{identifier}]" if isinstance(identifier, str) and len(identifier) > 0 else None
 
-    def create_schema_if_not_exists_sql(self, prefixes: list[str]) -> str:
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         schema_name: str = prefixes[1]
         return f"""
         IF NOT EXISTS ( SELECT  *
                         FROM    sys.schemas
                         WHERE   name = N'{schema_name}' )
-        EXEC('CREATE SCHEMA [{schema_name}]');
-        """
+        EXEC('CREATE SCHEMA [{schema_name}]')
+        """ + (";" if add_semicolon else "")
 
     def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = True) -> str:
         if_exists_sql: str = (

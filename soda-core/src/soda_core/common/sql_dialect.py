@@ -127,11 +127,11 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
-    def create_schema_if_not_exists_sql(self, prefixes: list[str]) -> str:
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         schema_name: str = prefixes[1]
         quoted_schema_name: str = self.quote_default(schema_name)
-        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}"
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
 
     #########################################################
     # CREATE TABLE
@@ -231,6 +231,7 @@ class SqlDialect:
     # SELECT
     #########################################################
 
+    # TODO: refactor this to use AST (`SELECT`) instead of a list of `select_elements`
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
@@ -497,8 +498,8 @@ class SqlDialect:
             return f"{function.name}({args_list_sql})"
 
     def _build_star_sql(self, star: STAR) -> str:
-        if star.table_alias:
-            return f"{star.table_alias}.*"
+        if star.alias:
+            return f"{star.alias}.*"
         else:
             return "*"
 
