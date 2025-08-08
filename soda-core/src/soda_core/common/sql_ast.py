@@ -533,7 +533,7 @@ class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
 
 @dataclass
 class VALUES_ROW(BaseSqlExpression):
-    values: list[SqlExpression | str] # TODO: think about what types we should restrict to (e.g. `LITERAL`?)
+    values: list[SqlExpression | str]  # TODO: think about what types we should restrict to (e.g. `LITERAL`?)
 
     def __post_init__(self):
         super().__post_init__()
