@@ -88,6 +88,11 @@ class DuckDBSqlDialect(SqlDialect):
             DBDataType.BOOLEAN: "BOOLEAN",
         }
 
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
+        schema_name: str = prefixes[0]
+        quoted_schema_name: str = self.quote_default(schema_name)
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
+
 
 class DuckDBDataSourceConnection(DataSourceConnection):
     REGISTERED_FORMAT_MAP = {
