@@ -11,7 +11,7 @@ if [ $# -eq 1 ]; then
     else
         echo First time ok
     fi
-    python -m pytest
+    pytest soda-tests/
     git add .
     git status
     git commit -m "$1"
