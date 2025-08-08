@@ -671,3 +671,6 @@ class SqlDialect:
     def encode_string_for_sql(self, string: str) -> str:
         """This escapes values that contain newlines correctly."""
         return string.encode("unicode_escape").decode("utf-8")
+
+    def get_table_name_max_length(self) -> int:
+        return 63
