@@ -477,10 +477,9 @@ class SqlDialect:
             if isinstance(select_element, GROUP_BY):
                 if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
                     select_element.fields = [select_element.fields]
-                group_by_field_sqls.extend([
-                    self.build_expression_sql(select_field)
-                    for select_field in select_element.fields
-                ])
+                group_by_field_sqls.extend(
+                    [self.build_expression_sql(select_field) for select_field in select_element.fields]
+                )
         sql_lines: list[str] = []
         if group_by_field_sqls:
             group_by_fields_str: str = ", ".join(group_by_field_sqls)
@@ -528,8 +527,7 @@ class SqlDialect:
 
     def _build_in_select_sql(self, in_select: IN_SELECT) -> str:
         nested_select: str = self.build_select_sql(
-            select_elements=in_select.nested_select_elements,
-            add_semicolon=False
+            select_elements=in_select.nested_select_elements, add_semicolon=False
         )
         nested_select: str = indent(nested_select, "    ")
         return f"{self.build_expression_sql(in_select.expression)} IN (\n{nested_select})"
