@@ -305,12 +305,7 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def create_test_schema_if_not_exists_sql(self) -> str:
-        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
-        if schema_index is None:
-            raise AssertionError("Data source does not support schemas")
-
-        schema_name: str = self.dataset_prefix[schema_index]
-        return self.data_source_impl.sql_dialect.create_schema_if_not_exists_sql(schema_name)
+        return self.data_source_impl.sql_dialect.create_schema_if_not_exists_sql(self.dataset_prefix)
 
     def drop_test_schema_if_exists(self) -> None:
         sql: str = self.drop_test_schema_if_exists_sql()

@@ -7,7 +7,6 @@ from textwrap import dedent, indent
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_datatypes import DBDataType
-from soda_core.contracts.contract_verification import SodaException
 
 
 class SqlDialect:
@@ -128,14 +127,11 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
-    def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
+        assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
+        schema_name: str = prefixes[1]
         quoted_schema_name: str = self.quote_default(schema_name)
-        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
-
-    def build_sql_str(self, sql_statement: SqlStatement) -> str:
-        if isinstance(sql_statement, InsertSqlStatement):
-            return self.build_insert_sql(sql_statement)
-        raise SodaException(f"Unsupported SQL statement: {sql_statement}")
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
 
     #########################################################
     # CREATE TABLE
@@ -200,18 +196,6 @@ class SqlDialect:
     #########################################################
     # INSERT INTO
     #########################################################
-    def build_insert_sql(self, insert: InsertSqlStatement) -> str:
-        columns: str = "(" + ", ".join(self.quote_column(c) for c in insert.columns) + ") " if insert.columns else ""
-        if insert.values:
-            values: str = ",\n  ".join(
-                [("(" + ", ".join([self.literal(value) for value in row]) + ")") for row in insert.values]
-            )
-            return f"INSERT INTO {insert.fully_qualified_table_name} {columns}VALUES\n  {values}"
-        if insert.select:
-            select_sql: str = indent(self.build_select_sql(insert.select, add_semicolon=False), "  ")
-            return f"INSERT INTO {insert.fully_qualified_table_name} {columns}(\n{select_sql}\n)"
-        raise SodaException(f"Invalid insert statement: {insert}")
-
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
         insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
         insert_into_sql += self._build_insert_into_columns_sql(insert_into)
@@ -247,12 +231,14 @@ class SqlDialect:
     # SELECT
     #########################################################
 
+    # TODO: refactor this to use AST (`SELECT`) instead of a list of `select_elements`
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
+        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
         statement_lines.extend(self._build_order_by_lines(select_elements))
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
@@ -340,6 +326,8 @@ class SqlDialect:
             return self._build_like_sql(expression)
         elif isinstance(expression, IN):
             return self._build_in_sql(expression)
+        elif isinstance(expression, IN_SELECT):
+            return self._build_in_select_sql(expression)
         elif isinstance(expression, NOT_LIKE):
             return self._build_not_like_sql(expression)
         elif isinstance(expression, LOWER):
@@ -357,7 +345,7 @@ class SqlDialect:
         elif isinstance(expression, ORDINAL_POSITION):
             return self._build_ordinal_position_sql(expression)
         elif isinstance(expression, STAR):
-            return "*"
+            return self._build_star_sql(expression)
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
 
     def _build_column_sql(self, column: COLUMN) -> str:
@@ -489,6 +477,21 @@ class SqlDialect:
             where_sql_lines.append(sql_line)
         return where_sql_lines
 
+    def _build_group_by_sql_lines(self, select_elements: list) -> list[str]:
+        group_by_field_sqls: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, GROUP_BY):
+                if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
+                    select_element.fields = [select_element.fields]
+                group_by_field_sqls.extend(
+                    [self.build_expression_sql(select_field) for select_field in select_element.fields]
+                )
+        sql_lines: list[str] = []
+        if group_by_field_sqls:
+            group_by_fields_str: str = ", ".join(group_by_field_sqls)
+            sql_lines.append(f"GROUP BY {group_by_fields_str}")
+        return sql_lines
+
     def _build_function_sql(self, function: FUNCTION) -> str:
         args: list[SqlExpression | str] = [function.args] if not isinstance(function.args, list) else function.args
         args_sqls: list[str] = [self.build_expression_sql(arg) for arg in args]
@@ -498,6 +501,12 @@ class SqlDialect:
         else:
             args_list_sql: str = ", ".join(args_sqls)
             return f"{function.name}({args_list_sql})"
+
+    def _build_star_sql(self, star: STAR) -> str:
+        if star.alias:
+            return f"{star.alias}.*"
+        else:
+            return "*"
 
     def _build_count_sql(self, count: COUNT) -> str:
         return f"COUNT({self.build_expression_sql(count.expression)})"
@@ -521,6 +530,13 @@ class SqlDialect:
     def _build_in_sql(self, in_: IN) -> str:
         list_expressions: str = ", ".join([self.build_expression_sql(element) for element in in_.list_expression])
         return f"{self.build_expression_sql(in_.expression)} IN ({list_expressions})"
+
+    def _build_in_select_sql(self, in_select: IN_SELECT) -> str:
+        nested_select: str = self.build_select_sql(
+            select_elements=in_select.nested_select_elements, add_semicolon=False
+        )
+        nested_select: str = indent(nested_select, "    ")
+        return f"{self.build_expression_sql(in_select.expression)} IN (\n{nested_select})"
 
     def _build_like_sql(self, like: LIKE) -> str:
         return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"
@@ -672,3 +688,6 @@ class SqlDialect:
     def encode_string_for_sql(self, string: str) -> str:
         """This escapes values that contain newlines correctly."""
         return string.encode("unicode_escape").decode("utf-8")
+
+    def get_table_name_max_length(self) -> int:
+        return 63
