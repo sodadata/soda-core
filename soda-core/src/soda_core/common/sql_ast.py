@@ -138,13 +138,10 @@ class SqlExpression(BaseSqlExpression):
 
 @dataclass
 class STAR(SqlExpression):
-    table_alias: Optional[str] = None
+    alias: Optional[str] = None
 
     def __post_init__(self):
         super().__post_init__()
-
-    def IN(self, table_alias: str) -> STAR:
-        return STAR(table_alias=table_alias)
 
 
 @dataclass
@@ -523,7 +520,7 @@ class INSERT_INTO(BaseSqlExpression):
 @dataclass
 class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
-    select_elements: list[Any]
+    select_elements: list[Any]  # TODO: refactor to be a single `SELECT`
     columns: list[
         COLUMN
     ]  # The order of values that is inserted should be in the same order as the columns defined here!
@@ -536,7 +533,7 @@ class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
 
 @dataclass
 class VALUES_ROW(BaseSqlExpression):
-    values: list[Any]
+    values: list[SqlExpression | str] # TODO: think about what types we should restrict to (e.g. `LITERAL`?)
 
     def __post_init__(self):
         super().__post_init__()
