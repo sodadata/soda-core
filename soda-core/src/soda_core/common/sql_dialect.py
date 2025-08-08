@@ -393,6 +393,10 @@ class SqlDialect:
     # INSERT INTO
     #########################################################
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
+        if isinstance(insert_into, INSERT_INTO) and insert_into.values:
+            for row in insert_into.values:
+                assert len(insert_into.columns) == len(row), "The number of columns and values must match"
+
         insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
         insert_into_sql += self._build_insert_into_columns_sql(insert_into)
         insert_into_sql += self._build_insert_into_values_sql(insert_into)
