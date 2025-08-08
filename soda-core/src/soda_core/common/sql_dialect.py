@@ -237,6 +237,7 @@ class SqlDialect:
         statement_lines.extend(self._build_select_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
+        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
         statement_lines.extend(self._build_order_by_lines(select_elements))
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
@@ -324,6 +325,8 @@ class SqlDialect:
             return self._build_like_sql(expression)
         elif isinstance(expression, IN):
             return self._build_in_sql(expression)
+        elif isinstance(expression, IN_SELECT):
+            return self._build_in_select_sql(expression)
         elif isinstance(expression, NOT_LIKE):
             return self._build_not_like_sql(expression)
         elif isinstance(expression, LOWER):
@@ -468,6 +471,22 @@ class SqlDialect:
             where_sql_lines.append(sql_line)
         return where_sql_lines
 
+    def _build_group_by_sql_lines(self, select_elements: list) -> list[str]:
+        group_by_field_sqls: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, GROUP_BY):
+                if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
+                    select_element.fields = [select_element.fields]
+                group_by_field_sqls.extend([
+                    self.build_expression_sql(select_field)
+                    for select_field in select_element.fields
+                ])
+        sql_lines: list[str] = []
+        if group_by_field_sqls:
+            group_by_fields_str: str = ", ".join(group_by_field_sqls)
+            sql_lines.append(f"GROUP BY {group_by_fields_str}")
+        return sql_lines
+
     def _build_function_sql(self, function: FUNCTION) -> str:
         args: list[SqlExpression | str] = [function.args] if not isinstance(function.args, list) else function.args
         args_sqls: list[str] = [self.build_expression_sql(arg) for arg in args]
@@ -506,6 +525,14 @@ class SqlDialect:
     def _build_in_sql(self, in_: IN) -> str:
         list_expressions: str = ", ".join([self.build_expression_sql(element) for element in in_.list_expression])
         return f"{self.build_expression_sql(in_.expression)} IN ({list_expressions})"
+
+    def _build_in_select_sql(self, in_select: IN_SELECT) -> str:
+        nested_select: str = self.build_select_sql(
+            select_elements=in_select.nested_select_elements,
+            add_semicolon=False
+        )
+        nested_select: str = indent(nested_select, "    ")
+        return f"{self.build_expression_sql(in_select.expression)} IN (\n{nested_select})"
 
     def _build_like_sql(self, like: LIKE) -> str:
         return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"

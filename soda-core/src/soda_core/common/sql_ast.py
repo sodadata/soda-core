@@ -108,6 +108,15 @@ class WHERE(BaseSqlExpression):
 
 
 @dataclass
+class GROUP_BY(BaseSqlExpression):
+    fields: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.fields)
+
+
+@dataclass
 class WITH(BaseSqlExpression):
     alias: str
     cte_query: list | str | None = None
@@ -223,6 +232,17 @@ class IN(SqlExpression):
         super().__post_init__()
         self.handle_parent_node_update(self.expression)
         self.handle_parent_node_update(self.list_expression)
+
+
+@dataclass
+class IN_SELECT(SqlExpression):
+    expression: SqlExpression | str
+    nested_select_elements: list[Any]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+        self.handle_parent_node_update(self.nested_select_elements)
 
 
 @dataclass
