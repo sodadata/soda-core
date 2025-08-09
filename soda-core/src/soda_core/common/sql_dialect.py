@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from numbers import Number
-from textwrap import dedent, indent
+from textwrap import indent
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import *
@@ -223,9 +223,7 @@ class SqlDialect:
         return values_sql
 
     def build_cte_values_sql(self, values: VALUES) -> str:
-        return " VALUES\n" + ",\n".join(
-            [self.build_expression_sql(value) for value in values.values]
-        )
+        return " VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
@@ -441,9 +439,7 @@ class SqlDialect:
             from_parts.append("JOIN")
 
         from_parts.append(
-            self._build_qualified_quoted_dataset_name(
-                dataset_name=join.table_name, dataset_prefix=join.table_prefix
-            )
+            self._build_qualified_quoted_dataset_name(dataset_name=join.table_name, dataset_prefix=join.table_prefix)
         )
 
         if isinstance(join.alias, str):
