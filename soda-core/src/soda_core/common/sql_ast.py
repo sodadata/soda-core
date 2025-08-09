@@ -99,6 +99,15 @@ class LEFT_INNER_JOIN(FROM, BaseSqlExpression):
 
 
 @dataclass
+class JOIN(FROM, BaseSqlExpression):
+    on_condition: Optional[SqlExpression] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.on_condition)
+
+
+@dataclass
 class WHERE(BaseSqlExpression):
     condition: SqlExpression
 
@@ -119,7 +128,8 @@ class GROUP_BY(BaseSqlExpression):
 @dataclass
 class WITH(BaseSqlExpression):
     alias: str
-    cte_query: list | str | None = None
+    alias_columns: list[COLUMN] | None = None
+    cte_query: list | str | VALUES | None = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -128,6 +138,15 @@ class WITH(BaseSqlExpression):
         self.cte_query = cte_query
         self.handle_parent_node_update(cte_query)
         return self
+
+
+@dataclass
+class VALUES(BaseSqlExpression):
+    values: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.values)
 
 
 @dataclass
@@ -310,6 +329,12 @@ class Operator(SqlExpression):
 
 @dataclass
 class EQ(Operator):
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class IS_NOT_DISTINCT_FROM(Operator):
     def __post_init__(self):
         super().__post_init__()
 

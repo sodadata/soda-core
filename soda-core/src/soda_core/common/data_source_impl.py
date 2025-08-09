@@ -128,18 +128,10 @@ class DataSourceImpl(ABC):
     def execute_update(self, sql: str) -> UpdateResult:
         return self.data_source_connection.execute_update(sql=sql)
 
-    def get_max_aggregation_query_length(self) -> int:
-        # What is the maximum query length of common analytical databases?
-        # ChatGPT said:
-        # Here are the maximum query lengths for some common analytical databases:
-        # PostgreSQL: 1 GB
-        # MySQL: 1 MB (configurable via max_allowed_packet)
-        # SQL Server: 65,536 bytes (approximately 65 KB)
-        # Oracle: 64 KB (depends on SQL string encoding)
-        # Snowflake: 1 MB
-        # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
-        return 63 * 1024 * 1024
-
+    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def is_different_data_type(self, expected_column: ColumnMetadata, actual_column: ColumnMetadata) -> bool:
         canonical_expected_data_type: str = self.get_canonical_data_type(expected_column.data_type)
         canonical_actual_data_type: str = self.get_canonical_data_type(actual_column.data_type)
@@ -155,6 +147,10 @@ class DataSourceImpl(ABC):
 
         return False
 
+    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def get_canonical_data_type(self, data_type: str) -> str:
         canonical_data_type: str = data_type.lower()
         canonical_data_type_mappings: dict = self.get_canonical_data_type_mappings()
@@ -162,6 +158,10 @@ class DataSourceImpl(ABC):
             canonical_data_type = canonical_data_type_mappings.get(canonical_data_type)
         return canonical_data_type
 
+    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def get_canonical_data_type_mappings(self) -> dict:
         return {"character varying": "varchar", "integer": "int"}
 
@@ -169,6 +169,10 @@ class DataSourceImpl(ABC):
         # actual_data_type = self.get_data_type_text(column_metadata=actual_column_metadata, include_length=has_length)
         # return expected_data_type_lower == actual_data_type
 
+    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def get_data_type_text(self, column_metadata: ColumnMetadata, include_length: bool = True) -> str:
         data_type: str = column_metadata.data_type
         data_type = data_type.replace("character varying", "varchar")
@@ -177,6 +181,10 @@ class DataSourceImpl(ABC):
             data_type = f"{data_type}({column_metadata.character_maximum_length})"
         return data_type
 
+    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def get_format_regex(self, format: str) -> Optional[str]:
         if format is None:
             return None
@@ -198,6 +206,11 @@ class DataSourceImpl(ABC):
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
 
+    # TODO change usages to SqlDialect directly and remove this method.
+    #  We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def qualify_dataset_name(self, dataset_identifier: DatasetIdentifier) -> str:
         if dataset_identifier.data_source_name != self.name:
             raise SodaException("Please report this bug: incorrect data source used")
