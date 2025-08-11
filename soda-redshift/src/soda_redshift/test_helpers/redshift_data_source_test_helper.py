@@ -4,7 +4,7 @@ import os
 
 REDSHIFT_HOST = os.getenv("REDSHIFT_HOST", "")
 REDSHIFT_PORT = os.getenv("REDSHIFT_PORT", None)
-REDSHIFT_DATABASE = os.getenv("REDSHIFT_DATABASE", "soda_sql")
+REDSHIFT_DATABASE = os.getenv("REDSHIFT_DATABASE", "soda_test")
 REDSHIFT_USERNAME = os.getenv("REDSHIFT_USERNAME", "")
 REDSHIFT_PASSWORD = os.getenv("REDSHIFT_PASSWORD", "")
 
