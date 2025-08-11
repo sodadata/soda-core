@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 REDSHIFT_HOST = os.getenv("REDSHIFT_HOST", "")
-REDSHIFT_PORT = int(os.getenv("REDSHIFT_PORT", ""))
+REDSHIFT_PORT = os.getenv("REDSHIFT_PORT", None)
 REDSHIFT_DATABASE = os.getenv("REDSHIFT_DATABASE", "soda_sql")
 REDSHIFT_USERNAME = os.getenv("REDSHIFT_USERNAME", "")
 REDSHIFT_PASSWORD = os.getenv("REDSHIFT_PASSWORD", "")
