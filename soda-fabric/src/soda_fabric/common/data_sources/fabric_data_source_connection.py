@@ -4,7 +4,7 @@ import logging
 import struct
 from abc import ABC
 from datetime import datetime, timezone
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 import pyodbc
 from pydantic import Field
@@ -26,11 +26,9 @@ logger: logging.Logger = soda_logger
 CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 
 
-# All of these classes are just copies of the SQLServerConnectionProperties classes, but with the Synapse type
+# All of these classes are just copies of the SQLServerConnectionProperties classes, but with the Fabric type
 class FabricConnectionProperties(SqlServerConnectionProperties, ABC):
-    autocommit: Optional[bool] = Field(
-        True, description="Whether to use autocommit"
-    )  # Synapse requires autocommit to be True.
+    pass
 
 
 class FabricPasswordAuth(SqlServerPasswordAuth, FabricConnectionProperties):
@@ -85,9 +83,6 @@ def handle_datetime2(dto_value):
 
 
 class FabricDataSourceConnection(SqlServerDataSourceConnection):
-    def _get_autocommit_setting(self) -> bool:
-        return True  # Synapse requires autocommit to be True.
-
     def _create_connection(self, config: SqlServerConnectionProperties):
         my_connection = super()._create_connection(config)
         my_connection.add_output_converter(pyodbc.SQL_TYPE_TIMESTAMP, handle_datetime2)
