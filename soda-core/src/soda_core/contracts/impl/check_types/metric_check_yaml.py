@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from textwrap import dedent
+from typing import Optional
 
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
-from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import YamlObject
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
