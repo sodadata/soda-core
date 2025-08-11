@@ -25,7 +25,7 @@ class RedshiftDataSourceTestHelper(DataSourceTestHelper):
             name: REDSHIFT_TEST_DS
             connection:
                 host: '{REDSHIFT_HOST}'
-                port: '{REDSHIFT_PORT}'
+                port: {REDSHIFT_PORT}
                 database: '{REDSHIFT_DATABASE}'
                 user: '{REDSHIFT_USERNAME}'
                 password: '{REDSHIFT_PASSWORD}'
