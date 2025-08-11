@@ -83,6 +83,9 @@ def handle_datetime2(dto_value):
 
 
 class FabricDataSourceConnection(SqlServerDataSourceConnection):
+    def _get_autocommit_setting(self) -> bool:
+        return True  # Fabric requires autocommit to be True.
+
     def _create_connection(self, config: SqlServerConnectionProperties):
         my_connection = super()._create_connection(config)
         my_connection.add_output_converter(pyodbc.SQL_TYPE_TIMESTAMP, handle_datetime2)
