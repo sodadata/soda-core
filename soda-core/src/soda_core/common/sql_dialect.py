@@ -2,10 +2,62 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from numbers import Number
-from textwrap import dedent, indent
+from textwrap import indent
+from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import (
+    AND,
+    CASE_WHEN,
+    COLUMN,
+    COUNT,
+    CREATE_TABLE,
+    CREATE_TABLE_COLUMN,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    DISTINCT,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
+    EQ,
+    FROM,
+    FUNCTION,
+    GROUP_BY,
+    GT,
+    GTE,
+    IN,
+    IN_SELECT,
+    INSERT_INTO,
+    INSERT_INTO_VIA_SELECT,
+    IS_NOT_NULL,
+    IS_NULL,
+    JOIN,
+    LEFT_INNER_JOIN,
+    LENGTH,
+    LIKE,
+    LITERAL,
+    LOWER,
+    LT,
+    LTE,
+    MAX,
+    NEQ,
+    NOT,
+    NOT_LIKE,
+    OR,
+    ORDER_BY_ASC,
+    ORDER_BY_DESC,
+    ORDINAL_POSITION,
+    REGEX_LIKE,
+    SELECT,
+    STAR,
+    SUM,
+    TUPLE,
+    VALUES,
+    VALUES_ROW,
+    WHERE,
+    WITH,
+    Operator,
+    SqlExpression,
+    SqlExpressionStr,
+)
 from soda_core.common.sql_datatypes import DBDataType
 
 
@@ -175,25 +227,17 @@ class SqlDialect:
         return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        if isinstance(create_table_column.type, DBDataType):
-            column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
-        else:
-            column_type_sql: str = (
-                create_table_column.type
-            )  # If we don't need to do the lookup, we just use the type as is.
+        create_table_column_type_sql: str = (
+            self.get_contract_type_dict()[create_table_column.type]
+            if isinstance(create_table_column.type, DBDataType)
+            else create_table_column.type
+        )
 
         # If there is a length, we need to add it to the column type.
         if create_table_column.length:
-            # If the type is TEXT and the length is provided, we need to add the length to the column type.
-            # But only if we are doing a type lookup.
-            if create_table_column.type == DBDataType.TEXT and isinstance(create_table_column.type, DBDataType):
-                column_type_sql = self.text_col_type(create_table_column.length)
-            # If the type is not a TEXT, we just add the length to the column type.
-            # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
-            # Note that a user can still pass a custom type with the desired length as well.
-            else:
-                column_type_sql = column_type_sql + f"({create_table_column.length})"
-        return column_type_sql
+            create_table_column_type_sql = create_table_column_type_sql + f"({create_table_column.length})"
+
+        return create_table_column_type_sql
 
     #########################################################
     # DROP TABLE
@@ -230,6 +274,9 @@ class SqlDialect:
             [self._build_insert_into_values_row_sql(value) for value in insert_into.values]
         )
         return values_sql
+
+    def build_cte_values_sql(self, values: VALUES) -> str:
+        return " VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
@@ -286,16 +333,24 @@ class SqlDialect:
         cte_lines: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, WITH):
+                alias_columns_str: str = ""
+                if select_element.alias_columns:
+                    alias_columns_str = (
+                        "("
+                        + ", ".join([self._build_column_sql(column) for column in select_element.alias_columns])
+                        + ")"
+                    )
                 cte_query_sql_str: str | None = None
                 if isinstance(select_element.cte_query, list):
-                    cte_query_sql_str = self.build_select_sql(select_element.cte_query)
-                    cte_query_sql_str = cte_query_sql_str.strip()
-                elif isinstance(select_element.cte_query, str):
-                    cte_query_sql_str = dedent(select_element.cte_query).strip()
+                    select_element.cte_query = self.build_select_sql(select_element.cte_query)
+                elif isinstance(select_element.cte_query, VALUES):
+                    select_element.cte_query = self.build_cte_values_sql(select_element.cte_query)
+                if isinstance(select_element.cte_query, str):
+                    cte_query_sql_str = indent(select_element.cte_query, "  ").strip()
                 if cte_query_sql_str:
                     cte_query_sql_str = cte_query_sql_str.rstrip(";")
                     indented_nested_query: str = indent(cte_query_sql_str, "  ")
-                    cte_lines.append(f"WITH {self.quote_default(select_element.alias)} AS (")
+                    cte_lines.append(f"WITH {self.quote_default(select_element.alias)}{alias_columns_str} AS (")
                     cte_lines.extend(indented_nested_query.split("\n"))
                     cte_lines.append(f")")
         return cte_lines
@@ -402,9 +457,9 @@ class SqlDialect:
                     sql_lines.append(f"{from_sql_line},")
                     from_sql_line = "     "
                 from_sql_line += self._build_from_part(from_element)
-            elif isinstance(from_element, LEFT_INNER_JOIN):
+            elif isinstance(from_element, LEFT_INNER_JOIN) or isinstance(from_element, JOIN):
                 sql_lines.append(from_sql_line)
-                from_sql_line = f"     {self._build_left_inner_join_part(from_element)}"
+                from_sql_line = f"     {self._build_join_part(from_element)}"
 
         sql_lines.append(from_sql_line)
         return sql_lines
@@ -426,25 +481,25 @@ class SqlDialect:
 
         return " ".join(from_parts)
 
-    def _build_left_inner_join_part(self, left_inner_join: LEFT_INNER_JOIN) -> str:
+    def _build_join_part(self, join: LEFT_INNER_JOIN | JOIN) -> str:
         # [INNER JOIN] "fully".qualified"."tablename" [AS "table_alias"] [ON join_condition]
 
         from_parts: list[str] = []
 
-        if isinstance(left_inner_join, LEFT_INNER_JOIN):
+        if isinstance(join, LEFT_INNER_JOIN):
             from_parts.append("LEFT JOIN")
+        if isinstance(join, JOIN):
+            from_parts.append("JOIN")
 
         from_parts.append(
-            self._build_qualified_quoted_dataset_name(
-                dataset_name=left_inner_join.table_name, dataset_prefix=left_inner_join.table_prefix
-            )
+            self._build_qualified_quoted_dataset_name(dataset_name=join.table_name, dataset_prefix=join.table_prefix)
         )
 
-        if isinstance(left_inner_join.alias, str):
-            from_parts.append(self._alias_format(left_inner_join.alias))
+        if isinstance(join.alias, str):
+            from_parts.append(self._alias_format(join.alias))
 
-        if isinstance(left_inner_join, LEFT_INNER_JOIN):
-            from_parts.append(f"ON {self.build_expression_sql(left_inner_join.on_condition)}")
+        if isinstance(join, LEFT_INNER_JOIN) or isinstance(join, JOIN):
+            from_parts.append(f"ON {self.build_expression_sql(join.on_condition)}")
 
         return " ".join(from_parts)
 
@@ -513,7 +568,7 @@ class SqlDialect:
 
     def _build_star_sql(self, star: STAR) -> str:
         if star.alias:
-            return f"{star.alias}.*"
+            return f"{self.quote_default(star.alias)}.*"
         else:
             return "*"
 
@@ -698,5 +753,17 @@ class SqlDialect:
         """This escapes values that contain newlines correctly."""
         return string.encode("unicode_escape").decode("utf-8")
 
-    def get_table_name_max_length(self) -> int:
+    def get_max_table_name_length(self) -> int:
         return 63
+
+    def get_max_query_length(self) -> int:
+        # What is the maximum query length of common analytical databases?
+        # ChatGPT said:
+        # Here are the maximum query lengths for some common analytical databases:
+        # PostgreSQL: 1 GB
+        # MySQL: 1 MB (configurable via max_allowed_packet)
+        # SQL Server: 65,536 bytes (approximately 65 KB)
+        # Oracle: 64 KB (depends on SQL string encoding)
+        # Snowflake: 1 MB
+        # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
+        return 63 * 1024 * 1024

@@ -43,6 +43,6 @@ class PostgresSqlDialect(SqlDialect):
         return 255
 
     def get_sql_type_dict(self) -> dict[str, str]:
-        base_dict = super().get_sql_type_dict()
+        base_dict: dict = super().get_sql_type_dict()
         base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
         return base_dict
