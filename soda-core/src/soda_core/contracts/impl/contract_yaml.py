@@ -21,102 +21,17 @@ from soda_core.common.yaml import (
     YamlObject,
     YamlValue,
 )
+from soda_core.model.reconciliation import ReconciliationYaml
 
 logger: logging.Logger = soda_logger
 
+from typing import Protocol
 
-def register_check_types() -> None:
-    from soda_core.contracts.impl.check_types.schema_check_yaml import (
-        SchemaCheckYamlParser,
-    )
-    from soda_core.contracts.impl.contract_verification_impl import CheckImpl
 
-    CheckYaml.register(SchemaCheckYamlParser())
-    from soda_core.contracts.impl.check_types.schema_check import SchemaCheckParser
-
-    CheckImpl.register(SchemaCheckParser())
-
-    from soda_core.contracts.impl.check_types.missing_check_yaml import (
-        MissingCheckYamlParser,
-    )
-
-    CheckYaml.register(MissingCheckYamlParser())
-    from soda_core.contracts.impl.check_types.missing_check import MissingCheckParser
-
-    CheckImpl.register(MissingCheckParser())
-
-    from soda_core.contracts.impl.check_types.invalidity_check_yaml import (
-        InvalidCheckYamlParser,
-    )
-
-    CheckYaml.register(InvalidCheckYamlParser())
-    from soda_core.contracts.impl.check_types.invalidity_check import InvalidCheckParser
-
-    CheckImpl.register(InvalidCheckParser())
-
-    from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
-        DuplicateCheckYamlParser,
-    )
-
-    CheckYaml.register(DuplicateCheckYamlParser())
-    from soda_core.contracts.impl.check_types.duplicate_check import (
-        DuplicateCheckParser,
-    )
-
-    CheckImpl.register(DuplicateCheckParser())
-
-    from soda_core.contracts.impl.check_types.row_count_check_yaml import (
-        RowCountCheckYamlParser,
-    )
-
-    CheckYaml.register(RowCountCheckYamlParser())
-    from soda_core.contracts.impl.check_types.row_count_check import RowCountCheckParser
-
-    CheckImpl.register(RowCountCheckParser())
-
-    from soda_core.contracts.impl.check_types.aggregate_check import (
-        AggregateCheckParser,
-    )
-
-    CheckImpl.register(AggregateCheckParser())
-
-    from soda_core.contracts.impl.check_types.aggregate_check_yaml import (
-        AggregateCheckYamlParser,
-    )
-
-    CheckYaml.register(AggregateCheckYamlParser())
-
-    from soda_core.contracts.impl.check_types.metric_check import MetricCheckParser
-
-    CheckImpl.register(MetricCheckParser())
-
-    from soda_core.contracts.impl.check_types.metric_check_yaml import (
-        MetricCheckYamlParser,
-    )
-
-    CheckYaml.register(MetricCheckYamlParser())
-
-    from soda_core.contracts.impl.check_types.freshness_check_yaml import (
-        FreshnessCheckYamlParser,
-    )
-
-    CheckYaml.register(FreshnessCheckYamlParser())
-    from soda_core.contracts.impl.check_types.freshness_check import (
-        FreshnessCheckParser,
-    )
-
-    CheckImpl.register(FreshnessCheckParser())
-
-    from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
-        FailedRowsCheckYamlParser,
-    )
-
-    CheckYaml.register(FailedRowsCheckYamlParser())
-    from soda_core.contracts.impl.check_types.failed_rows_check import (
-        FailedRowsCheckParser,
-    )
-
-    CheckImpl.register(FailedRowsCheckParser())
+class ContractYamlExtension(Protocol):
+    # Extend the contract YAML object. Can modify the state of the contract YAML.
+    def extend(self, contract_yaml: "ContractYaml") -> None:
+        ...
 
 
 class ContractYaml:
@@ -126,7 +41,16 @@ class ContractYaml:
     If property value types do not match the schema, None value will be in the model
     List properties will have a None value if the property is not present or the content was not a list, a list
     otherwise
+
+    Extensions can add manipulate the contract YAML object.
+    Extensions can be registered using the `register_extension` method, and they will be automatically applied.
     """
+
+    contract_yaml_extensions: dict[str, type[ContractYamlExtension]] = {}
+
+    @classmethod
+    def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
+        cls.contract_yaml_extensions[name] = extension_cls
 
     @classmethod
     def parse(
@@ -135,14 +59,12 @@ class ContractYaml:
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
     ) -> Optional[ContractYaml]:
-        check_types_have_been_registered: bool = len(CheckYaml.check_yaml_parsers) > 0
-        if not check_types_have_been_registered:
-            register_check_types()
-        return ContractYaml(
+        contract_yaml = ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
         )
+        return contract_yaml
 
     def __init__(
         self,
@@ -190,6 +112,17 @@ class ContractYaml:
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+
+        self.reconciliation: Optional[ReconciliationYaml] = self._parse_reconciliation(self.contract_yaml_object)
+
+        for extension_cls in ContractYaml.contract_yaml_extensions.values():
+            try:
+                extension = extension_cls()
+                extension.extend(self)
+            except Exception as e:
+                logger.error(
+                    f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
+                )
 
     def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
@@ -368,8 +301,7 @@ class ContractYaml:
                     elif isinstance(check_yaml_object, str):
                         check_type_name = check_yaml_object
                         logger.error(
-                            f"{Emoticons.PINCHED_FINGERS} Mama Mia! You forgot the "
-                            f"colon ':' behind the check '{check_type_name}'."
+                            f"{Emoticons.CROSS_MARK} You forgot the " f"colon ':' behind the check '{check_type_name}'."
                         )
                     if isinstance(check_type_name, str):
                         if check_body_yaml_object is None:
@@ -396,6 +328,18 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
+
+    def _parse_reconciliation(self, contract_yaml_object: YamlObject) -> ReconciliationYaml | None:
+        reconciliation_yaml_object: YamlObject | None = contract_yaml_object.read_object_opt("reconciliation")
+
+        if reconciliation_yaml_object:
+            recon_check_yamls = self._parse_checks(reconciliation_yaml_object)
+            recon_data = reconciliation_yaml_object.yaml_dict
+            recon_data["checks"] = recon_check_yamls
+
+            return ReconciliationYaml.model_validate(recon_data)
+
+        return None
 
     def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
         if isinstance(data_timestamp, str):

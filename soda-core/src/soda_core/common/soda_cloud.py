@@ -1231,6 +1231,12 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
         }
+    elif check_result.check.type == "row_count_diff":
+        return {
+            "type": check_result.check.type,
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+        }
     elif isinstance(check_result, SchemaCheckResult):
         return {
             "type": check_result.check.type,
