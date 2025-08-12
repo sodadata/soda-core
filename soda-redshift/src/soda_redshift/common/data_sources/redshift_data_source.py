@@ -33,10 +33,6 @@ class RedshiftSqlDialect(SqlDialect):
         expression: str = self.build_expression_sql(matches.expression)
         return f"{expression} ~ '{matches.regex_pattern}'"
 
-    def create_schema_if_not_exists_sql(self, schema_name: str) -> str:
-        quoted_schema_name: str = self.quote_default(schema_name)
-        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name};"
-
     def default_varchar_length(self) -> Optional[int]:
         return 255
 
