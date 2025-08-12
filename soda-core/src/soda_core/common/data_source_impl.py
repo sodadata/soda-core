@@ -163,8 +163,12 @@ class DataSourceImpl(ABC):
         return canonical_data_type
 
     def get_canonical_data_type_mappings(self) -> dict:
-        return {"character varying": "varchar", "integer": "int"}
-
+        # Ensure that these mappings include mappings for the DBDataType's
+        return {
+            "character varying": "varchar",
+            "text": "varchar",
+            "integer": "int",
+        }
         # has_length: bool = bool(re.match(r"^[a-zA-Z0-9 ]+\(\d+\)$", expected_data_type_lower))
         # actual_data_type = self.get_data_type_text(column_metadata=actual_column_metadata, include_length=has_length)
         # return expected_data_type_lower == actual_data_type
