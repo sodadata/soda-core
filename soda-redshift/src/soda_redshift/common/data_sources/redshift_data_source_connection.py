@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Literal, Optional, Union
 from ipaddress import IPv4Address, IPv6Address
+from typing import Literal, Optional, Union
 
 import boto3
 import psycopg2
@@ -52,7 +52,6 @@ class RedshiftDataSource(DataSourceBase, ABC):
 class RedshiftDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
-    
 
     def _extract_cluster_identifier(self):
         if isinstance(self.host, (IPv4Address, IPv6Address)):
@@ -91,7 +90,6 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         self.port = config.port
         self.database = config.database
         self.connect_timeout = config.connect_timeout
-        
 
         self.keepalives_params = {}
         if config.keepalives_idle:

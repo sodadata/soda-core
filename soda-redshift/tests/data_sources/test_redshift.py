@@ -180,7 +180,7 @@ test_connections: list[TestConnection] = [
         monkeypatches={"boto3.client": MockBoto3Client},
         valid_connection_params=False,
         expected_connection_error="Cluster identifier is required when using an IP address as host",
-    )
+    ),
 ]
 
 
