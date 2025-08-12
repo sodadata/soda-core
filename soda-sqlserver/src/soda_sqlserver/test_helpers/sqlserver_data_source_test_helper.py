@@ -4,6 +4,11 @@ import os
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
+from soda_core.common.sql_ast import DROP_TABLE
+from soda_sqlserver.common.data_sources.sqlserver_data_source import (
+    SqlServerDataSourceImpl,
+    SqlServerSqlDialect,
+)
 
 
 class SqlServerDataSourceTestHelper(DataSourceTestHelper):
@@ -34,13 +39,16 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
         This is a more "manual" approach, but it is more readable and works with Synapse."""
         # First find all the tables in the schema
         table_names: list[str] = self.query_existing_test_tables()
+        data_source_impl: SqlServerDataSourceImpl = self.data_source_impl
+        dialect: SqlServerSqlDialect = data_source_impl.sql_dialect
         for fully_qualified_table_name in table_names:
-            table_identifier = f"{fully_qualified_table_name.database_name}.{fully_qualified_table_name.schema_name}.{fully_qualified_table_name.table_name}"
-            self.data_source_impl.execute_update(f"DROP TABLE {table_identifier};")
+            table_identifier = f"{dialect.quote_default(fully_qualified_table_name.database_name)}.{dialect.quote_default(fully_qualified_table_name.schema_name)}.{dialect.quote_default(fully_qualified_table_name.table_name)}"
+            drop_table_sql = dialect.build_drop_table_sql(DROP_TABLE(table_identifier))
+            self.data_source_impl.execute_update(drop_table_sql)
         # Drop the schema if it exists.
         schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
         if self._does_schema_exist(schema_name):
-            self.data_source_impl.execute_update(f"DROP SCHEMA {schema_name};")
+            self.data_source_impl.execute_update(f"DROP SCHEMA {dialect.quote_default(schema_name)};")
 
     def _does_schema_exist(self, schema_name: str) -> bool:
         """Check if the schema exists in the database."""

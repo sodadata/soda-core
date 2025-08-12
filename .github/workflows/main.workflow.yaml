@@ -101,6 +101,11 @@ jobs:
       SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SYNAPSE_CLIENT_ID: ${{ secrets.MICROSOFT_SYNAPSE_CI_USER }}
       SYNAPSE_CLIENT_SECRET: ${{ secrets.MICROSOFT_SYNAPSE_CI_PASSWORD }}
+      FABRIC_HOST: ${{ vars.MICROSOFT_FABRIC_CI_HOST }}
+      FABRIC_DATABASE: soda-ci-fabric-warehouse
+      FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
+      FABRIC_CLIENT_ID: ${{ secrets.MICROSOFT_FABRIC_CI_USERNAME }}
+      FABRIC_CLIENT_SECRET: ${{ secrets.MICROSOFT_FABRIC_CI_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -123,7 +128,7 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
-          if [ "${{ matrix.module }}" = "synapse" ]; then
+          if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
           pip install -e soda-${{ matrix.module }}

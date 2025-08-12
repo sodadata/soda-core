@@ -45,6 +45,9 @@ setup(
     entry_points={
         "console_scripts": [
             "soda=soda_core.cli.cli:execute",
-        ]
+        ],
+        "soda.plugins.check_types.core": [
+            "CoreCheckTypes = soda_core.contracts.impl.check_types.check_types:CoreCheckTypesPlugin"
+        ],
     },
 )
