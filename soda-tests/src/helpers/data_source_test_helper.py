@@ -86,6 +86,12 @@ class DataSourceTestHelper:
             )
 
             return SynapseDataSourceTestHelper()
+        elif test_datasource == "redshift":
+            from soda_redshift.test_helpers.redshift_data_source_test_helper import (
+                RedshiftDataSourceTestHelper,
+            )
+
+            return RedshiftDataSourceTestHelper()
         elif test_datasource == "fabric":
             from soda_fabric.test_helpers.fabric_data_source_test_helper import (
                 FabricDataSourceTestHelper,

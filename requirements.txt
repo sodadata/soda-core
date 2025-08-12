@@ -6,4 +6,5 @@ soda-duckdb
 soda-bigquery
 soda-sqlserver
 soda-synapse
+soda-redshift
 soda-fabric
