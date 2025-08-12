@@ -148,6 +148,39 @@ test_connections: list[TestConnection] = [
             """,
         monkeypatches={"boto3.client": MockBoto3Client},
     ),
+    TestConnection(  # patched AWS creds with cluster identifier (should work)
+        test_name="patched_aws_creds_with_cluster_identifier",
+        connection_yaml_str=f"""
+                type: redshift
+                name: REDSHIFT_TEST_DS
+                connection:
+                    host: '{REDSHIFT_HOST}'
+                    port: '{REDSHIFT_PORT}'
+                    database: '{REDSHIFT_DATABASE}'
+                    user: '{REDSHIFT_USERNAME}'
+                    access_key_id: 'FAKE_KEY'
+                    secret_access_key: 'FAKE_SECRET'
+                    cluster_identifier: 'FAKE_CLUSTER_IDENTIFIER'
+            """,
+        monkeypatches={"boto3.client": MockBoto3Client},
+    ),
+    TestConnection(  # patched AWS creds with IP host and no cluster identifier (should fail)
+        test_name="patched_aws_creds_with_no_cluster_identifier_and_ip_host",
+        connection_yaml_str=f"""
+                type: redshift
+                name: REDSHIFT_TEST_DS
+                connection:
+                    host: '127.0.0.1'
+                    port: '{REDSHIFT_PORT}'
+                    database: '{REDSHIFT_DATABASE}'
+                    user: '{REDSHIFT_USERNAME}'
+                    access_key_id: 'FAKE_KEY'
+                    secret_access_key: 'FAKE_SECRET'
+            """,
+        monkeypatches={"boto3.client": MockBoto3Client},
+        valid_connection_params=False,
+        expected_connection_error="Cluster identifier is required when using an IP address as host",
+    )
 ]
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from typing import Literal, Optional, Union
+from ipaddress import IPv4Address, IPv6Address
 
 import boto3
 import psycopg2
@@ -36,6 +37,7 @@ class RedshiftKeyConnection(RedshiftConnectionProperties):
     role_arn: Optional[str] = Field(None, description="AWS role ARN")
     region: Optional[str] = Field("eu-west-1", description="AWS region")
     profile_name: Optional[str] = Field(None, description="AWS profile name")
+    cluster_identifier: Optional[str] = Field(None, description="Redshift cluster identifier")
 
 
 class RedshiftDataSource(DataSourceBase, ABC):
@@ -50,8 +52,16 @@ class RedshiftDataSource(DataSourceBase, ABC):
 class RedshiftDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
+    
 
-    def _get_cluster_credentials(self, aws_credentials: AwsCredentials):
+    def _extract_cluster_identifier(self):
+        if isinstance(self.host, (IPv4Address, IPv6Address)):
+            raise ValueError("Cluster identifier is required when using an IP address as host")
+        # strip protocol if present
+        self.host = self.host.split("://")[1] if "://" in self.host else self.host
+        return self.host.split(".")[0]
+
+    def _get_cluster_credentials(self, aws_credentials: AwsCredentials, cluster_identifier: Optional[str] = None):
         resolved_aws_credentials = aws_credentials.resolve_role(
             role_session_name="soda_redshift_get_cluster_credentials"
         )
@@ -64,12 +74,13 @@ class RedshiftDataSourceConnection(DataSourceConnection):
             aws_session_token=resolved_aws_credentials.session_token,
         )
 
-        cluster_name = self.host.split(".")[0]
+        cluster_identifier = self._extract_cluster_identifier() if not cluster_identifier else cluster_identifier
+
         user = self.user
         db_name = self.database
         # Note  user is used here to get database credentials, therefore it's required even if AWS creds are provided
         cluster_creds = client.get_cluster_credentials(
-            DbUser=user, DbName=db_name, ClusterIdentifier=cluster_name, AutoCreate=False, DurationSeconds=3600
+            DbUser=user, DbName=db_name, ClusterIdentifier=cluster_identifier, AutoCreate=False, DurationSeconds=3600
         )
 
         return cluster_creds["DbUser"], cluster_creds["DbPassword"]
@@ -80,6 +91,8 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         self.port = config.port
         self.database = config.database
         self.connect_timeout = config.connect_timeout
+        
+
         self.keepalives_params = {}
         if config.keepalives_idle:
             self.keepalives_params["keepalives_idle"] = config.keepalives_idle
@@ -105,7 +118,7 @@ class RedshiftDataSourceConnection(DataSourceConnection):
                 region_name=config.region,
                 profile_name=config.profile_name,
             )
-            self.user, self.password = self._get_cluster_credentials(aws_credentials)
+            self.user, self.password = self._get_cluster_credentials(aws_credentials, config.cluster_identifier)
 
         # Redshift is case-insensitive by default unless explicitly enabled.
         # It's possible customers may have enabled case-sensitivity in their databases, therefore we enable that in
