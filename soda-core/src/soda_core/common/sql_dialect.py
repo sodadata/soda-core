@@ -3,9 +3,14 @@ from __future__ import annotations
 from datetime import date, datetime
 from numbers import Number
 from textwrap import indent
+from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import LITERAL, CREATE_TABLE, CREATE_TABLE_IF_NOT_EXISTS, CREATE_TABLE_COLUMN, DROP_TABLE, \
+    DROP_TABLE_IF_EXISTS, INSERT_INTO, INSERT_INTO_VIA_SELECT, VALUES, VALUES_ROW, SELECT, SqlExpression, WITH, COLUMN, \
+    OR, AND, NOT, Operator, COUNT, SUM, CASE_WHEN, TUPLE, IS_NULL, IS_NOT_NULL, REGEX_LIKE, LIKE, IN, IN_SELECT, \
+    NOT_LIKE, LOWER, LENGTH, MAX, FUNCTION, DISTINCT, SqlExpressionStr, ORDINAL_POSITION, STAR, FROM, LEFT_INNER_JOIN, \
+    JOIN, EQ, NEQ, LT, LTE, GT, GTE, WHERE, GROUP_BY, ORDER_BY_ASC, ORDER_BY_DESC
 from soda_core.common.sql_datatypes import DBDataType
 
 
@@ -457,7 +462,6 @@ class SqlDialect:
             GT: ">",
             GTE: ">=",
             LIKE: "like",
-            IS_NOT_DISTINCT_FROM: "IS NOT DISTINCT FROM",
         }
         operator_sql: str = operators[type(operator)]
         return f"{self.build_expression_sql(operator.left)} {operator_sql} {self.build_expression_sql(operator.right)}"

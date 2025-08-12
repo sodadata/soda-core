@@ -142,6 +142,7 @@ class WITH(BaseSqlExpression):
 
 @dataclass
 class VALUES(BaseSqlExpression):
+    # To be used in CTE.  Use VALUES_ROW for inserts
     values: list[SqlExpression | str]
 
     def __post_init__(self):
@@ -329,12 +330,6 @@ class Operator(SqlExpression):
 
 @dataclass
 class EQ(Operator):
-    def __post_init__(self):
-        super().__post_init__()
-
-
-@dataclass
-class IS_NOT_DISTINCT_FROM(Operator):
     def __post_init__(self):
         super().__post_init__()
 
