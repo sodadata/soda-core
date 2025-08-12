@@ -227,17 +227,25 @@ class SqlDialect:
         return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        create_table_column_type_sql: str = (
-            self.get_contract_type_dict()[create_table_column.type]
-            if isinstance(create_table_column.type, DBDataType)
-            else create_table_column.type
-        )
+        if isinstance(create_table_column.type, DBDataType):
+            column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
+        else:
+            column_type_sql: str = (
+                create_table_column.type
+            )  # If we don't need to do the lookup, we just use the type as is.
 
         # If there is a length, we need to add it to the column type.
         if create_table_column.length:
-            create_table_column_type_sql = create_table_column_type_sql + f"({create_table_column.length})"
-
-        return create_table_column_type_sql
+            # If the type is TEXT and the length is provided, we need to add the length to the column type.
+            # But only if we are doing a type lookup.
+            if create_table_column.type == DBDataType.TEXT and isinstance(create_table_column.type, DBDataType):
+                column_type_sql = self.text_col_type(create_table_column.length)
+            # If the type is not a TEXT, we just add the length to the column type.
+            # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
+            # Note that a user can still pass a custom type with the desired length as well.
+            else:
+                column_type_sql = column_type_sql + f"({create_table_column.length})"
+        return column_type_sql
 
     #########################################################
     # DROP TABLE
