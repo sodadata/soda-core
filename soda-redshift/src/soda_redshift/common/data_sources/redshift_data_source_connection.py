@@ -57,8 +57,8 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         if isinstance(self.host, (IPv4Address, IPv6Address)):
             raise ValueError("Cluster identifier is required when using an IP address as host")
         # strip protocol if present
-        self.host = self.host.split("://")[1] if "://" in self.host else self.host
-        return self.host.split(".")[0]
+        host = self.host.split("://")[1] if "://" in self.host else self.host
+        return host.split(".")[0]
 
     def _get_cluster_credentials(self, aws_credentials: AwsCredentials, cluster_identifier: Optional[str] = None):
         resolved_aws_credentials = aws_credentials.resolve_role(
