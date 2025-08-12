@@ -151,6 +151,17 @@ class DataSourceImpl(ABC):
     #  and keep in data source impl only the responsibilities
     #  - manage the connection (parsing, opening and closing)
     #  - provide access to the SqlDialect
+    def map_data_type_for_dwh(
+        self, source_data_source_type: str, source_column_metadata: ColumnMetadata
+    ) -> ColumnMetadata:
+        if self.type_name == source_data_source_type:
+            return source_column_metadata
+        return source_column_metadata
+
+    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
+    #  and keep in data source impl only the responsibilities
+    #  - manage the connection (parsing, opening and closing)
+    #  - provide access to the SqlDialect
     def get_canonical_data_type(self, data_type: str) -> str:
         canonical_data_type: str = data_type.lower()
         canonical_data_type_mappings: dict = self.get_canonical_data_type_mappings()
