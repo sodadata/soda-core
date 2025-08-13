@@ -365,6 +365,14 @@ class LTE(Operator):
 
 
 @dataclass
+class EXISTS(SqlExpression):
+    nested_select_elements: list[Any]
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
 class NOT(SqlExpression):
     expression: SqlExpression | str
 

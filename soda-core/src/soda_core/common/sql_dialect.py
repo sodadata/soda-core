@@ -18,6 +18,7 @@ from soda_core.common.sql_ast import (
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     EQ,
+    EXISTS,
     FROM,
     FUNCTION,
     GROUP_BY,
@@ -418,6 +419,8 @@ class SqlDialect:
             return self._build_ordinal_position_sql(expression)
         elif isinstance(expression, STAR):
             return self._build_star_sql(expression)
+        elif isinstance(expression, EXISTS):
+            return self._build_exists_sql(expression)
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
 
     def _build_column_sql(self, column: COLUMN) -> str:
@@ -612,6 +615,11 @@ class SqlDialect:
 
     def _build_like_sql(self, like: LIKE) -> str:
         return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"
+
+    def _build_exists_sql(self, exists: EXISTS) -> str:
+        nested_select: str = self.build_select_sql(select_elements=exists.nested_select_elements, add_semicolon=False)
+        nested_select: str = indent(nested_select, "    ")
+        return f"EXISTS (\n{nested_select})"
 
     def _build_not_like_sql(self, not_like: NOT_LIKE) -> str:
         return f"{self.build_expression_sql(not_like.left)} NOT LIKE {self.build_expression_sql(not_like.right)}"
