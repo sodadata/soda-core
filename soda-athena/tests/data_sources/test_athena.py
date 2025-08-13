@@ -18,7 +18,7 @@ test_connections: list[TestConnection] = [
                 name: ATHENA_TEST_DS
                 connection:
                     access_key_id: {ATHENA_ACCESS_KEY_ID}
-                    secret_access_key: {ATHENA_SECRET_ACCESS_KEY}                  
+                    secret_access_key: {ATHENA_SECRET_ACCESS_KEY}
                     staging_dir: {ATHENA_S3_TEST_DIR}
                     region_name: {ATHENA_REGION_NAME}
             """,

@@ -7,9 +7,9 @@ from typing import Literal, Optional, Union
 import pyathena
 from google.cloud.bigquery.table import Row
 from pydantic import Field, SecretStr
+from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
@@ -53,7 +53,6 @@ class AthenaDataSourceConnection(DataSourceConnection):
         self,
         config: AthenaConnectionProperties,
     ):
-    
         self.athena_staging_dir = config.staging_dir
         self.catalog = config.catalog
         self.work_group = config.work_group
@@ -76,10 +75,9 @@ class AthenaDataSourceConnection(DataSourceConnection):
             catalog_name=self.catalog,
             work_group=self.work_group,
             aws_session_token=self.aws_credentials.session_token,
-            )
+        )
 
         return self.connection
-
 
     # TODO: look at Redshift PR as we can inspire the connection from there
     # try:
@@ -97,7 +95,6 @@ class AthenaDataSourceConnection(DataSourceConnection):
     #     )
 
     #     return self.connection
-   
 
     def format_rows(self, rows: list[Row]) -> list[tuple]:
         formatted_rows = [tuple(r.values()) for r in rows]
