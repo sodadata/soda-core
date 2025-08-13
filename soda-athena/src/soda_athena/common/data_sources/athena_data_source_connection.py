@@ -5,7 +5,6 @@ from abc import ABC
 from typing import Literal, Optional, Union
 
 import pyathena
-from google.cloud.bigquery.table import Row
 from pydantic import Field, SecretStr
 from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -79,23 +78,5 @@ class AthenaDataSourceConnection(DataSourceConnection):
 
         return self.connection
 
-    # TODO: look at Redshift PR as we can inspire the connection from there
-    # try:
-    #     self.connection = pyathena.connect(
-    #         profile_name=self.aws_credentials.profile_name,
-    #         aws_access_key_id=self.aws_credentials.access_key_id,
-    #         aws_secret_access_key=self.aws_credentials.secret_access_key,
-    #         s3_staging_dir=self.athena_staging_dir,
-    #         region_name=self.aws_credentials.region_name,
-    #         role_arn=self.aws_credentials.role_arn,
-    #         catalog_name=self.catalog,
-    #         work_group=self.work_group,
-    #         schema_name=self.schema,
-    #         aws_session_token=self.aws_credentials.session_token,
-    #     )
-
-    #     return self.connection
-
-    def format_rows(self, rows: list[Row]) -> list[tuple]:
-        formatted_rows = [tuple(r.values()) for r in rows]
-        return formatted_rows
+    def _execute_query_get_result_row_column_name(self, column) -> str:
+        return column[0]  # Column names are in the first element of the tuple
