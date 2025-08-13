@@ -54,6 +54,10 @@ src = "soda-fabric/setup.py"
 search = 'package_version = "{current_version}"'
 
 [[file]]
+src = "soda-athena/setup.py"
+search = 'package_version = "{current_version}"'
+
+[[file]]
 src = "soda-redshift/setup.py"
 search = 'package_version = "{current_version}"'
 
