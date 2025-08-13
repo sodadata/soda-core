@@ -18,6 +18,7 @@ from soda_core.common.sql_ast import (
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     EQ,
+    EXISTS,
     FROM,
     FUNCTION,
     GROUP_BY,
@@ -57,7 +58,6 @@ from soda_core.common.sql_ast import (
     Operator,
     SqlExpression,
     SqlExpressionStr,
-    EXISTS,
 )
 from soda_core.common.sql_datatypes import DBDataType
 
@@ -617,9 +617,7 @@ class SqlDialect:
         return f"{self.build_expression_sql(like.left)} LIKE {self.build_expression_sql(like.right)}"
 
     def _build_exists_sql(self, exists: EXISTS) -> str:
-        nested_select: str = self.build_select_sql(
-            select_elements=exists.nested_select_elements, add_semicolon=False
-        )
+        nested_select: str = self.build_select_sql(select_elements=exists.nested_select_elements, add_semicolon=False)
         nested_select: str = indent(nested_select, "    ")
         return f"EXISTS (\n{nested_select})"
 
