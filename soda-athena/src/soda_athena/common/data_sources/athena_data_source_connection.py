@@ -4,10 +4,12 @@ import logging
 from abc import ABC
 from typing import Literal, Optional, Union
 
+import pyathena
 from google.cloud.bigquery.table import Row
 from pydantic import Field, SecretStr
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
@@ -51,7 +53,33 @@ class AthenaDataSourceConnection(DataSourceConnection):
         self,
         config: AthenaConnectionProperties,
     ):
-        pass
+    
+        self.athena_staging_dir = config.staging_dir
+        self.catalog = config.catalog
+        self.work_group = config.work_group
+        self.aws_credentials = AwsCredentials(
+            access_key_id=config.access_key_id,
+            secret_access_key=config.secret_access_key.get_secret_value(),
+            role_arn=config.role_arn,
+            session_token=config.session_token,
+            region_name=config.region_name,
+            profile_name=config.profile_name,
+        )
+
+        self.connection = pyathena.connect(
+            profile_name=self.aws_credentials.profile_name,
+            aws_access_key_id=self.aws_credentials.access_key_id,
+            aws_secret_access_key=self.aws_credentials.secret_access_key,
+            s3_staging_dir=self.athena_staging_dir,
+            region_name=self.aws_credentials.region_name,
+            role_arn=self.aws_credentials.role_arn,
+            catalog_name=self.catalog,
+            work_group=self.work_group,
+            aws_session_token=self.aws_credentials.session_token,
+            )
+
+        return self.connection
+
 
     # TODO: look at Redshift PR as we can inspire the connection from there
     # try:
@@ -69,8 +97,7 @@ class AthenaDataSourceConnection(DataSourceConnection):
     #     )
 
     #     return self.connection
-    # except Exception as e:
-    #     raise ConnectionRefusedError(self.type, e)
+   
 
     def format_rows(self, rows: list[Row]) -> list[tuple]:
         formatted_rows = [tuple(r.values()) for r in rows]

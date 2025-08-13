@@ -100,6 +100,12 @@ class DataSourceTestHelper:
             )
 
             return FabricDataSourceTestHelper(name)
+        elif test_datasource == "athena":
+            from soda_athena.test_helpers.athena_data_source_test_helper import (
+                AthenaDataSourceTestHelper,
+            )
+
+            return AthenaDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

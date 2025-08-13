@@ -5,13 +5,14 @@ import os
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 
+ATHENA_ACCESS_KEY_ID = os.getenv("ATHENA_ACCESS_KEY_ID", None)
+ATHENA_SECRET_ACCESS_KEY = os.getenv("ATHENA_SECRET_ACCESS_KEY", None)
+ATHENA_S3_TEST_DIR = os.getenv("ATHENA_S3_TEST_DIR", None)
+ATHENA_REGION_NAME = os.getenv("ATHENA_REGION_NAME", "eu-west-1")
 
-class BigQueryDataSourceTestHelper(DataSourceTestHelper):
+class AthenaDataSourceTestHelper(DataSourceTestHelper):
     def _create_database_name(self) -> str | None:
-        # Parse the dataset name from the account info json
-        account_info_json = json.loads(os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "{}"))
-        database_name = account_info_json.get("project_id", "soda-testing-dataset")
-        return database_name
+        return super()._create_database_name()
 
     def _create_data_source_yaml_str(self) -> str:
         """
@@ -19,17 +20,12 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
         return f"""
-            type: bigquery
-            name: BIGQUERY_TEST_DS
-            connection:
-                account_info_json: '{os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")}'
+                type: athena
+                name: ATHENA_TEST_DS
+                connection:
+                    access_key_id: {ATHENA_ACCESS_KEY_ID}
+                    secret_access_key: {ATHENA_SECRET_ACCESS_KEY}                  
+                    staging_dir: {ATHENA_S3_TEST_DIR}
+                    region_name: {ATHENA_REGION_NAME}
+            """        
 
-        """
-        # location: '{os.getenv("BIGQUERY_LOCATION", "US")}'
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_schema_check_sql_type behavior
-        """
-        return self._get_create_table_sql_type_dict()
