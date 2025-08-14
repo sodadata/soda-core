@@ -13,6 +13,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_datatypes import DBDataType
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
 logger: logging.Logger = soda_logger
 
@@ -27,6 +28,13 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
     def _create_data_source_connection(self) -> DataSourceConnection:
         return AthenaDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+        )
+
+    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+        return MetadataColumnsQuery(
+            sql_dialect=self.sql_dialect,
+            data_source_connection=self.connection,
+            dataset_name_casify=True,
         )
 
     # def execute_query(self, sql: str) -> QueryResult:
@@ -47,7 +55,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 class AthenaSqlDialect(SqlDialect):
     def get_contract_type_dict(self) -> dict[str, str]:
         base_contract_type_dict = super().get_contract_type_dict()
-        base_contract_type_dict[DBDataType.TEXT] = "string"
+        base_contract_type_dict[DBDataType.TEXT] = "varchar"
         base_contract_type_dict[DBDataType.BOOLEAN] = "boolean"
         base_contract_type_dict[DBDataType.INTEGER] = "int"
         base_contract_type_dict[DBDataType.DECIMAL] = "decimal"
@@ -59,6 +67,7 @@ class AthenaSqlDialect(SqlDialect):
 
     def get_sql_type_dict(self) -> dict[str, str]:
         base_sql_type_dict = super().get_sql_type_dict()
+        base_sql_type_dict[DBDataType.TEXT] = "string"
         # base_sql_type_dict[DBDataType.TIMESTAMP] = "timestamp(3)"
         # base_sql_type_dict[DBDataType.TIMESTAMP_TZ] = "timestamp(3)"
         return base_sql_type_dict
@@ -74,3 +83,15 @@ class AthenaSqlDialect(SqlDialect):
         # We assume that all timestamps are stored in UTC.
         # See Fabric for an example
         return self.literal_datetime(datetime)
+
+    def supports_varchar_length(self) -> bool:
+        return False
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"CAST(From_iso8601_timestamp('{datetime_in_iso8601}') AS timestamp)"
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"{timestamp_literal} + interval '1' day"
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return False  # Athena does not support case sensitive names: everything is lowercase.

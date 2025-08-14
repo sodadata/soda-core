@@ -24,10 +24,12 @@ class MetadataColumnsQuery:
         sql_dialect: SqlDialect,
         data_source_connection: DataSourceConnection,
         prefixes: Optional[list[str]] = None,  # Note: if we use prefixes, we will not use the database_name
+        dataset_name_casify: bool = False,  # Some data sources (e.g. Athena) do not support casing in the table name
     ):
         self.sql_dialect = sql_dialect
         self.data_source_connection: DataSourceConnection = data_source_connection
         self.prefixes = prefixes
+        self.dataset_name_casify = dataset_name_casify
 
     def build_sql(self, dataset_prefix: Optional[list[str]], dataset_name: str) -> Optional[str]:
         """
@@ -88,7 +90,14 @@ class MetadataColumnsQuery:
                                 else []
                             ),
                             EQ(self.sql_dialect.column_table_schema(), LITERAL(schema_name)),
-                            EQ(self.sql_dialect.column_table_name(), LITERAL(dataset_name)),
+                            EQ(
+                                self.sql_dialect.column_table_name(),
+                                LITERAL(
+                                    self.sql_dialect.default_casify(dataset_name)
+                                    if self.dataset_name_casify
+                                    else dataset_name
+                                ),
+                            ),
                         ]
                     )
                 ),

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from freezegun import freeze_time
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
@@ -21,6 +22,9 @@ test_table_specification = (
 
 
 def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_case_sensitive_column_names():
+        pytest.skip("Case sensitive names are not supported for this data source")
+
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):

@@ -985,3 +985,6 @@ class SqlDialect:
         # Snowflake: 1 MB
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return True
