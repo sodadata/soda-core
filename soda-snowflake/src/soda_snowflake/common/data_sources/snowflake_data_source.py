@@ -2,7 +2,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import TUPLE
+from soda_core.common.sql_ast import COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
@@ -32,7 +32,15 @@ class SnowflakeSqlDialect(SqlDialect):
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
+    def build_cte_values_sql(self, values: VALUES) -> str:
+        return " SELECT * FROM VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
+
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
+        if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
+            return self._build_tuple_sql_in_distinct(tuple)
+        return f"{super()._build_tuple_sql(tuple)}"
+
+    def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"ARRAY_CONSTRUCT{super()._build_tuple_sql(tuple)}"
 
     def default_varchar_length(self) -> Optional[int]:
