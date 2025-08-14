@@ -18,14 +18,24 @@ from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
     handle_test_data_source,
 )
+from soda_core.cli.handlers.request import (
+    handle_fetch_proposal,
+    handle_push_proposal,
+    handle_transition_request,
+)
 from soda_core.cli.handlers.soda_cloud import (
     handle_create_soda_cloud,
     handle_test_soda_cloud,
 )
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
+from soda_core.contracts.contract_request import RequestStatus
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
+
+CLOUD_CONFIG_PATH_HELP = "A Soda Cloud configuration file path."
+FILE_PATH_HELP = "The path to the file to be created. (directories will be created if needed)"
+REQUEST_NUMBER_HELP = "The Contract Request number"
 
 soda_telemetry = SodaTelemetry()
 
@@ -78,6 +88,7 @@ def create_cli_parser() -> ArgumentParser:
     _setup_contract_resource(resource_parsers)
     _setup_data_source_resource(resource_parsers)
     _setup_soda_cloud_resource(resource_parsers)
+    _setup_contract_request_resource(resource_parsers)
 
     return parser
 
@@ -113,7 +124,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     verify_parser.add_argument(
         "-ds", "--data-source", type=str, help="The data source configuration file.", nargs="+", default=[]
     )
-    verify_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
+    verify_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
     verify_parser.add_argument(
         "--set",
         action="append",
@@ -223,7 +234,7 @@ def _setup_contract_publish_command(contract_parsers) -> None:
         "-sc",
         "--soda-cloud",
         type=str,
-        help="A Soda Cloud configuration file path.",
+        help=CLOUD_CONFIG_PATH_HELP,
         required=True,
     )
 
@@ -280,7 +291,7 @@ def _setup_contract_fetch_command(contract_parsers) -> None:
         "-sc",
         "--soda-cloud",
         type=str,
-        help="A Soda Cloud configuration file path.",
+        help=CLOUD_CONFIG_PATH_HELP,
         required=True,
     )
     fetch_parser.add_argument(
@@ -326,7 +337,7 @@ def _setup_data_source_create_command(data_source_parsers) -> None:
         "-f",
         "--file",
         type=str,
-        help="The path to the file to be created. (directories will be created if needed)",
+        help=FILE_PATH_HELP,
     )
     create_data_source_parser.add_argument(
         "-t", "--type", type=str, default="postgres", help="Type of the data source.  Eg postgres"
@@ -389,7 +400,7 @@ def _setup_soda_cloud_create_command(soda_cloud_parsers) -> None:
         "-f",
         "--file",
         type=str,
-        help="The path to the file to be created. (directories will be created if needed)",
+        help=FILE_PATH_HELP,
     )
 
     create_soda_cloud_parser.add_argument(
@@ -411,7 +422,7 @@ def _setup_soda_cloud_create_command(soda_cloud_parsers) -> None:
 
 def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
     test_soda_cloud_parser = soda_cloud_parsers.add_parser("test", help="Test the Soda Cloud connection")
-    test_soda_cloud_parser.add_argument("-sc", "--soda-cloud", type=str, help="A Soda Cloud configuration file path.")
+    test_soda_cloud_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
 
     test_soda_cloud_parser.add_argument(
         "-v",
@@ -428,6 +439,165 @@ def _setup_soda_cloud_test_command(soda_cloud_parsers) -> None:
         exit_with_code(exit_code)
 
     test_soda_cloud_parser.set_defaults(handler_func=handle)
+
+
+def _setup_contract_request_resource(resource_parsers) -> None:
+    contract_request_parser = resource_parsers.add_parser("request", help="Contract request commands")
+    contract_request_subparsers = contract_request_parser.add_subparsers(
+        dest="command", help="Contract request commands"
+    )
+
+    _setup_contract_request_fetch_proposal_command(contract_request_subparsers)
+    _setup_contract_request_push_proposal_command(contract_request_subparsers)
+    _setup_contract_request_transition_command(contract_request_subparsers)
+
+
+def _setup_contract_request_fetch_proposal_command(contract_request_parsers: ArgumentParser) -> None:
+    fetch_proposal_parser = contract_request_parsers.add_parser("fetch", help="Fetch a proposal from Soda Cloud")
+    fetch_proposal_parser.add_argument(
+        "-sc",
+        "--soda-cloud",
+        type=str,
+        required=True,
+        help=CLOUD_CONFIG_PATH_HELP,
+    )
+
+    fetch_proposal_parser.add_argument(
+        "-r",
+        "--request",
+        type=int,
+        required=True,
+        help=REQUEST_NUMBER_HELP,
+    )
+
+    fetch_proposal_parser.add_argument(
+        "-f",
+        "--file",
+        type=str,
+        required=True,
+        help=FILE_PATH_HELP,
+    )
+
+    fetch_proposal_parser.add_argument(
+        "-p",
+        "--proposal",
+        type=int,
+        help="The Proposal number (optional). The latest proposal will be fetched if not provided.",
+    )
+
+    def handle(args):
+        soda_cloud_file_path = args.soda_cloud
+        request_number = args.request
+        output_file_path = args.file
+        proposal_number = args.proposal
+
+        exit_code = handle_fetch_proposal(
+            soda_cloud_file_path=soda_cloud_file_path,
+            request_number=request_number,
+            output_file_path=output_file_path,
+            proposal_number=proposal_number,
+        )
+
+        exit_with_code(exit_code)
+
+    fetch_proposal_parser.set_defaults(handler_func=handle)
+
+
+def _setup_contract_request_push_proposal_command(contract_request_parsers: ArgumentParser) -> None:
+    push_proposal_parser = contract_request_parsers.add_parser("push", help="Push a proposal to Soda Cloud")
+
+    push_proposal_parser.add_argument(
+        "-sc",
+        "--soda-cloud",
+        type=str,
+        required=True,
+        help=CLOUD_CONFIG_PATH_HELP,
+    )
+
+    push_proposal_parser.add_argument(
+        "-f",
+        "--file",
+        type=str,
+        required=True,
+        help=FILE_PATH_HELP,
+    )
+
+    push_proposal_parser.add_argument(
+        "-r",
+        "--request",
+        type=int,
+        required=True,
+        help=REQUEST_NUMBER_HELP,
+    )
+
+    push_proposal_parser.add_argument(
+        "-m",
+        "--message",
+        type=str,
+        help="The message to be pushed to Soda Cloud (optional)",
+    )
+
+    def handle(args) -> None:
+        soda_cloud_file_path = args.soda_cloud
+        file_path = args.file
+        request_number = args.request
+        message = args.message
+
+        exit_code = handle_push_proposal(
+            soda_cloud_file_path=soda_cloud_file_path,
+            file_path=file_path,
+            request_number=request_number,
+            message=message,
+        )
+
+        exit_with_code(exit_code)
+
+    push_proposal_parser.set_defaults(handler_func=handle)
+
+
+def _setup_contract_request_transition_command(contract_request_parsers: ArgumentParser) -> None:
+    transition_request_parser = contract_request_parsers.add_parser(
+        "transition", help="Transition a request's status on Soda Cloud"
+    )
+
+    transition_request_parser.add_argument(
+        "-sc",
+        "--soda-cloud",
+        type=str,
+        required=True,
+        help=CLOUD_CONFIG_PATH_HELP,
+    )
+
+    transition_request_parser.add_argument(
+        "-r",
+        "--request",
+        type=int,
+        required=True,
+        help=REQUEST_NUMBER_HELP,
+    )
+
+    transition_request_parser.add_argument(
+        "-s",
+        "--status",
+        type=str,
+        required=True,
+        choices=[status.value for status in RequestStatus],
+        help="The status to transition the request to",
+    )
+
+    def handle(args) -> None:
+        soda_cloud_file_path = args.soda_cloud
+        request_number = args.request
+        status = RequestStatus(args.status)
+
+        exit_code = handle_transition_request(
+            soda_cloud_file_path=soda_cloud_file_path,
+            request_number=request_number,
+            status=status,
+        )
+        exit_with_code(exit_code)
+
+    transition_request_parser.set_defaults(handler_func=handle)
 
 
 def exit_with_code(exit_code: int):
