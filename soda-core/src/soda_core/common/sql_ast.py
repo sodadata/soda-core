@@ -304,6 +304,25 @@ class FUNCTION(SqlExpression):
 
 
 @dataclass
+class COALESCE(SqlExpression):
+    args: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.args)
+
+
+@dataclass
+class CAST(SqlExpression):
+    expression: SqlExpression | str
+    to_type: str | DBDataType
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
 class MAX(SqlExpression):
     expression: SqlExpression | str
 

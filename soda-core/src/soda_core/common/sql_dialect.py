@@ -9,6 +9,8 @@ from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.sql_ast import (
     AND,
     CASE_WHEN,
+    CAST,
+    COALESCE,
     COLUMN,
     COUNT,
     CREATE_TABLE,
@@ -97,6 +99,9 @@ class SqlDialect:
             DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
             DBDataType.BOOLEAN: "boolean",
         }
+
+    def get_data_type_type_str(self, db_data_type: DBDataType) -> str:
+        return self.get_contract_type_dict()[db_data_type]
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
@@ -409,6 +414,10 @@ class SqlDialect:
             return self._build_length_sql(expression)
         elif isinstance(expression, MAX):
             return self._build_max_sql(expression)
+        elif isinstance(expression, COALESCE):
+            return self._build_coalesce_sql(expression)
+        elif isinstance(expression, CAST):
+            return self._build_cast_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -637,6 +646,14 @@ class SqlDialect:
     def _build_max_sql(self, max: MAX) -> str:
         return f"MAX({self.build_expression_sql(max.expression)})"
 
+    def _build_coalesce_sql(self, coalesce: COALESCE) -> str:
+        args: str = ", ".join([self.build_expression_sql(expression) for expression in coalesce.args])
+        return f"COALESCE({args})"
+
+    def _build_cast_sql(self, cast: CAST) -> str:
+        to_type_text: str = cast.to_type if isinstance(cast.to_type, str) else self.get_data_type_type_str(cast.to_type)
+        return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
+
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
         return (
             f"CASE WHEN {self.build_expression_sql(case_when.condition)} "
@@ -772,7 +789,7 @@ class SqlDialect:
     def get_max_table_name_length(self) -> int:
         return 63
 
-    def get_max_query_length(self) -> int:
+    def get_max_sql_statement_length(self) -> int:
         # What is the maximum query length of common analytical databases?
         # ChatGPT said:
         # Here are the maximum query lengths for some common analytical databases:

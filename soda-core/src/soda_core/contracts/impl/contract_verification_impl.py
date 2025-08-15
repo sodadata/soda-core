@@ -1465,7 +1465,7 @@ class AggregationQuery(Query):
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
         sql_expression: SqlExpression = aggregation_metric_impl.sql_expression()
         sql_expression_str: str = self.data_source_impl.sql_dialect.build_expression_sql(sql_expression)
-        max_query_length: int = self.data_source_impl.sql_dialect.get_max_query_length()
+        max_query_length: int = self.data_source_impl.sql_dialect.get_max_sql_statement_length()
         return self.query_size + len(sql_expression_str) < max_query_length
 
     def append_aggregation_metric(self, aggregation_metric_impl: AggregationMetricImpl) -> None:
