@@ -2,7 +2,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import REGEX_LIKE
+from soda_core.common.sql_ast import CAST, REGEX_LIKE
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
@@ -46,3 +46,9 @@ class PostgresSqlDialect(SqlDialect):
         base_dict: dict = super().get_sql_type_dict()
         base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
         return base_dict
+
+    def _build_cast_sql(self, cast: CAST) -> str:
+        to_type_text: str = (
+            self.get_data_type_type_str(cast.to_type) if isinstance(cast.to_type, DBDataType) else cast.to_type
+        )
+        return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
