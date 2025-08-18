@@ -99,6 +99,8 @@ def test_aggregate_function_avg_with_invalid(data_source_test_helper: DataSource
 def test_aggregate_function_sum_with_filter(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    quoted_country_column_name: str = data_source_test_helper.quote_column("country")
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
@@ -107,14 +109,14 @@ def test_aggregate_function_sum_with_filter(data_source_test_helper: DataSourceT
                 checks:
                   - aggregate:
                       filter: |
-                        "country" = 'BE'
+                        {quoted_country_column_name} = 'BE'
                       function: sum
                       threshold:
-                        must_be: 15
+                        must_be: 10
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "sum") == 15
+    assert get_diagnostic_value(check_result, "sum") == 10
 
 
 def test_aggregate_function_unsupported(data_source_test_helper: DataSourceTestHelper):

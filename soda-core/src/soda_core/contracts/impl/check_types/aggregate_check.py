@@ -130,9 +130,15 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         is_missing = self.missing_and_validity.is_missing_expr(column_name)
         is_invalid = self.missing_and_validity.is_invalid_expr(column_name)
 
-        arg: SqlExpression | str = column_name
+        filters: list[SqlExpression] = []
         if is_missing or is_invalid:
-            arg = CASE_WHEN(NOT(AND.optional([is_missing, is_invalid])), column_name)
+            filters.append(NOT(AND.optional([is_missing, is_invalid])))
+        if self.check_filter:
+            filters.append(SqlExpressionStr(self.check_filter))
+
+        arg: SqlExpression | str = column_name
+        if filters:
+            arg = CASE_WHEN(condition=AND(clauses=filters), if_expression=column_name, else_expression=None)
 
         return FUNCTION(name=self.function, args=[arg])
 
