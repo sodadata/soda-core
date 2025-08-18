@@ -81,9 +81,11 @@ class ConsistentHashBuilder:
         from soda.sodacl.schema_check_cfg import SchemaValidations
         from soda.sodacl.threshold_cfg import ThresholdCfg
 
-        blake2b = self.get_blake2b()
+        if value is None:
+            return
 
-        if value is None or blake2b is None:
+        blake2b = self.get_blake2b()
+        if blake2b is None:
             return
         elif isinstance(value, str):
             blake2b.update(value.encode("utf-8"))
