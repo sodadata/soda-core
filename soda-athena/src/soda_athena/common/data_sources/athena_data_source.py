@@ -11,6 +11,7 @@ from soda_athena.common.data_sources.athena_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_ast import COLUMN
 from soda_core.common.sql_datatypes import DBDataType
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
@@ -74,6 +75,19 @@ class AthenaSqlDialect(SqlDialect):
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return identifier
+
+    def quote_column(self, column_name: str) -> str:
+        return f'"{column_name}"'
+
+    def _build_column_sql(self, column: COLUMN) -> str:
+        table_alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
+        # We need to check if the column name is a string (then quote it ourselves) or a SqlExpression (then let it be compiled)
+        if isinstance(column.name, str):
+            column_sql = f'"{column.name}"'
+        else:
+            column_sql = self.build_expression_sql(column.name)
+        field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
+        return f"{table_alias_sql}{column_sql}{field_alias_sql}"
 
     def literal_datetime(self, datetime: datetime):
         return f"From_iso8601_timestamp('{datetime.isoformat()}')"

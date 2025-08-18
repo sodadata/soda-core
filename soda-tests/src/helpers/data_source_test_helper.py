@@ -15,7 +15,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
+from soda_core.common.sql_ast import COLUMN, INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -403,13 +403,17 @@ class DataSourceTestHelper:
 
     def _create_test_table_sql(self, test_table: TestTable) -> str:
         sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
+        columns_sql: str = self._create_columns_sql(test_table)
+        return self._create_test_table_sql_statement(test_table.qualified_name, columns_sql)
+
+    def _create_columns_sql(self, test_table: TestTable) -> str:
         columns_sql: str = ",\n".join(
             [
                 f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_sql_data_type_str_with_parameters()}"
                 for column in test_table.columns.values()
             ]
         )
-        return self._create_test_table_sql_statement(test_table.qualified_name, columns_sql)
+        return columns_sql
 
     def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
         return f"CREATE TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n);"
@@ -425,7 +429,7 @@ class DataSourceTestHelper:
                 INSERT_INTO(
                     fully_qualified_table_name=test_table.qualified_name,
                     values=[VALUES_ROW(row) for row in test_table.row_values],
-                    columns=[column.name for column in test_table.columns.values()],
+                    columns=[COLUMN(column.name) for column in test_table.columns.values()],
                 )
             )
             return insert_into_sql

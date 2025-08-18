@@ -6,6 +6,7 @@ import re
 
 import boto3
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestTable
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -49,6 +50,16 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         table_part = re.sub("[^0-9a-zA-Z]+", "_", table_name_qualified_quoted)
         location = f"{self._get_3_schema_dir()}/{table_part}"
         return f"CREATE EXTERNAL TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n) \n LOCATION '{location}/';"
+
+    def _create_columns_sql(self, test_table: TestTable) -> str:
+        columns_sql: str = ",\n".join(
+            [
+                # Athena requires a different quoting for the create table statement.
+                f"  `{column.name}` {column.create_table_data_type}"
+                for column in test_table.columns.values()
+            ]
+        )
+        return columns_sql
 
     def _get_3_schema_dir(self):
         schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
