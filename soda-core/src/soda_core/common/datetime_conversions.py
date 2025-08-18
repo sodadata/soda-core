@@ -5,14 +5,7 @@ from typing import Optional
 
 def convert_datetime_to_str(dt: datetime) -> Optional[str]:
     try:
-        # First, we check if the datetime has timezone info
-        if dt.tzinfo is None:
-            # If dt does not have timezone info, Python will assume dt is in the local system timezone (e.g. UTC+1)
-            # Then we need to REPLACE (not astimezone) the timezone to UTC
-            new_dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            # The datetime has timezone info, we need to **convert** it to UTC (to be consistent with the rest of the code)
-            new_dt = dt.astimezone(timezone.utc)
+        new_dt = interpret_datetime_as_utc(dt)
         return new_dt.isoformat(timespec="seconds")
 
         # OLD CODE: to remove
@@ -20,6 +13,18 @@ def convert_datetime_to_str(dt: datetime) -> Optional[str]:
         # return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
     except Exception as e:
         return None
+
+
+def interpret_datetime_as_utc(dt: datetime) -> datetime:
+    # First, we check if the datetime has timezone info
+    if dt.tzinfo is None:
+        # If dt does not have timezone info, Python will assume dt is in the local system timezone (e.g. UTC+1)
+        # Then we need to REPLACE (not astimezone) the timezone to UTC
+        new_dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        # The datetime has timezone info, we need to **convert** it to UTC (to be consistent with the rest of the code)
+        new_dt = dt.astimezone(timezone.utc)
+    return new_dt
 
 
 def convert_str_to_datetime(date_string: str) -> Optional[datetime]:

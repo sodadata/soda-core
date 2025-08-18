@@ -358,10 +358,12 @@ class SqlDialect:
         return create_table_sql
 
     def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        column_name_quoted: str = self.quote_default(create_table_column.name)
+        column_name_quoted: str = self._quote_column_for_create_table(create_table_column.name)
         column_type_sql: str = self._build_create_table_column_type(create_table_column)
 
-        is_nullable_sql: str = " NOT NULL" if create_table_column.nullable is False else ""
+        is_nullable_sql: str = (
+            " NOT NULL" if (create_table_column.nullable is False and self._is_not_null_ddl_supported()) else ""
+        )
         default_sql: str = (
             f" DEFAULT {self.literal(create_table_column.default)}" if create_table_column.default else ""
         )
@@ -988,3 +990,6 @@ class SqlDialect:
 
     def supports_case_sensitive_column_names(self) -> bool:
         return True
+
+    def is_quoted(self, identifier: str) -> bool:
+        return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)
