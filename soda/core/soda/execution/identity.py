@@ -6,6 +6,7 @@ from typing import Optional
 
 try:
     from hashlib import blake2b
+
     blake2b_available = True
 except ImportError:
     warnings.warn("The `hashlib.blake2b` hashing algorithm is not available. No identities will be generated.")
