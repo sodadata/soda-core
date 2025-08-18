@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC
 from datetime import date, datetime, timedelta, timezone
 from math import floor
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
@@ -41,7 +43,7 @@ class FreshnessCheckParser(CheckParser):
         )
 
 
-class FreshnessCheckImpl(CheckImpl):
+class FreshnessCheckImplBase(CheckImpl, ABC):
     def __init__(
         self,
         contract_impl: ContractImpl,
@@ -53,9 +55,6 @@ class FreshnessCheckImpl(CheckImpl):
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
-        self.threshold = ThresholdImpl.create(
-            threshold_yaml=check_yaml.threshold,
-        )
 
         self.column = check_yaml.column
         self.now_variable: Optional[str] = check_yaml.now_variable
@@ -65,84 +64,31 @@ class FreshnessCheckImpl(CheckImpl):
             contract_impl.contract_yaml.contract_yaml_source.resolve_on_read_soda_variable_values
         )
 
-        self.max_timestamp_metric = self._resolve_metric(
-            MaxTimestampMetricImpl(
-                contract_impl=contract_impl,
-                check_impl=self,
-                column=self.column,
-                now_variable=self.now_variable,
-                unit=self.unit,
-            )
-        )
-        self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
-        )
+    def _calculate_freshness(self, max_timestamp: datetime, data_timestamp: datetime) -> timedelta:
+        return data_timestamp - max_timestamp
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
-        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+    def _freshness_to_seconds(self, freshness: Optional[timedelta]) -> int:
+        return floor(freshness.total_seconds())
 
-        max_timestamp: Optional[datetime] = self._get_max_timestamp(measurement_values)
-        max_timestamp_utc: Optional[datetime] = self._get_max_timestamp_utc(max_timestamp)
-        data_timestamp: datetime = self._get_now_timestamp()
-        data_timestamp_utc: datetime = self._get_now_timestamp_utc(data_timestamp)
+    def _convert_freshness_seconds_to_check_unit(self, freshness_in_seconds: int, unit: str) -> float:
+        if unit == "second":
+            threshold_value = freshness_in_seconds
+        elif unit == "minute":
+            threshold_value = freshness_in_seconds / 60
+        elif unit == "hour":
+            threshold_value = freshness_in_seconds / (60 * 60)
+        elif unit == "day":
+            threshold_value = freshness_in_seconds / (60 * 60 * 24)
+        else:
+            raise ValueError(f"Unknown time unit: {unit}")
 
-        check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
-        diagnostic_metric_values: dict[str, float] = {
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-            "check_rows_tested": check_rows_tested,
-        }
-        freshness: Optional[timedelta] = None
-        freshness_in_seconds: Optional[int] = None
-        threshold_metric_name: str = f"freshness_in_{self.unit}s"
+        return threshold_value
 
-        threshold_value: Optional[float] = None
-        if max_timestamp_utc is None:
-            outcome = CheckOutcome.FAILED
-
-        elif data_timestamp_utc is not None:
-            logger.debug(
-                f"Calculating freshness using '{max_timestamp}' as 'max' and '{data_timestamp}' as 'now' values"
-            )
-            freshness = data_timestamp_utc - max_timestamp_utc
-            freshness_in_seconds = floor(freshness.total_seconds())
-
-            if self.unit == "minute":
-                threshold_value = freshness_in_seconds / 60
-            elif self.unit == "hour":
-                threshold_value = freshness_in_seconds / (60 * 60)
-            elif self.unit == "day":
-                threshold_value = freshness_in_seconds / (60 * 60 * 24)
-
-            if threshold_value is not None:
-                diagnostic_metric_values[threshold_metric_name] = threshold_value
-
-            if self.threshold:
-                if self.threshold.passes(threshold_value):
-                    outcome = CheckOutcome.PASSED
-                else:
-                    outcome = CheckOutcome.FAILED
-
-        freshness_str: Optional[str] = str(freshness) if freshness is not None else None
-
-        return FreshnessCheckResult(
-            check=self._build_check_info(),
-            outcome=outcome,
-            threshold_value=threshold_value,
-            diagnostic_metric_values=diagnostic_metric_values,
-            max_timestamp=max_timestamp,
-            max_timestamp_utc=max_timestamp_utc,
-            data_timestamp=data_timestamp,
-            data_timestamp_utc=data_timestamp_utc,
-            freshness=freshness_str,
-            freshness_in_seconds=freshness_in_seconds,
-            unit=self.unit,
-        )
-
-    def _get_max_timestamp(self, measurement_values: MeasurementValues) -> Optional[datetime]:
-        max_timestamp: Optional[datetime] = measurement_values.get_value(self.max_timestamp_metric)
+    def _get_max_timestamp(self, measurement_values: MeasurementValues, metric: MetricImpl) -> Optional[datetime]:
+        max_timestamp: Optional[datetime] = measurement_values.get_value(metric)
         if max_timestamp is None:
             logger.warning(
-                f"Freshness metric '{self.max_timestamp_metric.type}' for column '{self.column}' "
+                f"Freshness metric '{metric.type}' for column '{self.column}' "
                 f"returned no value. Does the table or partition have rows?"
             )
             return None
@@ -195,6 +141,88 @@ class FreshnessCheckImpl(CheckImpl):
         return input.astimezone(timezone.utc)
 
 
+class FreshnessCheckImpl(FreshnessCheckImplBase):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: FreshnessCheckYaml,
+    ):
+        super().__init__(
+            contract_impl=contract_impl,
+            column_impl=column_impl,
+            check_yaml=check_yaml,
+        )
+        self.threshold = ThresholdImpl.create(
+            threshold_yaml=check_yaml.threshold,
+        )
+
+        self.max_timestamp_metric = self._resolve_metric(
+            MaxTimestampMetricImpl(
+                contract_impl=contract_impl,
+                check_impl=self,
+                column=self.column,
+                now_variable=self.now_variable,
+                unit=self.unit,
+            )
+        )
+        self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+        )
+
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+
+        max_timestamp: Optional[datetime] = self._get_max_timestamp(measurement_values, self.max_timestamp_metric)
+        max_timestamp_utc: Optional[datetime] = self._get_max_timestamp_utc(max_timestamp)
+        data_timestamp: Optional[datetime] = self._get_now_timestamp()
+        data_timestamp_utc: Optional[datetime] = self._get_now_timestamp_utc(data_timestamp)
+
+        check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        diagnostic_metric_values: dict[str, float] = {
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "check_rows_tested": check_rows_tested,
+        }
+        freshness: Optional[timedelta] = None
+        freshness_in_seconds: Optional[int] = None
+        threshold_metric_name: str = f"freshness_in_{self.unit}s"
+
+        threshold_value: Optional[float] = None
+        if max_timestamp_utc is None or data_timestamp_utc is None:
+            outcome = CheckOutcome.FAILED
+        else:
+            logger.debug(
+                f"Calculating freshness using '{max_timestamp}' as 'max' and '{data_timestamp}' as 'now' values"
+            )
+            freshness = self._calculate_freshness(max_timestamp_utc, data_timestamp_utc)
+            freshness_in_seconds = self._freshness_to_seconds(freshness)
+
+            threshold_value = self._convert_freshness_seconds_to_check_unit(freshness_in_seconds, self.unit)
+            diagnostic_metric_values[threshold_metric_name] = threshold_value
+
+            if self.threshold:
+                if self.threshold.passes(threshold_value):
+                    outcome = CheckOutcome.PASSED
+                else:
+                    outcome = CheckOutcome.FAILED
+
+        freshness_str: Optional[str] = str(freshness) if freshness is not None else None
+
+        return FreshnessCheckResult(
+            check=self._build_check_info(),
+            outcome=outcome,
+            threshold_value=threshold_value,
+            diagnostic_metric_values=diagnostic_metric_values,
+            max_timestamp=max_timestamp,
+            max_timestamp_utc=max_timestamp_utc,
+            data_timestamp=data_timestamp,
+            data_timestamp_utc=data_timestamp_utc,
+            freshness=freshness_str,
+            freshness_in_seconds=freshness_in_seconds,
+            unit=self.unit,
+        )
+
+
 class MaxTimestampMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
@@ -203,6 +231,8 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         column: str,
         now_variable: Optional[str],
         unit: Optional[str],
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.column: str = column
         self.now_variable: Optional[str] = now_variable
@@ -211,6 +241,8 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
             contract_impl=contract_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     def _get_id_properties(self) -> dict[str, any]:

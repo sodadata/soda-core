@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
@@ -83,13 +84,21 @@ class RowCountCheckImpl(CheckImpl):
 
 
 class RowCountMetricImpl(AggregationMetricImpl):
-    def __init__(self, contract_impl: ContractImpl, check_impl: Optional[CheckImpl] = None):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        check_impl: Optional[CheckImpl] = None,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
+    ):
         check_filter = check_impl.check_yaml.filter if check_impl else None
         super().__init__(
             contract_impl=contract_impl,
             metric_type="row_count",
             check_filter=check_filter,
             missing_and_validity=None,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     def sql_expression(self) -> SqlExpression:
