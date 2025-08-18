@@ -166,8 +166,6 @@ class AthenaSqlDialect(SqlDialect):
     def get_sql_type_dict(self) -> dict[str, str]:
         base_sql_type_dict = super().get_sql_type_dict()
         base_sql_type_dict[DBDataType.TEXT] = "string"
-        # base_sql_type_dict[DBDataType.TIMESTAMP] = "timestamp(3)"
-        # base_sql_type_dict[DBDataType.TIMESTAMP_TZ] = "timestamp(3)"
         return base_sql_type_dict
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
