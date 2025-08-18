@@ -1,8 +1,15 @@
+import warnings
 from dataclasses import dataclass
 from datetime import timedelta
-from hashlib import blake2b
 from numbers import Number
 from typing import Optional
+
+try:
+    from hashlib import blake2b
+    blake2b_available = True
+except ImportError:
+    warnings.warn("The `hashlib.blake2b` hashing algorithm is not available. No identities will be generated.")
+    blake2b_available = False
 
 
 class Identity:
@@ -60,9 +67,9 @@ class ConsistentHashBuilder:
         self.hash_string_length = hash_string_length
         self.blake2b = None
 
-    def get_blake2b(self) -> blake2b:
+    def get_blake2b(self) -> "blake2b":
         # Lazy initialization of blake2b in order to return None in the self.get_hash(self) in case nothing was added
-        if self.blake2b is None:
+        if self.blake2b is None and blake2b_available:
             self.blake2b = blake2b(digest_size=int(self.hash_string_length / 2))
         return self.blake2b
 
@@ -73,12 +80,14 @@ class ConsistentHashBuilder:
         from soda.sodacl.schema_check_cfg import SchemaValidations
         from soda.sodacl.threshold_cfg import ThresholdCfg
 
-        if value is None:
+        blake2b = self.get_blake2b()
+
+        if value is None or blake2b is None:
             return
         elif isinstance(value, str):
-            self.get_blake2b().update(value.encode("utf-8"))
+            blake2b.update(value.encode("utf-8"))
         elif isinstance(value, Number) or isinstance(value, bool):
-            self.get_blake2b().update(str(value).encode("utf-8"))
+            blake2b.update(str(value).encode("utf-8"))
         elif isinstance(value, list) or isinstance(value, dict):
             self.add_all(value)
         elif isinstance(value, timedelta):
