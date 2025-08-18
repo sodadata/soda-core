@@ -18,6 +18,7 @@ ATHENA_S3_TEST_DIR = os.getenv("ATHENA_S3_TEST_DIR")
 ATHENA_S3_TEST_DIR = ATHENA_S3_TEST_DIR[:-1] if ATHENA_S3_TEST_DIR.endswith("/") else ATHENA_S3_TEST_DIR
 ATHENA_REGION_NAME = os.getenv("ATHENA_REGION_NAME", "eu-west-1")
 ATHENA_CATALOG = os.getenv("ATHENA_CATALOG", "awsdatacatalog")
+ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP")
 
 
 class AthenaDataSourceTestHelper(DataSourceTestHelper):
@@ -44,6 +45,7 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
                     staging_dir: {ATHENA_S3_TEST_DIR}/staging-dir
                     region_name: {ATHENA_REGION_NAME}
                     catalog: {ATHENA_CATALOG}
+                    {f"work_group: {ATHENA_WORKGROUP}" if ATHENA_WORKGROUP else ""}
             """
 
     def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
