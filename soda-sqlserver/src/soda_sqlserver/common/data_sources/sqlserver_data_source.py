@@ -235,3 +235,6 @@ class SqlServerSqlDialect(SqlDialect):
 
     def default_varchar_length(self) -> Optional[int]:
         return 255
+
+    def is_quoted(self, identifier: str) -> bool:
+        return identifier.startswith("[") and identifier.endswith("]")

@@ -67,8 +67,8 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
             pass  # This is for later, if we ever support dropping schemas in the SQL AST.
         return result
 
-    def table_s3_location(self, table_name: str) -> str:
-        table_part_for_location = table_name.replace(".", "/").replace('"', "")
+    def table_s3_location(self, qualified_table_name: str) -> str:
+        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "")
         location = f"{self.connection.athena_staging_dir}/{table_part_for_location}/"
         return location
 

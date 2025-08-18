@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_table import TestTable
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -48,25 +46,9 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
                     {f"work_group: {ATHENA_WORKGROUP}" if ATHENA_WORKGROUP else ""}
             """
 
-    def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
-        # Table name will not be quoted as we removed the quoting with `quote_default`, we just keep the original name
-        table_part = re.sub("[^0-9a-zA-Z]+", "_", table_name_qualified_quoted)
-        location = f"{self._get_3_schema_dir()}/{table_part}"
-        return f"CREATE EXTERNAL TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n) \n LOCATION '{location}/';"
-
-    def _create_columns_sql(self, test_table: TestTable) -> str:
-        columns_sql: str = ",\n".join(
-            [
-                # Athena requires a different quoting for the create table statement.
-                f"  `{column.name}` {column.create_table_data_type}"
-                for column in test_table.columns.values()
-            ]
-        )
-        return columns_sql
-
     def _get_3_schema_dir(self):
         schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
-        return f"{self.s3_test_dir}/{schema_name}"
+        return f"{self.s3_test_dir}/staging-dir/{ATHENA_CATALOG}/{schema_name}"
 
     def drop_test_schema_if_exists(self) -> str:
         super().drop_test_schema_if_exists()

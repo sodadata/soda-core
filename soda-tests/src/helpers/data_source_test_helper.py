@@ -15,8 +15,14 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_ast import COLUMN, INSERT_INTO, VALUES_ROW
-from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.sql_ast import (
+    COLUMN,
+    CREATE_TABLE,
+    CREATE_TABLE_COLUMN,
+    DROP_TABLE,
+    INSERT_INTO,
+    VALUES_ROW,
+)
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
@@ -398,25 +404,15 @@ class DataSourceTestHelper:
         self._insert_test_table_rows(test_table)
 
     def _create_test_table(self, test_table: TestTable) -> None:
-        sql: str = self._create_test_table_sql(test_table)
-        self.data_source_impl.execute_update(sql)
-
-    def _create_test_table_sql(self, test_table: TestTable) -> str:
-        sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
-        columns_sql: str = self._create_columns_sql(test_table)
-        return self._create_test_table_sql_statement(test_table.qualified_name, columns_sql)
-
-    def _create_columns_sql(self, test_table: TestTable) -> str:
-        columns_sql: str = ",\n".join(
-            [
-                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_sql_data_type_str_with_parameters()}"
+        my_create_table = CREATE_TABLE(
+            fully_qualified_table_name=test_table.qualified_name,
+            columns=[
+                CREATE_TABLE_COLUMN(name=column.name, type=column.sql_data_type.get_sql_data_type_str_with_parameters())
                 for column in test_table.columns.values()
-            ]
+            ],
         )
-        return columns_sql
-
-    def _create_test_table_sql_statement(self, table_name_qualified_quoted: str, columns_sql: str) -> str:
-        return f"CREATE TABLE {table_name_qualified_quoted} ( \n{columns_sql} \n);"
+        sql: str = self.data_source_impl.sql_dialect.build_create_table_sql(my_create_table)
+        self.data_source_impl.execute_update(sql)
 
     def _insert_test_table_rows(self, test_table: TestTable) -> None:
         sql: str = self._insert_test_table_rows_sql(test_table)
@@ -435,17 +431,17 @@ class DataSourceTestHelper:
             return insert_into_sql
 
     def _drop_test_table(self, table_name: str) -> None:
-        sql: str = self._drop_test_table_sql(table_name)
-        self.data_source_impl.execute_update(sql)
-
-    def _drop_test_table_sql(self, table_name) -> str:
-        table_name_qualified_quoted: str = self.data_source_impl.sql_dialect.qualify_dataset_name(
-            dataset_prefix=self.dataset_prefix, dataset_name=table_name
+        # Note, this is not a fully qualified table name, it's just the table name.
+        # So we need to qualify it ourselves.
+        fully_qualified_table_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=table_name,
         )
-        return self._drop_test_table_sql_statement(table_name_qualified_quoted)
-
-    def _drop_test_table_sql_statement(self, table_name_qualified_quoted: str) -> str:
-        return f"DROP TABLE {table_name_qualified_quoted};"
+        my_drop_table = DROP_TABLE(
+            fully_qualified_table_name=fully_qualified_table_name,
+        )
+        sql: str = self.data_source_impl.sql_dialect.build_drop_table_sql(my_drop_table)
+        self.data_source_impl.execute_update(sql)
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
         contract_yaml_str: str = dedent(contract_yaml_str).strip()
