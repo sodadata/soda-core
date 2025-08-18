@@ -110,11 +110,11 @@ def test_aggregate_function_sum_with_filter(data_source_test_helper: DataSourceT
                         "country" = 'BE'
                       function: sum
                       threshold:
-                        must_be: 15
+                        must_be: 10
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
-    assert get_diagnostic_value(check_result, "sum") == 15
+    assert get_diagnostic_value(check_result, "sum") == 10
 
 
 def test_aggregate_function_unsupported(data_source_test_helper: DataSourceTestHelper):
