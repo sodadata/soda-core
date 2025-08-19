@@ -101,7 +101,7 @@ class SqlDialect:
         }
 
     def get_data_type_type_str(self, db_data_type: DBDataType) -> str:
-        return self.get_contract_type_dict()[db_data_type]
+        return self.get_sql_type_dict()[db_data_type]
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
@@ -651,7 +651,7 @@ class SqlDialect:
         return f"COALESCE({args})"
 
     def _build_cast_sql(self, cast: CAST) -> str:
-        to_type_text: str = cast.to_type if isinstance(cast.to_type, str) else self.get_data_type_type_str(cast.to_type)
+        to_type_text: str = self.get_data_type_type_str(cast.to_type) if isinstance(cast.to_type, DBDataType) else cast.to_type
         return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
 
     def _build_case_when_sql(self, case_when: CASE_WHEN) -> str:
