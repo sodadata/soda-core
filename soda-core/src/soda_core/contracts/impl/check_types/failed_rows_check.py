@@ -152,6 +152,8 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: FailedRowsCheckImpl,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.expression: str = check_impl.check_yaml.expression
         super().__init__(
@@ -159,6 +161,8 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     def _get_id_properties(self) -> dict[str, any]:
@@ -179,6 +183,8 @@ class FailedRowsQueryMetricImpl(MetricImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: FailedRowsCheckImpl,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.query: str = check_impl.check_yaml.query
         super().__init__(
@@ -186,6 +192,8 @@ class FailedRowsQueryMetricImpl(MetricImpl):
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     def _get_id_properties(self) -> dict[str, any]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
@@ -312,12 +313,16 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
         self,
         contract_impl: ContractImpl,
         check_impl: MultiColumnDuplicateCheckImpl,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.column_names: list[str] = check_impl.check_yaml.columns
         super().__init__(
             contract_impl=contract_impl,
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     def _get_id_properties(self) -> dict[str, any]:

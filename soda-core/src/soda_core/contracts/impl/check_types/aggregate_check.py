@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
@@ -111,24 +112,28 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl,
+        column_impl: Optional[ColumnImpl],
         check_impl: MissingAndValidityCheckImpl,
         function: Optional[str],
+        column_name: Optional[str] = None,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.function: Optional[str] = function
+        self.column_name = column_impl.column_yaml.name if column_impl else column_name
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
+            data_source_impl=data_source_impl,
+            dataset_identifier=dataset_identifier,
         )
 
     def sql_expression(self) -> SqlExpression:
-        column_name: str = self.column_impl.column_yaml.name
-
-        is_missing = self.missing_and_validity.is_missing_expr(column_name)
-        is_invalid = self.missing_and_validity.is_invalid_expr(column_name)
+        is_missing = self.missing_and_validity.is_missing_expr(self.column_name)
+        is_invalid = self.missing_and_validity.is_invalid_expr(self.column_name)
 
         filters: list[SqlExpression] = []
         if is_missing or is_invalid:
@@ -136,9 +141,9 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         if self.check_filter:
             filters.append(SqlExpressionStr(self.check_filter))
 
-        arg: SqlExpression | str = column_name
+        arg: SqlExpression | str = self.column_name
         if filters:
-            arg = CASE_WHEN(condition=AND(clauses=filters), if_expression=column_name, else_expression=None)
+            arg = CASE_WHEN(condition=AND(clauses=filters), if_expression=self.column_name, else_expression=None)
 
         return FUNCTION(name=self.function, args=[arg])
 
