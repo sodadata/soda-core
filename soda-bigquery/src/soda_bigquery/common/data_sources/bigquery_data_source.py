@@ -9,7 +9,16 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COUNT, DISTINCT, REGEX_LIKE, TUPLE
+from soda_core.common.sql_ast import (
+    COLUMN,
+    COUNT,
+    DISTINCT,
+    LITERAL,
+    REGEX_LIKE,
+    TUPLE,
+    VALUES,
+    WITH,
+)
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
@@ -100,3 +109,29 @@ class BigQuerySqlDialect(SqlDialect):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval 1 day"
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        # The first select row should have column aliases
+        # Remaining rows don't need aliases
+        def build_literal_with_alias(literal, alias: COLUMN | None) -> str:
+            return f"{self.literal(literal)} AS {self.quote_column(alias.name)}"
+
+        literal_rows: list[str] = []
+        for tuple in values.values:
+            if alias_columns:
+                literal_sqls: list[str] = []
+                for i in range(len(tuple.expressions)):
+                    literal: LITERAL = tuple.expressions[i]
+                    alias: COLUMN = alias_columns[i]
+                    literal_sqls.append(build_literal_with_alias(literal=literal, alias=alias))
+                literal_rows.append(", ".join(literal_sql for literal_sql in literal_sqls))
+                alias_columns = None
+            else:
+                literal_rows.append(", ".join(self.build_expression_sql(e) for e in tuple.expressions))
+
+        select_rows: list[str] = [f"SELECT {literal_row}" for literal_row in literal_rows]
+
+        return "\nUNION ALL ".join([select_row for select_row in select_rows])
+
+    def _build_cte_with_sql_line(self, with_element: WITH) -> str:
+        return f"WITH {self.quote_default(with_element.alias)} AS ("
