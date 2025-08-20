@@ -7,7 +7,7 @@ def pytest_sessionstart(session) -> None:
     configure_logging(verbose=True)
 
 
-def monkey_patch_freezegun_for_google_api():
+def monkey_patch_freezegun():
     def utcnow():
         if freezegun.api._should_use_real_time():
             result = freezegun.api.real_datetime.utcnow()
@@ -26,7 +26,7 @@ def monkey_patch_freezegun_for_google_api():
     setattr(freezegun.api.FakeDatetime, "now", now)
 
 
-monkey_patch_freezegun_for_google_api()
+monkey_patch_freezegun()
 
 
 my_ignore_list = [
