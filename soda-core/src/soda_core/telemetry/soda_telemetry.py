@@ -33,7 +33,7 @@ class SodaTelemetry:
             cls.__instance._initialize()
         return cls.__instance
 
-    def _initialize(self, test_mode: bool):
+    def _initialize(self):
         self.soda_config = EnvConfigHelper()
 
         self.__send = self.soda_config.soda_core_telemetry_enabled
