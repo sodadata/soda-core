@@ -38,6 +38,8 @@ BATCH_SIZES = {  # Depends on the database. Not all databases support very large
     "bigquery": 2500,  # Bigquery limits the query size to 1024KB, so we need to use a smaller batch size. This takes a while to run!
     "snowflake": 10000,
     "oracle": 10000,
+    "synapse": 1000,
+    "fabric": 10000,
 }
 
 # Map the columns to data types
@@ -131,7 +133,7 @@ def convert_to_values_row(row) -> VALUES_ROW:
 @pytest.mark.skip(
     reason="This test is a hack to upload the bus breakdown dataset to the test database. It should not be considered a part of the test suite."
 )
-def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelper):
+def test_insert_bus_breakdown_dataset(data_source_test_helper: DataSourceTestHelper):
     """
     This is a very hacky way to upload a dataset (specifically the bus breakdown dataset) to a database.
     Figured this is the easiest way to do this quickly, as we already have the connection, sqldialect,... for each datasource.
