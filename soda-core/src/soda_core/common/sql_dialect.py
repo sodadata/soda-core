@@ -289,7 +289,7 @@ class SqlDialect:
         )
         return values_sql
 
-    def build_cte_values_sql(self, values: VALUES) -> str:
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return " VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
@@ -347,27 +347,30 @@ class SqlDialect:
         cte_lines: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, WITH):
-                alias_columns_str: str = ""
-                if select_element.alias_columns:
-                    alias_columns_str = (
-                        "("
-                        + ", ".join([self._build_column_sql(column) for column in select_element.alias_columns])
-                        + ")"
-                    )
                 cte_query_sql_str: str | None = None
                 if isinstance(select_element.cte_query, list):
                     select_element.cte_query = self.build_select_sql(select_element.cte_query)
                 elif isinstance(select_element.cte_query, VALUES):
-                    select_element.cte_query = self.build_cte_values_sql(select_element.cte_query)
+                    select_element.cte_query = self.build_cte_values_sql(
+                        values=select_element.cte_query, alias_columns=select_element.alias_columns
+                    )
                 if isinstance(select_element.cte_query, str):
                     cte_query_sql_str = indent(select_element.cte_query, "  ").strip()
                 if cte_query_sql_str:
                     cte_query_sql_str = cte_query_sql_str.rstrip(";")
+                    cte_lines.append(self._build_cte_with_sql_line(select_element))
                     indented_nested_query: str = indent(cte_query_sql_str, "  ")
-                    cte_lines.append(f"WITH {self.quote_default(select_element.alias)}{alias_columns_str} AS (")
                     cte_lines.extend(indented_nested_query.split("\n"))
                     cte_lines.append(f")")
         return cte_lines
+
+    def _build_cte_with_sql_line(self, with_element: WITH) -> str:
+        alias_columns_str: str = ""
+        if with_element.alias_columns:
+            alias_columns_str = (
+                "(" + ", ".join([self._build_column_sql(column) for column in with_element.alias_columns]) + ")"
+            )
+        return f"WITH {self.quote_default(with_element.alias)}{alias_columns_str} AS ("
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):
