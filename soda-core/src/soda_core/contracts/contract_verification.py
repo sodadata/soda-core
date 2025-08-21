@@ -211,11 +211,13 @@ class CheckResult:
         outcome: CheckOutcome,
         threshold_value: Optional[float | int] = None,
         diagnostic_metric_values: Optional[dict[str, float]] = None,
+        autogenerate_diagnostics_payload: bool = False,
     ):
         self.check: Check = check
         self.threshold_value: Optional[float | int] = threshold_value
         self.outcome: CheckOutcome = outcome
-        self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
+        self.diagnostic_metric_values: Optional[dict[str, float | int | str]] = diagnostic_metric_values
+        self.autogenerate_diagnostics_payload: bool = autogenerate_diagnostics_payload
 
     @property
     def outcome_emoticon(self) -> str:
@@ -263,13 +265,15 @@ class CheckResult:
         return "\n".join(diagnostics)
 
     @classmethod
-    def _log_console_format(cls, n: Number) -> str:
+    def _log_console_format(cls, n: Number | str) -> str:
         """
         Couldn't find nicer & simpler code to format:
         * Full number before the comma,
         * At least 2 significant digits after comma
         * Trunc (not round) after 2 significant digits after comma
         """
+        if isinstance(n, str):
+            return n
         if n == int(n):
             return str(n)
         n_str = str(n)
@@ -289,6 +293,20 @@ class CheckResult:
             if significant_numbers_after_comma > 2:
                 return n_str[:index]
         return n_str
+
+    def diagnostics_to_camel_case(self) -> dict[str, Any]:
+        """
+        Converts diagnostic metric names to camelCase format.
+        This is useful for sending diagnostics to Soda Cloud.
+        """
+        if not self.diagnostic_metric_values:
+            return {}
+
+        camel_case_diagnostics = {}
+        for key, value in self.diagnostic_metric_values.items():
+            camel_case_key = "".join(word.capitalize() if i > 0 else word for i, word in enumerate(key.split("_")))
+            camel_case_diagnostics[camel_case_key] = value
+        return camel_case_diagnostics
 
 
 class Measurement:
