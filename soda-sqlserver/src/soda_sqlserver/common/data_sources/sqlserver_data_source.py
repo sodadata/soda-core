@@ -15,6 +15,8 @@ from soda_core.common.sql_ast import (
     LENGTH,
     REGEX_LIKE,
     TUPLE,
+    VALUES,
+    COLUMN,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
@@ -119,3 +121,10 @@ class SqlServerSqlDialect(SqlDialect):
             DBDataType.TIMESTAMP_TZ: "datetimeoffset",
             DBDataType.BOOLEAN: "bit",
         }
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        if not alias_columns:
+            raise ValueError("alias_columns is required for SQL Server")
+        values_sql: str = ",\n".join([self.build_expression_sql(value) for value in values.values])
+        alias_sql: str = ",".join([c.name for c in alias_columns])
+        return f"SELECT * FROM (VALUES {values_sql}) AS v({alias_sql})"
