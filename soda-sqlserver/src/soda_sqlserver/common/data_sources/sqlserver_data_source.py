@@ -96,6 +96,9 @@ class SqlServerSqlDialect(SqlDialect):
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
             return f"CHECKSUM{super()._build_tuple_sql(tuple)}"
+        if tuple.check_context(VALUES):
+            # in built_cte_values_sql, elements are dropped in top-level select statement, so can't use parentheses
+            return ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return super()._build_tuple_sql(tuple)
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
@@ -123,8 +126,4 @@ class SqlServerSqlDialect(SqlDialect):
         }
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
-        if not alias_columns:
-            raise ValueError("alias_columns is required for SQL Server")
-        values_sql: str = ",\n".join([self.build_expression_sql(value) for value in values.values])
-        alias_sql: str = ",".join([c.name for c in alias_columns])
-        return f"SELECT * FROM (VALUES {values_sql}) AS v({alias_sql})"
+        return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
