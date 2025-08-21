@@ -40,6 +40,7 @@ BATCH_SIZES = {  # Depends on the database. Not all databases support very large
     "oracle": 10000,
     "synapse": 1000,
     "fabric": 10000,
+    "redshift": 10000,
 }
 
 # Map the columns to data types
