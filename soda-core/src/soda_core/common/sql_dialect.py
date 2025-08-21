@@ -36,6 +36,7 @@ from soda_core.common.sql_ast import (
     LEFT_INNER_JOIN,
     LENGTH,
     LIKE,
+    LIMIT,
     LITERAL,
     LOWER,
     LT,
@@ -44,6 +45,7 @@ from soda_core.common.sql_ast import (
     NEQ,
     NOT,
     NOT_LIKE,
+    OFFSET,
     OR,
     ORDER_BY_ASC,
     ORDER_BY_DESC,
@@ -60,8 +62,6 @@ from soda_core.common.sql_ast import (
     Operator,
     SqlExpression,
     SqlExpressionStr,
-    LIMIT,
-    OFFSET,
 )
 from soda_core.common.sql_datatypes import DBDataType
 
