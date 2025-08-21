@@ -232,3 +232,6 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.qualify_dataset_name(
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
         )
+
+    def parse_column_names_from_query_result(self, query_result: QueryResult) -> list[str]:
+        return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]
