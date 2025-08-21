@@ -4,15 +4,9 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
+from soda_core.common.sql_ast import SqlDataType
 from soda_core.common.sql_dialect import DBDataType
-
-
-class TestColumnSpecification:
-    __test__ = False
-
-    def __init__(self, name: str, test_data_type: str):
-        self.name: str = name
-        self.test_data_type: str = test_data_type
+from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 
 
 class TestTableSpecificationBuilder:
@@ -27,7 +21,7 @@ class TestTableSpecificationBuilder:
 
     def __init__(self):
         self._table_purpose: Optional[str] = None
-        self._columns: list[TestColumnSpecification] = []
+        self._columns: list[ColumnMetadata] = []
         self._rows: Optional[list[tuple]] = None
 
     def table_purpose(self, table_purpose: str) -> TestTableSpecificationBuilder:
@@ -41,33 +35,48 @@ class TestTableSpecificationBuilder:
         self._table_purpose = table_purpose
         return self
 
-    def column(self, name: str, test_data_type: str) -> TestTableSpecificationBuilder:
-        self._columns.append(TestColumnSpecification(name=name, test_data_type=test_data_type))
+    def column(self, column_name: str, data_type: str | SqlDataType) -> TestTableSpecificationBuilder:
+        if isinstance(data_type, SqlDataType):
+            data_type_name: str = data_type.name
+            character_maximum_length: Optional[int] = data_type.character_maximum_length
+            sql_data_type: SqlDataType = data_type
+        else:
+            # deprecated / legacy
+            data_type_name: str = data_type
+            character_maximum_length: Optional[int] = None
+            sql_data_type: SqlDataType = SqlDataType(name=data_type)
+
+        self._columns.append(ColumnMetadata(
+            column_name=column_name,
+            data_type=data_type_name,
+            character_maximum_length=character_maximum_length,
+            sql_data_type=sql_data_type
+        ))
         return self
 
     def column_text(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TEXT)
+        return self.column(column_name=name, data_type=DBDataType.VARCHAR)
 
     def column_integer(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.INTEGER)
+        return self.column(column_name=name, data_type=DBDataType.INTEGER)
 
     def column_decimal(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.DECIMAL)
+        return self.column(column_name=name, data_type=DBDataType.DECIMAL)
 
     def column_date(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.DATE)
+        return self.column(column_name=name, data_type=DBDataType.DATE)
 
     def column_time(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TIME)
+        return self.column(column_name=name, data_type=DBDataType.TIME)
 
     def column_timestamp(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TIMESTAMP)
+        return self.column(column_name=name, data_type=DBDataType.TIMESTAMP)
 
     def column_timestamp_tz(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TIMESTAMP_TZ)
+        return self.column(column_name=name, data_type=DBDataType.TIMESTAMP_TZ)
 
     def column_boolean(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.BOOLEAN)
+        return self.column(column_name=name, data_type=DBDataType.BOOLEAN)
 
     def rows(self, rows: list[tuple]) -> TestTableSpecificationBuilder:
         """
@@ -103,16 +112,19 @@ class TestTableSpecificationBuilder:
         consistent_hash_builder.add(self._table_purpose)
         consistent_hash_builder.add("columns")
         for test_column in self._columns:
-            consistent_hash_builder.add(test_column.name)
-            consistent_hash_builder.add(test_column.test_data_type)
+            consistent_hash_builder.add(test_column.column_name)
+            consistent_hash_builder.add(test_column.data_type)
+            if test_column.sql_data_type:
+                consistent_hash_builder.add(test_column.sql_data_type.character_maximum_length)
+                consistent_hash_builder.add(test_column.sql_data_type.numeric_precision)
+                consistent_hash_builder.add(test_column.sql_data_type.numeric_scale)
+                consistent_hash_builder.add(test_column.sql_data_type.datetime_precision)
         if isinstance(self._rows, Iterable):
             for row in self._rows:
                 consistent_hash_builder.add("row")
                 if isinstance(row, Iterable):
                     for value in row:
                         consistent_hash_builder.add(value)
-        # TODO find out what this is for
-        # os.getenv("TEST_TABLE_SEED", None),
         return consistent_hash_builder.get_hash()
 
 
@@ -148,7 +160,7 @@ class TestTableSpecification:
         return TestTableSpecificationBuilder()
 
     name: Optional[str]
-    columns: list[TestColumnSpecification]
+    columns: list[ColumnMetadata]
     row_values: Optional[list[tuple]]
     unique_name: Optional[str]
 
@@ -188,12 +200,6 @@ class TestTable:
 class TestColumn:
     __test__ = False
 
-    def __init__(self, name: str, test_data_type: str, create_table_data_type: str, contract_data_type: str):
+    def __init__(self, name: str, sql_data_type: SqlDataType):
         self.name: str = name
-
-        # The test_data_type is the abstract data type as specified in the test code (data source neutral)
-        self.test_data_type: str = test_data_type
-
-        # The data_type is data source specific data type
-        self.create_table_data_type: str = create_table_data_type
-        self.contract_data_type: str = contract_data_type
+        self.sql_data_type: SqlDataType = sql_data_type

@@ -36,7 +36,16 @@ class DatabricksSqlDialect(SqlDialect):
     def column_data_type(self) -> str:
         return self.default_casify("full_data_type")
 
-    def supports_varchar_length(self) -> bool:
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return False
+
+    def supports_data_type_datetime_precision(self) -> bool:
         return False
 
     def get_contract_type_dict(self) -> dict[str, str]:

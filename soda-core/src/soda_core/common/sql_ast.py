@@ -10,6 +10,43 @@ from soda_core.common.sql_datatypes import DBDataType
 logger: logging.Logger = soda_logger
 
 
+@dataclass
+class SqlDataType:
+    name: str
+    character_maximum_length: Optional[int] = None
+    numeric_precision: Optional[int] = None
+    numeric_scale: Optional[int] = None
+    datetime_precision: Optional[int] = None
+
+    def __post_init__(self):
+        assert isinstance(self.name, str)
+        self.name = self.name.lower()
+
+    def get_create_table_column_type(self) -> str:
+        """
+        Returns the SQL data type including the parameters in round brackets for usage in a CREATE TABLE statement.
+        """
+        if self.character_maximum_length is not None:
+            return f"{self.name}({self.character_maximum_length})"
+        elif self.numeric_precision is not None and self.numeric_scale is not None:
+            return f"{self.name}({self.numeric_precision},{self.numeric_scale})"
+        elif self.numeric_precision is not None:
+            return f"{self.name}({self.numeric_precision})"
+        elif self.datetime_precision is not None:
+            return f"{self.name}({self.datetime_precision})"
+        else:
+            return self.name
+
+    def replace_data_type_name(self, new_data_type_name: str) -> SqlDataType:
+        return SqlDataType(
+            name=new_data_type_name,
+            character_maximum_length=self.character_maximum_length,
+            numeric_precision=self.numeric_precision,
+            numeric_scale=self.numeric_scale,
+            datetime_precision=self.datetime_precision,
+        )
+
+
 class BaseSqlExpression:
     # Initialize this outside of __init__ to avoid super().__init__() in child dataclasses
     parent_node: Optional[BaseSqlExpression] = None
@@ -535,7 +572,7 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 @dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
-    type: DBDataType | str
+    type: DBDataType | str | SqlDataType
     length: Optional[int] = None
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None

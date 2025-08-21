@@ -98,7 +98,16 @@ class BigQuerySqlDialect(SqlDialect):
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
 
-    def supports_varchar_length(self) -> bool:
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return False
+
+    def supports_data_type_datetime_precision(self) -> bool:
         return False
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:

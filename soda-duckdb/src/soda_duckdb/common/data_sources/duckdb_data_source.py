@@ -66,10 +66,19 @@ class DuckDBSqlDialect(SqlDialect):
     def get_schema_prefix_index(self) -> int | None:
         return 0
 
-    def supports_varchar_length(self):
+    def supports_data_type_character_maximun_length(self):
         """
         From docs: "Variable-length character string. The maximum length n has no effect and is only provided for compatibility"
         """
+        return False
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return False
+
+    def supports_data_type_datetime_precision(self) -> bool:
         return False
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:

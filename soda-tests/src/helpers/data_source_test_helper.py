@@ -13,7 +13,7 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW, SqlDataType
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -397,12 +397,13 @@ class DataSourceTestHelper:
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
         columns: list[TestColumn] = []
         for test_column_specification in test_table_specification.columns:
-            contract_data_type = self.get_contract_data_type(test_column_specification.test_data_type)
+            mapped_sql_data_type: SqlDataType = self.data_source_impl.sql_dialect.map_data_type(
+                source_data_type=test_column_specification.sql_data_type,
+                source_data_source_type="test"
+            )
             test_column: TestColumn = TestColumn(
-                name=test_column_specification.name,
-                test_data_type=contract_data_type,
-                create_table_data_type=self.get_create_table_sql_type(test_column_specification.test_data_type),
-                contract_data_type=self.get_contract_data_type(test_column_specification.test_data_type),
+                name=test_column_specification.column_name,
+                sql_data_type=mapped_sql_data_type,
             )
             columns.append(test_column)
 
@@ -433,7 +434,7 @@ class DataSourceTestHelper:
         sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
         columns_sql: str = ",\n".join(
             [
-                f"  {sql_dialect.quote_default(column.name)} {column.create_table_data_type}"
+                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_create_table_column_type()}"
                 for column in test_table.columns.values()
             ]
         )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from abc import abstractmethod
+from dataclasses import dataclass
 from datetime import date, datetime
 from numbers import Number
 from textwrap import indent
@@ -59,7 +61,7 @@ from soda_core.common.sql_ast import (
     WITH,
     Operator,
     SqlExpression,
-    SqlExpressionStr,
+    SqlExpressionStr, SqlDataType,
 )
 from soda_core.common.sql_datatypes import DBDataType
 
@@ -75,7 +77,7 @@ class SqlDialect:
 
     def text_col_type(self, length: Optional[int] = 255) -> str:
         """Get the column type specificier for a variable length text column of a specific length."""
-        if self.supports_varchar_length():
+        if self.supports_data_type_character_maximun_length():
             return self.get_contract_type_dict()[DBDataType.TEXT] + f"({length})"  # e.g. VARCHAR(255)
         else:
             # if db engine doesn't support varchar length, probably no need to override this method
@@ -145,9 +147,6 @@ class SqlDialect:
         elif isinstance(o, LITERAL):  # If someone passes a LITERAL object, we want to use the value
             return self.literal(o.value)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
-
-    def supports_varchar_length(self) -> bool:
-        return True
 
     def default_varchar_length(self) -> Optional[int]:
         """Some data sources have a default length for varchar types (such as Snowflake).
@@ -235,6 +234,8 @@ class SqlDialect:
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         if isinstance(create_table_column.type, DBDataType):
             column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
+        elif isinstance(create_table_column.type, SqlDataType):
+            column_type_sql: str = create_table_column.type.get_create_table_column_type()
         else:
             column_type_sql: str = (
                 create_table_column.type
@@ -736,17 +737,50 @@ class SqlDialect:
 
     def column_data_type(self) -> str:
         """
-        Name of the column that has the data type in the tables metadata table.
+        Name of the column that has the data type in the columns metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("data_type")
 
-    def column_data_type_max_length(self) -> str | COLUMN:
+    def column_data_type_max_length(self) -> Optional[str]:
         """
-        Name or definition of the column that has the max data type length in the tables metadata table.
+        Name or definition of the column that has the max data type length in the columns metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("character_maximum_length")
+
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return True
+
+    def column_data_type_numeric_precision(self) -> Optional[str]:
+        """
+        Name or definition of the column that has the max data type length in the columns metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("numeric_precision")
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return True
+
+    def column_data_type_numeric_scale(self) -> Optional[str]:
+        """
+        Name or definition of the column that has the max data type length in the columns metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("numeric_scale")
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return True
+
+    def column_data_type_datetime_precision(self) -> Optional[str]:
+        """
+        Name or definition of the column that has the max data type length in the columns metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("datetime_precision")
+
+    def supports_data_type_datetime_precision(self) -> bool:
+        return True
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
@@ -805,3 +839,98 @@ class SqlDialect:
         # Snowflake: 1 MB
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
+
+    def map_data_type(self, source_data_type: SqlDataType, source_data_source_type: str) -> Optional[SqlDataType]:
+        """
+        Returns a compatible SqlDataType for the given source_data_source_type.
+        """
+        return self.get_data_source_data_types().get_supported_sql_data_type(
+            source_data_type=source_data_type,
+            source_data_source_type=source_data_source_type
+        )
+
+    @abstractmethod
+    def get_data_source_data_types(self) -> DataSourceDataTypes:
+        pass
+
+
+class DataSourceDataTypes:
+    """
+    Allows DataSourceImpls to compose data type behavior via configuring a set of mappings
+    and supported data type names
+    """
+
+    def __init__(
+        self,
+        supported_data_type_names: list[str],
+        mappings: list[SqlDataTypeMapping],
+    ):
+        self.supported_data_type_names: list[str] = supported_data_type_names
+        self.mappings: list[SqlDataTypeMapping] = mappings
+
+    def get_supported_sql_data_type(
+        self,
+        source_data_type: SqlDataType,
+        source_data_source_type: str
+    ) -> Optional[SqlDataType]:
+        if source_data_type.name in self.supported_data_type_names:
+            return source_data_type
+        mapping: SqlDataTypeMapping = next(
+            (mapping for mapping in self.mappings if mapping.applies_to(
+                source_data_type_name=source_data_type.name,
+                source_data_source_type=source_data_source_type
+            )),
+            None
+        )
+        if mapping:
+            return source_data_type.replace_data_type_name(mapping.supported_data_type_name)
+        else:
+            return None
+
+
+class SqlDataTypeMapping:
+
+    # This list of default integer type names is used when building mappings to identify non supported data types
+    # that should map to a standard integer type.  So it should include all integer types of all databases
+    DEFAULT_VARCHAR_TYPES = [
+        "character varying", "varchar",
+        "character", "char",
+        "text",
+        "string"
+    ]
+
+    # This list of default varchar type names is used when building mappings to identify non supported data types
+    # that should map to a standard varchar type. So it should include all text types of all databases
+    DEFAULT_INTEGER_TYPES = [
+        # Numeric types
+        "smallint", "integer", "bigint",
+        "decimal", "numeric",
+        "real", "double precision",
+        "smallserial", "serial", "bigserial",
+    ]
+
+    def __init__(
+        self,
+        # The data type that should be mapped to
+        supported_data_type_name: str,
+        # The list of data types that should be mapped to the self.supported_data_type_name
+        source_data_type_names: list[str],
+        # Optionally filters this mapping to the list of specified source data source types
+        # Which means, this mapping will only be applied if the source data source is in the list
+        source_data_source_types: Optional[list[str]] = None
+    ):
+        self.supported_data_type_name: str = supported_data_type_name.lower()
+        self.source_data_type_names: list[str] = [
+            source_data_type_name.lower() for source_data_type_name in source_data_type_names
+        ]
+        self.source_data_source_types: Optional[list[str]] = source_data_source_types
+
+    def applies_to(
+        self,
+        source_data_type_name: str,
+        source_data_source_type: str,
+    ) -> bool:
+        if (isinstance(self.source_data_source_types, list)
+                and source_data_source_type not in self.source_data_source_types):
+            return False
+        return source_data_type_name in self.source_data_type_names

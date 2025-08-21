@@ -26,7 +26,7 @@ def get_character_maximum_length_expression(
         character_maximum_length = expected_length
     return (
         f"character_maximum_length: {character_maximum_length}"
-        if data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length()
+        if data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length()
         else ""
     )
 
@@ -83,7 +83,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
         """,
     )
 
-    if data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length():
+    if data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():
         number_of_expected_mismatches = 2
         index_of_type_mismatch = 1
     else:
@@ -101,10 +101,10 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
 
     default_varchar_length = data_source_test_helper.data_source_impl.sql_dialect.default_varchar_length()
 
-    if default_varchar_length and data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length():
+    if default_varchar_length and data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():
         assert varchar(default_varchar_length) == length_mismatch.get_actual()
         assert varchar(512) == length_mismatch.get_expected()
-    elif data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length():
+    elif data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():
         assert varchar(255) == length_mismatch.get_actual()
         assert varchar(512) == length_mismatch.get_expected()
 
