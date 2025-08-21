@@ -46,12 +46,14 @@ class TestTableSpecificationBuilder:
             character_maximum_length: Optional[int] = None
             sql_data_type: SqlDataType = SqlDataType(name=data_type)
 
-        self._columns.append(ColumnMetadata(
-            column_name=column_name,
-            data_type=data_type_name,
-            character_maximum_length=character_maximum_length,
-            sql_data_type=sql_data_type
-        ))
+        self._columns.append(
+            ColumnMetadata(
+                column_name=column_name,
+                data_type=data_type_name,
+                character_maximum_length=character_maximum_length,
+                sql_data_type=sql_data_type,
+            )
+        )
         return self
 
     def column_text(self, name) -> TestTableSpecificationBuilder:

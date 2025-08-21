@@ -3,7 +3,12 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import CAST, REGEX_LIKE
-from soda_core.common.sql_dialect import DBDataType, SqlDialect, DataSourceDataTypes, SqlDataTypeMapping
+from soda_core.common.sql_dialect import (
+    DataSourceDataTypes,
+    DBDataType,
+    SqlDataTypeMapping,
+    SqlDialect,
+)
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
@@ -56,64 +61,87 @@ class PostgresSqlDialect(SqlDialect):
     POSTGRES_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
         supported_data_type_names=[
             # Character types
-            "character varying", "varchar",
-            "character", "char",
+            "character varying",
+            "varchar",
+            "character",
+            "char",
             "text",
-
             # Numeric types
-            "smallint", "integer", "bigint",
-            "decimal", "numeric",
-            "real", "double precision",
-            "smallserial", "serial", "bigserial",
-
+            "smallint",
+            "integer",
+            "bigint",
+            "decimal",
+            "numeric",
+            "real",
+            "double precision",
+            "smallserial",
+            "serial",
+            "bigserial",
             # Date/Time
-            "timestamp", "timestamptz", "timestamp with time zone", "timestamp without time zone",
-            "date", "time", "time with time zone", "time without time zone",
+            "timestamp",
+            "timestamptz",
+            "timestamp with time zone",
+            "timestamp without time zone",
+            "date",
+            "time",
+            "time with time zone",
+            "time without time zone",
             "interval",
-
             # Monetary
             "money",
-
             # Binary
             "bytea",
-
             # Boolean
             "boolean",
-
             # Enumerated types
             "enum",
-
             # Geometric types
-            "point", "line", "lseg", "box", "path", "polygon", "circle",
-
+            "point",
+            "line",
+            "lseg",
+            "box",
+            "path",
+            "polygon",
+            "circle",
             # Network address types
-            "cidr", "inet", "macaddr", "macaddr8",
-
+            "cidr",
+            "inet",
+            "macaddr",
+            "macaddr8",
             # Bit string types
-            "bit", "bit varying",
-
+            "bit",
+            "bit varying",
             # Text search types
-            "tsvector", "tsquery",
-
+            "tsvector",
+            "tsquery",
             # UUID
             "uuid",
-
             # XML / JSON
-            "xml", "json", "jsonb",
-
+            "xml",
+            "json",
+            "jsonb",
             # Arrays
             "array",
-
             # Composite types
             "composite",
-
             # Range types
-            "int4range", "int8range", "numrange",
-            "tsrange", "tstzrange", "daterange",
-
+            "int4range",
+            "int8range",
+            "numrange",
+            "tsrange",
+            "tstzrange",
+            "daterange",
             # Object identifiers
-            "oid", "regclass", "regtype", "regproc", "regprocedure", "regoper",
-            "regoperator", "regconfig", "regdictionary", "pg_lsn"
+            "oid",
+            "regclass",
+            "regtype",
+            "regproc",
+            "regprocedure",
+            "regoper",
+            "regoperator",
+            "regconfig",
+            "regdictionary",
+            "pg_lsn",
         ],
         mappings=[
             SqlDataTypeMapping(
@@ -124,7 +152,7 @@ class PostgresSqlDialect(SqlDialect):
                 supported_data_type_name="integer",
                 source_data_type_names=SqlDataTypeMapping.DEFAULT_INTEGER_TYPES,
             ),
-        ]
+        ],
     )
 
     def get_data_source_data_types(self) -> DataSourceDataTypes:

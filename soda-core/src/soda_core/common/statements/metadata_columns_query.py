@@ -5,7 +5,17 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.sql_ast import SELECT, FROM, WHERE, AND, EQ, LITERAL, ORDER_BY_ASC, ORDINAL_POSITION, SqlDataType
+from soda_core.common.sql_ast import (
+    AND,
+    EQ,
+    FROM,
+    LITERAL,
+    ORDER_BY_ASC,
+    ORDINAL_POSITION,
+    SELECT,
+    WHERE,
+    SqlDataType,
+)
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -139,26 +149,22 @@ class MetadataColumnsQuery:
             character_maximum_length: Optional[int] = (
                 row[character_maximum_length_index] if character_maximum_length_index else None
             )
-            numeric_precision: Optional[int] = (
-                row[numeric_precision_index] if numeric_precision_index else None
-            )
-            numeric_scale: Optional[int] = (
-                row[numeric_scale_index] if numeric_scale_index else None
-            )
-            datetime_precision: Optional[int] = (
-                row[datetime_precision_index] if datetime_precision_index else None
-            )
-            column_metadatas.append(ColumnMetadata(
-                # Format data_type value here if needed -- default no-op
-                column_name=column_name,
-                data_type=data_type_name,
-                character_maximum_length=character_maximum_length,
-                sql_data_type=SqlDataType(
-                    name=data_type_name,
+            numeric_precision: Optional[int] = row[numeric_precision_index] if numeric_precision_index else None
+            numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
+            datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
+            column_metadatas.append(
+                ColumnMetadata(
+                    # Format data_type value here if needed -- default no-op
+                    column_name=column_name,
+                    data_type=data_type_name,
                     character_maximum_length=character_maximum_length,
-                    numeric_precision=numeric_precision,
-                    numeric_scale=numeric_scale,
-                    datetime_precision=datetime_precision
+                    sql_data_type=SqlDataType(
+                        name=data_type_name,
+                        character_maximum_length=character_maximum_length,
+                        numeric_precision=numeric_precision,
+                        numeric_scale=numeric_scale,
+                        datetime_precision=datetime_precision,
+                    ),
                 )
-            ))
+            )
         return column_metadatas

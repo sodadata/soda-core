@@ -101,7 +101,10 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
 
     default_varchar_length = data_source_test_helper.data_source_impl.sql_dialect.default_varchar_length()
 
-    if default_varchar_length and data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():
+    if (
+        default_varchar_length
+        and data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length()
+    ):
         assert varchar(default_varchar_length) == length_mismatch.get_actual()
         assert varchar(512) == length_mismatch.get_expected()
     elif data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():

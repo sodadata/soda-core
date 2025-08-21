@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
 from datetime import date, datetime
 from numbers import Number
 from textwrap import indent
@@ -60,8 +59,9 @@ from soda_core.common.sql_ast import (
     WHERE,
     WITH,
     Operator,
+    SqlDataType,
     SqlExpression,
-    SqlExpressionStr, SqlDataType,
+    SqlExpressionStr,
 )
 from soda_core.common.sql_datatypes import DBDataType
 
@@ -845,8 +845,7 @@ class SqlDialect:
         Returns a compatible SqlDataType for the given source_data_source_type.
         """
         return self.get_data_source_data_types().get_supported_sql_data_type(
-            source_data_type=source_data_type,
-            source_data_source_type=source_data_source_type
+            source_data_type=source_data_type, source_data_source_type=source_data_source_type
         )
 
     @abstractmethod
@@ -869,18 +868,19 @@ class DataSourceDataTypes:
         self.mappings: list[SqlDataTypeMapping] = mappings
 
     def get_supported_sql_data_type(
-        self,
-        source_data_type: SqlDataType,
-        source_data_source_type: str
+        self, source_data_type: SqlDataType, source_data_source_type: str
     ) -> Optional[SqlDataType]:
         if source_data_type.name in self.supported_data_type_names:
             return source_data_type
         mapping: SqlDataTypeMapping = next(
-            (mapping for mapping in self.mappings if mapping.applies_to(
-                source_data_type_name=source_data_type.name,
-                source_data_source_type=source_data_source_type
-            )),
-            None
+            (
+                mapping
+                for mapping in self.mappings
+                if mapping.applies_to(
+                    source_data_type_name=source_data_type.name, source_data_source_type=source_data_source_type
+                )
+            ),
+            None,
         )
         if mapping:
             return source_data_type.replace_data_type_name(mapping.supported_data_type_name)
@@ -889,24 +889,24 @@ class DataSourceDataTypes:
 
 
 class SqlDataTypeMapping:
-
     # This list of default integer type names is used when building mappings to identify non supported data types
     # that should map to a standard integer type.  So it should include all integer types of all databases
-    DEFAULT_VARCHAR_TYPES = [
-        "character varying", "varchar",
-        "character", "char",
-        "text",
-        "string"
-    ]
+    DEFAULT_VARCHAR_TYPES = ["character varying", "varchar", "character", "char", "text", "string"]
 
     # This list of default varchar type names is used when building mappings to identify non supported data types
     # that should map to a standard varchar type. So it should include all text types of all databases
     DEFAULT_INTEGER_TYPES = [
         # Numeric types
-        "smallint", "integer", "bigint",
-        "decimal", "numeric",
-        "real", "double precision",
-        "smallserial", "serial", "bigserial",
+        "smallint",
+        "integer",
+        "bigint",
+        "decimal",
+        "numeric",
+        "real",
+        "double precision",
+        "smallserial",
+        "serial",
+        "bigserial",
     ]
 
     def __init__(
@@ -917,7 +917,7 @@ class SqlDataTypeMapping:
         source_data_type_names: list[str],
         # Optionally filters this mapping to the list of specified source data source types
         # Which means, this mapping will only be applied if the source data source is in the list
-        source_data_source_types: Optional[list[str]] = None
+        source_data_source_types: Optional[list[str]] = None,
     ):
         self.supported_data_type_name: str = supported_data_type_name.lower()
         self.source_data_type_names: list[str] = [
@@ -930,7 +930,9 @@ class SqlDataTypeMapping:
         source_data_type_name: str,
         source_data_source_type: str,
     ) -> bool:
-        if (isinstance(self.source_data_source_types, list)
-                and source_data_source_type not in self.source_data_source_types):
+        if (
+            isinstance(self.source_data_source_types, list)
+            and source_data_source_type not in self.source_data_source_types
+        ):
             return False
         return source_data_type_name in self.source_data_type_names
