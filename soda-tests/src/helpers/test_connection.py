@@ -46,7 +46,7 @@ class TestConnection:
         try:
             if self.valid_yaml:
                 data_source_impl = self.create_data_source_impl(data_source_yaml)
-                assert not logs.has_errors()
+                assert not logs.has_errors
             else:
                 with pytest.raises(Exception) as exc_info:
                     self.create_data_source_impl(data_source_yaml)
@@ -57,19 +57,19 @@ class TestConnection:
 
             if self.valid_connection_params:
                 data_source_impl.open_connection()
-                if logs.has_errors():
+                if logs.has_errors:
                     error_msg = "Connection failed unexpectedly with error: " + logs.get_errors_str()
                     raise RuntimeError(error_msg)
             else:
                 data_source_impl.open_connection()
-                assert logs.has_errors()
+                assert logs.has_errors
                 assert self.expected_connection_error in logs.get_errors_str()
                 # do not try to query if connection failed
                 return
 
             if self.query_should_succeed:
                 data_source_impl.execute_query("SELECT 1")
-                if logs.has_errors():
+                if logs.has_errors:
                     error_msg = "Query failed unexpectedly with error: " + logs.get_errors_str()
                     raise RuntimeError(error_msg)
             else:

@@ -72,33 +72,38 @@ class ContractVerificationSessionResult:
             errors.extend(contract_verification_result.get_errors())
         return errors
 
-    def get_number_of_checks(self) -> int:
+    @property
+    def number_of_checks(self) -> int:
         return sum(
-            contract_verification_result.get_number_of_checks()
+            contract_verification_result.number_of_checks
             for contract_verification_result in self.contract_verification_results
         )
 
-    def get_number_of_checks_passed(self) -> int:
+    @property
+    def number_of_checks_passed(self) -> int:
         return sum(
-            contract_verification_result.get_number_of_checks_passed()
+            contract_verification_result.number_of_checks_passed
             for contract_verification_result in self.contract_verification_results
         )
 
-    def get_number_of_checks_failed(self) -> int:
+    @property
+    def number_of_checks_failed(self) -> int:
         return sum(
-            contract_verification_result.get_number_of_checks_failed()
+            contract_verification_result.number_of_checks_failed
             for contract_verification_result in self.contract_verification_results
         )
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
+    @property
     def has_errors(self) -> bool:
         return any(
-            contract_verification_result.has_errors()
+            contract_verification_result.has_errors
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
     def is_failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
@@ -107,27 +112,29 @@ class ContractVerificationSessionResult:
         Ignores execution errors in the logs.
         """
         return any(
-            contract_verification_result.is_failed()
+            contract_verification_result.is_failed
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
         return all(
-            contract_verification_result.is_passed()
+            contract_verification_result.is_passed
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
     def is_ok(self) -> bool:
         return all(
-            contract_verification_result.is_ok() for contract_verification_result in self.contract_verification_results
+            contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
         )
 
     def assert_ok(self) -> ContractVerificationSessionResult:
-        if not self.is_ok():
+        if not self.is_ok:
             raise SodaException(message=self.get_errors_str())
         return self
 
@@ -247,7 +254,7 @@ class CheckResult:
         if is_verbose():
             row["Check Type"] = self.check.type
             row["Identity"] = self.check.identity
-        row["Details"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
+        row["Diagnostics"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
 
         return row
 
@@ -347,9 +354,11 @@ class ContractVerificationResult:
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
+    @property
     def has_errors(self) -> bool:
         return self.status is ContractVerificationStatus.ERROR
 
+    @property
     def is_failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
@@ -359,6 +368,7 @@ class ContractVerificationResult:
         """
         return self.status is ContractVerificationStatus.FAILED
 
+    @property
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
@@ -366,14 +376,18 @@ class ContractVerificationResult:
         """
         return self.status is ContractVerificationStatus.PASSED
 
+    @property
     def is_ok(self) -> bool:
-        return not self.is_failed() and not self.has_errors()
+        return not self.is_failed and not self.has_errors
 
-    def get_number_of_checks(self) -> int:
+    @property
+    def number_of_checks(self) -> int:
         return len(self.check_results)
 
-    def get_number_of_checks_passed(self) -> int:
+    @property
+    def number_of_checks_passed(self) -> int:
         return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
 
-    def get_number_of_checks_failed(self) -> int:
+    @property
+    def number_of_checks_failed(self) -> int:
         return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])
