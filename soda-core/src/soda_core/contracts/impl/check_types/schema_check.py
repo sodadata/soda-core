@@ -86,8 +86,10 @@ class SchemaCheckImpl(CheckImpl):
                 column_name=column_impl.column_yaml.name,
                 sql_data_type=SqlDataType(
                     name=column_impl.column_yaml.data_type,
-                    character_maximum_length=column_impl.column_yaml.character_maximum_length
-                ) if column_impl.column_yaml.data_type else None
+                    character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                )
+                if column_impl.column_yaml.data_type
+                else None,
             )
             for column_impl in contract_impl.column_impls
         ]

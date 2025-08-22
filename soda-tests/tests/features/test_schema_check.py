@@ -1,7 +1,6 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
-from soda_core.common.sql_dialect import DBDataType
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 

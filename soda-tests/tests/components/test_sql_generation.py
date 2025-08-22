@@ -81,37 +81,17 @@ def test_sql_ast_create_table_if_not_exists():
                     type=SqlDataType(
                         name=DBDataType.INTEGER,
                     ),
-                    nullable=False
+                    nullable=False,
                 ),
                 CREATE_TABLE_COLUMN(
-                    name="name",
-                    type=SqlDataType(
-                        name=DBDataType.VARCHAR,
-                        character_maximum_length=255
-                    ),
-                    nullable=True
+                    name="name", type=SqlDataType(name=DBDataType.VARCHAR, character_maximum_length=255), nullable=True
                 ),
                 CREATE_TABLE_COLUMN(
-                    name="age",
-                    type=SqlDataType(
-                        name=DBDataType.INTEGER
-                    ),
-                    nullable=True,
-                    default=LITERAL(25)
+                    name="age", type=SqlDataType(name=DBDataType.INTEGER), nullable=True, default=LITERAL(25)
                 ),
+                CREATE_TABLE_COLUMN(name="my_float", type=SqlDataType(name=DBDataType.DECIMAL), nullable=True),
                 CREATE_TABLE_COLUMN(
-                    name="my_float",
-                    type=SqlDataType(
-                        name=DBDataType.DECIMAL
-                    ),
-                    nullable=True
-                ),
-                CREATE_TABLE_COLUMN(
-                    name="custom_type",
-                    type=SqlDataType(
-                        name="my_own_datatype"
-                    ),
-                    nullable=True
+                    name="custom_type", type=SqlDataType(name="my_own_datatype"), nullable=True
                 ),  # This is not in the contract type dict.
             ],
         )
