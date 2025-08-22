@@ -572,8 +572,7 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 @dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
-    type: DBDataType | str | SqlDataType
-    length: Optional[int] = None
+    type: SqlDataType
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None
 

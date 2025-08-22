@@ -24,12 +24,20 @@ class ColumnMetadata:
     column_name: str
 
     # Deprecated. Replaced by sql_data_type below
-    data_type: str
+    data_type: Optional[str] = None
 
     # Deprecated. Replaced by sql_data_type below
-    character_maximum_length: Optional[int]
+    character_maximum_length: Optional[int] = None
 
+    # Can be None in case of schema check expected columns
+    # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
+
+    def __post_init__(self):
+        assert self.data_type is None
+        assert self.character_maximum_length is None
+        if self.sql_data_type is not None and not isinstance(self.sql_data_type, SqlDataType):
+            raise Exception("")
 
     # Deprecated. Replaced by SqlDataType.to_create_table_column_type above
     def get_data_type_ddl(self) -> str:
@@ -156,8 +164,6 @@ class MetadataColumnsQuery:
                 ColumnMetadata(
                     # Format data_type value here if needed -- default no-op
                     column_name=column_name,
-                    data_type=data_type_name,
-                    character_maximum_length=character_maximum_length,
                     sql_data_type=SqlDataType(
                         name=data_type_name,
                         character_maximum_length=character_maximum_length,

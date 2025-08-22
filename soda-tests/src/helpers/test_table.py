@@ -37,20 +37,13 @@ class TestTableSpecificationBuilder:
 
     def column(self, column_name: str, data_type: str | SqlDataType) -> TestTableSpecificationBuilder:
         if isinstance(data_type, SqlDataType):
-            data_type_name: str = data_type.name
-            character_maximum_length: Optional[int] = data_type.character_maximum_length
             sql_data_type: SqlDataType = data_type
         else:
-            # deprecated / legacy
-            data_type_name: str = data_type
-            character_maximum_length: Optional[int] = None
             sql_data_type: SqlDataType = SqlDataType(name=data_type)
 
         self._columns.append(
             ColumnMetadata(
                 column_name=column_name,
-                data_type=data_type_name,
-                character_maximum_length=character_maximum_length,
                 sql_data_type=sql_data_type,
             )
         )

@@ -7,6 +7,7 @@ from typing import Optional
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_ast import SqlDataType
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
     MetadataColumnsQuery,
@@ -83,8 +84,10 @@ class SchemaCheckImpl(CheckImpl):
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
-                data_type=column_impl.column_yaml.data_type,
-                character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                sql_data_type=SqlDataType(
+                    name=column_impl.column_yaml.data_type,
+                    character_maximum_length=column_impl.column_yaml.character_maximum_length
+                ) if column_impl.column_yaml.data_type else None
             )
             for column_impl in contract_impl.column_impls
         ]
@@ -138,7 +141,7 @@ class SchemaCheckImpl(CheckImpl):
 
                 if (
                     actual_column_metadata
-                    and expected_column.data_type
+                    and expected_column.sql_data_type
                     and self.contract_impl.data_source_impl.is_different_data_type(
                         expected_column=expected_column, actual_column=actual_column_metadata
                     )
