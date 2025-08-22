@@ -39,6 +39,14 @@ def data_source_test_helper(data_source_test_helper_session: DataSourceTestHelpe
 
 
 @pytest.fixture(scope="function")
+def secondary_data_source_test_helper(
+    secondary_data_source_test_helper_session: DataSourceTestHelper,
+) -> DataSourceTestHelper:
+    yield secondary_data_source_test_helper_session
+    secondary_data_source_test_helper_session.test_method_ended()
+
+
+@pytest.fixture(scope="function")
 def logs() -> Logs:
     logs: Logs = Logs()
     try:
@@ -49,7 +57,24 @@ def logs() -> Logs:
 
 @pytest.fixture(scope="session")
 def data_source_test_helper_session() -> DataSourceTestHelper:
-    data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create(test_datasource)
+    data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create(
+        test_datasource, name="primary-datasource"
+    )
+    data_source_test_helper.start_test_session()
+    exception: Optional[Exception] = None
+    try:
+        yield data_source_test_helper
+    except Exception as e:
+        exception = e
+    finally:
+        data_source_test_helper.end_test_session(exception=exception)
+
+
+@pytest.fixture(scope="session")
+def secondary_data_source_test_helper_session() -> DataSourceTestHelper:
+    data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create(
+        test_datasource, name="secondary-datasource"
+    )
     data_source_test_helper.start_test_session()
     exception: Optional[Exception] = None
     try:
