@@ -192,7 +192,7 @@ class TestTable:
         self.row_values: Optional[list[tuple]] = row_values
 
     def data_type(self, column_name: str) -> str:
-        return self.columns[column_name].contract_data_type
+        return self.columns[column_name].sql_data_type.name
 
     def get_dataset_qualified_name(self) -> str:
         slash_separated_prefixes: str = "/".join(self.dataset_prefix)

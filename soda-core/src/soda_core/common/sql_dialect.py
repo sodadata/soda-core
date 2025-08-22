@@ -75,6 +75,7 @@ class SqlDialect:
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
 
+    # Deprecated. Data type parameters should work in general, not only for text type.
     def text_col_type(self, length: Optional[int] = 255) -> str:
         """Get the column type specificier for a variable length text column of a specific length."""
         if self.supports_data_type_character_maximun_length():
@@ -232,27 +233,8 @@ class SqlDialect:
         return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        if isinstance(create_table_column.type, DBDataType):
-            column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
-        elif isinstance(create_table_column.type, SqlDataType):
-            column_type_sql: str = create_table_column.type.get_create_table_column_type()
-        else:
-            column_type_sql: str = (
-                create_table_column.type
-            )  # If we don't need to do the lookup, we just use the type as is.
-
-        # If there is a length, we need to add it to the column type.
-        if create_table_column.length:
-            # If the type is TEXT and the length is provided, we need to add the length to the column type.
-            # But only if we are doing a type lookup.
-            if create_table_column.type == DBDataType.TEXT and isinstance(create_table_column.type, DBDataType):
-                column_type_sql = self.text_col_type(create_table_column.length)
-            # If the type is not a TEXT, we just add the length to the column type.
-            # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
-            # Note that a user can still pass a custom type with the desired length as well.
-            else:
-                column_type_sql = column_type_sql + f"({create_table_column.length})"
-        return column_type_sql
+        assert isinstance(create_table_column.type, SqlDataType)
+        return create_table_column.type.get_create_table_column_type()
 
     #########################################################
     # DROP TABLE

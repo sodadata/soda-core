@@ -76,12 +76,42 @@ def test_sql_ast_create_table_if_not_exists():
         CREATE_TABLE_IF_NOT_EXISTS(
             fully_qualified_table_name='"customers"',
             columns=[
-                CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
-                CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
-                CREATE_TABLE_COLUMN(name="age", type=DBDataType.INTEGER, nullable=True, default=LITERAL(25)),
-                CREATE_TABLE_COLUMN(name="my_float", type=DBDataType.DECIMAL, nullable=True),
                 CREATE_TABLE_COLUMN(
-                    name="custom_type", type="my_own_datatype", nullable=True
+                    name="id",
+                    type=SqlDataType(
+                        name=DBDataType.INTEGER,
+                    ),
+                    nullable=False
+                ),
+                CREATE_TABLE_COLUMN(
+                    name="name",
+                    type=SqlDataType(
+                        name=DBDataType.VARCHAR,
+                        character_maximum_length=255
+                    ),
+                    nullable=True
+                ),
+                CREATE_TABLE_COLUMN(
+                    name="age",
+                    type=SqlDataType(
+                        name=DBDataType.INTEGER
+                    ),
+                    nullable=True,
+                    default=LITERAL(25)
+                ),
+                CREATE_TABLE_COLUMN(
+                    name="my_float",
+                    type=SqlDataType(
+                        name=DBDataType.DECIMAL
+                    ),
+                    nullable=True
+                ),
+                CREATE_TABLE_COLUMN(
+                    name="custom_type",
+                    type=SqlDataType(
+                        name="my_own_datatype"
+                    ),
+                    nullable=True
                 ),  # This is not in the contract type dict.
             ],
         )
@@ -89,9 +119,9 @@ def test_sql_ast_create_table_if_not_exists():
     assert (
         my_create_table_statement == 'CREATE TABLE IF NOT EXISTS "customers" (\n'
         '\t"id" integer NOT NULL,\n'
-        '\t"name" character varying(255),\n'
+        '\t"name" varchar(255),\n'
         '\t"age" integer DEFAULT 25,\n'
-        '\t"my_float" double precision,\n'
+        '\t"my_float" decimal,\n'
         '\t"custom_type" my_own_datatype\n'
         ");"
     )
