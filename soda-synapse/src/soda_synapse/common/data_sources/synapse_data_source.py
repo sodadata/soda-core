@@ -2,7 +2,7 @@ import logging
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW, VALUES, COLUMN, TUPLE
+from soda_core.common.sql_ast import COLUMN, INSERT_INTO, TUPLE, VALUES, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
     SqlServerDataSourceImpl,
@@ -51,8 +51,7 @@ class SynapseSqlDialect(SqlServerSqlDialect):
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
-        if tuple.check_context(VALUES): 
+        if tuple.check_context(VALUES):
             # in built_cte_values_sql, elements are dropped in top-level select statement, so can't use parentheses
             return elements
         return f"({elements})"
-    

@@ -24,6 +24,7 @@ DuckDBColumn = namedtuple(
 
 _in_memory_connection = None
 
+
 class DuckDBCursor:
     def __init__(self, connection):
         self._connection = connection
@@ -121,11 +122,13 @@ class DuckDBDataSourceConnection(DataSourceConnection):
                     return connection
                 else:
                     if config.database == ":memory:":
-                    # Re-use existing in-memory connection if it exists
+                        # Re-use existing in-memory connection if it exists
                         global _in_memory_connection
                         if _in_memory_connection is not None:
                             return DuckDBDataSourceConnectionWrapper(_in_memory_connection)
-                        _in_memory_connection = duckdb.connect(database=":memory:", read_only=config.read_only, config=config.configuration)
+                        _in_memory_connection = duckdb.connect(
+                            database=":memory:", read_only=config.read_only, config=config.configuration
+                        )
                         return DuckDBDataSourceConnectionWrapper(_in_memory_connection)
                     return DuckDBDataSourceConnectionWrapper(
                         duckdb.connect(

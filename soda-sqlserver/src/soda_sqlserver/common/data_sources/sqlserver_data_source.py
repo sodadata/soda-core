@@ -6,6 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import (
+    COLUMN,
     COUNT,
     CREATE_TABLE,
     CREATE_TABLE_IF_NOT_EXISTS,
@@ -16,7 +17,6 @@ from soda_core.common.sql_ast import (
     REGEX_LIKE,
     TUPLE,
     VALUES,
-    COLUMN,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
