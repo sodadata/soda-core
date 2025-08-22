@@ -22,7 +22,7 @@ class RedshiftDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
             type: redshift
-            name: REDSHIFT_TEST_DS
+            name: {self.name}
             connection:
                 host: '{REDSHIFT_HOST}'
                 port: {REDSHIFT_PORT}

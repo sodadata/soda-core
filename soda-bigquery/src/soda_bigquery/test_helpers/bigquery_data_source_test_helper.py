@@ -20,7 +20,7 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
             type: bigquery
-            name: BIGQUERY_TEST_DS
+            name: {self.name}
             connection:
                 account_info_json: '{os.getenv("BIGQUERY_ACCOUNT_INFO_JSON", "")}'
 

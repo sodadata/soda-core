@@ -16,7 +16,7 @@ class PostgresDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
             type: postgres
-            name: postgres_test_ds
+            name: {self.name}
             connection:
                 host: {os.getenv("POSTGRES_HOST", "localhost")}
                 user: {os.getenv("POSTGRES_USERNAME", "soda_test")}

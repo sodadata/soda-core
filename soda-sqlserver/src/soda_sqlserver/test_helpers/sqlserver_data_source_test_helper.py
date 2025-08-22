@@ -22,7 +22,7 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
             type: sqlserver
-            name: SQLSERVER_TEST_DS
+            name: {self.name}
             connection:
                 host: '{os.getenv("SQLSERVER_HOST", "localhost")}'
                 port: '{os.getenv("SQLSERVER_PORT", "1433")}'
