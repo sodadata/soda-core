@@ -146,7 +146,7 @@ class SchemaCheckImpl(CheckImpl):
                     and expected_column.sql_data_type
                     and self.contract_impl.data_source_impl.is_different_data_type(
                         expected_sql_data_type=expected_column.sql_data_type,
-                        actual_sql_data_type=actual_column_metadata.sql_data_type
+                        actual_sql_data_type=actual_column_metadata.sql_data_type,
                     )
                 ):
                     column_data_type_mismatches.append(
