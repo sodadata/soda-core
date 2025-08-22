@@ -33,20 +33,9 @@ class ColumnMetadata:
     # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
 
-    def __post_init__(self):
-        assert self.data_type is None
-        assert self.character_maximum_length is None
-        if self.sql_data_type is not None and not isinstance(self.sql_data_type, SqlDataType):
-            raise Exception("")
-
     # Deprecated. Replaced by SqlDataType.to_create_table_column_type above
-    def get_data_type_ddl(self) -> str:
-        if self.sql_data_type is not None:
-            return self.sql_data_type.get_create_table_column_type()
-        if self.character_maximum_length is None:
-            return self.data_type
-        else:
-            return f"{self.data_type}({self.character_maximum_length})"
+    def get_sql_data_type_str_with_parameters(self) -> Optional[str]:
+        return None if self.sql_data_type is None else self.sql_data_type.get_sql_data_type_str_with_parameters()
 
 
 class MetadataColumnsQuery:

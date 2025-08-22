@@ -9,6 +9,7 @@ from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.sql_ast import SqlDataType
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
     ColumnMetadata,
@@ -132,20 +133,14 @@ class DataSourceImpl(ABC):
     #  and keep in data source impl only the responsibilities
     #  - manage the connection (parsing, opening and closing)
     #  - provide access to the SqlDialect
-    def is_different_data_type(self, expected_column: ColumnMetadata, actual_column: ColumnMetadata) -> bool:
-        canonical_expected_data_type: str = self.get_canonical_data_type(expected_column.data_type)
-        canonical_actual_data_type: str = self.get_canonical_data_type(actual_column.data_type)
-
-        if canonical_expected_data_type != canonical_actual_data_type:
-            return True
-
-        if (
-            isinstance(expected_column.character_maximum_length, int)
-            and expected_column.character_maximum_length != actual_column.character_maximum_length
-        ):
-            return True
-
-        return False
+    def is_different_data_type(self, expected_sql_data_type: SqlDataType, actual_sql_data_type: SqlDataType) -> bool:
+        canonical_expected_sql_data_type: SqlDataType = expected_sql_data_type.replace_data_type_name(
+            self.get_canonical_data_type_name(expected_sql_data_type.name)
+        )
+        canonical_actual_sql_data_type: SqlDataType = actual_sql_data_type.replace_data_type_name(
+            self.get_canonical_data_type_name(actual_sql_data_type.name)
+        )
+        return canonical_expected_sql_data_type != canonical_actual_sql_data_type
 
     # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
     #  and keep in data source impl only the responsibilities
@@ -162,8 +157,8 @@ class DataSourceImpl(ABC):
     #  and keep in data source impl only the responsibilities
     #  - manage the connection (parsing, opening and closing)
     #  - provide access to the SqlDialect
-    def get_canonical_data_type(self, data_type: str) -> str:
-        canonical_data_type: str = data_type.lower()
+    def get_canonical_data_type_name(self, data_type_name: str) -> str:
+        canonical_data_type: str = data_type_name.lower()
         canonical_data_type_mappings: dict = self.get_canonical_data_type_mappings()
         if canonical_data_type in canonical_data_type_mappings:
             canonical_data_type = canonical_data_type_mappings.get(canonical_data_type)

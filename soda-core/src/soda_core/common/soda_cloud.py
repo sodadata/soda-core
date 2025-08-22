@@ -1266,7 +1266,7 @@ def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
     return {
         "name": column_metadata.column_name,
         # The type includes the max char length if specified in the metadata eg VARCHAR(255)
-        "type": column_metadata.get_data_type_ddl(),
+        "type": column_metadata.get_sql_data_type_str_with_parameters(),
     }
 
 

@@ -433,7 +433,7 @@ class DataSourceTestHelper:
         sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
         columns_sql: str = ",\n".join(
             [
-                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_create_table_column_type()}"
+                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_sql_data_type_str_with_parameters()}"
                 for column in test_table.columns.values()
             ]
         )

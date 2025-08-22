@@ -122,7 +122,7 @@ class SchemaCheckImpl(CheckImpl):
         actual_columns: list[ColumnMetadata] = measurement_values.get_value(self.schema_metric)
         if actual_columns:
             actual_column_names: list[str] = [actual_column.column_name for actual_column in actual_columns]
-            actual_column_metadata_by_name: [str, ColumnMetadata] = {
+            actual_column_metadata_by_name: dict[str, ColumnMetadata] = {
                 actual_column.column_name: actual_column for actual_column in actual_columns
             }
             expected_column_names: list[str] = [
@@ -145,7 +145,8 @@ class SchemaCheckImpl(CheckImpl):
                     actual_column_metadata
                     and expected_column.sql_data_type
                     and self.contract_impl.data_source_impl.is_different_data_type(
-                        expected_column=expected_column, actual_column=actual_column_metadata
+                        expected_sql_data_type=expected_column.sql_data_type,
+                        actual_sql_data_type=actual_column_metadata.sql_data_type
                     )
                 ):
                     column_data_type_mismatches.append(

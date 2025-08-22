@@ -234,7 +234,7 @@ class SqlDialect:
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
-        return create_table_column.type.get_create_table_column_type()
+        return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     #########################################################
     # DROP TABLE
