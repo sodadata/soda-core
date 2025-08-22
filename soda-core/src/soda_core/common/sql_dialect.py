@@ -36,6 +36,7 @@ from soda_core.common.sql_ast import (
     LEFT_INNER_JOIN,
     LENGTH,
     LIKE,
+    LIMIT,
     LITERAL,
     LOWER,
     LT,
@@ -44,6 +45,7 @@ from soda_core.common.sql_ast import (
     NEQ,
     NOT,
     NOT_LIKE,
+    OFFSET,
     OR,
     ORDER_BY_ASC,
     ORDER_BY_DESC,
@@ -200,6 +202,30 @@ class SqlDialect:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
 
+    def select_all_sql(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[str] = [],
+        filter: str | None = None,
+        order_by: list[str] = [],
+    ) -> str:
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(SqlExpressionStr(filter))
+
+        statements = [
+            SELECT(columns or [STAR()]),
+            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
+            WHERE.optional(AND.optional(where_clauses)),
+            ORDER_BY_ASC.optional(", ".join(order_by)),
+        ]
+
+        return self.build_select_sql(statements, add_semicolon=False)
+
+    def paginate_query_sql(self, query: str, offset: int, page_size: int) -> str:
+        return f"{query} \n {self._build_limit_sql(LIMIT(page_size))} {self._build_offset_sql(OFFSET(offset))}"
+
     #########################################################
     # CREATE TABLE
     #########################################################
@@ -310,6 +336,8 @@ class SqlDialect:
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
         statement_lines.extend(self._build_order_by_lines(select_elements))
+        statement_lines.extend(self._build_limit_line(select_elements))
+        statement_lines.extend(self._build_offset_line(select_elements))
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
@@ -680,8 +708,28 @@ class SqlDialect:
         else:
             return []
 
+    def _build_limit_line(self, select_elements: list) -> list[str]:
+        for select_element in select_elements:
+            if isinstance(select_element, LIMIT):
+                return self._build_limit_sql(select_element)
+
+        return []
+
+    def _build_offset_line(self, select_elements: list) -> list[str]:
+        for select_element in select_elements:
+            if isinstance(select_element, OFFSET):
+                return self._build_offset_sql(select_element)
+
+        return []
+
     def _build_ordinal_position_sql(self, ordinal_position: ORDINAL_POSITION) -> str:
         return "ORDINAL_POSITION"
+
+    def _build_limit_sql(self, limit_element: LIMIT) -> str:
+        return f"LIMIT {limit_element.limit}"
+
+    def _build_offset_sql(self, offset_element: OFFSET) -> str:
+        return f"OFFSET {offset_element.offset}"
 
     def supports_function(self, function: str) -> bool:
         return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum"]

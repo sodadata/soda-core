@@ -19,7 +19,7 @@ class FabricDataSourceTestHelper(SqlServerDataSourceTestHelper):
         """
         return f"""
             type: fabric
-            name: FABRIC_TEST_DS
+            name: {self.name}
             connection:
                 host: '{os.getenv("FABRIC_HOST", "localhost")}'
                 port: '{os.getenv("FABRIC_PORT", "1433")}'

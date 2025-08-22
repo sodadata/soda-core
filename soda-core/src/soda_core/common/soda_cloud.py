@@ -1182,7 +1182,12 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     )
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
-    if check_result.check.type == "missing":
+    if check_result.autogenerate_diagnostics_payload:
+        return {
+            "type": check_result.check.type,
+            **check_result.diagnostics_to_camel_case(),
+        }
+    elif check_result.check.type == "missing":
         return {
             "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("missing_count"),

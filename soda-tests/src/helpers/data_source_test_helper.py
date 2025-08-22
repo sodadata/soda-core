@@ -11,6 +11,7 @@ from typing import Optional
 
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
@@ -35,73 +36,74 @@ logger = logging.getLogger(__name__)
 
 class DataSourceTestHelper:
     @classmethod
-    def create(cls, test_datasource: str) -> DataSourceTestHelper:
+    def create(cls, test_datasource: str, name: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":
             from soda_postgres.test_helpers.postgres_data_source_test_helper import (
                 PostgresDataSourceTestHelper,
             )
 
-            return PostgresDataSourceTestHelper()
+            return PostgresDataSourceTestHelper(name)
         elif test_datasource == "snowflake":
             from soda_snowflake.test_helpers.snowflake_data_source_test_helper import (
                 SnowflakeDataSourceTestHelper,
             )
 
-            return SnowflakeDataSourceTestHelper()
+            return SnowflakeDataSourceTestHelper(name)
         elif test_datasource == "databricks":
             from soda_databricks.test_helpers.databricks_data_source_test_helper import (
                 DatabricksDataSourceTestHelper,
             )
 
-            return DatabricksDataSourceTestHelper()
+            return DatabricksDataSourceTestHelper(name)
         elif test_datasource == "duckdb":
             from soda_duckdb.test_helpers.duckdb_data_source_test_helper import (
                 DuckdbDataSourceTestHelper,
             )
 
-            return DuckdbDataSourceTestHelper()
+            return DuckdbDataSourceTestHelper(name)
         elif test_datasource == "bigquery":
             from soda_bigquery.test_helpers.bigquery_data_source_test_helper import (
                 BigQueryDataSourceTestHelper,
             )
 
-            return BigQueryDataSourceTestHelper()
+            return BigQueryDataSourceTestHelper(name)
 
         elif test_datasource == "oracle":
             from soda_oracle.test_helpers.oracle_data_source_test_helper import (
                 OracleDataSourceTestHelper,
             )
 
-            return OracleDataSourceTestHelper()
+            return OracleDataSourceTestHelper(name)
 
         elif test_datasource == "sqlserver":
             from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
                 SqlServerDataSourceTestHelper,
             )
 
-            return SqlServerDataSourceTestHelper()
+            return SqlServerDataSourceTestHelper(name)
         elif test_datasource == "synapse":
             from soda_synapse.test_helpers.synapse_data_source_test_helper import (
                 SynapseDataSourceTestHelper,
             )
 
-            return SynapseDataSourceTestHelper()
+            return SynapseDataSourceTestHelper(name)
         elif test_datasource == "redshift":
             from soda_redshift.test_helpers.redshift_data_source_test_helper import (
                 RedshiftDataSourceTestHelper,
             )
 
-            return RedshiftDataSourceTestHelper()
+            return RedshiftDataSourceTestHelper(name)
         elif test_datasource == "fabric":
             from soda_fabric.test_helpers.fabric_data_source_test_helper import (
                 FabricDataSourceTestHelper,
             )
 
-            return FabricDataSourceTestHelper()
+            return FabricDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
-    def __init__(self):
+    def __init__(self, name: str):
+        self.name = name
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
@@ -504,12 +506,14 @@ class DataSourceTestHelper:
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
+            extra_data_source_impls=extra_data_source_impls,
         )
         if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
             raise AssertionError(f"No contract verification result session")
@@ -525,12 +529,14 @@ class DataSourceTestHelper:
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
+            extra_data_source_impls=extra_data_source_impls,
         )
         if contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification failed")
@@ -542,6 +548,7 @@ class DataSourceTestHelper:
         test_table: Optional[TestTable] = None,
         variables: Optional[dict] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
@@ -549,7 +556,7 @@ class DataSourceTestHelper:
         return ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
             variables=variables,
-            data_source_impls=[self.data_source_impl],
+            data_source_impls=[self.data_source_impl, *extra_data_source_impls],
             soda_cloud_impl=self.soda_cloud,
             soda_cloud_use_agent=self.use_agent,
             soda_cloud_publish_results=self.publish_results,
