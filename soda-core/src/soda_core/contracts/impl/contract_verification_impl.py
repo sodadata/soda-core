@@ -1151,6 +1151,24 @@ class CheckImpl:
         "failed_rows": "No rows violating the condition",
     }
 
+    @property
+    def path(self) -> str:
+        parts: list[str] = []
+
+        column_name = self.column_impl.column_yaml.name if self.column_impl else None
+        if column_name:
+            parts.append("columns")
+            parts.append(column_name)
+
+        parts.append("checks")
+        parts.append(self.type)
+
+        qualifier = self.check_yaml.qualifier
+        if qualifier:
+            parts.append(qualifier)
+
+        return ".".join(parts)
+
     def _get_name_with_default(self, check_yaml: CheckYaml) -> str:
         if isinstance(check_yaml.name, str):
             return check_yaml.name
@@ -1173,6 +1191,7 @@ class CheckImpl:
             type=self.type,
             qualifier=self.check_yaml.qualifier,
             name=self.name,
+            path=self.path,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,
