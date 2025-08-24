@@ -35,7 +35,6 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
-    Check,
     CheckOutcome,
     CheckResult,
     Contract,
@@ -1130,7 +1129,7 @@ def _build_contract_cloud_json_dict(contract: Contract):
 def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
-        "checkPath": _build_check_path(check_result),
+        "checkPath": check_result.check.path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,
@@ -1313,19 +1312,6 @@ def _map_remote_scan_status_to_contract_verification_status(
 #         )
 #         for column_data_type_mismatch in column_data_type_mismatches
 #     ]
-
-
-def _build_check_path(check_result: CheckResult) -> str:
-    check: Check = check_result.check
-    parts: list[str] = []
-    if check.column_name:
-        parts.append("columns")
-        parts.append(check.column_name)
-    parts.append("checks")
-    parts.append(check_result.check.type)
-    if check.qualifier:
-        parts.append(check.qualifier)
-    return ".".join(parts)
 
 
 def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optional[list[dict]]:

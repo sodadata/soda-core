@@ -201,6 +201,7 @@ class Check:
     type: str
     qualifier: Optional[str]
     name: Optional[str]
+    path: str
     identity: str
     definition: str
     column_name: Optional[str]
