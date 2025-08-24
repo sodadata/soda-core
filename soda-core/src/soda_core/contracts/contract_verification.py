@@ -17,6 +17,22 @@ logger: logging.Logger = soda_logger
 
 
 class ContractVerificationSession:
+    """Represents the contract verification session.
+
+    Multiple Contracts over multiple Data Sources can be verified in one verification session.
+
+    @param contract_yaml_sources: The list of contract YAML sources to verify.
+    @param only_validate_without_execute: If True, only validate the contracts without executing them.
+    @param variables: The variables to use in the contract queries.
+    @param data_timestamp: The timestamp of the data to use for the verification.
+    @param data_source_impls: The data source implementations to use for the verification.
+    @param data_source_yaml_sources: The data source YAML sources to use for the verification.
+    @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
+    @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
+    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+    """
+
     @classmethod
     def execute(
         cls,
@@ -54,6 +70,13 @@ class ContractVerificationSession:
 
 
 class ContractVerificationSessionResult:
+    """Represents the result of a contract verification session.
+
+    Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
+
+    @param contract_verification_results: The list of contract verification results.
+    """
+
     def __init__(self, contract_verification_results: list[ContractVerificationResult]):
         self.contract_verification_results: list[ContractVerificationResult] = contract_verification_results
 
@@ -213,6 +236,15 @@ class Check:
 
 
 class CheckResult:
+    """
+    Represents the result of a check.
+
+    @param check: The check that was performed.
+    @param outcome: The outcome of the check.
+    @param threshold_value: The threshold value that was applied to the check.
+    @param diagnostic_metric_values: The diagnostic metric values collected during the check.
+    """
+
     def __init__(
         self,
         check: Check,
@@ -335,6 +367,17 @@ class ContractVerificationResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
     This includes any potential execution errors as well as the results of all the checks performed.
+
+    @param contract: The contract that was verified.
+    @param data_source: The data source that was used for the verification.
+    @param data_timestamp: The timestamp of the data to use for the verification.
+    @param ended_timestamp: The timestamp when the verification ended.
+    @param status: The status of the verification. One of ContractVerificationStatus.
+    @param measurements: The measurements taken during the verification.
+    @param check_results: The results of the checks performed during the verification.
+    @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
+    @param log_records: The log records generated during the verification.
+
     """
 
     def __init__(
