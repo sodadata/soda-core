@@ -69,6 +69,7 @@ class Logs:
     def get_errors(self) -> list[str]:
         return [r.msg for r in self.records if r.levelno >= ERROR]
 
+    @property
     def has_errors(self) -> bool:
         return len(self.get_errors()) > 0
 

@@ -17,7 +17,7 @@ def test_yaml_api(logs: Logs):
         )
     )
     yaml_object: YamlObject = yaml_source.parse()
-    assert not logs.has_errors()
+    assert not logs.has_errors
     assert yaml_object.read_string("dataset") == "lskdjflks"
 
 
@@ -32,7 +32,7 @@ def test_yaml_resolve_env_vars(env_vars: dict, logs: Logs):
     )
     yaml_source.resolve()
     yaml_object: YamlObject = yaml_source.parse()
-    assert not logs.has_errors()
+    assert not logs.has_errors
     assert yaml_object.read_string("dataset") == "thedataset"
 
 
@@ -40,7 +40,7 @@ def test_yaml_file(logs: Logs):
     test_yaml_api_file_path = f"{os.path.dirname(__file__)}/test_yaml_api_file.yml"
     yaml_source: YamlSource = YamlSource.from_file_path(file_path=test_yaml_api_file_path)
     yaml_object: YamlObject = yaml_source.parse()
-    assert not logs.has_errors()
+    assert not logs.has_errors
     assert yaml_object.read_string("name") == "thename"
 
 
@@ -84,7 +84,7 @@ def test_yaml_nested_level(logs: Logs):
         )
     )
     yaml_object: YamlObject = yaml_source.parse()
-    assert not logs.has_errors()
+    assert not logs.has_errors
 
     level_one_object = yaml_object.read_object("level_one")
     assert isinstance(level_one_object, YamlObject)

@@ -103,9 +103,9 @@ class SodaTelemetry:
     ) -> None:
         self.set_attributes(
             {
-                "result__checks_count": contract_verification_session_result.get_number_of_checks(),
-                "result__checks_failed_count": contract_verification_session_result.get_number_of_checks_failed(),
-                "result__checks_passed_count": contract_verification_session_result.get_number_of_checks_passed(),
+                "result__checks_count": contract_verification_session_result.number_of_checks,
+                "result__checks_failed_count": contract_verification_session_result.number_of_checks_failed,
+                "result__checks_passed_count": contract_verification_session_result.number_of_checks_passed,
             }
         )
 

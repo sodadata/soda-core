@@ -525,7 +525,7 @@ class ContractImpl:
         if self.data_source_impl:
             data_source = self.data_source_impl.build_data_source()
 
-        if self.logs.has_errors():
+        if self.logs.has_errors:
             contract_verification_status = ContractVerificationStatus.ERROR
 
         elif not self.only_validate_without_execute:
