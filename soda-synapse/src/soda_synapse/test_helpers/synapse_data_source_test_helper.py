@@ -19,7 +19,7 @@ class SynapseDataSourceTestHelper(SqlServerDataSourceTestHelper):
         """
         return f"""
             type: synapse
-            name: SYNAPSE_TEST_DS
+            name: {self.name}
             connection:
                 host: '{os.getenv("SYNAPSE_HOST", "localhost")}'
                 port: '{os.getenv("SYNAPSE_PORT", "1433")}'
