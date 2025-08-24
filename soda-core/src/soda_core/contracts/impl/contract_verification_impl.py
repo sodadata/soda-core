@@ -78,6 +78,22 @@ class ContractVerificationHandler:
 
 
 class ContractVerificationSessionImpl:
+    """Implements the contract verification session.
+
+    @param contract_yaml_sources: The list of contract YAML sources to verify.
+    @param only_validate_without_execute: If True, only validate the contracts without executing them.
+    @param variables: The variables to use in the contract queries.
+    @param data_timestamp: The timestamp of the data to use for the verification.
+    @param data_source_impls: The data source implementations to use for the verification.
+    @param data_source_yaml_sources: The data source YAML sources to use for the verification.
+    @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
+    @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
+    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+    @param soda_cloud_use_agent_blocking_timeout_in_minutes: The timeout for the Soda Cloud agent.
+    @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
+    """
+
     @classmethod
     def execute(
         cls,
@@ -179,6 +195,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
+        "Verifies a Contract locally."
         contract_verification_results: list[ContractVerificationResult] = []
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
@@ -287,6 +304,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
     ) -> list[ContractVerificationResult]:
+        "Verifies Contracts on the Soda Cloud agent."
         contract_verification_results: list[ContractVerificationResult] = []
 
         for contract_yaml_source in contract_yaml_sources:
