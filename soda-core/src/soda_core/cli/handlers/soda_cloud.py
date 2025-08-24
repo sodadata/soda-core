@@ -49,7 +49,7 @@ def handle_test_soda_cloud(soda_cloud_file_path: str):
     error_msg: Optional[str] = None
     if soda_cloud:
         soda_cloud.test_connection()
-        if logs.has_errors():
+        if logs.has_errors:
             error_msg = logs.get_errors_str()
     else:
         error_msg = "Soda Cloud connection could not be created. See logs above. Or re-run with -v"

@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from soda_core.cli.exit_codes import ExitCode
@@ -36,8 +36,8 @@ def test_handle_verify_contract_exit_codes(
     mock_contract_result.sending_results_to_soda_cloud_failed = cloud_failed
 
     mock_result = MagicMock()
-    mock_result.has_errors.return_value = has_errors
-    mock_result.is_failed.return_value = has_failures
+    type(mock_result).has_errors = PropertyMock(return_value=has_errors)
+    type(mock_result).is_failed = PropertyMock(return_value=has_failures)
     mock_result.contract_verification_results = [mock_contract_result]
 
     mock_execute.return_value = mock_result
@@ -70,7 +70,7 @@ def test_handle_verify_contract_exit_codes(
 @patch.object(ContractPublication, "builder")
 def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_failed, expected_exit_code):
     mock_logs = MagicMock(spec=Logs)
-    mock_logs.has_errors.return_value = has_errors
+    type(mock_logs).has_errors = PropertyMock(return_value=has_errors)
 
     mock_result_list = ContractPublicationResultList(
         items=[ContractPublicationResult(contract=None)],
@@ -99,7 +99,7 @@ def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_fail
 @patch.object(ContractVerificationSession, "execute")
 def test_handle_test_contract_exit_codes(mock_execute, has_errors, expected_exit_code):
     mock_result = MagicMock()
-    mock_result.has_errors.return_value = has_errors
+    type(mock_result).has_errors = PropertyMock(return_value=has_errors)
 
     mock_execute.return_value = mock_result
 

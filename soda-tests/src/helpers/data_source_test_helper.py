@@ -108,7 +108,7 @@ class DataSourceTestHelper:
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
         logs.remove_from_root_logger()
-        if logs.has_errors():
+        if logs.has_errors:
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
@@ -142,7 +142,7 @@ class DataSourceTestHelper:
         self.soda_cloud = SodaCloud.from_yaml_source(
             soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values={}
         )
-        if logs.has_errors():
+        if logs.has_errors:
             raise AssertionError(str(logs))
 
     def enable_soda_cloud_mock(self, responses: list[MockResponse]):
@@ -157,7 +157,7 @@ class DataSourceTestHelper:
         from soda_core.common.data_source_impl import DataSourceImpl
 
         data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
-        assert not logs.has_errors()
+        assert not logs.has_errors
         return data_source_impl
 
     def _create_data_source_yaml_str(self) -> str:
@@ -271,7 +271,7 @@ class DataSourceTestHelper:
         logs: Logs = Logs()
         self.data_source_impl.open_connection()
         logs.remove_from_root_logger()
-        if logs.has_errors():
+        if logs.has_errors:
             raise AssertionError(f"Connection creation has errors. See logs.")
 
     def start_test_session_ensure_schema(self) -> None:
@@ -517,7 +517,7 @@ class DataSourceTestHelper:
         )
         if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
             raise AssertionError(f"No contract verification result session")
-        if not contract_verification_session_result.is_ok():
+        if not contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification passed")
         if len(contract_verification_session_result.contract_verification_results) == 0:
             raise AssertionError(f"No contract verification results")
@@ -538,7 +538,7 @@ class DataSourceTestHelper:
             dwh_data_source_file_path=dwh_data_source_file_path,
             extra_data_source_impls=extra_data_source_impls,
         )
-        if contract_verification_session_result.is_ok():
+        if contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification failed")
         return contract_verification_session_result.contract_verification_results[0]
 

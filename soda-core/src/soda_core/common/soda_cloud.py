@@ -1103,9 +1103,9 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "scanStartTimestamp": contract_verification_result.started_timestamp,
             # scanEndTimestamp is the actual time when scan ended.
             "scanEndTimestamp": contract_verification_result.ended_timestamp,
-            "hasErrors": contract_verification_result.has_errors(),
+            "hasErrors": contract_verification_result.has_errors,
             "hasWarnings": False,
-            "hasFailures": contract_verification_result.is_failed(),
+            "hasFailures": contract_verification_result.is_failed,
             "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",

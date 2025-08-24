@@ -162,7 +162,7 @@ def test_freshness_no_rows(data_source_test_helper: DataSourceTestHelper):
         assert check_result.freshness_in_seconds is None
         assert str(check_result.unit) == "hour"
 
-        assert not contract_verification_result_t1.has_errors()
+        assert not contract_verification_result_t1.has_errors
 
 
 def test_freshness_with_in_check_filter(data_source_test_helper: DataSourceTestHelper):
