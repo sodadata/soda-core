@@ -7,6 +7,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import (
+    AND,
     COLUMN,
     COUNT,
     CREATE_TABLE,
@@ -14,10 +15,18 @@ from soda_core.common.sql_ast import (
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
+    FROM,
     LENGTH,
+    LIMIT,
+    OFFSET,
+    ORDER_BY_ASC,
     REGEX_LIKE,
+    SELECT,
+    STAR,
     TUPLE,
-    VALUES, SELECT, FROM, STAR, SqlExpressionStr, WHERE, AND, ORDER_BY_ASC, OFFSET, LIMIT,
+    VALUES,
+    WHERE,
+    SqlExpressionStr,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
