@@ -17,6 +17,22 @@ logger: logging.Logger = soda_logger
 
 
 class ContractVerificationSession:
+    """Represents the contract verification session.
+
+    Multiple Contracts over multiple Data Sources can be verified in one verification session.
+
+    @param contract_yaml_sources: The list of contract YAML sources to verify.
+    @param only_validate_without_execute: If True, only validate the contracts without executing them.
+    @param variables: The variables to use in the contract queries.
+    @param data_timestamp: The timestamp of the data to use for the verification.
+    @param data_source_impls: The data source implementations to use for the verification.
+    @param data_source_yaml_sources: The data source YAML sources to use for the verification.
+    @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
+    @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
+    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+    """
+
     @classmethod
     def execute(
         cls,
@@ -54,6 +70,13 @@ class ContractVerificationSession:
 
 
 class ContractVerificationSessionResult:
+    """Represents the result of a contract verification session.
+
+    Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
+
+    @param contract_verification_results: The list of contract verification results.
+    """
+
     def __init__(self, contract_verification_results: list[ContractVerificationResult]):
         self.contract_verification_results: list[ContractVerificationResult] = contract_verification_results
 
@@ -72,33 +95,38 @@ class ContractVerificationSessionResult:
             errors.extend(contract_verification_result.get_errors())
         return errors
 
-    def get_number_of_checks(self) -> int:
+    @property
+    def number_of_checks(self) -> int:
         return sum(
-            contract_verification_result.get_number_of_checks()
+            contract_verification_result.number_of_checks
             for contract_verification_result in self.contract_verification_results
         )
 
-    def get_number_of_checks_passed(self) -> int:
+    @property
+    def number_of_checks_passed(self) -> int:
         return sum(
-            contract_verification_result.get_number_of_checks_passed()
+            contract_verification_result.number_of_checks_passed
             for contract_verification_result in self.contract_verification_results
         )
 
-    def get_number_of_checks_failed(self) -> int:
+    @property
+    def number_of_checks_failed(self) -> int:
         return sum(
-            contract_verification_result.get_number_of_checks_failed()
+            contract_verification_result.number_of_checks_failed
             for contract_verification_result in self.contract_verification_results
         )
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
+    @property
     def has_errors(self) -> bool:
         return any(
-            contract_verification_result.has_errors()
+            contract_verification_result.has_errors
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
     def is_failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
@@ -107,27 +135,29 @@ class ContractVerificationSessionResult:
         Ignores execution errors in the logs.
         """
         return any(
-            contract_verification_result.is_failed()
+            contract_verification_result.is_failed
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
         return all(
-            contract_verification_result.is_passed()
+            contract_verification_result.is_passed
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
     def is_ok(self) -> bool:
         return all(
-            contract_verification_result.is_ok() for contract_verification_result in self.contract_verification_results
+            contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
         )
 
     def assert_ok(self) -> ContractVerificationSessionResult:
-        if not self.is_ok():
+        if not self.is_ok:
             raise SodaException(message=self.get_errors_str())
         return self
 
@@ -194,6 +224,7 @@ class Check:
     type: str
     qualifier: Optional[str]
     name: Optional[str]
+    path: str
     identity: str
     definition: str
     column_name: Optional[str]
@@ -205,17 +236,28 @@ class Check:
 
 
 class CheckResult:
+    """
+    Represents the result of a check.
+
+    @param check: The check that was performed.
+    @param outcome: The outcome of the check.
+    @param threshold_value: The threshold value that was applied to the check.
+    @param diagnostic_metric_values: The diagnostic metric values collected during the check.
+    """
+
     def __init__(
         self,
         check: Check,
         outcome: CheckOutcome,
         threshold_value: Optional[float | int] = None,
         diagnostic_metric_values: Optional[dict[str, float]] = None,
+        autogenerate_diagnostics_payload: bool = False,
     ):
         self.check: Check = check
         self.threshold_value: Optional[float | int] = threshold_value
         self.outcome: CheckOutcome = outcome
-        self.diagnostic_metric_values: Optional[dict[str, float]] = diagnostic_metric_values
+        self.diagnostic_metric_values: Optional[dict[str, float | int | str]] = diagnostic_metric_values
+        self.autogenerate_diagnostics_payload: bool = autogenerate_diagnostics_payload
 
     @property
     def outcome_emoticon(self) -> str:
@@ -247,7 +289,7 @@ class CheckResult:
         if is_verbose():
             row["Check Type"] = self.check.type
             row["Identity"] = self.check.identity
-        row["Details"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
+        row["Diagnostics"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
 
         return row
 
@@ -263,13 +305,15 @@ class CheckResult:
         return "\n".join(diagnostics)
 
     @classmethod
-    def _log_console_format(cls, n: Number) -> str:
+    def _log_console_format(cls, n: Number | str) -> str:
         """
         Couldn't find nicer & simpler code to format:
         * Full number before the comma,
         * At least 2 significant digits after comma
         * Trunc (not round) after 2 significant digits after comma
         """
+        if isinstance(n, str):
+            return n
         if n == int(n):
             return str(n)
         n_str = str(n)
@@ -290,6 +334,20 @@ class CheckResult:
                 return n_str[:index]
         return n_str
 
+    def diagnostics_to_camel_case(self) -> dict[str, Any]:
+        """
+        Converts diagnostic metric names to camelCase format.
+        This is useful for sending diagnostics to Soda Cloud.
+        """
+        if not self.diagnostic_metric_values:
+            return {}
+
+        camel_case_diagnostics = {}
+        for key, value in self.diagnostic_metric_values.items():
+            camel_case_key = "".join(word.capitalize() if i > 0 else word for i, word in enumerate(key.split("_")))
+            camel_case_diagnostics[camel_case_key] = value
+        return camel_case_diagnostics
+
 
 class Measurement:
     def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):
@@ -309,6 +367,17 @@ class ContractVerificationResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
     This includes any potential execution errors as well as the results of all the checks performed.
+
+    @param contract: The contract that was verified.
+    @param data_source: The data source that was used for the verification.
+    @param data_timestamp: The timestamp of the data to use for the verification.
+    @param ended_timestamp: The timestamp when the verification ended.
+    @param status: The status of the verification. One of ContractVerificationStatus.
+    @param measurements: The measurements taken during the verification.
+    @param check_results: The results of the checks performed during the verification.
+    @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
+    @param log_records: The log records generated during the verification.
+
     """
 
     def __init__(
@@ -347,9 +416,11 @@ class ContractVerificationResult:
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
+    @property
     def has_errors(self) -> bool:
         return self.status is ContractVerificationStatus.ERROR
 
+    @property
     def is_failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
@@ -359,6 +430,7 @@ class ContractVerificationResult:
         """
         return self.status is ContractVerificationStatus.FAILED
 
+    @property
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
@@ -366,14 +438,18 @@ class ContractVerificationResult:
         """
         return self.status is ContractVerificationStatus.PASSED
 
+    @property
     def is_ok(self) -> bool:
-        return not self.is_failed() and not self.has_errors()
+        return not self.is_failed and not self.has_errors
 
-    def get_number_of_checks(self) -> int:
+    @property
+    def number_of_checks(self) -> int:
         return len(self.check_results)
 
-    def get_number_of_checks_passed(self) -> int:
+    @property
+    def number_of_checks_passed(self) -> int:
         return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
 
-    def get_number_of_checks_failed(self) -> int:
+    @property
+    def number_of_checks_failed(self) -> int:
         return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])

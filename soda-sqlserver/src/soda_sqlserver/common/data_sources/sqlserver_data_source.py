@@ -4,6 +4,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -44,6 +45,24 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 
 class SqlServerSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
+
+    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
+        statement_lines: list[str] = []
+        statement_lines.extend(self._build_cte_sql_lines(select_elements))
+        statement_lines.extend(self._build_select_sql_lines(select_elements))
+        statement_lines.extend(self._build_from_sql_lines(select_elements))
+        statement_lines.extend(self._build_where_sql_lines(select_elements))
+        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
+        statement_lines.extend(self._build_order_by_lines(select_elements))
+
+        offset_line = self._build_offset_line(select_elements)
+        if offset_line:
+            statement_lines.append(offset_line)
+
+        limit_line = self._build_limit_line(select_elements)
+        if limit_line:
+            statement_lines.append(limit_line)
+        return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def literal_date(self, date: date):
         """Technically dates can be passed directly as strings, but this is more explicit."""
@@ -127,3 +146,34 @@ class SqlServerSqlDialect(SqlDialect):
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
+
+    def select_all_paginated_sql(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[str],
+        filter: Optional[str],
+        order_by: list[str],
+        limit: int,
+        offset: int,
+    ) -> str:
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(SqlExpressionStr(filter))
+
+        statements = [
+            SELECT(columns or [STAR()]),
+            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
+            WHERE.optional(AND.optional(where_clauses)),
+            *[ORDER_BY_ASC(c) for c in order_by],
+            OFFSET(offset),
+            LIMIT(limit),
+        ]
+
+        return self.build_select_sql(statements)
+
+    def _build_limit_sql(self, limit_element: LIMIT) -> str:
+        return f"FETCH NEXT {limit_element.limit} ROWS ONLY"
+
+    def _build_offset_sql(self, offset_element: OFFSET) -> str:
+        return f"OFFSET {offset_element.offset} ROWS"

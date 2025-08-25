@@ -36,6 +36,7 @@ from soda_core.common.sql_ast import (
     LEFT_INNER_JOIN,
     LENGTH,
     LIKE,
+    LIMIT,
     LITERAL,
     LOWER,
     LT,
@@ -44,6 +45,7 @@ from soda_core.common.sql_ast import (
     NEQ,
     NOT,
     NOT_LIKE,
+    OFFSET,
     OR,
     ORDER_BY_ASC,
     ORDER_BY_DESC,
@@ -200,6 +202,31 @@ class SqlDialect:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
 
+    def select_all_paginated_sql(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[str],
+        filter: Optional[str],
+        order_by: list[str],
+        limit: int,
+        offset: int,
+    ) -> str:
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(SqlExpressionStr(filter))
+
+        statements = [
+            SELECT(columns or [STAR()]),
+            FROM(table_name=dataset_identifier.dataset_name, table_prefix=dataset_identifier.prefixes),
+            WHERE.optional(AND.optional(where_clauses)),
+            *[ORDER_BY_ASC(c) for c in order_by],
+            LIMIT(limit),
+            OFFSET(offset),
+        ]
+
+        return self.build_select_sql(statements)
+
     #########################################################
     # CREATE TABLE
     #########################################################
@@ -301,7 +328,7 @@ class SqlDialect:
     # SELECT
     #########################################################
 
-    # TODO: refactor this to use AST (`SELECT`) instead of a list of `select_elements`
+    # TODO: refactor this to use AST (`SELECT`) instead of a list of `select_elements`. See inherited overriden methods as well.
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
@@ -310,6 +337,14 @@ class SqlDialect:
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
         statement_lines.extend(self._build_order_by_lines(select_elements))
+
+        limit_line = self._build_limit_line(select_elements)
+        if limit_line:
+            statement_lines.append(limit_line)
+
+        offset_line = self._build_offset_line(select_elements)
+        if offset_line:
+            statement_lines.append(offset_line)
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
 
     def _build_select_sql_lines(self, select_elements: list) -> list[str]:
@@ -680,8 +715,28 @@ class SqlDialect:
         else:
             return []
 
+    def _build_limit_line(self, select_elements: list) -> Optional[str]:
+        for select_element in select_elements:
+            if isinstance(select_element, LIMIT):
+                return self._build_limit_sql(select_element)
+
+        return None
+
+    def _build_offset_line(self, select_elements: list) -> Optional[str]:
+        for select_element in select_elements:
+            if isinstance(select_element, OFFSET):
+                return self._build_offset_sql(select_element)
+
+        return None
+
     def _build_ordinal_position_sql(self, ordinal_position: ORDINAL_POSITION) -> str:
         return "ORDINAL_POSITION"
+
+    def _build_limit_sql(self, limit_element: LIMIT) -> str:
+        return f"LIMIT {limit_element.limit}"
+
+    def _build_offset_sql(self, offset_element: OFFSET) -> str:
+        return f"OFFSET {offset_element.offset}"
 
     def supports_function(self, function: str) -> bool:
         return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum"]

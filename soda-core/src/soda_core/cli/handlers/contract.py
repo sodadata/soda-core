@@ -61,9 +61,9 @@ def contract_verification_is_not_sent_to_cloud(
 def interpret_contract_verification_result(verification_result: ContractVerificationSessionResult) -> ExitCode:
     if contract_verification_is_not_sent_to_cloud(verification_result):
         return ExitCode.RESULTS_NOT_SENT_TO_CLOUD
-    elif verification_result.has_errors():
+    elif verification_result.has_errors:
         return ExitCode.LOG_ERRORS
-    elif verification_result.is_failed():
+    elif verification_result.is_failed:
         return ExitCode.CHECK_FAILURES
     else:
         return ExitCode.OK
@@ -83,7 +83,7 @@ def handle_publish_contract(
             contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
 
         contract_publication_result = contract_publication_builder.build().execute()
-        if contract_publication_result.has_errors():
+        if contract_publication_result.has_errors:
             # TODO: detect/deal with exit code 4?
             return ExitCode.LOG_ERRORS
         else:
@@ -102,7 +102,7 @@ def handle_test_contract(
 ) -> ExitCode:
     for contract_file_path in contract_file_paths:
         contract_verification_result = test_contracts(contract_file_paths=[contract_file_path], variables=variables)
-        if contract_verification_result.has_errors():
+        if contract_verification_result.has_errors:
             return ExitCode.LOG_ERRORS
         else:
             soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")

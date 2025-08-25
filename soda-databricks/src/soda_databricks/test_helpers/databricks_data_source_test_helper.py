@@ -16,7 +16,7 @@ class DatabricksDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
             type: databricks
-            name: DATABRICKS_TEST_DS
+            name: {self.name}
             connection:
                 host: {os.getenv("DATABRICKS_HOST")}
                 http_path: {os.getenv("DATABRICKS_HTTP_PATH")}

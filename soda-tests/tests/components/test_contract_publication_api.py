@@ -22,7 +22,7 @@ def test_contract_publication_fails_on_missing_soda_cloud_config():
         .execute()
     )
 
-    assert contract_publication_result.has_errors()
+    assert contract_publication_result.has_errors
     assert "Cannot publish without a Soda Cloud configuration" in contract_publication_result.logs.get_logs_str()
     assert (
         "skipping publication because of missing Soda Cloud configuration"
@@ -57,7 +57,7 @@ def test_contract_publication_fails_on_missing_contract_file():
             .execute()
         )
 
-        assert contract_publication_result.has_errors()
+        assert contract_publication_result.has_errors
         assert (
             "Contract file '../soda/mydb/myschema/table.yml' does not exist"
             in contract_publication_result.logs.get_errors_str()
@@ -116,7 +116,7 @@ def test_contract_publication_returns_result_for_each_added_contract():
 
     assert isinstance(contract_publication_result, ContractPublicationResultList)
     assert len(contract_publication_result) == 2
-    assert not contract_publication_result.has_errors()
+    assert not contract_publication_result.has_errors
 
     assert contract_publication_result[0].contract.data_source_name == "test"
     assert contract_publication_result[1].contract.data_source_name == "test2"
@@ -134,4 +134,4 @@ def test_contract_publication_returns_result_for_each_added_contract():
 # )
 # def test_contract_publication_log_levels(logs, has_errors):
 #     result = ContractPublicationResultList(logs=logs, items=[ContractPublicationResult(contract=Mock(), logs=logs)])
-#     assert result.has_errors() is has_errors
+#     assert result.has_errors is has_errors

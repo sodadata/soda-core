@@ -35,7 +35,6 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
-    Check,
     CheckOutcome,
     CheckResult,
     Contract,
@@ -1103,9 +1102,9 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "scanStartTimestamp": contract_verification_result.started_timestamp,
             # scanEndTimestamp is the actual time when scan ended.
             "scanEndTimestamp": contract_verification_result.ended_timestamp,
-            "hasErrors": contract_verification_result.has_errors(),
+            "hasErrors": contract_verification_result.has_errors,
             "hasWarnings": False,
-            "hasFailures": contract_verification_result.is_failed(),
+            "hasFailures": contract_verification_result.is_failed,
             "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
@@ -1130,7 +1129,7 @@ def _build_contract_cloud_json_dict(contract: Contract):
 def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
-        "checkPath": _build_check_path(check_result),
+        "checkPath": check_result.check.path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,
@@ -1182,7 +1181,12 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     )
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
-    if check_result.check.type == "missing":
+    if check_result.autogenerate_diagnostics_payload:
+        return {
+            "type": check_result.check.type,
+            **check_result.diagnostics_to_camel_case(),
+        }
+    elif check_result.check.type == "missing":
         return {
             "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("missing_count"),
@@ -1308,19 +1312,6 @@ def _map_remote_scan_status_to_contract_verification_status(
 #         )
 #         for column_data_type_mismatch in column_data_type_mismatches
 #     ]
-
-
-def _build_check_path(check_result: CheckResult) -> str:
-    check: Check = check_result.check
-    parts: list[str] = []
-    if check.column_name:
-        parts.append("columns")
-        parts.append(check.column_name)
-    parts.append("checks")
-    parts.append(check_result.check.type)
-    if check.qualifier:
-        parts.append(check.qualifier)
-    return ".".join(parts)
 
 
 def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optional[list[dict]]:

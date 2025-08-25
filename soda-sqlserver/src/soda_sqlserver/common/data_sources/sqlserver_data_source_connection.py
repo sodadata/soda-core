@@ -22,11 +22,12 @@ logger: logging.Logger = soda_logger
 
 CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 USER_DESCRIPTION = "Username for authentication"
+DEFAULT_PORT = 1433
 
 
 class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
     host: str = Field(..., description="Host name of the SQL Server instance")
-    port: int = Field(..., description="Port number of the SQL Server instance")
+    port: int = Field(DEFAULT_PORT, description="Port number of the SQL Server instance")
     database: str = Field(..., description="Name of the database to use")
 
     # Optional fields
