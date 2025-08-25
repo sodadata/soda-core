@@ -133,5 +133,5 @@ class RedshiftDataSourceConnection(DataSourceConnection):
             options=options,
             **self.keepalives_params,
         )
-
+        conn.autocommit = True
         return conn
