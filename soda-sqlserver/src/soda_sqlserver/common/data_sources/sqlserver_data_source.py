@@ -6,7 +6,28 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import (
+    AND,
+    COLUMN,
+    COUNT,
+    CREATE_TABLE,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    DISTINCT,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
+    FROM,
+    LENGTH,
+    LIMIT,
+    OFFSET,
+    ORDER_BY_ASC,
+    REGEX_LIKE,
+    SELECT,
+    STAR,
+    TUPLE,
+    VALUES,
+    WHERE,
+    SqlExpressionStr,
+)
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
@@ -103,6 +124,9 @@ class SqlServerSqlDialect(SqlDialect):
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
             return f"CHECKSUM{super()._build_tuple_sql(tuple)}"
+        if tuple.check_context(VALUES):
+            # in built_cte_values_sql, elements are dropped in top-level select statement, so can't use parentheses
+            return ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return super()._build_tuple_sql(tuple)
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
@@ -128,6 +152,9 @@ class SqlServerSqlDialect(SqlDialect):
             DBDataType.TIMESTAMP_TZ: "datetimeoffset",
             DBDataType.BOOLEAN: "bit",
         }
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
     def select_all_paginated_sql(
         self,

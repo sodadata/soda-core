@@ -4,8 +4,7 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import *
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
+from soda_core.common.sql_ast import COLUMN, INSERT_INTO, VALUES, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
     SqlServerDataSourceImpl,
@@ -48,6 +47,9 @@ class SynapseSqlDialect(SqlServerSqlDialect):
         values_sql: str = "SELECT " + ", ".join([self.literal(value) for value in values.values])
         values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
     def select_all_paginated_sql(
         self,
