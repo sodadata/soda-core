@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
 from datetime import date, datetime
 from numbers import Number
 from textwrap import indent
@@ -64,7 +63,7 @@ from soda_core.common.sql_ast import (
     Operator,
     SqlDataType,
     SqlExpression,
-    SqlExpressionStr, SqlDataType,
+    SqlExpressionStr,
 )
 from soda_core.common.sql_datatypes import DBDataType
 

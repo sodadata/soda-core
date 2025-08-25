@@ -400,8 +400,7 @@ class DataSourceTestHelper:
         columns: list[TestColumn] = []
         for test_column_specification in test_table_specification.columns:
             mapped_sql_data_type: SqlDataType = self.data_source_impl.sql_dialect.map_data_type(
-                source_data_type=test_column_specification.sql_data_type,
-                source_data_source_type="test"
+                source_data_type=test_column_specification.sql_data_type, source_data_source_type="test"
             )
             test_column: TestColumn = TestColumn(
                 name=test_column_specification.column_name,

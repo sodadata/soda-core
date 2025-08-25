@@ -8,25 +8,13 @@ from soda_core.common.statements.metadata_columns_query import MetadataColumnsQu
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("metadata")
-    .column(
-        column_name="txt_default",
-        data_type=SqlDataType(name=DBDataType.VARCHAR)
-    )
-    .column(
-        column_name="txt_w_length",
-        data_type=SqlDataType(name=DBDataType.VARCHAR, character_maximum_length=255)
-    )
-    .column(
-        column_name="dec_default",
-        data_type=SqlDataType(name=DBDataType.DECIMAL)
-    )
-    .column(
-        column_name="dec_w_precision",
-        data_type=SqlDataType(name=DBDataType.NUMERIC, numeric_precision=10)
-    )
+    .column(column_name="txt_default", data_type=SqlDataType(name=DBDataType.VARCHAR))
+    .column(column_name="txt_w_length", data_type=SqlDataType(name=DBDataType.VARCHAR, character_maximum_length=255))
+    .column(column_name="dec_default", data_type=SqlDataType(name=DBDataType.DECIMAL))
+    .column(column_name="dec_w_precision", data_type=SqlDataType(name=DBDataType.NUMERIC, numeric_precision=10))
     .column(
         column_name="dec_w_precision_and_scale",
-        data_type=SqlDataType(name=DBDataType.NUMERIC, numeric_precision=10, numeric_scale=2)
+        data_type=SqlDataType(name=DBDataType.NUMERIC, numeric_precision=10, numeric_scale=2),
     )
     .build()
 )
@@ -39,8 +27,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
         data_source_test_helper.data_source_impl.create_metadata_columns_query()
     )
     get_columns_metadata_query_sql: str = metadata_columns_query.build_sql(
-        dataset_prefix=test_table.dataset_prefix,
-        dataset_name=test_table.unique_name
+        dataset_prefix=test_table.dataset_prefix, dataset_name=test_table.unique_name
     )
     query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(get_columns_metadata_query_sql)
     metadata_columns_query.get_result(query_result)
