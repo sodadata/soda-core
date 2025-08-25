@@ -17,7 +17,7 @@ from soda_core.common.sql_ast import (
     LENGTH,
     REGEX_LIKE,
     TUPLE,
-    VALUES,
+    VALUES, SELECT, FROM, STAR, SqlExpressionStr, WHERE, AND, ORDER_BY_ASC, OFFSET, LIMIT,
 )
 from soda_core.common.sql_dialect import DBDataType, SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
