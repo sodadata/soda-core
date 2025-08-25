@@ -399,12 +399,14 @@ class DataSourceTestHelper:
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
         columns: list[TestColumn] = []
         for test_column_specification in test_table_specification.columns:
-            mapped_sql_data_type: SqlDataType = self.data_source_impl.sql_dialect.map_data_type(
-                source_data_type=test_column_specification.sql_data_type, source_data_source_type="test"
+            data_source_sql_data_type: SqlDataType = (
+                self.data_source_impl.sql_dialect.map_test_sql_data_type_to_data_source(
+                    source_data_type=test_column_specification.sql_data_type
+                )
             )
             test_column: TestColumn = TestColumn(
                 name=test_column_specification.column_name,
-                sql_data_type=mapped_sql_data_type,
+                sql_data_type=data_source_sql_data_type,
             )
             columns.append(test_column)
 

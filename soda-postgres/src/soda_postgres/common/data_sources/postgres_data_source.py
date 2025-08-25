@@ -83,6 +83,23 @@ class PostgresSqlDialect(SqlDialect):
             "timetz": "time with time zone",
         }
 
+    def get_data_source_type_names_by_test_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            DBDataType.VARCHAR: "varchar",
+            DBDataType.TEXT: "text",
+            DBDataType.INTEGER: "integer",
+            DBDataType.DECIMAL: "decimal",
+            DBDataType.NUMERIC: "decimal",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "timestamp",
+            DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
+            DBDataType.BOOLEAN: "boolean",
+        }
+
     POSTGRES_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
         supported_data_type_names=[
             # Character types

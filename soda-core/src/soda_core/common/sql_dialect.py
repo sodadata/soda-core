@@ -929,6 +929,46 @@ class SqlDialect:
             # values are the canonical data type names used for data type name string comparison
         }
 
+    def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
+        test_data_type: str = source_data_type.name
+        data_type_name: str = self.get_data_source_type_names_by_test_type_names().get(test_data_type)
+        character_maximum_length: Optional[int] = (
+            source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
+        )
+        numeric_precision: Optional[int] = (
+            source_data_type.numeric_precision if self.supports_data_type_numeric_precision() else None
+        )
+        numeric_scale: Optional[int] = (
+            source_data_type.numeric_scale if self.supports_data_type_numeric_scale() else None
+        )
+        datetime_precision: Optional[int] = (
+            source_data_type.datetime_precision if self.supports_data_type_datetime_precision() else None
+        )
+        return SqlDataType(
+            name=data_type_name,
+            character_maximum_length=character_maximum_length,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale,
+            datetime_precision=datetime_precision,
+        )
+
+    def get_data_source_type_names_by_test_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            DBDataType.VARCHAR: "varchar",
+            DBDataType.TEXT: "text",
+            DBDataType.INTEGER: "integer",
+            DBDataType.DECIMAL: "decimal",
+            DBDataType.NUMERIC: "numeric",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "timestamp",
+            DBDataType.TIMESTAMP_TZ: "timestamptz",
+            DBDataType.BOOLEAN: "boolean",
+        }
+
 
 class DataSourceDataTypes:
     """

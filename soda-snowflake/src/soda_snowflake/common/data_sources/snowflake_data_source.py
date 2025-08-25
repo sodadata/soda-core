@@ -96,6 +96,23 @@ class SnowflakeSqlDialect(SqlDialect):
             "bool": "boolean",
         }
 
+    def get_data_source_type_names_by_test_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            DBDataType.VARCHAR: "varchar",
+            DBDataType.TEXT: "text",
+            DBDataType.INTEGER: "integer",
+            DBDataType.DECIMAL: "decimal",
+            DBDataType.NUMERIC: "decimal",
+            DBDataType.DATE: "date",
+            DBDataType.TIME: "time",
+            DBDataType.TIMESTAMP: "timestamp",
+            DBDataType.TIMESTAMP_TZ: "timestamp_tz",
+            DBDataType.BOOLEAN: "boolean",
+        }
+
     SNOWFLAKE_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
         supported_data_type_names=[
             # numeric
@@ -134,16 +151,8 @@ class SnowflakeSqlDialect(SqlDialect):
             "timestamp_ltz",
             "timestamp_ntz",
             "timestamp_tz",
-            # semi-structured
-            "variant",
-            "object",
-            "array",
             # boolean
             "boolean",
-            # geography
-            "geography",
-            # vector
-            "vector",
         ],
         mappings=[
             SqlDataTypeMapping(
