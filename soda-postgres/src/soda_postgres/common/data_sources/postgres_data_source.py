@@ -58,6 +58,31 @@ class PostgresSqlDialect(SqlDialect):
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
 
+    def get_canonical_data_type_mappings(self) -> dict:
+        return {
+            # integer types
+            "int": "integer",
+            "int4": "integer",
+            "int8": "bigint",
+            "int2": "smallint",
+            # numeric / decimal types
+            "dec": "decimal",
+            "numeric": "decimal",
+            "float8": "double precision",
+            "float4": "real",
+            # character types
+            "character": "char",
+            "character varying": "varchar",
+            "text": "varchar",
+            # boolean
+            "bool": "boolean",
+            # date/time types
+            "timestamp": "timestamp without time zone",
+            "timestamptz": "timestamp with time zone",
+            "time": "time without time zone",
+            "timetz": "time with time zone",
+        }
+
     POSTGRES_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
         supported_data_type_names=[
             # Character types
@@ -86,62 +111,15 @@ class PostgresSqlDialect(SqlDialect):
             "time",
             "time with time zone",
             "time without time zone",
-            "interval",
-            # Monetary
-            "money",
             # Binary
             "bytea",
             # Boolean
             "boolean",
             # Enumerated types
             "enum",
-            # Geometric types
-            "point",
-            "line",
-            "lseg",
-            "box",
-            "path",
-            "polygon",
-            "circle",
-            # Network address types
-            "cidr",
-            "inet",
-            "macaddr",
-            "macaddr8",
             # Bit string types
             "bit",
             "bit varying",
-            # Text search types
-            "tsvector",
-            "tsquery",
-            # UUID
-            "uuid",
-            # XML / JSON
-            "xml",
-            "json",
-            "jsonb",
-            # Arrays
-            "array",
-            # Composite types
-            "composite",
-            # Range types
-            "int4range",
-            "int8range",
-            "numrange",
-            "tsrange",
-            "tstzrange",
-            "daterange",
-            # Object identifiers
-            "oid",
-            "regclass",
-            "regtype",
-            "regproc",
-            "regprocedure",
-            "regoper",
-            "regoperator",
-            "regconfig",
-            "regdictionary",
-            "pg_lsn",
         ],
         mappings=[
             SqlDataTypeMapping(

@@ -877,6 +877,7 @@ class SqlDialect:
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
+    # TODO consider moving this to DataSourceExtension as this is DWH functionality.
     def map_data_type(self, source_data_type: SqlDataType, source_data_source_type: str) -> Optional[SqlDataType]:
         """
         Returns a compatible SqlDataType for the given source_data_source_type.
@@ -887,7 +888,46 @@ class SqlDialect:
 
     @abstractmethod
     def get_data_source_data_types(self) -> DataSourceDataTypes:
-        pass
+        raise NotImplementedError()
+
+    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
+        expected_data_type_name: str = expected.name
+        actual_data_type_name: str = actual.name
+        canonical_expected_data_type_name: str = self.get_canonical_data_type_name(expected_data_type_name)
+        canonical_actual_data_type_name: str = self.get_canonical_data_type_name(actual_data_type_name)
+
+        if canonical_expected_data_type_name != canonical_actual_data_type_name:
+            return False
+        if (
+            isinstance(expected.character_maximum_length, int)
+            and expected.character_maximum_length != actual.character_maximum_length
+        ):
+            return False
+        if isinstance(expected.numeric_precision, int) and expected.numeric_precision != actual.numeric_precision:
+            return False
+        if isinstance(expected.numeric_scale, int) and expected.numeric_scale != actual.numeric_scale:
+            return False
+        if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
+            return False
+        return True
+
+    def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
+        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
+
+    def get_canonical_data_type_name(self, data_type_name: str) -> str:
+        canonical_data_type: str = data_type_name.lower()
+        canonical_data_type_mappings: dict = self.get_canonical_data_type_mappings()
+        if canonical_data_type in canonical_data_type_mappings:
+            canonical_data_type = canonical_data_type_mappings.get(canonical_data_type)
+        return canonical_data_type
+
+    def get_canonical_data_type_mappings(self) -> dict:
+        # Implements data type synonyms
+        # Ensure that these mappings include mappings for the DBDataType's
+        return {
+            # keys are (ideally but not required lower case) data types coming from metadata
+            # values are the canonical data type names used for data type name string comparison
+        }
 
 
 class DataSourceDataTypes:

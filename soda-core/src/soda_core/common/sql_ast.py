@@ -21,24 +21,6 @@ class SqlDataType:
     def __post_init__(self):
         self.name = self.name.lower()
 
-    def __eq__(self, other):
-        if not isinstance(other, SqlDataType):
-            return False
-        if self.name != other.name:
-            return False
-        if (
-            isinstance(self.character_maximum_length, int)
-            and self.character_maximum_length != other.character_maximum_length
-        ):
-            return False
-        if isinstance(self.numeric_precision, int) and self.numeric_precision != other.numeric_precision:
-            return False
-        if isinstance(self.numeric_scale, int) and self.numeric_scale != other.numeric_scale:
-            return False
-        if isinstance(self.datetime_precision, int) and self.datetime_precision != other.datetime_precision:
-            return False
-        return True
-
     def get_sql_data_type_str_with_parameters(self) -> str:
         """
         Returns the SQL data type including the parameters in round brackets for usage in a CREATE TABLE statement.

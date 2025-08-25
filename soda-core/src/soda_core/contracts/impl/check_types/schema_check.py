@@ -144,18 +144,18 @@ class SchemaCheckImpl(CheckImpl):
                 if (
                     actual_column_metadata
                     and expected_column.sql_data_type
-                    and self.contract_impl.data_source_impl.is_different_data_type(
-                        expected_sql_data_type=expected_column.sql_data_type,
-                        actual_sql_data_type=actual_column_metadata.sql_data_type,
+                    and not self.contract_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
+                        expected=expected_column.sql_data_type,
+                        actual=actual_column_metadata.sql_data_type,
                     )
                 ):
                     column_data_type_mismatches.append(
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
-                            expected_data_type=expected_column.data_type,
-                            expected_character_maximum_length=expected_column.character_maximum_length,
-                            actual_data_type=actual_column_metadata.data_type,
-                            actual_character_maximum_length=actual_column_metadata.character_maximum_length,
+                            expected_data_type=expected_column.sql_data_type.name,
+                            expected_character_maximum_length=expected_column.sql_data_type.character_maximum_length,
+                            actual_data_type=actual_column_metadata.sql_data_type.name,
+                            actual_character_maximum_length=actual_column_metadata.sql_data_type.character_maximum_length,
                         )
                     )
 

@@ -3,7 +3,12 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.sql_dialect import (
+    DataSourceDataTypes,
+    DBDataType,
+    SqlDataTypeMapping,
+    SqlDialect,
+)
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )
@@ -57,3 +62,100 @@ class SnowflakeSqlDialect(SqlDialect):
             DBDataType.TIMESTAMP_TZ: "TIMESTAMP_TZ",
             DBDataType.BOOLEAN: "BOOLEAN",
         }
+
+    def get_canonical_data_type_mappings(self) -> dict:
+        return {
+            # numeric
+            "decimal": "number",
+            "numeric": "number",
+            "int": "number",
+            "integer": "number",
+            "bigint": "number",
+            "smallint": "number",
+            "tinyint": "number",
+            "byteint": "number",
+            "double": "float",
+            "double precision": "float",
+            "real": "float",
+            "float4": "float",
+            "float8": "float",
+            # string
+            "char": "varchar",
+            "character": "varchar",
+            "string": "varchar",
+            "text": "varchar",
+            "nchar": "varchar",
+            "nvarchar": "varchar",
+            "nvarchar2": "varchar",
+            "char varying": "varchar",
+            # date & time
+            "datetime": "timestamp_ntz",  # synonym in snowflake
+            "timestamp": "timestamp_ntz",  # default behavior if not qualified
+            # boolean
+            # (no real synonyms, but sometimes bool is used informally)
+            "bool": "boolean",
+        }
+
+    SNOWFLAKE_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
+        supported_data_type_names=[
+            # numeric
+            "number",
+            "decimal",
+            "numeric",
+            "int",
+            "integer",
+            "bigint",
+            "smallint",
+            "tinyint",
+            "byteint",
+            "float",
+            "float4",
+            "float8",
+            "double",
+            "double precision",
+            "real",
+            # string & binary
+            "varchar",
+            "char",
+            "character",
+            "string",
+            "text",
+            "nchar",
+            "nvarchar",
+            "nvarchar2",
+            "char varying",
+            "binary",
+            "varbinary",
+            # date & time
+            "date",
+            "datetime",
+            "time",
+            "timestamp",
+            "timestamp_ltz",
+            "timestamp_ntz",
+            "timestamp_tz",
+            # semi-structured
+            "variant",
+            "object",
+            "array",
+            # boolean
+            "boolean",
+            # geography
+            "geography",
+            # vector
+            "vector",
+        ],
+        mappings=[
+            SqlDataTypeMapping(
+                supported_data_type_name="varchar",
+                source_data_type_names=SqlDataTypeMapping.DEFAULT_VARCHAR_TYPES,
+            ),
+            SqlDataTypeMapping(
+                supported_data_type_name="integer",
+                source_data_type_names=SqlDataTypeMapping.DEFAULT_INTEGER_TYPES,
+            ),
+        ],
+    )
+
+    def get_data_source_data_types(self) -> DataSourceDataTypes:
+        return self.SNOWFLAKE_DATA_TYPES
