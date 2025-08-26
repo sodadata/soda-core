@@ -86,9 +86,7 @@ def test_sql_ast_create_table_if_not_exists():
                     type=SqlDataType(name="varchar", character_maximum_length=255),
                     nullable=True,
                 ),
-                CREATE_TABLE_COLUMN(
-                    name="age", type=SqlDataType(name="integer"), nullable=True, default=LITERAL(25)
-                ),
+                CREATE_TABLE_COLUMN(name="age", type=SqlDataType(name="integer"), nullable=True, default=LITERAL(25)),
                 CREATE_TABLE_COLUMN(name="my_float", type=SqlDataType(name="decimal"), nullable=True),
                 CREATE_TABLE_COLUMN(
                     name="custom_type", type=SqlDataType(name="my_own_datatype"), nullable=True

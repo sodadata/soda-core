@@ -1,7 +1,7 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType, ColumnMetadata
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
@@ -41,9 +41,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_txt_default.column_name == "varchar_default"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_txt_default.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.VARCHAR
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR),
     )
     assert actual_txt_default.sql_data_type.character_maximum_length is None
     assert actual_txt_default.sql_data_type.numeric_precision is None
@@ -54,9 +52,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_txt_w_length.column_name == "varchar_w_length"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_txt_w_length.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.VARCHAR
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR),
     )
     assert actual_txt_w_length.sql_data_type.character_maximum_length == 255
     assert actual_txt_w_length.sql_data_type.numeric_precision is None
@@ -67,9 +63,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_integer_default.column_name == "integer_default"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_integer_default.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.INTEGER
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.INTEGER),
     )
     assert actual_integer_default.sql_data_type.character_maximum_length is None
     assert actual_integer_default.sql_data_type.numeric_precision is None
@@ -80,9 +74,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_numeric_default.column_name == "numeric_default"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_numeric_default.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.NUMERIC
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
     )
     assert actual_numeric_default.sql_data_type.character_maximum_length is None
     assert actual_numeric_default.sql_data_type.numeric_precision is None
@@ -93,9 +85,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_numeric_w_precision.column_name == "numeric_w_precision"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_numeric_w_precision.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.NUMERIC
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
     )
     assert actual_numeric_w_precision.sql_data_type.character_maximum_length is None
     assert actual_numeric_w_precision.sql_data_type.numeric_precision == 10
@@ -106,9 +96,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_numeric_w_precision_and_scale.column_name == "numeric_w_precision_and_scale"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_numeric_w_precision_and_scale.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.NUMERIC
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
     )
     assert actual_numeric_w_precision_and_scale.sql_data_type.character_maximum_length is None
     assert actual_numeric_w_precision_and_scale.sql_data_type.numeric_precision == 10
@@ -119,9 +107,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_ts_default.column_name == "ts_default"
     assert sql_dialect.data_type_names_are_same_or_synonym(
         actual_ts_default.sql_data_type.name,
-        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(
-            SodaDataTypeName.NUMERIC
-        )
+        sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
     )
     assert actual_ts_default.sql_data_type.character_maximum_length is None
     assert actual_ts_default.sql_data_type.numeric_precision is None

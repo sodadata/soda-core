@@ -84,7 +84,7 @@ class TestTableSpecificationBuilder:
             name=name,
             soda_data_type_name=SodaDataTypeName.NUMERIC,
             numeric_precision=numeric_precision,
-            numeric_scale=numeric_scale
+            numeric_scale=numeric_scale,
         )
 
     def column_decimal(
@@ -97,7 +97,7 @@ class TestTableSpecificationBuilder:
             name=name,
             soda_data_type_name=SodaDataTypeName.DECIMAL,
             numeric_precision=numeric_precision,
-            numeric_scale=numeric_scale
+            numeric_scale=numeric_scale,
         )
 
     def column_date(self, name) -> TestTableSpecificationBuilder:

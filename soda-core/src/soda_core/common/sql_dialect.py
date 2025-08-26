@@ -77,11 +77,11 @@ class SqlDialect:
     """
 
     def __init__(self):
-        self._data_type_name_synonym_mappings: dict[str,str] = self._build_data_type_name_synonym_mappings(
+        self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
 
-    def _build_data_type_name_synonym_mappings(self, data_type_name_synonyms: list[list[str]]) -> dict[str,str]:
+    def _build_data_type_name_synonym_mappings(self, data_type_name_synonyms: list[list[str]]) -> dict[str, str]:
         data_type_name_synonym_mappings: dict[str, str] = {}
         for data_type_name_synonym_list in data_type_name_synonyms:
             first_type_lower: str = data_type_name_synonym_list[0].lower()
@@ -106,10 +106,10 @@ class SqlDialect:
     def data_type_names_are_same_or_synonym(self, left_data_type_name: str, right_data_type_name: str) -> bool:
         left_data_type_name_lower: str = left_data_type_name.lower()
         right_data_type_name_lower: str = right_data_type_name.lower()
-        return (
-            left_data_type_name_lower == right_data_type_name_lower
-            or (self._data_type_name_synonym_mappings.get(left_data_type_name_lower)
-                == self._data_type_name_synonym_mappings.get(right_data_type_name_lower)))
+        return left_data_type_name_lower == right_data_type_name_lower or (
+            self._data_type_name_synonym_mappings.get(left_data_type_name_lower)
+            == self._data_type_name_synonym_mappings.get(right_data_type_name_lower)
+        )
 
     @abstractmethod
     def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
@@ -910,7 +910,8 @@ class SqlDialect:
     def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
         if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
             return False
-        if (isinstance(expected.character_maximum_length, int)
+        if (
+            isinstance(expected.character_maximum_length, int)
             and expected.character_maximum_length != actual.character_maximum_length
         ):
             return False
@@ -976,6 +977,9 @@ class SqlDialect:
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
         return data_type_name.lower() in [
-            "timestamp", "timestamp without time zone", "time",
-            "timestamptz", "timestamp with time zone"
+            "timestamp",
+            "timestamp without time zone",
+            "time",
+            "timestamptz",
+            "timestamp with time zone",
         ]
