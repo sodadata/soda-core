@@ -72,8 +72,6 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
-
-
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
             SodaDataTypeName.TEXT: "STRING",
@@ -98,9 +96,6 @@ class BigQuerySqlDialect(SqlDialect):
             ["boolean", "bool"],
         ]
 
-      
-
-    
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 

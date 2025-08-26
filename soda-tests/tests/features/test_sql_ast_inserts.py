@@ -33,6 +33,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
 
     def col_type(name: str) -> str:
         return sql_dialect.get_sql_data_type_name_by_soda_data_type_names()[name]
+
     try:
         create_table_columns = [
             CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)), nullable=False),
@@ -47,7 +48,9 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                 nullable=True,
             ),
             CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=col_type(SodaDataTypeName.DATE)), nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)), nullable=True),
+            CREATE_TABLE_COLUMN(
+                name="my_timestamp", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)), nullable=True
+            ),
             CREATE_TABLE_COLUMN(
                 name="my_timestamp_tz", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP_TZ)), nullable=True
             ),
