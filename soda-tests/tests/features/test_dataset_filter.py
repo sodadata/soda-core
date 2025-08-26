@@ -16,7 +16,7 @@ t2 = datetime(year=2025, month=4, day=17, hour=12, minute=0, second=0)
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("filter")
-    .column_text("country")
+    .column_varchar("country")
     .column_integer("size")
     .column_timestamp("updated")
     .rows(
@@ -38,7 +38,7 @@ test_table_specification = (
 referenced_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("filter_invalid_referenced")
-    .column_text("country_code")
+    .column_varchar("country_code")
     .rows(
         rows=[
             ("USA",),

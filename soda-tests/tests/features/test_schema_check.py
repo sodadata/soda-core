@@ -7,7 +7,7 @@ from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("schema")
-    .column_text("id")
+    .column_varchar("id")
     .column_integer("size")
     .column_date("created")
     .build()

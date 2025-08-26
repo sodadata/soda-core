@@ -51,7 +51,7 @@ class TestTableSpecificationBuilder:
         )
         return self
 
-    def column_text(self, name) -> TestTableSpecificationBuilder:
+    def column_varchar(self, name) -> TestTableSpecificationBuilder:
         return self.column(column_name=name, data_type=SodaDataTypeNames.VARCHAR)
 
     def column_integer(self, name) -> TestTableSpecificationBuilder:

@@ -12,8 +12,8 @@ from soda_core.common.yaml import DataSourceYamlSource
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("data_source_api")
-    .column_text("id")
-    .column_text("country")
+    .column_varchar("id")
+    .column_varchar("country")
     .rows([("1", "US"), ("2", "BE"), ("3", "NL")])
     .build()
 )
