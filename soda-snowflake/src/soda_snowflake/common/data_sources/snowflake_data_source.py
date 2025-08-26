@@ -47,50 +47,17 @@ class SnowflakeSqlDialect(SqlDialect):
     def default_varchar_length(self) -> Optional[int]:
         return 16777216
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.TEXT: "TEXT",
-            SodaDataTypeName.INTEGER: "NUMBER",
-            SodaDataTypeName.DECIMAL: "FLOAT",
-            SodaDataTypeName.DATE: "DATE",
-            SodaDataTypeName.TIME: "TIME",
-            SodaDataTypeName.TIMESTAMP: "TIMESTAMP_NTZ",
-            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP_TZ",
-            SodaDataTypeName.BOOLEAN: "BOOLEAN",
-        }
-
-    def _get_data_type_name_synonyms(self) -> dict:
-        return {
-            # numeric
-            "decimal": "number",
-            "numeric": "number",
-            "int": "number",
-            "integer": "number",
-            "bigint": "number",
-            "smallint": "number",
-            "tinyint": "number",
-            "byteint": "number",
-            "double": "float",
-            "double precision": "float",
-            "real": "float",
-            "float4": "float",
-            "float8": "float",
-            # string
-            "char": "varchar",
-            "character": "varchar",
-            "string": "varchar",
-            "text": "varchar",
-            "nchar": "varchar",
-            "nvarchar": "varchar",
-            "nvarchar2": "varchar",
-            "char varying": "varchar",
-            # date & time
-            "datetime": "timestamp_ntz",  # synonym in snowflake
-            "timestamp": "timestamp_ntz",  # default behavior if not qualified
-            # boolean
-            # (no real synonyms, but sometimes bool is used informally)
-            "bool": "boolean",
-        }
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        # Implements data type synonyms
+        # Each list should represent a list of synonyms
+        return [
+            ["varchar", "text", "string"],
+            ["number", "decimal", "numeric", "int", "integer", "bigint", "smallint", "tinyint", "byteint"],
+            ["float", "float4", "float8", "double", "double precision", "real"],
+            ["timestamp", "datetime", "timestamp_ntz", "timestamp without time zone"],
+            ["timestamp_ltz", "timestamp with local time zone"],
+            ["timestamp_tz", "timestamp with time zone"],
+        ]
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
         """
@@ -108,3 +75,17 @@ class SnowflakeSqlDialect(SqlDialect):
             SodaDataTypeName.TIMESTAMP_TZ: "timestamp_tz",
             SodaDataTypeName.BOOLEAN: "boolean",
         }
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "character", "text"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in [
+            "timestamp",
+            "timestamp_ntz",
+            "timestamp without time zone",
+            "timestamp_tz",
+            "timestamp with time zone",
+            "timestamp_ltz",
+            "timestamp with local time zone",
+        ]

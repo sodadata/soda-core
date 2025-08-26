@@ -81,6 +81,8 @@ class SqlDialect:
             self._get_data_type_name_synonyms()
         )
 
+    # Data type handling
+
     def _build_data_type_name_synonym_mappings(self, data_type_name_synonyms: list[list[str]]) -> dict[str, str]:
         data_type_name_synonym_mappings: dict[str, str] = {}
         for data_type_name_synonym_list in data_type_name_synonyms:
@@ -134,6 +136,87 @@ class SqlDialect:
 
     def get_sql_data_type_name(self, soda_data_type: SodaDataTypeName) -> str:
         return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
+
+    def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
+        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
+
+    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
+        if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
+            return False
+        if (
+            isinstance(expected.character_maximum_length, int)
+            and expected.character_maximum_length != actual.character_maximum_length
+        ):
+            return False
+        if isinstance(expected.numeric_precision, int) and expected.numeric_precision != actual.numeric_precision:
+            return False
+        if isinstance(expected.numeric_scale, int) and expected.numeric_scale != actual.numeric_scale:
+            return False
+        if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
+            return False
+        return True
+
+    def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
+        test_data_type: str = source_data_type.name
+        data_type_name: str = self.get_sql_data_type_name_by_soda_data_type_names().get(test_data_type)
+        character_maximum_length: Optional[int] = (
+            source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
+        )
+        numeric_precision: Optional[int] = (
+            source_data_type.numeric_precision if self.supports_data_type_numeric_precision() else None
+        )
+        numeric_scale: Optional[int] = (
+            source_data_type.numeric_scale if self.supports_data_type_numeric_scale() else None
+        )
+        datetime_precision: Optional[int] = (
+            source_data_type.datetime_precision if self.supports_data_type_datetime_precision() else None
+        )
+        return SqlDataType(
+            name=data_type_name,
+            character_maximum_length=character_maximum_length,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale,
+            datetime_precision=datetime_precision,
+        )
+
+    def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
+        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
+
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
+
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in [
+            "timestamp",
+            "timestamp without time zone",
+            "timestamptz",
+            "timestamp with time zone",
+        ]
+
+    # SQL generation
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
@@ -903,83 +986,3 @@ class SqlDialect:
         # Snowflake: 1 MB
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
-
-    def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
-        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
-
-    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
-        if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
-            return False
-        if (
-            isinstance(expected.character_maximum_length, int)
-            and expected.character_maximum_length != actual.character_maximum_length
-        ):
-            return False
-        if isinstance(expected.numeric_precision, int) and expected.numeric_precision != actual.numeric_precision:
-            return False
-        if isinstance(expected.numeric_scale, int) and expected.numeric_scale != actual.numeric_scale:
-            return False
-        if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
-            return False
-        return True
-
-    def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
-        test_data_type: str = source_data_type.name
-        data_type_name: str = self.get_sql_data_type_name_by_soda_data_type_names().get(test_data_type)
-        character_maximum_length: Optional[int] = (
-            source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
-        )
-        numeric_precision: Optional[int] = (
-            source_data_type.numeric_precision if self.supports_data_type_numeric_precision() else None
-        )
-        numeric_scale: Optional[int] = (
-            source_data_type.numeric_scale if self.supports_data_type_numeric_scale() else None
-        )
-        datetime_precision: Optional[int] = (
-            source_data_type.datetime_precision if self.supports_data_type_datetime_precision() else None
-        )
-        return SqlDataType(
-            name=data_type_name,
-            character_maximum_length=character_maximum_length,
-            numeric_precision=numeric_precision,
-            numeric_scale=numeric_scale,
-            datetime_precision=datetime_precision,
-        )
-
-    def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
-        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
-
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
-        """
-        Maps DBDataType names to data source type names.
-        """
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
-
-    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
-
-    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["numeric", "number", "decimal"]
-
-    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["numeric", "number", "decimal"]
-
-    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in [
-            "timestamp",
-            "timestamp without time zone",
-            "time",
-            "timestamptz",
-            "timestamp with time zone",
-        ]
