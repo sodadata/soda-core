@@ -7,6 +7,7 @@ from textwrap import indent
 from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.metadata_types import SodaDataTypeNames, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     CASE_WHEN,
@@ -61,11 +62,9 @@ from soda_core.common.sql_ast import (
     WHERE,
     WITH,
     Operator,
-    SqlDataType,
     SqlExpression,
     SqlExpressionStr,
 )
-from soda_core.common.sql_datatypes import DBDataType
 
 
 class SqlDialect:
@@ -77,36 +76,30 @@ class SqlDialect:
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
 
-    # Deprecated. Data type parameters should work in general, not only for text type.
-    def text_col_type(self, length: Optional[int] = 255) -> str:
-        """Get the column type specificier for a variable length text column of a specific length."""
-        if self.supports_data_type_character_maximun_length():
-            return self.get_contract_type_dict()[DBDataType.TEXT] + f"({length})"  # e.g. VARCHAR(255)
-        else:
-            # if db engine doesn't support varchar length, probably no need to override this method
-            return self.get_contract_type_dict()[DBDataType.TEXT]  # e.g. VARCHAR
+    @abstractmethod
+    def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
+        """
+        Data type that is used in the contract.
+        This does **NOT** include the length of the column, e.g. VARCHAR
+        """
+        # Example
+        # return {
+        #     SodaDataTypeNames.TEXT: "character varying",
+        #     SodaDataTypeNames.VARCHAR: "character varying",
+        #     SodaDataTypeNames.INTEGER: "integer",
+        #     SodaDataTypeNames.DECIMAL: "double precision",
+        #     SodaDataTypeNames.NUMERIC: "numeric",
+        #     SodaDataTypeNames.DATE: "date",
+        #     SodaDataTypeNames.TIME: "time",
+        #     SodaDataTypeNames.TIMESTAMP: "timestamp without time zone",
+        #     SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
+        #     SodaDataTypeNames.BOOLEAN: "boolean",
+        # }
+        raise NotImplementedError()
 
-    def get_sql_type_dict(self) -> dict[str, str]:
-        """Data type that is used in the create table statement.
-        This can include the length of the column, e.g. VARCHAR(255)"""
-        return self.get_contract_type_dict()
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        """Data type that is used in the contract.
-        This does **NOT** include the length of the column, e.g. VARCHAR"""
-        return {
-            DBDataType.TEXT: "character varying",
-            DBDataType.INTEGER: "integer",
-            DBDataType.DECIMAL: "double precision",
-            DBDataType.DATE: "date",
-            DBDataType.TIME: "time",
-            DBDataType.TIMESTAMP: "timestamp without time zone",
-            DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
-            DBDataType.BOOLEAN: "boolean",
-        }
-
-    def get_data_type_type_str(self, db_data_type: DBDataType) -> str:
-        return self.get_sql_type_dict()[db_data_type]
+    def get_sql_data_type_name(self, soda_data_type: SodaDataTypeNames) -> str:
+        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
@@ -673,7 +666,7 @@ class SqlDialect:
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_data_type_type_str(cast.to_type) if isinstance(cast.to_type, DBDataType) else cast.to_type
+            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeNames) else cast.to_type
         )
         return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
 
@@ -877,19 +870,6 @@ class SqlDialect:
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    # TODO consider moving this to DataSourceExtension as this is DWH functionality.
-    def map_data_type(self, source_data_type: SqlDataType, source_data_source_type: str) -> Optional[SqlDataType]:
-        """
-        Returns a compatible SqlDataType for the given source_data_source_type.
-        """
-        return self.get_data_source_data_types().get_supported_sql_data_type(
-            source_data_type=source_data_type, source_data_source_type=source_data_source_type
-        )
-
-    @abstractmethod
-    def get_data_source_data_types(self) -> DataSourceDataTypes:
-        raise NotImplementedError()
-
     def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
         expected_data_type_name: str = expected.name
         actual_data_type_name: str = actual.name
@@ -931,7 +911,7 @@ class SqlDialect:
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name
-        data_type_name: str = self.get_data_source_type_names_by_test_type_names().get(test_data_type)
+        data_type_name: str = self.get_sql_data_type_name_by_soda_data_type_names().get(test_data_type)
         character_maximum_length: Optional[int] = (
             source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
         )
@@ -952,104 +932,31 @@ class SqlDialect:
             datetime_precision=datetime_precision,
         )
 
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """
         return {
-            DBDataType.VARCHAR: "varchar",
-            DBDataType.TEXT: "text",
-            DBDataType.INTEGER: "integer",
-            DBDataType.DECIMAL: "decimal",
-            DBDataType.NUMERIC: "numeric",
-            DBDataType.DATE: "date",
-            DBDataType.TIME: "time",
-            DBDataType.TIMESTAMP: "timestamp",
-            DBDataType.TIMESTAMP_TZ: "timestamptz",
-            DBDataType.BOOLEAN: "boolean",
+            SodaDataTypeNames.VARCHAR: "varchar",
+            SodaDataTypeNames.TEXT: "text",
+            SodaDataTypeNames.INTEGER: "integer",
+            SodaDataTypeNames.DECIMAL: "decimal",
+            SodaDataTypeNames.NUMERIC: "numeric",
+            SodaDataTypeNames.DATE: "date",
+            SodaDataTypeNames.TIME: "time",
+            SodaDataTypeNames.TIMESTAMP: "timestamp",
+            SodaDataTypeNames.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeNames.BOOLEAN: "boolean",
         }
 
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
 
-class DataSourceDataTypes:
-    """
-    Allows DataSourceImpls to compose data type behavior via configuring a set of mappings
-    and supported data type names
-    """
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
 
-    def __init__(
-        self,
-        supported_data_type_names: list[str],
-        mappings: list[SqlDataTypeMapping],
-    ):
-        self.supported_data_type_names: list[str] = supported_data_type_names
-        self.mappings: list[SqlDataTypeMapping] = mappings
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
 
-    def get_supported_sql_data_type(
-        self, source_data_type: SqlDataType, source_data_source_type: str
-    ) -> Optional[SqlDataType]:
-        if source_data_type.name in self.supported_data_type_names:
-            return source_data_type
-        mapping: SqlDataTypeMapping = next(
-            (
-                mapping
-                for mapping in self.mappings
-                if mapping.applies_to(
-                    source_data_type_name=source_data_type.name, source_data_source_type=source_data_source_type
-                )
-            ),
-            None,
-        )
-        if mapping:
-            return source_data_type.replace_data_type_name(mapping.supported_data_type_name)
-        else:
-            return None
-
-
-class SqlDataTypeMapping:
-    # This list of default integer type names is used when building mappings to identify non supported data types
-    # that should map to a standard integer type.  So it should include all integer types of all databases
-    DEFAULT_VARCHAR_TYPES = ["character varying", "varchar", "character", "char", "text", "string"]
-
-    # This list of default varchar type names is used when building mappings to identify non supported data types
-    # that should map to a standard varchar type. So it should include all text types of all databases
-    DEFAULT_INTEGER_TYPES = [
-        # Numeric types
-        "smallint",
-        "integer",
-        "bigint",
-        "decimal",
-        "numeric",
-        "real",
-        "double precision",
-        "smallserial",
-        "serial",
-        "bigserial",
-    ]
-
-    def __init__(
-        self,
-        # The data type that should be mapped to
-        supported_data_type_name: str,
-        # The list of data types that should be mapped to the self.supported_data_type_name
-        source_data_type_names: list[str],
-        # Optionally filters this mapping to the list of specified source data source types
-        # Which means, this mapping will only be applied if the source data source is in the list
-        source_data_source_types: Optional[list[str]] = None,
-    ):
-        self.supported_data_type_name: str = supported_data_type_name.lower()
-        self.source_data_type_names: list[str] = [
-            source_data_type_name.lower() for source_data_type_name in source_data_type_names
-        ]
-        self.source_data_source_types: Optional[list[str]] = source_data_source_types
-
-    def applies_to(
-        self,
-        source_data_type_name: str,
-        source_data_source_type: str,
-    ) -> bool:
-        if (
-            isinstance(self.source_data_source_types, list)
-            and source_data_source_type not in self.source_data_source_types
-        ):
-            return False
-        return source_data_type_name in self.source_data_type_names
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["timestamp", "time"]

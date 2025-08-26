@@ -4,11 +4,9 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import CAST, REGEX_LIKE
 from soda_core.common.sql_dialect import (
-    DataSourceDataTypes,
-    DBDataType,
-    SqlDataTypeMapping,
     SqlDialect,
 )
+from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
@@ -47,14 +45,23 @@ class PostgresSqlDialect(SqlDialect):
     def default_varchar_length(self) -> Optional[int]:
         return 255
 
-    def get_sql_type_dict(self) -> dict[str, str]:
-        base_dict: dict = super().get_sql_type_dict()
-        base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
-        return base_dict
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        return {
+            SodaDataTypeNames.TEXT: "varchar",
+            SodaDataTypeNames.VARCHAR: "varchar",
+            SodaDataTypeNames.INTEGER: "integer",
+            SodaDataTypeNames.DECIMAL: "double precision",
+            SodaDataTypeNames.NUMERIC: "numeric",
+            SodaDataTypeNames.DATE: "date",
+            SodaDataTypeNames.TIME: "time",
+            SodaDataTypeNames.TIMESTAMP: "timestamp without time zone",
+            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
+            SodaDataTypeNames.BOOLEAN: "boolean",
+        }
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_data_type_type_str(cast.to_type) if isinstance(cast.to_type, DBDataType) else cast.to_type
+            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeNames) else cast.to_type
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
 
@@ -88,67 +95,14 @@ class PostgresSqlDialect(SqlDialect):
         Maps DBDataType names to data source type names.
         """
         return {
-            DBDataType.VARCHAR: "varchar",
-            DBDataType.TEXT: "text",
-            DBDataType.INTEGER: "integer",
-            DBDataType.DECIMAL: "decimal",
-            DBDataType.NUMERIC: "decimal",
-            DBDataType.DATE: "date",
-            DBDataType.TIME: "time",
-            DBDataType.TIMESTAMP: "timestamp",
-            DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
-            DBDataType.BOOLEAN: "boolean",
+            SodaDataTypeNames.VARCHAR: "varchar",
+            SodaDataTypeNames.TEXT: "text",
+            SodaDataTypeNames.INTEGER: "integer",
+            SodaDataTypeNames.DECIMAL: "decimal",
+            SodaDataTypeNames.NUMERIC: "decimal",
+            SodaDataTypeNames.DATE: "date",
+            SodaDataTypeNames.TIME: "time",
+            SodaDataTypeNames.TIMESTAMP: "timestamp",
+            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
+            SodaDataTypeNames.BOOLEAN: "boolean",
         }
-
-    POSTGRES_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
-        supported_data_type_names=[
-            # Character types
-            "character varying",
-            "varchar",
-            "character",
-            "char",
-            "text",
-            # Numeric types
-            "smallint",
-            "integer",
-            "bigint",
-            "decimal",
-            "numeric",
-            "real",
-            "double precision",
-            "smallserial",
-            "serial",
-            "bigserial",
-            # Date/Time
-            "timestamp",
-            "timestamptz",
-            "timestamp with time zone",
-            "timestamp without time zone",
-            "date",
-            "time",
-            "time with time zone",
-            "time without time zone",
-            # Binary
-            "bytea",
-            # Boolean
-            "boolean",
-            # Enumerated types
-            "enum",
-            # Bit string types
-            "bit",
-            "bit varying",
-        ],
-        mappings=[
-            SqlDataTypeMapping(
-                supported_data_type_name="varchar",
-                source_data_type_names=SqlDataTypeMapping.DEFAULT_VARCHAR_TYPES,
-            ),
-            SqlDataTypeMapping(
-                supported_data_type_name="integer",
-                source_data_type_names=SqlDataTypeMapping.DEFAULT_INTEGER_TYPES,
-            ),
-        ],
-    )
-
-    def get_data_source_data_types(self) -> DataSourceDataTypes:
-        return self.POSTGRES_DATA_TYPES

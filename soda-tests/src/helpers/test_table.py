@@ -4,9 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
-from soda_core.common.sql_ast import SqlDataType
-from soda_core.common.sql_dialect import DBDataType
-from soda_core.common.statements.metadata_columns_query import ColumnMetadata
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeNames, SqlDataType
 
 
 class TestTableSpecificationBuilder:
@@ -50,28 +48,28 @@ class TestTableSpecificationBuilder:
         return self
 
     def column_text(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.VARCHAR)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.VARCHAR)
 
     def column_integer(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.INTEGER)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.INTEGER)
 
     def column_decimal(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.DECIMAL)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.DECIMAL)
 
     def column_date(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.DATE)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.DATE)
 
     def column_time(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.TIME)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.TIME)
 
     def column_timestamp(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.TIMESTAMP)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.TIMESTAMP)
 
     def column_timestamp_tz(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.TIMESTAMP_TZ)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.TIMESTAMP_TZ)
 
     def column_boolean(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=DBDataType.BOOLEAN)
+        return self.column(column_name=name, data_type=SodaDataTypeNames.BOOLEAN)
 
     def rows(self, rows: list[tuple]) -> TestTableSpecificationBuilder:
         """
@@ -108,7 +106,7 @@ class TestTableSpecificationBuilder:
         consistent_hash_builder.add("columns")
         for test_column in self._columns:
             consistent_hash_builder.add(test_column.column_name)
-            consistent_hash_builder.add(test_column.data_type)
+            consistent_hash_builder.add(test_column.sql_data_type.name)
             if test_column.sql_data_type:
                 consistent_hash_builder.add(test_column.sql_data_type.character_maximum_length)
                 consistent_hash_builder.add(test_column.sql_data_type.numeric_precision)

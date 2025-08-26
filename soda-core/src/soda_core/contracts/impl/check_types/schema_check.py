@@ -7,11 +7,10 @@ from typing import Optional
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import SqlDataType
 from soda_core.common.statements.metadata_columns_query import (
-    ColumnMetadata,
     MetadataColumnsQuery,
 )
+from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
 from soda_core.common.utils import format_items
 from soda_core.contracts.contract_verification import (
     Check,
@@ -293,7 +292,7 @@ class SchemaCheckResult(CheckResult):
 
         if verbose:
             actual_columns = [
-                f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns
+                f"{actual_column.column_name}({actual_column.sql_data_type})" for actual_column in self.actual_columns
             ]
             diagnostics.append(f"Actual schema:{data_delimiter}{format_items(actual_columns, verbose=verbose)}")
 

@@ -30,7 +30,7 @@ from soda_core.common.exceptions import (
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
-from soda_core.common.statements.metadata_columns_query import ColumnMetadata
+from soda_core.common.metadata_types import ColumnMetadata
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult

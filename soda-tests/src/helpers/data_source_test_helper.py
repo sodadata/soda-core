@@ -13,8 +13,9 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
+from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW, SqlDataType
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -112,8 +113,8 @@ class DataSourceTestHelper:
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
-        self.create_table_sql_type_dict: dict[str, str] = self._get_create_table_sql_type_dict()
-        self.contract_data_type_dict: dict[str, str] = self._get_contract_data_type_dict()
+        # self.create_table_sql_type_dict: dict[str, str] = self._get_create_table_sql_type_dict()
+        # self.contract_data_type_dict: dict[str, str] = self._get_contract_data_type_dict()
 
         # Test table names that are present in the data source.
         # None means the data source is not queried
@@ -226,42 +227,6 @@ class DataSourceTestHelper:
 
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
-
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_create_table_sql_type behavior
-        """
-        return self.data_source_impl.sql_dialect.get_sql_type_dict()
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_schema_check_sql_type behavior
-        """
-        return self.data_source_impl.sql_dialect.get_contract_type_dict()
-
-    def get_create_table_sql_type(self, test_data_type: str) -> str:
-        """
-        Resolves DataType.XXX constants to the data type sql string used in the create table statement.
-        Raises AssertionError if the data type is not found
-        Behavior can be overridden by customizing the dict in _get_create_table_sql_type_dict
-        or by overriding this method.
-        """
-        create_table_sql_type: str = self.create_table_sql_type_dict.get(test_data_type)
-        assert create_table_sql_type is not None, f"Invalid create table data type {test_data_type}"
-        return create_table_sql_type
-
-    def get_contract_data_type(self, data_type: str) -> str:
-        """
-        Resolves DataType.XXX constants to the data type sql string used in the create table statement.
-        Raises AssertionError if the data type is not found
-        Behavior can be overridden by customizing the dict in _get_create_table_sql_type_dict
-        or by overriding this method.
-        """
-        contract_data_type: str = self.contract_data_type_dict.get(data_type)
-        assert contract_data_type is not None, f"No contract data type for {data_type}: "
-        return contract_data_type
 
     def start_test_session(self) -> None:
         self.start_test_session_open_connection()

@@ -4,11 +4,9 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import (
-    DataSourceDataTypes,
-    DBDataType,
-    SqlDataTypeMapping,
     SqlDialect,
 )
+from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )
@@ -53,14 +51,14 @@ class SnowflakeSqlDialect(SqlDialect):
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
-            DBDataType.TEXT: "TEXT",
-            DBDataType.INTEGER: "NUMBER",
-            DBDataType.DECIMAL: "FLOAT",
-            DBDataType.DATE: "DATE",
-            DBDataType.TIME: "TIME",
-            DBDataType.TIMESTAMP: "TIMESTAMP_NTZ",
-            DBDataType.TIMESTAMP_TZ: "TIMESTAMP_TZ",
-            DBDataType.BOOLEAN: "BOOLEAN",
+            SodaDataTypeNames.TEXT: "TEXT",
+            SodaDataTypeNames.INTEGER: "NUMBER",
+            SodaDataTypeNames.DECIMAL: "FLOAT",
+            SodaDataTypeNames.DATE: "DATE",
+            SodaDataTypeNames.TIME: "TIME",
+            SodaDataTypeNames.TIMESTAMP: "TIMESTAMP_NTZ",
+            SodaDataTypeNames.TIMESTAMP_TZ: "TIMESTAMP_TZ",
+            SodaDataTypeNames.BOOLEAN: "BOOLEAN",
         }
 
     def get_canonical_data_type_mappings(self) -> dict:
@@ -96,75 +94,19 @@ class SnowflakeSqlDialect(SqlDialect):
             "bool": "boolean",
         }
 
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """
         return {
-            DBDataType.VARCHAR: "varchar",
-            DBDataType.TEXT: "text",
-            DBDataType.INTEGER: "integer",
-            DBDataType.DECIMAL: "decimal",
-            DBDataType.NUMERIC: "decimal",
-            DBDataType.DATE: "date",
-            DBDataType.TIME: "time",
-            DBDataType.TIMESTAMP: "timestamp",
-            DBDataType.TIMESTAMP_TZ: "timestamp_tz",
-            DBDataType.BOOLEAN: "boolean",
+            SodaDataTypeNames.VARCHAR: "varchar",
+            SodaDataTypeNames.TEXT: "text",
+            SodaDataTypeNames.INTEGER: "integer",
+            SodaDataTypeNames.DECIMAL: "decimal",
+            SodaDataTypeNames.NUMERIC: "decimal",
+            SodaDataTypeNames.DATE: "date",
+            SodaDataTypeNames.TIME: "time",
+            SodaDataTypeNames.TIMESTAMP: "timestamp",
+            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp_tz",
+            SodaDataTypeNames.BOOLEAN: "boolean",
         }
-
-    SNOWFLAKE_DATA_TYPES: DataSourceDataTypes = DataSourceDataTypes(
-        supported_data_type_names=[
-            # numeric
-            "number",
-            "decimal",
-            "numeric",
-            "int",
-            "integer",
-            "bigint",
-            "smallint",
-            "tinyint",
-            "byteint",
-            "float",
-            "float4",
-            "float8",
-            "double",
-            "double precision",
-            "real",
-            # string & binary
-            "varchar",
-            "char",
-            "character",
-            "string",
-            "text",
-            "nchar",
-            "nvarchar",
-            "nvarchar2",
-            "char varying",
-            "binary",
-            "varbinary",
-            # date & time
-            "date",
-            "datetime",
-            "time",
-            "timestamp",
-            "timestamp_ltz",
-            "timestamp_ntz",
-            "timestamp_tz",
-            # boolean
-            "boolean",
-        ],
-        mappings=[
-            SqlDataTypeMapping(
-                supported_data_type_name="varchar",
-                source_data_type_names=SqlDataTypeMapping.DEFAULT_VARCHAR_TYPES,
-            ),
-            SqlDataTypeMapping(
-                supported_data_type_name="integer",
-                source_data_type_names=SqlDataTypeMapping.DEFAULT_INTEGER_TYPES,
-            ),
-        ],
-    )
-
-    def get_data_source_data_types(self) -> DataSourceDataTypes:
-        return self.SNOWFLAKE_DATA_TYPES

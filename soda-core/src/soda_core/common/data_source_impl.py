@@ -6,17 +6,15 @@ from typing import Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
-from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import (
-    ColumnMetadata,
     MetadataColumnsQuery,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
-from soda_core.contracts.contract_verification import DataSource, SodaException
+from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
 
 logger: logging.Logger = soda_logger
@@ -128,43 +126,6 @@ class DataSourceImpl(ABC):
     def execute_update(self, sql: str) -> UpdateResult:
         return self.connection.execute_update(sql=sql)
 
-    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
-    #  and keep in data source impl only the responsibilities
-    #  - manage the connection (parsing, opening and closing)
-    #  - provide access to the SqlDialect
-    def map_data_type_for_dwh(
-        self, source_data_source_type: str, source_column_metadata: ColumnMetadata
-    ) -> ColumnMetadata:
-        if self.type_name == source_data_source_type:
-            return source_column_metadata
-        return source_column_metadata
-
-    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
-    #  and keep in data source impl only the responsibilities
-    #  - manage the connection (parsing, opening and closing)
-    #  - provide access to the SqlDialect
-    def get_data_type_text(self, column_metadata: ColumnMetadata, include_length: bool = True) -> str:
-        data_type: str = column_metadata.data_type
-        data_type = data_type.replace("character varying", "varchar")
-        data_type = data_type.replace("integer", "int")
-        if include_length and isinstance(column_metadata.character_maximum_length, int):
-            data_type = f"{data_type}({column_metadata.character_maximum_length})"
-        return data_type
-
-    # TODO move this to SqlDialect. We should group all data source differences in SqlDialect
-    #  and keep in data source impl only the responsibilities
-    #  - manage the connection (parsing, opening and closing)
-    #  - provide access to the SqlDialect
-    def get_format_regex(self, format: str) -> Optional[str]:
-        if format is None:
-            return None
-        if self.format_regexes is None:
-            logger.error(f"'format_regexes' not configured in data source")
-        format_regex: Optional[str] = self.format_regexes.get(format)
-        if format_regex is None:
-            logger.error(f"Validity format regex '{format}' not configured " f"in data source 'format_regexes'")
-        return format_regex
-
     def test_connection_error_message(self) -> Optional[str]:
         try:
             with self:
@@ -175,15 +136,3 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
-
-    # TODO change usages to SqlDialect directly and remove this method.
-    #  We should group all data source differences in SqlDialect
-    #  and keep in data source impl only the responsibilities
-    #  - manage the connection (parsing, opening and closing)
-    #  - provide access to the SqlDialect
-    def qualify_dataset_name(self, dataset_identifier: DatasetIdentifier) -> str:
-        if dataset_identifier.data_source_name != self.name:
-            raise SodaException("Please report this bug: incorrect data source used")
-        return self.sql_dialect.qualify_dataset_name(
-            dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
-        )

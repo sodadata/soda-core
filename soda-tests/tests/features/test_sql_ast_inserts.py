@@ -15,9 +15,8 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     SELECT,
     VALUES_ROW,
-    DBDataType,
-    SqlDataType,
 )
+from soda_core.common.metadata_types import SodaDataTypeNames, SqlDataType
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -34,16 +33,16 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
 
     try:
         create_table_columns = [
-            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=DBDataType.INTEGER), nullable=False),
+            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=SodaDataTypeNames.INTEGER), nullable=False),
             CREATE_TABLE_COLUMN(
-                name="name", type=SqlDataType(name=DBDataType.VARCHAR, character_maximum_length=255), nullable=True
+                name="name", type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255), nullable=True
             ),
             CREATE_TABLE_COLUMN(
-                name="small_text", type=SqlDataType(name=DBDataType.VARCHAR, character_maximum_length=3), nullable=True
+                name="small_text", type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=3), nullable=True
             ),
-            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=DBDataType.DATE), nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp", type=SqlDataType(name=DBDataType.TIMESTAMP), nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp_tz", type=SqlDataType(name=DBDataType.TIMESTAMP_TZ), nullable=True),
+            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=SodaDataTypeNames.DATE), nullable=True),
+            CREATE_TABLE_COLUMN(name="my_timestamp", type=SqlDataType(name=SodaDataTypeNames.TIMESTAMP), nullable=True),
+            CREATE_TABLE_COLUMN(name="my_timestamp_tz", type=SqlDataType(name=SodaDataTypeNames.TIMESTAMP_TZ), nullable=True),
         ]
 
         standard_columns = [column.convert_to_standard_column() for column in create_table_columns]

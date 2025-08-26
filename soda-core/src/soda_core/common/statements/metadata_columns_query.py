@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     EQ,
@@ -14,28 +14,8 @@ from soda_core.common.sql_ast import (
     ORDINAL_POSITION,
     SELECT,
     WHERE,
-    SqlDataType,
 )
 from soda_core.common.sql_dialect import SqlDialect
-
-
-@dataclass
-class ColumnMetadata:
-    column_name: str
-
-    # Deprecated. Replaced by sql_data_type below
-    data_type: Optional[str] = None
-
-    # Deprecated. Replaced by sql_data_type below
-    character_maximum_length: Optional[int] = None
-
-    # Can be None in case of schema check expected columns
-    # without data type expectations
-    sql_data_type: Optional[SqlDataType] = None
-
-    # Deprecated. Replaced by SqlDataType.to_create_table_column_type above
-    def get_sql_data_type_str_with_parameters(self) -> Optional[str]:
-        return None if self.sql_data_type is None else self.sql_data_type.get_sql_data_type_str_with_parameters()
 
 
 class MetadataColumnsQuery:
@@ -149,6 +129,23 @@ class MetadataColumnsQuery:
             numeric_precision: Optional[int] = row[numeric_precision_index] if numeric_precision_index else None
             numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
             datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
+
+            if (isinstance(character_maximum_length, int)
+                    and not self.sql_dialect.data_type_has_parameter_character_maximum_length(data_type_name)):
+                character_maximum_length = None
+
+            if (isinstance(numeric_precision, int)
+                    and not self.sql_dialect.data_type_has_parameter_numeric_precision(data_type_name)):
+                numeric_precision = None
+
+            if (isinstance(numeric_scale, int)
+                    and not self.sql_dialect.data_type_has_parameter_numeric_scale(data_type_name)):
+                numeric_scale = None
+
+            if (isinstance(datetime_precision, int)
+                    and not self.sql_dialect.data_type_has_parameter_datetime_precision(data_type_name)):
+                datetime_precision = None
+
             column_metadatas.append(
                 ColumnMetadata(
                     # Format data_type value here if needed -- default no-op

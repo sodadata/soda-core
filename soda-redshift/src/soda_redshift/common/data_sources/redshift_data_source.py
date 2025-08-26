@@ -3,7 +3,8 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, REGEX_LIKE, TUPLE, VALUES
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
@@ -36,9 +37,9 @@ class RedshiftSqlDialect(SqlDialect):
     def default_varchar_length(self) -> Optional[int]:
         return 255
 
-    def get_sql_type_dict(self) -> dict[str, str]:
-        base_dict = super().get_sql_type_dict()
-        base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        base_dict = super().get_sql_data_type_name_by_soda_data_type_names()
+        base_dict[SodaDataTypeNames.TEXT] = f"character varying({self.default_varchar_length()})"
         return base_dict
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:

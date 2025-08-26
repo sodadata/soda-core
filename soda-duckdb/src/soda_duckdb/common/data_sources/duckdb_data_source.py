@@ -6,7 +6,8 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.sql_ast import *
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBConnectionProperties,
 )
@@ -89,14 +90,14 @@ class DuckDBSqlDialect(SqlDialect):
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
-            DBDataType.TEXT: "VARCHAR",
-            DBDataType.INTEGER: "INTEGER",
-            DBDataType.DECIMAL: "DOUBLE",
-            DBDataType.DATE: "DATE",
-            DBDataType.TIME: "TIME",
-            DBDataType.TIMESTAMP: "TIMESTAMP",
-            DBDataType.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
-            DBDataType.BOOLEAN: "BOOLEAN",
+            SodaDataTypeNames.TEXT: "VARCHAR",
+            SodaDataTypeNames.INTEGER: "INTEGER",
+            SodaDataTypeNames.DECIMAL: "DOUBLE",
+            SodaDataTypeNames.DATE: "DATE",
+            SodaDataTypeNames.TIME: "TIME",
+            SodaDataTypeNames.TIMESTAMP: "TIMESTAMP",
+            SodaDataTypeNames.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
+            SodaDataTypeNames.BOOLEAN: "BOOLEAN",
         }
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
