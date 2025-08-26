@@ -113,9 +113,6 @@ class DataSourceTestHelper:
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
-        # self.create_table_sql_type_dict: dict[str, str] = self._get_create_table_sql_type_dict()
-        # self.contract_data_type_dict: dict[str, str] = self._get_contract_data_type_dict()
-
         # Test table names that are present in the data source.
         # None means the data source is not queried
         self.existing_test_table_names: Optional[list[str]] = None
