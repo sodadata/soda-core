@@ -130,20 +130,24 @@ class MetadataColumnsQuery:
             numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
             datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
 
-            if (isinstance(character_maximum_length, int)
-                    and not self.sql_dialect.data_type_has_parameter_character_maximum_length(data_type_name)):
+            if isinstance(
+                character_maximum_length, int
+            ) and not self.sql_dialect.data_type_has_parameter_character_maximum_length(data_type_name):
                 character_maximum_length = None
 
-            if (isinstance(numeric_precision, int)
-                    and not self.sql_dialect.data_type_has_parameter_numeric_precision(data_type_name)):
+            if isinstance(numeric_precision, int) and not self.sql_dialect.data_type_has_parameter_numeric_precision(
+                data_type_name
+            ):
                 numeric_precision = None
 
-            if (isinstance(numeric_scale, int)
-                    and not self.sql_dialect.data_type_has_parameter_numeric_scale(data_type_name)):
+            if isinstance(numeric_scale, int) and not self.sql_dialect.data_type_has_parameter_numeric_scale(
+                data_type_name
+            ):
                 numeric_scale = None
 
-            if (isinstance(datetime_precision, int)
-                    and not self.sql_dialect.data_type_has_parameter_datetime_precision(data_type_name)):
+            if isinstance(datetime_precision, int) and not self.sql_dialect.data_type_has_parameter_datetime_precision(
+                data_type_name
+            ):
                 datetime_precision = None
 
             column_metadatas.append(

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_fabric.common.data_sources.fabric_data_source_connection import (
     FabricDataSource as FabricDataSourceModel,

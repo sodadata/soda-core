@@ -97,7 +97,6 @@ class SqlDialect:
         # }
         raise NotImplementedError()
 
-
     def get_sql_data_type_name(self, soda_data_type: SodaDataTypeNames) -> str:
         return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
 

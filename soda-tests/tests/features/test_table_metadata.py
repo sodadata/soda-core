@@ -7,22 +7,12 @@ from soda_core.common.statements.metadata_columns_query import MetadataColumnsQu
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("metadata")
+    .column(column_name="txt_default", data_type=SqlDataType(name=SodaDataTypeNames.VARCHAR))
     .column(
-        column_name="txt_default",
-        data_type=SqlDataType(name=SodaDataTypeNames.VARCHAR)
+        column_name="txt_w_length", data_type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255)
     )
-    .column(
-        column_name="txt_w_length",
-        data_type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255)
-    )
-    .column(
-        column_name="dec_default",
-        data_type=SqlDataType(name=SodaDataTypeNames.NUMERIC)
-    )
-    .column(
-        column_name="dec_w_precision",
-        data_type=SqlDataType(name=SodaDataTypeNames.NUMERIC, numeric_precision=10)
-    )
+    .column(column_name="dec_default", data_type=SqlDataType(name=SodaDataTypeNames.NUMERIC))
+    .column(column_name="dec_w_precision", data_type=SqlDataType(name=SodaDataTypeNames.NUMERIC, numeric_precision=10))
     .column(
         column_name="dec_w_precision_and_scale",
         data_type=SqlDataType(name=SodaDataTypeNames.NUMERIC, numeric_precision=10, numeric_scale=2),

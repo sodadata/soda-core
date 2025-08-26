@@ -5,9 +5,9 @@ from duckdb import DuckDBPyConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
     DuckDBConnectionProperties,
 )

@@ -2,11 +2,9 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import CAST, REGEX_LIKE
-from soda_core.common.sql_dialect import (
-    SqlDialect,
-)
 from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.sql_ast import CAST, REGEX_LIKE
+from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )

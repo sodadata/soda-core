@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
-from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeNames, SqlDataType
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    SodaDataTypeNames,
+    SqlDataType,
+)
 
 
 class TestTableSpecificationBuilder:

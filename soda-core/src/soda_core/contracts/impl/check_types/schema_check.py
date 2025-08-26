@@ -7,10 +7,8 @@ from typing import Optional
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.statements.metadata_columns_query import (
-    MetadataColumnsQuery,
-)
 from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.utils import format_items
 from soda_core.contracts.contract_verification import (
     Check,

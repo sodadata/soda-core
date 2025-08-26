@@ -2,11 +2,9 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
-from soda_core.common.sql_dialect import (
-    SqlDialect,
-)
 from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
+from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )

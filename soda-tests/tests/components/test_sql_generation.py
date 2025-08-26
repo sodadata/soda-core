@@ -82,7 +82,9 @@ def test_sql_ast_create_table_if_not_exists():
                     nullable=False,
                 ),
                 CREATE_TABLE_COLUMN(
-                    name="name", type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255), nullable=True
+                    name="name",
+                    type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255),
+                    nullable=True,
                 ),
                 CREATE_TABLE_COLUMN(
                     name="age", type=SqlDataType(name=SodaDataTypeNames.INTEGER), nullable=True, default=LITERAL(25)

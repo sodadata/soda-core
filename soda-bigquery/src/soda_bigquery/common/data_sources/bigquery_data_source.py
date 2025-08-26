@@ -9,6 +9,7 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
@@ -20,7 +21,6 @@ from soda_core.common.sql_ast import (
     WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.metadata_types import SodaDataTypeNames
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 

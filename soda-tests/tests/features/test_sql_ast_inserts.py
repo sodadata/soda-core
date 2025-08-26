@@ -4,6 +4,7 @@ import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.metadata_types import SodaDataTypeNames, SqlDataType
 from soda_core.common.sql_ast import (
     COLUMN,
     CREATE_TABLE_COLUMN,
@@ -16,7 +17,6 @@ from soda_core.common.sql_ast import (
     SELECT,
     VALUES_ROW,
 )
-from soda_core.common.metadata_types import SodaDataTypeNames, SqlDataType
 from soda_core.common.sql_dialect import SqlDialect
 
 
@@ -35,14 +35,20 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         create_table_columns = [
             CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=SodaDataTypeNames.INTEGER), nullable=False),
             CREATE_TABLE_COLUMN(
-                name="name", type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255), nullable=True
+                name="name",
+                type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=255),
+                nullable=True,
             ),
             CREATE_TABLE_COLUMN(
-                name="small_text", type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=3), nullable=True
+                name="small_text",
+                type=SqlDataType(name=SodaDataTypeNames.VARCHAR, character_maximum_length=3),
+                nullable=True,
             ),
             CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=SodaDataTypeNames.DATE), nullable=True),
             CREATE_TABLE_COLUMN(name="my_timestamp", type=SqlDataType(name=SodaDataTypeNames.TIMESTAMP), nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp_tz", type=SqlDataType(name=SodaDataTypeNames.TIMESTAMP_TZ), nullable=True),
+            CREATE_TABLE_COLUMN(
+                name="my_timestamp_tz", type=SqlDataType(name=SodaDataTypeNames.TIMESTAMP_TZ), nullable=True
+            ),
         ]
 
         standard_columns = [column.convert_to_standard_column() for column in create_table_columns]
