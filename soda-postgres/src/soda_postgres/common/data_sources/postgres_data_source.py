@@ -72,6 +72,7 @@ class PostgresSqlDialect(SqlDialect):
             ["smallint", "int2"],
             ["real", "float4"],
             ["double precision", "float8"],
+            ["timestamp", "timestamp without time zone"],
         ]
 
     def get_data_source_type_names_by_test_type_names(self) -> dict:
