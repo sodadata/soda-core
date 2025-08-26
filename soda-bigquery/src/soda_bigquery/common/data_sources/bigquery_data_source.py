@@ -72,18 +72,35 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
-    def get_contract_type_dict(self) -> dict[str, str]:
+
+
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
             SodaDataTypeName.TEXT: "STRING",
+            SodaDataTypeName.VARCHAR: "STRING",
             SodaDataTypeName.INTEGER: "INT64",
             SodaDataTypeName.DECIMAL: "FLOAT64",
+            SodaDataTypeName.NUMERIC: "NUMERIC",
             SodaDataTypeName.DATE: "DATE",
             SodaDataTypeName.TIME: "TIME",
             SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
-            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
-            SodaDataTypeName.BOOLEAN: "BOOL",
+            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",
+            SodaDataTypeName.BOOLEAN: "BOOLEAN",
         }
 
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        # Implements data type synonyms
+        # Each list should represent a list of synonyms
+        return [
+            ["int64", "integer", "int"],
+            ["float64", "float"],
+            ["numeric", "decimal"],
+            ["boolean", "bool"],
+        ]
+
+      
+
+    
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 

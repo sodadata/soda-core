@@ -48,12 +48,14 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
         actual=actual_txt_default.sql_data_type,
     )
 
+    
     actual_txt_w_length: ColumnMetadata = actual_columns[1]
     assert actual_txt_w_length.column_name == "varchar_w_length"
+    length = 255 if sql_dialect.supports_data_type_character_maximun_length() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
             name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR),
-            character_maximum_length=255,
+            character_maximum_length=length,
         ),
         actual=actual_txt_w_length.sql_data_type,
     )
@@ -76,24 +78,29 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
         actual=actual_numeric_default.sql_data_type,
     )
 
+
     actual_numeric_w_precision: ColumnMetadata = actual_columns[4]
     assert actual_numeric_w_precision.column_name == "numeric_w_precision"
+    precision = 10 if sql_dialect.supports_data_type_numeric_precision() else None
+    scale = 0 if sql_dialect.supports_data_type_numeric_scale() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
             name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
-            numeric_precision=10,
-            numeric_scale=0,
+            numeric_precision=precision,
+            numeric_scale=scale,
         ),
         actual=actual_numeric_w_precision.sql_data_type,
     )
 
     actual_numeric_w_precision_and_scale: ColumnMetadata = actual_columns[5]
     assert actual_numeric_w_precision_and_scale.column_name == "numeric_w_precision_and_scale"
+    precision = 10 if sql_dialect.supports_data_type_numeric_precision() else None
+    scale = 2 if sql_dialect.supports_data_type_numeric_scale() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
             name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
-            numeric_precision=10,
-            numeric_scale=2,
+            numeric_precision=precision,
+            numeric_scale=scale,
         ),
         actual=actual_numeric_w_precision_and_scale.sql_data_type,
     )
@@ -109,10 +116,11 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
 
     actual_ts_w_precision: ColumnMetadata = actual_columns[7]
     assert actual_ts_w_precision.column_name == "ts_w_precision"
+    precision = 2 if sql_dialect.supports_data_type_datetime_precision() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
-        expected=SqlDataType(
+        expected=SqlDataType(   
             name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.TIMESTAMP),
-            datetime_precision=2,
+            datetime_precision=precision,
         ),
         actual=actual_ts_w_precision.sql_data_type,
     )

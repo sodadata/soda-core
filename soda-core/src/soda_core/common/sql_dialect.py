@@ -109,7 +109,7 @@ class SqlDialect:
         left_data_type_name_lower: str = left_data_type_name.lower()
         right_data_type_name_lower: str = right_data_type_name.lower()
         return left_data_type_name_lower == right_data_type_name_lower or (
-            self._data_type_name_synonym_mappings.get(left_data_type_name_lower)
+            self._data_type_name_synonym_mappings.get(left_data_type_name_lower, left_data_type_name_lower)
             == self._data_type_name_synonym_mappings.get(right_data_type_name_lower)
         )
 

@@ -66,6 +66,13 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
 def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    if data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():
+      char_str = "character_maximum_length: 512" 
+      n_failures = 2
+    else:
+      char_str = ""
+      n_failures = 1
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
@@ -74,7 +81,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 data_type: {test_table.data_type('id')}
-                character_maximum_length: 512
+                {char_str}
               - name: sizzze
               - name: created
                 data_type: {test_table.data_type('id')}
@@ -82,7 +89,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
     )
 
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
-    assert len(schema_check_result.column_data_type_mismatches) == 2
+    assert len(schema_check_result.column_data_type_mismatches) == n_failures
 
 
 def test_schema_default_order(data_source_test_helper: DataSourceTestHelper):

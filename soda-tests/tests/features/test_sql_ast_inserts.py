@@ -31,23 +31,25 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
     data_source_impl.execute_update(drop_table_sql)
 
+    def col_type(name: str) -> str:
+        return sql_dialect.get_sql_data_type_name_by_soda_data_type_names()[name]
     try:
         create_table_columns = [
-            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=SodaDataTypeName.INTEGER), nullable=False),
+            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)), nullable=False),
             CREATE_TABLE_COLUMN(
                 name="name",
-                type=SqlDataType(name=SodaDataTypeName.VARCHAR, character_maximum_length=255),
+                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=255),
                 nullable=True,
             ),
             CREATE_TABLE_COLUMN(
                 name="small_text",
-                type=SqlDataType(name=SodaDataTypeName.VARCHAR, character_maximum_length=3),
+                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=3),
                 nullable=True,
             ),
-            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=SodaDataTypeName.DATE), nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp", type=SqlDataType(name=SodaDataTypeName.TIMESTAMP), nullable=True),
+            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=col_type(SodaDataTypeName.DATE)), nullable=True),
+            CREATE_TABLE_COLUMN(name="my_timestamp", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)), nullable=True),
             CREATE_TABLE_COLUMN(
-                name="my_timestamp_tz", type=SqlDataType(name=SodaDataTypeName.TIMESTAMP_TZ), nullable=True
+                name="my_timestamp_tz", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP_TZ)), nullable=True
             ),
         ]
 
