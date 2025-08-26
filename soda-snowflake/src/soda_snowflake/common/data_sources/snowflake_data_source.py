@@ -2,7 +2,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -49,14 +49,14 @@ class SnowflakeSqlDialect(SqlDialect):
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
-            SodaDataTypeNames.TEXT: "TEXT",
-            SodaDataTypeNames.INTEGER: "NUMBER",
-            SodaDataTypeNames.DECIMAL: "FLOAT",
-            SodaDataTypeNames.DATE: "DATE",
-            SodaDataTypeNames.TIME: "TIME",
-            SodaDataTypeNames.TIMESTAMP: "TIMESTAMP_NTZ",
-            SodaDataTypeNames.TIMESTAMP_TZ: "TIMESTAMP_TZ",
-            SodaDataTypeNames.BOOLEAN: "BOOLEAN",
+            SodaDataTypeName.TEXT: "TEXT",
+            SodaDataTypeName.INTEGER: "NUMBER",
+            SodaDataTypeName.DECIMAL: "FLOAT",
+            SodaDataTypeName.DATE: "DATE",
+            SodaDataTypeName.TIME: "TIME",
+            SodaDataTypeName.TIMESTAMP: "TIMESTAMP_NTZ",
+            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP_TZ",
+            SodaDataTypeName.BOOLEAN: "BOOLEAN",
         }
 
     def _get_data_type_name_synonyms(self) -> dict:
@@ -97,14 +97,14 @@ class SnowflakeSqlDialect(SqlDialect):
         Maps DBDataType names to data source type names.
         """
         return {
-            SodaDataTypeNames.VARCHAR: "varchar",
-            SodaDataTypeNames.TEXT: "text",
-            SodaDataTypeNames.INTEGER: "integer",
-            SodaDataTypeNames.DECIMAL: "decimal",
-            SodaDataTypeNames.NUMERIC: "decimal",
-            SodaDataTypeNames.DATE: "date",
-            SodaDataTypeNames.TIME: "time",
-            SodaDataTypeNames.TIMESTAMP: "timestamp",
-            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp_tz",
-            SodaDataTypeNames.BOOLEAN: "boolean",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp_tz",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }

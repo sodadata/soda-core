@@ -2,7 +2,7 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import CAST, REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
@@ -45,21 +45,21 @@ class PostgresSqlDialect(SqlDialect):
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
-            SodaDataTypeNames.TEXT: "varchar",
-            SodaDataTypeNames.VARCHAR: "varchar",
-            SodaDataTypeNames.INTEGER: "integer",
-            SodaDataTypeNames.DECIMAL: "double precision",
-            SodaDataTypeNames.NUMERIC: "numeric",
-            SodaDataTypeNames.DATE: "date",
-            SodaDataTypeNames.TIME: "time",
-            SodaDataTypeNames.TIMESTAMP: "timestamp without time zone",
-            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
-            SodaDataTypeNames.BOOLEAN: "boolean",
+            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "double precision",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeNames) else cast.to_type
+            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
 
@@ -79,14 +79,14 @@ class PostgresSqlDialect(SqlDialect):
         Maps DBDataType names to data source type names.
         """
         return {
-            SodaDataTypeNames.VARCHAR: "varchar",
-            SodaDataTypeNames.TEXT: "text",
-            SodaDataTypeNames.INTEGER: "integer",
-            SodaDataTypeNames.DECIMAL: "decimal",
-            SodaDataTypeNames.NUMERIC: "decimal",
-            SodaDataTypeNames.DATE: "date",
-            SodaDataTypeNames.TIME: "time",
-            SodaDataTypeNames.TIMESTAMP: "timestamp",
-            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
-            SodaDataTypeNames.BOOLEAN: "boolean",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }

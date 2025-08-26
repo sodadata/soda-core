@@ -6,7 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import (
     AND,
     COLUMN,
@@ -139,19 +139,19 @@ class SqlServerSqlDialect(SqlDialect):
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         base_dict = super().get_sql_data_type_name_by_soda_data_type_names()
-        base_dict[SodaDataTypeNames.TEXT] = "varchar(255)"
+        base_dict[SodaDataTypeName.TEXT] = "varchar(255)"
         return base_dict
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
-            SodaDataTypeNames.TEXT: "varchar",
-            SodaDataTypeNames.INTEGER: "int",
-            SodaDataTypeNames.DECIMAL: "float",
-            SodaDataTypeNames.DATE: "date",
-            SodaDataTypeNames.TIME: "time",
-            SodaDataTypeNames.TIMESTAMP: "datetime",
-            SodaDataTypeNames.TIMESTAMP_TZ: "datetimeoffset",
-            SodaDataTypeNames.BOOLEAN: "bit",
+            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.INTEGER: "int",
+            SodaDataTypeName.DECIMAL: "float",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "datetime",
+            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
+            SodaDataTypeName.BOOLEAN: "bit",
         }
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:

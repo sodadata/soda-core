@@ -7,7 +7,7 @@ from textwrap import indent
 from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.metadata_types import SodaDataTypeNames, SqlDataType
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     CASE_WHEN,
@@ -132,7 +132,7 @@ class SqlDialect:
         # }
         raise NotImplementedError()
 
-    def get_sql_data_type_name(self, soda_data_type: SodaDataTypeNames) -> str:
+    def get_sql_data_type_name(self, soda_data_type: SodaDataTypeName) -> str:
         return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
@@ -700,7 +700,7 @@ class SqlDialect:
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeNames) else cast.to_type
+            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
         )
         return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
 
@@ -945,21 +945,24 @@ class SqlDialect:
             datetime_precision=datetime_precision,
         )
 
+    def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
+        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
+
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """
         return {
-            SodaDataTypeNames.VARCHAR: "varchar",
-            SodaDataTypeNames.TEXT: "text",
-            SodaDataTypeNames.INTEGER: "integer",
-            SodaDataTypeNames.DECIMAL: "decimal",
-            SodaDataTypeNames.NUMERIC: "numeric",
-            SodaDataTypeNames.DATE: "date",
-            SodaDataTypeNames.TIME: "time",
-            SodaDataTypeNames.TIMESTAMP: "timestamp",
-            SodaDataTypeNames.TIMESTAMP_TZ: "timestamptz",
-            SodaDataTypeNames.BOOLEAN: "boolean",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
@@ -972,4 +975,7 @@ class SqlDialect:
         return data_type_name.lower() in ["numeric", "number", "decimal"]
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["timestamp", "time"]
+        return data_type_name.lower() in [
+            "timestamp", "timestamp without time zone", "time",
+            "timestamptz", "timestamp with time zone"
+        ]

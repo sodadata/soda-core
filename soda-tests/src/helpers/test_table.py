@@ -6,7 +6,7 @@ from typing import Iterable, Optional
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.metadata_types import (
     ColumnMetadata,
-    SodaDataTypeNames,
+    SodaDataTypeName,
     SqlDataType,
 )
 
@@ -37,43 +37,99 @@ class TestTableSpecificationBuilder:
         self._table_purpose = table_purpose
         return self
 
-    def column(self, column_name: str, data_type: str | SqlDataType) -> TestTableSpecificationBuilder:
-        if isinstance(data_type, SqlDataType):
-            sql_data_type: SqlDataType = data_type
-        else:
-            sql_data_type: SqlDataType = SqlDataType(name=data_type)
-
+    def column(
+        self,
+        name: str,
+        soda_data_type_name: SodaDataTypeName,
+        character_maximum_length: Optional[int] = None,
+        numeric_precision: Optional[int] = None,
+        numeric_scale: Optional[int] = None,
+        datetime_precision: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
         self._columns.append(
             ColumnMetadata(
-                column_name=column_name,
-                sql_data_type=sql_data_type,
+                column_name=name,
+                sql_data_type=SqlDataType(
+                    name=soda_data_type_name,
+                    character_maximum_length=character_maximum_length,
+                    numeric_precision=numeric_precision,
+                    numeric_scale=numeric_scale,
+                    datetime_precision=datetime_precision,
+                ),
             )
         )
         return self
 
-    def column_varchar(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.VARCHAR)
+    def column_varchar(
+        self,
+        name: str,
+        character_maximum_length: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.VARCHAR,
+            character_maximum_length=character_maximum_length,
+        )
 
     def column_integer(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.INTEGER)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.INTEGER)
 
-    def column_decimal(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.DECIMAL)
+    def column_numeric(
+        self,
+        name: str,
+        numeric_precision: Optional[int] = None,
+        numeric_scale: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.NUMERIC,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale
+        )
+
+    def column_decimal(
+        self,
+        name: str,
+        numeric_precision: Optional[int] = None,
+        numeric_scale: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.DECIMAL,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale
+        )
 
     def column_date(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.DATE)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.DATE)
 
     def column_time(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.TIME)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.TIME)
 
-    def column_timestamp(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.TIMESTAMP)
+    def column_timestamp(
+        self,
+        name: str,
+        datetime_precision: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.TIMESTAMP,
+            datetime_precision=datetime_precision,
+        )
 
-    def column_timestamp_tz(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.TIMESTAMP_TZ)
+    def column_timestamp_tz(
+        self,
+        name: str,
+        datetime_precision: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.TIMESTAMP_TZ,
+            datetime_precision=datetime_precision,
+        )
 
     def column_boolean(self, name) -> TestTableSpecificationBuilder:
-        return self.column(column_name=name, data_type=SodaDataTypeNames.BOOLEAN)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.BOOLEAN)
 
     def rows(self, rows: list[tuple]) -> TestTableSpecificationBuilder:
         """

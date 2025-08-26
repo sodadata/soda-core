@@ -57,7 +57,7 @@ class ColumnMetadata:
         return None if self.sql_data_type is None else self.sql_data_type.get_sql_data_type_str_with_parameters()
 
 
-class SodaDataTypeNames(str, enum.Enum):
+class SodaDataTypeName(str, enum.Enum):
     """
     SodaDataTypeNames contain common data source-neutral constants for referring to the basic, common column data types.
     Its used to create test tables for tests that need to be created on each type of data source.

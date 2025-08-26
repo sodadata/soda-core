@@ -1,6 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
@@ -51,12 +51,12 @@ class DatabricksSqlDialect(SqlDialect):
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
-            SodaDataTypeNames.TEXT: "string",
-            SodaDataTypeNames.INTEGER: "integer",
-            SodaDataTypeNames.DECIMAL: "double",
-            SodaDataTypeNames.DATE: "date",
-            SodaDataTypeNames.TIME: "time",
-            SodaDataTypeNames.TIMESTAMP: "timestamp_ntz",
-            SodaDataTypeNames.TIMESTAMP_TZ: "timestamp",
-            SodaDataTypeNames.BOOLEAN: "boolean",
+            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "double",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }

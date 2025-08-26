@@ -9,7 +9,7 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeNames
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
@@ -74,14 +74,14 @@ class BigQuerySqlDialect(SqlDialect):
 
     def get_contract_type_dict(self) -> dict[str, str]:
         return {
-            SodaDataTypeNames.TEXT: "STRING",
-            SodaDataTypeNames.INTEGER: "INT64",
-            SodaDataTypeNames.DECIMAL: "FLOAT64",
-            SodaDataTypeNames.DATE: "DATE",
-            SodaDataTypeNames.TIME: "TIME",
-            SodaDataTypeNames.TIMESTAMP: "TIMESTAMP",
-            SodaDataTypeNames.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
-            SodaDataTypeNames.BOOLEAN: "BOOL",
+            SodaDataTypeName.TEXT: "STRING",
+            SodaDataTypeName.INTEGER: "INT64",
+            SodaDataTypeName.DECIMAL: "FLOAT64",
+            SodaDataTypeName.DATE: "DATE",
+            SodaDataTypeName.TIME: "TIME",
+            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
+            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
+            SodaDataTypeName.BOOLEAN: "BOOL",
         }
 
     def default_casify(self, identifier: str) -> str:
