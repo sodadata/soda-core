@@ -76,6 +76,41 @@ class SqlDialect:
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
 
+    def __init__(self):
+        self._data_type_name_synonym_mappings: dict[str,str] = self._build_data_type_name_synonym_mappings(
+            self._get_data_type_name_synonyms()
+        )
+
+    def _build_data_type_name_synonym_mappings(self, data_type_name_synonyms: list[list[str]]) -> dict[str,str]:
+        data_type_name_synonym_mappings: dict[str, str] = {}
+        for data_type_name_synonym_list in data_type_name_synonyms:
+            first_type_lower: str = data_type_name_synonym_list[0].lower()
+            for data_type_name_synonym in data_type_name_synonym_list:
+                data_type_name_synonym_mappings[data_type_name_synonym.lower()] = first_type_lower
+        return data_type_name_synonym_mappings
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        # Implements data type synonyms
+        # Each list should represent a list of synonyms
+        return [
+            # Eg for postgres
+            # ["varchar", "character varying"],
+            # ["char", "character"],
+            # ["integer", "int", "int4"],
+            # ["bigint", "int8"],
+            # ["smallint", "int2"],
+            # ["real", "float4"],
+            # ["double precision", "float8"],
+        ]
+
+    def data_type_names_are_same_or_synonym(self, left_data_type_name: str, right_data_type_name: str) -> bool:
+        left_data_type_name_lower: str = left_data_type_name.lower()
+        right_data_type_name_lower: str = right_data_type_name.lower()
+        return (
+            left_data_type_name_lower == right_data_type_name_lower
+            or (self._data_type_name_synonym_mappings.get(left_data_type_name_lower)
+                == self._data_type_name_synonym_mappings.get(right_data_type_name_lower)))
+
     @abstractmethod
     def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
         """
@@ -869,16 +904,13 @@ class SqlDialect:
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
-        expected_data_type_name: str = expected.name
-        actual_data_type_name: str = actual.name
-        canonical_expected_data_type_name: str = self.get_canonical_data_type_name(expected_data_type_name)
-        canonical_actual_data_type_name: str = self.get_canonical_data_type_name(actual_data_type_name)
+    def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
+        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
 
-        if canonical_expected_data_type_name != canonical_actual_data_type_name:
+    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
+        if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
             return False
-        if (
-            isinstance(expected.character_maximum_length, int)
+        if (isinstance(expected.character_maximum_length, int)
             and expected.character_maximum_length != actual.character_maximum_length
         ):
             return False
@@ -889,24 +921,6 @@ class SqlDialect:
         if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
             return False
         return True
-
-    def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
-        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
-
-    def get_canonical_data_type_name(self, data_type_name: str) -> str:
-        canonical_data_type: str = data_type_name.lower()
-        canonical_data_type_mappings: dict = self.get_canonical_data_type_mappings()
-        if canonical_data_type in canonical_data_type_mappings:
-            canonical_data_type = canonical_data_type_mappings.get(canonical_data_type)
-        return canonical_data_type
-
-    def get_canonical_data_type_mappings(self) -> dict:
-        # Implements data type synonyms
-        # Ensure that these mappings include mappings for the DBDataType's
-        return {
-            # keys are (ideally but not required lower case) data types coming from metadata
-            # values are the canonical data type names used for data type name string comparison
-        }
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name

@@ -63,30 +63,16 @@ class PostgresSqlDialect(SqlDialect):
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
 
-    def get_canonical_data_type_mappings(self) -> dict:
-        return {
-            # integer types
-            "int": "integer",
-            "int4": "integer",
-            "int8": "bigint",
-            "int2": "smallint",
-            # numeric / decimal types
-            "dec": "decimal",
-            "numeric": "decimal",
-            "float8": "double precision",
-            "float4": "real",
-            # character types
-            "character": "char",
-            "character varying": "varchar",
-            "text": "varchar",
-            # boolean
-            "bool": "boolean",
-            # date/time types
-            "timestamp": "timestamp without time zone",
-            "timestamptz": "timestamp with time zone",
-            "time": "time without time zone",
-            "timetz": "time with time zone",
-        }
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "character varying"],
+            ["char", "character"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["smallint", "int2"],
+            ["real", "float4"],
+            ["double precision", "float8"],
+        ]
 
     def get_data_source_type_names_by_test_type_names(self) -> dict:
         """

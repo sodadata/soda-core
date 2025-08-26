@@ -147,6 +147,7 @@ class SchemaCheckImpl(CheckImpl):
                     )
                 ):
                     column_data_type_mismatches.append(
+                        # TODO add numeric_scale, numeric_precision & datetime_precision to the ColumnDataTypeMismatch
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
                             expected_data_type=expected_column.sql_data_type.name,

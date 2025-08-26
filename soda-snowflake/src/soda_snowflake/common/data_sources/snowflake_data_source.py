@@ -59,7 +59,7 @@ class SnowflakeSqlDialect(SqlDialect):
             SodaDataTypeNames.BOOLEAN: "BOOLEAN",
         }
 
-    def get_canonical_data_type_mappings(self) -> dict:
+    def _get_data_type_name_synonyms(self) -> dict:
         return {
             # numeric
             "decimal": "number",
