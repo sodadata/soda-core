@@ -5,7 +5,7 @@ from helpers.test_table import TestTableSpecification
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("missing")
-    .column_text("id")
+    .column_varchar("id")
     .column_integer("age")
     .rows(
         rows=[

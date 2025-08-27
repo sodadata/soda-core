@@ -4,6 +4,7 @@ import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     COLUMN,
     CREATE_TABLE_COLUMN,
@@ -15,7 +16,6 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     SELECT,
     VALUES_ROW,
-    DBDataType,
 )
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -31,14 +31,29 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
     data_source_impl.execute_update(drop_table_sql)
 
+    def col_type(name: str) -> str:
+        return sql_dialect.get_sql_data_type_name_by_soda_data_type_names()[name]
+
     try:
         create_table_columns = [
-            CREATE_TABLE_COLUMN(name="id", type=DBDataType.INTEGER, nullable=False),
-            CREATE_TABLE_COLUMN(name="name", type=DBDataType.TEXT, length=255, nullable=True),
-            CREATE_TABLE_COLUMN(name="small_text", type=DBDataType.TEXT, length=3, nullable=True),
-            CREATE_TABLE_COLUMN(name="my_date", type=DBDataType.DATE, nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp", type=DBDataType.TIMESTAMP, nullable=True),
-            CREATE_TABLE_COLUMN(name="my_timestamp_tz", type=DBDataType.TIMESTAMP_TZ, nullable=True),
+            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)), nullable=False),
+            CREATE_TABLE_COLUMN(
+                name="name",
+                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=255),
+                nullable=True,
+            ),
+            CREATE_TABLE_COLUMN(
+                name="small_text",
+                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=3),
+                nullable=True,
+            ),
+            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=col_type(SodaDataTypeName.DATE)), nullable=True),
+            CREATE_TABLE_COLUMN(
+                name="my_timestamp", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)), nullable=True
+            ),
+            CREATE_TABLE_COLUMN(
+                name="my_timestamp_tz", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP_TZ)), nullable=True
+            ),
         ]
 
         standard_columns = [column.convert_to_standard_column() for column in create_table_columns]
