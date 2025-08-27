@@ -40,15 +40,20 @@ class PostgresSqlDialect(SqlDialect):
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
-            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "double precision",
+            SodaDataTypeName.BIGINT: "bigint",
             SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.FLOAT: "float",
+            SodaDataTypeName.DOUBLE: "double",
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
