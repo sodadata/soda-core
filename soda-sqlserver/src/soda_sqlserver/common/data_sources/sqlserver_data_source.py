@@ -176,7 +176,6 @@ class SqlServerSqlDialect(SqlDialect):
     def _build_offset_sql(self, offset_element: OFFSET) -> str:
         return f"OFFSET {offset_element.offset} ROWS"
 
-
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
             ["varchar", "nvarchar"],
@@ -187,7 +186,7 @@ class SqlServerSqlDialect(SqlDialect):
             ["real"],
             ["float", "double precision"],
             ["datetime2", "datetime"],
-                ]
+        ]
 
     def get_data_source_type_names_by_test_type_names(self) -> dict:
         """
