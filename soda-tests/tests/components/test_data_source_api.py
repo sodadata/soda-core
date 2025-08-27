@@ -12,8 +12,8 @@ from soda_core.common.yaml import DataSourceYamlSource
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("data_source_api")
-    .column_varchar("id")
-    .column_varchar("country")
+    .column_varchar("id", character_maximum_length=255)  # max length required for sql server
+    .column_varchar("country", character_maximum_length=255)  # max length required for sql server
     .rows([("1", "US"), ("2", "BE"), ("3", "NL")])
     .build()
 )

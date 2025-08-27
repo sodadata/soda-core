@@ -142,18 +142,6 @@ class SqlServerSqlDialect(SqlDialect):
         base_dict[SodaDataTypeName.TEXT] = "varchar(255)"
         return base_dict
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.TEXT: "varchar",
-            SodaDataTypeName.INTEGER: "int",
-            SodaDataTypeName.DECIMAL: "float",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "datetime",
-            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
-            SodaDataTypeName.BOOLEAN: "bit",
-        }
-
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
@@ -187,3 +175,64 @@ class SqlServerSqlDialect(SqlDialect):
 
     def _build_offset_sql(self, offset_element: OFFSET) -> str:
         return f"OFFSET {offset_element.offset} ROWS"
+
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "nvarchar"],
+            ["char", "nchar"],
+            ["int", "integer"],
+            ["bigint"],
+            ["smallint"],
+            ["real"],
+            ["float", "double precision"],
+            ["datetime2", "datetime"],
+                ]
+
+    def get_data_source_type_names_by_test_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.INTEGER: "int",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "datetime2",
+            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
+            SodaDataTypeName.BOOLEAN: "bit",
+        }
+
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return True
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return True
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return True
+
+    def supports_data_type_datetime_precision(self) -> bool:
+        return True
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "nvarchar", "nchar"]
+
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "decimal", "float"]
+
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "decimal"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in [
+            "time",
+            "datetime2",
+            "datetimeoffset",
+        ]
+
+    def default_varchar_length(self) -> Optional[int]:
+        return 255
