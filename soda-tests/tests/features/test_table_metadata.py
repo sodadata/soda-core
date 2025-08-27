@@ -12,7 +12,7 @@ from soda_core.common.statements.metadata_columns_query import MetadataColumnsQu
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("metadata")
-    .column_varchar(name="varchar_default")
+    .column_varchar(name="varchar_default", character_maximum_length=None)
     .column_varchar(name="varchar_w_length", character_maximum_length=255)
     .column_integer(name="integer_default")
     .column_numeric(name="numeric_default")
