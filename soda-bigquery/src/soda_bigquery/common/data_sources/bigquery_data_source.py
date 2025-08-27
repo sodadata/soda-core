@@ -76,8 +76,8 @@ class BigQuerySqlDialect(SqlDialect):
         return {
             SodaDataTypeName.TEXT: "STRING",
             SodaDataTypeName.VARCHAR: "STRING",
-            SodaDataTypeName.INTEGER: "INT64",
-            SodaDataTypeName.DECIMAL: "FLOAT64",
+            SodaDataTypeName.INTEGER: "INTEGER",
+            SodaDataTypeName.DECIMAL: "NUMERIC",
             SodaDataTypeName.NUMERIC: "NUMERIC",
             SodaDataTypeName.DATE: "DATE",
             SodaDataTypeName.TIME: "TIME",
@@ -85,6 +85,15 @@ class BigQuerySqlDialect(SqlDialect):
             SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",
             SodaDataTypeName.BOOLEAN: "BOOLEAN",
         }
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["int64", "integer"],
+            ["float64"],
+            ["bool", "boolean"],
+            ["numeric", "decimal"],
+            ["bignumeric", "bigdecimal"],
+        ]
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
