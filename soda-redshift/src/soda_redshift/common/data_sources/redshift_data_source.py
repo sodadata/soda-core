@@ -64,6 +64,18 @@ class RedshiftSqlDialect(SqlDialect):
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "character varying"],
+            ["char", "character"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["smallint", "int2"],
+            ["real", "float4"],
+            ["double precision", "float8"],
+            ["timestamp", "timestamp without time zone"],
+        ]
+
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
 

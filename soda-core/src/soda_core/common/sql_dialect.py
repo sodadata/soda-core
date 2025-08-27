@@ -108,10 +108,15 @@ class SqlDialect:
     def data_type_names_are_same_or_synonym(self, left_data_type_name: str, right_data_type_name: str) -> bool:
         left_data_type_name_lower: str = left_data_type_name.lower()
         right_data_type_name_lower: str = right_data_type_name.lower()
-        return left_data_type_name_lower == right_data_type_name_lower or (
-            self._data_type_name_synonym_mappings.get(left_data_type_name_lower, left_data_type_name_lower)
-            == self._data_type_name_synonym_mappings.get(right_data_type_name_lower, right_data_type_name_lower)
+        if left_data_type_name_lower == right_data_type_name_lower:
+            return True
+        left_synonym_data_type_name: str = self._data_type_name_synonym_mappings.get(
+            left_data_type_name_lower, left_data_type_name_lower
         )
+        right_synonym_data_type_name: str = self._data_type_name_synonym_mappings.get(
+            right_data_type_name_lower, right_data_type_name_lower
+        )
+        return left_synonym_data_type_name == right_synonym_data_type_name
 
     @abstractmethod
     def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
