@@ -63,15 +63,26 @@ class SodaDataTypeName(str, enum.Enum):
     And in the DWH it's used to map common data types to concrete ones for the Soda columns.
     """
 
-    VARCHAR = "varchar"
-    TEXT = "text"
-    INTEGER = "integer"
-    DECIMAL = "decimal"
-    NUMERIC = "numeric"
+    CHAR = "char"         # fixed length string
+    VARCHAR = "varchar"   # bounded variable length string
+    TEXT = "text"         # unbounded variable length string
+
+    SMALLINT = "smallint" # integer, 2 bytes
+    INTEGER = "integer"   # integer, 4 bytes
+    BIGINT = "bigint"     # integer, 8 bytes
+
+    DECIMAL = "decimal"   # exact values with configured precision
+    NUMERIC = "numeric"   # exact values with configured precision
+
+    FLOAT = "float"       # 4 bytes floating point number
+    DOUBLE = "double"     # 8 bytes floating point number
+
+    TIMESTAMP = "timestamp"
+    TIMESTAMP_TZ = "timestamp_tz"
+
     DATE = "date"
     TIME = "time"
-    TIMESTAMP = "timestamp"
-    TIMESTAMP_TZ = "timestamptz"
+
     BOOLEAN = "boolean"
 
     def __eq__(self, value: object) -> bool:
