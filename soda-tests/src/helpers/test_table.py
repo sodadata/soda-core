@@ -63,7 +63,9 @@ class TestTableSpecificationBuilder:
     def column_varchar(
         self,
         name: str,
-        character_maximum_length: Optional[int] = 255,   # sqlserver defaults to length 1, so always supply a length by default 
+        character_maximum_length: Optional[
+            int
+        ] = 255,  # sqlserver defaults to length 1, so always supply a length by default
     ) -> TestTableSpecificationBuilder:
         return self.column(
             name=name,
