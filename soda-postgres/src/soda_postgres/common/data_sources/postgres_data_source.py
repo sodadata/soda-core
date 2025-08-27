@@ -1,5 +1,3 @@
-from typing import Optional
-
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.metadata_types import SodaDataTypeName
