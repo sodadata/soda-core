@@ -63,19 +63,19 @@ class SodaDataTypeName(str, enum.Enum):
     And in the DWH it's used to map common data types to concrete ones for the Soda columns.
     """
 
-    CHAR = "char"         # fixed length string
-    VARCHAR = "varchar"   # bounded variable length string
-    TEXT = "text"         # unbounded variable length string
+    CHAR = "char"  # fixed length string
+    VARCHAR = "varchar"  # bounded variable length string
+    TEXT = "text"  # unbounded variable length string
 
-    SMALLINT = "smallint" # integer, 2 bytes
-    INTEGER = "integer"   # integer, 4 bytes
-    BIGINT = "bigint"     # integer, 8 bytes
+    SMALLINT = "smallint"  # integer, 2 bytes
+    INTEGER = "integer"  # integer, 4 bytes
+    BIGINT = "bigint"  # integer, 8 bytes
 
-    DECIMAL = "decimal"   # exact values with configured precision
-    NUMERIC = "numeric"   # exact values with configured precision
+    DECIMAL = "decimal"  # exact values with configured precision
+    NUMERIC = "numeric"  # exact values with configured precision
 
-    FLOAT = "float"       # 4 bytes floating point number
-    DOUBLE = "double"     # 8 bytes floating point number
+    FLOAT = "float"  # 4 bytes floating point number
+    DOUBLE = "double"  # 8 bytes floating point number
 
     TIMESTAMP = "timestamp"
     TIMESTAMP_TZ = "timestamp_tz"
