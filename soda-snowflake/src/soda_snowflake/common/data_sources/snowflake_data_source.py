@@ -44,9 +44,6 @@ class SnowflakeSqlDialect(SqlDialect):
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"ARRAY_CONSTRUCT{super()._build_tuple_sql(tuple)}"
 
-    def default_varchar_length(self) -> Optional[int]:
-        return 16777216
-
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         # Implements data type synonyms
         # Each list should represent a list of synonyms

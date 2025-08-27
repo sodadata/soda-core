@@ -261,12 +261,6 @@ class SqlDialect:
             return self.literal(o.value)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
 
-    def default_varchar_length(self) -> Optional[int]:
-        """Some data sources have a default length for varchar types (such as Snowflake).
-        We want to use this if it's available.
-        If it is not available, return None."""
-        return None
-
     def literal_number(self, value: Number):
         if value is None:
             return None

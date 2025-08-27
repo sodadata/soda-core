@@ -40,9 +40,6 @@ class PostgresSqlDialect(SqlDialect):
             + (";" if add_semicolon else "")
         )
 
-    def default_varchar_length(self) -> Optional[int]:
-        return 255
-
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
             SodaDataTypeName.TEXT: "varchar",

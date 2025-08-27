@@ -14,22 +14,6 @@ test_table_specification = (
 )
 
 
-def get_character_maximum_length_expression(
-    data_source_test_helper: DataSourceTestHelper,
-    expected_length: int = 255,
-    overwrite_with_expected_length: bool = False,
-) -> str:
-    default_character_maximum_length = data_source_test_helper.data_source_impl.sql_dialect.default_varchar_length()
-    character_maximum_length = default_character_maximum_length if default_character_maximum_length else expected_length
-    if overwrite_with_expected_length:
-        character_maximum_length = expected_length
-    return (
-        f"character_maximum_length: {character_maximum_length}"
-        if data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length()
-        else ""
-    )
-
-
 def test_schema(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -38,8 +22,6 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
             MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
         ]
     )
-
-    character_maximum_length_expression = get_character_maximum_length_expression(data_source_test_helper)
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
