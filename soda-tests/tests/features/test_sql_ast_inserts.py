@@ -4,8 +4,8 @@ import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.datetime_conversions import interpret_datetime_as_utc
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     COLUMN,
     CREATE_TABLE_COLUMN,
