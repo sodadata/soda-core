@@ -27,6 +27,10 @@ test_table_specification = (
 
 
 def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
+    if data_source_test_helper.data_source_impl.type_name == "fabric":
+        test_table_specification.columns[3].sql_data_type = SqlDataType(name='numeric', numeric_precision=10)
+
+
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
