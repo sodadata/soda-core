@@ -20,8 +20,8 @@ ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP")
 
 
 class AthenaDataSourceTestHelper(DataSourceTestHelper):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name: str):
+        super().__init__(name)
         self.s3_test_dir = ATHENA_S3_TEST_DIR
         if self.s3_test_dir.endswith("/"):
             self.s3_test_dir = self.s3_test_dir[:-1]
@@ -36,7 +36,7 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
                 type: athena
-                name: ATHENA_TEST_DS
+                name: {self.name}
                 connection:
                     access_key_id: {ATHENA_ACCESS_KEY_ID}
                     secret_access_key: {ATHENA_SECRET_ACCESS_KEY}

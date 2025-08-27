@@ -14,7 +14,13 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import UpdateResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COLUMN, CREATE_TABLE, CREATE_TABLE_IF_NOT_EXISTS
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.sql_ast import (
+    COLUMN,
+    CREATE_TABLE,
+    CREATE_TABLE_COLUMN,
+    CREATE_TABLE_IF_NOT_EXISTS,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
@@ -150,6 +156,47 @@ class AthenaSqlDialect(SqlDialect):
         super().__init__()
         self.data_source_impl = data_source_impl
 
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            SodaDataTypeName.VARCHAR: "string",
+            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "date",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        # Implements data type synonyms
+        # Each list should represent a list of synonyms
+        return [
+            ["varchar", "character varying", "string"],
+            ["decimal", "decimal(10,0)"],  # Athena returns decimal(10,0) for NUMERIC
+            ["timestamp", "timestamp(3)"],  # Athena returns timestamp(3) for TIMESTAMP and TIMESTAMP_TZ
+        ]
+
+    # def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
+    #     return {
+    #         SodaDataTypeName.VARCHAR: "string",
+    #         SodaDataTypeName.TEXT: "string",
+    #         SodaDataTypeName.INTEGER: "integer",
+    #         SodaDataTypeName.DECIMAL: "decimal",
+    #         SodaDataTypeName.NUMERIC: "decimal",
+    #         SodaDataTypeName.DATE: "date",
+    #         SodaDataTypeName.TIME: "date",
+    #         SodaDataTypeName.TIMESTAMP: "timestamp(3)",
+    #         SodaDataTypeName.TIMESTAMP_TZ: "timestamp(3)",
+    #         SodaDataTypeName.BOOLEAN: "boolean",
+    #     }
+
+    # TODO: can be removed, just keeping this here a bit as reference
     # def get_contract_type_dict(self) -> dict[str, str]:
     #     base_contract_type_dict = super().get_contract_type_dict()
     #     base_contract_type_dict[DBDataType.TEXT] = "varchar"
@@ -227,8 +274,24 @@ class AthenaSqlDialect(SqlDialect):
         create_table_sql: str = f"CREATE EXTERNAL TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
         return create_table_sql
 
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        assert isinstance(create_table_column.type, SqlDataType)
+        return create_table_column.type.get_sql_data_type_str_without_parameters()
+
     def _quote_column_for_create_table(self, column_name: str) -> str:
         return f"`{column_name}`"
 
     def _is_not_null_ddl_supported(self) -> bool:
+        return False
+
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return False
+
+    def supports_data_type_datetime_precision(self) -> bool:
         return False
