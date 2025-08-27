@@ -86,6 +86,15 @@ class BigQuerySqlDialect(SqlDialect):
             SodaDataTypeName.BOOLEAN: "BOOLEAN",
         }
 
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["int64", "integer"],
+            ["float64"],
+            ["bool", "boolean"],
+            ["numeric", "decimal"],
+            ["bignumeric", "bigdecimal"],
+        ]
+
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
