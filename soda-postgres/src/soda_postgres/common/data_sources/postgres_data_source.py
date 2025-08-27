@@ -1,5 +1,3 @@
-from typing import Optional
-
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.metadata_types import SodaDataTypeName
@@ -39,9 +37,6 @@ class PostgresSqlDialect(SqlDialect):
             f"{super().create_schema_if_not_exists_sql(prefixes, add_semicolon=False)} AUTHORIZATION CURRENT_USER"
             + (";" if add_semicolon else "")
         )
-
-    def default_varchar_length(self) -> Optional[int]:
-        return 255
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {

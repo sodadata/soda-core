@@ -52,7 +52,6 @@ class ColumnMetadata:
     # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
 
-    # Deprecated. Replaced by SqlDataType.to_create_table_column_type above
     def get_sql_data_type_str_with_parameters(self) -> Optional[str]:
         return None if self.sql_data_type is None else self.sql_data_type.get_sql_data_type_str_with_parameters()
 

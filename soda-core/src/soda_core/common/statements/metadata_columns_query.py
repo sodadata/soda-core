@@ -152,7 +152,6 @@ class MetadataColumnsQuery:
 
             column_metadatas.append(
                 ColumnMetadata(
-                    # Format data_type value here if needed -- default no-op
                     column_name=column_name,
                     sql_data_type=SqlDataType(
                         name=data_type_name,
