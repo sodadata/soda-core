@@ -34,5 +34,3 @@ In your IDE, set up
 Ensure [your local postgres db is running (see below)](#starting-the-postgres-docker-container).
 
 ### Running the test suite in VSCode
-
-TODO.  Any volunteer?
