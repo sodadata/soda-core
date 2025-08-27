@@ -374,6 +374,14 @@ class SqlDialect:
         assert isinstance(create_table_column.type, SqlDataType)
         return create_table_column.type.get_sql_data_type_str_with_parameters()
 
+    def _quote_column_for_create_table(self, column_name: str) -> str:
+        return self.quote_default(
+            column_name
+        )  # Some datasources (Athena) require a different quoting when creating a table.
+
+    def _is_not_null_ddl_supported(self) -> bool:
+        return True
+
     #########################################################
     # DROP TABLE
     #########################################################

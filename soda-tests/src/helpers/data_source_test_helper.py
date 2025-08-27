@@ -407,7 +407,7 @@ class DataSourceTestHelper:
         my_create_table = CREATE_TABLE(
             fully_qualified_table_name=test_table.qualified_name,
             columns=[
-                CREATE_TABLE_COLUMN(name=column.name, type=column.sql_data_type.get_sql_data_type_str_with_parameters())
+                CREATE_TABLE_COLUMN(name=column.name, type=column.sql_data_type)
                 for column in test_table.columns.values()
             ],
         )
