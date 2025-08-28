@@ -26,7 +26,6 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         )
 
     def create_metadata_columns_query(self) -> DatabricksMetadataColumnsQuery:
-
         # TODO MetadataColumnsQuery was deleted and replaced DataSourceImpl.get_columns_metadata
         #      the behavior of DataSourceImpl.get_columns_metadata ideally by overriding the SqlDialect methods invoked
 

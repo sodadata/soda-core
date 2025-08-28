@@ -13,7 +13,6 @@ from typing import Any, Optional
 
 import requests
 from requests import Response
-
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -1267,8 +1266,11 @@ def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
         # column_metadata.sql_data_type can be None when
         # expected columns of schema check don't include the type.
         # The type includes the data type parameters in round brackets eg VARCHAR(255)
-        "type": (column_metadata.sql_data_type.get_sql_data_type_str_with_parameters()
-                 if column_metadata.sql_data_type else None),
+        "type": (
+            column_metadata.sql_data_type.get_sql_data_type_str_with_parameters()
+            if column_metadata.sql_data_type
+            else None
+        ),
     }
 
 

@@ -8,7 +8,11 @@ from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType, ColumnMetadata
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    SodaDataTypeName,
+    SqlDataType,
+)
 from soda_core.common.sql_ast import (
     AND,
     CASE_WHEN,
@@ -292,7 +296,7 @@ class SqlDialect:
         return f"'{datetime.isoformat()}'"
 
     def literal_time(self, time: time):
-        time_str: str = time.strftime('%H:%M:%S.%f')
+        time_str: str = time.strftime("%H:%M:%S.%f")
         return f"'{time_str}'"
 
     def literal_datetime_with_tz(self, datetime: datetime):
@@ -1029,11 +1033,7 @@ class SqlDialect:
                             if self.supports_data_type_numeric_precision()
                             else []
                         ),
-                        *(
-                            [self.column_data_type_numeric_scale()]
-                            if self.supports_data_type_numeric_scale()
-                            else []
-                        ),
+                        *([self.column_data_type_numeric_scale()] if self.supports_data_type_numeric_scale() else []),
                         *(
                             [self.column_data_type_datetime_precision()]
                             if self.supports_data_type_datetime_precision()
@@ -1041,17 +1041,11 @@ class SqlDialect:
                         ),
                     ]
                 ),
-                FROM(self.table_columns()).IN(
-                    information_schema_prefixes
-                ),
+                FROM(self.table_columns()).IN(information_schema_prefixes),
                 WHERE(
                     AND(
                         [
-                            *(
-                                [EQ(self.column_table_catalog(), LITERAL(database_name))]
-                                if database_name
-                                else []
-                            ),
+                            *([EQ(self.column_table_catalog(), LITERAL(database_name))] if database_name else []),
                             EQ(self.column_table_schema(), LITERAL(schema_name)),
                             EQ(self.column_table_name(), LITERAL(dataset_name)),
                         ]
@@ -1095,9 +1089,9 @@ class SqlDialect:
             numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
             datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
 
-            if isinstance(
-                character_maximum_length, int
-            ) and not self.data_type_has_parameter_character_maximum_length(data_type_name):
+            if isinstance(character_maximum_length, int) and not self.data_type_has_parameter_character_maximum_length(
+                data_type_name
+            ):
                 character_maximum_length = None
 
             if isinstance(numeric_precision, int) and not self.data_type_has_parameter_numeric_precision(
@@ -1105,9 +1099,7 @@ class SqlDialect:
             ):
                 numeric_precision = None
 
-            if isinstance(numeric_scale, int) and not self.data_type_has_parameter_numeric_scale(
-                data_type_name
-            ):
+            if isinstance(numeric_scale, int) and not self.data_type_has_parameter_numeric_scale(data_type_name):
                 numeric_scale = None
 
             if isinstance(datetime_precision, int) and not self.data_type_has_parameter_datetime_precision(

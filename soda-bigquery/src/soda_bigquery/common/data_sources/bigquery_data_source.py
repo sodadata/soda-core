@@ -60,7 +60,6 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return super_metadata_tables_query
 
     def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-
         # MetadataColumnsQuery was deleted and replaced DataSourceImpl.get_columns_metadata
         # TODO refactor the BigQuerySqlDialect to tweak the behavior of DataSourceImpl.get_columns_metadata
 
