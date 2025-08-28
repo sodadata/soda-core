@@ -13,6 +13,7 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
+from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
@@ -111,9 +112,6 @@ class DataSourceTestHelper:
         if logs.has_errors:
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
-
-        self.create_table_sql_type_dict: dict[str, str] = self._get_create_table_sql_type_dict()
-        self.contract_data_type_dict: dict[str, str] = self._get_contract_data_type_dict()
 
         # Test table names that are present in the data source.
         # None means the data source is not queried
@@ -226,42 +224,6 @@ class DataSourceTestHelper:
 
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
-
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_create_table_sql_type behavior
-        """
-        return self.data_source_impl.sql_dialect.get_sql_type_dict()
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_schema_check_sql_type behavior
-        """
-        return self.data_source_impl.sql_dialect.get_contract_type_dict()
-
-    def get_create_table_sql_type(self, test_data_type: str) -> str:
-        """
-        Resolves DataType.XXX constants to the data type sql string used in the create table statement.
-        Raises AssertionError if the data type is not found
-        Behavior can be overridden by customizing the dict in _get_create_table_sql_type_dict
-        or by overriding this method.
-        """
-        create_table_sql_type: str = self.create_table_sql_type_dict.get(test_data_type)
-        assert create_table_sql_type is not None, f"Invalid create table data type {test_data_type}"
-        return create_table_sql_type
-
-    def get_contract_data_type(self, data_type: str) -> str:
-        """
-        Resolves DataType.XXX constants to the data type sql string used in the create table statement.
-        Raises AssertionError if the data type is not found
-        Behavior can be overridden by customizing the dict in _get_create_table_sql_type_dict
-        or by overriding this method.
-        """
-        contract_data_type: str = self.contract_data_type_dict.get(data_type)
-        assert contract_data_type is not None, f"No contract data type for {data_type}: "
-        return contract_data_type
 
     def start_test_session(self) -> None:
         self.start_test_session_open_connection()
@@ -399,12 +361,14 @@ class DataSourceTestHelper:
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
         columns: list[TestColumn] = []
         for test_column_specification in test_table_specification.columns:
-            contract_data_type = self.get_contract_data_type(test_column_specification.test_data_type)
+            data_source_sql_data_type: SqlDataType = (
+                self.data_source_impl.sql_dialect.map_test_sql_data_type_to_data_source(
+                    source_data_type=test_column_specification.sql_data_type
+                )
+            )
             test_column: TestColumn = TestColumn(
-                name=test_column_specification.name,
-                test_data_type=contract_data_type,
-                create_table_data_type=self.get_create_table_sql_type(test_column_specification.test_data_type),
-                contract_data_type=self.get_contract_data_type(test_column_specification.test_data_type),
+                name=test_column_specification.column_name,
+                sql_data_type=data_source_sql_data_type,
             )
             columns.append(test_column)
 
@@ -435,7 +399,7 @@ class DataSourceTestHelper:
         sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
         columns_sql: str = ",\n".join(
             [
-                f"  {sql_dialect.quote_default(column.name)} {column.create_table_data_type}"
+                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_sql_data_type_str_with_parameters()}"
                 for column in test_table.columns.values()
             ]
         )

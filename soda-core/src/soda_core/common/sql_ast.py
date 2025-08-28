@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_datatypes import DBDataType
+from soda_core.common.metadata_types import SodaDataTypeName
 
 logger: logging.Logger = soda_logger
 
@@ -321,7 +321,7 @@ class COALESCE(SqlExpression):
 @dataclass
 class CAST(SqlExpression):
     expression: SqlExpression | str
-    to_type: str | DBDataType
+    to_type: str | SodaDataTypeName
 
     def __post_init__(self):
         super().__post_init__()
@@ -549,8 +549,7 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 @dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
-    type: DBDataType | str
-    length: Optional[int] = None
+    type: SqlDataType
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None
 

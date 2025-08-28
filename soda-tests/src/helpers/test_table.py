@@ -4,15 +4,11 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
-from soda_core.common.sql_dialect import DBDataType
-
-
-class TestColumnSpecification:
-    __test__ = False
-
-    def __init__(self, name: str, test_data_type: str):
-        self.name: str = name
-        self.test_data_type: str = test_data_type
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    SodaDataTypeName,
+    SqlDataType,
+)
 
 
 class TestTableSpecificationBuilder:
@@ -27,7 +23,7 @@ class TestTableSpecificationBuilder:
 
     def __init__(self):
         self._table_purpose: Optional[str] = None
-        self._columns: list[TestColumnSpecification] = []
+        self._columns: list[ColumnMetadata] = []
         self._rows: Optional[list[tuple]] = None
 
     def table_purpose(self, table_purpose: str) -> TestTableSpecificationBuilder:
@@ -41,33 +37,99 @@ class TestTableSpecificationBuilder:
         self._table_purpose = table_purpose
         return self
 
-    def column(self, name: str, test_data_type: str) -> TestTableSpecificationBuilder:
-        self._columns.append(TestColumnSpecification(name=name, test_data_type=test_data_type))
+    def column(
+        self,
+        name: str,
+        soda_data_type_name: SodaDataTypeName,
+        character_maximum_length: Optional[int] = None,
+        numeric_precision: Optional[int] = None,
+        numeric_scale: Optional[int] = None,
+        datetime_precision: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        self._columns.append(
+            ColumnMetadata(
+                column_name=name,
+                sql_data_type=SqlDataType(
+                    name=soda_data_type_name,
+                    character_maximum_length=character_maximum_length,
+                    numeric_precision=numeric_precision,
+                    numeric_scale=numeric_scale,
+                    datetime_precision=datetime_precision,
+                ),
+            )
+        )
         return self
 
-    def column_text(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TEXT)
+    def column_varchar(
+        self,
+        name: str,
+        character_maximum_length: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.VARCHAR,
+            character_maximum_length=character_maximum_length,
+        )
 
     def column_integer(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.INTEGER)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.INTEGER)
 
-    def column_decimal(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.DECIMAL)
+    def column_numeric(
+        self,
+        name: str,
+        numeric_precision: Optional[int] = None,
+        numeric_scale: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.NUMERIC,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale,
+        )
+
+    def column_decimal(
+        self,
+        name: str,
+        numeric_precision: Optional[int] = None,
+        numeric_scale: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.DECIMAL,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale,
+        )
 
     def column_date(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.DATE)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.DATE)
 
     def column_time(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TIME)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.TIME)
 
-    def column_timestamp(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TIMESTAMP)
+    def column_timestamp(
+        self,
+        name: str,
+        datetime_precision: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.TIMESTAMP,
+            datetime_precision=datetime_precision,
+        )
 
-    def column_timestamp_tz(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.TIMESTAMP_TZ)
+    def column_timestamp_tz(
+        self,
+        name: str,
+        datetime_precision: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name,
+            soda_data_type_name=SodaDataTypeName.TIMESTAMP_TZ,
+            datetime_precision=datetime_precision,
+        )
 
     def column_boolean(self, name) -> TestTableSpecificationBuilder:
-        return self.column(name=name, test_data_type=DBDataType.BOOLEAN)
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.BOOLEAN)
 
     def rows(self, rows: list[tuple]) -> TestTableSpecificationBuilder:
         """
@@ -103,16 +165,19 @@ class TestTableSpecificationBuilder:
         consistent_hash_builder.add(self._table_purpose)
         consistent_hash_builder.add("columns")
         for test_column in self._columns:
-            consistent_hash_builder.add(test_column.name)
-            consistent_hash_builder.add(test_column.test_data_type)
+            consistent_hash_builder.add(test_column.column_name)
+            consistent_hash_builder.add(test_column.sql_data_type.name)
+            if test_column.sql_data_type:
+                consistent_hash_builder.add(test_column.sql_data_type.character_maximum_length)
+                consistent_hash_builder.add(test_column.sql_data_type.numeric_precision)
+                consistent_hash_builder.add(test_column.sql_data_type.numeric_scale)
+                consistent_hash_builder.add(test_column.sql_data_type.datetime_precision)
         if isinstance(self._rows, Iterable):
             for row in self._rows:
                 consistent_hash_builder.add("row")
                 if isinstance(row, Iterable):
                     for value in row:
                         consistent_hash_builder.add(value)
-        # TODO find out what this is for
-        # os.getenv("TEST_TABLE_SEED", None),
         return consistent_hash_builder.get_hash()
 
 
@@ -148,7 +213,7 @@ class TestTableSpecification:
         return TestTableSpecificationBuilder()
 
     name: Optional[str]
-    columns: list[TestColumnSpecification]
+    columns: list[ColumnMetadata]
     row_values: Optional[list[tuple]]
     unique_name: Optional[str]
 
@@ -178,7 +243,7 @@ class TestTable:
         self.row_values: Optional[list[tuple]] = row_values
 
     def data_type(self, column_name: str) -> str:
-        return self.columns[column_name].contract_data_type
+        return self.columns[column_name].sql_data_type.name
 
     def get_dataset_qualified_name(self) -> str:
         slash_separated_prefixes: str = "/".join(self.dataset_prefix)
@@ -188,12 +253,6 @@ class TestTable:
 class TestColumn:
     __test__ = False
 
-    def __init__(self, name: str, test_data_type: str, create_table_data_type: str, contract_data_type: str):
+    def __init__(self, name: str, sql_data_type: SqlDataType):
         self.name: str = name
-
-        # The test_data_type is the abstract data type as specified in the test code (data source neutral)
-        self.test_data_type: str = test_data_type
-
-        # The data_type is data source specific data type
-        self.create_table_data_type: str = create_table_data_type
-        self.contract_data_type: str = contract_data_type
+        self.sql_data_type: SqlDataType = sql_data_type

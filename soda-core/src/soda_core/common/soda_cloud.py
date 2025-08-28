@@ -29,8 +29,10 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
+from soda_core.common.metadata_types import ColumnMetadata
 from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
 from soda_core.common.statements.metadata_columns_query import ColumnMetadata
+from soda_core.common.utils import to_camel_case
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
@@ -1183,7 +1185,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
 
     if check_result.autogenerate_diagnostics_payload:
         return {
-            "type": check_result.check.type,
+            "type": to_camel_case(check_result.check.type),
             **check_result.diagnostics_to_camel_case(),
         }
     elif check_result.check.type == "missing":
@@ -1235,12 +1237,6 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
         }
-    elif check_result.check.type == "row_count_diff":
-        return {
-            "type": check_result.check.type,
-            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
-            "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
-        }
     elif isinstance(check_result, SchemaCheckResult):
         return {
             "type": check_result.check.type,
@@ -1270,7 +1266,7 @@ def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
     return {
         "name": column_metadata.column_name,
         # The type includes the max char length if specified in the metadata eg VARCHAR(255)
-        "type": column_metadata.get_data_type_ddl(),
+        "type": column_metadata.get_sql_data_type_str_with_parameters(),
     }
 
 

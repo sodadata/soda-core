@@ -4,10 +4,10 @@ from helpers.test_table import TestTableSpecification
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("postgres_schema")
-    .column_text("id")
-    .column_text("size")
-    .column_text("created")
-    .column_text("destroyed")
+    .column_varchar("id")
+    .column_varchar("size")
+    .column_varchar("created")
+    .column_varchar("destroyed")
     .build()
 )
 

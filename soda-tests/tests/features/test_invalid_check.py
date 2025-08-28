@@ -8,7 +8,7 @@ from soda_core.contracts.contract_verification import ContractVerificationResult
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("invalid")
-    .column_text("id")
+    .column_varchar("id")
     .column_integer("age")
     .rows(
         rows=[

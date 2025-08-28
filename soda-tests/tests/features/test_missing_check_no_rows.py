@@ -6,7 +6,7 @@ from soda_core.contracts.contract_verification import (
 )
 
 missing_no_rows_specification = (
-    TestTableSpecification.builder().table_purpose("missing_no_rows").column_text("id").build()
+    TestTableSpecification.builder().table_purpose("missing_no_rows").column_varchar("id").build()
 )
 
 

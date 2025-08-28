@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
-from soda_core.common.sql_datatypes import DBDataType
 from soda_core.common.sql_dialect import SqlDialect
 from soda_fabric.common.data_sources.fabric_data_source_connection import (
     FabricDataSource as FabricDataSourceModel,
@@ -54,16 +54,16 @@ class FabricSqlDialect(SqlServerSqlDialect):
     def get_contract_type_dict(self) -> dict[str, str]:
         super_dict = super().get_contract_type_dict()
         # Fabric does not support datetimeoffset (for timezones)
-        super_dict[DBDataType.TIMESTAMP] = "datetime2"
-        super_dict[DBDataType.TIMESTAMP_TZ] = "datetime2"
+        super_dict[SodaDataTypeName.TIMESTAMP] = "datetime2"
+        super_dict[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
         return super_dict
 
-    def get_sql_type_dict(self) -> dict[str, str]:
-        super_dict = super().get_sql_type_dict()
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        super_dict = super().get_sql_data_type_name_by_soda_data_type_names()
         # Fabric does not support datetimeoffset (for timezones)
         # We specify the precision to 6 decimal places, this is the max precision supported by Fabric in Microsoft Fabric Data Warehouse.
-        super_dict[DBDataType.TIMESTAMP] = "datetime2(6)"
-        super_dict[DBDataType.TIMESTAMP_TZ] = "datetime2(6)"
+        super_dict[SodaDataTypeName.TIMESTAMP] = "datetime2(6)"
+        super_dict[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2(6)"
         return super_dict
 
     def literal_datetime_with_tz(self, datetime: datetime):

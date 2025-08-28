@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from abc import abstractmethod
 from datetime import date, datetime
 from numbers import Number
 from textwrap import indent
 from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     CASE_WHEN,
@@ -63,7 +65,6 @@ from soda_core.common.sql_ast import (
     SqlExpression,
     SqlExpressionStr,
 )
-from soda_core.common.sql_datatypes import DBDataType
 
 
 class SqlDialect:
@@ -75,35 +76,152 @@ class SqlDialect:
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
 
-    def text_col_type(self, length: Optional[int] = 255) -> str:
-        """Get the column type specificier for a variable length text column of a specific length."""
-        if self.supports_varchar_length():
-            return self.get_contract_type_dict()[DBDataType.TEXT] + f"({length})"  # e.g. VARCHAR(255)
-        else:
-            # if db engine doesn't support varchar length, probably no need to override this method
-            return self.get_contract_type_dict()[DBDataType.TEXT]  # e.g. VARCHAR
+    def __init__(self):
+        self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
+            self._get_data_type_name_synonyms()
+        )
 
-    def get_sql_type_dict(self) -> dict[str, str]:
-        """Data type that is used in the create table statement.
-        This can include the length of the column, e.g. VARCHAR(255)"""
-        return self.get_contract_type_dict()
+    # Data type handling
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        """Data type that is used in the contract.
-        This does **NOT** include the length of the column, e.g. VARCHAR"""
+    def _build_data_type_name_synonym_mappings(self, data_type_name_synonyms: list[list[str]]) -> dict[str, str]:
+        data_type_name_synonym_mappings: dict[str, str] = {}
+        for data_type_name_synonym_list in data_type_name_synonyms:
+            first_type_lower: str = data_type_name_synonym_list[0].lower()
+            for data_type_name_synonym in data_type_name_synonym_list:
+                data_type_name_synonym_mappings[data_type_name_synonym.lower()] = first_type_lower
+        return data_type_name_synonym_mappings
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        # Implements data type synonyms
+        # Each list should represent a list of synonyms
+        return [
+            # Eg for postgres
+            # ["varchar", "character varying"],
+            # ["char", "character"],
+            # ["integer", "int", "int4"],
+            # ["bigint", "int8"],
+            # ["smallint", "int2"],
+            # ["real", "float4"],
+            # ["double precision", "float8"],
+        ]
+
+    def data_type_names_are_same_or_synonym(self, left_data_type_name: str, right_data_type_name: str) -> bool:
+        left_data_type_name_lower: str = left_data_type_name.lower()
+        right_data_type_name_lower: str = right_data_type_name.lower()
+        if left_data_type_name_lower == right_data_type_name_lower:
+            return True
+        left_synonym_data_type_name: str = self._data_type_name_synonym_mappings.get(
+            left_data_type_name_lower, left_data_type_name_lower
+        )
+        right_synonym_data_type_name: str = self._data_type_name_synonym_mappings.get(
+            right_data_type_name_lower, right_data_type_name_lower
+        )
+        return left_synonym_data_type_name == right_synonym_data_type_name
+
+    @abstractmethod
+    def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
+        """
+        Data type that is used in the contract.
+        This does **NOT** include the length of the column, e.g. VARCHAR
+        """
+        # Example
+        # return {
+        #     SodaDataTypeNames.TEXT: "character varying",
+        #     SodaDataTypeNames.VARCHAR: "character varying",
+        #     SodaDataTypeNames.INTEGER: "integer",
+        #     SodaDataTypeNames.DECIMAL: "double precision",
+        #     SodaDataTypeNames.NUMERIC: "numeric",
+        #     SodaDataTypeNames.DATE: "date",
+        #     SodaDataTypeNames.TIME: "time",
+        #     SodaDataTypeNames.TIMESTAMP: "timestamp without time zone",
+        #     SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
+        #     SodaDataTypeNames.BOOLEAN: "boolean",
+        # }
+        raise NotImplementedError()
+
+    def get_sql_data_type_name(self, soda_data_type: SodaDataTypeName) -> str:
+        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
+
+    def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
+        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
+
+    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
+        if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
+            return False
+        if (
+            isinstance(expected.character_maximum_length, int)
+            and expected.character_maximum_length != actual.character_maximum_length
+        ):
+            return False
+        if isinstance(expected.numeric_precision, int) and expected.numeric_precision != actual.numeric_precision:
+            return False
+        if isinstance(expected.numeric_scale, int) and expected.numeric_scale != actual.numeric_scale:
+            return False
+        if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
+            return False
+        return True
+
+    def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
+        test_data_type: str = source_data_type.name
+        data_type_name: str = self.get_sql_data_type_name_by_soda_data_type_names().get(test_data_type)
+        character_maximum_length: Optional[int] = (
+            source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
+        )
+        numeric_precision: Optional[int] = (
+            source_data_type.numeric_precision if self.supports_data_type_numeric_precision() else None
+        )
+        numeric_scale: Optional[int] = (
+            source_data_type.numeric_scale if self.supports_data_type_numeric_scale() else None
+        )
+        datetime_precision: Optional[int] = (
+            source_data_type.datetime_precision if self.supports_data_type_datetime_precision() else None
+        )
+        return SqlDataType(
+            name=data_type_name,
+            character_maximum_length=character_maximum_length,
+            numeric_precision=numeric_precision,
+            numeric_scale=numeric_scale,
+            datetime_precision=datetime_precision,
+        )
+
+    def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
+        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
+
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
         return {
-            DBDataType.TEXT: "character varying",
-            DBDataType.INTEGER: "integer",
-            DBDataType.DECIMAL: "double precision",
-            DBDataType.DATE: "date",
-            DBDataType.TIME: "time",
-            DBDataType.TIMESTAMP: "timestamp without time zone",
-            DBDataType.TIMESTAMP_TZ: "timestamp with time zone",
-            DBDataType.BOOLEAN: "boolean",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }
 
-    def get_data_type_type_str(self, db_data_type: DBDataType) -> str:
-        return self.get_sql_type_dict()[db_data_type]
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
+
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in [
+            "timestamp",
+            "timestamp without time zone",
+            "timestamptz",
+            "timestamp with time zone",
+        ]
+
+    # SQL generation
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return (
@@ -147,15 +265,6 @@ class SqlDialect:
         elif isinstance(o, LITERAL):  # If someone passes a LITERAL object, we want to use the value
             return self.literal(o.value)
         raise RuntimeError(f"Cannot convert type {type(o)} to a SQL literal: {o}")
-
-    def supports_varchar_length(self) -> bool:
-        return True
-
-    def default_varchar_length(self) -> Optional[int]:
-        """Some data sources have a default length for varchar types (such as Snowflake).
-        We want to use this if it's available.
-        If it is not available, return None."""
-        return None
 
     def literal_number(self, value: Number):
         if value is None:
@@ -260,25 +369,8 @@ class SqlDialect:
         return f"\t{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        if isinstance(create_table_column.type, DBDataType):
-            column_type_sql: str = self.get_sql_type_dict()[create_table_column.type]
-        else:
-            column_type_sql: str = (
-                create_table_column.type
-            )  # If we don't need to do the lookup, we just use the type as is.
-
-        # If there is a length, we need to add it to the column type.
-        if create_table_column.length:
-            # If the type is TEXT and the length is provided, we need to add the length to the column type.
-            # But only if we are doing a type lookup.
-            if create_table_column.type == DBDataType.TEXT and isinstance(create_table_column.type, DBDataType):
-                column_type_sql = self.text_col_type(create_table_column.length)
-            # If the type is not a TEXT, we just add the length to the column type.
-            # We do not do any checks on this, as we expect the user to configure the CREATE_TABLE_COLUMN correctly according to the data type specified.
-            # Note that a user can still pass a custom type with the desired length as well.
-            else:
-                column_type_sql = column_type_sql + f"({create_table_column.length})"
-        return column_type_sql
+        assert isinstance(create_table_column.type, SqlDataType)
+        return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     #########################################################
     # DROP TABLE
@@ -690,7 +782,7 @@ class SqlDialect:
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_data_type_type_str(cast.to_type) if isinstance(cast.to_type, DBDataType) else cast.to_type
+            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
         )
         return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
 
@@ -791,17 +883,50 @@ class SqlDialect:
 
     def column_data_type(self) -> str:
         """
-        Name of the column that has the data type in the tables metadata table.
+        Name of the column that has the data type in the columns metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("data_type")
 
-    def column_data_type_max_length(self) -> str | COLUMN:
+    def column_data_type_max_length(self) -> Optional[str]:
         """
-        Name or definition of the column that has the max data type length in the tables metadata table.
+        Name or definition of the column that has the max data type length in the columns metadata table.
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("character_maximum_length")
+
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return True
+
+    def column_data_type_numeric_precision(self) -> Optional[str]:
+        """
+        Name or definition of the column that has the max data type length in the columns metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("numeric_precision")
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return True
+
+    def column_data_type_numeric_scale(self) -> Optional[str]:
+        """
+        Name or definition of the column that has the max data type length in the columns metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("numeric_scale")
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return True
+
+    def column_data_type_datetime_precision(self) -> Optional[str]:
+        """
+        Name or definition of the column that has the max data type length in the columns metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("datetime_precision")
+
+    def supports_data_type_datetime_precision(self) -> bool:
+        return True
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()

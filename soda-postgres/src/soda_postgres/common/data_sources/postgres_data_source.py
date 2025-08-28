@@ -1,9 +1,8 @@
-from typing import Optional
-
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import CAST, REGEX_LIKE
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
@@ -39,16 +38,51 @@ class PostgresSqlDialect(SqlDialect):
             + (";" if add_semicolon else "")
         )
 
-    def default_varchar_length(self) -> Optional[int]:
-        return 255
-
-    def get_sql_type_dict(self) -> dict[str, str]:
-        base_dict: dict = super().get_sql_type_dict()
-        base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
-        return base_dict
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        return {
+            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "double precision",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_data_type_type_str(cast.to_type) if isinstance(cast.to_type, DBDataType) else cast.to_type
+            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "character varying"],
+            ["char", "character"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["smallint", "int2"],
+            ["real", "float4"],
+            ["double precision", "float8"],
+            ["timestamp", "timestamp without time zone"],
+        ]
+
+    def get_data_source_type_names_by_test_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }

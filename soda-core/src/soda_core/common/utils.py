@@ -23,3 +23,8 @@ def format_items(items: Union[List[str], Dict[str, str]], verbose: bool = False,
         if len(line) > max_width:
             return line[: max_width - 3] + "..."
         return line
+
+
+def to_camel_case(snake_str: str) -> str:
+    components = snake_str.split("_")
+    return components[0] + "".join(x.title() for x in components[1:])

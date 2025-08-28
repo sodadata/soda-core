@@ -11,7 +11,7 @@ from soda_core.contracts.contract_verification import (
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("row_count")
-    .column_text("id")
+    .column_varchar("id")
     .rows(
         rows=[
             ("1",),

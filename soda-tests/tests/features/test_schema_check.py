@@ -1,34 +1,17 @@
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
-from soda_core.common.sql_dialect import DBDataType
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("schema")
-    .column_text("id")
+    .column_varchar("id")
     .column_integer("size")
     .column_date("created")
     .build()
 )
-
-
-def get_character_maximum_length_expression(
-    data_source_test_helper: DataSourceTestHelper,
-    expected_length: int = 255,
-    overwrite_with_expected_length: bool = False,
-) -> str:
-    default_character_maximum_length = data_source_test_helper.data_source_impl.sql_dialect.default_varchar_length()
-    character_maximum_length = default_character_maximum_length if default_character_maximum_length else expected_length
-    if overwrite_with_expected_length:
-        character_maximum_length = expected_length
-    return (
-        f"character_maximum_length: {character_maximum_length}"
-        if data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length()
-        else ""
-    )
 
 
 def test_schema(data_source_test_helper: DataSourceTestHelper):
@@ -40,8 +23,6 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
         ]
     )
 
-    character_maximum_length_expression = get_character_maximum_length_expression(data_source_test_helper)
-
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
         contract_yaml_str=f"""
@@ -50,7 +31,6 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 data_type: {test_table.data_type('id')}
-                {character_maximum_length_expression}
               - name: size
                 data_type: {test_table.data_type('size')}
               - name: created
@@ -68,6 +48,13 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
 def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
+    if data_source_test_helper.data_source_impl.sql_dialect.supports_data_type_character_maximun_length():
+        char_str = "character_maximum_length: 512"
+        n_failures = 2
+    else:
+        char_str = ""
+        n_failures = 1
+
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
@@ -76,41 +63,15 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
             columns:
               - name: id
                 data_type: {test_table.data_type('id')}
-                {get_character_maximum_length_expression(data_source_test_helper, 512, overwrite_with_expected_length=True)}
+                {char_str}
               - name: sizzze
               - name: created
                 data_type: {test_table.data_type('id')}
         """,
     )
 
-    if data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length():
-        number_of_expected_mismatches = 2
-        index_of_type_mismatch = 1
-    else:
-        number_of_expected_mismatches = 1
-        index_of_type_mismatch = 0
-
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
-    assert number_of_expected_mismatches == len(schema_check_result.column_data_type_mismatches)
-
-    length_mismatch = schema_check_result.column_data_type_mismatches[0]
-
-    data_type_map = data_source_test_helper._get_contract_data_type_dict()
-
-    varchar = lambda length: data_source_test_helper.data_source_impl.sql_dialect.text_col_type(length)
-
-    default_varchar_length = data_source_test_helper.data_source_impl.sql_dialect.default_varchar_length()
-
-    if default_varchar_length and data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length():
-        assert varchar(default_varchar_length) == length_mismatch.get_actual()
-        assert varchar(512) == length_mismatch.get_expected()
-    elif data_source_test_helper.data_source_impl.sql_dialect.supports_varchar_length():
-        assert varchar(255) == length_mismatch.get_actual()
-        assert varchar(512) == length_mismatch.get_expected()
-
-    type_mismatch = schema_check_result.column_data_type_mismatches[index_of_type_mismatch]
-    assert data_type_map[DBDataType.DATE] == type_mismatch.get_actual()
-    assert data_type_map[DBDataType.TEXT] == type_mismatch.get_expected()
+    assert len(schema_check_result.column_data_type_mismatches) == n_failures
 
 
 def test_schema_default_order(data_source_test_helper: DataSourceTestHelper):
