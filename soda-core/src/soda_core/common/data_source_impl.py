@@ -134,3 +134,6 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
+
+    def parse_column_names_from_query_result(self, query_result: QueryResult) -> list[str]:
+        return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]
