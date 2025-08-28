@@ -10,8 +10,8 @@ referencing_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("invalid_referencing")
     .column_integer("id")
-    .column_varchar("country")
-    .column_varchar("zip")
+    .column_varchar("country", 2)
+    .column_text("zip")
     .rows(
         rows=[
             (1, "NL", "NL4775"),
@@ -31,8 +31,8 @@ referencing_table_specification = (
 referenced_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("invalid_referenced")
-    .column_varchar("country_code")
-    .column_varchar("zip_code")
+    .column_varchar("country_code", 2)
+    .column_text("zip_code")
     .rows(
         rows=[
             ("NL", "NL4775"),

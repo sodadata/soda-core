@@ -12,7 +12,7 @@ test_table_specification = (
     .table_purpose("duplicate_column")
     .column_varchar("id")
     .column_integer("age")
-    .column_varchar("country")
+    .column_text("country")
     .rows(
         rows=[
             ("1", 1, "USA"),
