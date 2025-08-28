@@ -1132,5 +1132,127 @@ class SqlDialect:
     def supports_case_sensitive_column_names(self) -> bool:
         return True
 
-    def is_quoted(self, identifier: str) -> bool:
-        return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)
+        schema_name: Optional[str] = None
+        if (schema_index := self.get_schema_prefix_index()) is not None:
+            schema_name = dataset_prefixes[schema_index]
+
+        information_schema_prefixes: list[str] = self.prefixes_information_schema(dataset_prefixes)
+
+        return self.build_select_sql(
+            [
+                SELECT(
+                    [
+                        self.column_column_name(),
+                        self.column_data_type(),
+                        *(
+                            [self.column_data_type_max_length()]
+                            if self.supports_data_type_character_maximun_length()
+                            else []
+                        ),
+                        *(
+                            [self.column_data_type_numeric_precision()]
+                            if self.supports_data_type_numeric_precision()
+                            else []
+                        ),
+                        *(
+                            [self.column_data_type_numeric_scale()]
+                            if self.supports_data_type_numeric_scale()
+                            else []
+                        ),
+                        *(
+                            [self.column_data_type_datetime_precision()]
+                            if self.supports_data_type_datetime_precision()
+                            else []
+                        ),
+                    ]
+                ),
+                FROM(self.table_columns()).IN(
+                    information_schema_prefixes
+                ),
+                WHERE(
+                    AND(
+                        [
+                            *(
+                                [EQ(self.column_table_catalog(), LITERAL(database_name))]
+                                if database_name
+                                else []
+                            ),
+                            EQ(self.column_table_schema(), LITERAL(schema_name)),
+                            EQ(self.column_table_name(), LITERAL(dataset_name)),
+                        ]
+                    )
+                ),
+                ORDER_BY_ASC(ORDINAL_POSITION()),
+            ]
+        )
+
+    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        character_maximum_length_index: Optional[int] = None
+        numeric_precision_index: Optional[int] = None
+        numeric_scale_index: Optional[int] = None
+        datetime_precision_index: Optional[int] = None
+
+        optional_values_index: int = 2
+        if self.supports_data_type_character_maximun_length():
+            character_maximum_length_index = optional_values_index
+            optional_values_index += 1
+
+        if self.supports_data_type_numeric_precision():
+            numeric_precision_index = optional_values_index
+            optional_values_index += 1
+
+        if self.supports_data_type_numeric_scale():
+            numeric_scale_index = optional_values_index
+            optional_values_index += 1
+
+        if self.supports_data_type_datetime_precision():
+            datetime_precision_index = optional_values_index
+            optional_values_index += 1
+
+        column_metadatas: list[ColumnMetadata] = []
+        for row in query_result.rows:
+            column_name: str = row[0]
+            data_type_name: str = self.format_metadata_data_type(row[1])
+            character_maximum_length: Optional[int] = (
+                row[character_maximum_length_index] if character_maximum_length_index else None
+            )
+            numeric_precision: Optional[int] = row[numeric_precision_index] if numeric_precision_index else None
+            numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
+            datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
+
+            if isinstance(
+                character_maximum_length, int
+            ) and not self.data_type_has_parameter_character_maximum_length(data_type_name):
+                character_maximum_length = None
+
+            if isinstance(numeric_precision, int) and not self.data_type_has_parameter_numeric_precision(
+                data_type_name
+            ):
+                numeric_precision = None
+
+            if isinstance(numeric_scale, int) and not self.data_type_has_parameter_numeric_scale(
+                data_type_name
+            ):
+                numeric_scale = None
+
+            if isinstance(datetime_precision, int) and not self.data_type_has_parameter_datetime_precision(
+                data_type_name
+            ):
+                datetime_precision = None
+
+            column_metadatas.append(
+                ColumnMetadata(
+                    column_name=column_name,
+                    sql_data_type=self.get_sql_data_type_class()(
+                        name=data_type_name,
+                        character_maximum_length=character_maximum_length,
+                        numeric_precision=numeric_precision,
+                        numeric_scale=numeric_scale,
+                        datetime_precision=datetime_precision,
+                    ),
+                )
+            )
+        return column_metadatas
+
+    def get_sql_data_type_class(self) -> type:
+        return SqlDataType
