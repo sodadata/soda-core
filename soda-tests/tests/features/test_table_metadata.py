@@ -2,14 +2,12 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     SodaDataTypeName,
     SqlDataType,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -33,14 +31,10 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
-    metadata_columns_query: MetadataColumnsQuery = (
-        data_source_test_helper.data_source_impl.create_metadata_columns_query()
+    actual_columns: list[ColumnMetadata] = data_source_test_helper.data_source_impl.get_columns_metadata(
+        dataset_prefixes=test_table.dataset_prefix,
+        dataset_name=test_table.unique_name
     )
-    get_columns_metadata_query_sql: str = metadata_columns_query.build_sql(
-        dataset_prefix=test_table.dataset_prefix, dataset_name=test_table.unique_name
-    )
-    query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(get_columns_metadata_query_sql)
-    actual_columns: list[ColumnMetadata] = metadata_columns_query.get_result(query_result)
 
     sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR)
 

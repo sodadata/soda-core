@@ -35,7 +35,7 @@ class SqlDataType:
             return self.name
 
     def replace_data_type_name(self, new_data_type_name: str) -> SqlDataType:
-        return SqlDataType(
+        return type(self)(
             name=new_data_type_name,
             character_maximum_length=self.character_maximum_length,
             numeric_precision=self.numeric_precision,
@@ -51,9 +51,6 @@ class ColumnMetadata:
     # Can be None in case of schema check expected columns
     # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
-
-    def get_sql_data_type_str_with_parameters(self) -> Optional[str]:
-        return None if self.sql_data_type is None else self.sql_data_type.get_sql_data_type_str_with_parameters()
 
 
 class SodaDataTypeName(str, enum.Enum):

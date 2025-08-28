@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 import requests
 from requests import Response
+
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -29,9 +30,7 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
-from soda_core.common.metadata_types import ColumnMetadata
 from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
-from soda_core.common.statements.metadata_columns_query import ColumnMetadata
 from soda_core.common.utils import to_camel_case
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
@@ -1265,8 +1264,11 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
 def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
     return {
         "name": column_metadata.column_name,
-        # The type includes the max char length if specified in the metadata eg VARCHAR(255)
-        "type": column_metadata.get_sql_data_type_str_with_parameters(),
+        # column_metadata.sql_data_type can be None when
+        # expected columns of schema check don't include the type.
+        # The type includes the data type parameters in round brackets eg VARCHAR(255)
+        "type": (column_metadata.sql_data_type.get_sql_data_type_str_with_parameters()
+                 if column_metadata.sql_data_type else None),
     }
 
 

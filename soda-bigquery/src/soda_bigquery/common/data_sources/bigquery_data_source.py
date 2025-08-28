@@ -21,7 +21,6 @@ from soda_core.common.sql_ast import (
     WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
 logger: logging.Logger = soda_logger
@@ -61,6 +60,10 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return super_metadata_tables_query
 
     def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+
+        # MetadataColumnsQuery was deleted and replaced DataSourceImpl.get_columns_metadata
+        # TODO refactor the BigQuerySqlDialect to tweak the behavior of DataSourceImpl.get_columns_metadata
+
         super_metadata_columns_query = MetadataColumnsQuery(
             sql_dialect=self.sql_dialect,
             data_source_connection=self.data_source_connection,

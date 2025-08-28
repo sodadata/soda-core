@@ -62,11 +62,18 @@ class DuckDBDataSourceConnectionWrapper:
 
 
 class DuckDBSqlDialect(SqlDialect):
+
     def get_database_prefix_index(self) -> int | None:
         return None
 
     def get_schema_prefix_index(self) -> int | None:
         return 0
+
+    def prefixes_information_schema(self, prefixes: list[str]) -> list[str]:
+        """
+        The prefixes / namespace of the information schema for a given dataset prefix / namespace
+        """
+        return [self.schema_information_schema()]
 
     def supports_data_type_character_maximun_length(self):
         """
