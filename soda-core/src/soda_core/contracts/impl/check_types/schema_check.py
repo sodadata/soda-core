@@ -210,6 +210,9 @@ class SchemaQuery(Query):
         super().__init__(data_source_impl=data_source_impl, metrics=[schema_metric_impl])
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 4dd01bcd (Extracted DataSourceNamespace and added BigQuery support for getting columns metadata new style)
         self.sql = data_source_impl.build_columns_metadata_query_str(
             dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
 =======
