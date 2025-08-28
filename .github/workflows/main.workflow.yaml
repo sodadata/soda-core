@@ -22,9 +22,11 @@ on:
           - synapse
   push:
     branches:
-      - '*'
+      - 'v4'
     tags:
       - "*"
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 env:
   PROJECT_NAME: soda-core
