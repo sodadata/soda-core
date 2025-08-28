@@ -28,7 +28,8 @@ class SqlDataType:
         elif self.numeric_precision is not None and self.numeric_scale is not None:
             return f"{self.name}({self.numeric_precision},{self.numeric_scale})"
         elif self.numeric_precision is not None:
-            return f"{self.name}({self.numeric_precision})"
+            # Several DB engines require scale if precision is provided
+            return f"{self.name}({self.numeric_precision}, 0)"
         elif self.datetime_precision is not None:
             return f"{self.name}({self.datetime_precision})"
         else:

@@ -76,8 +76,8 @@ class BigQuerySqlDialect(SqlDialect):
         return {
             SodaDataTypeName.TEXT: "STRING",
             SodaDataTypeName.VARCHAR: "STRING",
-            SodaDataTypeName.INTEGER: "INTEGER",
-            SodaDataTypeName.DECIMAL: "NUMERIC",
+            SodaDataTypeName.INTEGER: "INT64",
+            SodaDataTypeName.DECIMAL: "FLOAT64",
             SodaDataTypeName.NUMERIC: "NUMERIC",
             SodaDataTypeName.DATE: "DATE",
             SodaDataTypeName.TIME: "TIME",

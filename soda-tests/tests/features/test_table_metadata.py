@@ -12,7 +12,7 @@ from soda_core.common.statements.metadata_columns_query import MetadataColumnsQu
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("metadata")
-    .column_varchar(name="varchar_default")
+    .column_varchar(name="varchar_default", character_maximum_length=None)
     .column_varchar(name="varchar_w_length", character_maximum_length=255)
     .column_integer(name="integer_default")
     .column_numeric(name="numeric_default")
@@ -27,6 +27,9 @@ test_table_specification = (
 
 
 def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
+    if data_source_test_helper.data_source_impl.type_name == "fabric":
+        test_table_specification.columns[3].sql_data_type = SqlDataType(name="numeric", numeric_precision=10)
+
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
