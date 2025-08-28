@@ -3,18 +3,8 @@ from __future__ import annotations
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-)
-from soda_core.common.sql_dialect import (
-    AND,
-    EQ,
-    FROM,
-    LITERAL,
-    LOWER,
-    SELECT,
-    WHERE,
-)
+from soda_core.common.metadata_types import ColumnMetadata
+from soda_core.common.sql_dialect import AND, EQ, FROM, LITERAL, LOWER, SELECT, WHERE
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
 
