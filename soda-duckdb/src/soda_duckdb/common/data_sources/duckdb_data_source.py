@@ -62,7 +62,6 @@ class DuckDBDataSourceConnectionWrapper:
 
 
 class DuckDBSqlDialect(SqlDialect):
-
     def get_database_prefix_index(self) -> int | None:
         return None
 

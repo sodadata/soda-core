@@ -32,8 +32,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
     actual_columns: list[ColumnMetadata] = data_source_test_helper.data_source_impl.get_columns_metadata(
-        dataset_prefixes=test_table.dataset_prefix,
-        dataset_name=test_table.unique_name
+        dataset_prefixes=test_table.dataset_prefix, dataset_name=test_table.unique_name
     )
 
     sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR)
