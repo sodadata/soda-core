@@ -47,7 +47,7 @@ class PostgresSqlDialect(SqlDialect):
             + (";" if add_semicolon else "")
         )
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
@@ -66,9 +66,36 @@ class PostgresSqlDialect(SqlDialect):
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "character varying": SodaDataTypeName.VARCHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "character": SodaDataTypeName.CHAR,
+            "char": SodaDataTypeName.CHAR,
+            "text": SodaDataTypeName.TEXT,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "real": SodaDataTypeName.FLOAT,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "time without time zone": SodaDataTypeName.TIME,
+            "boolean": SodaDataTypeName.BOOLEAN,
+        }
+
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
+            self.get_data_source_data_type_name_for_soda_data_type_name(cast.to_type)
+            if isinstance(cast.to_type, SodaDataTypeName)
+            else cast.to_type
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
 
@@ -83,23 +110,6 @@ class PostgresSqlDialect(SqlDialect):
             ["double precision", "float8"],
             ["timestamp", "timestamp without time zone"],
         ]
-
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
-        """
-        Maps DBDataType names to data source type names.
-        """
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "decimal",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
 
     def get_sql_data_type_class(self) -> type:
         return PostgresSqlDataType

@@ -137,8 +137,8 @@ class SqlServerSqlDialect(SqlDialect):
     def supports_regex_advanced(self) -> bool:
         return False
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
-        base_dict = super().get_sql_data_type_name_by_soda_data_type_names()
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        base_dict = super().get_data_source_data_type_name_by_soda_data_type_names()
         base_dict[SodaDataTypeName.TEXT] = "varchar(255)"
         return base_dict
 
@@ -188,7 +188,7 @@ class SqlServerSqlDialect(SqlDialect):
             ["datetime2", "datetime"],
         ]
 
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
+    def get_data_source_type_names_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """

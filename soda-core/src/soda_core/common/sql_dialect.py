@@ -10,6 +10,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import (
     ColumnMetadata,
+    DataSourceNamespace,
     SodaDataTypeName,
     SqlDataType,
 )
@@ -123,29 +124,22 @@ class SqlDialect:
         )
         return left_synonym_data_type_name == right_synonym_data_type_name
 
+    def get_data_source_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
+        return self.get_data_source_data_type_name_by_soda_data_type_names()[soda_data_type_name]
+
     @abstractmethod
-    def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         """
-        Data type that is used in the contract.
-        This does **NOT** include the length of the column, e.g. VARCHAR
+        Maps SodaDataTypeName's names to native data source type names.
         """
-        # Example
-        # return {
-        #     SodaDataTypeNames.TEXT: "character varying",
-        #     SodaDataTypeNames.VARCHAR: "character varying",
-        #     SodaDataTypeNames.INTEGER: "integer",
-        #     SodaDataTypeNames.DECIMAL: "double precision",
-        #     SodaDataTypeNames.NUMERIC: "numeric",
-        #     SodaDataTypeNames.DATE: "date",
-        #     SodaDataTypeNames.TIME: "time",
-        #     SodaDataTypeNames.TIMESTAMP: "timestamp without time zone",
-        #     SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
-        #     SodaDataTypeNames.BOOLEAN: "boolean",
-        # }
         raise NotImplementedError()
 
-    def get_sql_data_type_name(self, soda_data_type: SodaDataTypeName) -> str:
-        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
+    @abstractmethod
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        """
+        Maps native data source type names to SodaDataTypeName's
+        """
+        raise NotImplementedError()
 
     def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
         self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
@@ -168,7 +162,7 @@ class SqlDialect:
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name
-        data_type_name: str = self.get_sql_data_type_name_by_soda_data_type_names().get(test_data_type)
+        data_type_name: str = self.get_data_source_data_type_name_by_soda_data_type_names().get(test_data_type)
         character_maximum_length: Optional[int] = (
             source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
         )
@@ -188,16 +182,6 @@ class SqlDialect:
             numeric_scale=numeric_scale,
             datetime_precision=datetime_precision,
         )
-
-    def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
-        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
-
-    @abstractmethod
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
-        """
-        Maps SodaDataTypeName's names to native data source type names.
-        """
-        raise NotImplementedError()
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
@@ -783,7 +767,9 @@ class SqlDialect:
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
+            self.get_data_source_data_type_name_for_soda_data_type_name(cast.to_type)
+            if isinstance(cast.to_type, SodaDataTypeName)
+            else cast.to_type
         )
         return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
 
@@ -838,11 +824,15 @@ class SqlDialect:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
 
-    def prefixes_information_schema(self, prefixes: list[str]) -> list[str]:
+    def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """
         The prefixes / namespace of the information schema for a given dataset prefix / namespace
         """
-        return [prefixes[0], self.schema_information_schema()]
+        database_name: str | None = data_source_namespace.get_database_for_metadata_query()
+        if database_name:
+            return [database_name, self.schema_information_schema()]
+        else:
+            return [self.schema_information_schema()]
 
     def schema_information_schema(self) -> str | None:
         """
@@ -993,19 +983,15 @@ class SqlDialect:
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
         """
-        database_name: Optional[str] = None
-        if (db_index := self.get_database_prefix_index()) is not None:
-            database_name = dataset_prefixes[db_index]
 
-        schema_name: Optional[str] = None
-        if (schema_index := self.get_schema_prefix_index()) is not None:
-            schema_name = dataset_prefixes[schema_index]
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
 
-        information_schema_prefixes: list[str] = self.prefixes_information_schema(dataset_prefixes)
+        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
 
         return self.build_select_sql(
             [
@@ -1031,13 +1017,13 @@ class SqlDialect:
                         ),
                     ]
                 ),
-                FROM(self.table_columns()).IN(information_schema_prefixes),
+                FROM(self.table_columns()).IN(information_schema_namespace_elements),
                 WHERE(
                     AND(
                         [
                             *([EQ(self.column_table_catalog(), LITERAL(database_name))] if database_name else []),
                             EQ(self.column_table_schema(), LITERAL(schema_name)),
-                            EQ(self.column_table_name(), LITERAL(dataset_name)),
+                            EQ(self.column_table_name(), LITERAL(table_name)),
                         ]
                     )
                 ),

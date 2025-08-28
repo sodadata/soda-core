@@ -32,7 +32,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     data_source_impl.execute_update(drop_table_sql)
 
     def col_type(name: str) -> str:
-        return sql_dialect.get_sql_data_type_name_by_soda_data_type_names()[name]
+        return sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[name]
 
     try:
         create_table_columns = [
@@ -68,7 +68,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         data_source_impl.execute_update(create_table_sql)
 
         # Check the metadata, we want the columns to be in the correct order
-        metadata_columns_query_sql = data_source_impl.sql_dialect.build_columns_metadata_query_str(
+        metadata_columns_query_sql = data_source_impl.build_columns_metadata_query_str(
             dataset_prefixes=dataset_prefixes,
             dataset_name="my_test_test_table",
         )

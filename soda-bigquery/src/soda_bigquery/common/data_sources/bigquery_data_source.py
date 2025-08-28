@@ -1,4 +1,6 @@
 import logging
+from dataclasses import dataclass
+from typing import Optional
 
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
     BigQueryDataSource as BigQueryDataSourceModel,
@@ -9,7 +11,7 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
@@ -24,6 +26,25 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
 logger: logging.Logger = soda_logger
+
+
+@dataclass
+class BigQueryDataSourceNamespace(DataSourceNamespace):
+    project_id: str
+    dataset: str
+    location: Optional[str] = None
+
+    def get_namespace_elements(self) -> list[str]:
+        if self.location:
+            return [self.location, self.project_id]
+        else:
+            return [self.project_id, self.dataset]
+
+    def get_database_for_metadata_query(self) -> str | None:
+        return self.project_id
+
+    def get_schema_for_metadata_query(self) -> str:
+        return self.dataset
 
 
 class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel):
@@ -59,33 +80,51 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         )
         return super_metadata_tables_query
 
-    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-        # MetadataColumnsQuery was deleted and replaced DataSourceImpl.get_columns_metadata
-        # TODO refactor the BigQuerySqlDialect to tweak the behavior of DataSourceImpl.get_columns_metadata
-
-        super_metadata_columns_query = MetadataColumnsQuery(
-            sql_dialect=self.sql_dialect,
-            data_source_connection=self.data_source_connection,
-            prefixes=[f"region-{self.get_location()}"],
+    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+        table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
+            project_id=dataset_prefixes[0], dataset=dataset_prefixes[1]
         )
-        return super_metadata_columns_query
+
+        # BigQuery must be able to override to get the location
+        return self.sql_dialect.build_columns_metadata_query_str(
+            table_namespace=table_namespace, table_name=dataset_name
+        )
 
 
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
-            SodaDataTypeName.TEXT: "STRING",
-            SodaDataTypeName.VARCHAR: "STRING",
-            SodaDataTypeName.INTEGER: "INTEGER",
-            SodaDataTypeName.DECIMAL: "NUMERIC",
-            SodaDataTypeName.NUMERIC: "NUMERIC",
-            SodaDataTypeName.DATE: "DATE",
-            SodaDataTypeName.TIME: "TIME",
-            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
-            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",
-            SodaDataTypeName.BOOLEAN: "BOOLEAN",
+            SodaDataTypeName.CHAR: "string",  # BigQuery only has STRING
+            SodaDataTypeName.VARCHAR: "string",
+            SodaDataTypeName.TEXT: "string",  # alias for varchar
+            SodaDataTypeName.SMALLINT: "int64",  # all integers → INT64
+            SodaDataTypeName.INTEGER: "int64",
+            SodaDataTypeName.BIGINT: "int64",
+            SodaDataTypeName.DECIMAL: "numeric",  # NUMERIC (fixed precision: 38 digits, 9 decimals)
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.FLOAT: "float64",  # FLOAT & DOUBLE → FLOAT64
+            SodaDataTypeName.DOUBLE: "float64",
+            SodaDataTypeName.TIMESTAMP: "timestamp",  # UTC-based
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",  # still just TIMESTAMP in BigQuery
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.BOOLEAN: "bool",
+        }
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "string": SodaDataTypeName.VARCHAR,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int64": SodaDataTypeName.BIGINT,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float64": SodaDataTypeName.DOUBLE,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "bool": SodaDataTypeName.BOOLEAN,
         }
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
@@ -96,6 +135,9 @@ class BigQuerySqlDialect(SqlDialect):
             ["numeric", "decimal"],
             ["bignumeric", "bigdecimal"],
         ]
+
+    def information_schema_namespace_elements(self, data_source_namespace: BigQueryDataSourceNamespace) -> list[str]:
+        return [data_source_namespace.project_id, data_source_namespace.dataset, "INFORMATION_SCHEMA"]
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
