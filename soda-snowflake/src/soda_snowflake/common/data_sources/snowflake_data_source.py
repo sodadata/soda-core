@@ -59,15 +59,20 @@ class SnowflakeSqlDialect(SqlDialect):
         Maps DBDataType names to data source type names.
         """
         return {
+            SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.TEXT: "text",  # alias for varchar
+            SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.BIGINT: "bigint",
+            SodaDataTypeName.DECIMAL: "number",  # decimal & numeric → number
+            SodaDataTypeName.NUMERIC: "number",
+            SodaDataTypeName.FLOAT: "float",  # float / double → float
+            SodaDataTypeName.DOUBLE: "float",
+            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",  # default timestamp in snowflake
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp_tz",
             SodaDataTypeName.DATE: "date",
             SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamp_tz",
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
