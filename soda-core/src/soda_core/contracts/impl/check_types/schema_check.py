@@ -7,10 +7,8 @@ from typing import Optional
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.statements.metadata_columns_query import (
-    ColumnMetadata,
-    MetadataColumnsQuery,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
+from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.utils import format_items
 from soda_core.contracts.contract_verification import (
     Check,
@@ -83,8 +81,12 @@ class SchemaCheckImpl(CheckImpl):
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
-                data_type=column_impl.column_yaml.data_type,
-                character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                sql_data_type=SqlDataType(
+                    name=column_impl.column_yaml.data_type,
+                    character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                )
+                if column_impl.column_yaml.data_type
+                else None,
             )
             for column_impl in contract_impl.column_impls
         ]
@@ -117,7 +119,7 @@ class SchemaCheckImpl(CheckImpl):
         actual_columns: list[ColumnMetadata] = measurement_values.get_value(self.schema_metric)
         if actual_columns:
             actual_column_names: list[str] = [actual_column.column_name for actual_column in actual_columns]
-            actual_column_metadata_by_name: [str, ColumnMetadata] = {
+            actual_column_metadata_by_name: dict[str, ColumnMetadata] = {
                 actual_column.column_name: actual_column for actual_column in actual_columns
             }
             expected_column_names: list[str] = [
@@ -138,18 +140,20 @@ class SchemaCheckImpl(CheckImpl):
 
                 if (
                     actual_column_metadata
-                    and expected_column.data_type
-                    and self.contract_impl.data_source_impl.is_different_data_type(
-                        expected_column=expected_column, actual_column=actual_column_metadata
+                    and expected_column.sql_data_type
+                    and not self.contract_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
+                        expected=expected_column.sql_data_type,
+                        actual=actual_column_metadata.sql_data_type,
                     )
                 ):
                     column_data_type_mismatches.append(
+                        # TODO add numeric_scale, numeric_precision & datetime_precision to the ColumnDataTypeMismatch
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
-                            expected_data_type=expected_column.data_type,
-                            expected_character_maximum_length=expected_column.character_maximum_length,
-                            actual_data_type=actual_column_metadata.data_type,
-                            actual_character_maximum_length=actual_column_metadata.character_maximum_length,
+                            expected_data_type=expected_column.sql_data_type.name,
+                            expected_character_maximum_length=expected_column.sql_data_type.character_maximum_length,
+                            actual_data_type=actual_column_metadata.sql_data_type.name,
+                            actual_character_maximum_length=actual_column_metadata.sql_data_type.character_maximum_length,
                         )
                     )
 
@@ -287,7 +291,7 @@ class SchemaCheckResult(CheckResult):
 
         if verbose:
             actual_columns = [
-                f"{actual_column.column_name}({actual_column.data_type})" for actual_column in self.actual_columns
+                f"{actual_column.column_name}({actual_column.sql_data_type})" for actual_column in self.actual_columns
             ]
             diagnostics.append(f"Actual schema:{data_delimiter}{format_items(actual_columns, verbose=verbose)}")
 

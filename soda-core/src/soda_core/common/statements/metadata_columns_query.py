@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.sql_dialect import *
-
-
-@dataclass
-class ColumnMetadata:
-    column_name: str
-    data_type: str
-    character_maximum_length: Optional[int]
-
-    def get_data_type_ddl(self) -> str:
-        if self.character_maximum_length is None:
-            return self.data_type
-        else:
-            return f"{self.data_type}({self.character_maximum_length})"
+from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
+from soda_core.common.sql_ast import (
+    AND,
+    EQ,
+    FROM,
+    LITERAL,
+    ORDER_BY_ASC,
+    ORDINAL_POSITION,
+    SELECT,
+    WHERE,
+)
+from soda_core.common.sql_dialect import SqlDialect
 
 
 class MetadataColumnsQuery:
@@ -59,7 +56,22 @@ class MetadataColumnsQuery:
                         self.sql_dialect.column_data_type(),
                         *(
                             [self.sql_dialect.column_data_type_max_length()]
-                            if self.sql_dialect.supports_varchar_length()
+                            if self.sql_dialect.supports_data_type_character_maximun_length()
+                            else []
+                        ),
+                        *(
+                            [self.sql_dialect.column_data_type_numeric_precision()]
+                            if self.sql_dialect.supports_data_type_numeric_precision()
+                            else []
+                        ),
+                        *(
+                            [self.sql_dialect.column_data_type_numeric_scale()]
+                            if self.sql_dialect.supports_data_type_numeric_scale()
+                            else []
+                        ),
+                        *(
+                            [self.sql_dialect.column_data_type_datetime_precision()]
+                            if self.sql_dialect.supports_data_type_datetime_precision()
                             else []
                         ),
                     ]
@@ -85,18 +97,69 @@ class MetadataColumnsQuery:
         )
 
     def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
-        if self.sql_dialect.supports_varchar_length():
-            return [
+        character_maximum_length_index: Optional[int] = None
+        numeric_precision_index: Optional[int] = None
+        numeric_scale_index: Optional[int] = None
+        datetime_precision_index: Optional[int] = None
+
+        optional_values_index: int = 2
+        if self.sql_dialect.supports_data_type_character_maximun_length():
+            character_maximum_length_index = optional_values_index
+            optional_values_index += 1
+
+        if self.sql_dialect.supports_data_type_numeric_precision():
+            numeric_precision_index = optional_values_index
+            optional_values_index += 1
+
+        if self.sql_dialect.supports_data_type_numeric_scale():
+            numeric_scale_index = optional_values_index
+            optional_values_index += 1
+
+        if self.sql_dialect.supports_data_type_datetime_precision():
+            datetime_precision_index = optional_values_index
+            optional_values_index += 1
+
+        column_metadatas: list[ColumnMetadata] = []
+        for row in query_result.rows:
+            column_name: str = row[0]
+            data_type_name: str = self.sql_dialect.format_metadata_data_type(row[1])
+            character_maximum_length: Optional[int] = (
+                row[character_maximum_length_index] if character_maximum_length_index else None
+            )
+            numeric_precision: Optional[int] = row[numeric_precision_index] if numeric_precision_index else None
+            numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
+            datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
+
+            if isinstance(
+                character_maximum_length, int
+            ) and not self.sql_dialect.data_type_has_parameter_character_maximum_length(data_type_name):
+                character_maximum_length = None
+
+            if isinstance(numeric_precision, int) and not self.sql_dialect.data_type_has_parameter_numeric_precision(
+                data_type_name
+            ):
+                numeric_precision = None
+
+            if isinstance(numeric_scale, int) and not self.sql_dialect.data_type_has_parameter_numeric_scale(
+                data_type_name
+            ):
+                numeric_scale = None
+
+            if isinstance(datetime_precision, int) and not self.sql_dialect.data_type_has_parameter_datetime_precision(
+                data_type_name
+            ):
+                datetime_precision = None
+
+            column_metadatas.append(
                 ColumnMetadata(
-                    # Format data_type value here if needed -- default no-op
                     column_name=column_name,
-                    data_type=self.sql_dialect.format_metadata_data_type(data_type),
-                    character_maximum_length=character_maximum_length,
+                    sql_data_type=SqlDataType(
+                        name=data_type_name,
+                        character_maximum_length=character_maximum_length,
+                        numeric_precision=numeric_precision,
+                        numeric_scale=numeric_scale,
+                        datetime_precision=datetime_precision,
+                    ),
                 )
-                for column_name, data_type, character_maximum_length in query_result.rows
-            ]
-        else:
-            return [
-                ColumnMetadata(column_name=column_name, data_type=data_type, character_maximum_length=None)
-                for column_name, data_type in query_result.rows
-            ]
+            )
+        return column_metadatas

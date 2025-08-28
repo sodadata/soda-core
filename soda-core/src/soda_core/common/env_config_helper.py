@@ -43,3 +43,7 @@ class EnvConfigHelper:
     @property
     def soda_core_telemetry_local_debug_mode(self) -> bool:
         return strtobool(os.getenv("SODA_CORE_TELEMETRY_LOCAL_DEBUG_MODE", "false"))
+
+    @property
+    def soda_core_telemetry_test_mode(self) -> bool:
+        return strtobool(os.getenv("SODA_CORE_TELEMETRY_TEST_MODE", "false"))

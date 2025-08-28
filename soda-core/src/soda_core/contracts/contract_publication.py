@@ -60,8 +60,9 @@ class ContractPublicationResultList:
     items: List[ContractPublicationResult]
     logs: Logs
 
+    @property
     def has_errors(self) -> bool:
-        return self.logs.has_errors()
+        return self.logs.has_errors
 
     def __len__(self):
         return len(self.items)

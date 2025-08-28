@@ -10,7 +10,7 @@ from soda_core.contracts.contract_verification import (
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("aggregate")
-    .column_text("country")
+    .column_varchar("country")
     .column_integer("age")
     .column_integer("age_wm")
     .column_integer("age_wi")

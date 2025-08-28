@@ -9,8 +9,18 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COUNT, DISTINCT, REGEX_LIKE, TUPLE
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.sql_ast import (
+    COLUMN,
+    COUNT,
+    DISTINCT,
+    LITERAL,
+    REGEX_LIKE,
+    TUPLE,
+    VALUES,
+    WITH,
+)
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
@@ -62,17 +72,28 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
-    def get_contract_type_dict(self) -> dict[str, str]:
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
-            DBDataType.TEXT: "STRING",
-            DBDataType.INTEGER: "INT64",
-            DBDataType.DECIMAL: "FLOAT64",
-            DBDataType.DATE: "DATE",
-            DBDataType.TIME: "TIME",
-            DBDataType.TIMESTAMP: "TIMESTAMP",
-            DBDataType.TIMESTAMP_TZ: "TIMESTAMP",  # BigQuery does not have a separate TZ type; it's always in UTC
-            DBDataType.BOOLEAN: "BOOL",
+            SodaDataTypeName.TEXT: "STRING",
+            SodaDataTypeName.VARCHAR: "STRING",
+            SodaDataTypeName.INTEGER: "INTEGER",
+            SodaDataTypeName.DECIMAL: "NUMERIC",
+            SodaDataTypeName.NUMERIC: "NUMERIC",
+            SodaDataTypeName.DATE: "DATE",
+            SodaDataTypeName.TIME: "TIME",
+            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
+            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",
+            SodaDataTypeName.BOOLEAN: "BOOLEAN",
         }
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["int64", "integer"],
+            ["float64"],
+            ["bool", "boolean"],
+            ["numeric", "decimal"],
+            ["bignumeric", "bigdecimal"],
+        ]
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
@@ -89,7 +110,16 @@ class BigQuerySqlDialect(SqlDialect):
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
 
-    def supports_varchar_length(self) -> bool:
+    def supports_data_type_character_maximun_length(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_precision(self) -> bool:
+        return False
+
+    def supports_data_type_numeric_scale(self) -> bool:
+        return False
+
+    def supports_data_type_datetime_precision(self) -> bool:
         return False
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
@@ -100,3 +130,29 @@ class BigQuerySqlDialect(SqlDialect):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval 1 day"
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        # The first select row should have column aliases
+        # Remaining rows don't need aliases
+        def build_literal_with_alias(literal, alias: COLUMN | None) -> str:
+            return f"{self.literal(literal)} AS {self.quote_column(alias.name)}"
+
+        literal_rows: list[str] = []
+        for tuple in values.values:
+            if alias_columns:
+                literal_sqls: list[str] = []
+                for i in range(len(tuple.expressions)):
+                    literal: LITERAL = tuple.expressions[i]
+                    alias: COLUMN = alias_columns[i]
+                    literal_sqls.append(build_literal_with_alias(literal=literal, alias=alias))
+                literal_rows.append(", ".join(literal_sql for literal_sql in literal_sqls))
+                alias_columns = None
+            else:
+                literal_rows.append(", ".join(self.build_expression_sql(e) for e in tuple.expressions))
+
+        select_rows: list[str] = [f"SELECT {literal_row}" for literal_row in literal_rows]
+
+        return "\nUNION ALL ".join([select_row for select_row in select_rows])
+
+    def _build_cte_with_sql_line(self, with_element: WITH) -> str:
+        return f"WITH {self.quote_default(with_element.alias)} AS ("

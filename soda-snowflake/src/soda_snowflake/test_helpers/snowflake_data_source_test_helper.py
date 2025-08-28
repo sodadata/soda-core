@@ -16,7 +16,7 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
         """
         return f"""
             type: snowflake
-            name: SNOWFLAKE_TEST_DS
+            name: {self.name}
             connection:
                 account: {os.getenv("SNOWFLAKE_ACCOUNT")}
                 user: {os.getenv("SNOWFLAKE_USER")}

@@ -81,7 +81,7 @@ tomli==2.2.1
     #   pytest
 tomlkit==0.11.8
     # via tbump
-typing-extensions==4.14.1
+typing-extensions==4.15.0
     # via exceptiongroup
 tzdata==2025.2
     # via pandas

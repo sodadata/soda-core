@@ -27,13 +27,13 @@ class SodaTelemetry:
     ENDPOINT = "https://collect.soda.io/v1/traces"
     __instance = None
 
-    def __new__(cls, test_mode: bool = False):
+    def __new__(cls):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
-            cls.__instance._initialize(test_mode=test_mode)
+            cls.__instance._initialize()
         return cls.__instance
 
-    def _initialize(self, test_mode: bool):
+    def _initialize(self):
         self.soda_config = EnvConfigHelper()
 
         self.__send = self.soda_config.soda_core_telemetry_enabled
@@ -54,8 +54,7 @@ class SodaTelemetry:
                     }
                 )
             )
-
-            if test_mode:
+            if self.soda_config.soda_core_telemetry_test_mode:
                 self.__setup_for_test()
             else:
                 self.__setup()
@@ -104,9 +103,9 @@ class SodaTelemetry:
     ) -> None:
         self.set_attributes(
             {
-                "result__checks_count": contract_verification_session_result.get_number_of_checks(),
-                "result__checks_failed_count": contract_verification_session_result.get_number_of_checks_failed(),
-                "result__checks_passed_count": contract_verification_session_result.get_number_of_checks_passed(),
+                "result__checks_count": contract_verification_session_result.number_of_checks,
+                "result__checks_failed_count": contract_verification_session_result.number_of_checks_failed,
+                "result__checks_passed_count": contract_verification_session_result.number_of_checks_passed,
             }
         )
 

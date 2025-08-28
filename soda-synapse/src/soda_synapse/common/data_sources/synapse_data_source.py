@@ -1,8 +1,10 @@
 import logging
+from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
+from soda_core.common.sql_ast import COLUMN, INSERT_INTO, VALUES, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
     SqlServerDataSourceImpl,
@@ -45,3 +47,45 @@ class SynapseSqlDialect(SqlServerSqlDialect):
         values_sql: str = "SELECT " + ", ".join([self.literal(value) for value in values.values])
         values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
+
+    def select_all_paginated_sql(
+        self,
+        dataset_identifier: DatasetIdentifier,
+        columns: list[str],
+        filter: Optional[str],
+        order_by: list[str],
+        limit: int,
+        offset: int,
+    ) -> str:
+        """TODO: Synapse uses completely different pagination syntax, AST does not have enough flexibility for this yet."""
+        where_clauses = []
+
+        if filter:
+            where_clauses.append(SqlExpressionStr(filter))
+
+        select_statements = self._build_select_sql_lines([SELECT(columns or [STAR()])])
+        select = ", ".join(select_statements)
+        order_by_statements = self._build_order_by_lines([ORDER_BY_ASC(c) for c in order_by])
+        order_by = ", ".join(order_by_statements)
+        where_statements = self._build_where_sql_lines([WHERE.optional(AND.optional(where_clauses))])
+        where = ", ".join(where_statements)
+
+        query = f"""WITH src AS (
+        {select}, ROW_NUMBER()
+            OVER (
+                {order_by}
+            ) AS rn
+        FROM {self.build_fully_qualified_sql_name(dataset_identifier)} AS t
+        {where}
+        )
+        SELECT *
+            FROM src
+            WHERE rn > {offset}
+            AND rn <= {offset + limit}
+        ORDER BY rn;
+        """
+
+        return query

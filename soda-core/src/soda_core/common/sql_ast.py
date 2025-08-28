@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_datatypes import DBDataType
+from soda_core.common.metadata_types import SodaDataTypeName
 
 logger: logging.Logger = soda_logger
 
@@ -114,6 +114,10 @@ class WHERE(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.condition)
+
+    @classmethod
+    def optional(cls, condition: Optional[SqlExpression | str]) -> Optional[SqlExpression]:
+        return WHERE(condition) if condition is not None else None
 
 
 @dataclass
@@ -282,7 +286,9 @@ class LENGTH(SqlExpression):
 
 @dataclass
 class COLUMN(SqlExpression):
-    name: SqlExpression | str  # Use SqlExpression if you need to generate and/or rename a column dymamically, e.g. using a CASE statement
+    name: (
+        SqlExpression | str
+    )  # Use SqlExpression if you need to generate and/or rename a column dymamically, e.g. using a CASE statement
     table_alias: Optional[str] = None
     field_alias: Optional[str] = None
 
@@ -315,7 +321,7 @@ class COALESCE(SqlExpression):
 @dataclass
 class CAST(SqlExpression):
     expression: SqlExpression | str
-    to_type: str | DBDataType
+    to_type: str | SodaDataTypeName
 
     def __post_init__(self):
         super().__post_init__()
@@ -496,6 +502,10 @@ class ORDER_BY_ASC(BaseSqlExpression):
         super().__post_init__()
         self.handle_parent_node_update(self.expression)
 
+    @classmethod
+    def optional(cls, expression: Optional[SqlExpression | str]) -> Optional[SqlExpression]:
+        return ORDER_BY_ASC(expression) if expression else None
+
 
 @dataclass
 class ORDER_BY_DESC(BaseSqlExpression):
@@ -508,6 +518,10 @@ class ORDER_BY_DESC(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.expression)
+
+    @classmethod
+    def optional(cls, expression: Optional[SqlExpression | str]) -> Optional[SqlExpression]:
+        return ORDER_BY_DESC(expression) if expression else None
 
 
 @dataclass
@@ -535,8 +549,7 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 @dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
-    type: DBDataType | str
-    length: Optional[int] = None
+    type: SqlDataType
     nullable: Optional[bool] = None
     default: Optional[SqlExpression | str] = None
 
@@ -599,3 +612,27 @@ class DROP_TABLE(BaseSqlExpression):
 class DROP_TABLE_IF_EXISTS(DROP_TABLE):
     def __post_init__(self):
         super().__post_init__()
+
+
+@dataclass
+class LIMIT(BaseSqlExpression):
+    limit: int | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    @classmethod
+    def optional(cls, limit: int | None) -> Optional[LIMIT]:
+        return LIMIT(limit) if limit else None
+
+
+@dataclass
+class OFFSET(BaseSqlExpression):
+    offset: int | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+
+    @classmethod
+    def optional(cls, offset: int | None) -> Optional[OFFSET]:
+        return OFFSET(offset) if offset else None

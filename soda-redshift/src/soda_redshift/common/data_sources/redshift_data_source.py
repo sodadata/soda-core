@@ -1,9 +1,7 @@
-from typing import Optional
-
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.sql_ast import COUNT, DISTINCT, REGEX_LIKE, TUPLE
-from soda_core.common.sql_dialect import DBDataType, SqlDialect
+from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, REGEX_LIKE, TUPLE, VALUES
+from soda_core.common.sql_dialect import SqlDialect
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
@@ -33,17 +31,11 @@ class RedshiftSqlDialect(SqlDialect):
         expression: str = self.build_expression_sql(matches.expression)
         return f"{expression} ~ '{matches.regex_pattern}'"
 
-    def default_varchar_length(self) -> Optional[int]:
-        return 255
-
-    def get_sql_type_dict(self) -> dict[str, str]:
-        base_dict = super().get_sql_type_dict()
-        base_dict[DBDataType.TEXT] = f"character varying({self.default_varchar_length()})"
-        return base_dict
-
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         if tuple.check_context(COUNT) and tuple.check_context(DISTINCT):
             return self._build_tuple_sql_in_distinct(tuple)
+        if tuple.check_context(VALUES):
+            return f"{','.join(self.build_expression_sql(e) for e in tuple.expressions)}"
         return f"{super()._build_tuple_sql(tuple)}"
 
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
@@ -65,3 +57,33 @@ class RedshiftSqlDialect(SqlDialect):
         )
         # Use FNV_HASH to convert the string rep into a hash value with a fixed length, will be more performant in COUNT DISTINCT
         return f"FNV_HASH({elements})"
+
+    def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
+        return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "character varying"],
+            ["char", "character"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["smallint", "int2"],
+            ["real", "float4"],
+            ["double precision", "float8"],
+            ["timestamp", "timestamp without time zone"],
+        ]
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
+
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return False
+
+    def supports_data_type_datetime_precision(self) -> bool:
+        return False

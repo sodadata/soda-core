@@ -7,7 +7,7 @@ from helpers.test_table import TestTableSpecification
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("row_count_duckdb")
-    .column_text("id")
+    .column_varchar("id")
     .rows(
         rows=[
             ("1",),

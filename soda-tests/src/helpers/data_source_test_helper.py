@@ -11,7 +11,9 @@ from typing import Optional
 
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
+from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
@@ -35,83 +37,81 @@ logger = logging.getLogger(__name__)
 
 class DataSourceTestHelper:
     @classmethod
-    def create(cls, test_datasource: str) -> DataSourceTestHelper:
+    def create(cls, test_datasource: str, name: str) -> DataSourceTestHelper:
         if test_datasource == "postgres":
             from soda_postgres.test_helpers.postgres_data_source_test_helper import (
                 PostgresDataSourceTestHelper,
             )
 
-            return PostgresDataSourceTestHelper()
+            return PostgresDataSourceTestHelper(name)
         elif test_datasource == "snowflake":
             from soda_snowflake.test_helpers.snowflake_data_source_test_helper import (
                 SnowflakeDataSourceTestHelper,
             )
 
-            return SnowflakeDataSourceTestHelper()
+            return SnowflakeDataSourceTestHelper(name)
         elif test_datasource == "databricks":
             from soda_databricks.test_helpers.databricks_data_source_test_helper import (
                 DatabricksDataSourceTestHelper,
             )
 
-            return DatabricksDataSourceTestHelper()
+            return DatabricksDataSourceTestHelper(name)
         elif test_datasource == "duckdb":
             from soda_duckdb.test_helpers.duckdb_data_source_test_helper import (
                 DuckdbDataSourceTestHelper,
             )
 
-            return DuckdbDataSourceTestHelper()
+            return DuckdbDataSourceTestHelper(name)
         elif test_datasource == "bigquery":
             from soda_bigquery.test_helpers.bigquery_data_source_test_helper import (
                 BigQueryDataSourceTestHelper,
             )
 
-            return BigQueryDataSourceTestHelper()
+            return BigQueryDataSourceTestHelper(name)
 
         elif test_datasource == "oracle":
             from soda_oracle.test_helpers.oracle_data_source_test_helper import (
                 OracleDataSourceTestHelper,
             )
 
-            return OracleDataSourceTestHelper()
+            return OracleDataSourceTestHelper(name)
 
         elif test_datasource == "sqlserver":
             from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
                 SqlServerDataSourceTestHelper,
             )
 
-            return SqlServerDataSourceTestHelper()
+            return SqlServerDataSourceTestHelper(name)
         elif test_datasource == "synapse":
             from soda_synapse.test_helpers.synapse_data_source_test_helper import (
                 SynapseDataSourceTestHelper,
             )
 
-            return SynapseDataSourceTestHelper()
+            return SynapseDataSourceTestHelper(name)
         elif test_datasource == "redshift":
             from soda_redshift.test_helpers.redshift_data_source_test_helper import (
                 RedshiftDataSourceTestHelper,
             )
 
-            return RedshiftDataSourceTestHelper()
+            return RedshiftDataSourceTestHelper(name)
         elif test_datasource == "fabric":
             from soda_fabric.test_helpers.fabric_data_source_test_helper import (
                 FabricDataSourceTestHelper,
             )
 
-            return FabricDataSourceTestHelper()
+            return FabricDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
-    def __init__(self):
+    def __init__(self, name: str):
+        self.name = name
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
         logs.remove_from_root_logger()
-        if logs.has_errors():
+        if logs.has_errors:
             raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
-
-        self.create_table_sql_type_dict: dict[str, str] = self._get_create_table_sql_type_dict()
-        self.contract_data_type_dict: dict[str, str] = self._get_contract_data_type_dict()
 
         # Test table names that are present in the data source.
         # None means the data source is not queried
@@ -140,7 +140,7 @@ class DataSourceTestHelper:
         self.soda_cloud = SodaCloud.from_yaml_source(
             soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values={}
         )
-        if logs.has_errors():
+        if logs.has_errors:
             raise AssertionError(str(logs))
 
     def enable_soda_cloud_mock(self, responses: list[MockResponse]):
@@ -155,7 +155,7 @@ class DataSourceTestHelper:
         from soda_core.common.data_source_impl import DataSourceImpl
 
         data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
-        assert not logs.has_errors()
+        assert not logs.has_errors
         return data_source_impl
 
     def _create_data_source_yaml_str(self) -> str:
@@ -225,42 +225,6 @@ class DataSourceTestHelper:
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
 
-    def _get_create_table_sql_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_create_table_sql_type behavior
-        """
-        return self.data_source_impl.sql_dialect.get_sql_type_dict()
-
-    def _get_contract_data_type_dict(self) -> dict[str, str]:
-        """
-        DataSourceTestHelpers can override this method as an easy way
-        to customize the get_schema_check_sql_type behavior
-        """
-        return self.data_source_impl.sql_dialect.get_contract_type_dict()
-
-    def get_create_table_sql_type(self, test_data_type: str) -> str:
-        """
-        Resolves DataType.XXX constants to the data type sql string used in the create table statement.
-        Raises AssertionError if the data type is not found
-        Behavior can be overridden by customizing the dict in _get_create_table_sql_type_dict
-        or by overriding this method.
-        """
-        create_table_sql_type: str = self.create_table_sql_type_dict.get(test_data_type)
-        assert create_table_sql_type is not None, f"Invalid create table data type {test_data_type}"
-        return create_table_sql_type
-
-    def get_contract_data_type(self, data_type: str) -> str:
-        """
-        Resolves DataType.XXX constants to the data type sql string used in the create table statement.
-        Raises AssertionError if the data type is not found
-        Behavior can be overridden by customizing the dict in _get_create_table_sql_type_dict
-        or by overriding this method.
-        """
-        contract_data_type: str = self.contract_data_type_dict.get(data_type)
-        assert contract_data_type is not None, f"No contract data type for {data_type}: "
-        return contract_data_type
-
     def start_test_session(self) -> None:
         self.start_test_session_open_connection()
         self.start_test_session_ensure_schema()
@@ -269,7 +233,7 @@ class DataSourceTestHelper:
         logs: Logs = Logs()
         self.data_source_impl.open_connection()
         logs.remove_from_root_logger()
-        if logs.has_errors():
+        if logs.has_errors:
             raise AssertionError(f"Connection creation has errors. See logs.")
 
     def start_test_session_ensure_schema(self) -> None:
@@ -397,12 +361,14 @@ class DataSourceTestHelper:
     def _create_test_table_python_object(self, test_table_specification: TestTableSpecification) -> TestTable:
         columns: list[TestColumn] = []
         for test_column_specification in test_table_specification.columns:
-            contract_data_type = self.get_contract_data_type(test_column_specification.test_data_type)
+            data_source_sql_data_type: SqlDataType = (
+                self.data_source_impl.sql_dialect.map_test_sql_data_type_to_data_source(
+                    source_data_type=test_column_specification.sql_data_type
+                )
+            )
             test_column: TestColumn = TestColumn(
-                name=test_column_specification.name,
-                test_data_type=contract_data_type,
-                create_table_data_type=self.get_create_table_sql_type(test_column_specification.test_data_type),
-                contract_data_type=self.get_contract_data_type(test_column_specification.test_data_type),
+                name=test_column_specification.column_name,
+                sql_data_type=data_source_sql_data_type,
             )
             columns.append(test_column)
 
@@ -433,7 +399,7 @@ class DataSourceTestHelper:
         sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
         columns_sql: str = ",\n".join(
             [
-                f"  {sql_dialect.quote_default(column.name)} {column.create_table_data_type}"
+                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_sql_data_type_str_with_parameters()}"
                 for column in test_table.columns.values()
             ]
         )
@@ -504,16 +470,18 @@ class DataSourceTestHelper:
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
+            extra_data_source_impls=extra_data_source_impls,
         )
         if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
             raise AssertionError(f"No contract verification result session")
-        if not contract_verification_session_result.is_ok():
+        if not contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification passed")
         if len(contract_verification_session_result.contract_verification_results) == 0:
             raise AssertionError(f"No contract verification results")
@@ -525,14 +493,16 @@ class DataSourceTestHelper:
         contract_yaml_str: str,
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
             test_table=test_table,
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
+            extra_data_source_impls=extra_data_source_impls,
         )
-        if contract_verification_session_result.is_ok():
+        if contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification failed")
         return contract_verification_session_result.contract_verification_results[0]
 
@@ -542,6 +512,7 @@ class DataSourceTestHelper:
         test_table: Optional[TestTable] = None,
         variables: Optional[dict] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
@@ -549,7 +520,7 @@ class DataSourceTestHelper:
         return ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
             variables=variables,
-            data_source_impls=[self.data_source_impl],
+            data_source_impls=[self.data_source_impl, *extra_data_source_impls],
             soda_cloud_impl=self.soda_cloud,
             soda_cloud_use_agent=self.use_agent,
             soda_cloud_publish_results=self.publish_results,

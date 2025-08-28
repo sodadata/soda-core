@@ -27,7 +27,7 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("soda_cloud")
-    .column_text("id")
+    .column_varchar("id")
     .column_integer("age")
     .rows(
         rows=[
