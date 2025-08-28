@@ -9,7 +9,7 @@ from soda_core.contracts.contract_verification import (
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("combined_filters")
-    .column_text("country")
+    .column_varchar("country", 3)
     .column_integer("size")
     .column_varchar("cat")
     .rows(

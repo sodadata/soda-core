@@ -11,7 +11,7 @@ referencing_table_specification = (
     .table_purpose("invalid_referencing")
     .column_integer("id")
     .column_varchar("country", 2)
-    .column_text("zip")
+    .column_varchar("zip", 6)
     .rows(
         rows=[
             (1, "NL", "NL4775"),
@@ -32,7 +32,7 @@ referenced_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("invalid_referenced")
     .column_varchar("country_code", 2)
-    .column_text("zip_code")
+    .column_varchar("zip_code", 6)
     .rows(
         rows=[
             ("NL", "NL4775"),
