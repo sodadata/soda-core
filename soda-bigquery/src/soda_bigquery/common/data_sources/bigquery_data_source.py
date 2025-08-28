@@ -89,7 +89,6 @@ class BigQuerySqlDialect(SqlDialect):
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
             ["int64", "integer"],
-            ["float64"],
             ["bool", "boolean"],
             ["numeric", "decimal"],
             ["bignumeric", "bigdecimal"],
