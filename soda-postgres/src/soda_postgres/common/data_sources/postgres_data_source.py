@@ -1,6 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import CAST, REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
@@ -22,6 +22,16 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
         return PostgresDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+
+class PostgresSqlDataType(SqlDataType):
+
+    def get_sql_data_type_str_with_parameters(self) -> str:
+        if isinstance(self.datetime_precision, int) and self.name == "timestamp with time zone":
+            return f"timestamp({self.datetime_precision}) with time zone"
+        elif isinstance(self.datetime_precision, int) and self.name == "timestamp without time zone":
+            return f"timestamp({self.datetime_precision}) without time zone"
+        return super().get_sql_data_type_str_with_parameters()
 
 
 class PostgresSqlDialect(SqlDialect):
@@ -91,3 +101,6 @@ class PostgresSqlDialect(SqlDialect):
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
             SodaDataTypeName.BOOLEAN: "boolean",
         }
+
+    def get_sql_data_type_class(self) -> type:
+        return PostgresSqlDataType

@@ -8,8 +8,8 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import ColumnMetadata
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
@@ -109,12 +109,6 @@ class DataSourceImpl(ABC):
         if self.has_open_connection():
             self.data_source_connection.close_connection()
 
-    def create_metadata_tables_query(self) -> MetadataTablesQuery:
-        return MetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
-
-    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-        return MetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
-
     def execute_query(self, sql: str) -> QueryResult:
         return self.connection.execute_query(sql=sql)
 
@@ -134,3 +128,15 @@ class DataSourceImpl(ABC):
 
     def build_data_source(self) -> DataSource:
         return DataSource(name=self.name, type=self.type_name)
+
+    def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        sql: str = self.sql_dialect.build_columns_metadata_query_str(
+            dataset_prefixes=dataset_prefixes,
+            dataset_name=dataset_name
+        )
+        query_result: QueryResult = self.execute_query(sql)
+        return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+
+    # TODO refactor to method here and delegate query building and result extraction to SqlDialect similar to get_columns_metadata
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        return MetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
