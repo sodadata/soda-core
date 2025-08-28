@@ -4,7 +4,6 @@ from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import ColumnMetadata
-from soda_core.common.sql_dialect import AND, EQ, FROM, LITERAL, LOWER, SELECT, WHERE
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
 
@@ -18,7 +17,6 @@ class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
         - everything is forced to lowercase in Databricks
         """
         return super().build_sql([prefix.lower() for prefix in dataset_prefix], dataset_name.lower())
-        
 
     def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         return super().get_result(query_result)
