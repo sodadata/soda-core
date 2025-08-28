@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 import requests
 from requests import Response
+
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
