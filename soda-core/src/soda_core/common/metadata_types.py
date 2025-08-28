@@ -34,13 +34,6 @@ class SqlDataType:
         else:
             return self.name
 
-    def get_sql_data_type_str_without_parameters(self) -> str:
-        """
-        Returns the SQL data type without the parameters in round brackets for usage in a CREATE TABLE statement.
-        Some datasources (Athena) this.
-        """
-        return self.name
-
     def replace_data_type_name(self, new_data_type_name: str) -> SqlDataType:
         return SqlDataType(
             name=new_data_type_name,

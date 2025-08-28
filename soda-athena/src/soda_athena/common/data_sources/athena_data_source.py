@@ -10,6 +10,9 @@ from soda_athena.common.data_sources.athena_data_source_connection import (
 from soda_athena.common.data_sources.athena_data_source_connection import (
     AthenaDataSourceConnection,
 )
+from soda_athena.common.statements.metadata_columns_query import (
+    AthenaMetadataColumnsQuery,
+)
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import UpdateResult
@@ -40,11 +43,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         )
 
     def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-        return MetadataColumnsQuery(
-            sql_dialect=self.sql_dialect,
-            data_source_connection=self.connection,
-            dataset_name_casify=True,
-        )
+        return AthenaMetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.connection)
 
     # def execute_query(self, sql: str) -> QueryResult:
     #     # Athena does not play well with freezegun.
@@ -161,8 +160,8 @@ class AthenaSqlDialect(SqlDialect):
         Maps DBDataType names to data source type names.
         """
         return {
-            SodaDataTypeName.VARCHAR: "string",
-            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "varchar",
             SodaDataTypeName.INTEGER: "integer",
             SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.NUMERIC: "decimal",
@@ -178,8 +177,8 @@ class AthenaSqlDialect(SqlDialect):
         # Each list should represent a list of synonyms
         return [
             ["varchar", "character varying", "string"],
-            ["decimal", "decimal(10,0)"],  # Athena returns decimal(10,0) for NUMERIC
-            ["timestamp", "timestamp(3)"],  # Athena returns timestamp(3) for TIMESTAMP and TIMESTAMP_TZ
+            ["decimal"],
+            ["timestamp"],
         ]
 
     # def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
@@ -276,7 +275,12 @@ class AthenaSqlDialect(SqlDialect):
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
-        return create_table_column.type.get_sql_data_type_str_without_parameters()
+        # We need to check for text datatypes if there is a length parameter. If there is, use varchar, otherwise use string.
+        # This only applies to the create table statement, not the schema check. For the schema check we need to use the original data type (varchar), but without length.
+        if create_table_column.type.name == "varchar" and create_table_column.type.character_maximum_length is None:
+            return "string"
+        else:
+            return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     def _quote_column_for_create_table(self, column_name: str) -> str:
         return f"`{column_name}`"
@@ -285,13 +289,35 @@ class AthenaSqlDialect(SqlDialect):
         return False
 
     def supports_data_type_character_maximun_length(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_numeric_precision(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_numeric_scale(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_datetime_precision(self) -> bool:
-        return False
+        return False  # Technically it is supported, but we can't modify it in a CREATE TABLE statement (always defaults to 3)
+
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """Athena sometimes modifies data types to include precision (e.g. TIMESTAMP as TIMESTAMP(3)) in column metadata
+
+        We don't want data type comparisons to fail, so strip this extra information.
+        """
+        paranthesis_index = data_type.find("(")
+        if paranthesis_index != -1:
+            return data_type[:paranthesis_index]
+        return data_type
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char"]
+
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["decimal"]
+
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["decimal"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["timestamp", "time"]
