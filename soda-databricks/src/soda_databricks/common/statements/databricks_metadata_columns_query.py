@@ -18,52 +18,7 @@ class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
         - everything is forced to lowercase in Databricks
         """
         return super().build_sql([prefix.lower() for prefix in dataset_prefix], dataset_name.lower())
-        database_name: str = dataset_prefix[0]
-        schema_name: str = dataset_prefix[1]
-        return self.sql_dialect.build_select_sql(
-            [
-                SELECT(
-                    [
-                        self.sql_dialect.column_column_name(),
-                        self.sql_dialect.column_data_type(),
-                        self.sql_dialect.column_data_type_max_length(),
-                        self.sql_dialect.column_data_type_numeric_precision(),
-                        self.sql_dialect.column_data_type_numeric_scale(),
-                        self.sql_dialect.column_data_type_datetime_precision(),
-                    ]
-                ),
-                FROM(self.sql_dialect.table_columns()).IN(
-                    [database_name, self.sql_dialect.schema_information_schema()]
-                ),
-                WHERE(
-                    AND(
-                        [
-                            EQ(LOWER(self.sql_dialect.column_table_catalog()), LOWER(LITERAL(database_name))),
-                            EQ(LOWER(self.sql_dialect.column_table_schema()), LOWER(LITERAL(schema_name))),
-                            EQ(LOWER(self.sql_dialect.column_table_name()), LOWER(LITERAL(dataset_name))),
-                        ]
-                    )
-                ),
-            ]
-        )
+        
 
     def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         return super().get_result(query_result)
-        metadata = []
-        for column_name, full_data_type in query_result.rows:
-            data_type = full_data_type.split("(")[0]
-
-            character_maximum_length = None
-            if "(" in full_data_type and ")" in full_data_type:
-                character_maximum_length = int(full_data_type.split("(")[1].split(")")[0])
-
-            if character_maximum_length == 0:
-                character_maximum_length = None
-
-            metadata.append(
-                ColumnMetadata(
-                    column_name=column_name, data_type=data_type, character_maximum_length=character_maximum_length
-                )
-            )
-
-        return metadata
