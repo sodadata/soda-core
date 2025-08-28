@@ -1,8 +1,8 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.metadata_types import SodaDataTypeName
-from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
+from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -83,7 +83,7 @@ class DatabricksSqlDialect(SqlDialect):
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         # Databricks will complain if string lengths or datetime precisions are passed in, so strip if they are provided
-        if create_table_column.type.name=="string":
+        if create_table_column.type.name == "string":
             create_table_column.type.character_maximum_length = None
         if create_table_column.type.name in ["timestamp_ntz", "timestamp"]:
             create_table_column.type.datetime_precision = None

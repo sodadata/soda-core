@@ -15,7 +15,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW, CREATE_TABLE_COLUMN
+from soda_core.common.sql_ast import CREATE_TABLE_COLUMN, INSERT_INTO, VALUES_ROW
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
