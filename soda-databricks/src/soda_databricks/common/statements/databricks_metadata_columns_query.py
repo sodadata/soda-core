@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import ColumnMetadata
-from soda_core.common.sql_dialect import *
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+)
+from soda_core.common.sql_dialect import (
+    AND,
+    EQ,
+    FROM,
+    LITERAL,
+    LOWER,
+    SELECT,
+    WHERE,
+)
 from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
 
@@ -15,6 +27,7 @@ class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
         - type and char length are in the same column, full_data_type, e.g. varchar(255), we have to parse that from the result
         - everything is forced to lowercase in Databricks
         """
+        return super().build_sql([prefix.lower() for prefix in dataset_prefix], dataset_name.lower())
         database_name: str = dataset_prefix[0]
         schema_name: str = dataset_prefix[1]
         return self.sql_dialect.build_select_sql(
@@ -23,6 +36,10 @@ class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
                     [
                         self.sql_dialect.column_column_name(),
                         self.sql_dialect.column_data_type(),
+                        self.sql_dialect.column_data_type_max_length(),
+                        self.sql_dialect.column_data_type_numeric_precision(),
+                        self.sql_dialect.column_data_type_numeric_scale(),
+                        self.sql_dialect.column_data_type_datetime_precision(),
                     ]
                 ),
                 FROM(self.sql_dialect.table_columns()).IN(
@@ -41,6 +58,7 @@ class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
         )
 
     def get_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        return super().get_result(query_result)
         metadata = []
         for column_name, full_data_type in query_result.rows:
             data_type = full_data_type.split("(")[0]

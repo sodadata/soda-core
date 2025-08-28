@@ -34,6 +34,25 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 class DatabricksSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        return {
+            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.VARCHAR: "string",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["int", "integer"],
+        ]
+
     def column_data_type(self) -> str:
         return self.default_casify("full_data_type")
 
@@ -41,22 +60,22 @@ class DatabricksSqlDialect(SqlDialect):
         return False
 
     def supports_data_type_numeric_precision(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_numeric_scale(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_datetime_precision(self) -> bool:
-        return False
+        return True
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.TEXT: "string",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "double",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
+    def column_data_type_max_length(self) -> str:
+        return self.default_casify("character_maximum_length")
+
+    def column_data_type_numeric_precision(self) -> str:
+        return self.default_casify("numeric_precision")
+
+    def column_data_type_numeric_scale(self) -> str:
+        return self.default_casify("numeric_scale")
+
+    def column_data_type_datetime_precision(self) -> str:
+        return self.default_casify("datetime_precision")
