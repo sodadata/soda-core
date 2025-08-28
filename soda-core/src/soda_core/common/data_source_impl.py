@@ -140,3 +140,6 @@ class DataSourceImpl(ABC):
     # TODO refactor to method here and delegate query building and result extraction to SqlDialect similar to get_columns_metadata
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
         return MetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
+
+    def parse_column_names_from_query_result(self, query_result: QueryResult) -> list[str]:
+        return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]

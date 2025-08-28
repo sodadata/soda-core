@@ -3,6 +3,23 @@ name: CI pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      dataSource:
+        description: Run tests for this Soda data source
+        type: choice
+        default: all
+        options:
+          - all
+          - athena
+          - bigquery
+          - databricks
+          - duckdb
+          - fabric
+          - postgres
+          - redshift
+          - snowflake
+          - sqlserver
+          - synapse
   push:
     branches:
       - '*'
@@ -31,13 +48,26 @@ jobs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set data source (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ -z "${{ inputs.dataSource }}" ] || [ "${{ inputs.dataSource }}" = "all" ]; then
+            echo "DATA_SOURCE=all" >> "${GITHUB_ENV}"
+          else
+            echo "DATA_SOURCE=${{ inputs.dataSource }}" >> "${GITHUB_ENV}"
+          fi
+      - name: Set data source (push)
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          echo "DATA_SOURCE=all" >> "${GITHUB_ENV}"
       - name: Define modules
         id: modules
         run: |
-          if [ -z "${{ inputs.dataSource }}" ]; then
+          echo "INFO: DATA_SOURCE is set to ${DATA_SOURCE}"
+          if [ "${DATA_SOURCE}" = "all" ]; then
             echo modules=$(bash scripts/test_matrix.sh) >> "$GITHUB_OUTPUT"
           else
-            echo modules=["${{ inputs.dataSource }}"] >> "$GITHUB_OUTPUT"
+            echo 'modules=["__DATA_SOURCE__"]' | sed "s|__DATA_SOURCE__|${DATA_SOURCE}|g" >> "$GITHUB_OUTPUT"
           fi
   test:
     runs-on: ubuntu-24.04
@@ -81,31 +111,26 @@ jobs:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
       SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
       SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_CI_DATABASE }}
-      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_CI_PASSWORD }}
       DATABRICKS_HOST: ${{ vars.DATABRICKS_CI_HOST }}
       DATABRICKS_HTTP_PATH: ${{ vars.DATABRICKS_CI_HTTP_PATH }}
       DATABRICKS_CATALOG: ${{ vars.DATABRICKS_CI_CATALOG }}
-      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_CI_TOKEN }}
-      BIGQUERY_ACCOUNT_INFO_JSON: ${{ secrets.BIGQUERY_ACCOUNT_INFO_JSON }}
-      REDSHIFT_HOST: ${{ secrets.REDSHIFT_HOST }}
-      REDSHIFT_USERNAME: ${{ secrets.REDSHIFT_USERNAME }}
-      REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+      REDSHIFT_HOST: ${{ vars.REDSHIFT_CI_HOST }}
+      REDSHIFT_USERNAME: ${{ vars.REDSHIFT_CI_USERNAME }}
       REDSHIFT_DATABASE: "soda_test"
       REDSHIFT_PORT: "5439"
-      SODA_CORE_TELEMETRY_LOCAL_DEBUG_MODE: "true"
-      SQLSERVER_USERNAME: SA
+      ATHENA_S3_TEST_DIR: ${{ vars.ATHENA_CI_STAGING_DIR }}
+      ATHENA_SCHEMA: ${{ vars.ATHENA_CI_SCHEMA }}
+      SQLSERVER_USERNAME: sa
       SQLSERVER_PASSWORD: Password1!
       SQLSERVER_DATABASE: master
+      SQLSERVER_SCHEMA: dbo
       SYNAPSE_HOST: ${{ vars.MICROSOFT_SYNAPSE_CI_HOST }}
       SYNAPSE_DATABASE: sodacisynapse
       SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
-      SYNAPSE_CLIENT_ID: ${{ secrets.MICROSOFT_SYNAPSE_CI_USER }}
-      SYNAPSE_CLIENT_SECRET: ${{ secrets.MICROSOFT_SYNAPSE_CI_PASSWORD }}
       FABRIC_HOST: ${{ vars.MICROSOFT_FABRIC_CI_HOST }}
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
-      FABRIC_CLIENT_ID: ${{ secrets.MICROSOFT_FABRIC_CI_USERNAME }}
-      FABRIC_CLIENT_SECRET: ${{ secrets.MICROSOFT_FABRIC_CI_PASSWORD }}
+      SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +145,28 @@ jobs:
           curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
           sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
-          
+
+      - name: Get external secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            ,/soda/github/common/data-sources/envs
+          parse-json-secrets: true
+
+      - name: Get external secrets (special)
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
+
       - name: Run tests
         run: |
           python -m venv .venv

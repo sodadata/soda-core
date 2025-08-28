@@ -549,3 +549,9 @@ class DataSourceTestHelper:
     def quote_column(self, column_name: str) -> str:
         """For shorter notation in the tests, we can just point it to the dialect."""
         return self.data_source_impl.sql_dialect.quote_column(column_name)
+
+    def get_qualified_name_from_test_table(self, test_table: TestTable) -> str:
+        return self.data_source_impl.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=test_table.unique_name,
+        )
