@@ -214,9 +214,13 @@ class SchemaQuery(Query):
             dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
 =======
         self.sql = data_source_impl.sql_dialect.build_columns_metadata_query_str(
+<<<<<<< HEAD
             dataset_prefixes=dataset_prefixes,
             dataset_name=dataset_name
 >>>>>>> 538d0018 (Initial unsupported types with test coverage for all postgres types)
+=======
+            dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
+>>>>>>> 03ed0349 ([pre-commit.ci] auto fixes from pre-commit.com hooks)
         )
 
     def execute(self) -> list[Measurement]:
@@ -226,6 +230,7 @@ class SchemaQuery(Query):
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
 <<<<<<< HEAD
+<<<<<<< HEAD
         metadata_columns: list[
             ColumnMetadata
         ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
@@ -234,6 +239,11 @@ class SchemaQuery(Query):
             self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
         )
 >>>>>>> 538d0018 (Initial unsupported types with test coverage for all postgres types)
+=======
+        metadata_columns: list[
+            ColumnMetadata
+        ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
+>>>>>>> 03ed0349 ([pre-commit.ci] auto fixes from pre-commit.com hooks)
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
             Measurement(metric_id=schema_metric_impl.id, value=metadata_columns, metric_name=schema_metric_impl.type)
