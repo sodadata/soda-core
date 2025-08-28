@@ -25,7 +25,6 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
 
 
 class PostgresSqlDataType(SqlDataType):
-
     def get_sql_data_type_str_with_parameters(self) -> str:
         if isinstance(self.datetime_precision, int) and self.name == "timestamp with time zone":
             return f"timestamp({self.datetime_precision}) with time zone"
