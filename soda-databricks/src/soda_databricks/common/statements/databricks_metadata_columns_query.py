@@ -4,9 +4,11 @@ from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import ColumnMetadata
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
+from soda_core.common.sql_dialect import *
 
 
+# TODO MetadataColumnsQuery was deleted and replaced DataSourceImpl.get_columns_metadata
+#      the behavior of DataSourceImpl.get_columns_metadata ideally by overriding the SqlDialect methods invoked
 class DatabricksMetadataColumnsQuery(MetadataColumnsQuery):
     def build_sql(self, dataset_prefix: Optional[list[str]], dataset_name: str) -> Optional[str]:
         """
