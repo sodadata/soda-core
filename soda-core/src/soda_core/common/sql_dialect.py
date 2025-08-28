@@ -192,22 +192,12 @@ class SqlDialect:
     def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
         return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
 
+    @abstractmethod
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
         """
-        Maps DBDataType names to data source type names.
+        Maps SodaDataTypeName's names to native data source type names.
         """
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
+        raise NotImplementedError()
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
