@@ -15,7 +15,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW
+from soda_core.common.sql_ast import INSERT_INTO, VALUES_ROW, CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
@@ -399,7 +399,7 @@ class DataSourceTestHelper:
         sql_dialect: SqlDialect = self.data_source_impl.sql_dialect
         columns_sql: str = ",\n".join(
             [
-                f"  {sql_dialect.quote_default(column.name)} {column.sql_data_type.get_sql_data_type_str_with_parameters()}"
+                sql_dialect._build_create_table_column(CREATE_TABLE_COLUMN(name=column.name, type=column.sql_data_type))
                 for column in test_table.columns.values()
             ]
         )

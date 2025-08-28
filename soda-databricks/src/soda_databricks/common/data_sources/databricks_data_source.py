@@ -2,6 +2,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -54,7 +55,7 @@ class DatabricksSqlDialect(SqlDialect):
         ]
 
     def column_data_type(self) -> str:
-        return self.default_casify("full_data_type")
+        return self.default_casify("data_type")
 
     def supports_data_type_character_maximun_length(self) -> bool:
         return False
@@ -66,7 +67,7 @@ class DatabricksSqlDialect(SqlDialect):
         return True
 
     def supports_data_type_datetime_precision(self) -> bool:
-        return True
+        return False
 
     def column_data_type_max_length(self) -> str:
         return self.default_casify("character_maximum_length")
@@ -79,3 +80,11 @@ class DatabricksSqlDialect(SqlDialect):
 
     def column_data_type_datetime_precision(self) -> str:
         return self.default_casify("datetime_precision")
+
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        # Databricks will complain if string lengths or datetime precisions are passed in, so strip if they are provided
+        if create_table_column.type.name=="string":
+            create_table_column.type.character_maximum_length = None
+        if create_table_column.type.name in ["timestamp_ntz", "timestamp"]:
+            create_table_column.type.datetime_precision = None
+        return super()._build_create_table_column_type(create_table_column=create_table_column)
