@@ -1,8 +1,51 @@
 from __future__ import annotations
 
 import enum
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+
+
+@dataclass
+class DataSourceNamespace(ABC):
+    pass
+
+    @abstractmethod
+    def get_namespace_elements(self) -> list[str]:
+        pass
+
+    def get_database_for_metadata_query(self) -> str | None:
+        return None
+
+    @abstractmethod
+    def get_schema_for_metadata_query(self) -> str:
+        pass
+
+
+@dataclass
+class SchemaDataSourceNamespace(DataSourceNamespace):
+    schema: str
+
+    def get_namespace_elements(self) -> list[str]:
+        return [self.schema]
+
+    def get_schema_for_metadata_query(self) -> str:
+        return self.schema
+
+
+@dataclass
+class DbSchemaDataSourceNamespace(DataSourceNamespace):
+    database: str
+    schema: str
+
+    def get_namespace_elements(self) -> list[str]:
+        return [self.database, self.schema]
+
+    def get_database_for_metadata_query(self) -> str | None:
+        return self.database
+
+    def get_schema_for_metadata_query(self) -> str:
+        return self.schema
 
 
 @dataclass

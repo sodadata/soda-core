@@ -54,7 +54,7 @@ class SnowflakeSqlDialect(SqlDialect):
             ["timestamp_tz", "timestamp with time zone"],
         ]
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """
