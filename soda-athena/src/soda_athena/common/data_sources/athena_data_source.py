@@ -181,40 +181,8 @@ class AthenaSqlDialect(SqlDialect):
             ["timestamp"],
         ]
 
-    # def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
-    #     return {
-    #         SodaDataTypeName.VARCHAR: "string",
-    #         SodaDataTypeName.TEXT: "string",
-    #         SodaDataTypeName.INTEGER: "integer",
-    #         SodaDataTypeName.DECIMAL: "decimal",
-    #         SodaDataTypeName.NUMERIC: "decimal",
-    #         SodaDataTypeName.DATE: "date",
-    #         SodaDataTypeName.TIME: "date",
-    #         SodaDataTypeName.TIMESTAMP: "timestamp(3)",
-    #         SodaDataTypeName.TIMESTAMP_TZ: "timestamp(3)",
-    #         SodaDataTypeName.BOOLEAN: "boolean",
-    #     }
-
-    # TODO: can be removed, just keeping this here a bit as reference
-    # def get_contract_type_dict(self) -> dict[str, str]:
-    #     base_contract_type_dict = super().get_contract_type_dict()
-    #     base_contract_type_dict[DBDataType.TEXT] = "varchar"
-    #     base_contract_type_dict[DBDataType.BOOLEAN] = "boolean"
-    #     base_contract_type_dict[DBDataType.INTEGER] = "integer"
-    #     base_contract_type_dict[DBDataType.DECIMAL] = "decimal"
-    #     base_contract_type_dict[DBDataType.DATE] = "date"
-    #     base_contract_type_dict[DBDataType.TIME] = "date"
-    #     base_contract_type_dict[DBDataType.TIMESTAMP] = "timestamp(3)"
-    #     base_contract_type_dict[DBDataType.TIMESTAMP_TZ] = "timestamp(3)"
-    #     return base_contract_type_dict
-
-    # def get_sql_type_dict(self) -> dict[str, str]:
-    #     base_sql_type_dict = super().get_sql_type_dict()
-    #     base_sql_type_dict[DBDataType.TEXT] = "string"
-    #     base_sql_type_dict[DBDataType.INTEGER] = "int"
-    #     base_sql_type_dict[DBDataType.TIMESTAMP] = "timestamp"
-    #     base_sql_type_dict[DBDataType.TIMESTAMP_TZ] = "timestamp"
-    #     return base_sql_type_dict
+    def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
+        raise NotImplementedError()
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return identifier
