@@ -1154,11 +1154,7 @@ class SqlDialect:
                             if self.supports_data_type_numeric_precision()
                             else []
                         ),
-                        *(
-                            [self.column_data_type_numeric_scale()]
-                            if self.supports_data_type_numeric_scale()
-                            else []
-                        ),
+                        *([self.column_data_type_numeric_scale()] if self.supports_data_type_numeric_scale() else []),
                         *(
                             [self.column_data_type_datetime_precision()]
                             if self.supports_data_type_datetime_precision()
@@ -1166,17 +1162,11 @@ class SqlDialect:
                         ),
                     ]
                 ),
-                FROM(self.table_columns()).IN(
-                    information_schema_prefixes
-                ),
+                FROM(self.table_columns()).IN(information_schema_prefixes),
                 WHERE(
                     AND(
                         [
-                            *(
-                                [EQ(self.column_table_catalog(), LITERAL(database_name))]
-                                if database_name
-                                else []
-                            ),
+                            *([EQ(self.column_table_catalog(), LITERAL(database_name))] if database_name else []),
                             EQ(self.column_table_schema(), LITERAL(schema_name)),
                             EQ(self.column_table_name(), LITERAL(dataset_name)),
                         ]
@@ -1220,9 +1210,9 @@ class SqlDialect:
             numeric_scale: Optional[int] = row[numeric_scale_index] if numeric_scale_index else None
             datetime_precision: Optional[int] = row[datetime_precision_index] if datetime_precision_index else None
 
-            if isinstance(
-                character_maximum_length, int
-            ) and not self.data_type_has_parameter_character_maximum_length(data_type_name):
+            if isinstance(character_maximum_length, int) and not self.data_type_has_parameter_character_maximum_length(
+                data_type_name
+            ):
                 character_maximum_length = None
 
             if isinstance(numeric_precision, int) and not self.data_type_has_parameter_numeric_precision(
@@ -1230,9 +1220,7 @@ class SqlDialect:
             ):
                 numeric_precision = None
 
-            if isinstance(numeric_scale, int) and not self.data_type_has_parameter_numeric_scale(
-                data_type_name
-            ):
+            if isinstance(numeric_scale, int) and not self.data_type_has_parameter_numeric_scale(data_type_name):
                 numeric_scale = None
 
             if isinstance(datetime_precision, int) and not self.data_type_has_parameter_datetime_precision(
