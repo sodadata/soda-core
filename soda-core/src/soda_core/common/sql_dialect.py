@@ -1132,11 +1132,10 @@ class SqlDialect:
     def supports_case_sensitive_column_names(self) -> bool:
         return True
 
-        schema_name: Optional[str] = None
-        if (schema_index := self.get_schema_prefix_index()) is not None:
-            schema_name = dataset_prefixes[schema_index]
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
 
-        information_schema_prefixes: list[str] = self.prefixes_information_schema(dataset_prefixes)
+        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
 
         return self.build_select_sql(
             [
@@ -1162,13 +1161,13 @@ class SqlDialect:
                         ),
                     ]
                 ),
-                FROM(self.table_columns()).IN(information_schema_prefixes),
+                FROM(self.table_columns()).IN(information_schema_namespace_elements),
                 WHERE(
                     AND(
                         [
                             *([EQ(self.column_table_catalog(), LITERAL(database_name))] if database_name else []),
                             EQ(self.column_table_schema(), LITERAL(schema_name)),
-                            EQ(self.column_table_name(), LITERAL(dataset_name)),
+                            EQ(self.column_table_name(), LITERAL(table_name)),
                         ]
                     )
                 ),
