@@ -197,7 +197,7 @@ class SqlServerSqlDialect(SqlDialect):
             ["datetime2", "datetime"],
         ]
 
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
+    def get_data_source_type_names_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """

@@ -8,7 +8,12 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import ColumnMetadata
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    DataSourceNamespace,
+    DbSchemaDataSourceNamespace,
+    SchemaDataSourceNamespace,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
@@ -134,11 +139,25 @@ class DataSourceImpl(ABC):
         return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]
     
     def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
-        sql: str = self.sql_dialect.build_columns_metadata_query_str(
-            dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
-        )
+        sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)
         return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
+
+    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+        database_index: int | None = self.sql_dialect.get_database_prefix_index()
+        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
+        table_namespace: DataSourceNamespace = (
+            SchemaDataSourceNamespace(schema=dataset_prefixes[schema_index])
+            if database_index is None
+            else DbSchemaDataSourceNamespace(
+                database=dataset_prefixes[database_index], schema=dataset_prefixes[schema_index]
+            )
+        )
+
+        # BigQuery must be able to override to get the location
+        return self.sql_dialect.build_columns_metadata_query_str(
+            table_namespace=table_namespace, table_name=dataset_name
+        )
 
     # TODO refactor to method here and delegate query building and result extraction to SqlDialect similar to get_columns_metadata
     def create_metadata_tables_query(self) -> MetadataTablesQuery:

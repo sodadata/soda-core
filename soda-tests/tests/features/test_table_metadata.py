@@ -35,12 +35,14 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
         dataset_prefixes=test_table.dataset_prefix, dataset_name=test_table.unique_name
     )
 
-    sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR)
+    sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR)
 
     actual_txt_default: ColumnMetadata = actual_columns[0]
     assert actual_txt_default.column_name == "varchar_default"
     assert sql_dialect.is_same_data_type_for_schema_check(
-        expected=SqlDataType(name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR)),
+        expected=SqlDataType(
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR)
+        ),
         actual=actual_txt_default.sql_data_type,
     )
 
@@ -49,7 +51,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     length = 255 if sql_dialect.supports_data_type_character_maximun_length() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR),
             character_maximum_length=length,
         ),
         actual=actual_txt_w_length.sql_data_type,
@@ -59,7 +61,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_integer_default.column_name == "integer_default"
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.INTEGER),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.INTEGER),
         ),
         actual=actual_integer_default.sql_data_type,
     )
@@ -68,7 +70,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_numeric_default.column_name == "numeric_default"
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
         ),
         actual=actual_numeric_default.sql_data_type,
     )
@@ -79,7 +81,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     scale = 0 if sql_dialect.supports_data_type_numeric_scale() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
             numeric_precision=precision,
             numeric_scale=scale,
         ),
@@ -92,7 +94,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     scale = 2 if sql_dialect.supports_data_type_numeric_scale() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.NUMERIC),
             numeric_precision=precision,
             numeric_scale=scale,
         ),
@@ -103,7 +105,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     assert actual_ts_default.column_name == "ts_default"
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.TIMESTAMP),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.TIMESTAMP),
         ),
         actual=actual_ts_default.sql_data_type,
     )
@@ -113,7 +115,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     precision = 2 if sql_dialect.supports_data_type_datetime_precision() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
-            name=sql_dialect.get_sql_data_type_name_for_soda_data_type_name(SodaDataTypeName.TIMESTAMP),
+            name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.TIMESTAMP),
             datetime_precision=precision,
         ),
         actual=actual_ts_w_precision.sql_data_type,

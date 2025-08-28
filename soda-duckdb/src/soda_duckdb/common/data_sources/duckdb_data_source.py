@@ -68,7 +68,7 @@ class DuckDBSqlDialect(SqlDialect):
     def get_schema_prefix_index(self) -> int | None:
         return 0
 
-    def prefixes_information_schema(self, prefixes: list[str]) -> list[str]:
+    def information_schema_namespace_elements(self, prefixes: list[str]) -> list[str]:
         """
         The prefixes / namespace of the information schema for a given dataset prefix / namespace
         """

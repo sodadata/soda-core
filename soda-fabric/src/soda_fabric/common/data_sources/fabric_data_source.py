@@ -55,6 +55,7 @@ class FabricSqlDialect(SqlServerSqlDialect):
         super_dict = super().get_sql_data_type_name_by_soda_data_type_names()
         # Fabric does not support datetimeoffset (for timezones)
         # We specify the precision to 6 decimal places, this is the max precision supported by Fabric in Microsoft Fabric Data Warehouse.
+        # TODO I don't think this is right, we shouldn't have precisions in data type names
         super_dict[SodaDataTypeName.TIMESTAMP] = "datetime2(6)"
         super_dict[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2(6)"
         return super_dict
