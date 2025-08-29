@@ -220,9 +220,9 @@ class SchemaQuery(Query):
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
 
-        metadata_columns: list[ColumnMetadata] = (
-            self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
-        )
+        metadata_columns: list[
+            ColumnMetadata
+        ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
             Measurement(metric_id=schema_metric_impl.id, value=metadata_columns, metric_name=schema_metric_impl.type)
