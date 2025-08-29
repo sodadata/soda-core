@@ -249,6 +249,7 @@ class SqlServerSqlDialect(SqlDialect):
             # Boolean type
             "bit": SodaDataTypeName.BOOLEAN,
         }
+
     def supports_data_type_character_maximun_length(self) -> bool:
         return True
 
