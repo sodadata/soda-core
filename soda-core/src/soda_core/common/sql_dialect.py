@@ -355,6 +355,16 @@ class SqlDialect:
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
+
+        if not self.supports_data_type_character_maximun_length():
+            create_table_column.type.character_maximum_length = None
+        if not self.supports_data_type_numeric_precision():
+            create_table_column.type.numeric_precision = None
+        if not self.supports_data_type_numeric_scale():
+            create_table_column.type.numeric_scale = None
+        if not self.supports_data_type_datetime_precision():
+            create_table_column.type.datetime_precision = None
+
         return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     #########################################################
