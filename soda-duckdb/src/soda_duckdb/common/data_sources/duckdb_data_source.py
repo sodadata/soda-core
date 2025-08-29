@@ -5,6 +5,7 @@ from duckdb import DuckDBPyConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
@@ -75,10 +76,10 @@ class DuckDBSqlDialect(SqlDialect):
         return False
 
     def supports_data_type_numeric_precision(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_numeric_scale(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False
@@ -91,6 +92,23 @@ class DuckDBSqlDialect(SqlDialect):
         schema_name: str = prefixes[0]
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
+
+    def format_metadata_data_type(self, data_type: str) -> str:
+        paranthesis_index = data_type.find("(")
+        if paranthesis_index != -1:
+            return data_type[:paranthesis_index]
+        return data_type
+
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+        base = super().get_sql_data_type_name_by_soda_data_type_names()
+        base[SodaDataTypeName.NUMERIC] = "decimal"
+        return base
+
+    def default_numeric_precision(self) -> Optional[int]:
+        return 18
+
+    def default_numeric_scale(self) -> Optional[int]:
+        return 3
 
 
 class DuckDBDataSourceConnection(DataSourceConnection):

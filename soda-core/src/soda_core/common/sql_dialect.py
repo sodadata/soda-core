@@ -1001,3 +1001,9 @@ class SqlDialect:
 
     def is_quoted(self, identifier: str) -> bool:
         return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)
+
+    def default_numeric_precision(self) -> Optional[int]:
+        return None
+
+    def default_numeric_scale(self) -> Optional[int]:
+        return None
