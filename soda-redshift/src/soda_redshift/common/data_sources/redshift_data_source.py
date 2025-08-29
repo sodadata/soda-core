@@ -1,5 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, REGEX_LIKE, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
@@ -26,6 +27,83 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
 class RedshiftSqlDialect(SqlDialect):
     def __init__(self):
         super().__init__()
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+        return {
+            SodaDataTypeName.CHAR: "char",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "varchar",          # Redshift treats text as varchar(max)
+            SodaDataTypeName.SMALLINT: "smallint",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.BIGINT: "bigint",
+            SodaDataTypeName.NUMERIC: "numeric",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.FLOAT: "real",            # Redshift float = real (float4)
+            SodaDataTypeName.DOUBLE: "double precision",  # Redshift uses double precision (float8)
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            # Character types
+            "char": SodaDataTypeName.CHAR,
+            "character": SodaDataTypeName.CHAR,
+            "nchar": SodaDataTypeName.CHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "character varying": SodaDataTypeName.VARCHAR,
+            "nvarchar": SodaDataTypeName.VARCHAR,
+            "text": SodaDataTypeName.TEXT,   # synonym, stored as varchar(max)
+
+            # Integer types
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int2": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "int": SodaDataTypeName.INTEGER,
+            "int4": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "int8": SodaDataTypeName.BIGINT,
+
+            # Exact numeric types
+            "numeric": SodaDataTypeName.NUMERIC,
+            "decimal": SodaDataTypeName.DECIMAL,
+
+            # Approximate numeric types
+            "real": SodaDataTypeName.FLOAT,                # float4
+            "float4": SodaDataTypeName.FLOAT,
+            "double precision": SodaDataTypeName.DOUBLE,   # float8
+            "float8": SodaDataTypeName.DOUBLE,
+            "float": SodaDataTypeName.DOUBLE,              # synonym for float8
+
+            # Date/time types
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "time without time zone": SodaDataTypeName.TIME,
+
+            # Boolean type
+            "boolean": SodaDataTypeName.BOOLEAN,
+            "bool": SodaDataTypeName.BOOLEAN,
+        }
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "character varying"],
+            ["char", "character"],
+            ["smallint", "int2"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["real", "float4", "float"],
+            ["double precision", "float8"],
+            ["timestamp", "timestamp without time zone"],
+            ["time", "time without time zone"],
+        ]
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
@@ -60,18 +138,6 @@ class RedshiftSqlDialect(SqlDialect):
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
-
-    def _get_data_type_name_synonyms(self) -> list[list[str]]:
-        return [
-            ["varchar", "character varying"],
-            ["char", "character"],
-            ["integer", "int", "int4"],
-            ["bigint", "int8"],
-            ["smallint", "int2"],
-            ["real", "float4"],
-            ["double precision", "float8"],
-            ["timestamp", "timestamp without time zone"],
-        ]
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
