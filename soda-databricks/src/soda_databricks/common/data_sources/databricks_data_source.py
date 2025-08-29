@@ -1,8 +1,8 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.metadata_types import SodaDataTypeName
-from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
+from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -22,7 +22,6 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         return DatabricksDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
-
 
 
 class DatabricksSqlDialect(SqlDialect):

@@ -220,6 +220,10 @@ class SchemaQuery(Query):
         except Exception as e:
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4e73d5f5 (Formatting)
         metadata_columns: list[
             ColumnMetadata
         ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
