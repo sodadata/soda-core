@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 
 logger: logging.Logger = soda_logger
 
