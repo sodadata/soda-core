@@ -8,4 +8,5 @@ soda-sqlserver
 soda-synapse
 soda-redshift
 soda-fabric
+soda-databricks
 soda-athena

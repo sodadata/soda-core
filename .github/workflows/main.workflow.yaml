@@ -22,9 +22,10 @@ on:
           - synapse
   push:
     branches:
-      - '*'
+      - 'v4'
     tags:
       - "*"
+  pull_request:
 
 env:
   PROJECT_NAME: soda-core
@@ -57,7 +58,7 @@ jobs:
             echo "DATA_SOURCE=${{ inputs.dataSource }}" >> "${GITHUB_ENV}"
           fi
       - name: Set data source (push)
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         run: |
           echo "DATA_SOURCE=all" >> "${GITHUB_ENV}"
       - name: Define modules

@@ -10,9 +10,9 @@ from soda_core.contracts.contract_verification import (
 test_table_specification = (
     TestTableSpecification.builder()
     .table_purpose("duplicate_dataset")
-    .column_varchar("rep")
-    .column_varchar("country")
-    .column_varchar("zip")
+    .column_varchar("rep", 4)
+    .column_varchar("country", 3)
+    .column_varchar("zip", 4)
     .rows(
         rows=[
             ("Joe", "USA", "1000"),

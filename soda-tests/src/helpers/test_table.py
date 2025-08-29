@@ -71,6 +71,9 @@ class TestTableSpecificationBuilder:
             character_maximum_length=character_maximum_length,
         )
 
+    def column_text(self, name: str) -> TestTableSpecificationBuilder:
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.TEXT)
+
     def column_integer(self, name) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.INTEGER)
 

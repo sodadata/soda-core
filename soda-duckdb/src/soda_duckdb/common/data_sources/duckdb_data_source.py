@@ -5,7 +5,6 @@ from duckdb import DuckDBPyConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
-from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
@@ -87,18 +86,6 @@ class DuckDBSqlDialect(SqlDialect):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_MATCHES({expression}, '{matches.regex_pattern}')"
-
-    def get_contract_type_dict(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.TEXT: "VARCHAR",
-            SodaDataTypeName.INTEGER: "INTEGER",
-            SodaDataTypeName.DECIMAL: "DOUBLE",
-            SodaDataTypeName.DATE: "DATE",
-            SodaDataTypeName.TIME: "TIME",
-            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
-            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
-            SodaDataTypeName.BOOLEAN: "BOOLEAN",
-        }
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         schema_name: str = prefixes[0]
