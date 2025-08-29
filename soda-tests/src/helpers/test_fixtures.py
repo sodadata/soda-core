@@ -58,7 +58,8 @@ def logs() -> Logs:
 @pytest.fixture(scope="session")
 def data_source_test_helper_session() -> DataSourceTestHelper:
     data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create(
-        test_datasource, name="primary-datasource"
+        test_datasource,
+        name="primary_datasource",  # Do not use '-' in the name, it will cause issues with the dwh when creating tables: some data sources (e.g. Athena) do not support hyphens in table names.
     )
     data_source_test_helper.start_test_session()
     exception: Optional[Exception] = None
@@ -73,7 +74,7 @@ def data_source_test_helper_session() -> DataSourceTestHelper:
 @pytest.fixture(scope="session")
 def secondary_data_source_test_helper_session() -> DataSourceTestHelper:
     data_source_test_helper: DataSourceTestHelper = DataSourceTestHelper.create(
-        test_datasource, name="secondary-datasource"
+        test_datasource, name="secondary_datasource"
     )
     data_source_test_helper.start_test_session()
     exception: Optional[Exception] = None

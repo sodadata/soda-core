@@ -156,7 +156,10 @@ def test_freshness_no_rows(data_source_test_helper: DataSourceTestHelper):
         check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
         assert check_result.max_timestamp is None
         assert check_result.max_timestamp_utc is None
-        assert str(check_result.data_timestamp) == "2025-01-04 10:00:00+00:00"
+        assert str(check_result.data_timestamp) in [
+            "2025-01-04 10:00:00+00:00",
+            "2025-01-04 10:00:00",
+        ]  # We don't specify a timezone, so in local time it's fine as well
         assert str(check_result.data_timestamp_utc) == "2025-01-04 10:00:00+00:00"
         assert check_result.freshness is None
         assert check_result.freshness_in_seconds is None

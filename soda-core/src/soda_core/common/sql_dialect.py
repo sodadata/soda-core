@@ -358,10 +358,12 @@ class SqlDialect:
         return create_table_sql
 
     def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        column_name_quoted: str = self.quote_default(create_table_column.name)
+        column_name_quoted: str = self._quote_column_for_create_table(create_table_column.name)
         column_type_sql: str = self._build_create_table_column_type(create_table_column)
 
-        is_nullable_sql: str = " NOT NULL" if create_table_column.nullable is False else ""
+        is_nullable_sql: str = (
+            " NOT NULL" if (create_table_column.nullable is False and self._is_not_null_ddl_supported()) else ""
+        )
         default_sql: str = (
             f" DEFAULT {self.literal(create_table_column.default)}" if create_table_column.default else ""
         )
@@ -371,6 +373,14 @@ class SqlDialect:
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
         return create_table_column.type.get_sql_data_type_str_with_parameters()
+
+    def _quote_column_for_create_table(self, column_name: str) -> str:
+        return self.quote_default(
+            column_name
+        )  # Some datasources (Athena) require a different quoting when creating a table.
+
+    def _is_not_null_ddl_supported(self) -> bool:
+        return True
 
     #########################################################
     # DROP TABLE
@@ -985,3 +995,9 @@ class SqlDialect:
         # Snowflake: 1 MB
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return True
+
+    def is_quoted(self, identifier: str) -> bool:
+        return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)

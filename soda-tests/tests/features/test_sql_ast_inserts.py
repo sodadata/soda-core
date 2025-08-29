@@ -4,6 +4,7 @@ import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.datetime_conversions import interpret_datetime_as_utc
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -135,7 +136,9 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                         COLUMN("my_timestamp_tz"),
                     ]
                 ),
-                FROM(my_table_name[1:-1]),
+                # This has to be changed in the select sql. We should expect the fully qualified table name, like with other ASTs
+                # This is a fix for now, as Athena does not support quoted table names, so we don't need to drop the "quotes".
+                FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
                 ORDER_BY_ASC(COLUMN("id")),
             ]
         )
@@ -165,8 +168,11 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         ]
         assert result.rows[2][4] is None
 
-        assert result.rows[0][5] == datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        assert result.rows[1][5] == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
+        # Check that the timezone is correctly set, otherwise assume utc.
+        assert interpret_datetime_as_utc(result.rows[0][5]) == datetime.datetime(
+            2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        assert interpret_datetime_as_utc(result.rows[1][5]) == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
         assert result.rows[2][5] is None
 
     finally:
