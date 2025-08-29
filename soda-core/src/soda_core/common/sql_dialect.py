@@ -1109,3 +1109,9 @@ class SqlDialect:
 
     def get_sql_data_type_class(self) -> type:
         return SqlDataType
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return True
+
+    def is_quoted(self, identifier: str) -> bool:
+        return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)

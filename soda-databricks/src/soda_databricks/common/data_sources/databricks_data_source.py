@@ -6,9 +6,6 @@ from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
-from soda_databricks.common.statements.databricks_metadata_columns_query import (
-    DatabricksMetadataColumnsQuery,
-)
 from soda_databricks.model.data_source.databricks_data_source import (
     DatabricksDataSource as DatabricksDataSourceModel,
 )
@@ -26,13 +23,6 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def create_metadata_columns_query(self) -> DatabricksMetadataColumnsQuery:
-        # TODO MetadataColumnsQuery was deleted and replaced DataSourceImpl.get_columns_metadata
-        #      the behavior of DataSourceImpl.get_columns_metadata ideally by overriding the SqlDialect methods invoked
-
-        return DatabricksMetadataColumnsQuery(
-            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
-        )
 
 
 class DatabricksSqlDialect(SqlDialect):
