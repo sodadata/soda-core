@@ -213,7 +213,57 @@ class SqlServerSqlDialect(SqlDialect):
             SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
             SodaDataTypeName.BOOLEAN: "bit",
         }
+    # copied from redshift
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+        return {
+            SodaDataTypeName.CHAR: "char",
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "varchar", 
+            SodaDataTypeName.SMALLINT: "smallint", #
+            SodaDataTypeName.INTEGER: "int",  #
+            SodaDataTypeName.BIGINT: "bigint",  #
+            SodaDataTypeName.NUMERIC: "numeric", #
+            SodaDataTypeName.DECIMAL: "decimal",  #
+            SodaDataTypeName.FLOAT: "real",  #
+            SodaDataTypeName.DOUBLE: "float", 
+            SodaDataTypeName.TIMESTAMP: "datetime2",
+            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.BOOLEAN: "bit",
+        }
 
+    # copied from redshift
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            # Character types
+            "char": SodaDataTypeName.CHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "text": SodaDataTypeName.TEXT,
+            "nchar": SodaDataTypeName.CHAR,
+            "nvarchar": SodaDataTypeName.VARCHAR,
+            "ntext": SodaDataTypeName.TEXT,
+            # Integer types
+            "tinyint": SodaDataTypeName.SMALLINT, 
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            # Exact numeric types
+            "numeric": SodaDataTypeName.NUMERIC,
+            "decimal": SodaDataTypeName.DECIMAL,
+            # Approximate numeric types
+            "real": SodaDataTypeName.FLOAT,  
+            "float": SodaDataTypeName.DOUBLE,
+            # Date/time types
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "datetime2": SodaDataTypeName.TIMESTAMP,
+            "datetimeoffset": SodaDataTypeName.TIMESTAMP_TZ,
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "smalldatetime": SodaDataTypeName.TIMESTAMP,
+            # Boolean type
+            "bit": SodaDataTypeName.BOOLEAN,
+        }
     def supports_data_type_character_maximun_length(self) -> bool:
         return True
 
