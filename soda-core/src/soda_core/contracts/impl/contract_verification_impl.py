@@ -619,16 +619,19 @@ class ContractImpl:
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        contract_verification_handler: Optional[ContractVerificationHandler] = ContractVerificationHandler.instance()
-        if contract_verification_handler:
-            contract_verification_handler.handle(
-                contract_impl=self,
-                data_source_impl=self.data_source_impl,
-                contract_verification_result=contract_verification_result,
-                soda_cloud=self.soda_cloud,
-                soda_cloud_send_results_response_json=soda_cloud_response_json,
-                dwh_data_source_file_path=self.dwh_data_source_file_path,
-            )
+        try:
+            contract_verification_handler: Optional[ContractVerificationHandler] = ContractVerificationHandler.instance()
+            if contract_verification_handler:
+                contract_verification_handler.handle(
+                    contract_impl=self,
+                    data_source_impl=self.data_source_impl,
+                    contract_verification_result=contract_verification_result,
+                    soda_cloud=self.soda_cloud,
+                    soda_cloud_send_results_response_json=soda_cloud_response_json,
+                    dwh_data_source_file_path=self.dwh_data_source_file_path,
+                )
+        except Exception as e:
+            logger.error(f"Error in contract verification handler: {e}", exc_info=True)
 
         return contract_verification_result
 
