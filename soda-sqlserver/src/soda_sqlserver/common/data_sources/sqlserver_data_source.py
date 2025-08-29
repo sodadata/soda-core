@@ -213,19 +213,20 @@ class SqlServerSqlDialect(SqlDialect):
             SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
             SodaDataTypeName.BOOLEAN: "bit",
         }
+
     # copied from redshift
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "varchar", 
-            SodaDataTypeName.SMALLINT: "smallint", #
+            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.SMALLINT: "smallint",  #
             SodaDataTypeName.INTEGER: "int",  #
             SodaDataTypeName.BIGINT: "bigint",  #
-            SodaDataTypeName.NUMERIC: "numeric", #
+            SodaDataTypeName.NUMERIC: "numeric",  #
             SodaDataTypeName.DECIMAL: "decimal",  #
             SodaDataTypeName.FLOAT: "real",  #
-            SodaDataTypeName.DOUBLE: "float", 
+            SodaDataTypeName.DOUBLE: "float",
             SodaDataTypeName.TIMESTAMP: "datetime2",
             SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
             SodaDataTypeName.DATE: "date",
@@ -244,7 +245,7 @@ class SqlServerSqlDialect(SqlDialect):
             "nvarchar": SodaDataTypeName.VARCHAR,
             "ntext": SodaDataTypeName.TEXT,
             # Integer types
-            "tinyint": SodaDataTypeName.SMALLINT, 
+            "tinyint": SodaDataTypeName.SMALLINT,
             "smallint": SodaDataTypeName.SMALLINT,
             "int": SodaDataTypeName.INTEGER,
             "bigint": SodaDataTypeName.BIGINT,
@@ -252,7 +253,7 @@ class SqlServerSqlDialect(SqlDialect):
             "numeric": SodaDataTypeName.NUMERIC,
             "decimal": SodaDataTypeName.DECIMAL,
             # Approximate numeric types
-            "real": SodaDataTypeName.FLOAT,  
+            "real": SodaDataTypeName.FLOAT,
             "float": SodaDataTypeName.DOUBLE,
             # Date/time types
             "date": SodaDataTypeName.DATE,
@@ -264,6 +265,7 @@ class SqlServerSqlDialect(SqlDialect):
             # Boolean type
             "bit": SodaDataTypeName.BOOLEAN,
         }
+
     def supports_data_type_character_maximun_length(self) -> bool:
         return True
 
