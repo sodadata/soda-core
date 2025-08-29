@@ -161,7 +161,7 @@ class DataSourceImpl(ABC):
 
     def parse_column_names_from_query_result(self, query_result: QueryResult) -> list[str]:
         return [self.connection._execute_query_get_result_row_column_name(column) for column in query_result.columns]
-    
+
     def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)

@@ -32,13 +32,13 @@ class RedshiftSqlDialect(SqlDialect):
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "varchar",          # Redshift treats text as varchar(max)
+            SodaDataTypeName.TEXT: "varchar",  # Redshift treats text as varchar(max)
             SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
             SodaDataTypeName.BIGINT: "bigint",
             SodaDataTypeName.NUMERIC: "numeric",
             SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.FLOAT: "real",            # Redshift float = real (float4)
+            SodaDataTypeName.FLOAT: "real",  # Redshift float = real (float4)
             SodaDataTypeName.DOUBLE: "double precision",  # Redshift uses double precision (float8)
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
@@ -56,8 +56,7 @@ class RedshiftSqlDialect(SqlDialect):
             "varchar": SodaDataTypeName.VARCHAR,
             "character varying": SodaDataTypeName.VARCHAR,
             "nvarchar": SodaDataTypeName.VARCHAR,
-            "text": SodaDataTypeName.TEXT,   # synonym, stored as varchar(max)
-
+            "text": SodaDataTypeName.TEXT,  # synonym, stored as varchar(max)
             # Integer types
             "smallint": SodaDataTypeName.SMALLINT,
             "int2": SodaDataTypeName.SMALLINT,
@@ -66,18 +65,15 @@ class RedshiftSqlDialect(SqlDialect):
             "int4": SodaDataTypeName.INTEGER,
             "bigint": SodaDataTypeName.BIGINT,
             "int8": SodaDataTypeName.BIGINT,
-
             # Exact numeric types
             "numeric": SodaDataTypeName.NUMERIC,
             "decimal": SodaDataTypeName.DECIMAL,
-
             # Approximate numeric types
-            "real": SodaDataTypeName.FLOAT,                # float4
+            "real": SodaDataTypeName.FLOAT,  # float4
             "float4": SodaDataTypeName.FLOAT,
-            "double precision": SodaDataTypeName.DOUBLE,   # float8
+            "double precision": SodaDataTypeName.DOUBLE,  # float8
             "float8": SodaDataTypeName.DOUBLE,
-            "float": SodaDataTypeName.DOUBLE,              # synonym for float8
-
+            "float": SodaDataTypeName.DOUBLE,  # synonym for float8
             # Date/time types
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
@@ -86,7 +82,6 @@ class RedshiftSqlDialect(SqlDialect):
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "time without time zone": SodaDataTypeName.TIME,
-
             # Boolean type
             "boolean": SodaDataTypeName.BOOLEAN,
             "bool": SodaDataTypeName.BOOLEAN,
