@@ -65,18 +65,15 @@ class RedshiftSqlDialect(SqlDialect):
             "int4": SodaDataTypeName.INTEGER,
             "bigint": SodaDataTypeName.BIGINT,
             "int8": SodaDataTypeName.BIGINT,
-
             # Exact numeric types
             "numeric": SodaDataTypeName.NUMERIC,
             "decimal": SodaDataTypeName.DECIMAL,
-
             # Approximate numeric types
-            "real": SodaDataTypeName.FLOAT,                # float4
+            "real": SodaDataTypeName.FLOAT,  # float4
             "float4": SodaDataTypeName.FLOAT,
-            "double precision": SodaDataTypeName.DOUBLE,   # float8
+            "double precision": SodaDataTypeName.DOUBLE,  # float8
             "float8": SodaDataTypeName.DOUBLE,
-            "float": SodaDataTypeName.DOUBLE,              # synonym for float8
-
+            "float": SodaDataTypeName.DOUBLE,  # synonym for float8
             # Date/time types
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
