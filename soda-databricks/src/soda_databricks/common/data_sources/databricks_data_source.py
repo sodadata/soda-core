@@ -23,61 +23,88 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+        return super().build_columns_metadata_query_str(dataset_prefixes, dataset_name.lower())
 
 
 class DatabricksSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.TEXT: "string",
-            SodaDataTypeName.VARCHAR: "string",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "decimal",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
-
-    def _get_data_type_name_synonyms(self) -> list[list[str]]:
-        return [
-            ["int", "integer"],
-        ]
-
-    def column_data_type(self) -> str:
-        return self.default_casify("data_type")
+    # def column_data_type(self) -> str:
+    #     return self.default_casify("full_data_type")
 
     def supports_data_type_character_maximun_length(self) -> bool:
         return False
 
     def supports_data_type_numeric_precision(self) -> bool:
-        return True
+        return False
 
     def supports_data_type_numeric_scale(self) -> bool:
-        return True
+        return False
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False
 
-    def column_data_type_max_length(self) -> str:
-        return self.default_casify("character_maximum_length")
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+        return {
+            SodaDataTypeName.CHAR: "string",
+            SodaDataTypeName.VARCHAR: "string",
+            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.SMALLINT: "smallint",
+            SodaDataTypeName.INTEGER: "int",
+            SodaDataTypeName.BIGINT: "bigint",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.FLOAT: "float",
+            SodaDataTypeName.DOUBLE: "double",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "string",   # no native TIME type in Databricks
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
 
-    def column_data_type_numeric_precision(self) -> str:
-        return self.default_casify("numeric_precision")
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "string": SodaDataTypeName.VARCHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "char": SodaDataTypeName.VARCHAR,
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int": SodaDataTypeName.INTEGER,
+            "integer": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "real": SodaDataTypeName.FLOAT,
+            "float4": SodaDataTypeName.FLOAT,
+            "double": SodaDataTypeName.DOUBLE,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "float8": SodaDataTypeName.DOUBLE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "boolean": SodaDataTypeName.BOOLEAN,
+            # Not supported -> will be converted to varchar
+            # "binary"
+            # "interval",
+            # "array",
+            # "map",
+            # "struct"
+        }
 
-    def column_data_type_numeric_scale(self) -> str:
-        return self.default_casify("numeric_scale")
-
-    def column_data_type_datetime_precision(self) -> str:
-        return self.default_casify("datetime_precision")
-
-    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
-        # Databricks will complain if string lengths or datetime precisions are passed in, so strip if they are provided
-        if create_table_column.type.name == "string":
-            create_table_column.type.character_maximum_length = None
-        if create_table_column.type.name in ["timestamp_ntz", "timestamp"]:
-            create_table_column.type.datetime_precision = None
-        return super()._build_create_table_column_type(create_table_column=create_table_column)
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "char", "string"],
+            ["smallint", "int2"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["real", "float4", "float"],
+            ["double precision", "float8", "double"],
+            ["timestamp", "timestamp without time zone"],
+            ["timestamptz", "timestamp with time zone"],
+            ["time", "time without time zone"],
+        ]
