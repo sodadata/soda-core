@@ -88,18 +88,6 @@ class DuckDBSqlDialect(SqlDialect):
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_MATCHES({expression}, '{matches.regex_pattern}')"
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.TEXT: "VARCHAR",
-            SodaDataTypeName.INTEGER: "INTEGER",
-            SodaDataTypeName.DECIMAL: "DOUBLE",
-            SodaDataTypeName.DATE: "DATE",
-            SodaDataTypeName.TIME: "TIME",
-            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
-            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
-            SodaDataTypeName.BOOLEAN: "BOOLEAN",
-        }
-
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         schema_name: str = prefixes[0]
         quoted_schema_name: str = self.quote_default(schema_name)

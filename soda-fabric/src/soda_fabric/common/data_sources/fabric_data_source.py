@@ -51,13 +51,6 @@ class FabricSqlDialect(SqlServerSqlDialect):
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
-    def get_contract_type_dict(self) -> dict[str, str]:
-        super_dict = super().get_contract_type_dict()
-        # Fabric does not support datetimeoffset (for timezones)
-        super_dict[SodaDataTypeName.TIMESTAMP] = "datetime2"
-        super_dict[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
-        return super_dict
-
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         super_dict = super().get_sql_data_type_name_by_soda_data_type_names()
         # Fabric does not support datetimeoffset (for timezones)

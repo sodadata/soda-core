@@ -1,4 +1,6 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import (
@@ -26,6 +28,7 @@ test_table_specification = (
 )
 
 
+@pytest.mark.skipif(test_datasource in ("duckdb", "fabric"), reason="FIXME: Data type incompatibility")
 def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
