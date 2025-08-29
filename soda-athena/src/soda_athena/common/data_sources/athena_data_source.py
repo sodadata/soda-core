@@ -289,3 +289,6 @@ class AthenaSqlDialect(SqlDialect):
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
         return data_type_name.lower() in ["timestamp", "time"]
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return False  # Athena does not support case sensitive names: everything is lowercase.
