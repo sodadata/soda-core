@@ -211,6 +211,7 @@ class SchemaQuery(Query):
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 4dd01bcd (Extracted DataSourceNamespace and added BigQuery support for getting columns metadata new style)
         self.sql = data_source_impl.build_columns_metadata_query_str(
@@ -224,6 +225,10 @@ class SchemaQuery(Query):
 =======
             dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
 >>>>>>> 03ed0349 ([pre-commit.ci] auto fixes from pre-commit.com hooks)
+=======
+        self.sql = data_source_impl.build_columns_metadata_query_str(
+            dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
+>>>>>>> 867b9c44ebc36acaa1fce1485600b5708507e4d0
         )
 
     def execute(self) -> list[Measurement]:
@@ -232,6 +237,7 @@ class SchemaQuery(Query):
         except Exception as e:
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         metadata_columns: list[
@@ -247,6 +253,11 @@ class SchemaQuery(Query):
             ColumnMetadata
         ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
 >>>>>>> 03ed0349 ([pre-commit.ci] auto fixes from pre-commit.com hooks)
+=======
+        metadata_columns: list[
+            ColumnMetadata
+        ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
+>>>>>>> 867b9c44ebc36acaa1fce1485600b5708507e4d0
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
             Measurement(metric_id=schema_metric_impl.id, value=metadata_columns, metric_name=schema_metric_impl.type)
