@@ -1,7 +1,8 @@
+from unittest.mock import MagicMock, patch
+
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
-from unittest.mock import patch, MagicMock
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -42,7 +43,9 @@ def test_failure_in_contract_verification_handler_does_not_fail_scan(
         """,
     )
 
-    assert any([
-        "Error in contract verification handler: Simulated failure in ContractVerificationHandler" in record.message
-        for record in caplog.records
-    ])
+    assert any(
+        [
+            "Error in contract verification handler: Simulated failure in ContractVerificationHandler" in record.message
+            for record in caplog.records
+        ]
+    )

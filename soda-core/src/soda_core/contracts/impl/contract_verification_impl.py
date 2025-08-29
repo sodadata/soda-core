@@ -620,7 +620,9 @@ class ContractImpl:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         try:
-            contract_verification_handler: Optional[ContractVerificationHandler] = ContractVerificationHandler.instance()
+            contract_verification_handler: Optional[
+                ContractVerificationHandler
+            ] = ContractVerificationHandler.instance()
             if contract_verification_handler:
                 contract_verification_handler.handle(
                     contract_impl=self,
