@@ -30,15 +30,20 @@ class DatabricksSqlDialect(SqlDialect):
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
-            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.CHAR: "string",
             SodaDataTypeName.VARCHAR: "string",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.TEXT: "string",
+            SodaDataTypeName.SMALLINT: "smallint",
+            SodaDataTypeName.INTEGER: "int",
+            SodaDataTypeName.BIGINT: "bigint",
             SodaDataTypeName.NUMERIC: "decimal",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.FLOAT: "float",
+            SodaDataTypeName.DOUBLE: "double",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "string",   # no native TIME type in Databricks
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
@@ -81,3 +86,47 @@ class DatabricksSqlDialect(SqlDialect):
         if create_table_column.type.name in ["timestamp_ntz", "timestamp"]:
             create_table_column.type.datetime_precision = None
         return super()._build_create_table_column_type(create_table_column=create_table_column)
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "string": SodaDataTypeName.VARCHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "char": SodaDataTypeName.VARCHAR,
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int": SodaDataTypeName.INTEGER,
+            "integer": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "real": SodaDataTypeName.FLOAT,
+            "float4": SodaDataTypeName.FLOAT,
+            "double": SodaDataTypeName.DOUBLE,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "float8": SodaDataTypeName.DOUBLE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "boolean": SodaDataTypeName.BOOLEAN,
+            # Not supported -> will be converted to varchar
+            # "binary"
+            # "interval",
+            # "array",
+            # "map",
+            # "struct"
+        }
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        return [
+            ["varchar", "char", "string"],
+            ["smallint", "int2"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["real", "float4", "float"],
+            ["double precision", "float8", "double"],
+            ["timestamp", "timestamp without time zone"],
+            ["timestamptz", "timestamp with time zone"],
+            ["time", "time without time zone"],
+        ]
