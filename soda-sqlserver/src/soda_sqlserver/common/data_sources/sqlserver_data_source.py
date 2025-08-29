@@ -197,22 +197,6 @@ class SqlServerSqlDialect(SqlDialect):
             ["datetime2", "datetime"],
         ]
 
-    def get_data_source_type_names_by_soda_data_type_names(self) -> dict:
-        """
-        Maps DBDataType names to data source type names.
-        """
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "varchar",
-            SodaDataTypeName.INTEGER: "int",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "datetime2",
-            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
-            SodaDataTypeName.BOOLEAN: "bit",
-        }
 
     # copied from redshift
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
@@ -265,7 +249,6 @@ class SqlServerSqlDialect(SqlDialect):
             # Boolean type
             "bit": SodaDataTypeName.BOOLEAN,
         }
-
     def supports_data_type_character_maximun_length(self) -> bool:
         return True
 
