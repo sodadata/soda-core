@@ -70,3 +70,8 @@ class FabricSqlDialect(SqlServerSqlDialect):
             return "datetime2(6)"
         else:
             return create_table_column.type.get_sql_data_type_str_with_parameters()
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+        result = super().get_data_source_data_type_name_by_soda_data_type_names()
+        result[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
+        return result
