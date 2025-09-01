@@ -321,11 +321,11 @@ class CheckResult:
             if isinstance(n, list):
                 result = ""
                 for element in n:
-                    result += self._log_console_format(element, verbose=verbose) + "\n"
+                    result += cls._log_console_format(element, verbose=verbose) + "\n"
                 return result
             # For the person that passes a dict to the function. Feel free to determine the output format :)
             if not verbose:
-                return self.__remove_precision(str(n))
+                return cls.__remove_precision(n)
             else:  # We are in verbose
                 return str(n)
         except Exception as e:
@@ -333,7 +333,7 @@ class CheckResult:
             return str(n)
 
     @classmethod
-    def __remove_precision(cls, n: str) -> str:  # Can this be removed and replaced by standard python formatting?
+    def __remove_precision(cls, n: Number) -> str:  # Can this be removed and replaced by standard python formatting?
         n_str = str(n)
         if "e" in n_str:
             n_str = f"{n:.20f}"
