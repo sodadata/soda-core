@@ -137,19 +137,6 @@ class SqlServerSqlDialect(SqlDialect):
     def supports_regex_advanced(self) -> bool:
         return False
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "datetime2",
-            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
