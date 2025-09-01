@@ -1,6 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeName, DataSourceNamespace
+from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
