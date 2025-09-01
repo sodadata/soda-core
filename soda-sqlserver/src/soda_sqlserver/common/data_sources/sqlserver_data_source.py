@@ -137,7 +137,6 @@ class SqlServerSqlDialect(SqlDialect):
     def supports_regex_advanced(self) -> bool:
         return False
 
-
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
