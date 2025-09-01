@@ -1,8 +1,6 @@
 import datetime
 import logging
 
-import pytest
-
 try:
     import pandas as pd
 except ImportError:
@@ -11,6 +9,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     COUNT,
     CREATE_TABLE_COLUMN,
@@ -22,7 +21,6 @@ from soda_core.common.sql_ast import (
     SELECT,
     STAR,
     VALUES_ROW,
-    DBDataType,
 )
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -43,29 +41,32 @@ BATCH_SIZES = {  # Depends on the database. Not all databases support very large
     "redshift": 10000,
 }
 
+# Some datasources might prefer to use VARCHAR instead of TEXT, or the other way around. Here we can change it easily.
+TEXT_TYPE_TO_USE = SodaDataTypeName.VARCHAR
+
 # Map the columns to data types
-COLUMN_TO_DATA_TYPE_MAPPING: dict[str, DBDataType] = {
-    "School_Year": DBDataType.TEXT,
-    "Busbreakdown_ID": DBDataType.INTEGER,
-    "Run_Type": DBDataType.TEXT,
-    "Bus_No": DBDataType.TEXT,
-    "Route_Number": DBDataType.TEXT,
-    "Reason": DBDataType.TEXT,
-    "Schools_Serviced": DBDataType.TEXT,
-    "Occurred_On": DBDataType.TIMESTAMP,
-    "Created_On": DBDataType.TIMESTAMP,
-    "Boro": DBDataType.TEXT,
-    "Bus_Company_Name": DBDataType.TEXT,
-    "How_Long_Delayed": DBDataType.TEXT,
-    "Number_Of_Students_On_The_Bus": DBDataType.INTEGER,
-    "Has_Contractor_Notified_Schools": DBDataType.TEXT,
-    "Has_Contractor_Notified_Parents": DBDataType.TEXT,
-    "Have_You_Alerted_OPT": DBDataType.TEXT,
-    "Informed_On": DBDataType.TIMESTAMP,
-    "Incident_Number": DBDataType.TEXT,
-    "Last_Updated_On": DBDataType.TIMESTAMP,
-    "Breakdown_or_Running_Late": DBDataType.TEXT,
-    "School_Age_or_PreK": DBDataType.TEXT,
+COLUMN_TO_DATA_TYPE_MAPPING: dict[str, SodaDataTypeName] = {
+    "School_Year": TEXT_TYPE_TO_USE,
+    "Busbreakdown_ID": SodaDataTypeName.INTEGER,
+    "Run_Type": TEXT_TYPE_TO_USE,
+    "Bus_No": TEXT_TYPE_TO_USE,
+    "Route_Number": TEXT_TYPE_TO_USE,
+    "Reason": TEXT_TYPE_TO_USE,
+    "Schools_Serviced": TEXT_TYPE_TO_USE,
+    "Occurred_On": SodaDataTypeName.TIMESTAMP,
+    "Created_On": SodaDataTypeName.TIMESTAMP,
+    "Boro": TEXT_TYPE_TO_USE,
+    "Bus_Company_Name": TEXT_TYPE_TO_USE,
+    "How_Long_Delayed": TEXT_TYPE_TO_USE,
+    "Number_Of_Students_On_The_Bus": SodaDataTypeName.INTEGER,
+    "Has_Contractor_Notified_Schools": TEXT_TYPE_TO_USE,
+    "Has_Contractor_Notified_Parents": TEXT_TYPE_TO_USE,
+    "Have_You_Alerted_OPT": TEXT_TYPE_TO_USE,
+    "Informed_On": SodaDataTypeName.TIMESTAMP,
+    "Incident_Number": TEXT_TYPE_TO_USE,
+    "Last_Updated_On": SodaDataTypeName.TIMESTAMP,
+    "Breakdown_or_Running_Late": TEXT_TYPE_TO_USE,
+    "School_Age_or_PreK": TEXT_TYPE_TO_USE,
 }
 
 TIMESTAMP_COLUMNS = ["Occurred_On", "Created_On", "Informed_On", "Last_Updated_On"]
@@ -118,11 +119,11 @@ def convert_to_values_row(row) -> VALUES_ROW:
             else:
                 value = str(value)
             # Make sure that the column is of the correct type, sometimes we get errors with this.
-            if COLUMN_TO_DATA_TYPE_MAPPING[key] == DBDataType.TIMESTAMP:
+            if COLUMN_TO_DATA_TYPE_MAPPING[key] == SodaDataTypeName.TIMESTAMP:
                 assert isinstance(value, datetime.datetime)
-            elif COLUMN_TO_DATA_TYPE_MAPPING[key] == DBDataType.INTEGER:
+            elif COLUMN_TO_DATA_TYPE_MAPPING[key] == SodaDataTypeName.INTEGER:
                 assert isinstance(value, int)
-            elif COLUMN_TO_DATA_TYPE_MAPPING[key] == DBDataType.TEXT:
+            elif COLUMN_TO_DATA_TYPE_MAPPING[key] == TEXT_TYPE_TO_USE:
                 assert isinstance(value, str)
             else:
                 raise ValueError(f"Unknown column type: {COLUMN_TO_DATA_TYPE_MAPPING[key]}")
@@ -131,9 +132,9 @@ def convert_to_values_row(row) -> VALUES_ROW:
     return VALUES_ROW(result_list)
 
 
-@pytest.mark.skip(
-    reason="This test is a hack to upload the bus breakdown dataset to the test database. It should not be considered a part of the test suite."
-)
+# @pytest.mark.skip(
+#     reason="This test is a hack to upload the bus breakdown dataset to the test database. It should not be considered a part of the test suite."
+# )
 def test_insert_bus_breakdown_dataset(data_source_test_helper: DataSourceTestHelper):
     """
     This is a very hacky way to upload a dataset (specifically the bus breakdown dataset) to a database.
@@ -166,63 +167,105 @@ def test_insert_bus_breakdown_dataset(data_source_test_helper: DataSourceTestHel
     # Create the columns
     create_table_columns = [
         CREATE_TABLE_COLUMN(
-            name="School_Year", type=COLUMN_TO_DATA_TYPE_MAPPING["School_Year"], length=255, nullable=True
-        ),
-        CREATE_TABLE_COLUMN(name="Busbreakdown_ID", type=COLUMN_TO_DATA_TYPE_MAPPING["Busbreakdown_ID"], nullable=True),
-        CREATE_TABLE_COLUMN(name="Run_Type", type=COLUMN_TO_DATA_TYPE_MAPPING["Run_Type"], length=255, nullable=True),
-        CREATE_TABLE_COLUMN(name="Bus_No", type=COLUMN_TO_DATA_TYPE_MAPPING["Bus_No"], length=255, nullable=True),
-        CREATE_TABLE_COLUMN(
-            name="Route_Number", type=COLUMN_TO_DATA_TYPE_MAPPING["Route_Number"], length=255, nullable=True
-        ),
-        CREATE_TABLE_COLUMN(name="Reason", type=COLUMN_TO_DATA_TYPE_MAPPING["Reason"], length=255, nullable=True),
-        CREATE_TABLE_COLUMN(
-            name="Schools_Serviced", type=COLUMN_TO_DATA_TYPE_MAPPING["Schools_Serviced"], length=255, nullable=True
-        ),
-        CREATE_TABLE_COLUMN(name="Occurred_On", type=COLUMN_TO_DATA_TYPE_MAPPING["Occurred_On"], nullable=True),
-        CREATE_TABLE_COLUMN(name="Created_On", type=COLUMN_TO_DATA_TYPE_MAPPING["Created_On"], nullable=True),
-        CREATE_TABLE_COLUMN(name="Boro", type=COLUMN_TO_DATA_TYPE_MAPPING["Boro"], length=255, nullable=True),
-        CREATE_TABLE_COLUMN(
-            name="Bus_Company_Name", type=COLUMN_TO_DATA_TYPE_MAPPING["Bus_Company_Name"], length=255, nullable=True
+            name="School_Year",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["School_Year"], character_maximum_length=255),
+            nullable=True,
         ),
         CREATE_TABLE_COLUMN(
-            name="How_Long_Delayed", type=COLUMN_TO_DATA_TYPE_MAPPING["How_Long_Delayed"], length=255, nullable=True
+            name="Busbreakdown_ID", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Busbreakdown_ID"]), nullable=True
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Run_Type",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Run_Type"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Bus_No",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Bus_No"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Route_Number",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Route_Number"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Reason",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Reason"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Schools_Serviced",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Schools_Serviced"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Occurred_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Occurred_On"]), nullable=True
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Created_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Created_On"]), nullable=True
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Boro",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Boro"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Bus_Company_Name",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Bus_Company_Name"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="How_Long_Delayed",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["How_Long_Delayed"], character_maximum_length=255),
+            nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Number_Of_Students_On_The_Bus",
-            type=COLUMN_TO_DATA_TYPE_MAPPING["Number_Of_Students_On_The_Bus"],
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Number_Of_Students_On_The_Bus"]),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Has_Contractor_Notified_Schools",
-            type=COLUMN_TO_DATA_TYPE_MAPPING["Has_Contractor_Notified_Schools"],
-            length=255,
+            type=SqlDataType(
+                name=COLUMN_TO_DATA_TYPE_MAPPING["Has_Contractor_Notified_Schools"], character_maximum_length=255
+            ),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Has_Contractor_Notified_Parents",
-            type=COLUMN_TO_DATA_TYPE_MAPPING["Has_Contractor_Notified_Parents"],
-            length=255,
+            type=SqlDataType(
+                name=COLUMN_TO_DATA_TYPE_MAPPING["Has_Contractor_Notified_Parents"], character_maximum_length=255
+            ),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Have_You_Alerted_OPT",
-            type=COLUMN_TO_DATA_TYPE_MAPPING["Have_You_Alerted_OPT"],
-            length=255,
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Have_You_Alerted_OPT"], character_maximum_length=255),
             nullable=True,
         ),
-        CREATE_TABLE_COLUMN(name="Informed_On", type=COLUMN_TO_DATA_TYPE_MAPPING["Informed_On"], nullable=True),
         CREATE_TABLE_COLUMN(
-            name="Incident_Number", type=COLUMN_TO_DATA_TYPE_MAPPING["Incident_Number"], length=255, nullable=True
+            name="Informed_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Informed_On"]), nullable=True
         ),
-        CREATE_TABLE_COLUMN(name="Last_Updated_On", type=COLUMN_TO_DATA_TYPE_MAPPING["Last_Updated_On"], nullable=True),
+        CREATE_TABLE_COLUMN(
+            name="Incident_Number",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Incident_Number"], character_maximum_length=255),
+            nullable=True,
+        ),
+        CREATE_TABLE_COLUMN(
+            name="Last_Updated_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Last_Updated_On"]), nullable=True
+        ),
         CREATE_TABLE_COLUMN(
             name="Breakdown_or_Running_Late",
-            type=COLUMN_TO_DATA_TYPE_MAPPING["Breakdown_or_Running_Late"],
-            length=255,
+            type=SqlDataType(
+                name=COLUMN_TO_DATA_TYPE_MAPPING["Breakdown_or_Running_Late"], character_maximum_length=255
+            ),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
-            name="School_Age_or_PreK", type=COLUMN_TO_DATA_TYPE_MAPPING["School_Age_or_PreK"], length=255, nullable=True
+            name="School_Age_or_PreK",
+            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["School_Age_or_PreK"], character_maximum_length=255),
+            nullable=True,
         ),
     ]
 
