@@ -137,7 +137,6 @@ class SqlServerSqlDialect(SqlDialect):
     def supports_regex_advanced(self) -> bool:
         return False
 
-
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
@@ -184,7 +183,6 @@ class SqlServerSqlDialect(SqlDialect):
             ["datetime2", "datetime"],
         ]
 
-   
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {
             SodaDataTypeName.CHAR: "char",
