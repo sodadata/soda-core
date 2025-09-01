@@ -5,7 +5,7 @@ from duckdb import DuckDBPyConnection
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
 from soda_duckdb.common.data_sources.duckdb_data_source_connection import (
@@ -115,6 +115,90 @@ class DuckDBSqlDialect(SqlDialect):
 
     def default_numeric_scale(self) -> Optional[int]:
         return 3
+
+    def _get_data_type_name_synonyms(self) -> list[list[str]]:
+        # Implements data type synonyms
+        # Each list should represent a list of synonyms
+        return [
+            ["varchar", "text", "string"],
+            ["number", "decimal", "numeric", "int", "integer", "bigint", "smallint", "tinyint", "byteint"],
+            ["float", "float4", "float8", "double", "double precision", "real"],
+            ["timestamp", "datetime", "timestamp_ntz", "timestamp without time zone"],
+            ["timestamp_ltz", "timestamp with local time zone"],
+            ["timestamp_tz", "timestamp with time zone"],
+        ]
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+        """
+        Maps DBDataType names to data source type names.
+        """
+        return {
+            SodaDataTypeName.CHAR: "varchar",  # DuckDB doesn't have fixed CHAR, maps to VARCHAR
+            SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "varchar",  # TEXT is an alias for VARCHAR
+            SodaDataTypeName.SMALLINT: "smallint",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.BIGINT: "bigint",
+            SodaDataTypeName.DECIMAL: "decimal",  # DuckDB supports DECIMAL(p,s)
+            SodaDataTypeName.NUMERIC: "decimal",  # NUMERIC is an alias for DECIMAL
+            SodaDataTypeName.FLOAT: "real",  # single-precision float
+            SodaDataTypeName.DOUBLE: "double",  # double-precision float
+            SodaDataTypeName.TIMESTAMP: "timestamp",  # default = without timezone
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            # Character / String types
+            "char": SodaDataTypeName.CHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "string": SodaDataTypeName.VARCHAR,
+            # TODO analyze if this should be supported
+            # "text": SodaDataTypeName.TEXT,
+            # Integer types
+            "tinyint": SodaDataTypeName.SMALLINT,  # closest match (no explicit TINYINT in Soda)
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int2": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "int": SodaDataTypeName.INTEGER,
+            "int4": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "int8": SodaDataTypeName.BIGINT,
+            # TODO Review data issues
+            # "utinyint": SodaDataTypeName.INTEGER,    # Soda doesn’t have unsigned types
+            # "usmallint": SodaDataTypeName.INTEGER,
+            # "uinteger": SodaDataTypeName.INTEGER,
+            # "uint": SodaDataTypeName.INTEGER,
+            # "ubigint": SodaDataTypeName.BIGINT,
+            #
+            # "hugeint": SodaDataTypeName.BIGINT,      # Soda has no HUGEINT, map to BIGINT
+            # Decimal / Numeric
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            # Floating point
+            "real": SodaDataTypeName.FLOAT,
+            "float4": SodaDataTypeName.FLOAT,
+            "float": SodaDataTypeName.DOUBLE,  # "float" is alias for double in DuckDB
+            "float8": SodaDataTypeName.DOUBLE,
+            "double": SodaDataTypeName.DOUBLE,
+            # Boolean
+            "boolean": SodaDataTypeName.BOOLEAN,
+            "bool": SodaDataTypeName.BOOLEAN,
+            # Date & Time
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+        }
+
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        return super().build_columns_metadata_query_str(table_namespace, table_name)
 
 
 class DuckDBDataSourceConnection(DataSourceConnection):

@@ -198,6 +198,8 @@ class SqlDialect:
             "timestamp without time zone",
             "timestamptz",
             "timestamp with time zone",
+            "time",
+            "time with time zone",
         ]
 
     # SQL generation

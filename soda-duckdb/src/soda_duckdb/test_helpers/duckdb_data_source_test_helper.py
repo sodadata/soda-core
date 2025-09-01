@@ -6,10 +6,6 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class DuckdbDataSourceTestHelper(DataSourceTestHelper):
-    def _create_dataset_prefix(self) -> list[str]:
-        schema_name: str = self._create_schema_name()
-        return [schema_name]
-
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
@@ -23,8 +19,15 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
                 schema: main
         """
 
+    def _create_database_name(self) -> Optional[str]:
+        return None
+
     def _create_schema_name(self) -> Optional[str]:
         return "main"
+
+    def _create_dataset_prefix(self) -> list[str]:
+        schema_name: str = self._create_schema_name()
+        return [schema_name]
 
     def drop_test_schema_if_exists(self) -> None:
         """
