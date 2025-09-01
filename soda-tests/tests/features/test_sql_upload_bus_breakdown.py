@@ -1,6 +1,8 @@
 import datetime
 import logging
 
+import pytest
+
 try:
     import pandas as pd
 except ImportError:
@@ -27,7 +29,7 @@ from soda_core.common.sql_dialect import SqlDialect
 logger: logging.Logger = soda_logger
 
 CSV_FILE_LOCATION = "Bus_Breakdown_and_Delays.csv"
-SCHEMA_NAME = "observability_testing"
+SCHEMA_NAME = "observability_testing"  # Change to dev_observability_testing for Athena.
 TABLE_NAME = "bus_breakdown"
 BATCH_SIZES = {  # Depends on the database. Not all databases support very large batch inserts.
     "postgres": 10000,
@@ -39,6 +41,7 @@ BATCH_SIZES = {  # Depends on the database. Not all databases support very large
     "synapse": 1000,
     "fabric": 10000,
     "redshift": 10000,
+    "athena": 500,
 }
 
 # Some datasources might prefer to use VARCHAR instead of TEXT, or the other way around. Here we can change it easily.
@@ -132,9 +135,9 @@ def convert_to_values_row(row) -> VALUES_ROW:
     return VALUES_ROW(result_list)
 
 
-# @pytest.mark.skip(
-#     reason="This test is a hack to upload the bus breakdown dataset to the test database. It should not be considered a part of the test suite."
-# )
+@pytest.mark.skip(
+    reason="This test is a hack to upload the bus breakdown dataset to the test database. It should not be considered a part of the test suite."
+)
 def test_insert_bus_breakdown_dataset(data_source_test_helper: DataSourceTestHelper):
     """
     This is a very hacky way to upload a dataset (specifically the bus breakdown dataset) to a database.
