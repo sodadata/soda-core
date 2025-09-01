@@ -1,6 +1,6 @@
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import SodaDataTypeName, DataSourceNamespace
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
@@ -129,3 +129,9 @@ class DatabricksSqlDialect(SqlDialect):
             ["timestamptz", "timestamp with time zone"],
             ["time", "time without time zone"],
         ]
+
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        # Unity catalog only stores things in lower case,
+        # even though create table may have been quoted and with mixed case
+        table_name_lower: str = table_name.lower()
+        return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
