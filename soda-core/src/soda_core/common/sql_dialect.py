@@ -185,16 +185,16 @@ class SqlDialect:
         )
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["varchar", "char", "character varying", "character"]
 
     def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["numeric", "number", "decimal"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["numeric", "number", "decimal"]
 
     def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["numeric", "number", "decimal"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["numeric", "number", "decimal"]
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in [
+        return self.format_metadata_data_type(data_type_name).lower() in [
             "timestamp",
             "timestamp without time zone",
             "timestamptz",
@@ -1082,7 +1082,7 @@ class SqlDialect:
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
             return None
         
-        if self.supports_case_sensitive_column_names() and self.column_data_type_max_length():
+        if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length():
             col_index = self.extract_column_index(self.column_data_type_max_length(), columns)
             return row[col_index] 
         return None
