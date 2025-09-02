@@ -111,7 +111,7 @@ class DataSourceImpl(ABC):
         )
 
     def close_connection(self) -> None:
-        if self.has_open_connection():
+        if self.has_open_connection():  
             self.data_source_connection.close_connection()
 
     def execute_query(self, sql: str) -> QueryResult:

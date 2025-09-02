@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple, Any
 
 import boto3
 from soda_athena.common.data_sources.athena_data_source_connection import (
@@ -10,9 +10,7 @@ from soda_athena.common.data_sources.athena_data_source_connection import (
 from soda_athena.common.data_sources.athena_data_source_connection import (
     AthenaDataSourceConnection,
 )
-from soda_athena.common.statements.metadata_columns_query import (
-    AthenaMetadataColumnsQuery,
-)
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import UpdateResult
@@ -25,7 +23,6 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE_IF_NOT_EXISTS,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 
 logger: logging.Logger = soda_logger
 
@@ -41,9 +38,6 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         return AthenaDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
-
-    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-        return AthenaMetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.connection)
 
     # def execute_query(self, sql: str) -> QueryResult:
     #     # Athena does not play well with freezegun.
@@ -155,16 +149,27 @@ class AthenaSqlDialect(SqlDialect):
         super().__init__()
         self.data_source_impl = data_source_impl
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+    def default_casify(self, identifier: str) -> str:
+        return identifier.lower()
+
+    def metadata_casify(self, identifier: str) -> str:
+        return identifier.lower()
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """
         return {
+            SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
             SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.BIGINT: "bigint",
             SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.FLOAT: "float",
+            SodaDataTypeName.DOUBLE: "double",
             SodaDataTypeName.DATE: "date",
             SodaDataTypeName.TIME: "date",
             SodaDataTypeName.TIMESTAMP: "timestamp",
@@ -218,9 +223,6 @@ class AthenaSqlDialect(SqlDialect):
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval '1' day"
 
-    def supports_case_sensitive_column_names(self) -> bool:
-        return False  # Athena does not support case sensitive names: everything is lowercase.
-
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
@@ -256,7 +258,7 @@ class AthenaSqlDialect(SqlDialect):
     def _is_not_null_ddl_supported(self) -> bool:
         return False
 
-    def supports_data_type_character_maximun_length(self) -> bool:
+    def supports_data_type_character_maximum_length(self) -> bool:
         return True
 
     def supports_data_type_numeric_precision(self) -> bool:
@@ -267,6 +269,18 @@ class AthenaSqlDialect(SqlDialect):
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False  # Technically it is supported, but we can't modify it in a CREATE TABLE statement (always defaults to 3)
+
+    def column_data_type_max_length(self) -> Optional[str]:
+        """Athena supports this but it's not in information schema."""
+        return None
+
+    def column_data_type_numeric_precision(self) -> Optional[str]:
+        """Athena supports this but it's not in information schema."""
+        return None
+
+    def column_data_type_numeric_scale(self) -> Optional[str]:
+        """Athena supports this but it's not in information schema."""
+        return None
 
     def format_metadata_data_type(self, data_type: str) -> str:
         """Athena sometimes modifies data types to include precision (e.g. TIMESTAMP as TIMESTAMP(3)) in column metadata
@@ -279,16 +293,49 @@ class AthenaSqlDialect(SqlDialect):
         return data_type
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["varchar", "char"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["varchar", "char"]
 
     def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["decimal"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["decimal"]
 
     def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["decimal"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["decimal"]
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["timestamp", "time"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["timestamp", "time"]
 
     def supports_case_sensitive_column_names(self) -> bool:
         return False  # Athena does not support case sensitive names: everything is lowercase.
+
+    def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        # Varchars are a special case, they may contain a length parameter, but not always!
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
+        if not self.data_type_has_parameter_character_maximum_length(data_type_name):
+            return None
+        try:
+            # extract value from inside parentheses 
+            data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+            return int(data_type_tuple[0])
+        except ValueError:
+            return None
+
+    def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
+        if not self.data_type_has_parameter_numeric_precision(data_type_name):
+            return None
+
+        formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+        return int(data_type_tuple[0])
+
+    def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
+        if not self.data_type_has_parameter_numeric_scale(data_type_name):
+            return None
+
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+        return int(data_type_tuple[1])
+
