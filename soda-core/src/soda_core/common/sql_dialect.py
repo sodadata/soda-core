@@ -184,7 +184,12 @@ class SqlDialect:
         )
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return self.format_metadata_data_type(data_type_name).lower() in ["varchar", "char", "character varying", "character"]
+        return self.format_metadata_data_type(data_type_name).lower() in [
+            "varchar",
+            "char",
+            "character varying",
+            "character",
+        ]
 
     def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
         return self.format_metadata_data_type(data_type_name).lower() in ["numeric", "number", "decimal"]
@@ -1089,13 +1094,7 @@ class SqlDialect:
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
             return None
-<<<<<<< HEAD
-        
         if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length():
-=======
-
-        if self.supports_case_sensitive_column_names() and self.column_data_type_max_length():
->>>>>>> b378b4b8 ([pre-commit.ci] auto fixes from pre-commit.com hooks)
             col_index = self.extract_column_index(self.column_data_type_max_length(), columns)
             return row[col_index]
         return None
