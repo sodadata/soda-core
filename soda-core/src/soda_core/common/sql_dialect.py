@@ -665,9 +665,7 @@ class SqlDialect:
         name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
         name_parts.append(dataset_name)
         quoted_name_parts: list[str] = [
-            self.quote_default(name_part)
-            for name_part in name_parts
-            if isinstance(name_part, str)
+            self.quote_default(name_part) for name_part in name_parts if isinstance(name_part, str)
         ]
         return ".".join(quoted_name_parts)
 
