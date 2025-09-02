@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import datetime
-from typing import Optional, Tuple, Any
+from typing import Any, Optional, Tuple
 
 import boto3
 from soda_athena.common.data_sources.athena_data_source_connection import (
@@ -10,7 +10,6 @@ from soda_athena.common.data_sources.athena_data_source_connection import (
 from soda_athena.common.data_sources.athena_data_source_connection import (
     AthenaDataSourceConnection,
 )
-
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import UpdateResult
@@ -314,7 +313,7 @@ class AthenaSqlDialect(SqlDialect):
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
             return None
         try:
-            # extract value from inside parentheses 
+            # extract value from inside parentheses
             data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
             return int(data_type_tuple[0])
         except ValueError:
@@ -338,4 +337,3 @@ class AthenaSqlDialect(SqlDialect):
 
         data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
         return int(data_type_tuple[1])
-
