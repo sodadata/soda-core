@@ -664,7 +664,11 @@ class SqlDialect:
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
         name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
         name_parts.append(dataset_name)
-        quoted_name_parts: list[str] = [self.quote_default(name_part) for name_part in name_parts]
+        quoted_name_parts: list[str] = [
+            self.quote_default(name_part)
+            for name_part in name_parts
+            if isinstance(name_part, str)
+        ]
         return ".".join(quoted_name_parts)
 
     def _build_operator_sql(self, operator: Operator) -> str:
