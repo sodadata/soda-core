@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Tuple, Any
 from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
-from typing import Optional
+from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -1047,10 +1046,15 @@ class SqlDialect:
                             if self.supports_data_type_numeric_precision() and self.column_data_type_numeric_precision()
                             else []
                         ),
-                        *([self.column_data_type_numeric_scale()] if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale() else []),
+                        *(
+                            [self.column_data_type_numeric_scale()]
+                            if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale()
+                            else []
+                        ),
                         *(
                             [self.column_data_type_datetime_precision()]
-                            if self.supports_data_type_datetime_precision() and self.column_data_type_datetime_precision()
+                            if self.supports_data_type_datetime_precision()
+                            and self.column_data_type_datetime_precision()
                             else []
                         ),
                     ]
@@ -1059,7 +1063,11 @@ class SqlDialect:
                 WHERE(
                     AND(
                         [
-                            *([EQ(self.column_table_catalog(), LITERAL(self.metadata_casify(database_name)))] if database_name else []),
+                            *(
+                                [EQ(self.column_table_catalog(), LITERAL(self.metadata_casify(database_name)))]
+                                if database_name
+                                else []
+                            ),
                             EQ(self.column_table_schema(), LITERAL(self.metadata_casify(schema_name))),
                             EQ(self.column_table_name(), LITERAL(self.metadata_casify(table_name))),
                         ]
@@ -1073,10 +1081,10 @@ class SqlDialect:
         column_names = [c[0] for c in columns]
         return column_names.index(column_name)
 
-    def extract_data_type_name(self, row: Tuple[Any,...], columns: list[Tuple[Any, ...]]) -> str:
+    def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
         return row[1]
 
-    def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:   
+    def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         """Extract character maximum length from column metadata.  Typically this is just the value of a specific column."""
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
@@ -1084,7 +1092,7 @@ class SqlDialect:
         
         if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length():
             col_index = self.extract_column_index(self.column_data_type_max_length(), columns)
-            return row[col_index] 
+            return row[col_index]
         return None
 
     def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
@@ -1092,10 +1100,10 @@ class SqlDialect:
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_precision(data_type_name):
             return None
-        
+
         if self.supports_data_type_numeric_precision() and self.column_data_type_numeric_precision():
             col_index = self.extract_column_index(self.column_data_type_numeric_precision(), columns)
-            return row[col_index] 
+            return row[col_index]
         return None
 
     def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
@@ -1103,7 +1111,7 @@ class SqlDialect:
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
             return None
-        
+
         if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale():
             col_index = self.extract_column_index(self.column_data_type_numeric_scale(), columns)
             return row[col_index]
@@ -1114,17 +1122,13 @@ class SqlDialect:
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_datetime_precision(data_type_name):
             return None
-        
+
         if self.supports_data_type_datetime_precision() and self.column_data_type_datetime_precision():
             col_index = self.extract_column_index(self.column_data_type_datetime_precision(), columns)
             return row[col_index]
         return None
-     
-
 
     def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
-        
-
         column_metadatas: list[ColumnMetadata] = []
         for row in query_result.rows:
             column_name: str = row[0]
@@ -1133,7 +1137,7 @@ class SqlDialect:
             numeric_precision: Optional[int] = self.extract_numeric_precision(row, query_result.columns)
             numeric_scale: Optional[int] = self.extract_numeric_scale(row, query_result.columns)
             datetime_precision: Optional[int] = self.extract_datetime_precision(row, query_result.columns)
-            
+
             column_metadatas.append(
                 ColumnMetadata(
                     column_name=column_name,
