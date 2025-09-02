@@ -31,6 +31,10 @@ class SnowflakeSqlDialect(SqlDialect):
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
+    def metadata_casify(self, identifier: str) -> str:
+        """Metadata identifiers are not uppercased for Snowflake."""
+        return identifier
+
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return " SELECT * FROM VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
 

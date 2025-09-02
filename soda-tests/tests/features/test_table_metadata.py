@@ -45,7 +45,7 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
 
     actual_txt_w_length: ColumnMetadata = actual_columns[1]
     assert actual_txt_w_length.column_name == "varchar_w_length"
-    length = 255 if sql_dialect.supports_data_type_character_maximun_length() else None
+    length = 255 if sql_dialect.supports_data_type_character_maximum_length() else None
     assert sql_dialect.is_same_data_type_for_schema_check(
         expected=SqlDataType(
             name=sql_dialect.get_data_source_data_type_name_for_soda_data_type_name(SodaDataTypeName.VARCHAR),

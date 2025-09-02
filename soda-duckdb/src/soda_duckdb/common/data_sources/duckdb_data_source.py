@@ -75,7 +75,7 @@ class DuckDBSqlDialect(SqlDialect):
         """
         return [self.schema_information_schema()]
 
-    def supports_data_type_character_maximun_length(self):
+    def supports_data_type_character_maximum_length(self):
         """
         From docs: "Variable-length character string. The maximum length n has no effect and is only provided for compatibility"
         """
