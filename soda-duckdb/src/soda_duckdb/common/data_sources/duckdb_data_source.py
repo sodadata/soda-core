@@ -116,6 +116,16 @@ class DuckDBSqlDialect(SqlDialect):
     def default_numeric_scale(self) -> Optional[int]:
         return 3
 
+    def format_metadata_data_type(self, data_type: str) -> str:
+        """DuckDB sometimes modifies data types to include precision (e.g. TIMESTAMP as TIMESTAMP(3)) in column metadata
+
+        We don't want data type comparisons to fail, so strip this extra information.
+        """
+        paranthesis_index = data_type.find("(")
+        if paranthesis_index != -1:
+            return data_type[:paranthesis_index]
+        return data_type
+
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         # Implements data type synonyms
         # Each list should represent a list of synonyms
