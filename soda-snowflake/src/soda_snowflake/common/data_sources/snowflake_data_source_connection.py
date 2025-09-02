@@ -51,6 +51,15 @@ class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
 class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
     token: SecretStr = Field(..., description="OAuth access token")
 
+class SnowflakeClientCredentialsOAuthAuth(SnowflakeSharedConnectionProperties):
+    authenticator: Literal["OAUTH_CLIENT_CREDENTIALS"] = Field(
+        ..., description="Authenticator to use for OAuth Client Credentials Flow."
+    )
+    oauth_client_id: SecretStr = Field(..., description="Client ID for OAuth Client Credentials Flow.")
+    oauth_client_secret: SecretStr = Field(..., description="Client secret for OAuth Client Credentials Flow.")
+    oauth_token_request_url: SecretStr = Field(..., description="Token request URL for OAuth Client Credentials Flow.")
+    oauth_scope: Optional[SecretStr] = Field(None, description="Scope for OAuth Client Credentials Flow if required.")
+
 
 class SnowflakeSSOAuth(SnowflakeSharedConnectionProperties):
     authenticator: Literal["externalbrowser"] = Field("externalbrowser", description="Use external browser SSO login")
@@ -75,6 +84,8 @@ class SnowflakeDataSource(DataSourceBase, ABC):
             return SnowflakeOAuthAuth(**value)
         elif value.get("authenticator") == "externalbrowser":
             return SnowflakeSSOAuth(**value)
+        elif value.get("authenticator") == "OAUTH_CLIENT_CREDENTIALS":
+            return SnowflakeClientCredentialsOAuthAuth(**value)
         raise ValueError("Could not infer Snowflake connection type from input")
 
 
