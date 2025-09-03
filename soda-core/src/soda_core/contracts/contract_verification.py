@@ -12,6 +12,7 @@ from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core.contracts.contract_interfaces import Loggable
 
 logger: logging.Logger = soda_logger
 
@@ -297,25 +298,42 @@ class CheckResult:
         diagnostics = []
 
         if self.diagnostic_metric_values:
-            for metric_name, value in self.diagnostic_metric_values.items():
-                formatted_value = value
-                if not verbose:
-                    formatted_value = self._log_console_format(value)
-                diagnostics.append(f"{metric_name}: {formatted_value}")
+            # If the diagnostic metric values implements the ISodaCloudOutput interface, use it
+            if isinstance(self.diagnostic_metric_values, Loggable):
+                diagnostics.append(self.diagnostic_metric_values.get_logging_output())
+            else:  # Fallback to the default behavior
+                for metric_name, value in self.diagnostic_metric_values.items():
+                    formatted_value = self._log_console_format(value, verbose=verbose)
+                    diagnostics.append(f"{metric_name}: {formatted_value}")
         return "\n".join(diagnostics)
 
     @classmethod
-    def _log_console_format(cls, n: Number | str) -> str:
+    def _log_console_format(cls, n: Number | str | list, verbose: bool = True) -> str:
         """
         Couldn't find nicer & simpler code to format:
         * Full number before the comma,
         * At least 2 significant digits after comma
         * Trunc (not round) after 2 significant digits after comma
         """
-        if isinstance(n, str):
-            return n
-        if n == int(n):
+        try:
+            if isinstance(n, str):
+                return n
+            if isinstance(n, list):
+                result = ""
+                for element in n:
+                    result += cls._log_console_format(element, verbose=verbose) + "\n"
+                return result
+            # For the person that passes a dict to the function. Feel free to determine the output format :)
+            if not verbose:
+                return cls.__remove_precision(n)
+            else:  # We are in verbose
+                return str(n)
+        except Exception as e:
+            logger.error(f"Error formatting output: {e}")
             return str(n)
+
+    @classmethod
+    def __remove_precision(cls, n: Number) -> str:  # Can this be removed and replaced by standard python formatting?
         n_str = str(n)
         if "e" in n_str:
             n_str = f"{n:.20f}"

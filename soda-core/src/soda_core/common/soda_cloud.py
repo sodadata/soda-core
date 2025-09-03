@@ -1178,10 +1178,20 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
 
 
 def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Optional[dict]:
+    from soda_core.contracts.contract_interfaces import SodaCloudJsonable
     from soda_core.contracts.impl.check_types.freshness_check import (
         FreshnessCheckResult,
     )
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
+
+    # Check if we have a diagnostic metric values
+    try:
+        diagnostic_metric_values = check_result.diagnostic_metric_values
+    except AttributeError:
+        diagnostic_metric_values = None
+    # If we have a diagnostic metric values and it implements the ISodaCloudOutput interface, use it
+    if diagnostic_metric_values and isinstance(diagnostic_metric_values, SodaCloudJsonable):
+        return diagnostic_metric_values.get_soda_cloud_output()
 
     if check_result.autogenerate_diagnostics_payload:
         return {
