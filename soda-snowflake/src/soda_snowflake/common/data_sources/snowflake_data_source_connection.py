@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 from pathlib import Path
 from typing import Dict, Literal, Optional
 
@@ -36,12 +38,38 @@ class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
+    private_key: str = Field(..., description="Private key for authentication")
+    private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
+
+    def to_connection_kwargs(self) -> dict:
+        return {'private_key': self._decrypt(self.private_key, self.private_key_passphrase)}
+
+    def _decrypt(self, private_key: str, private_key_passphrase: Optional[str]) -> bytes:
+        if not private_key_passphrase:
+            return private_key.encode()
+
+        private_key_bytes = private_key.encode()
+        private_key_passphrase_bytes = private_key_passphrase.encode()
+
+        p_key = serialization.load_pem_private_key(
+            private_key_bytes, password=private_key_passphrase_bytes, backend=default_backend()
+        )
+
+        return p_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+class SnowflakeKeyPairFileAuth(SnowflakeConnectionProperties):
     private_key_path: Path = Field(..., description="Path to private key file")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
     def to_connection_kwargs(self) -> dict:
-        # TODO
-        pass
+        return {
+            'private_key_file': self.private_key_path,
+            'private_key_file_pwd': self.private_key_passphrase,
+        }
 
 
 class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
@@ -77,8 +105,10 @@ class SnowflakeDataSource(DataSourceBase, ABC):
     def infer_connection_type(cls, value):
         if "password" in value:
             return SnowflakePasswordAuth(**value)
-        elif "private_key_path" in value:
+        elif "private_key" in value:
             return SnowflakeKeyPairAuth(**value)
+        elif "private_key_path" in value:
+            return SnowflakeKeyPairFileAuth(**value)
         elif "jwt_token" in value:
             return SnowflakeJWTAuth(**value)
         elif "token" in value:
