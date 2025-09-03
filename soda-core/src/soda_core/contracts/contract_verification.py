@@ -12,7 +12,7 @@ from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
-from soda_core.contracts.contract_interfaces import ILoggingOutput
+from soda_core.contracts.contract_interfaces import Loggable
 
 logger: logging.Logger = soda_logger
 
@@ -299,7 +299,7 @@ class CheckResult:
 
         if self.diagnostic_metric_values:
             # If the diagnostic metric values implements the ISodaCloudOutput interface, use it
-            if isinstance(self.diagnostic_metric_values, ILoggingOutput):
+            if isinstance(self.diagnostic_metric_values, Loggable):
                 diagnostics.append(self.diagnostic_metric_values.get_logging_output())
             else:  # Fallback to the default behavior
                 for metric_name, value in self.diagnostic_metric_values.items():

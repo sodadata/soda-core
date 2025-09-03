@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
-class ISodaCloudOutput(ABC):
+class SodaCloudJsonable(ABC):
     """Interface for getting the Soda Cloud output.
     Implement this if you want to convert your object to something that can be sent to Soda Cloud.
     The output of this function depends on the interface that Soda Cloud expects. Can be a scalar value, can be a list, dict, etc.
@@ -16,7 +16,7 @@ class ISodaCloudOutput(ABC):
         raise NotImplementedError
 
 
-class ILoggingOutput(ABC):
+class Loggable(ABC):
     """Interface for getting the logging output.
     Implement this if you want to convert your object to something that can be logged.
     We currently expect the interface to be implemented in a class that has the values required to generate the output. But feel free to add a parameter to the function if you want to.

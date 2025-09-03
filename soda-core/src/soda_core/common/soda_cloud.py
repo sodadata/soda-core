@@ -1178,7 +1178,7 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
 
 
 def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Optional[dict]:
-    from soda_core.contracts.contract_interfaces import ISodaCloudOutput
+    from soda_core.contracts.contract_interfaces import SodaCloudJsonable
     from soda_core.contracts.impl.check_types.freshness_check import (
         FreshnessCheckResult,
     )
@@ -1190,8 +1190,8 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     except AttributeError:
         diagnostic_metric_values = None
     # If we have a diagnostic metric values and it implements the ISodaCloudOutput interface, use it
-    if diagnostic_metric_values and isinstance(diagnostic_metric_values, ISodaCloudOutput):
-        return diagnostic_metric_values.get_soda_cloud_output(check_result)
+    if diagnostic_metric_values and isinstance(diagnostic_metric_values, SodaCloudJsonable):
+        return diagnostic_metric_values.get_soda_cloud_output()
 
     if check_result.autogenerate_diagnostics_payload:
         return {
