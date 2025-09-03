@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
 from pathlib import Path
 from typing import Dict, Literal, Optional
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 from pydantic import Field, SecretStr, field_validator
 from snowflake import connector
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -42,7 +42,7 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
     def to_connection_kwargs(self) -> dict:
-        return {'private_key': self._decrypt(self.private_key, self.private_key_passphrase)}
+        return {"private_key": self._decrypt(self.private_key, self.private_key_passphrase)}
 
     def _decrypt(self, private_key: str, private_key_passphrase: Optional[str]) -> bytes:
         if not private_key_passphrase:
@@ -61,14 +61,15 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
             encryption_algorithm=serialization.NoEncryption(),
         )
 
+
 class SnowflakeKeyPairFileAuth(SnowflakeConnectionProperties):
     private_key_path: Path = Field(..., description="Path to private key file")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
     def to_connection_kwargs(self) -> dict:
         return {
-            'private_key_file': self.private_key_path,
-            'private_key_file_pwd': self.private_key_passphrase,
+            "private_key_file": self.private_key_path,
+            "private_key_file_pwd": self.private_key_passphrase,
         }
 
 
