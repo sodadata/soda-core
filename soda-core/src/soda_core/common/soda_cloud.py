@@ -1262,12 +1262,10 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         }
     else:
         # If we have a diagnostic metric values and it implements the ISodaCloudOutput interface, use it
-        if check_result.diagnostic_metric_values and isinstance(
-            check_result.diagnostic_metric_values, SodaCloudJsonable
-        ):
-            return check_result.diagnostic_metric_values.get_soda_cloud_output()
         if check_result.diagnostic_metric_values is None:
             return None
+        if isinstance(check_result.diagnostic_metric_values, SodaCloudJsonable):
+            return check_result.diagnostic_metric_values.get_soda_cloud_output()
 
     raise SodaException(f"Unrecognized check result type: {type(check_result)}")
 
