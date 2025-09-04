@@ -6,7 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     COLUMN,
@@ -30,7 +30,6 @@ from soda_core.common.sql_ast import (
     SqlExpressionStr,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.metadata_types import SqlDataType
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
