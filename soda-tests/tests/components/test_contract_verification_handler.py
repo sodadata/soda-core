@@ -6,7 +6,7 @@ from helpers.test_table import TestTableSpecification
 
 test_table_specification = (
     TestTableSpecification.builder()
-    .table_purpose("row_count")
+    .table_purpose("verification_handler")
     .column_varchar("id")
     .rows(
         rows=[

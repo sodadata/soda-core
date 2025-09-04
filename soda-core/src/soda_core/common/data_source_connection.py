@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
@@ -69,9 +70,13 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(f"SQL query fetchall: \n{sql}")
+            logger.debug(f"SQL query fetchall in datasource {self.name}: \n{sql}")
             cursor.execute(sql)
             rows = cursor.fetchall()
+
+            if self._result_is_effectively_empty(rows):
+                logger.warning(f"SQL query '{textwrap.shorten(sql, width=100)}' returned no rows")
+
             formatted_rows = self.format_rows(rows)
             headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
             table_text: str = tabulate(
@@ -84,6 +89,22 @@ class DataSourceConnection(ABC):
             return QueryResult(rows=formatted_rows, columns=cursor.description)
         finally:
             cursor.close()
+
+    def _result_is_effectively_empty(self, rows):
+        if not rows:
+            return True  # truly empty
+
+        def all_values_none(row):
+            if row is None:
+                return True
+            if isinstance(row, dict):
+                return all(v is None for v in row.values())
+            if isinstance(row, (list, tuple)):
+                return all(v is None for v in row)
+            # scalar (e.g., a one-column SELECT that some drivers return as a bare value)
+            return row is None
+
+        return all(all_values_none(r) for r in rows)
 
     def format_rows(self, rows: list[tuple]) -> list[tuple]:
         return rows
