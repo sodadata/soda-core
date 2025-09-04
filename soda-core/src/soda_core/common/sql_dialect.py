@@ -303,6 +303,10 @@ class SqlDialect:
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
 
+    def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
+        """Optional list of SQL commands to execute after schema is created (e.g. to set permissions)"""
+        return None
+
     def select_all_paginated_sql(
         self,
         dataset_identifier: DatasetIdentifier,

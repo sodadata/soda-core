@@ -291,9 +291,15 @@ class DataSourceTestHelper:
     def create_test_schema_if_not_exists(self) -> None:
         sql: str = self.create_test_schema_if_not_exists_sql()
         self.data_source_impl.execute_update(sql)
+        post_create_sql = self.post_test_schema_create_sql()
+        if post_create_sql:
+            [self.data_source_impl.execute_update(cmd) for cmd in post_create_sql]
 
     def create_test_schema_if_not_exists_sql(self) -> str:
         return self.data_source_impl.sql_dialect.create_schema_if_not_exists_sql(self.dataset_prefix)
+
+    def post_test_schema_create_sql(self) -> str:
+        return self.data_source_impl.sql_dialect.post_schema_create_sql(self.dataset_prefix)
 
     def drop_test_schema_if_exists(self) -> None:
         sql: str = self.drop_test_schema_if_exists_sql()
