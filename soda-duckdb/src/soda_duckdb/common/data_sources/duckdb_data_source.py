@@ -105,7 +105,6 @@ class DuckDBSqlDialect(SqlDialect):
             return data_type[:paranthesis_index]
         return data_type
 
-
     def default_numeric_precision(self) -> Optional[int]:
         return 18
 

@@ -29,8 +29,6 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 class DatabricksSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
-    
-
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
             ["int", "integer"],
@@ -115,8 +113,6 @@ class DatabricksSqlDialect(SqlDialect):
         if create_table_column.type.name in ["timestamp_ntz", "timestamp"]:
             create_table_column.type.datetime_precision = None
         return super()._build_create_table_column_type(create_table_column=create_table_column)
-    
-
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [

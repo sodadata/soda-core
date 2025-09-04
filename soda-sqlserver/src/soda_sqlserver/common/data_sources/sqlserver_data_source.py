@@ -192,7 +192,6 @@ class SqlServerSqlDialect(SqlDialect):
             ["datetime2", "datetime"],
         ]
 
-
     # copied from redshift
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {

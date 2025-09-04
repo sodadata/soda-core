@@ -51,7 +51,6 @@ class FabricSqlDialect(SqlServerSqlDialect):
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
-
     def literal_datetime_with_tz(self, datetime: datetime):
         # Fabric does not support datetimeoffset (for timezones)
         # So we will convert the timestamp to UTC and then convert it to a string
