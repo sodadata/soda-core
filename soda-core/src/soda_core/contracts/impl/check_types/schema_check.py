@@ -211,7 +211,10 @@ class SchemaQuery(Query):
 
         self.sql = data_source_impl.build_columns_metadata_query_str(
             dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
+<<<<<<< HEAD
         self.sql = data_source_impl.sql_dialect.build_columns_metadata_query_str(
+=======
+>>>>>>> d39fdeff8854791041983b2f39520964dcf22c88
         )
 
     def execute(self) -> list[Measurement]:
@@ -221,9 +224,13 @@ class SchemaQuery(Query):
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> 4e73d5f5 (Formatting)
+=======
+
+>>>>>>> d39fdeff8854791041983b2f39520964dcf22c88
         metadata_columns: list[
             ColumnMetadata
         ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)

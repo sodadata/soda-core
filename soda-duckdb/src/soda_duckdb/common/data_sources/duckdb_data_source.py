@@ -105,10 +105,6 @@ class DuckDBSqlDialect(SqlDialect):
             return data_type[:paranthesis_index]
         return data_type
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
-        base = super().get_sql_data_type_name_by_soda_data_type_names()
-        base[SodaDataTypeName.NUMERIC] = "decimal"
-        return base
 
     def default_numeric_precision(self) -> Optional[int]:
         return 18
