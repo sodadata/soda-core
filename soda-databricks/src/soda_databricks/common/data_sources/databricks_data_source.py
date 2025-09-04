@@ -3,6 +3,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
+from typing import Optional
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -149,3 +150,11 @@ class DatabricksSqlDialect(SqlDialect):
         # even though create table may have been quoted and with mixed case
         table_name_lower: str = table_name.lower()
         return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
+
+
+    def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
+        assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
+        catalog_name: str = self.quote_default(prefixes[0])
+        schema_name: str = self.quote_default(prefixes[1])
+        return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
+          #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
