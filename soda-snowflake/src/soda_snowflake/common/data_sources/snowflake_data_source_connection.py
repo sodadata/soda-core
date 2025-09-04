@@ -68,11 +68,14 @@ class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
 
     def to_connection_kwargs(self) -> dict:
         connection_kwargs = super().to_connection_kwargs()
-        connection_kwargs.update({
-            "private_key_file": self.private_key_path,
-            "private_key_file_pwd": self.private_key_passphrase,
-        })
+        connection_kwargs.update(
+            {
+                "private_key_file": self.private_key_path,
+                "private_key_file_pwd": self.private_key_passphrase,
+            }
+        )
         return connection_kwargs
+
 
 class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
     jwt_token: SecretStr = Field(..., description="JWT token for authentication")
