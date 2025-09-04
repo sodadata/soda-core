@@ -30,6 +30,7 @@ from soda_core.common.sql_ast import (
     SqlExpressionStr,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.metadata_types import SqlDataType
 from soda_sqlserver.common.data_sources.sqlserver_data_source_connection import (
     SqlServerDataSource as SqlServerDataSourceModel,
 )
@@ -132,7 +133,16 @@ class SqlServerSqlDialect(SqlDialect):
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
-        return f"PATINDEX ('{matches.regex_pattern}', {expression}) > 0"
+        regex_pattern = matches.regex_pattern
+        # alpha expansion doesn't work properly for case sensitive ranges in SQLServer
+        # this is quite a hack to fit the common use-cases.  generally regex's are only partially supported anyway
+        regex_pattern = regex_pattern.replace("a-z", "abcdefghijklmnopqrstuvwxyz")
+        regex_pattern = regex_pattern.replace("A-Z", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        # collations define rules for sorting strings and distinguishing similar characters
+        # see: https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver17
+        # CS: Case sensitive; AS: Accent sensitive
+        # The default is SQL_Latin1_General_Cp1_CI_AS (case-insensitive), we replcae with a case sensitive collation
+        return f"PATINDEX ('%{regex_pattern}%', {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
 
     def supports_regex_advanced(self) -> bool:
         return False
@@ -269,3 +279,10 @@ class SqlServerSqlDialect(SqlDialect):
 
     def is_quoted(self, identifier: str) -> bool:
         return identifier.startswith("[") and identifier.endswith("]")
+
+    def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
+        """SQLServer always requires a varchar length in create table statements."""
+        sql_data_type = super().map_test_sql_data_type_to_data_source(source_data_type)
+        if sql_data_type.name == "varchar":
+            sql_data_type.character_maximum_length = self.default_varchar_length()
+        return sql_data_type
