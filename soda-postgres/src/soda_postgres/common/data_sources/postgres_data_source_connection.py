@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC
 from pathlib import Path
 from typing import Literal, Optional, Union
@@ -7,10 +8,14 @@ from typing import Literal, Optional, Union
 import psycopg2
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
 from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
+
+logger: logging.Logger = soda_logger
 
 
 class PostgresConnectionProperties(DataSourceConnectionProperties, ABC):
@@ -71,3 +76,12 @@ class PostgresDataSourceConnection(DataSourceConnection):
         config: PostgresConnectionProperties,
     ):
         return psycopg2.connect(**config.to_connection_kwargs())
+
+    def execute_query(self, sql: str) -> QueryResult:
+        try:
+            return super().execute_query(sql)
+        except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
+            logger.warning(f"SQL query failed: \n{sql}\n{e}")
+            logger.debug("Rolling back transaction")
+            self.rollback()
+            raise e
