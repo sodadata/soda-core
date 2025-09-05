@@ -1184,15 +1184,6 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     )
     from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
-    # Check if we have a diagnostic metric values
-    try:
-        diagnostic_metric_values = check_result.diagnostic_metric_values
-    except AttributeError:
-        diagnostic_metric_values = None
-    # If we have a diagnostic metric values and it implements the ISodaCloudOutput interface, use it
-    if diagnostic_metric_values and isinstance(diagnostic_metric_values, SodaCloudJsonable):
-        return diagnostic_metric_values.get_soda_cloud_output()
-
     if check_result.autogenerate_diagnostics_payload:
         return {
             "type": to_camel_case(check_result.check.type),
@@ -1269,7 +1260,14 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             # We skip the checkRowsTested because it causes extra compute.
             # To be re-evaluated when we have users asking for it.
         }
-    raise SodaException(f"Invalid check type: {type(check_result.check).__name__}")
+    else:
+        # If we have a diagnostic metric values and it implements the ISodaCloudOutput interface, use it
+        if check_result.diagnostic_metric_values is None:
+            return None
+        if isinstance(check_result.diagnostic_metric_values, SodaCloudJsonable):
+            return check_result.diagnostic_metric_values.get_soda_cloud_output()
+
+    raise SodaException(f"Unrecognized check result type: {type(check_result)}")
 
 
 def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
