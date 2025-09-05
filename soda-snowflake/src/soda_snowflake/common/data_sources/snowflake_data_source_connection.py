@@ -46,12 +46,9 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
         connection_kwargs["private_key"] = self._decrypt(self.private_key, self.private_key_passphrase)
         return connection_kwargs
 
-    def _decrypt(self, private_key: str, private_key_passphrase: Optional[str]) -> bytes:
-        if not private_key_passphrase:
-            return private_key.encode()
-
+    def _decrypt(self, private_key: str, private_key_passphrase: Optional[SecretStr]) -> bytes:
         private_key_bytes = private_key.encode()
-        private_key_passphrase_bytes = private_key_passphrase.encode()
+        private_key_passphrase_bytes = private_key_passphrase.get_secret_value().encode() if private_key_passphrase else None
 
         p_key = serialization.load_pem_private_key(
             private_key_bytes, password=private_key_passphrase_bytes, backend=default_backend()
@@ -73,7 +70,7 @@ class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
         connection_kwargs.update(
             {
                 "private_key_file": self.private_key_path,
-                "private_key_file_pwd": self.private_key_passphrase,
+                "private_key_file_pwd": self.private_key_passphrase.get_secret_value(),
             }
         )
         return connection_kwargs
