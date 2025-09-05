@@ -2,6 +2,7 @@ import datetime
 
 import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.datetime_conversions import interpret_datetime_as_utc
@@ -182,3 +183,30 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
             DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name)
         )
         data_source_impl.execute_update(drop_table_sql)
+
+
+def test_large_insert_test_table(data_source_test_helper: DataSourceTestHelper):
+    NUMBER_OF_ROWS = 2025
+    large_test_table_specification = (
+        TestTableSpecification.builder()
+        .table_purpose("testing_large_inserts")
+        .column_varchar("id", 100)
+        .column_varchar("id2", 100)
+        .column_integer("my_value")
+        .rows(rows=[(f"my_id_{i}", f"my_id2_{i}", 10) for i in range(NUMBER_OF_ROWS)])
+        .build()
+    )
+
+    test_table = data_source_test_helper.ensure_test_table(large_test_table_specification)
+    my_table_name = data_source_test_helper.get_qualified_name_from_test_table(test_table)
+
+    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    select_sql = sql_dialect.build_select_sql(
+        [
+            SELECT([COLUMN("id"), COLUMN("id2"), COLUMN("my_value")]),
+            FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
+        ]
+    )
+    result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
+    assert len(result.rows) == NUMBER_OF_ROWS
