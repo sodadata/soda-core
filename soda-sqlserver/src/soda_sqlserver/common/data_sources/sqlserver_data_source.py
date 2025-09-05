@@ -250,7 +250,7 @@ class SqlServerSqlDialect(SqlDialect):
         return identifier.startswith("[") and identifier.endswith("]")
 
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
-        # SqlServer supports a max of 1000 values in an insert statement. If that's the case, split the insert into multiple statements and recursively call this function.
+        # SqlServer supports a max of 1000 rows in an insert statement. If that's the case, split the insert into multiple statements and recursively call this function.
         STEP_SIZE = 1000
         if len(insert_into.values) > STEP_SIZE:
             final_insert_sql = ""
