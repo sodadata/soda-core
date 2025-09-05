@@ -48,7 +48,9 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
 
     def _decrypt(self, private_key: str, private_key_passphrase: Optional[SecretStr]) -> bytes:
         private_key_bytes = private_key.encode()
-        private_key_passphrase_bytes = private_key_passphrase.get_secret_value().encode() if private_key_passphrase else None
+        private_key_passphrase_bytes = (
+            private_key_passphrase.get_secret_value().encode() if private_key_passphrase else None
+        )
 
         p_key = serialization.load_pem_private_key(
             private_key_bytes, password=private_key_passphrase_bytes, backend=default_backend()
