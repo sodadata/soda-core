@@ -56,7 +56,6 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
             check_yaml=check_yaml,
         )
 
-        self.column = check_yaml.column
         self.now_variable: Optional[str] = check_yaml.now_variable
         self.unit: str = check_yaml.unit if check_yaml.unit else "hour"
         self.resolved_variable_values = contract_impl.contract_yaml.resolved_variable_values
@@ -84,11 +83,13 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
 
         return threshold_value
 
-    def _get_max_timestamp(self, measurement_values: MeasurementValues, metric: MetricImpl) -> Optional[datetime]:
+    def _get_max_timestamp(
+        self, measurement_values: MeasurementValues, metric: MetricImpl, column_name: str
+    ) -> Optional[datetime]:
         max_timestamp: Optional[datetime] = measurement_values.get_value(metric)
         if max_timestamp is None:
             logger.warning(
-                f"Freshness metric '{metric.type}' for column '{self.column}' "
+                f"Freshness metric '{metric.type}' for column '{column_name}' "
                 f"returned no value. Does the table or partition have rows?"
             )
             return None
@@ -103,7 +104,7 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
 
         if not isinstance(max_timestamp, datetime):
             logger.error(
-                f"Freshness column '{self.column}' returned value '{max_timestamp}' of data type '{type(max_timestamp).__name__}' which is not a datetime or datetime-compatible type."
+                f"Freshness column '{column_name}' returned value '{max_timestamp}' of data type '{type(max_timestamp).__name__}' which is not a datetime or datetime-compatible type."
             )
             max_timestamp = None
 
@@ -153,6 +154,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
+        self.column = check_yaml.column
         self.threshold = ThresholdImpl.create(
             threshold_yaml=check_yaml.threshold,
         )
@@ -173,7 +175,9 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        max_timestamp: Optional[datetime] = self._get_max_timestamp(measurement_values, self.max_timestamp_metric)
+        max_timestamp: Optional[datetime] = self._get_max_timestamp(
+            measurement_values, self.max_timestamp_metric, self.column
+        )
         max_timestamp_utc: Optional[datetime] = self._get_max_timestamp_utc(max_timestamp)
         data_timestamp: Optional[datetime] = self._get_now_timestamp()
         data_timestamp_utc: Optional[datetime] = self._get_now_timestamp_utc(data_timestamp)

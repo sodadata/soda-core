@@ -316,6 +316,8 @@ class CheckResult:
         * Trunc (not round) after 2 significant digits after comma
         """
         try:
+            if n is None:
+                return "None"
             if isinstance(n, str):
                 return n
             if isinstance(n, list):

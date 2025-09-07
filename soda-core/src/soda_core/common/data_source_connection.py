@@ -69,7 +69,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(f"SQL query fetchall: \n{sql}")
+            logger.debug(f"SQL query fetchall in datasource {self.name}: \n{sql}")
             cursor.execute(sql)
             rows = cursor.fetchall()
             formatted_rows = self.format_rows(rows)

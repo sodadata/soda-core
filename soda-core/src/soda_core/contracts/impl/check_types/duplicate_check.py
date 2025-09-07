@@ -243,7 +243,9 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         self.metric_name = "duplicate_percent" if check_yaml.metric == "percent" else "duplicate_count"
 
         self.multi_column_distinct_count_metric_impl: MetricImpl = self._resolve_metric(
-            MultiColumnDistinctCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+            MultiColumnDistinctCountMetricImpl(
+                contract_impl=contract_impl, check_impl=self, column_names=check_yaml.columns
+            )
         )
 
         self.row_count_metric_impl = self._resolve_metric(
@@ -313,10 +315,11 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
         self,
         contract_impl: ContractImpl,
         check_impl: MultiColumnDuplicateCheckImpl,
+        column_names: list[str],
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
-        self.column_names: list[str] = check_impl.check_yaml.columns
+        self.column_names: list[str] = column_names
         super().__init__(
             contract_impl=contract_impl,
             metric_type="distinct_count",
