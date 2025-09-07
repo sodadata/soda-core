@@ -19,7 +19,7 @@ class DuckdbDataSourceTestHelper(DataSourceTestHelper):
             type: duckdb
             name: {self.name}
             connection:
-                database: "test.db"
+                database: "{self.name}.db"
                 schema: main
         """
 
