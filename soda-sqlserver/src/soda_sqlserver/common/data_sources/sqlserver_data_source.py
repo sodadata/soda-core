@@ -17,6 +17,7 @@ from soda_core.common.sql_ast import (
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     FROM,
+    INSERT_INTO,
     LENGTH,
     LIMIT,
     OFFSET,
@@ -277,6 +278,25 @@ class SqlServerSqlDialect(SqlDialect):
 
     def is_quoted(self, identifier: str) -> bool:
         return identifier.startswith("[") and identifier.endswith("]")
+
+    def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
+        # SqlServer supports a max of 1000 rows in an insert statement. If that's the case, split the insert into multiple statements and recursively call this function.
+        STEP_SIZE = 1000
+        if len(insert_into.values) > STEP_SIZE:
+            final_insert_sql = ""
+            for i in range(0, len(insert_into.values), STEP_SIZE):
+                temp_insert_into = INSERT_INTO(
+                    fully_qualified_table_name=insert_into.fully_qualified_table_name,
+                    columns=insert_into.columns,
+                    values=insert_into.values[i : i + STEP_SIZE],
+                )
+                final_insert_sql += self.build_insert_into_sql(
+                    temp_insert_into, add_semicolon=True
+                )  # Now we force the semicolon to separate the statements
+                final_insert_sql += "\n"
+            return final_insert_sql
+
+        return super().build_insert_into_sql(insert_into, add_semicolon=add_semicolon)
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         """SQLServer always requires a varchar length in create table statements."""

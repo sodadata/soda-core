@@ -38,19 +38,8 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    # def execute_query(self, sql: str) -> QueryResult:
-    #     # Athena does not play well with freezegun.
-    #     # The datasources requires a timestamp in the query (done automatically), this timestamp must be in sync with AWS servers
-    #     # This is not the case when using freezegun.
-    #     # We need to disable freezegun for this method.
-
-    #     # TODO: Refactor this so it's in a proper place. It shouldn't live here.
-    #     # now = datetime.now()
-    #     # if now < datetime(year=2025, month=8, day=1, hour=0, minute=0, second=0):
-    #     #     with freezegun.freeze_time(freezegun.api.real_datetime.now(tz=timezone.utc)):
-    #     #         result = self.connection.execute_query(sql=sql)
-    #     #     return result
-    #     return self.connection.execute_query(sql=sql)
+    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
+        return AthenaMetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.connection)
 
     def execute_update(self, sql: str) -> UpdateResult:
         result: UpdateResult = super().execute_update(sql)
