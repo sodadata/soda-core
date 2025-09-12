@@ -38,9 +38,6 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def create_metadata_columns_query(self) -> MetadataColumnsQuery:
-        return AthenaMetadataColumnsQuery(sql_dialect=self.sql_dialect, data_source_connection=self.connection)
-
     def execute_update(self, sql: str) -> UpdateResult:
         result: UpdateResult = super().execute_update(sql)
         # Athena requires some extra cleanup for a drop table or drop schema statement.
