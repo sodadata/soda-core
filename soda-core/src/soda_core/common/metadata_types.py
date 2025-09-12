@@ -8,8 +8,6 @@ from typing import Optional
 
 @dataclass
 class DataSourceNamespace(ABC):
-    pass
-
     @abstractmethod
     def get_namespace_elements(self) -> list[str]:
         pass

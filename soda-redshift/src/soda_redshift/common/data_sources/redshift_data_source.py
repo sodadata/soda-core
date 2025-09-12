@@ -10,6 +10,9 @@ from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSourceConnection,
 )
 
+REDSHIFT_DOUBLE_PRECISION = "double precision"
+REDSHIFT_CHARACTER_VARYING = "character varying"
+
 
 class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel):
     def __init__(self, data_source_model: RedshiftDataSourceModel):
@@ -39,7 +42,7 @@ class RedshiftSqlDialect(SqlDialect):
             SodaDataTypeName.NUMERIC: "numeric",
             SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.FLOAT: "real",  # Redshift float = real (float4)
-            SodaDataTypeName.DOUBLE: "double precision",  # Redshift uses double precision (float8)
+            SodaDataTypeName.DOUBLE: REDSHIFT_DOUBLE_PRECISION,  # Redshift uses double precision (float8)
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
             SodaDataTypeName.DATE: "date",
@@ -54,7 +57,7 @@ class RedshiftSqlDialect(SqlDialect):
             "character": SodaDataTypeName.CHAR,
             "nchar": SodaDataTypeName.CHAR,
             "varchar": SodaDataTypeName.VARCHAR,
-            "character varying": SodaDataTypeName.VARCHAR,
+            REDSHIFT_CHARACTER_VARYING: SodaDataTypeName.VARCHAR,
             "nvarchar": SodaDataTypeName.VARCHAR,
             "text": SodaDataTypeName.TEXT,  # synonym, stored as varchar(max)
             # Integer types
@@ -71,7 +74,7 @@ class RedshiftSqlDialect(SqlDialect):
             # Approximate numeric types
             "real": SodaDataTypeName.FLOAT,  # float4
             "float4": SodaDataTypeName.FLOAT,
-            "double precision": SodaDataTypeName.DOUBLE,  # float8
+            REDSHIFT_DOUBLE_PRECISION: SodaDataTypeName.DOUBLE,  # float8
             "float8": SodaDataTypeName.DOUBLE,
             "float": SodaDataTypeName.DOUBLE,  # synonym for float8
             # Date/time types
@@ -89,13 +92,13 @@ class RedshiftSqlDialect(SqlDialect):
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
-            ["varchar", "character varying"],
+            ["varchar", REDSHIFT_CHARACTER_VARYING],
             ["char", "character"],
             ["smallint", "int2"],
             ["integer", "int", "int4"],
             ["bigint", "int8"],
             ["real", "float4", "float"],
-            ["double precision", "float8"],
+            [REDSHIFT_DOUBLE_PRECISION, "float8"],
             ["timestamp", "timestamp without time zone"],
             ["time", "time without time zone"],
         ]
@@ -135,7 +138,7 @@ class RedshiftSqlDialect(SqlDialect):
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
+        return data_type_name.lower() in ["varchar", "char", REDSHIFT_CHARACTER_VARYING, "character"]
 
     def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
         return data_type_name.lower() in ["numeric", "number", "decimal"]

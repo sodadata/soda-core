@@ -10,6 +10,9 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
 
+PG_TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
+PG_TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
+
 
 class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel):
     def __init__(self, data_source_model: PostgresDataSourceModel):
@@ -26,9 +29,9 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
 
 class PostgresSqlDataType(SqlDataType):
     def get_sql_data_type_str_with_parameters(self) -> str:
-        if isinstance(self.datetime_precision, int) and self.name == "timestamp with time zone":
+        if isinstance(self.datetime_precision, int) and self.name == PG_TIMESTAMP_WITH_TIME_ZONE:
             return f"timestamp({self.datetime_precision}) with time zone"
-        elif isinstance(self.datetime_precision, int) and self.name == "timestamp without time zone":
+        elif isinstance(self.datetime_precision, int) and self.name == PG_TIMESTAMP_WITHOUT_TIME_ZONE:
             return f"timestamp({self.datetime_precision}) without time zone"
         return super().get_sql_data_type_str_with_parameters()
 
@@ -82,9 +85,9 @@ class PostgresSqlDialect(SqlDialect):
             "real": SodaDataTypeName.FLOAT,
             "double precision": SodaDataTypeName.DOUBLE,
             "timestamp": SodaDataTypeName.TIMESTAMP,
-            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            PG_TIMESTAMP_WITHOUT_TIME_ZONE: SodaDataTypeName.TIMESTAMP,
             "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
-            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            PG_TIMESTAMP_WITH_TIME_ZONE: SodaDataTypeName.TIMESTAMP_TZ,
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "time without time zone": SodaDataTypeName.TIME,
@@ -108,7 +111,7 @@ class PostgresSqlDialect(SqlDialect):
             ["smallint", "int2"],
             ["real", "float4"],
             ["double precision", "float8"],
-            ["timestamp", "timestamp without time zone"],
+            ["timestamp", PG_TIMESTAMP_WITHOUT_TIME_ZONE],
         ]
 
     def get_sql_data_type_class(self) -> type:

@@ -307,7 +307,6 @@ class AthenaSqlDialect(SqlDialect):
 
     def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         data_type_name: str = self.extract_data_type_name(row, columns)
-        formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
         if not self.data_type_has_parameter_numeric_precision(data_type_name):
             return None
 
