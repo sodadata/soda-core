@@ -10,6 +10,10 @@ from soda_snowflake.common.data_sources.snowflake_data_source_connection import 
     SnowflakeDataSourceConnection,
 )
 
+TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
+TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
+TIMESTAMP_WITH_LOCAL_TIME_ZONE = "timestamp with local time zone"
+
 
 class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceModel):
     def __init__(self, data_source_model: SnowflakeDataSourceModel):
@@ -53,9 +57,9 @@ class SnowflakeSqlDialect(SqlDialect):
             ["varchar", "text", "string"],
             ["number", "decimal", "numeric", "int", "integer", "bigint", "smallint", "tinyint", "byteint"],
             ["float", "float4", "float8", "double", "double precision", "real"],
-            ["timestamp", "datetime", "timestamp_ntz", "timestamp without time zone"],
-            ["timestamp_ltz", "timestamp with local time zone"],
-            ["timestamp_tz", "timestamp with time zone"],
+            ["timestamp", "datetime", "timestamp_ntz", TIMESTAMP_WITHOUT_TIME_ZONE],
+            ["timestamp_ltz", TIMESTAMP_WITH_LOCAL_TIME_ZONE],
+            ["timestamp_tz", TIMESTAMP_WITH_TIME_ZONE],
         ]
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
@@ -108,12 +112,12 @@ class SnowflakeSqlDialect(SqlDialect):
             "real": SodaDataTypeName.FLOAT,
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "timestamp_ntz": SodaDataTypeName.TIMESTAMP,
-            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            TIMESTAMP_WITHOUT_TIME_ZONE: SodaDataTypeName.TIMESTAMP,
             "datetime": SodaDataTypeName.TIMESTAMP,
             "timestamp_tz": SodaDataTypeName.TIMESTAMP_TZ,
-            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            TIMESTAMP_WITH_TIME_ZONE: SodaDataTypeName.TIMESTAMP_TZ,
             "timestamp_ltz": SodaDataTypeName.TIMESTAMP_TZ,
-            "timestamp with local time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            TIMESTAMP_WITH_LOCAL_TIME_ZONE: SodaDataTypeName.TIMESTAMP_TZ,
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
             "boolean": SodaDataTypeName.BOOLEAN,
@@ -123,9 +127,9 @@ class SnowflakeSqlDialect(SqlDialect):
         return data_type_name.lower() in [
             "timestamp",
             "timestamp_ntz",
-            "timestamp without time zone",
+            TIMESTAMP_WITHOUT_TIME_ZONE,
             "timestamp_tz",
-            "timestamp with time zone",
+            TIMESTAMP_WITH_TIME_ZONE,
             "timestamp_ltz",
-            "timestamp with local time zone",
+            TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
