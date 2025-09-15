@@ -83,6 +83,42 @@ class SnowflakeSqlDialect(SqlDialect):
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character", "text"]
 
+    # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "varchar": SodaDataTypeName.VARCHAR,
+            "char": SodaDataTypeName.CHAR,
+            "character": SodaDataTypeName.CHAR,
+            "text": SodaDataTypeName.TEXT,
+            "string": SodaDataTypeName.VARCHAR,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "int": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "byteint": SodaDataTypeName.SMALLINT,
+            "number": SodaDataTypeName.NUMERIC,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "float4": SodaDataTypeName.FLOAT,
+            "float8": SodaDataTypeName.DOUBLE,
+            "double": SodaDataTypeName.DOUBLE,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "real": SodaDataTypeName.FLOAT,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp_ntz": SodaDataTypeName.TIMESTAMP,
+            "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "timestamp_tz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp_ltz": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp with local time zone": SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "boolean": SodaDataTypeName.BOOLEAN,
+        }
+
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
         return data_type_name.lower() in [
             "timestamp",
