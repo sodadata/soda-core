@@ -1,7 +1,10 @@
+from logging import Logger
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import CAST, REGEX_LIKE
+from soda_core.common.sql_ast import CAST, CREATE_TABLE_COLUMN, REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
@@ -9,6 +12,9 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import (
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
+
+logger: Logger = soda_logger
+
 
 PG_TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
 PG_TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
@@ -116,3 +122,12 @@ class PostgresSqlDialect(SqlDialect):
 
     def get_sql_data_type_class(self) -> type:
         return PostgresSqlDataType
+
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        if create_table_column.type.name == "text":  # Do not output text with parameters!
+            if create_table_column.type.character_maximum_length is not None:
+                logger.warning(
+                    f"Text column {create_table_column.name} has a character maximum length, but text does not support parameters! Ignoring in postgres."
+                )
+            return "text"
+        return super()._build_create_table_column_type(create_table_column=create_table_column)
