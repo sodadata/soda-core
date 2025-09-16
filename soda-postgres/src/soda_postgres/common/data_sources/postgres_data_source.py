@@ -63,6 +63,7 @@ class PostgresSqlDialect(SqlDialect):
             SodaDataTypeName.TEXT: "text",
             SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.BIGINT: "bigint",
             SodaDataTypeName.NUMERIC: "numeric",
             SodaDataTypeName.DECIMAL: "decimal",
