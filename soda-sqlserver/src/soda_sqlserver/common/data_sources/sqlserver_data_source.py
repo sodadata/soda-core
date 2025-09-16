@@ -6,7 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     AND,
     COLUMN,
@@ -133,24 +133,19 @@ class SqlServerSqlDialect(SqlDialect):
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
-        return f"PATINDEX ('{matches.regex_pattern}', {expression}) > 0"
+        regex_pattern = matches.regex_pattern
+        # alpha expansion doesn't work properly for case sensitive ranges in SQLServer
+        # this is quite a hack to fit the common use-cases.  generally regex's are only partially supported anyway
+        regex_pattern = regex_pattern.replace("a-z", "abcdefghijklmnopqrstuvwxyz")
+        regex_pattern = regex_pattern.replace("A-Z", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        # collations define rules for sorting strings and distinguishing similar characters
+        # see: https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver17
+        # CS: Case sensitive; AS: Accent sensitive
+        # The default is SQL_Latin1_General_Cp1_CI_AS (case-insensitive), we replcae with a case sensitive collation
+        return f"PATINDEX ('%{regex_pattern}%', {expression} COLLATE SQL_Latin1_General_Cp1_CS_AS) > 0"
 
     def supports_regex_advanced(self) -> bool:
         return False
-
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "datetime2",
-            SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
@@ -198,24 +193,59 @@ class SqlServerSqlDialect(SqlDialect):
             ["datetime2", "datetime"],
         ]
 
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
-        """
-        Maps DBDataType names to data source type names.
-        """
+    # copied from redshift
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {
+            SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
             SodaDataTypeName.TEXT: "varchar",
-            SodaDataTypeName.INTEGER: "int",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.SMALLINT: "smallint",  #
+            SodaDataTypeName.INTEGER: "int",  #
+            SodaDataTypeName.BIGINT: "bigint",  #
+            SodaDataTypeName.NUMERIC: "numeric",  #
+            SodaDataTypeName.DECIMAL: "decimal",  #
+            SodaDataTypeName.FLOAT: "real",  #
+            SodaDataTypeName.DOUBLE: "float",
             SodaDataTypeName.TIMESTAMP: "datetime2",
             SodaDataTypeName.TIMESTAMP_TZ: "datetimeoffset",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
             SodaDataTypeName.BOOLEAN: "bit",
         }
 
-    def supports_data_type_character_maximun_length(self) -> bool:
+    # copied from redshift
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            # Character types
+            "char": SodaDataTypeName.CHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "text": SodaDataTypeName.TEXT,
+            "nchar": SodaDataTypeName.CHAR,
+            "nvarchar": SodaDataTypeName.VARCHAR,
+            "ntext": SodaDataTypeName.TEXT,
+            # Integer types
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "int": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            # Exact numeric types
+            "numeric": SodaDataTypeName.NUMERIC,
+            "decimal": SodaDataTypeName.DECIMAL,
+            # Approximate numeric types
+            "real": SodaDataTypeName.FLOAT,
+            "float": SodaDataTypeName.DOUBLE,
+            # Date/time types
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "datetime2": SodaDataTypeName.TIMESTAMP,
+            "datetimeoffset": SodaDataTypeName.TIMESTAMP_TZ,
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "smalldatetime": SodaDataTypeName.TIMESTAMP,
+            # Boolean type
+            "bit": SodaDataTypeName.BOOLEAN,
+        }
+
+    def supports_data_type_character_maximum_length(self) -> bool:
         return True
 
     def supports_data_type_numeric_precision(self) -> bool:
@@ -267,3 +297,10 @@ class SqlServerSqlDialect(SqlDialect):
             return final_insert_sql
 
         return super().build_insert_into_sql(insert_into, add_semicolon=add_semicolon)
+
+    def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
+        """SQLServer always requires a varchar length in create table statements."""
+        sql_data_type = super().map_test_sql_data_type_to_data_source(source_data_type)
+        if sql_data_type.name == "varchar":
+            sql_data_type.character_maximum_length = self.default_varchar_length()
+        return sql_data_type

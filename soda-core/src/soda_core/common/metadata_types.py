@@ -1,8 +1,49 @@
 from __future__ import annotations
 
 import enum
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+
+
+@dataclass
+class DataSourceNamespace(ABC):
+    @abstractmethod
+    def get_namespace_elements(self) -> list[str]:
+        pass
+
+    def get_database_for_metadata_query(self) -> str | None:
+        return None
+
+    @abstractmethod
+    def get_schema_for_metadata_query(self) -> str:
+        pass
+
+
+@dataclass
+class SchemaDataSourceNamespace(DataSourceNamespace):
+    schema: str
+
+    def get_namespace_elements(self) -> list[str]:
+        return [self.schema]
+
+    def get_schema_for_metadata_query(self) -> str:
+        return self.schema
+
+
+@dataclass
+class DbSchemaDataSourceNamespace(DataSourceNamespace):
+    database: str
+    schema: str
+
+    def get_namespace_elements(self) -> list[str]:
+        return [self.database, self.schema]
+
+    def get_database_for_metadata_query(self) -> str | None:
+        return self.database
+
+    def get_schema_for_metadata_query(self) -> str:
+        return self.schema
 
 
 @dataclass
@@ -35,7 +76,7 @@ class SqlDataType:
             return self.name
 
     def replace_data_type_name(self, new_data_type_name: str) -> SqlDataType:
-        return SqlDataType(
+        return type(self)(
             name=new_data_type_name,
             character_maximum_length=self.character_maximum_length,
             numeric_precision=self.numeric_precision,
@@ -52,9 +93,6 @@ class ColumnMetadata:
     # without data type expectations
     sql_data_type: Optional[SqlDataType] = None
 
-    def get_sql_data_type_str_with_parameters(self) -> Optional[str]:
-        return None if self.sql_data_type is None else self.sql_data_type.get_sql_data_type_str_with_parameters()
-
 
 class SodaDataTypeName(str, enum.Enum):
     """
@@ -63,15 +101,26 @@ class SodaDataTypeName(str, enum.Enum):
     And in the DWH it's used to map common data types to concrete ones for the Soda columns.
     """
 
-    VARCHAR = "varchar"
-    TEXT = "text"
-    INTEGER = "integer"
-    DECIMAL = "decimal"
-    NUMERIC = "numeric"
+    CHAR = "char"  # fixed length string
+    VARCHAR = "varchar"  # bounded variable length string
+    TEXT = "text"  # unbounded variable length string
+
+    SMALLINT = "smallint"  # integer, 2 bytes
+    INTEGER = "integer"  # integer, 4 bytes
+    BIGINT = "bigint"  # integer, 8 bytes
+
+    DECIMAL = "decimal"  # exact values with configured precision
+    NUMERIC = "numeric"  # exact values with configured precision
+
+    FLOAT = "float"  # 4 bytes floating point number
+    DOUBLE = "double"  # 8 bytes floating point number
+
+    TIMESTAMP = "timestamp"
+    TIMESTAMP_TZ = "timestamp_tz"
+
     DATE = "date"
     TIME = "time"
-    TIMESTAMP = "timestamp"
-    TIMESTAMP_TZ = "timestamptz"
+
     BOOLEAN = "boolean"
 
     def __eq__(self, value: object) -> bool:

@@ -111,8 +111,12 @@ class DataSourceConnection(ABC):
         try:
             logger.debug(f"SQL query fetch one-by-one:\n{sql}")
             cursor.execute(sql)
-            for row in cursor:
+
+            row = cursor.fetchone()
+            while row:
                 row_callback(row, cursor.description)
+                row = cursor.fetchone()
+
         finally:
             cursor.close()
 

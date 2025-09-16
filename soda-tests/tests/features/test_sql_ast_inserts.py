@@ -25,16 +25,16 @@ from soda_core.common.sql_dialect import SqlDialect
 def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelper):
     data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
-    dataset_prefix = data_source_test_helper.dataset_prefix
+    dataset_prefixes = data_source_test_helper.dataset_prefix
 
-    my_table_name = sql_dialect.qualify_dataset_name(dataset_prefix, "my_test_test_table")
+    my_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table")
 
     # Drop table if exists
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
     data_source_impl.execute_update(drop_table_sql)
 
     def col_type(name: str) -> str:
-        return sql_dialect.get_sql_data_type_name_by_soda_data_type_names()[name]
+        return sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[name]
 
     try:
         create_table_columns = [
@@ -70,9 +70,8 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         data_source_impl.execute_update(create_table_sql)
 
         # Check the metadata, we want the columns to be in the correct order
-        metadata_columns_query = data_source_impl.create_metadata_columns_query()
-        metadata_columns_query_sql = metadata_columns_query.build_sql(
-            dataset_prefix=dataset_prefix,
+        metadata_columns_query_sql = data_source_impl.build_columns_metadata_query_str(
+            dataset_prefixes=dataset_prefixes,
             dataset_name="my_test_test_table",
         )
         metadata_result: QueryResult = data_source_impl.execute_query(metadata_columns_query_sql)
