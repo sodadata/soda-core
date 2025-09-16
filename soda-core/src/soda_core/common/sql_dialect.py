@@ -1029,6 +1029,16 @@ class SqlDialect:
     def default_numeric_scale(self) -> Optional[int]:
         return None
 
+    def get_sql_data_type_class(self) -> type:
+        return SqlDataType
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return True
+
+    ########################################################
+    # Metadata columns query
+    ########################################################
+
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
@@ -1159,9 +1169,3 @@ class SqlDialect:
                 )
             )
         return column_metadatas
-
-    def get_sql_data_type_class(self) -> type:
-        return SqlDataType
-
-    def supports_case_sensitive_column_names(self) -> bool:
-        return True
