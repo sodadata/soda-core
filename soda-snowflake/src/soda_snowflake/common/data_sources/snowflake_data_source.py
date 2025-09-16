@@ -10,6 +10,10 @@ from soda_snowflake.common.data_sources.snowflake_data_source_connection import 
     SnowflakeDataSourceConnection,
 )
 
+TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
+TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
+TIMESTAMP_WITH_LOCAL_TIME_ZONE = "timestamp with local time zone"
+
 
 class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceModel):
     def __init__(self, data_source_model: SnowflakeDataSourceModel):
@@ -31,6 +35,10 @@ class SnowflakeSqlDialect(SqlDialect):
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
+    def metadata_casify(self, identifier: str) -> str:
+        """Metadata identifiers are not uppercased for Snowflake."""
+        return identifier
+
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return " SELECT * FROM VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
 
@@ -49,38 +57,79 @@ class SnowflakeSqlDialect(SqlDialect):
             ["varchar", "text", "string"],
             ["number", "decimal", "numeric", "int", "integer", "bigint", "smallint", "tinyint", "byteint"],
             ["float", "float4", "float8", "double", "double precision", "real"],
-            ["timestamp", "datetime", "timestamp_ntz", "timestamp without time zone"],
-            ["timestamp_ltz", "timestamp with local time zone"],
-            ["timestamp_tz", "timestamp with time zone"],
+            ["timestamp", "datetime", "timestamp_ntz", TIMESTAMP_WITHOUT_TIME_ZONE],
+            ["timestamp_ltz", TIMESTAMP_WITH_LOCAL_TIME_ZONE],
+            ["timestamp_tz", TIMESTAMP_WITH_TIME_ZONE],
         ]
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         """
         Maps DBDataType names to data source type names.
         """
         return {
+            SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.TEXT: "text",  # alias for varchar
+            SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.BIGINT: "bigint",
+            SodaDataTypeName.DECIMAL: "number",  # decimal & numeric → number
+            SodaDataTypeName.NUMERIC: "number",
+            SodaDataTypeName.FLOAT: "float",  # float / double → float
+            SodaDataTypeName.DOUBLE: "float",
+            SodaDataTypeName.TIMESTAMP: "timestamp_ntz",  # default timestamp in snowflake
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp_tz",
             SodaDataTypeName.DATE: "date",
             SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamp_tz",
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "character", "text"]
 
+    # TODO: test this thorough. The code here is generated using AI just to be able to test the E2E.
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "varchar": SodaDataTypeName.VARCHAR,
+            "char": SodaDataTypeName.CHAR,
+            "character": SodaDataTypeName.CHAR,
+            "text": SodaDataTypeName.TEXT,
+            "string": SodaDataTypeName.VARCHAR,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "int": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "byteint": SodaDataTypeName.SMALLINT,
+            "number": SodaDataTypeName.NUMERIC,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "float4": SodaDataTypeName.FLOAT,
+            "float8": SodaDataTypeName.DOUBLE,
+            "double": SodaDataTypeName.DOUBLE,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "real": SodaDataTypeName.FLOAT,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp_ntz": SodaDataTypeName.TIMESTAMP,
+            TIMESTAMP_WITHOUT_TIME_ZONE: SodaDataTypeName.TIMESTAMP,
+            "datetime": SodaDataTypeName.TIMESTAMP,
+            "timestamp_tz": SodaDataTypeName.TIMESTAMP_TZ,
+            TIMESTAMP_WITH_TIME_ZONE: SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp_ltz": SodaDataTypeName.TIMESTAMP_TZ,
+            TIMESTAMP_WITH_LOCAL_TIME_ZONE: SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "boolean": SodaDataTypeName.BOOLEAN,
+        }
+
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
         return data_type_name.lower() in [
             "timestamp",
             "timestamp_ntz",
-            "timestamp without time zone",
+            TIMESTAMP_WITHOUT_TIME_ZONE,
             "timestamp_tz",
-            "timestamp with time zone",
+            TIMESTAMP_WITH_TIME_ZONE,
             "timestamp_ltz",
-            "timestamp with local time zone",
+            TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]

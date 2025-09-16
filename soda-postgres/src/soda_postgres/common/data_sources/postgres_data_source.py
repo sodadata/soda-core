@@ -1,7 +1,10 @@
+from logging import Logger
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.metadata_types import SodaDataTypeName
-from soda_core.common.sql_ast import CAST, REGEX_LIKE
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.sql_ast import CAST, CREATE_TABLE_COLUMN, REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
@@ -9,6 +12,12 @@ from soda_postgres.common.data_sources.postgres_data_source_connection import (
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
 )
+
+logger: Logger = soda_logger
+
+
+PG_TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
+PG_TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
 
 
 class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel):
@@ -22,6 +31,15 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
         return PostgresDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+
+class PostgresSqlDataType(SqlDataType):
+    def get_sql_data_type_str_with_parameters(self) -> str:
+        if isinstance(self.datetime_precision, int) and self.name == PG_TIMESTAMP_WITH_TIME_ZONE:
+            return f"timestamp({self.datetime_precision}) with time zone"
+        elif isinstance(self.datetime_precision, int) and self.name == PG_TIMESTAMP_WITHOUT_TIME_ZONE:
+            return f"timestamp({self.datetime_precision}) without time zone"
+        return super().get_sql_data_type_str_with_parameters()
 
 
 class PostgresSqlDialect(SqlDialect):
@@ -38,23 +56,56 @@ class PostgresSqlDialect(SqlDialect):
             + (";" if add_semicolon else "")
         )
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
-            SodaDataTypeName.TEXT: "varchar",
+            SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
+            SodaDataTypeName.TEXT: "text",
+            SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
             SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.BIGINT: "bigint",
             SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.FLOAT: "float",
+            SodaDataTypeName.DOUBLE: "double",
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
             SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "character varying": SodaDataTypeName.VARCHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "character": SodaDataTypeName.CHAR,
+            "char": SodaDataTypeName.CHAR,
+            "text": SodaDataTypeName.TEXT,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "real": SodaDataTypeName.FLOAT,
+            "double precision": SodaDataTypeName.DOUBLE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            PG_TIMESTAMP_WITHOUT_TIME_ZONE: SodaDataTypeName.TIMESTAMP,
+            "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
+            PG_TIMESTAMP_WITH_TIME_ZONE: SodaDataTypeName.TIMESTAMP_TZ,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "time without time zone": SodaDataTypeName.TIME,
+            "boolean": SodaDataTypeName.BOOLEAN,
         }
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
+            self.get_data_source_data_type_name_for_soda_data_type_name(cast.to_type)
+            if isinstance(cast.to_type, SodaDataTypeName)
+            else cast.to_type
         )
         return f"{self.build_expression_sql(cast.expression)}::{to_type_text}"
 
@@ -67,22 +118,17 @@ class PostgresSqlDialect(SqlDialect):
             ["smallint", "int2"],
             ["real", "float4"],
             ["double precision", "float8"],
-            ["timestamp", "timestamp without time zone"],
+            ["timestamp", PG_TIMESTAMP_WITHOUT_TIME_ZONE],
         ]
 
-    def get_data_source_type_names_by_test_type_names(self) -> dict:
-        """
-        Maps DBDataType names to data source type names.
-        """
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "decimal",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
+    def get_sql_data_type_class(self) -> type:
+        return PostgresSqlDataType
+
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        if create_table_column.type.name == "text":  # Do not output text with parameters!
+            if create_table_column.type.character_maximum_length is not None:
+                logger.warning(
+                    f"Text column {create_table_column.name} has a character maximum length, but text does not support parameters! Ignoring in postgres."
+                )
+            return "text"
+        return super()._build_create_table_column_type(create_table_column=create_table_column)

@@ -8,7 +8,6 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import ColumnMetadata, SqlDataType
-from soda_core.common.statements.metadata_columns_query import MetadataColumnsQuery
 from soda_core.common.utils import format_items
 from soda_core.contracts.contract_verification import (
     Check,
@@ -101,7 +100,7 @@ class SchemaCheckImpl(CheckImpl):
 
         if contract_impl.data_source_impl:
             schema_query: Query = SchemaQuery(
-                dataset_prefix=contract_impl.dataset_prefix,
+                dataset_prefixes=contract_impl.dataset_prefix,
                 dataset_name=contract_impl.dataset_name,
                 schema_metric_impl=self.schema_metric,
                 data_source_impl=contract_impl.data_source_impl,
@@ -203,16 +202,15 @@ class SchemaMetricImpl(MetricImpl):
 class SchemaQuery(Query):
     def __init__(
         self,
-        dataset_prefix: Optional[list[str]],
+        dataset_prefixes: Optional[list[str]],
         dataset_name: str,
         schema_metric_impl: SchemaMetricImpl,
         data_source_impl: Optional[DataSourceImpl],
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[schema_metric_impl])
-        self.metadata_columns_query_builder: MetadataColumnsQuery = data_source_impl.create_metadata_columns_query()
-        self.sql = self.metadata_columns_query_builder.build_sql(
-            dataset_prefix=dataset_prefix,
-            dataset_name=dataset_name,
+
+        self.sql = data_source_impl.build_columns_metadata_query_str(
+            dataset_prefixes=dataset_prefixes, dataset_name=dataset_name
         )
 
     def execute(self) -> list[Measurement]:
@@ -221,7 +219,9 @@ class SchemaQuery(Query):
         except Exception as e:
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
-        metadata_columns: list[ColumnMetadata] = self.metadata_columns_query_builder.get_result(query_result)
+        metadata_columns: list[
+            ColumnMetadata
+        ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
             Measurement(metric_id=schema_metric_impl.id, value=metadata_columns, metric_name=schema_metric_impl.type)

@@ -51,14 +51,6 @@ class FabricSqlDialect(SqlServerSqlDialect):
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
-        super_dict = super().get_sql_data_type_name_by_soda_data_type_names()
-        # Fabric does not support datetimeoffset (for timezones)
-        # We specify the precision to 6 decimal places, this is the max precision supported by Fabric in Microsoft Fabric Data Warehouse.
-        super_dict[SodaDataTypeName.TIMESTAMP] = "datetime2"
-        super_dict[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
-        return super_dict
-
     def literal_datetime_with_tz(self, datetime: datetime):
         # Fabric does not support datetimeoffset (for timezones)
         # So we will convert the timestamp to UTC and then convert it to a string
@@ -75,8 +67,12 @@ class FabricSqlDialect(SqlServerSqlDialect):
         types = super().get_sql_data_type_name_by_soda_data_type_names()
 
         types[SodaDataTypeName.TEXT] = "varchar"
-
         # Fabric does not support datetimeoffset and does not have a timezone aware datetime type
         types[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
 
         return types
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+        result = super().get_data_source_data_type_name_by_soda_data_type_names()
+        result[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
+        return result

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from datetime import date, datetime
+from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
-from typing import Optional
+from typing import Any, Optional, Tuple
 
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    DataSourceNamespace,
+    SodaDataTypeName,
+    SqlDataType,
+)
 from soda_core.common.sql_ast import (
     AND,
     CASE_WHEN,
@@ -118,29 +124,22 @@ class SqlDialect:
         )
         return left_synonym_data_type_name == right_synonym_data_type_name
 
+    def get_data_source_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
+        return self.get_data_source_data_type_name_by_soda_data_type_names()[soda_data_type_name]
+
     @abstractmethod
-    def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         """
-        Data type that is used in the contract.
-        This does **NOT** include the length of the column, e.g. VARCHAR
+        Maps SodaDataTypeName's names to native data source type names.
         """
-        # Example
-        # return {
-        #     SodaDataTypeNames.TEXT: "character varying",
-        #     SodaDataTypeNames.VARCHAR: "character varying",
-        #     SodaDataTypeNames.INTEGER: "integer",
-        #     SodaDataTypeNames.DECIMAL: "double precision",
-        #     SodaDataTypeNames.NUMERIC: "numeric",
-        #     SodaDataTypeNames.DATE: "date",
-        #     SodaDataTypeNames.TIME: "time",
-        #     SodaDataTypeNames.TIMESTAMP: "timestamp without time zone",
-        #     SodaDataTypeNames.TIMESTAMP_TZ: "timestamp with time zone",
-        #     SodaDataTypeNames.BOOLEAN: "boolean",
-        # }
         raise NotImplementedError()
 
-    def get_sql_data_type_name(self, soda_data_type: SodaDataTypeName) -> str:
-        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type]
+    @abstractmethod
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        """
+        Maps native data source type names to SodaDataTypeName's
+        """
+        raise NotImplementedError()
 
     def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
         self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
@@ -163,9 +162,9 @@ class SqlDialect:
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name
-        data_type_name: str = self.get_sql_data_type_name_by_soda_data_type_names().get(test_data_type)
+        data_type_name: str = self.get_data_source_data_type_name_by_soda_data_type_names().get(test_data_type)
         character_maximum_length: Optional[int] = (
-            source_data_type.character_maximum_length if self.supports_data_type_character_maximun_length() else None
+            source_data_type.character_maximum_length if self.supports_data_type_character_maximum_length() else None
         )
         numeric_precision: Optional[int] = (
             source_data_type.numeric_precision if self.supports_data_type_numeric_precision() else None
@@ -176,7 +175,7 @@ class SqlDialect:
         datetime_precision: Optional[int] = (
             source_data_type.datetime_precision if self.supports_data_type_datetime_precision() else None
         )
-        return SqlDataType(
+        return self.get_sql_data_type_class()(
             name=data_type_name,
             character_maximum_length=character_maximum_length,
             numeric_precision=numeric_precision,
@@ -184,41 +183,28 @@ class SqlDialect:
             datetime_precision=datetime_precision,
         )
 
-    def get_sql_data_type_name_for_soda_data_type_name(self, soda_data_type_name: SodaDataTypeName) -> str:
-        return self.get_sql_data_type_name_by_soda_data_type_names()[soda_data_type_name]
-
-    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict:
-        """
-        Maps DBDataType names to data source type names.
-        """
-        return {
-            SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",
-            SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "decimal",
-            SodaDataTypeName.NUMERIC: "numeric",
-            SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "time",
-            SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
-            SodaDataTypeName.BOOLEAN: "boolean",
-        }
-
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["varchar", "char", "character varying", "character"]
+        return self.format_metadata_data_type(data_type_name).lower() in [
+            "varchar",
+            "char",
+            "character varying",
+            "character",
+        ]
 
     def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["numeric", "number", "decimal"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["numeric", "number", "decimal"]
 
     def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
-        return data_type_name.lower() in ["numeric", "number", "decimal"]
+        return self.format_metadata_data_type(data_type_name).lower() in ["numeric", "number", "decimal"]
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
-        return data_type_name.lower() in [
+        return self.format_metadata_data_type(data_type_name).lower() in [
             "timestamp",
             "timestamp without time zone",
             "timestamptz",
             "timestamp with time zone",
+            "time",
+            "time with time zone",
         ]
 
     # SQL generation
@@ -256,6 +242,8 @@ class SqlDialect:
                 return self.literal_datetime(o)
             else:
                 return self.literal_datetime_with_tz(o)
+        elif isinstance(o, time):
+            return self.literal_time(o)
         elif isinstance(o, date):
             return self.literal_date(o)
         elif isinstance(o, list) or isinstance(o, set) or isinstance(o, tuple):
@@ -288,6 +276,10 @@ class SqlDialect:
     def literal_datetime(self, datetime: datetime):
         return f"'{datetime.isoformat()}'"
 
+    def literal_time(self, time: time):
+        time_str: str = time.strftime("%H:%M:%S.%f")
+        return f"'{time_str}'"
+
     def literal_datetime_with_tz(self, datetime: datetime):
         # Can be overloaded if the subclass does not support timezones (may have to do conversion yourself)
         # We assume that all timestamps are stored in UTC.
@@ -310,6 +302,10 @@ class SqlDialect:
         schema_name: str = prefixes[1]
         quoted_schema_name: str = self.quote_default(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
+
+    def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
+        """Optional list of SQL commands to execute after schema is created (e.g. to set permissions)"""
+        return None
 
     def select_all_paginated_sql(
         self,
@@ -372,6 +368,16 @@ class SqlDialect:
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
+
+        if not self.supports_data_type_character_maximum_length():
+            create_table_column.type.character_maximum_length = None
+        if not self.supports_data_type_numeric_precision():
+            create_table_column.type.numeric_precision = None
+        if not self.supports_data_type_numeric_scale():
+            create_table_column.type.numeric_scale = None
+        if not self.supports_data_type_datetime_precision():
+            create_table_column.type.datetime_precision = None
+
         return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     def _quote_column_for_create_table(self, column_name: str) -> str:
@@ -666,7 +672,9 @@ class SqlDialect:
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
         name_parts: list[str] = [] if dataset_prefix is None else list(dataset_prefix)
         name_parts.append(dataset_name)
-        quoted_name_parts: list[str] = [self.quote_default(name_part) for name_part in name_parts]
+        quoted_name_parts: list[str] = [
+            self.quote_default(name_part) for name_part in name_parts if isinstance(name_part, str)
+        ]
         return ".".join(quoted_name_parts)
 
     def _build_operator_sql(self, operator: Operator) -> str:
@@ -792,7 +800,9 @@ class SqlDialect:
 
     def _build_cast_sql(self, cast: CAST) -> str:
         to_type_text: str = (
-            self.get_sql_data_type_name(cast.to_type) if isinstance(cast.to_type, SodaDataTypeName) else cast.to_type
+            self.get_data_source_data_type_name_for_soda_data_type_name(cast.to_type)
+            if isinstance(cast.to_type, SodaDataTypeName)
+            else cast.to_type
         )
         return f"CAST({self.build_expression_sql(cast.expression)} AS {to_type_text})"
 
@@ -846,6 +856,16 @@ class SqlDialect:
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
+
+    def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
+        """
+        The prefixes / namespace of the information schema for a given dataset prefix / namespace
+        """
+        database_name: str | None = data_source_namespace.get_database_for_metadata_query()
+        if database_name:
+            return [database_name, self.schema_information_schema()]
+        else:
+            return [self.schema_information_schema()]
 
     def schema_information_schema(self) -> str | None:
         """
@@ -905,7 +925,7 @@ class SqlDialect:
         """
         return self.default_casify("character_maximum_length")
 
-    def supports_data_type_character_maximun_length(self) -> bool:
+    def supports_data_type_character_maximum_length(self) -> bool:
         return True
 
     def column_data_type_numeric_precision(self) -> Optional[str]:
@@ -939,7 +959,11 @@ class SqlDialect:
         return True
 
     def default_casify(self, identifier: str) -> str:
-        return identifier.lower()
+        return identifier
+
+    def metadata_casify(self, identifier: str) -> str:
+        """Define case for metadata identifiers if needed."""
+        return identifier
 
     # Very lightweight dialect-specific interpretation of dataset prefixes.
     def get_database_prefix_index(self) -> int | None:
@@ -996,9 +1020,6 @@ class SqlDialect:
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
-    def supports_case_sensitive_column_names(self) -> bool:
-        return True
-
     def is_quoted(self, identifier: str) -> bool:
         return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)
 
@@ -1007,3 +1028,144 @@ class SqlDialect:
 
     def default_numeric_scale(self) -> Optional[int]:
         return None
+
+    def get_sql_data_type_class(self) -> type:
+        return SqlDataType
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        return True
+
+    ########################################################
+    # Metadata columns query
+    ########################################################
+
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        """
+        Builds the full SQL query to query table names from the data source metadata.
+        """
+
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+
+        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
+
+        return self.build_select_sql(
+            [
+                SELECT(
+                    [
+                        self.column_column_name(),
+                        self.column_data_type(),
+                        *(
+                            [self.column_data_type_max_length()]
+                            if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length()
+                            else []
+                        ),
+                        *(
+                            [self.column_data_type_numeric_precision()]
+                            if self.supports_data_type_numeric_precision() and self.column_data_type_numeric_precision()
+                            else []
+                        ),
+                        *(
+                            [self.column_data_type_numeric_scale()]
+                            if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale()
+                            else []
+                        ),
+                        *(
+                            [self.column_data_type_datetime_precision()]
+                            if self.supports_data_type_datetime_precision()
+                            and self.column_data_type_datetime_precision()
+                            else []
+                        ),
+                    ]
+                ),
+                FROM(self.table_columns()).IN(information_schema_namespace_elements),
+                WHERE(
+                    AND(
+                        [
+                            *(
+                                [EQ(self.column_table_catalog(), LITERAL(self.metadata_casify(database_name)))]
+                                if database_name
+                                else []
+                            ),
+                            EQ(self.column_table_schema(), LITERAL(self.metadata_casify(schema_name))),
+                            EQ(self.column_table_name(), LITERAL(self.metadata_casify(table_name))),
+                        ]
+                    )
+                ),
+                ORDER_BY_ASC(ORDINAL_POSITION()),
+            ]
+        )
+
+    def extract_column_index(self, column_name: str, columns: list[Tuple[Any, ...]]) -> int:
+        column_names = [c[0] for c in columns]
+        return column_names.index(column_name)
+
+    def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
+        return row[1]
+
+    def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        """Extract character maximum length from column metadata.  Typically this is just the value of a specific column."""
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        if not self.data_type_has_parameter_character_maximum_length(data_type_name):
+            return None
+        if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length():
+            col_index = self.extract_column_index(self.column_data_type_max_length(), columns)
+            return row[col_index]
+        return None
+
+    def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        """Extract numeric precision from column metadata.  Typically this is just the value of a specific column."""
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        if not self.data_type_has_parameter_numeric_precision(data_type_name):
+            return None
+
+        if self.supports_data_type_numeric_precision() and self.column_data_type_numeric_precision():
+            col_index = self.extract_column_index(self.column_data_type_numeric_precision(), columns)
+            return row[col_index]
+        return None
+
+    def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        """Extract numeric scale from column metadata.  Typically this is just the value of a specific column."""
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        if not self.data_type_has_parameter_numeric_scale(data_type_name):
+            return None
+
+        if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale():
+            col_index = self.extract_column_index(self.column_data_type_numeric_scale(), columns)
+            return row[col_index]
+        return None
+
+    def extract_datetime_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        """Extract datetime precision from column metadata.  Typically this is just the value of a specific column."""
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        if not self.data_type_has_parameter_datetime_precision(data_type_name):
+            return None
+
+        if self.supports_data_type_datetime_precision() and self.column_data_type_datetime_precision():
+            col_index = self.extract_column_index(self.column_data_type_datetime_precision(), columns)
+            return row[col_index]
+        return None
+
+    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        column_metadatas: list[ColumnMetadata] = []
+        for row in query_result.rows:
+            column_name: str = row[0]
+            data_type_name: str = self.format_metadata_data_type(self.extract_data_type_name(row, query_result.columns))
+            character_maximum_length: Optional[int] = self.extract_character_maximum_length(row, query_result.columns)
+            numeric_precision: Optional[int] = self.extract_numeric_precision(row, query_result.columns)
+            numeric_scale: Optional[int] = self.extract_numeric_scale(row, query_result.columns)
+            datetime_precision: Optional[int] = self.extract_datetime_precision(row, query_result.columns)
+
+            column_metadatas.append(
+                ColumnMetadata(
+                    column_name=column_name,
+                    sql_data_type=self.get_sql_data_type_class()(
+                        name=data_type_name,
+                        character_maximum_length=character_maximum_length,
+                        numeric_precision=numeric_precision,
+                        numeric_scale=numeric_scale,
+                        datetime_precision=datetime_precision,
+                    ),
+                )
+            )
+        return column_metadatas
