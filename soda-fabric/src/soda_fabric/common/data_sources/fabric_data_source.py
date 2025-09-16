@@ -70,3 +70,13 @@ class FabricSqlDialect(SqlServerSqlDialect):
             return "datetime2(6)"
         else:
             return create_table_column.type.get_sql_data_type_str_with_parameters()
+
+    def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+        types = super().get_sql_data_type_name_by_soda_data_type_names()
+
+        types[SodaDataTypeName.TEXT] = "varchar"
+
+        # Fabric does not support datetimeoffset and does not have a timezone aware datetime type
+        types[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
+
+        return types

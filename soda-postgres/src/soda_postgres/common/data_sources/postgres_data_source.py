@@ -43,7 +43,7 @@ class PostgresSqlDialect(SqlDialect):
             SodaDataTypeName.TEXT: "varchar",
             SodaDataTypeName.VARCHAR: "varchar",
             SodaDataTypeName.INTEGER: "integer",
-            SodaDataTypeName.DECIMAL: "double precision",
+            SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.NUMERIC: "numeric",
             SodaDataTypeName.DATE: "date",
             SodaDataTypeName.TIME: "time",
