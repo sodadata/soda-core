@@ -13,9 +13,25 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
+from soda_core.contracts.impl.diagnostics_configuration import DiagnosticsConfiguration
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 
 soda_telemetry = SodaTelemetry()
+
+
+def verify_contract_locally(
+    data_source_file_path: Optional[str] = None,
+    data_source_yaml_str: Optional[str] = None,
+    contract_file_path: Optional[str] = None,
+    contract_yaml_str: Optional[str] = None,
+    contract_dataset_identifier: Optional[str] = None,
+    soda_cloud_file_path: Optional[str] = None,
+    soda_cloud_yaml_str: Optional[str] = None,
+    publish: bool = False,
+    variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
+    diagnostics_configurations: Optional[DiagnosticsConfiguration] = None
+) -> ContractVerificationSessionResult:
 
 
 def verify_contracts_locally(
