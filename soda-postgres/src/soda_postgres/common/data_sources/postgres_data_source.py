@@ -68,7 +68,7 @@ class PostgresSqlDialect(SqlDialect):
             SodaDataTypeName.NUMERIC: "numeric",
             SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.FLOAT: "float",
-            SodaDataTypeName.DOUBLE: "double",
+            SodaDataTypeName.DOUBLE: "double precision",
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
             SodaDataTypeName.DATE: "date",
@@ -119,7 +119,30 @@ class PostgresSqlDialect(SqlDialect):
             ["real", "float4"],
             ["double precision", "float8"],
             ["timestamp", PG_TIMESTAMP_WITHOUT_TIME_ZONE],
+            ["decimal", "numeric"],
         ]
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        # According to SQL spec, Decimal and Numeric are synonyms, and Float and Double are synonyms
+        found_synonym = False
+        synonym_correct = False
+        if expected == SodaDataTypeName.DECIMAL or actual == SodaDataTypeName.DECIMAL:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual == SodaDataTypeName.NUMERIC or actual == SodaDataTypeName.DECIMAL,
+            )
+        elif expected == SodaDataTypeName.FLOAT or actual == SodaDataTypeName.DOUBLE:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual == SodaDataTypeName.DOUBLE or actual == SodaDataTypeName.FLOAT,
+            )
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)
 
     def get_sql_data_type_class(self) -> type:
         return PostgresSqlDataType

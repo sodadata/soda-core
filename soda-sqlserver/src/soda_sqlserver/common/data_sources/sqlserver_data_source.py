@@ -83,6 +83,9 @@ class SqlServerSqlDialect(SqlDialect):
     def literal_datetime(self, datetime: datetime):
         return f"'{datetime.isoformat(timespec='milliseconds')}'"
 
+    def literal_boolean(self, boolean: bool):
+        return "1" if boolean is True else "0"
+
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return f"[{identifier}]" if isinstance(identifier, str) and len(identifier) > 0 else None
 
@@ -310,3 +313,19 @@ class SqlServerSqlDialect(SqlDialect):
         if sql_data_type.name == "varchar":
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        found_synonym = False
+        synonym_correct = False
+        if expected == SodaDataTypeName.TEXT or actual == SodaDataTypeName.VARCHAR:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual == SodaDataTypeName.VARCHAR or actual == SodaDataTypeName.TEXT,
+            )
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)
