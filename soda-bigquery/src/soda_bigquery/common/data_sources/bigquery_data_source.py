@@ -213,35 +213,19 @@ class BigQuerySqlDialect(SqlDialect):
         found_synonym = False
         synonym_correct = False
 
-        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
-            )
-
-        if expected in list_of_integer_synonyms or actual in list_of_integer_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_integer_synonyms and expected in list_of_integer_synonyms,
-            )
-
-        if expected in list_of_numeric_synonyms or actual in list_of_numeric_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_numeric_synonyms and expected in list_of_numeric_synonyms,
-            )
-
-        if expected in list_of_timestamp_synonyms or actual in list_of_timestamp_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_timestamp_synonyms and expected in list_of_timestamp_synonyms,
-            )
-
-        if expected in list_of_float_synonyms or actual in list_of_float_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_float_synonyms and expected in list_of_float_synonyms,
-            )
+        for list_of_synonyms in [
+            list_of_text_synonyms,
+            list_of_integer_synonyms,
+            list_of_numeric_synonyms,
+            list_of_timestamp_synonyms,
+            list_of_float_synonyms,
+        ]:
+            if expected in list_of_synonyms or actual in list_of_synonyms:
+                (found_synonym, synonym_correct) = (
+                    True,
+                    actual in list_of_synonyms and expected in list_of_synonyms,
+                )
+                break
 
         if found_synonym and synonym_correct:
             if expected != actual:

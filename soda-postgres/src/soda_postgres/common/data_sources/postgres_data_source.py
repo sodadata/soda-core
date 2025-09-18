@@ -18,6 +18,7 @@ logger: Logger = soda_logger
 
 PG_TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
 PG_TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
+PG_DOUBLE_PRECISION = "double precision"
 
 
 class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel):
@@ -68,7 +69,7 @@ class PostgresSqlDialect(SqlDialect):
             SodaDataTypeName.NUMERIC: "numeric",
             SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.FLOAT: "float",
-            SodaDataTypeName.DOUBLE: "double precision",
+            SodaDataTypeName.DOUBLE: PG_DOUBLE_PRECISION,
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamptz",
             SodaDataTypeName.DATE: "date",
@@ -90,7 +91,7 @@ class PostgresSqlDialect(SqlDialect):
             "numeric": SodaDataTypeName.NUMERIC,
             "float": SodaDataTypeName.FLOAT,
             "real": SodaDataTypeName.FLOAT,
-            "double precision": SodaDataTypeName.DOUBLE,
+            PG_DOUBLE_PRECISION: SodaDataTypeName.DOUBLE,
             "timestamp": SodaDataTypeName.TIMESTAMP,
             PG_TIMESTAMP_WITHOUT_TIME_ZONE: SodaDataTypeName.TIMESTAMP,
             "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
@@ -117,7 +118,7 @@ class PostgresSqlDialect(SqlDialect):
             ["bigint", "int8"],
             ["smallint", "int2"],
             ["real", "float4"],
-            ["double precision", "float8"],
+            [PG_DOUBLE_PRECISION, "float8"],
             ["timestamp", PG_TIMESTAMP_WITHOUT_TIME_ZONE],
             ["decimal", "numeric"],
         ]
@@ -126,16 +127,17 @@ class PostgresSqlDialect(SqlDialect):
         # According to SQL spec, Decimal and Numeric are synonyms, and Float and Double are synonyms
         found_synonym = False
         synonym_correct = False
-        if expected == SodaDataTypeName.DECIMAL or actual == SodaDataTypeName.DECIMAL:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual == SodaDataTypeName.NUMERIC or actual == SodaDataTypeName.DECIMAL,
-            )
-        elif expected == SodaDataTypeName.FLOAT or actual == SodaDataTypeName.DOUBLE:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual == SodaDataTypeName.DOUBLE or actual == SodaDataTypeName.FLOAT,
-            )
+
+        list_of_decimal_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
+        list_of_float_synonyms = [SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT]
+
+        for list_of_synonyms in [list_of_decimal_synonyms, list_of_float_synonyms]:
+            if expected in list_of_synonyms or actual in list_of_synonyms:
+                (found_synonym, synonym_correct) = (
+                    True,
+                    actual in list_of_synonyms and expected in list_of_synonyms,
+                )
+                break
 
         if found_synonym and synonym_correct:
             if expected != actual:
