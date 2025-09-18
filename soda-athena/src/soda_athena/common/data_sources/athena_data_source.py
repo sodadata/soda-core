@@ -357,6 +357,9 @@ class AthenaSqlDialect(SqlDialect):
         data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
         return int(data_type_tuple[1])
 
+    def supports_datetime_microseconds(self) -> bool:
+        return False
+
     def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         found_synonym = False
         synonym_correct = False

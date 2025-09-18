@@ -238,12 +238,21 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
         [
             SELECT([COLUMN("id"), COLUMN("id2"), COLUMN("my_value"), COLUMN("my_timestamp")]),
             FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
+            ORDER_BY_ASC(COLUMN("my_timestamp")),
         ]
     )
     result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
     assert len(result.rows) == NUMBER_OF_ROWS
     for i in range(NUMBER_OF_ROWS):
         if data_source_test_helper.data_source_impl.sql_dialect.supports_datetime_microseconds():
-            assert result.rows[i][3] == datetime.datetime(2021, 1, 1, i, 0, 0, microsecond=123)
+            assert result.rows[i][3] == datetime.datetime(2021, 1, 1, i, 0, 0, 123) or result.rows[i][
+                3
+            ] == datetime.datetime(
+                2021, 1, 1, i, 0, 0, 123, tzinfo=datetime.timezone.utc
+            )  # We're not here to check the timezone returned, only that the microsecond is correct
         else:
-            assert result.rows[i][3] == datetime.datetime(2021, 1, 1, i, 0, 0)
+            assert result.rows[i][3] == datetime.datetime(2021, 1, 1, i, 0, 0) or result.rows[i][
+                3
+            ] == datetime.datetime(
+                2021, 1, 1, i, 0, 0, tzinfo=datetime.timezone.utc
+            )  # We're not here to check the timezone returned, only that the microsecond is correct
