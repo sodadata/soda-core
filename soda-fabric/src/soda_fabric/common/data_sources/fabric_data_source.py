@@ -60,6 +60,8 @@ class FabricSqlDialect(SqlServerSqlDialect):
         assert isinstance(create_table_column.type, SqlDataType)
         if create_table_column.type.name == "datetime2" and create_table_column.type.datetime_precision is None:
             return "datetime2(6)"
+        elif create_table_column.type.name == "time" and create_table_column.type.datetime_precision is None:
+            return "time(6)"
         else:
             return create_table_column.type.get_sql_data_type_str_with_parameters()
 
@@ -76,3 +78,19 @@ class FabricSqlDialect(SqlServerSqlDialect):
         result = super().get_data_source_data_type_name_by_soda_data_type_names()
         result[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
         return result
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        found_synonym = False
+        synonym_correct = False
+        if expected == SodaDataTypeName.TIMESTAMP_TZ:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual == SodaDataTypeName.TIMESTAMP_TZ or actual == SodaDataTypeName.TIMESTAMP,
+            )
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)

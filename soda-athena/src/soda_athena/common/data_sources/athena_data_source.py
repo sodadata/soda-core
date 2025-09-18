@@ -156,10 +156,42 @@ class AthenaSqlDialect(SqlDialect):
             SodaDataTypeName.FLOAT: "float",
             SodaDataTypeName.DOUBLE: "double",
             SodaDataTypeName.DATE: "date",
-            SodaDataTypeName.TIME: "date",
+            SodaDataTypeName.TIME: "varchar",  # Athena does not support time data type, for time specifically, it should be formatted as a string!
             SodaDataTypeName.TIMESTAMP: "timestamp",
             SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
             SodaDataTypeName.BOOLEAN: "boolean",
+        }
+
+    # AI generated
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        """
+        Maps native Athena data source type names to SodaDataTypeName's
+        """
+        return {
+            # Character/String types
+            "char": SodaDataTypeName.CHAR,
+            "varchar": SodaDataTypeName.VARCHAR,
+            "string": SodaDataTypeName.TEXT,
+            "character varying": SodaDataTypeName.VARCHAR,
+            # Integer types
+            "tinyint": SodaDataTypeName.SMALLINT,
+            "smallint": SodaDataTypeName.SMALLINT,
+            "integer": SodaDataTypeName.INTEGER,
+            "int": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            # Decimal/Numeric types
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            # Floating point types
+            "float": SodaDataTypeName.FLOAT,
+            "real": SodaDataTypeName.FLOAT,
+            "double": SodaDataTypeName.DOUBLE,
+            # Date/Time types
+            "date": SodaDataTypeName.DATE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            # Boolean type
+            "boolean": SodaDataTypeName.BOOLEAN,
+            "bool": SodaDataTypeName.BOOLEAN,
         }
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
@@ -234,6 +266,8 @@ class AthenaSqlDialect(SqlDialect):
         # This only applies to the create table statement, not the schema check. For the schema check we need to use the original data type (varchar), but without length.
         if create_table_column.type.name == "varchar" and create_table_column.type.character_maximum_length is None:
             return "string"
+        if create_table_column.type.name == "char" and create_table_column.type.character_maximum_length is None:
+            return "char(1)"
         else:
             return create_table_column.type.get_sql_data_type_str_with_parameters()
 
@@ -322,3 +356,26 @@ class AthenaSqlDialect(SqlDialect):
 
         data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
         return int(data_type_tuple[1])
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        found_synonym = False
+        synonym_correct = False
+        if (
+            expected == SodaDataTypeName.TIME
+        ):  # Athena does not support time data type, for time specifically, it should be formatted as a string!
+            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.VARCHAR)
+        elif expected == SodaDataTypeName.TEXT:
+            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.VARCHAR)
+        elif expected == SodaDataTypeName.NUMERIC:
+            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.DECIMAL)
+        elif (
+            expected == SodaDataTypeName.TIMESTAMP_TZ
+        ):  # Athena does not support timezones, so we consider TIMESTAMP and TIMESTAMP_TZ to be the same
+            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.TIMESTAMP)
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)

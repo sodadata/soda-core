@@ -144,7 +144,6 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
         21: SodaDataTypeName.TIME,
         22: SodaDataTypeName.BOOLEAN,
     }
-
     for i, column in enumerate(actual_columns):
         print(
             f"Column {i}: {column.column_name} -> Expected: {column_mappings[i]}, Actual: {convert_metadata_to_soda_data_type(column)}"
