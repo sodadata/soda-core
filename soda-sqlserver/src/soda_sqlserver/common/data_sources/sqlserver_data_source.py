@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -79,6 +79,9 @@ class SqlServerSqlDialect(SqlDialect):
         """Technically dates can be passed directly as strings, but this is more explicit."""
         date_string = date.strftime("%Y-%m-%d")
         return f"CAST('{date_string}' AS DATE)"
+
+    def literal_datetime(self, datetime: datetime):
+        return f"'{datetime.isoformat(timespec='milliseconds')}'"
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return f"[{identifier}]" if isinstance(identifier, str) and len(identifier) > 0 else None
@@ -256,6 +259,9 @@ class SqlServerSqlDialect(SqlDialect):
 
     def supports_data_type_datetime_precision(self) -> bool:
         return True
+
+    def supports_datetime_microseconds(self) -> bool:
+        return False
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "nvarchar", "nchar"]
