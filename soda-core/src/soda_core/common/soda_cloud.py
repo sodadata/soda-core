@@ -643,6 +643,17 @@ class SodaCloud:
 
         return response_dict.get("contents")
 
+    def fetch_checks_for_dataset_id(self, dataset_id: str) -> list[dict]:
+        response = self._execute_rest_get(
+            relative_url_path=f"checks/?datasetId={dataset_id}",
+            request_log_name="get_checks_for_dataset_id",
+        )
+        if response and response.ok and response.content:
+            json_content = json.loads(response.content)
+            return json_content.get("content", [])
+
+        return []
+
     def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> str:
         """Fetches the data source configuration for the source associated with the given dataset identifier.
 
