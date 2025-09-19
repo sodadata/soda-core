@@ -540,3 +540,13 @@ class VariableResolver:
                     extra={ExtraKeys.LOCATION: location} if location else None,
                 )
         return None
+
+
+def yaml_to_string(yaml_value: dict) -> str:
+    text_stream = StringIO()
+    yaml = YAML()
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.dump(yaml_value, text_stream)
+    text_stream.seek(0)
+
+    return text_stream.read()
