@@ -1,5 +1,8 @@
+from logging import Logger
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
@@ -9,6 +12,9 @@ from soda_snowflake.common.data_sources.snowflake_data_source_connection import 
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSourceConnection,
 )
+
+logger: Logger = soda_logger
+
 
 TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
 TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
@@ -67,7 +73,7 @@ class SnowflakeSqlDialect(SqlDialect):
         Maps DBDataType names to data source type names.
         """
         return {
-            SodaDataTypeName.CHAR: "char",
+            SodaDataTypeName.CHAR: "char",  # Note: by default a char is 1 byte in Snowflake!
             SodaDataTypeName.VARCHAR: "varchar",
             SodaDataTypeName.TEXT: "text",  # alias for varchar
             SodaDataTypeName.SMALLINT: "smallint",
@@ -133,3 +139,40 @@ class SnowflakeSqlDialect(SqlDialect):
             "timestamp_ltz",
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR]
+        list_of_number_synonyms = [
+            SodaDataTypeName.NUMERIC,
+            SodaDataTypeName.DECIMAL,
+            SodaDataTypeName.INTEGER,
+            SodaDataTypeName.BIGINT,
+            SodaDataTypeName.SMALLINT,
+        ]
+        list_of_float_synonyms = [SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE]
+        found_synonym = False
+        synonym_correct = False
+        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
+            )
+
+        if expected in list_of_number_synonyms or actual in list_of_number_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_number_synonyms and expected in list_of_number_synonyms,
+            )
+
+        if expected in list_of_float_synonyms or actual in list_of_float_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_float_synonyms and expected in list_of_float_synonyms,
+            )
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)

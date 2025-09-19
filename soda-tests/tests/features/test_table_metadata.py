@@ -24,6 +24,7 @@ test_table_specification = (
 )
 
 
+# Note: this test is for metadata related items only. For the full datatypes, please see test_soda_data_types.py
 def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect

@@ -1,5 +1,8 @@
+import logging
+
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, REGEX_LIKE, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
@@ -9,6 +12,9 @@ from soda_redshift.common.data_sources.redshift_data_source_connection import (
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSourceConnection,
 )
+
+logger: logging.Logger = soda_logger
+
 
 REDSHIFT_DOUBLE_PRECISION = "double precision"
 REDSHIFT_CHARACTER_VARYING = "character varying"
@@ -151,3 +157,29 @@ class RedshiftSqlDialect(SqlDialect):
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        found_synonym = False
+        synonym_correct = False
+
+        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR]
+        list_of_numeric_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
+
+        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
+            )
+
+        if expected in list_of_numeric_synonyms or actual in list_of_numeric_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_numeric_synonyms and expected in list_of_numeric_synonyms,
+            )
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)

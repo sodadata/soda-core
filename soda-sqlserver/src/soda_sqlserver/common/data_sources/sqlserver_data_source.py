@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -79,6 +79,12 @@ class SqlServerSqlDialect(SqlDialect):
         """Technically dates can be passed directly as strings, but this is more explicit."""
         date_string = date.strftime("%Y-%m-%d")
         return f"CAST('{date_string}' AS DATE)"
+
+    def literal_datetime(self, datetime: datetime):
+        return f"'{datetime.isoformat(timespec='milliseconds')}'"
+
+    def literal_boolean(self, boolean: bool):
+        return "1" if boolean is True else "0"
 
     def quote_default(self, identifier: Optional[str]) -> Optional[str]:
         return f"[{identifier}]" if isinstance(identifier, str) and len(identifier) > 0 else None
@@ -257,6 +263,9 @@ class SqlServerSqlDialect(SqlDialect):
     def supports_data_type_datetime_precision(self) -> bool:
         return True
 
+    def supports_datetime_microseconds(self) -> bool:
+        return False
+
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return data_type_name.lower() in ["varchar", "char", "nvarchar", "nchar"]
 
@@ -304,3 +313,19 @@ class SqlServerSqlDialect(SqlDialect):
         if sql_data_type.name == "varchar":
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        found_synonym = False
+        synonym_correct = False
+        if expected == SodaDataTypeName.TEXT or expected == SodaDataTypeName.VARCHAR:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual == SodaDataTypeName.VARCHAR or actual == SodaDataTypeName.TEXT,
+            )
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)

@@ -160,6 +160,12 @@ class SqlDialect:
             return False
         return True
 
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        return expected == actual
+        # This function can be overloaded if required.
+        # It could be that the datasource has synonyms for the data types, and we want to handle that in the mappings.
+        # For an example: see the postgres implementation
+
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name
         data_type_name: str = self.get_data_source_data_type_name_by_soda_data_type_names().get(test_data_type)
@@ -233,7 +239,9 @@ class SqlDialect:
     def literal(self, o: object) -> str:
         if o is None:
             return "NULL"
-        elif isinstance(o, Number):
+        elif isinstance(o, Number) and not isinstance(
+            o, bool
+        ):  # We don't want to interpret booleans as numbers. In Python a boolean is a subclass of int, so we have to explicitly check it
             return self.literal_number(o)
         elif isinstance(o, str):
             return self.literal_string(o)
@@ -956,6 +964,9 @@ class SqlDialect:
         return self.default_casify("datetime_precision")
 
     def supports_data_type_datetime_precision(self) -> bool:
+        return True
+
+    def supports_datetime_microseconds(self) -> bool:
         return True
 
     def default_casify(self, identifier: str) -> str:

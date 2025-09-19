@@ -209,3 +209,46 @@ def test_large_insert_test_table(data_source_test_helper: DataSourceTestHelper):
     )
     result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
     assert len(result.rows) == NUMBER_OF_ROWS
+
+
+def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSourceTestHelper):
+    NUMBER_OF_ROWS = 20
+    microsecond_test_table_specification = (
+        TestTableSpecification.builder()
+        .table_purpose("testing_microsecond_inserts")
+        .column_varchar("id", 100)
+        .column_varchar("id2", 100)
+        .column_integer("my_value")
+        .column_timestamp("my_timestamp")
+        .rows(
+            rows=[
+                (f"my_id_{i}", f"my_id2_{i}", 10, datetime.datetime(2021, 1, 1, i, 0, 0, microsecond=123))
+                for i in range(NUMBER_OF_ROWS)
+            ]
+        )
+        .build()
+    )
+
+    test_table = data_source_test_helper.ensure_test_table(microsecond_test_table_specification, force_recreate=True)
+    my_table_name = data_source_test_helper.get_qualified_name_from_test_table(test_table)
+
+    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    select_sql = sql_dialect.build_select_sql(
+        [
+            SELECT([COLUMN("id"), COLUMN("id2"), COLUMN("my_value"), COLUMN("my_timestamp")]),
+            FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
+            ORDER_BY_ASC(COLUMN("my_timestamp")),
+        ]
+    )
+    result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
+    assert len(result.rows) == NUMBER_OF_ROWS
+    for i in range(NUMBER_OF_ROWS):
+        if data_source_test_helper.data_source_impl.sql_dialect.supports_datetime_microseconds():
+            # We're not here to check the timezone returned, only that the microsecond is correct
+            returned_datetime = result.rows[i][3].replace(tzinfo=None)
+            assert returned_datetime == datetime.datetime(2021, 1, 1, i, 0, 0, 123)
+        else:
+            # We're not here to check the timezone returned, only that the microsecond is correct.
+            returned_datetime = result.rows[i][3].replace(tzinfo=None)
+            assert returned_datetime == datetime.datetime(2021, 1, 1, i, 0, 0)

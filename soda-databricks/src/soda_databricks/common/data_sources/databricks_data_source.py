@@ -1,7 +1,9 @@
+from logging import Logger
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
@@ -11,6 +13,8 @@ from soda_databricks.common.data_sources.databricks_data_source_connection impor
 from soda_databricks.model.data_source.databricks_data_source import (
     DatabricksDataSource as DatabricksDataSourceModel,
 )
+
+logger: Logger = soda_logger
 
 
 class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceModel):
@@ -70,14 +74,16 @@ class DatabricksSqlDialect(SqlDialect):
 
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         return {
-            "string": SodaDataTypeName.VARCHAR,
+            "string": SodaDataTypeName.TEXT,
             "varchar": SodaDataTypeName.VARCHAR,
-            "char": SodaDataTypeName.VARCHAR,
+            "char": SodaDataTypeName.CHAR,
             "tinyint": SodaDataTypeName.SMALLINT,
+            "short": SodaDataTypeName.SMALLINT,
             "smallint": SodaDataTypeName.SMALLINT,
             "int": SodaDataTypeName.INTEGER,
             "integer": SodaDataTypeName.INTEGER,
             "bigint": SodaDataTypeName.BIGINT,
+            "long": SodaDataTypeName.BIGINT,
             "decimal": SodaDataTypeName.DECIMAL,
             "numeric": SodaDataTypeName.NUMERIC,
             "float": SodaDataTypeName.FLOAT,
@@ -88,6 +94,7 @@ class DatabricksSqlDialect(SqlDialect):
             "float8": SodaDataTypeName.DOUBLE,
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
+            "timestamp_ntz": SodaDataTypeName.TIMESTAMP,  # If there is explicitly stated that the timestamp is without time zone, we consider it to be the same as TIMESTAMP
             "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
             "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
             "date": SodaDataTypeName.DATE,
@@ -139,3 +146,43 @@ class DatabricksSqlDialect(SqlDialect):
         schema_name: str = self.quote_default(prefixes[1])
         return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
         #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
+
+    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        found_synonym = False
+        synonym_correct = False
+
+        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR]
+        list_of_numeric_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
+        list_of_timestamp_synonyms = [
+            SodaDataTypeName.TIMESTAMP,
+            SodaDataTypeName.TIMESTAMP_TZ,
+        ]  # Databricks does not support timezones in datatypes, so we consider TIMESTAMP and TIMESTAMP_TZ to be the same
+
+        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
+            )
+
+        if expected in list_of_numeric_synonyms or actual in list_of_numeric_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_numeric_synonyms and expected in list_of_numeric_synonyms,
+            )
+
+        if expected in list_of_timestamp_synonyms or actual in list_of_timestamp_synonyms:
+            (found_synonym, synonym_correct) = (
+                True,
+                actual in list_of_timestamp_synonyms and expected in list_of_timestamp_synonyms,
+            )
+
+        # Special case for TIME as the expected, the actual is TEXT
+        if expected == SodaDataTypeName.TIME:
+            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.TEXT)
+
+        if found_synonym and synonym_correct:
+            if expected != actual:
+                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
+            return True
+        else:
+            return super().is_same_soda_data_type(expected, actual)

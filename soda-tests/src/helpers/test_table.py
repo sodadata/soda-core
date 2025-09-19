@@ -60,6 +60,15 @@ class TestTableSpecificationBuilder:
         )
         return self
 
+    def column_char(
+        self,
+        name: str,
+        character_maximum_length: Optional[int] = None,
+    ) -> TestTableSpecificationBuilder:
+        return self.column(
+            name=name, soda_data_type_name=SodaDataTypeName.CHAR, character_maximum_length=character_maximum_length
+        )
+
     def column_varchar(
         self,
         name: str,
@@ -74,8 +83,14 @@ class TestTableSpecificationBuilder:
     def column_text(self, name: str) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.TEXT)
 
+    def column_smallint(self, name) -> TestTableSpecificationBuilder:
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.SMALLINT)
+
     def column_integer(self, name) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.INTEGER)
+
+    def column_bigint(self, name) -> TestTableSpecificationBuilder:
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.BIGINT)
 
     def column_numeric(
         self,
@@ -102,6 +117,12 @@ class TestTableSpecificationBuilder:
             numeric_precision=numeric_precision,
             numeric_scale=numeric_scale,
         )
+
+    def column_float(self, name) -> TestTableSpecificationBuilder:
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.FLOAT)
+
+    def column_double(self, name) -> TestTableSpecificationBuilder:
+        return self.column(name=name, soda_data_type_name=SodaDataTypeName.DOUBLE)
 
     def column_date(self, name) -> TestTableSpecificationBuilder:
         return self.column(name=name, soda_data_type_name=SodaDataTypeName.DATE)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from hashlib import blake2b
 from numbers import Number
 from typing import Optional
@@ -34,6 +34,8 @@ class ConsistentHashBuilder:
             elif isinstance(value, datetime):
                 self.add(str(value))
             elif isinstance(value, date):
+                self.add(str(value))
+            elif isinstance(value, time):
                 self.add(str(value))
             else:
                 raise AssertionError(f"Unsupported hash value type {value} ({type(value).__name__})")
