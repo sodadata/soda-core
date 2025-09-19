@@ -26,7 +26,9 @@ def test_all_data_types_explicitly(data_source_test_helper: DataSourceTestHelper
 
     # Make sure that each SodaDataType is mapped to a data type in the data source
     for soda_data_type in SodaDataTypeName:
-        assert soda_data_type in mappings_from_canonical_to_data_type
+        assert (
+            soda_data_type in mappings_from_canonical_to_data_type
+        ), f"SodaDataType {soda_data_type} not found in mappings_from_canonical_to_data_type"
 
 
 def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: DataSourceTestHelper):
@@ -110,7 +112,7 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
         dataset_prefixes=test_table.dataset_prefix, dataset_name=test_table.unique_name
     )
 
-    assert len(actual_columns) == 23
+    assert len(actual_columns) == len(test_table.columns)
 
     def convert_metadata_to_soda_data_type(metadata: ColumnMetadata) -> SodaDataTypeName:
         sql_data_type: SqlDataType = metadata.sql_data_type

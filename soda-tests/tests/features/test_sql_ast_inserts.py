@@ -229,7 +229,7 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
         .build()
     )
 
-    test_table = data_source_test_helper.ensure_test_table(microsecond_test_table_specification)
+    test_table = data_source_test_helper.ensure_test_table(microsecond_test_table_specification, force_recreate=True)
     my_table_name = data_source_test_helper.get_qualified_name_from_test_table(test_table)
 
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
@@ -245,14 +245,10 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
     assert len(result.rows) == NUMBER_OF_ROWS
     for i in range(NUMBER_OF_ROWS):
         if data_source_test_helper.data_source_impl.sql_dialect.supports_datetime_microseconds():
-            assert result.rows[i][3] == datetime.datetime(2021, 1, 1, i, 0, 0, 123) or result.rows[i][
-                3
-            ] == datetime.datetime(
-                2021, 1, 1, i, 0, 0, 123, tzinfo=datetime.timezone.utc
-            )  # We're not here to check the timezone returned, only that the microsecond is correct
+            # We're not here to check the timezone returned, only that the microsecond is correct
+            returned_datetime = result.rows[i][3].replace(tzinfo=None)
+            assert returned_datetime == datetime.datetime(2021, 1, 1, i, 0, 0, 123)
         else:
-            assert result.rows[i][3] == datetime.datetime(2021, 1, 1, i, 0, 0) or result.rows[i][
-                3
-            ] == datetime.datetime(
-                2021, 1, 1, i, 0, 0, tzinfo=datetime.timezone.utc
-            )  # We're not here to check the timezone returned, only that the microsecond is correct
+            # We're not here to check the timezone returned, only that the microsecond is correct.
+            returned_datetime = result.rows[i][3].replace(tzinfo=None)
+            assert returned_datetime == datetime.datetime(2021, 1, 1, i, 0, 0)

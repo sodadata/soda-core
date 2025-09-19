@@ -317,7 +317,7 @@ class SqlServerSqlDialect(SqlDialect):
     def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         found_synonym = False
         synonym_correct = False
-        if expected == SodaDataTypeName.TEXT or actual == SodaDataTypeName.VARCHAR:
+        if expected == SodaDataTypeName.TEXT or expected == SodaDataTypeName.VARCHAR:
             (found_synonym, synonym_correct) = (
                 True,
                 actual == SodaDataTypeName.VARCHAR or actual == SodaDataTypeName.TEXT,

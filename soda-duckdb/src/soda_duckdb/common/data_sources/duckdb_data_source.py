@@ -140,7 +140,7 @@ class DuckDBSqlDialect(SqlDialect):
         return {
             SodaDataTypeName.CHAR: "varchar",  # DuckDB doesn't have fixed CHAR, maps to VARCHAR
             SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "text",  # TEXT is an alias for VARCHAR
+            SodaDataTypeName.TEXT: "text",  # TEXT is an alias for VARCHAR in DuckDB. So using text will result in a VARCHAR being created.
             SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
             SodaDataTypeName.BIGINT: "bigint",
