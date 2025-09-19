@@ -312,7 +312,9 @@ class DataSourceTestHelper:
 
         return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[schema_index]} CASCADE;"
 
-    def ensure_test_table(self, test_table_specification: TestTableSpecification) -> TestTable:
+    def ensure_test_table(
+        self, test_table_specification: TestTableSpecification, force_recreate: bool = False
+    ) -> TestTable:
         """
         Returns a test table with the given table data
         """
@@ -333,7 +335,10 @@ class DataSourceTestHelper:
             if (
                 test_table_specification.unique_name.lower() not in existing_test_table_names_lower
                 or not self.verify_test_table_row_count(test_table_specification)
+                or force_recreate
             ):
+                if force_recreate:
+                    logger.debug(f"Force recreating test table {test_table_specification.unique_name}")
                 obsolete_table_names = [
                     existing_test_table
                     for existing_test_table in self.existing_test_table_names
