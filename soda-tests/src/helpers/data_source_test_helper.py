@@ -337,8 +337,6 @@ class DataSourceTestHelper:
                 or not self.verify_test_table_row_count(test_table_specification)
                 or force_recreate
             ):
-                if force_recreate:
-                    logger.debug(f"Force recreating test table {test_table_specification.unique_name}")
                 obsolete_table_names = [
                     existing_test_table
                     for existing_test_table in self.existing_test_table_names
