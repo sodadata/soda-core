@@ -171,7 +171,9 @@ jobs:
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
 
           echo "Installing soda-oracle"
-          pip install --extra-index-url https://${{ secrets.DEV_PYPI_USERNAME }}:${{ secrets.DEV_PYPI_PASSWORD }}@${{ secrets.DEV_PYPI_URL }} soda-oracle
+          # Extract hostname from DEV_PYPI_URL and construct authenticated URL
+          PYPI_HOST=$(echo "${{ secrets.DEV_PYPI_URL }}" | sed 's|https\?://||' | sed 's|/.*||')
+          pip install --extra-index-url https://${{ secrets.DEV_PYPI_USERNAME }}:${{ secrets.DEV_PYPI_PASSWORD }}@${PYPI_HOST}/simple/ soda-oracle
         
 
       - name: Get external secrets
