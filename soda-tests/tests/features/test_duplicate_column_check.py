@@ -77,6 +77,24 @@ def test_duplicate_int_fail(data_source_test_helper: DataSourceTestHelper):
     assert 5 == get_diagnostic_value(check_result=check_result, diagnostic_name="duplicate_count")
 
 
+def test_duplicate_int_warn(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: age
+                checks:
+                  - duplicate:
+                      threshold:
+                        level: warn
+            """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert 5 == get_diagnostic_value(check_result=check_result, diagnostic_name="duplicate_count")
+
+
 def test_duplicate_threshold(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

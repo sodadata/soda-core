@@ -98,6 +98,34 @@ def test_freshness_in_days(data_source_test_helper: DataSourceTestHelper):
         assert 1.08 < get_diagnostic_value(check_result, "freshness_in_days") < 1.09
 
 
+def test_freshness_warn(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_yaml_str: str = f"""
+        checks:
+          - freshness:
+              column: created_at
+              threshold:
+                unit: day
+                must_be_less_than: 1
+                level: warn
+    """
+
+    with freeze_time(datetime(year=2025, month=1, day=5, hour=11, minute=0, second=0, tzinfo=timezone.utc)):
+        contract_verification_result_t1: ContractVerificationResult = data_source_test_helper.assert_contract_warn(
+            test_table=test_table, contract_yaml_str=contract_yaml_str
+        )
+        check_result: FreshnessCheckResult = contract_verification_result_t1.check_results[0]
+        assert convert_datetime_to_str(check_result.max_timestamp) == "2025-01-04T09:00:00+00:00"
+        assert convert_datetime_to_str(check_result.max_timestamp_utc) == "2025-01-04T09:00:00+00:00"
+        assert convert_datetime_to_str(check_result.data_timestamp) == "2025-01-05T11:00:00+00:00"
+        assert convert_datetime_to_str(check_result.data_timestamp_utc) == "2025-01-05T11:00:00+00:00"
+        assert str(check_result.freshness) == "1 day, 2:00:00"
+        assert str(check_result.freshness_in_seconds) == "93600"
+        assert str(check_result.unit) == "day"
+        assert 1.08 < get_diagnostic_value(check_result, "freshness_in_days") < 1.09
+
+
 def test_freshness_now_variable(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

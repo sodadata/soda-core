@@ -25,6 +25,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MeasurementValues,
     MetricImpl,
     Query,
+    ThresholdLevel,
 )
 
 logger: logging.Logger = soda_logger
@@ -76,16 +77,19 @@ class SchemaCheckImpl(CheckImpl):
             column_impl=None,
             check_yaml=check_yaml,
         )
+        self.threshold_level = ThresholdLevel.from_str(check_yaml.threshold_level)
 
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
-                sql_data_type=SqlDataType(
-                    name=column_impl.column_yaml.data_type,
-                    character_maximum_length=column_impl.column_yaml.character_maximum_length,
-                )
-                if column_impl.column_yaml.data_type
-                else None,
+                sql_data_type=(
+                    SqlDataType(
+                        name=column_impl.column_yaml.data_type,
+                        character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                    )
+                    if column_impl.column_yaml.data_type
+                    else None
+                ),
             )
             for column_impl in contract_impl.column_impls
         ]
@@ -165,6 +169,9 @@ class SchemaCheckImpl(CheckImpl):
                             are_columns_out_of_order = True
                         previous_index = index
 
+            outcome_level: CheckOutcome = CheckOutcome.FAILED
+            if self.threshold_level == ThresholdLevel.WARN:
+                outcome_level = CheckOutcome.WARN
             outcome = (
                 CheckOutcome.PASSED
                 if (
@@ -173,7 +180,7 @@ class SchemaCheckImpl(CheckImpl):
                     and len(column_data_type_mismatches) == 0
                     and not are_columns_out_of_order
                 )
-                else CheckOutcome.FAILED
+                else outcome_level
             )
 
         return SchemaCheckResult(
@@ -188,7 +195,7 @@ class SchemaCheckImpl(CheckImpl):
         )
 
     def _build_threshold(self) -> Threshold:
-        return Threshold(must_be_less_than_or_equal=0)
+        return Threshold(must_be_less_than_or_equal=0, level=self.threshold_level.value)
 
 
 class SchemaMetricImpl(MetricImpl):

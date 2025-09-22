@@ -107,3 +107,18 @@ def test_dataset_duplicate_with_filter(data_source_test_helper: DataSourceTestHe
     assert get_diagnostic_value(check_result, "duplicate_percent") == 0
     assert get_diagnostic_value(check_result, "check_rows_tested") == 5
     assert get_diagnostic_value(check_result, "dataset_rows_tested") == 13
+
+
+def test_dataset_duplicate_warn(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - duplicate:
+                  columns: ['rep']
+                  threshold:
+                    level: warn
+            """,
+    )

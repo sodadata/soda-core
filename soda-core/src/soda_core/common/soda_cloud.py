@@ -1114,7 +1114,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             # scanEndTimestamp is the actual time when scan ended.
             "scanEndTimestamp": contract_verification_result.ended_timestamp,
             "hasErrors": contract_verification_result.has_errors,
-            "hasWarnings": False,
+            "hasWarns": contract_verification_result.is_warned,
             "hasFailures": contract_verification_result.is_failed,
             "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
@@ -1151,7 +1151,7 @@ def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult
         "table": contract.dataset_name,
         "datasetPrefix": contract.dataset_prefix,
         "column": check_result.check.column_name,
-        "outcome": _build_check_outcome_for_soda_cloud(check_result.outcome),
+        "outcome": check_outcome_to_soda_cloud(check_result.outcome),
         "source": "soda-contract",
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }
@@ -1169,9 +1169,11 @@ def _build_file_path(location: Location) -> str:
     return location.file_path if isinstance(location.file_path, str) else "yamlstr.yml"
 
 
-def _build_check_outcome_for_soda_cloud(outcome: CheckOutcome) -> str:
+def check_outcome_to_soda_cloud(outcome: CheckOutcome) -> str:
     if outcome == CheckOutcome.PASSED:
         return "pass"
+    if outcome == CheckOutcome.WARN:
+        return "warn"
     elif outcome == CheckOutcome.FAILED:
         return "fail"
     return "unevaluated"

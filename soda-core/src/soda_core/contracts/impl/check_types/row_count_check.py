@@ -64,11 +64,7 @@ class RowCountCheckImpl(CheckImpl):
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
         row_count: int = measurement_values.get_value(self.row_count_metric)
 
-        if self.threshold:
-            if self.threshold.passes(row_count):
-                outcome = CheckOutcome.PASSED
-            else:
-                outcome = CheckOutcome.FAILED
+        outcome = self.evaluate_threshold(row_count)
 
         diagnostic_metric_values: dict[str, float] = {
             "check_rows_tested": row_count,

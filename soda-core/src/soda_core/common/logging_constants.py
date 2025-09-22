@@ -7,6 +7,7 @@ logger: logging.Logger = soda_logger
 class Emoticons:
     CROSS_MARK: str = "\u274c"
     WHITE_CHECK_MARK: str = "\u2705"
+    WARNING: str = "\u26a0"
     CLOUD: str = "\u2601"
     OK_HAND: str = "\U0001f44c"
     SCROLL: str = "\U0001f4dc"

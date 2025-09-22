@@ -641,6 +641,7 @@ class ContractImpl:
         summary_lines: list[str] = []
 
         failed_count: int = 0
+        warned_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
 
@@ -651,6 +652,8 @@ class ContractImpl:
                 not_evaluated_count += 1
             elif check_result.is_passed:
                 passed_count += 1
+            elif check_result.is_warned:
+                warned_count += 1
         total_count: int = failed_count + not_evaluated_count + passed_count
 
         error_count: int = len(self.logs.get_errors())
@@ -664,6 +667,11 @@ class ContractImpl:
             table_lines.append(["Failed", failed_count, Emoticons.CROSS_MARK])
         else:
             table_lines.append(["Failed", failed_count, Emoticons.WHITE_CHECK_MARK])
+
+        if warned_count > 0:
+            table_lines.append(["Warned", warned_count, Emoticons.WARNING])
+        else:
+            table_lines.append(["Warned", warned_count, Emoticons.WHITE_CHECK_MARK])
 
         if not_evaluated_count > 0:
             table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.CROSS_MARK])
@@ -732,6 +740,9 @@ def _get_contract_verification_status(
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):
         return ContractVerificationStatus.FAILED
+
+    if any(check_result.outcome == CheckOutcome.WARN for check_result in check_results):
+        return ContractVerificationStatus.WARNED
 
     if all(check_result.outcome == CheckOutcome.PASSED for check_result in check_results):
         return ContractVerificationStatus.PASSED
@@ -937,6 +948,22 @@ class ThresholdType(Enum):
     OUTER_RANGE = "outer_range"
 
 
+class ThresholdLevel(Enum):
+    FAIL = "fail"
+    WARN = "warn"
+
+    @classmethod
+    def from_str(cls, level_str: str) -> ThresholdLevel:
+        level_str_lower = level_str.lower()
+        if level_str_lower == "fail":
+            return ThresholdLevel.FAIL
+        elif level_str_lower == "warn":
+            return ThresholdLevel.WARN
+        else:
+            logger.warning(f"Unknown threshold level '{level_str}', defaulting to 'fail'")
+            return ThresholdLevel.FAIL
+
+
 class ThresholdImpl:
     @classmethod
     def create(
@@ -949,6 +976,11 @@ class ThresholdImpl:
                 logger.error(f"Threshold required, but not specified")
                 return None
 
+        threshold_level: ThresholdLevel = ThresholdLevel.from_str(threshold_yaml.level)
+
+        if default_threshold:
+            default_threshold.level = threshold_level
+
         if not threshold_yaml.has_any_configurations():
             if default_threshold:
                 return default_threshold
@@ -958,6 +990,7 @@ class ThresholdImpl:
         if threshold_yaml.has_exactly_one_comparison():
             return ThresholdImpl(
                 type=ThresholdType.SINGLE_COMPARATOR,
+                level=threshold_level,
                 must_be_greater_than=threshold_yaml.must_be_greater_than,
                 must_be_greater_than_or_equal=threshold_yaml.must_be_greater_than_or_equal,
                 must_be_less_than=threshold_yaml.must_be_less_than,
@@ -974,6 +1007,7 @@ class ThresholdImpl:
             else:
                 return ThresholdImpl(
                     type=ThresholdType.INNER_RANGE,
+                    level=threshold_level,
                     must_be_greater_than=threshold_yaml.must_be_between.greater_than,
                     must_be_greater_than_or_equal=threshold_yaml.must_be_between.greater_than_or_equal,
                     must_be_less_than=threshold_yaml.must_be_between.less_than,
@@ -988,6 +1022,7 @@ class ThresholdImpl:
             else:
                 return ThresholdImpl(
                     type=ThresholdType.OUTER_RANGE,
+                    level=threshold_level,
                     must_be_greater_than=threshold_yaml.must_be_not_between.greater_than,
                     must_be_greater_than_or_equal=threshold_yaml.must_be_not_between.greater_than_or_equal,
                     must_be_less_than=threshold_yaml.must_be_not_between.less_than,
@@ -997,6 +1032,7 @@ class ThresholdImpl:
     def __init__(
         self,
         type: ThresholdType,
+        level: ThresholdLevel = ThresholdLevel.FAIL,
         must_be_greater_than: Optional[Number] = None,
         must_be_greater_than_or_equal: Optional[Number] = None,
         must_be_less_than: Optional[Number] = None,
@@ -1005,6 +1041,7 @@ class ThresholdImpl:
         must_not_be: Optional[Number] = None,
     ):
         self.type: ThresholdType = type
+        self.level: ThresholdLevel = level
         self.must_be_greater_than: Optional[Number] = must_be_greater_than
         self.must_be_greater_than_or_equal: Optional[Number] = must_be_greater_than_or_equal
         self.must_be_less_than: Optional[Number] = must_be_less_than
@@ -1015,15 +1052,24 @@ class ThresholdImpl:
     def to_threshold_info(self) -> Threshold:
         if self.must_be is None and self.must_not_be is None:
             return Threshold(
+                level=self.level.value,
                 must_be_greater_than=self.must_be_greater_than,
                 must_be_greater_than_or_equal=self.must_be_greater_than_or_equal,
                 must_be_less_than=self.must_be_less_than,
                 must_be_less_than_or_equal=self.must_be_less_than_or_equal,
             )
         elif self.must_be is not None:
-            return Threshold(must_be_greater_than_or_equal=self.must_be, must_be_less_than_or_equal=self.must_be)
+            return Threshold(
+                level=self.level.value,
+                must_be_greater_than_or_equal=self.must_be,
+                must_be_less_than_or_equal=self.must_be,
+            )
         elif self.must_not_be is not None:
-            return Threshold(must_be_greater_than=self.must_not_be, must_be_less_than=self.must_not_be)
+            return Threshold(
+                level=self.level.value,
+                must_be_greater_than=self.must_not_be,
+                must_be_less_than=self.must_not_be,
+            )
 
     @classmethod
     def get_metric_name(cls, metric_name: str, column_impl: Optional[ColumnImpl]) -> str:
@@ -1276,6 +1322,20 @@ class CheckImpl:
         Used in extensions
         """
         raise SodaException(f"Check type '{self.type}' does not support get_threshold_metric_impl'")
+
+    def evaluate_threshold(self, value) -> CheckOutcome:
+        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+
+        if self.threshold and isinstance(value, Number):
+            if self.threshold.passes(value):
+                outcome = CheckOutcome.PASSED
+            else:
+                if self.threshold.level == ThresholdLevel.WARN:
+                    outcome = CheckOutcome.WARN
+                else:
+                    outcome = CheckOutcome.FAILED
+
+        return outcome
 
 
 class MissingAndValidityCheckImpl(CheckImpl):

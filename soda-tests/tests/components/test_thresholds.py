@@ -1,13 +1,22 @@
+from typing import Optional
+
+import pytest
 from helpers.test_functions import dedent_and_strip
 from soda_core.common.yaml import ContractYamlSource, YamlObject
 from soda_core.contracts.impl.contract_verification_impl import ThresholdImpl
 from soda_core.contracts.impl.contract_yaml import ThresholdYaml
 
 
-def test_threshold_must_be():
+@pytest.mark.parametrize("threshold_level", [None, "fail", "warn"])
+def test_threshold_must_be(threshold_level):
+    threshold_level_yaml = ""
+    if threshold_level:
+        threshold_level_yaml = f"level: {threshold_level}"
+
     threshold: ThresholdImpl = parse_threshold(
-        """
+        f"""
         must_be: 0
+        {threshold_level_yaml}
     """
     )
 
@@ -15,6 +24,8 @@ def test_threshold_must_be():
     assert not threshold.passes(-1)
     assert threshold.passes(0)
     assert not threshold.passes(1)
+
+    assert_threshold_level(threshold_level, threshold)
 
 
 def test_threshold_must_not_be():
@@ -157,3 +168,10 @@ def parse_threshold(threshold_yaml: str) -> ThresholdImpl:
         threshold_yaml_object=yaml_object,
     )
     return ThresholdImpl.create(threshold_yaml=threshold_yaml)
+
+
+def assert_threshold_level(expected_level: Optional[str], actual_threshold: ThresholdImpl):
+    if expected_level is None:
+        assert actual_threshold.level.value == "fail"
+    else:
+        assert actual_threshold.level.value == expected_level

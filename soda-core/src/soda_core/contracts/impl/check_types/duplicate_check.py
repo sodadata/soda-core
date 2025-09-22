@@ -141,11 +141,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
         )
 
-        if self.threshold and isinstance(threshold_value, Number):
-            if self.threshold.passes(threshold_value):
-                outcome = CheckOutcome.PASSED
-            else:
-                outcome = CheckOutcome.FAILED
+        outcome = self.evaluate_threshold(threshold_value)
 
         return CheckResult(
             check=self._build_check_info(),
@@ -296,11 +292,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
             duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
         )
 
-        if self.threshold and isinstance(threshold_value, Number):
-            if self.threshold.passes(threshold_value):
-                outcome = CheckOutcome.PASSED
-            else:
-                outcome = CheckOutcome.FAILED
+        outcome = self.evaluate_threshold(threshold_value)
 
         return CheckResult(
             check=self._build_check_info(),

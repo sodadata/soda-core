@@ -51,6 +51,38 @@ def test_missing_count(data_source_test_helper: DataSourceTestHelper):
     }
 
 
+def test_missing_count_warn(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                  - missing:
+                      threshold:
+                        level: warn
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "missing",
+        "failedRowsCount": 1,
+        "failedRowsPercent": 25.0,
+        "datasetRowsTested": 4,
+        "checkRowsTested": 4,
+    }
+
+
 def test_missing_count_custom_missing_values(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

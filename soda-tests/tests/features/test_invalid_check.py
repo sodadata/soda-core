@@ -92,6 +92,29 @@ def test_valid_values_with_null(data_source_test_helper: DataSourceTestHelper):
     )
 
 
+def test_valid_values_with_null_warn(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                valid_values: ['1', '2', '3', null]
+                checks:
+                  - invalid:
+                      threshold:
+                        level: warn
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[0], diagnostic_name="invalid_count"
+        )
+        == 1
+    )
+
+
 def test_invalid_values(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

@@ -204,11 +204,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             threshold_value = self._convert_freshness_seconds_to_check_unit(freshness_in_seconds, self.unit)
             diagnostic_metric_values[threshold_metric_name] = threshold_value
 
-            if self.threshold:
-                if self.threshold.passes(threshold_value):
-                    outcome = CheckOutcome.PASSED
-                else:
-                    outcome = CheckOutcome.FAILED
+            outcome = self.evaluate_threshold(threshold_value)
 
         freshness_str: Optional[str] = str(freshness) if freshness is not None else None
 

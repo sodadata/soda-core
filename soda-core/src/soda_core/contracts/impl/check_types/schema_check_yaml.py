@@ -29,3 +29,8 @@ class SchemaCheckYaml(CheckYaml):
         self.allow_other_column_order: Optional[bool] = (
             check_yaml_object.read_bool_opt("allow_other_column_order") if check_yaml_object else None
         )
+
+        self.threshold_level: str = "fail"
+        threshold = check_yaml_object.read_object_opt("threshold")
+        if threshold:
+            self.threshold_level = threshold.read_string_opt("level", default_value="fail")

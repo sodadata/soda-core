@@ -102,12 +102,7 @@ class MetricCheckImpl(CheckImpl):
                 "dataset_rows_tested": 0,
             }
 
-        if isinstance(numeric_metric_value, Number):
-            if self.threshold:
-                if self.threshold.passes(numeric_metric_value):
-                    outcome = CheckOutcome.PASSED
-                else:
-                    outcome = CheckOutcome.FAILED
+        outcome = self.evaluate_threshold(numeric_metric_value)
 
         return CheckResult(
             check=self._build_check_info(),

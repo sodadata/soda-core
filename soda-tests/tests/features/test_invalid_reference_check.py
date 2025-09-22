@@ -65,6 +65,30 @@ def test_invalid_count(data_source_test_helper: DataSourceTestHelper):
     assert get_diagnostic_value(check_result, "invalid_count") == 3
 
 
+def test_invalid_count_warn(data_source_test_helper: DataSourceTestHelper):
+    # https://dev.sodadata.io/o/f35cb402-ad17-4aca-9166-02c9eb75c979/datasets/2945ba9d-b1ff-4cfd-b277-d5e4edfa2bd5/checks
+
+    referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
+    referenced_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_warn(
+        test_table=referencing_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                valid_reference_data:
+                  dataset: {data_source_test_helper.build_dqn(referenced_table)}
+                  column: country_code
+                checks:
+                  - invalid:
+                      threshold:
+                        level: warn
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "invalid_count") == 3
+
+
 def test_invalid_count_with_check_filter(data_source_test_helper: DataSourceTestHelper):
     referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
     referenced_table = data_source_test_helper.ensure_test_table(referenced_table_specification)
