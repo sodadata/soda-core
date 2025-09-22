@@ -65,8 +65,29 @@ jobs:
         id: modules
         run: |
           echo "INFO: DATA_SOURCE is set to ${DATA_SOURCE}"
+          # Define additional data sources to append (space-separated)
+          ADDITIONAL_SOURCES="oracle dremio"
+          
           if [ "${DATA_SOURCE}" = "all" ]; then
-            echo modules=$(bash scripts/test_matrix.sh) >> "$GITHUB_OUTPUT"
+            # Get the base modules from test_matrix.sh
+            BASE_MODULES=$(bash scripts/test_matrix.sh)
+            
+            # Remove the closing bracket from base modules
+            BASE_MODULES_TRIMMED=$(echo "$BASE_MODULES" | sed 's/]$//')
+            
+            # Convert additional sources to JSON array format and append
+            if [ -n "$ADDITIONAL_SOURCES" ]; then
+              ADDITIONAL_JSON=""
+              for source in $ADDITIONAL_SOURCES; do
+                ADDITIONAL_JSON="${ADDITIONAL_JSON},\"${source}\""
+              done
+              FINAL_MODULES="${BASE_MODULES_TRIMMED}${ADDITIONAL_JSON}]"
+            else
+              FINAL_MODULES="$BASE_MODULES"
+            fi
+            
+            echo "modules=$FINAL_MODULES" >> "$GITHUB_OUTPUT"
+            echo "INFO: Final modules list: $FINAL_MODULES"
           else
             echo 'modules=["__DATA_SOURCE__"]' | sed "s|__DATA_SOURCE__|${DATA_SOURCE}|g" >> "$GITHUB_OUTPUT"
           fi
@@ -148,8 +169,8 @@ jobs:
           sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
 
-          echo "Installing soda-extensions"
-          git clone https://github.com/sodadata/soda-extensions
+          echo "Installing soda-oracle"
+          pip install --extra-index-url https://${{ secrets.DEV_PYPI_USERNAME }}:${{ secrets.DEV_PYPI_PASSWORD }}@${{ secrets.DEV_PYPI_URL }} soda-oracle
         
 
       - name: Get external secrets
@@ -183,11 +204,7 @@ jobs:
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
-          if [ "${{ matrix.module }}" = "oracle" ]; then
-            pip install -e soda-extensions/soda-${{ matrix.module }}
-          else
-            pip install -e soda-${{ matrix.module }}
-          fi
+          pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
