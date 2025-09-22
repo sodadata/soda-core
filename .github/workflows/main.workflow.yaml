@@ -144,6 +144,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
+        env:
+          PYPI_USERNAME: ${{ secrets.DEV_PYPI_USERNAME }}
+          PYPI_PASSWORD: ${{ secrets.DEV_PYPI_PASSWORD }}
+          PYPI_URL: ${{ secrets.DEV_PYPI_URL }}
         run: |
           set -x
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -153,9 +157,9 @@ jobs:
 
           # Install additional data sources
           [ -n "$ADDITIONAL_DATA_SOURCES" ] && {
-            PYPI_HOST=$(echo "${{ secrets.DEV_PYPI_URL }}" | sed 's|https\?://||;s|/.*||')
+            PYPI_HOST=$(echo "$PYPI_URL" | sed 's|https\?://||;s|/.*||')
             for src in $ADDITIONAL_DATA_SOURCES; do
-              pip install --extra-index-url https://${{ secrets.DEV_PYPI_USERNAME }}:${{ secrets.DEV_PYPI_PASSWORD }}@${PYPI_HOST}/simple/ soda-${src}
+              pip install --extra-index-url https://${PYPI_USERNAME}:${PYPI_PASSWORD}@${PYPI_HOST}/simple/ soda-${src}
             done
           }
         
