@@ -121,35 +121,37 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
             data_type_name
         ]
 
+    # Map column names to SodaDataTypeNames
     column_mappings = {
-        0: SodaDataTypeName.CHAR,
-        1: SodaDataTypeName.CHAR,
-        2: SodaDataTypeName.VARCHAR,
-        3: SodaDataTypeName.VARCHAR,
-        4: SodaDataTypeName.TEXT,
-        5: SodaDataTypeName.SMALLINT,
-        6: SodaDataTypeName.INTEGER,
-        7: SodaDataTypeName.BIGINT,
-        8: SodaDataTypeName.DECIMAL,
-        9: SodaDataTypeName.DECIMAL,
-        10: SodaDataTypeName.DECIMAL,
-        11: SodaDataTypeName.NUMERIC,
-        12: SodaDataTypeName.NUMERIC,
-        13: SodaDataTypeName.NUMERIC,
-        14: SodaDataTypeName.FLOAT,
-        15: SodaDataTypeName.DOUBLE,
-        16: SodaDataTypeName.TIMESTAMP,
-        17: SodaDataTypeName.TIMESTAMP,
-        18: SodaDataTypeName.TIMESTAMP_TZ,
-        19: SodaDataTypeName.TIMESTAMP_TZ,
-        20: SodaDataTypeName.DATE,
-        21: SodaDataTypeName.TIME,
-        22: SodaDataTypeName.BOOLEAN,
+        "char_default": SodaDataTypeName.CHAR,
+        "char_w_length": SodaDataTypeName.CHAR,
+        "varchar_default": SodaDataTypeName.VARCHAR,
+        "varchar_w_length": SodaDataTypeName.VARCHAR,
+        "text_default": SodaDataTypeName.TEXT,
+        "smallint_default": SodaDataTypeName.SMALLINT,
+        "integer_default": SodaDataTypeName.INTEGER,
+        "bigint_default": SodaDataTypeName.BIGINT,
+        "decimal_default": SodaDataTypeName.DECIMAL,
+        "decimal_w_precision": SodaDataTypeName.DECIMAL,
+        "decimal_w_precision_and_scale": SodaDataTypeName.DECIMAL,
+        "numeric_default": SodaDataTypeName.NUMERIC,
+        "numeric_w_precision": SodaDataTypeName.NUMERIC,
+        "numeric_w_precision_and_scale": SodaDataTypeName.NUMERIC,
+        "float_default": SodaDataTypeName.FLOAT,
+        "double_default": SodaDataTypeName.DOUBLE,
+        "timestamp_default": SodaDataTypeName.TIMESTAMP,
+        "timestamp_w_precision": SodaDataTypeName.TIMESTAMP,
+        "timestamp_tz_default": SodaDataTypeName.TIMESTAMP_TZ,
+        "timestamp_tz_w_precision": SodaDataTypeName.TIMESTAMP_TZ,
+        "date_default": SodaDataTypeName.DATE,
+        "time_default": SodaDataTypeName.TIME,
+        "boolean_default": SodaDataTypeName.BOOLEAN,
     }
-    for i, column in enumerate(actual_columns):
+    for column in actual_columns:
+        column_name = column.column_name
         print(
-            f"Column {i}: {column.column_name} -> Expected: {column_mappings[i]}, Actual: {convert_metadata_to_soda_data_type(column)}"
+            f"Column {column.column_name} -> Expected: {column_mappings[column_name]}, Actual: {convert_metadata_to_soda_data_type(column)}"
         )
         assert data_source_test_helper.data_source_impl.sql_dialect.is_same_soda_data_type_with_synonyms(
-            column_mappings[i], convert_metadata_to_soda_data_type(column)
+            column_mappings[column_name], convert_metadata_to_soda_data_type(column)
         )
