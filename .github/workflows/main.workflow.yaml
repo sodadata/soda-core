@@ -29,7 +29,7 @@ on:
 
 env:
   PROJECT_NAME: soda-core
-  ADDITIONAL_DATA_SOURCES: oracle
+  ADDITIONAL_DATA_SOURCES: oracle  # space-separated list of additional data sources
 
 jobs:
   check:
@@ -180,8 +180,10 @@ jobs:
           PYPI_PASSWORD: ${{ secrets.DEV_PYPI_PASSWORD }}
           PYPI_URL: ${{ secrets.DEV_PYPI_URL }}
         run: |
+          set -x
           python -m venv .venv
           source .venv/bin/activate
+      
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
