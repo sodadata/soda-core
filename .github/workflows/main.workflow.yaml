@@ -199,7 +199,6 @@ jobs:
           if [[ ! " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
             pip install -e soda-${{ matrix.module }}
           fi
-          pip install -e soda-${{ matrix.module }}
         
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
