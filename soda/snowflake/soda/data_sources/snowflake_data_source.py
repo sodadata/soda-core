@@ -88,12 +88,25 @@ class SnowflakeDataSource(DataSource):
         self.session_parameters = data_source_properties.get("session_params")
 
         self.passcode_in_password = data_source_properties.get("passcode_in_password", False)
+
+        # optional valid values: externalbrowser, SNOWFLAKE_JWT, OAUTH_CLIENT_CREDENTIALS
+        self.authenticator = data_source_properties.get("authenticator", "snowflake")
+
+        # authenticator: SNOWFLAKE_JWT
         self.private_key_passphrase = data_source_properties.get("private_key_passphrase")
         self.private_key = data_source_properties.get("private_key")
         self.private_key_path = data_source_properties.get("private_key_path")
+        # ----------------
+
+        # authenticator: OAUTH_CLIENT_CREDENTIALS
+        self.oauth_client_id = data_source_properties.get("oauth_client_id")
+        self.oauth_client_secret = data_source_properties.get("oauth_client_secret")
+        self.oauth_token_request_url = data_source_properties.get("oauth_token_request_url")
+        self.oauth_scope = data_source_properties.get("oauth_scope")
+        # ----------------
+
         self.client_prefetch_threads = data_source_properties.get("client_prefetch_threads", 4)
         self.client_session_keep_alive = data_source_properties.get("client_session_keep_alive", False)
-        self.authenticator = data_source_properties.get("authenticator", "snowflake")
         self.session_params = data_source_properties.get("session_parameters")
 
         self.host = data_source_properties.get("host")
@@ -126,6 +139,10 @@ class SnowflakeDataSource(DataSource):
             client_prefetch_threads=self.client_prefetch_threads,
             authenticator=self.authenticator,
             application="Soda Core",
+            oauth_client_id=self.oauth_client_id,
+            oauth_client_secret=self.oauth_client_secret,
+            oauth_token_request_url=self.oauth_token_request_url,
+            oauth_scope=self.oauth_scope,
             **connection_parameters,
         )
 
