@@ -148,6 +148,10 @@ jobs:
           sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
 
+          echo "Installing soda-extensions"
+          git clone https://github.com/sodadata/soda-extensions
+        
+
       - name: Get external secrets
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         env:
@@ -179,7 +183,11 @@ jobs:
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
-          pip install -e soda-${{ matrix.module }}
+          if [ "${{ matrix.module }}" = "oracle" ]; then
+            pip install -e soda-extensions/soda-${{ matrix.module }}
+          else
+            pip install -e soda-${{ matrix.module }}
+          fi
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
