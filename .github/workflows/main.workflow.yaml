@@ -144,10 +144,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        env:
-          PYPI_USERNAME: ${{ secrets.DEV_PYPI_USERNAME }}
-          PYPI_PASSWORD: ${{ secrets.DEV_PYPI_PASSWORD }}
-          PYPI_URL: ${{ secrets.DEV_PYPI_URL }}
         run: |
           set -x
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -155,14 +151,7 @@ jobs:
           sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
 
-          # Install additional data sources
-          [ -n "$ADDITIONAL_DATA_SOURCES" ] && {
-            PYPI_HOST=$(echo "$PYPI_URL" | sed 's|https\?://||;s|/.*||')
-            for src in $ADDITIONAL_DATA_SOURCES; do
-              pip install --extra-index-url https://${PYPI_USERNAME}:${PYPI_PASSWORD}@${PYPI_HOST}/simple/ soda-${src}
-            done
-          }
-        
+          
 
       - name: Get external secrets
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
@@ -186,6 +175,10 @@ jobs:
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
 
       - name: Run tests
+        env:
+          PYPI_USERNAME: ${{ secrets.DEV_PYPI_USERNAME }}
+          PYPI_PASSWORD: ${{ secrets.DEV_PYPI_PASSWORD }}
+          PYPI_URL: ${{ secrets.DEV_PYPI_URL }}
         run: |
           python -m venv .venv
           source .venv/bin/activate
@@ -196,10 +189,13 @@ jobs:
             pip install -e soda-sqlserver
           fi
           
-          if [[ ! " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
+          PYPI_HOST=$(echo "$PYPI_URL" | sed 's|https\?://||;s|/.*||')
+          if [[ " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
+            pip install --extra-index-url https://${PYPI_USERNAME}:${PYPI_PASSWORD}@${PYPI_HOST}/simple/ soda-${{ matrix.module }}
+          else
             pip install -e soda-${{ matrix.module }}
           fi
-        
+      
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
