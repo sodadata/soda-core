@@ -147,42 +147,10 @@ class DatabricksSqlDialect(SqlDialect):
         return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
         #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
 
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        found_synonym = False
-        synonym_correct = False
-
-        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR]
-        list_of_numeric_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
-        list_of_timestamp_synonyms = [
-            SodaDataTypeName.TIMESTAMP,
-            SodaDataTypeName.TIMESTAMP_TZ,
-        ]  # Databricks does not support timezones in datatypes, so we consider TIMESTAMP and TIMESTAMP_TZ to be the same
-
-        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
-            )
-
-        if expected in list_of_numeric_synonyms or actual in list_of_numeric_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_numeric_synonyms and expected in list_of_numeric_synonyms,
-            )
-
-        if expected in list_of_timestamp_synonyms or actual in list_of_timestamp_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_timestamp_synonyms and expected in list_of_timestamp_synonyms,
-            )
-
-        # Special case for TIME as the expected, the actual is TEXT
-        if expected == SodaDataTypeName.TIME:
-            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.TEXT)
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)
+    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
+        return [
+            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR],
+            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
+            [SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP],
+            [SodaDataTypeName.TIME, SodaDataTypeName.TEXT],
+        ]

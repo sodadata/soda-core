@@ -140,39 +140,18 @@ class SnowflakeSqlDialect(SqlDialect):
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
 
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR]
-        list_of_number_synonyms = [
-            SodaDataTypeName.NUMERIC,
-            SodaDataTypeName.DECIMAL,
-            SodaDataTypeName.INTEGER,
-            SodaDataTypeName.BIGINT,
-            SodaDataTypeName.SMALLINT,
+    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
+        # This function can be overloaded if required.
+        # It could be that the datasource has synonyms for the data types, and we want to handle that in the mappings.
+        # For an example: see the postgres implementation
+        return [
+            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR],
+            [
+                SodaDataTypeName.NUMERIC,
+                SodaDataTypeName.DECIMAL,
+                SodaDataTypeName.INTEGER,
+                SodaDataTypeName.BIGINT,
+                SodaDataTypeName.SMALLINT,
+            ],
+            [SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE],
         ]
-        list_of_float_synonyms = [SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE]
-        found_synonym = False
-        synonym_correct = False
-        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
-            )
-
-        if expected in list_of_number_synonyms or actual in list_of_number_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_number_synonyms and expected in list_of_number_synonyms,
-            )
-
-        if expected in list_of_float_synonyms or actual in list_of_float_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_float_synonyms and expected in list_of_float_synonyms,
-            )
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)

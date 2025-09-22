@@ -314,18 +314,7 @@ class SqlServerSqlDialect(SqlDialect):
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
 
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        found_synonym = False
-        synonym_correct = False
-        if expected == SodaDataTypeName.TEXT or expected == SodaDataTypeName.VARCHAR:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual == SodaDataTypeName.VARCHAR or actual == SodaDataTypeName.TEXT,
-            )
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)
+    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
+        return [
+            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR],
+        ]

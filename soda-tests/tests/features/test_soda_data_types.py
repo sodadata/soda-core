@@ -150,6 +150,6 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
         print(
             f"Column {i}: {column.column_name} -> Expected: {column_mappings[i]}, Actual: {convert_metadata_to_soda_data_type(column)}"
         )
-        assert data_source_test_helper.data_source_impl.sql_dialect.is_same_soda_data_type(
+        assert data_source_test_helper.data_source_impl.sql_dialect.is_same_soda_data_type_with_synonyms(
             column_mappings[i], convert_metadata_to_soda_data_type(column)
         )
