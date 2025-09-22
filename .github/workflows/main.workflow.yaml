@@ -70,7 +70,7 @@ jobs:
             ADDITIONAL_JSON=$(echo "$ADDITIONAL_DATA_SOURCES" | sed 's/\w\+/,"&"/g' 2>/dev/null || echo "")
             echo "modules=[${BASE_MODULES}${ADDITIONAL_JSON}]" >> "$GITHUB_OUTPUT"
           else
-            echo "modules=[\"${DATA_SOURCE}\"]" >> "$GITHUB_OUTPUT"
+            echo 'modules=["__DATA_SOURCE__"]' | sed "s|__DATA_SOURCE__|${DATA_SOURCE}|g" >> "$GITHUB_OUTPUT"
           fi
   test:
     runs-on: ubuntu-24.04
