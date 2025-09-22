@@ -68,7 +68,7 @@ jobs:
           if [ "${DATA_SOURCE}" = "all" ]; then
             BASE_MODULES=$(bash scripts/test_matrix.sh)
             ADDITIONAL_JSON=$(echo "$ADDITIONAL_DATA_SOURCES" | sed 's/\w\+/,"&"/g' 2>/dev/null || echo "")
-            echo "modules=${BASE_MODULES}${ADDITIONAL_JSON}]" >> "$GITHUB_OUTPUT"
+            echo "modules=[${BASE_MODULES}${ADDITIONAL_JSON}]" >> "$GITHUB_OUTPUT"
           else
             echo "modules=[\"${DATA_SOURCE}\"]" >> "$GITHUB_OUTPUT"
           fi
