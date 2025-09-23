@@ -65,6 +65,8 @@ def interpret_contract_verification_result(verification_result: ContractVerifica
         return ExitCode.LOG_ERRORS
     elif verification_result.is_failed:
         return ExitCode.CHECK_FAILURES
+    elif verification_result.is_warned:
+        return ExitCode.CHECK_WARNINGS
     else:
         return ExitCode.OK
 

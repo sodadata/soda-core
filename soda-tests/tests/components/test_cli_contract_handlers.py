@@ -17,20 +17,22 @@ from soda_core.contracts.contract_verification import ContractVerificationSessio
 
 
 @pytest.mark.parametrize(
-    "has_errors, has_failures, cloud_failed, expected_exit_code",
+    "has_errors, has_failures, has_warnings, cloud_failed, expected_exit_code",
     [
-        (False, False, False, ExitCode.OK),
-        (False, True, False, ExitCode.CHECK_FAILURES),
-        (True, False, False, ExitCode.LOG_ERRORS),
-        (True, True, False, ExitCode.LOG_ERRORS),
-        (False, False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
-        (True, True, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+        (False, False, False, False, ExitCode.OK),
+        (False, False, True, False, ExitCode.CHECK_WARNINGS),
+        (False, True, False, False, ExitCode.CHECK_FAILURES),
+        (False, True, True, False, ExitCode.CHECK_FAILURES),
+        (True, False, False, False, ExitCode.LOG_ERRORS),
+        (True, True, False, False, ExitCode.LOG_ERRORS),
+        (False, False, False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
+        (True, True, False, True, ExitCode.RESULTS_NOT_SENT_TO_CLOUD),
     ],
 )
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 @patch("soda_core.contracts.api.verify_api.ContractVerificationSession.execute")
 def test_handle_verify_contract_exit_codes(
-    mock_execute, mock_cloud_client, has_errors, has_failures, cloud_failed, expected_exit_code
+    mock_execute, mock_cloud_client, has_errors, has_failures, has_warnings, cloud_failed, expected_exit_code
 ):
     mock_contract_result = MagicMock()
     mock_contract_result.sending_results_to_soda_cloud_failed = cloud_failed
@@ -38,6 +40,7 @@ def test_handle_verify_contract_exit_codes(
     mock_result = MagicMock()
     type(mock_result).has_errors = PropertyMock(return_value=has_errors)
     type(mock_result).is_failed = PropertyMock(return_value=has_failures)
+    type(mock_result).is_warned = PropertyMock(return_value=has_warnings)
     mock_result.contract_verification_results = [mock_contract_result]
 
     mock_execute.return_value = mock_result
