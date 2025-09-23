@@ -77,7 +77,6 @@ class SchemaCheckImpl(CheckImpl):
             column_impl=None,
             check_yaml=check_yaml,
         )
-        self.threshold_level = ThresholdLevel.from_str(check_yaml.threshold_level)
 
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
@@ -169,9 +168,6 @@ class SchemaCheckImpl(CheckImpl):
                             are_columns_out_of_order = True
                         previous_index = index
 
-            outcome_level: CheckOutcome = CheckOutcome.FAILED
-            if self.threshold_level == ThresholdLevel.WARN:
-                outcome_level = CheckOutcome.WARN
             outcome = (
                 CheckOutcome.PASSED
                 if (
@@ -180,7 +176,7 @@ class SchemaCheckImpl(CheckImpl):
                     and len(column_data_type_mismatches) == 0
                     and not are_columns_out_of_order
                 )
-                else outcome_level
+                else CheckOutcome.FAILED
             )
 
         return SchemaCheckResult(
@@ -195,7 +191,7 @@ class SchemaCheckImpl(CheckImpl):
         )
 
     def _build_threshold(self) -> Threshold:
-        return Threshold(must_be_less_than_or_equal=0, level=self.threshold_level.value)
+        return Threshold(must_be_less_than_or_equal=0, level=ThresholdLevel.FAIL)
 
 
 class SchemaMetricImpl(MetricImpl):

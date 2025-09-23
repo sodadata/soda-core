@@ -45,7 +45,7 @@ def test_schema(data_source_test_helper: DataSourceTestHelper):
     assert set([c["name"] for c in schema_diagnostics["expected"]]) == {"id", "size", "created"}
 
 
-def test_schema_warn(data_source_test_helper: DataSourceTestHelper):
+def test_schema_warn_not_supported(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
@@ -54,7 +54,7 @@ def test_schema_warn(data_source_test_helper: DataSourceTestHelper):
         ]
     )
 
-    data_source_test_helper.assert_contract_warn(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
