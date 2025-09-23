@@ -34,6 +34,11 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
 
 
 class RedshiftSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+    )
+
     def __init__(self):
         super().__init__()
 
@@ -157,9 +162,3 @@ class RedshiftSqlDialect(SqlDialect):
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        return [
-            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR],
-            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
-        ]

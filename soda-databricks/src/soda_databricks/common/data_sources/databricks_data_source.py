@@ -33,6 +33,13 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 class DatabricksSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
+    SODA_DATA_TYPE_SYNONYM = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
+        (SodaDataTypeName.TIME, SodaDataTypeName.TEXT),
+    )
+
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
             ["int", "integer"],
@@ -146,11 +153,3 @@ class DatabricksSqlDialect(SqlDialect):
         schema_name: str = self.quote_default(prefixes[1])
         return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
         #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        return [
-            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR],
-            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
-            [SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP],
-            [SodaDataTypeName.TIME, SodaDataTypeName.TEXT],
-        ]

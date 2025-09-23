@@ -129,6 +129,13 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 
 
 class AthenaSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
+        (SodaDataTypeName.TIME, SodaDataTypeName.VARCHAR),
+    )
+
     # We need to pass the data source impl to the dialect to be able to access connection properties (such as the staging dir)
     def __init__(self, data_source_impl: AthenaDataSourceImpl):
         super().__init__()
@@ -359,11 +366,3 @@ class AthenaSqlDialect(SqlDialect):
 
     def supports_datetime_microseconds(self) -> bool:
         return False
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        return [
-            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR],
-            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
-            [SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP],
-            [SodaDataTypeName.TIME, SodaDataTypeName.VARCHAR],
-        ]

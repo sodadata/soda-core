@@ -44,6 +44,11 @@ class PostgresSqlDataType(SqlDataType):
 
 
 class PostgresSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),
+    )
+
     def __init__(self):
         super().__init__()
 
@@ -121,12 +126,6 @@ class PostgresSqlDialect(SqlDialect):
             [PG_DOUBLE_PRECISION, "float8"],
             ["timestamp", PG_TIMESTAMP_WITHOUT_TIME_ZONE],
             ["decimal", "numeric"],
-        ]
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        return [
-            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
-            [SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT],
         ]
 
     def get_sql_data_type_class(self) -> type:

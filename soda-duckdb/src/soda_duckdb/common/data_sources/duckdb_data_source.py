@@ -63,6 +63,11 @@ class DuckDBDataSourceConnectionWrapper:
 
 
 class DuckDBSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+    )
+
     def get_database_prefix_index(self) -> int | None:
         return None
 
@@ -201,12 +206,6 @@ class DuckDBSqlDialect(SqlDialect):
 
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         return super().build_columns_metadata_query_str(table_namespace, table_name)
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        return [
-            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR],
-            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
-        ]
 
 
 class DuckDBDataSourceConnection(DataSourceConnection):

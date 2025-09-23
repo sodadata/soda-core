@@ -35,6 +35,18 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
 
 
 class SnowflakeSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (
+            SodaDataTypeName.NUMERIC,
+            SodaDataTypeName.DECIMAL,
+            SodaDataTypeName.INTEGER,
+            SodaDataTypeName.BIGINT,
+            SodaDataTypeName.SMALLINT,
+        ),
+        (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
+    )
+
     def __init__(self):
         super().__init__()
 
@@ -138,20 +150,4 @@ class SnowflakeSqlDialect(SqlDialect):
             TIMESTAMP_WITH_TIME_ZONE,
             "timestamp_ltz",
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
-        ]
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        # This function can be overloaded if required.
-        # It could be that the datasource has synonyms for the data types, and we want to handle that in the mappings.
-        # For an example: see the postgres implementation
-        return [
-            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR],
-            [
-                SodaDataTypeName.NUMERIC,
-                SodaDataTypeName.DECIMAL,
-                SodaDataTypeName.INTEGER,
-                SodaDataTypeName.BIGINT,
-                SodaDataTypeName.SMALLINT,
-            ],
-            [SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE],
         ]

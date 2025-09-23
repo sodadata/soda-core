@@ -94,6 +94,14 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (SodaDataTypeName.INTEGER, SodaDataTypeName.BIGINT, SodaDataTypeName.SMALLINT),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.TIMESTAMP, SodaDataTypeName.TIMESTAMP_TZ),  # Bigquery does not support timezones
+        (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
+    )
+
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
             SodaDataTypeName.CHAR: "string",  # BigQuery only has STRING
@@ -199,12 +207,3 @@ class BigQuerySqlDialect(SqlDialect):
 
     def _build_cte_with_sql_line(self, with_element: WITH) -> str:
         return f"WITH {self.quote_default(with_element.alias)} AS ("
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        return [
-            [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR],
-            [SodaDataTypeName.INTEGER, SodaDataTypeName.BIGINT, SodaDataTypeName.SMALLINT],
-            [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL],
-            [SodaDataTypeName.TIMESTAMP, SodaDataTypeName.TIMESTAMP_TZ],  # Bigquery does not support timezones
-            [SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE],
-        ]

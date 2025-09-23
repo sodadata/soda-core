@@ -34,6 +34,11 @@ class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSource
 
 
 class FabricSqlDialect(SqlServerSqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        *SqlServerSqlDialect.SODA_DATA_TYPE_SYNONYMS,
+        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
+    )
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 
@@ -78,10 +83,3 @@ class FabricSqlDialect(SqlServerSqlDialect):
         result = super().get_data_source_data_type_name_by_soda_data_type_names()
         result[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
         return result
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        sql_server_synonyms = super().get_synonyms_for_soda_data_type()
-        return [
-            [SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP],
-            *sql_server_synonyms,
-        ]
