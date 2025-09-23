@@ -9,7 +9,7 @@ class ExitCode(IntEnum):
 
     OK = 0
     CHECK_FAILURES = 1
-    LOG_WARNINGS = 2
+    CHECK_WARNINGS = 2
     LOG_ERRORS = 3
     RESULTS_NOT_SENT_TO_CLOUD = 4
 
