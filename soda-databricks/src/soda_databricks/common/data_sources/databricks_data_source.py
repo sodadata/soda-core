@@ -157,6 +157,8 @@ class DatabricksSqlDialect(SqlDialect):
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         # Special case of a 1-way synonym: TEXT is allowed where TIME is expected
         if expected == SodaDataTypeName.TIME and actual == SodaDataTypeName.TEXT:
-            logger.debug(f"In is_same_soda_data_type_with_synonyms, Expected {expected} and actual {actual} are the same")
+            logger.debug(
+                f"In is_same_soda_data_type_with_synonyms, Expected {expected} and actual {actual} are the same"
+            )
             return True
         return super().is_same_soda_data_type_with_synonyms(expected, actual)

@@ -56,9 +56,7 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 
 class SqlServerSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
-    SODA_DATA_TYPE_SYNONYMS = (
-        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
-    )
+    SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
