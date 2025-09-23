@@ -1031,6 +1031,12 @@ class SqlDialect:
         # BigQuery: No documented limit on query size, but practical limits on complexity and performance.
         return 63 * 1024 * 1024
 
+    def get_preferred_number_of_rows_for_insert(self) -> int:
+        # 10000 is the default number of rows for insert in a single SQL statement that is sent to the data source.
+        # Please overwrite this for each data source as needed.
+        # Currently, we set this value relateively low so the memory consumption of the Python library is not too high.
+        return 10000
+
     def is_quoted(self, identifier: str) -> bool:
         return identifier.startswith(self.DEFAULT_QUOTE_CHAR) and identifier.endswith(self.DEFAULT_QUOTE_CHAR)
 
