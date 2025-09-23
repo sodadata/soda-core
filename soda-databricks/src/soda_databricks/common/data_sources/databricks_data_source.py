@@ -37,7 +37,6 @@ class DatabricksSqlDialect(SqlDialect):
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
-        (SodaDataTypeName.TIME, SodaDataTypeName.TEXT),
     )
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
@@ -153,3 +152,11 @@ class DatabricksSqlDialect(SqlDialect):
         schema_name: str = self.quote_default(prefixes[1])
         return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
         #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
+
+    @classmethod
+    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        # Special case of a 1-way synonym: TEXT is allowed where TIME is expected
+        if expected == SodaDataTypeName.TIME and actual == SodaDataTypeName.TEXT:
+            logger.debug(f"In is_same_soda_data_type_with_synonyms, Expected {expected} and actual {actual} are the same")
+            return True
+        return super().is_same_soda_data_type_with_synonyms(expected, actual)
