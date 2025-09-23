@@ -24,11 +24,11 @@ def test_postgres_schema_pass(data_source_test_helper: DataSourceTestHelper):
               - name: id
                 data_type: varchar
               - name: size
-                data_type: character varying
+                data_type: varchar
               - name: created
-                data_type: character varying
+                data_type: varchar
               - name: destroyed
-                data_type: character varying
+                data_type: varchar
         """,
     )
 
