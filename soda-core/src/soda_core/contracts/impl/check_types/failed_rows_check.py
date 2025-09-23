@@ -132,11 +132,7 @@ class FailedRowsCheckImpl(CheckImpl):
                 "check_rows_tested": 0,
             }
 
-        if self.threshold and isinstance(threshold_value, Number):
-            if self.threshold.passes(threshold_value):
-                outcome = CheckOutcome.PASSED
-            else:
-                outcome = CheckOutcome.FAILED
+        outcome = self.evaluate_threshold(threshold_value)
 
         return CheckResult(
             check=self._build_check_info(),

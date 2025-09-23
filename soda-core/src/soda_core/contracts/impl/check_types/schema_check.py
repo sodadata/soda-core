@@ -25,6 +25,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     MeasurementValues,
     MetricImpl,
     Query,
+    ThresholdLevel,
 )
 
 logger: logging.Logger = soda_logger
@@ -80,12 +81,14 @@ class SchemaCheckImpl(CheckImpl):
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
-                sql_data_type=SqlDataType(
-                    name=column_impl.column_yaml.data_type,
-                    character_maximum_length=column_impl.column_yaml.character_maximum_length,
-                )
-                if column_impl.column_yaml.data_type
-                else None,
+                sql_data_type=(
+                    SqlDataType(
+                        name=column_impl.column_yaml.data_type,
+                        character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                    )
+                    if column_impl.column_yaml.data_type
+                    else None
+                ),
             )
             for column_impl in contract_impl.column_impls
         ]
@@ -188,7 +191,7 @@ class SchemaCheckImpl(CheckImpl):
         )
 
     def _build_threshold(self) -> Threshold:
-        return Threshold(must_be_less_than_or_equal=0)
+        return Threshold(must_be_less_than_or_equal=0, level=ThresholdLevel.FAIL)
 
 
 class SchemaMetricImpl(MetricImpl):

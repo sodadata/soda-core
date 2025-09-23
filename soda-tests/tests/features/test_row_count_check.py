@@ -258,3 +258,18 @@ def test_row_count_thresholds_fail(contract_yaml_str: str, data_source_test_help
     )
     for i in range(0, len(contract_verification_result.check_results)):
         assert contract_verification_result.check_results[i].outcome == CheckOutcome.FAILED
+
+
+def test_row_count_thresholds_warn(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str="""
+    checks:
+      - row_count:
+          threshold:
+            level: warn
+            must_be: 4
+        """,
+    )

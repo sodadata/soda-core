@@ -593,6 +593,7 @@ class ThresholdYaml:
         self.must_be_not_between: Optional[RangeYaml] = RangeYaml.read_range_opt(
             threshold_yaml_object, "must_be_not_between"
         )
+        self.level: str = threshold_yaml_object.read_string_opt("level", default_value="fail")
 
     @classmethod
     def __config_count(cls, members: list[any]) -> int:

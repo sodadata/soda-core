@@ -94,11 +94,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
         if isinstance(function_value, Number):
             diagnostic_metric_values[self.function] = function_value
 
-            if self.threshold:
-                if self.threshold.passes(function_value):
-                    outcome = CheckOutcome.PASSED
-                else:
-                    outcome = CheckOutcome.FAILED
+            outcome = self.evaluate_threshold(function_value)
 
         return CheckResult(
             check=self._build_check_info(),

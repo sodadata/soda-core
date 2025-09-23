@@ -141,6 +141,19 @@ class ContractVerificationSessionResult:
         )
 
     @property
+    def is_warned(self) -> bool:
+        """
+        Returns true if there are checks that have warnings.
+        False is returned if there are no check results.
+        Only looks at check results.
+        Ignores execution errors in the logs.
+        """
+        return any(
+            contract_verification_result.is_warned
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
     def is_passed(self) -> bool:
         """
         Returns true if there are no checks that have failed.
@@ -180,6 +193,7 @@ class SodaException(Exception):
 class CheckOutcome(Enum):
     PASSED = "PASSED"
     FAILED = "FAILED"
+    WARN = "WARN"
     NOT_EVALUATED = "NOT_EVALUATED"
 
 
@@ -208,6 +222,7 @@ class DataSource:
 
 @dataclass
 class Threshold:
+    level: str
     must_be_greater_than: Optional[Number] = None
     must_be_greater_than_or_equal: Optional[Number] = None
     must_be_less_than: Optional[Number] = None
@@ -266,12 +281,18 @@ class CheckResult:
             return Emoticons.WHITE_CHECK_MARK
         elif self.outcome == CheckOutcome.FAILED:
             return Emoticons.CROSS_MARK
+        elif self.outcome == CheckOutcome.WARN:
+            return Emoticons.WARNING
         else:
             return Emoticons.QUESTION_MARK
 
     @property
     def is_passed(self) -> bool:
         return self.outcome == CheckOutcome.PASSED
+
+    @property
+    def is_warned(self) -> bool:
+        return self.outcome == CheckOutcome.WARN
 
     @property
     def is_failed(self) -> bool:
@@ -378,6 +399,7 @@ class Measurement:
 
 class ContractVerificationStatus(Enum):
     UNKNOWN = "UNKNOWN"
+    WARNED = "WARNED"
     FAILED = "FAILED"
     PASSED = "PASSED"
     ERROR = "ERROR"
@@ -457,6 +479,14 @@ class ContractVerificationResult:
         Ignores execution errors in the logs.
         """
         return self.status is ContractVerificationStatus.PASSED
+
+    @property
+    def is_warned(self) -> bool:
+        """
+        Returns true if there are checks that have warnings.
+        Ignores execution errors in the logs.
+        """
+        return self.status is ContractVerificationStatus.WARNED
 
     @property
     def is_ok(self) -> bool:
