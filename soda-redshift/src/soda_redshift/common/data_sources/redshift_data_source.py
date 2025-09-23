@@ -34,6 +34,11 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
 
 
 class RedshiftSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+    )
+
     def __init__(self):
         super().__init__()
 
@@ -157,29 +162,3 @@ class RedshiftSqlDialect(SqlDialect):
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False
-
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        found_synonym = False
-        synonym_correct = False
-
-        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR]
-        list_of_numeric_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
-
-        if expected in list_of_text_synonyms or actual in list_of_text_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_text_synonyms and expected in list_of_text_synonyms,
-            )
-
-        if expected in list_of_numeric_synonyms or actual in list_of_numeric_synonyms:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual in list_of_numeric_synonyms and expected in list_of_numeric_synonyms,
-            )
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)

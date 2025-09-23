@@ -34,6 +34,11 @@ class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSource
 
 
 class FabricSqlDialect(SqlServerSqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        *SqlServerSqlDialect.SODA_DATA_TYPE_SYNONYMS,
+        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
+    )
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 
@@ -78,19 +83,3 @@ class FabricSqlDialect(SqlServerSqlDialect):
         result = super().get_data_source_data_type_name_by_soda_data_type_names()
         result[SodaDataTypeName.TIMESTAMP_TZ] = "datetime2"
         return result
-
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        found_synonym = False
-        synonym_correct = False
-        if expected == SodaDataTypeName.TIMESTAMP_TZ:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual == SodaDataTypeName.TIMESTAMP_TZ or actual == SodaDataTypeName.TIMESTAMP,
-            )
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)

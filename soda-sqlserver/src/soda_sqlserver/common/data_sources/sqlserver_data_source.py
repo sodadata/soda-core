@@ -56,6 +56,7 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
 
 class SqlServerSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
+    SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
 
     def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
         statement_lines: list[str] = []
@@ -313,19 +314,3 @@ class SqlServerSqlDialect(SqlDialect):
         if sql_data_type.name == "varchar":
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
-
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        found_synonym = False
-        synonym_correct = False
-        if expected == SodaDataTypeName.TEXT or expected == SodaDataTypeName.VARCHAR:
-            (found_synonym, synonym_correct) = (
-                True,
-                actual == SodaDataTypeName.VARCHAR or actual == SodaDataTypeName.TEXT,
-            )
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)

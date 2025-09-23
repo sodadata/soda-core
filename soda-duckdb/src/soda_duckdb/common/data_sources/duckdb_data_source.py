@@ -63,6 +63,11 @@ class DuckDBDataSourceConnectionWrapper:
 
 
 class DuckDBSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+    )
+
     def get_database_prefix_index(self) -> int | None:
         return None
 
@@ -201,29 +206,6 @@ class DuckDBSqlDialect(SqlDialect):
 
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         return super().build_columns_metadata_query_str(table_namespace, table_name)
-
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        # According to SQL spec, Decimal and Numeric are synonyms, and Float and Double are synonyms
-        found_synonym = False
-        synonym_correct = False
-
-        list_of_decimal_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
-        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR]
-
-        for list_of_synonyms in [list_of_decimal_synonyms, list_of_text_synonyms]:
-            if expected in list_of_synonyms or actual in list_of_synonyms:
-                (found_synonym, synonym_correct) = (
-                    True,
-                    actual in list_of_synonyms and expected in list_of_synonyms,
-                )
-                break
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)
 
 
 class DuckDBDataSourceConnection(DataSourceConnection):

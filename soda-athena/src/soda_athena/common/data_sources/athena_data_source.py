@@ -129,6 +129,13 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 
 
 class AthenaSqlDialect(SqlDialect):
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
+        (SodaDataTypeName.TIME, SodaDataTypeName.VARCHAR),
+    )
+
     # We need to pass the data source impl to the dialect to be able to access connection properties (such as the staging dir)
     def __init__(self, data_source_impl: AthenaDataSourceImpl):
         super().__init__()
@@ -359,26 +366,3 @@ class AthenaSqlDialect(SqlDialect):
 
     def supports_datetime_microseconds(self) -> bool:
         return False
-
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        found_synonym = False
-        synonym_correct = False
-        if (
-            expected == SodaDataTypeName.TIME
-        ):  # Athena does not support time data type, for time specifically, it should be formatted as a string!
-            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.VARCHAR)
-        elif expected == SodaDataTypeName.TEXT:
-            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.VARCHAR)
-        elif expected == SodaDataTypeName.NUMERIC:
-            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.DECIMAL)
-        elif (
-            expected == SodaDataTypeName.TIMESTAMP_TZ
-        ):  # Athena does not support timezones, so we consider TIMESTAMP and TIMESTAMP_TZ to be the same
-            (found_synonym, synonym_correct) = (True, actual == SodaDataTypeName.TIMESTAMP)
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)

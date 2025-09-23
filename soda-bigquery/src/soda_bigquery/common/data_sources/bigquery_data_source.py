@@ -94,6 +94,14 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
 
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (SodaDataTypeName.INTEGER, SodaDataTypeName.BIGINT, SodaDataTypeName.SMALLINT),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.TIMESTAMP, SodaDataTypeName.TIMESTAMP_TZ),  # Bigquery does not support timezones
+        (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
+    )
+
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         return {
             SodaDataTypeName.CHAR: "string",  # BigQuery only has STRING
@@ -199,37 +207,3 @@ class BigQuerySqlDialect(SqlDialect):
 
     def _build_cte_with_sql_line(self, with_element: WITH) -> str:
         return f"WITH {self.quote_default(with_element.alias)} AS ("
-
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        list_of_text_synonyms = [SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR]
-        list_of_integer_synonyms = [SodaDataTypeName.INTEGER, SodaDataTypeName.BIGINT, SodaDataTypeName.SMALLINT]
-        list_of_numeric_synonyms = [SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL]
-        list_of_timestamp_synonyms = [
-            SodaDataTypeName.TIMESTAMP,
-            SodaDataTypeName.TIMESTAMP_TZ,
-        ]  # Bigquery does not support timezones
-        list_of_float_synonyms = [SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE]
-
-        found_synonym = False
-        synonym_correct = False
-
-        for list_of_synonyms in [
-            list_of_text_synonyms,
-            list_of_integer_synonyms,
-            list_of_numeric_synonyms,
-            list_of_timestamp_synonyms,
-            list_of_float_synonyms,
-        ]:
-            if expected in list_of_synonyms or actual in list_of_synonyms:
-                (found_synonym, synonym_correct) = (
-                    True,
-                    actual in list_of_synonyms and expected in list_of_synonyms,
-                )
-                break
-
-        if found_synonym and synonym_correct:
-            if expected != actual:
-                logger.debug(f"In is_same_soda_data_type, Expected {expected} and actual {actual} are the same")
-            return True
-        else:
-            return super().is_same_soda_data_type(expected, actual)

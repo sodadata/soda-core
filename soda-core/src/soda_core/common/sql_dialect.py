@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import abstractmethod
 from datetime import date, datetime, time
 from numbers import Number
@@ -8,6 +9,7 @@ from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     DataSourceNamespace,
@@ -72,15 +74,19 @@ from soda_core.common.sql_ast import (
     SqlExpressionStr,
 )
 
+logger: logging.Logger = soda_logger
+
 
 class SqlDialect:
-    DEFAULT_QUOTE_CHAR = '"'
-
     """
     Extends DataSource with all logic to builds the SQL queries.
     Specific DataSource's can customize their SQL queries by subclassing SqlDialect,
     overriding methods of SqlDialect and returning the customized SqlDialect in DataSource._create_sql_dialect()
     """
+
+    DEFAULT_QUOTE_CHAR = '"'
+
+    SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
 
     def __init__(self):
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
@@ -160,11 +166,25 @@ class SqlDialect:
             return False
         return True
 
-    def is_same_soda_data_type(self, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        return expected == actual
+    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
         # This function can be overloaded if required.
         # It could be that the datasource has synonyms for the data types, and we want to handle that in the mappings.
-        # For an example: see the postgres implementation
+        # For an example: see the postgres implementation. We basically create a list of lists. Whereby each sublist contains the synonyms for a given SodaDataTypeName.
+        return []
+
+    @classmethod
+    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        if expected == actual:
+            return True
+
+        for synonyms in cls.SODA_DATA_TYPE_SYNONYMS:
+            if expected in synonyms and actual in synonyms:
+                logger.debug(
+                    f"In is_same_soda_data_type_with_synonyms, expected {expected} and actual {actual} are treated as the same"
+                )
+                return True
+
+        return False
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name
