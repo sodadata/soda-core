@@ -148,7 +148,7 @@ class SqlDialect:
         raise NotImplementedError()
 
     def is_same_data_type_for_dwh_column(self, expected: SqlDataType, actual: SqlDataType):
-        self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
+        return self.is_same_data_type_for_schema_check(expected=expected, actual=actual)
 
     def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
         if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
