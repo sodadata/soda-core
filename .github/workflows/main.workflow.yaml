@@ -193,7 +193,7 @@ jobs:
           
           git clone https://token:${{ secrets.USER_GITHUB_TOKEN }}@github.com/sodadata/soda-extensions.git
           if [[ " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
-            pip install -e soda-extensions/soda-${{ matrix.module }}
+            pip install -e soda-extensions/soda-${{ matrix.module }} 
           else
             pip install -e soda-${{ matrix.module }}
           fi
