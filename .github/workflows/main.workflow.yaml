@@ -191,7 +191,7 @@ jobs:
             pip install -e soda-sqlserver
           fi
           
-          git clone https://${{ secrets.USER_GITHUB_TOKEN }}@github.com/sodadata/soda-extensions.git
+          git clone https://${{ secrets.GH_SODA_EXTENSIONS_DEPLOY_KEY }}@github.com/sodadata/soda-extensions.git
           if [[ " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
             pip install -e soda-extensions/soda-${{ matrix.module }}
           else
