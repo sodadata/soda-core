@@ -174,11 +174,13 @@ jobs:
           secret-ids: |
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
 
+      - name: Checkout soda-extensions
+        uses: actions/checkout@v4
+        with:
+          repository: sodadata/soda-extensions
+          token: ${{ secrets.USER_GITHUB_TOKEN }}
+          path: soda-extensions
       - name: Run tests
-        env:
-          PYPI_USERNAME: ${{ secrets.DEV_PYPI_USERNAME }}
-          PYPI_PASSWORD: ${{ secrets.DEV_PYPI_PASSWORD }}
-          PYPI_URL: ${{ secrets.DEV_PYPI_URL }}
         run: |
           set -x
           python -m venv .venv
@@ -191,12 +193,6 @@ jobs:
             pip install -e soda-sqlserver
           fi
           
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GH_SODA_EXTENSIONS_DEPLOY_KEY}}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-          git clone git@github.com/sodadata/soda-extensions.git
           if [[ " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
             pip install -e soda-extensions/soda-${{ matrix.module }} 
           else
