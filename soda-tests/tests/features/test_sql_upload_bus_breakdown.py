@@ -33,7 +33,7 @@ SCHEMA_NAME = "observability_testing"  # Change to dev_observability_testing for
 TABLE_NAME = "bus_breakdown"
 BATCH_SIZES = {  # Depends on the database. Not all databases support very large batch inserts.
     "postgres": 10000,
-    "sqlserver": 1,  # For sqlserver: batch size of 1 as it does auto conversions that fail when inserting multiple rows at once.
+    "sqlserver": 10000,
     "mysql": 10000,
     "bigquery": 2500,  # Bigquery limits the query size to 1024KB, so we need to use a smaller batch size. This takes a while to run!
     "snowflake": 10000,
@@ -167,107 +167,111 @@ def test_insert_bus_breakdown_dataset(data_source_test_helper: DataSourceTestHel
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
     data_source_impl.execute_update(drop_table_sql)
 
+    # Update the dictionary with the interpreted data types
+    create_table_column_types: dict[str, str] = {
+        key: sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[value]
+        for key, value in COLUMN_TO_DATA_TYPE_MAPPING.items()
+    }
+
     # Create the columns
     create_table_columns = [
         CREATE_TABLE_COLUMN(
             name="School_Year",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["School_Year"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["School_Year"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
-            name="Busbreakdown_ID", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Busbreakdown_ID"]), nullable=True
+            name="Busbreakdown_ID", type=SqlDataType(name=create_table_column_types["Busbreakdown_ID"]), nullable=True
         ),
         CREATE_TABLE_COLUMN(
             name="Run_Type",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Run_Type"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Run_Type"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Bus_No",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Bus_No"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Bus_No"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Route_Number",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Route_Number"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Route_Number"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Reason",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Reason"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Reason"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Schools_Serviced",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Schools_Serviced"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Schools_Serviced"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
-            name="Occurred_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Occurred_On"]), nullable=True
+            name="Occurred_On", type=SqlDataType(name=create_table_column_types["Occurred_On"]), nullable=True
         ),
         CREATE_TABLE_COLUMN(
-            name="Created_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Created_On"]), nullable=True
+            name="Created_On", type=SqlDataType(name=create_table_column_types["Created_On"]), nullable=True
         ),
         CREATE_TABLE_COLUMN(
             name="Boro",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Boro"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Boro"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Bus_Company_Name",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Bus_Company_Name"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Bus_Company_Name"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="How_Long_Delayed",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["How_Long_Delayed"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["How_Long_Delayed"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Number_Of_Students_On_The_Bus",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Number_Of_Students_On_The_Bus"]),
+            type=SqlDataType(name=create_table_column_types["Number_Of_Students_On_The_Bus"]),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Has_Contractor_Notified_Schools",
             type=SqlDataType(
-                name=COLUMN_TO_DATA_TYPE_MAPPING["Has_Contractor_Notified_Schools"], character_maximum_length=255
+                name=create_table_column_types["Has_Contractor_Notified_Schools"], character_maximum_length=255
             ),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Has_Contractor_Notified_Parents",
             type=SqlDataType(
-                name=COLUMN_TO_DATA_TYPE_MAPPING["Has_Contractor_Notified_Parents"], character_maximum_length=255
+                name=create_table_column_types["Has_Contractor_Notified_Parents"], character_maximum_length=255
             ),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="Have_You_Alerted_OPT",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Have_You_Alerted_OPT"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Have_You_Alerted_OPT"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
-            name="Informed_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Informed_On"]), nullable=True
+            name="Informed_On", type=SqlDataType(name=create_table_column_types["Informed_On"]), nullable=True
         ),
         CREATE_TABLE_COLUMN(
             name="Incident_Number",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Incident_Number"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["Incident_Number"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
-            name="Last_Updated_On", type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["Last_Updated_On"]), nullable=True
+            name="Last_Updated_On", type=SqlDataType(name=create_table_column_types["Last_Updated_On"]), nullable=True
         ),
         CREATE_TABLE_COLUMN(
             name="Breakdown_or_Running_Late",
-            type=SqlDataType(
-                name=COLUMN_TO_DATA_TYPE_MAPPING["Breakdown_or_Running_Late"], character_maximum_length=255
-            ),
+            type=SqlDataType(name=create_table_column_types["Breakdown_or_Running_Late"], character_maximum_length=255),
             nullable=True,
         ),
         CREATE_TABLE_COLUMN(
             name="School_Age_or_PreK",
-            type=SqlDataType(name=COLUMN_TO_DATA_TYPE_MAPPING["School_Age_or_PreK"], character_maximum_length=255),
+            type=SqlDataType(name=create_table_column_types["School_Age_or_PreK"], character_maximum_length=255),
             nullable=True,
         ),
     ]
