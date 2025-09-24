@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from logging import ERROR, LogRecord
+from logging import ERROR, WARNING, LogRecord
 from numbers import Number
 from typing import Any, Optional
 
@@ -457,6 +457,12 @@ class ContractVerificationResult:
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
+
+    def get_warnings(self) -> list[str]:
+        return [r.msg for r in self.log_records if r.levelno == WARNING]
+
+    def get_warnings_str(self) -> str:
+        return "\n".join(self.get_warnings())
 
     @property
     def has_errors(self) -> bool:
