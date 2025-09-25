@@ -212,3 +212,6 @@ class BigQuerySqlDialect(SqlDialect):
         # This is a VERY conservative limit. We can probably get away with more
         # However, BigQuery started complaining that the statement was "too complicated" with a length of 1MB.
         return 200 * 1024  # 200KB
+
+    def get_preferred_number_of_rows_for_insert(self) -> int:
+        return 500
