@@ -311,6 +311,6 @@ class SqlServerSqlDialect(SqlDialect):
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         """SQLServer always requires a varchar length in create table statements."""
         sql_data_type = super().map_test_sql_data_type_to_data_source(source_data_type)
-        if sql_data_type.name == "varchar":
+        if sql_data_type.name == "varchar" and sql_data_type.character_maximum_length is None:
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
