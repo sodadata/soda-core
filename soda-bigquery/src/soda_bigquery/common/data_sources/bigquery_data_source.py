@@ -207,3 +207,8 @@ class BigQuerySqlDialect(SqlDialect):
 
     def _build_cte_with_sql_line(self, with_element: WITH) -> str:
         return f"WITH {self.quote_default(with_element.alias)} AS ("
+
+    def get_max_sql_statement_length(self) -> int:
+        # This is a VERY conservative limit. We can probably get away with more
+        # However, BigQuery started complaining that the statement was "too complicated" with a length of 1MB.
+        return 200 * 1024  # 200KB
