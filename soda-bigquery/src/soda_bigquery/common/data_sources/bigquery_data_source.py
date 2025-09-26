@@ -1,4 +1,5 @@
 import logging
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -16,6 +17,7 @@ from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
     DISTINCT,
+    INSERT_INTO,
     LITERAL,
     REGEX_LIKE,
     TUPLE,
@@ -89,6 +91,49 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    def do_bulk_insert(self, insert_into: INSERT_INTO) -> None:
+        start_time = time.time()
+
+        values_to_insert = []
+        # Convert to a list of dictionaries using the columns from insert_into.columns
+        for values in insert_into.values:
+            insert_values = {column.name: value.value for column, value in zip(insert_into.columns, values.values)}
+            values_to_insert.append(insert_values)
+
+        end_time = time.time()
+        values_to_insert_time = end_time - start_time
+        logger.debug(f"Values to insert time taken: {values_to_insert_time} seconds")
+
+        # Runs in a few seconds.
+        # But requires schema to be defined.
+
+        import pandas as pd
+        from google.cloud import bigquery
+
+        start_time = time.time()
+        df = pd.DataFrame(values_to_insert)
+        end_time = time.time()
+        df_time = end_time - start_time
+        logger.debug(f"DataFrame time taken: {df_time} seconds")
+
+        start_time = time.time()
+        client = self.connection.connection._client
+
+        table = client.get_table(insert_into.fully_qualified_table_name.replace("`", ""))
+
+        job_config = bigquery.LoadJobConfig(
+            schema=table.schema,  # Assume that columns in the insert_into are in the same order as the table schema!
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        )
+
+        job = client.load_table_from_dataframe(df, table, job_config=job_config)
+        job.result()
+        end_time = time.time()
+        job_time = end_time - start_time
+        logger.debug(f"Job time taken: {job_time} seconds")
+
+        return
 
 
 class BigQuerySqlDialect(SqlDialect):

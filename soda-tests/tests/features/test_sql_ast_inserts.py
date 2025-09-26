@@ -5,6 +5,7 @@ from logging import Logger
 
 import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_fixtures import test_datasource
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -353,10 +354,17 @@ def test_insert_using_prepared_statement(data_source_test_helper: DataSourceTest
 
         # time this function
         start_time = time.time()
-        data_source_impl.insert_using_prepared_statement(insert_into)
+        data_source_impl.do_bulk_insert(insert_into)
         end_time = time.time()
         prepared_statement_time = end_time - start_time
-        logger.info(f"Prepared statement time taken: {prepared_statement_time} seconds")
+        logger.info(f"Bulk insert time taken: {prepared_statement_time} seconds")
+
+        if test_datasource == "bigquery":
+            assert prepared_statement_time < 100, "Bulk insert time taken is too long"
+            logger.info(
+                f"Bulk insert time taken: {prepared_statement_time} seconds. Since it's BigQuery, we stop here!"
+            )
+            assert prepared_statement_time < 1
 
         # Save the logger level
         logger_level = logger.getEffectiveLevel()

@@ -34,7 +34,7 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def insert_using_prepared_statement(self, insert_into: INSERT_INTO) -> None:
+    def do_bulk_insert(self, insert_into: INSERT_INTO) -> None:
         sql_dialect: SqlDialect = self.sql_dialect
         columns_sql = sql_dialect._build_insert_into_columns_sql(insert_into)
 

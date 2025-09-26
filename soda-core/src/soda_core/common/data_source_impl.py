@@ -164,5 +164,5 @@ class DataSourceImpl(ABC):
         )
 
     @abstractmethod
-    def insert_using_prepared_statement(self, insert_into: INSERT_INTO) -> None:
-        raise NotImplementedError("insert_using_prepared_statement is not implemented for this data source")
+    def do_bulk_insert(self, insert_into: INSERT_INTO) -> None:
+        raise NotImplementedError("do_bulk_insert is not implemented for this data source")
