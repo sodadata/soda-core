@@ -1,4 +1,7 @@
 import datetime
+import logging
+import time
+from logging import Logger
 
 import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -6,9 +9,11 @@ from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.datetime_conversions import interpret_datetime_as_utc
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     COLUMN,
+    COUNT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     DROP_TABLE_IF_EXISTS,
@@ -17,9 +22,12 @@ from soda_core.common.sql_ast import (
     LITERAL,
     ORDER_BY_ASC,
     SELECT,
+    STAR,
     VALUES_ROW,
 )
 from soda_core.common.sql_dialect import SqlDialect
+
+logger: Logger = soda_logger
 
 
 def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelper):
@@ -252,3 +260,144 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
             # We're not here to check the timezone returned, only that the microsecond is correct.
             returned_datetime = result.rows[i][3].replace(tzinfo=None)
             assert returned_datetime == datetime.datetime(2021, 1, 1, i, 0, 0)
+
+
+def test_insert_using_prepared_statement(data_source_test_helper: DataSourceTestHelper):
+    NUMBER_OF_ROWS = 1000000
+    TABLE_NAME = "my_prepared_statement_test_table"
+    data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
+    sql_dialect: SqlDialect = data_source_impl.sql_dialect
+    dataset_prefixes = data_source_test_helper.dataset_prefix
+
+    my_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, TABLE_NAME)
+
+    # Drop table if exists
+    drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
+    data_source_impl.execute_update(drop_table_sql)
+
+    def col_type(name: str) -> str:
+        return sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[name]
+
+    try:
+        create_table_columns = [
+            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)), nullable=False),
+            CREATE_TABLE_COLUMN(
+                name="name",
+                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=255),
+                nullable=True,
+            ),
+            CREATE_TABLE_COLUMN(
+                name="small_text",
+                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=3),
+                nullable=True,
+            ),
+            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=col_type(SodaDataTypeName.DATE)), nullable=True),
+            CREATE_TABLE_COLUMN(
+                name="my_timestamp", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)), nullable=True
+            ),
+            CREATE_TABLE_COLUMN(
+                name="another_small_text_column",
+                type=SqlDataType(name=col_type(SodaDataTypeName.TEXT), character_maximum_length=100),
+                nullable=True,
+            ),
+            CREATE_TABLE_COLUMN(
+                name="my_large_text_column",
+                type=SqlDataType(name=col_type(SodaDataTypeName.TEXT), character_maximum_length=1000),
+                nullable=True,
+            ),
+        ]
+
+        standard_columns = [column.convert_to_standard_column() for column in create_table_columns]
+
+        # First create the table
+        create_table_sql = sql_dialect.build_create_table_sql(
+            CREATE_TABLE_IF_NOT_EXISTS(
+                fully_qualified_table_name=my_table_name,
+                columns=create_table_columns,
+            )
+        )
+        data_source_impl.execute_update(create_table_sql)
+
+        # Check the metadata, we want the columns to be in the correct order
+        metadata_columns_query_sql = data_source_impl.build_columns_metadata_query_str(
+            dataset_prefixes=dataset_prefixes,
+            dataset_name=TABLE_NAME,
+        )
+        metadata_result: QueryResult = data_source_impl.execute_query(metadata_columns_query_sql)
+        assert metadata_result.rows[0][0] == "id"
+        assert metadata_result.rows[1][0] == "name"
+        assert metadata_result.rows[2][0] == "small_text"
+        assert metadata_result.rows[3][0] == "my_date"
+
+        # Create the value rows
+        value_rows = [
+            VALUES_ROW(
+                [
+                    LITERAL(i),
+                    LITERAL("John"),
+                    LITERAL("a"),
+                    LITERAL(datetime.date(2021, 1, 1)),
+                    LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0)),
+                    LITERAL("another_small_text_value"),
+                    LITERAL("my_large_text_value"),
+                ]
+            )
+            for i in range(NUMBER_OF_ROWS)
+        ]
+
+        insert_into = INSERT_INTO(
+            fully_qualified_table_name=my_table_name,
+            values=value_rows,
+            columns=standard_columns,
+        )
+
+        # time this function
+        start_time = time.time()
+        data_source_impl.insert_using_prepared_statement(insert_into)
+        end_time = time.time()
+        prepared_statement_time = end_time - start_time
+        logger.info(f"Prepared statement time taken: {prepared_statement_time} seconds")
+
+        # Save the logger level
+        logger_level = logger.getEffectiveLevel()
+        logger.setLevel(logging.INFO)
+
+        # Then insert into the table
+        start_time = time.time()
+        insert_into_sql = sql_dialect.build_insert_into_sql(insert_into)
+        data_source_impl.execute_update(insert_into_sql)
+        end_time = time.time()
+        insert_into_time = end_time - start_time
+        logger.info(f"Insert into time taken: {insert_into_time} seconds")
+
+        # Restore the logger level
+        logger.setLevel(logger_level)
+
+        select_sql = sql_dialect.build_select_sql(
+            [
+                SELECT(COUNT(STAR())),
+                FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
+            ]
+        )
+        result: QueryResult = data_source_impl.execute_query(select_sql)
+        assert result.rows[0][0] == NUMBER_OF_ROWS * 2
+
+        assert prepared_statement_time < insert_into_time, (
+            "Time for prepared statement: "
+            + str(prepared_statement_time)
+            + " is not less than time for insert into: "
+            + str(insert_into_time)
+        )
+        assert prepared_statement_time > insert_into_time, (
+            "Time for prepared statement: "
+            + str(prepared_statement_time)
+            + " is not greater than time for insert into: "
+            + str(insert_into_time)
+        )
+    finally:
+        # Then drop the table to clean up
+        # We explicitly do not use the "if exists" variant, because the table should exist at this point.
+        drop_table_sql = sql_dialect.build_drop_table_sql(
+            DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name)
+        )
+        data_source_impl.execute_update(drop_table_sql)

@@ -75,6 +75,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
         self,
         config: PostgresConnectionProperties,
     ):
+        self.connection_config = config
         return psycopg2.connect(**config.to_connection_kwargs())
 
     def execute_query(self, sql: str) -> QueryResult:

@@ -14,6 +14,7 @@ from soda_core.common.metadata_types import (
     DbSchemaDataSourceNamespace,
     SchemaDataSourceNamespace,
 )
+from soda_core.common.sql_ast import INSERT_INTO
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
@@ -161,3 +162,7 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    @abstractmethod
+    def insert_using_prepared_statement(self, insert_into: INSERT_INTO) -> None:
+        raise NotImplementedError("insert_using_prepared_statement is not implemented for this data source")

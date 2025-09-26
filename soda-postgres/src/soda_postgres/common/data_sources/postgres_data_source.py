@@ -1,10 +1,11 @@
+import time
 from logging import Logger
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import CAST, CREATE_TABLE_COLUMN, REGEX_LIKE
+from soda_core.common.sql_ast import CAST, CREATE_TABLE_COLUMN, INSERT_INTO, REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
@@ -32,6 +33,67 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
         return PostgresDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def insert_using_prepared_statement(self, insert_into: INSERT_INTO) -> None:
+        sql_dialect: SqlDialect = self.sql_dialect
+        columns_sql = sql_dialect._build_insert_into_columns_sql(insert_into)
+
+        # First attempt at using prepared statements
+        # sql = f"INSERT INTO {insert_into.fully_qualified_table_name} {columns_sql} VALUES ({', '.join([f'${i}' for i in range(1, len(insert_into.columns) + 1)])})"
+        # with self.connection.connection.cursor() as cursor:
+        #     # First prepare the statement
+        #     cursor.execute(f"PREPARE my_insert_into AS {sql}")
+        #     execute_statement = f"EXECUTE my_insert_into ({', '.join(['%s' for _ in range(1, len(insert_into.columns) + 1)])})"
+        #     # Then execute the statement with the values
+        #     for values in insert_into.values:
+        #         insert_values = [value.value for value in values.values]
+        #         cursor.execute(execute_statement, insert_values)
+
+        # Second attempt at using prepared statements with executemany
+        # sql = f"INSERT INTO {insert_into.fully_qualified_table_name} {columns_sql} VALUES %s"
+        # # Time this function
+        # start_time = time.time()
+        # values_to_insert = []
+        # for values in insert_into.values:
+        #     insert_values = [value.value for value in values.values]
+        #     values_to_insert.append(insert_values)
+        # end_time = time.time()
+        # values_to_insert_time = end_time - start_time
+        # logger.info(f"Values to insert time taken: {values_to_insert_time} seconds")
+
+        # with self.connection.connection.cursor() as cursor:
+        #     # Time this function
+        #     start_time = time.time()
+        #     psycopg2.extras.execute_values(cursor, sql, values_to_insert)
+        #     end_time = time.time()
+        #     execute_values_time = end_time - start_time
+        #     logger.info(f"Execute values time taken: {execute_values_time} seconds")
+
+        # Third attempt using psycopg3
+        start_time = time.time()
+        values_to_insert = []
+        for values in insert_into.values:
+            insert_values = [value.value for value in values.values]
+            values_to_insert.append(insert_values)
+        end_time = time.time()
+        values_to_insert_time = end_time - start_time
+        logger.info(f"Values to insert time taken: {values_to_insert_time} seconds")
+
+        import psycopg
+
+        connection_kwargs = self.connection.connection_config.to_connection_kwargs()
+        connection_kwargs["dbname"] = connection_kwargs.pop("database")
+        connection = psycopg.connect(**connection_kwargs)
+        start_time = time.time()
+        with connection.cursor() as cursor:
+            with cursor.copy(f"COPY {insert_into.fully_qualified_table_name} {columns_sql} FROM STDIN") as copy:
+                for values in values_to_insert:
+                    copy.write_row(values)
+        end_time = time.time()
+        copy_time = end_time - start_time
+        logger.info(f"Copy time taken: {copy_time} seconds")
+        connection.commit()
+        connection.close()
 
 
 class PostgresSqlDataType(SqlDataType):
