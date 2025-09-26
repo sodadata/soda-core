@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -21,8 +22,8 @@ REDSHIFT_CHARACTER_VARYING = "character varying"
 
 
 class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel):
-    def __init__(self, data_source_model: RedshiftDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: RedshiftDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return RedshiftSqlDialect()

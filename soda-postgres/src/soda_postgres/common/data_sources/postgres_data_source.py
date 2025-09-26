@@ -1,4 +1,5 @@
 from logging import Logger
+from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -22,8 +23,8 @@ PG_DOUBLE_PRECISION = "double precision"
 
 
 class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel):
-    def __init__(self, data_source_model: PostgresDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: PostgresDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return PostgresSqlDialect()

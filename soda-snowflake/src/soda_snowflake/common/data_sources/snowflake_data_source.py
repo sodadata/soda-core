@@ -1,4 +1,5 @@
 from logging import Logger
+from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -22,8 +23,8 @@ TIMESTAMP_WITH_LOCAL_TIME_ZONE = "timestamp with local time zone"
 
 
 class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceModel):
-    def __init__(self, data_source_model: SnowflakeDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: SnowflakeDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return SnowflakeSqlDialect()

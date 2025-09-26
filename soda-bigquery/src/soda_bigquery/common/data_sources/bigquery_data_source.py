@@ -48,8 +48,8 @@ class BigQueryDataSourceNamespace(DataSourceNamespace):
 
 
 class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel):
-    def __init__(self, data_source_model: BigQueryDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: BigQueryDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
         self.cached_location = None
 
     def _create_sql_dialect(self) -> SqlDialect:
