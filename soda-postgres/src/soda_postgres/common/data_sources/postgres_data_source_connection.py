@@ -75,6 +75,11 @@ class PostgresDataSourceConnection(DataSourceConnection):
         self,
         config: PostgresConnectionProperties,
     ):
+        if isinstance(config, PostgresConnectionPasswordFile):
+            with open(config.password_file, "r") as f:
+                config_dict = config.model_dump(exclude="password_file")
+                config_dict["password"] = f.read().strip()
+                config = PostgresConnectionPassword(**config_dict)
         return psycopg2.connect(**config.to_connection_kwargs())
 
     def execute_query(self, sql: str) -> QueryResult:
