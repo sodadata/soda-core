@@ -16,7 +16,7 @@ class DatabricksSharedConnectionProperties(DatabricksConnectionProperties, ABC):
     http_path: str = Field(..., description="HTTP path for the SQL endpoint or cluster")
     catalog: str = Field(None, description="Default catalog to use")
     session_configuration: Optional[Dict[str, str]] = Field(None, description="Optional session configuration dict")
-    
+
     field_mapping: ClassVar[Dict[str, str]] = {
         "host": "server_hostname",
     }

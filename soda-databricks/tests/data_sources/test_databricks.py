@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 from helpers.test_connection import TestConnection
@@ -18,7 +17,7 @@ test_connections: list[TestConnection] = [
                 type: databricks
                 name: DATABRICKS_TEST
                 connection:
-                    host: {DATABRICKS_HOST} 
+                    host: {DATABRICKS_HOST}
                     http_path: {DATABRICKS_HTTP_PATH}
                     access_token: {DATABRICKS_TOKEN}
                     catalog: {DATABRICKS_CATALOG}
@@ -30,15 +29,15 @@ test_connections: list[TestConnection] = [
                 type: databricks
                 name: DATABRICKS_TEST
                 connection:
-                    host: {DATABRICKS_HOST} 
+                    host: {DATABRICKS_HOST}
                     http_path: {DATABRICKS_HTTP_PATH}
                     access_token: {DATABRICKS_TOKEN}
                     catalog: {DATABRICKS_CATALOG}
                     session_configuration: {{"foo":"bar"}}
             """,
         query_should_succeed=False,
-        expected_query_error = "Configuration foo is not available."
-    )
+        expected_query_error="Configuration foo is not available.",
+    ),
 ]
 
 
