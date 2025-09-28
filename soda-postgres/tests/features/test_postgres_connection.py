@@ -61,9 +61,10 @@ test_connections: list[TestConnection] = [
                     sslrootcert: 'baz'
             """,
         valid_connection_params=False,
-        expected_connection_error="server does not support SSL, but SSL was required"
+        expected_connection_error="server does not support SSL, but SSL was required",
     ),
 ]
+
 
 # run tests.  parameterization means each test case will show up as an individual test
 @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
