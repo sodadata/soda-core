@@ -7,7 +7,7 @@ from helpers.test_connection import TestConnection
 # define environment variables used in test cases
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_USERNAME = os.getenv("POSTGRES_USERNAME", "soda_test")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "***")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 POSTGRES_DATABASE = os.getenv("POSTGRES_DATABASE", "soda_test")
 
