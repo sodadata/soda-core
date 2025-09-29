@@ -1,10 +1,6 @@
-import os
-
 import pandas as pd
 import polars as pl
-import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_connection import TestConnection
 from helpers.test_table import TestTableSpecification
 
 # Teset table spec is just used to build the contract, the actual data is in the df/csv/etc
@@ -61,4 +57,3 @@ def test_polars(data_source_test_helper: DataSourceTestHelper):
         test_table=test_table,
         contract_yaml_str=contract_str,
     )
-

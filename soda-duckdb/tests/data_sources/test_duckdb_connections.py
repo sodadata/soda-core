@@ -1,8 +1,6 @@
 import pytest
-import time
 from helpers.test_connection import TestConnection
 from soda_duckdb.common.data_sources.duckdb_data_source import DuckDBDataSourceImpl
-
 
 test_connections: list[TestConnection] = [
     TestConnection(  # correct connection, should work
@@ -33,20 +31,20 @@ test_connections: list[TestConnection] = [
                     read_only: true
             """,
         valid_connection_params=False,
-        expected_connection_error="Cannot launch in-memory database in read-only mode"
-    )
+        expected_connection_error="Cannot launch in-memory database in read-only mode",
+    ),
 ]
 
 
 # run tests.  parameterization means each test case will show up as an individual test
 @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
-def test_duckdb_connections(test_connection: TestConnection):        
+def test_duckdb_connections(test_connection: TestConnection):
     test_connection.test()
-        
+
 
 def test_connection_reused_in_memory():
     """Test that in-memory databases are re-used if they exist."""
-    
+
     # set up an initial connection
     test_connection = TestConnection(
         test_name="connection_reused",
@@ -55,7 +53,7 @@ def test_connection_reused_in_memory():
                 name: DUCKDB_TEST
                 connection:
                     database: ":memory:"
-            """
+            """,
     )
     data_source_yaml = test_connection.create_data_source_yaml()
     data_source_impl = test_connection.create_data_source_impl(data_source_yaml)
@@ -65,16 +63,16 @@ def test_connection_reused_in_memory():
     conn.execute_query("Create table foo as (select 123)")
     # connection remains open
 
-    # create a second connection which should re-use the first 
+    # create a second connection which should re-use the first
     # so long as it refers to ":memory:"
     test_connection2 = TestConnection(
         test_name="connection_reused_2",
         connection_yaml_str=f"""
-                type: duckdb 
+                type: duckdb
                 name: DUCKDB_TEST
                 connection:
                     database: ":memory:"
-            """
+            """,
     )
     data_source_yaml = test_connection2.create_data_source_yaml()
     data_source_impl = test_connection2.create_data_source_impl(data_source_yaml)
@@ -85,12 +83,12 @@ def test_connection_reused_in_memory():
 
 
 def test_connection_from_existing_cursor():
-    # Test passing an existing duckdb connection 
+    # Test passing an existing duckdb connection
     import duckdb
+
     conn = duckdb.connect(":memory:db3")
     conn.sql("Create table foo as (select 456)")
     new_conn = DuckDBDataSourceImpl.from_existing_cursor(conn, "DUCKDB_TEST")
     new_conn.open_connection()
     assert new_conn.execute_query("select * from foo").rows == [(456,)]
     new_conn.close_connection()
-    
