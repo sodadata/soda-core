@@ -18,7 +18,7 @@ with tempfile.NamedTemporaryFile(delete=False) as temp_file:
     temp_file.write(PRIVATE_KEY.encode())
     PRIVATE_KEY_FILE_PATH = temp_file.name
 
-fake_jwt_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30"
+fake_jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30"
 
 # define test cases and expected behavior (passing unless otherwise specified)
 test_connections: list[TestConnection] = [
@@ -31,10 +31,10 @@ test_connections: list[TestConnection] = [
                     account: '{SNOWFLAKE_ACCOUNT}'
                     user: '{SNOWFLAKE_USER}'
                     password: '{SNOWFLAKE_PASSWORD}'
-                    database: '{SNOWFLAKE_DATABASE}'                    
+                    database: '{SNOWFLAKE_DATABASE}'
             """,
     ),
-        TestConnection(  # connect using private key
+    TestConnection(  # connect using private key
         test_name="private_key_connection",
         connection_yaml_str=f"""
                 type: snowflake
@@ -44,7 +44,7 @@ test_connections: list[TestConnection] = [
                     user: '{SNOWFLAKE_USER}'
                     private_key: "{PRIVATE_KEY}"
                     private_key_passphrase: '{PRIVATE_KEY_PASSPHRASE}'
-                    database: '{SNOWFLAKE_DATABASE}'                    
+                    database: '{SNOWFLAKE_DATABASE}'
             """,
     ),
     TestConnection(  # connect using private key file
@@ -57,7 +57,7 @@ test_connections: list[TestConnection] = [
                     user: '{SNOWFLAKE_USER}'
                     private_key_path: '{PRIVATE_KEY_FILE_PATH}'
                     private_key_passphrase: '{PRIVATE_KEY_PASSPHRASE}'
-                    database: '{SNOWFLAKE_DATABASE}'                    
+                    database: '{SNOWFLAKE_DATABASE}'
             """,
     ),
     # TestConnection(  # connect using jwt token -- not sure if the implementation is correct
@@ -70,7 +70,7 @@ test_connections: list[TestConnection] = [
     #                 user: '{SNOWFLAKE_USER}'
     #                 authenticator: 'oauth'
     #                 jwt_token: '{fake_jwt_token}'
-    #                 database: '{SNOWFLAKE_DATABASE}'                    
+    #                 database: '{SNOWFLAKE_DATABASE}'
     #         """,
     # ),
     TestConnection(  # connect using token
@@ -82,11 +82,11 @@ test_connections: list[TestConnection] = [
                     account: '{SNOWFLAKE_ACCOUNT}'
                     user: '{SNOWFLAKE_USER}'
                     authenticator: 'oauth'
-                    token: 'foo'                    
-                    database: '{SNOWFLAKE_DATABASE}'                    
+                    token: 'foo'
+                    database: '{SNOWFLAKE_DATABASE}'
             """,
         valid_connection_params=False,
-        expected_connection_error="Invalid OAuth access token"
+        expected_connection_error="Invalid OAuth access token",
     ),
     # TestConnection(  # connect using external browser. commented out by default because CI will hang.  Uncomment to test locally
     #     test_name="external_browser_connection",
@@ -96,8 +96,8 @@ test_connections: list[TestConnection] = [
     #             connection:
     #                 account: '{SNOWFLAKE_ACCOUNT}'
     #                 user: '{SNOWFLAKE_USER}'
-    #                 database: '{SNOWFLAKE_DATABASE}'                    
-    #                 authenticator: 'externalbrowser'                   
+    #                 database: '{SNOWFLAKE_DATABASE}'
+    #                 authenticator: 'externalbrowser'
     #         """,
     #     valid_connection_params=False,
     #     expected_connection_error="Failed to connect to DB"
@@ -115,12 +115,11 @@ test_connections: list[TestConnection] = [
                     oauth_client_secret: 'foo'
                     oauth_token_request_url: 'foo'
                     oauth_scope: 'foo'
-                    database: '{SNOWFLAKE_DATABASE}'                    
+                    database: '{SNOWFLAKE_DATABASE}'
             """,
         valid_connection_params=False,
-        expected_connection_error="Failed to resolve 'foo'"
-    )
-
+        expected_connection_error="Failed to resolve 'foo'",
+    ),
 ]
 
 
