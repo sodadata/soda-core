@@ -83,6 +83,7 @@ class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
+    authenticator: Literal["oauth"] = Field(..., description="Use OAuth access token")
     token: SecretStr = Field(..., description="OAuth access token")
 
 

@@ -28,8 +28,8 @@ class TestConnection:
     monkeypatches: Optional[dict[str, Any]] = None
 
     def create_data_source_yaml(self) -> DataSourceYamlSource:
-        connection_yaml_str = dedent(self.connection_yaml_str).strip()
-        return DataSourceYamlSource.from_str(yaml_str=connection_yaml_str)
+        #connection_yaml_str = dedent(self.connection_yaml_str).strip()
+        return DataSourceYamlSource.from_str(yaml_str=self.connection_yaml_str)
 
     def create_data_source_impl(self, data_source_yaml_source: DataSourceYamlSource) -> DataSourceImpl:
         return DataSourceImpl.from_yaml_source(data_source_yaml_source)
