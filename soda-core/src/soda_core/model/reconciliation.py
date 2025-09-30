@@ -32,5 +32,5 @@ class ReconciliationYaml(
     # TODO: using "any" here is a workaround for circular imports. CheckYaml should be used.
     checks: list[Any] = Field(
         default_factory=list,
-        description="A list of checks to be performed on the reconciliation. Each check is defined as a dictionary.",
+        description="A list of checks to be performed on the reconciliation.",
     )
