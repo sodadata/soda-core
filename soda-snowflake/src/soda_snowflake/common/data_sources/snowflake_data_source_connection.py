@@ -77,11 +77,6 @@ class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
         )
         return connection_kwargs
 
-
-class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
-    jwt_token: SecretStr = Field(..., description="JWT token for authentication")
-
-
 class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
     authenticator: Literal["oauth"] = Field(..., description="Use OAuth access token")
     token: SecretStr = Field(..., description="OAuth access token")
@@ -116,8 +111,6 @@ class SnowflakeDataSource(DataSourceBase, ABC):
             return SnowflakeKeyPairAuth(**value)
         elif "private_key_path" in value:
             return SnowflakeKeyPairFileAuth(**value)
-        elif "jwt_token" in value:
-            return SnowflakeJWTAuth(**value)
         elif "token" in value:
             return SnowflakeOAuthAuth(**value)
         elif value.get("authenticator") == "externalbrowser":

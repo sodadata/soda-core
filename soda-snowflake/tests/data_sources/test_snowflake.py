@@ -59,19 +59,6 @@ test_connections: list[TestConnection] = [
                     database: '{SNOWFLAKE_DATABASE}'
             """,
     ),
-    # TestConnection(  # connect using jwt token -- not sure if the implementation is correct
-    #     test_name="jwt_token_connection",
-    #     connection_yaml_str=f"""
-    #             type: snowflake
-    #             name: SNOWFLAKE_TEST
-    #             connection:
-    #                 account: '{SNOWFLAKE_ACCOUNT}'
-    #                 user: '{SNOWFLAKE_USER}'
-    #                 authenticator: 'oauth'
-    #                 jwt_token: '{fake_jwt_token}'
-    #                 database: '{SNOWFLAKE_DATABASE}'
-    #         """,
-    # ),
     TestConnection(  # connect using token
         test_name="token_connection",
         connection_yaml_str=f"""
