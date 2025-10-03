@@ -1502,6 +1502,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
 
 class ValidCountMetric(AggregationMetricImpl):
     """TODO -- 3/10/2025: this metric is not used anywhere in the codebase, it's not clear if it's needed."""
+
     def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_impl: MissingAndValidityCheckImpl):
         super().__init__(
             contract_impl=contract_impl,
