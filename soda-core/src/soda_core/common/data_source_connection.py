@@ -12,9 +12,9 @@ logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
 
-SODA_DEBUG_PRINT_VALUE_MAX_CHARS = int(os.environ.get("SODA_DEBUG_PRINT_VALUE_MAX_CHARS", 256))
-SODA_DEBUG_PRINT_RESULT_MAX_ROWS = int(os.environ.get("SODA_DEBUG_PRINT_RESULT_MAX_ROWS", 20))
-SODA_DEBUG_PRINT_SQL_MAX_CHARS = int(os.environ.get("SODA_DEBUG_PRINT_SQL_MAX_CHARS", 1024))
+MAX_CHARS_PER_STRING = int(os.environ.get("SODA_DEBUG_PRINT_VALUE_MAX_CHARS", 256))
+MAX_ROWS = int(os.environ.get("SODA_DEBUG_PRINT_RESULT_MAX_ROWS", 20))
+MAX_CHARS_PER_SQL = int(os.environ.get("SODA_DEBUG_PRINT_SQL_MAX_CHARS", 1024))
 
 class DataSourceConnection(ABC):
     def __init__(self, name: str, connection_properties: dict, connection: Optional[object] = None):
@@ -73,7 +73,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(f"SQL query fetchall in datasource {self.name} (first {SODA_DEBUG_PRINT_SQL_MAX_CHARS} chars): \n{self.truncate_sql(sql)}")
+            logger.debug(f"SQL query fetchall in datasource {self.name} (first {MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
             cursor.execute(sql)
             rows = cursor.fetchall()
             formatted_rows = self.format_rows(rows)
@@ -85,7 +85,7 @@ class DataSourceConnection(ABC):
                 tablefmt="github",
             )
 
-            logger.debug(f"SQL query result (max {SODA_DEBUG_PRINT_RESULT_MAX_ROWS} rows, {SODA_DEBUG_PRINT_VALUE_MAX_CHARS} chars per string):\n{table_text}")
+            logger.debug(f"SQL query result (max {MAX_ROWS} rows, {MAX_CHARS_PER_STRING} chars per string):\n{table_text}")
             return QueryResult(rows=formatted_rows, columns=cursor.description)
         finally:
             cursor.close()
@@ -95,22 +95,20 @@ class DataSourceConnection(ABC):
 
     def truncate_sql(self, sql: str) -> str:
         """Truncate large strings in sql to a reasonable length."""
-        max_chars = SODA_DEBUG_PRINT_SQL_MAX_CHARS
-        if len(sql) > max_chars:
-            return sql[:max_chars] + "..."
+        if len(sql) > (MAX_CHARS_PER_SQL-3):
+            return sql[:MAX_CHARS_PER_SQL-3] + "..."
         return sql
 
     def truncate_rows(self, rows: list[tuple]) -> list[tuple]:
         """Truncate large strings in rows to a reasonable length, and return only the first n rows."""
-        max_chars = SODA_DEBUG_PRINT_VALUE_MAX_CHARS
-        max_rows = SODA_DEBUG_PRINT_RESULT_MAX_ROWS
         def truncate_cell(cell: Any) -> Any:
-            if isinstance(cell, str) and len(cell) > max_chars:
-                return cell[:max_chars] + "..."
+            if isinstance(cell, str) and len(cell) > (MAX_CHARS_PER_STRING-3):
+                return cell[:MAX_CHARS_PER_STRING-3] + "..."
             return cell
+        if len(rows) > MAX_ROWS:
+            rows = rows[:MAX_ROWS]
         rows = [tuple(truncate_cell(cell) for cell in row) for row in rows]
-        if len(rows) > max_rows:
-            rows = rows[:max_rows]
+
         return rows
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
