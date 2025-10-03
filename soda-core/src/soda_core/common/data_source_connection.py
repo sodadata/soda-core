@@ -74,13 +74,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-<<<<<<< HEAD
             logger.debug(f"SQL query fetchall in datasource {self.name} (first {MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
-=======
-            logger.debug(
-                f"SQL query fetchall in datasource {self.name} (first {SODA_DEBUG_PRINT_SQL_MAX_CHARS} chars): \n{self.truncate_sql(sql)}"
-            )
->>>>>>> 8531e9a6b5ebfcaea49571d98804c0722913c867
             cursor.execute(sql)
             rows = cursor.fetchall()
             formatted_rows = self.format_rows(rows)
@@ -92,13 +86,7 @@ class DataSourceConnection(ABC):
                 tablefmt="github",
             )
 
-<<<<<<< HEAD
             logger.debug(f"SQL query result (max {MAX_ROWS} rows, {MAX_CHARS_PER_STRING} chars per string):\n{table_text}")
-=======
-            logger.debug(
-                f"SQL query result (max {SODA_DEBUG_PRINT_RESULT_MAX_ROWS} rows, {SODA_DEBUG_PRINT_VALUE_MAX_CHARS} chars per string):\n{table_text}"
-            )
->>>>>>> 8531e9a6b5ebfcaea49571d98804c0722913c867
             return QueryResult(rows=formatted_rows, columns=cursor.description)
         finally:
             cursor.close()
@@ -114,22 +102,12 @@ class DataSourceConnection(ABC):
 
     def truncate_rows(self, rows: list[tuple]) -> list[tuple]:
         """Truncate large strings in rows to a reasonable length, and return only the first n rows."""
-<<<<<<< HEAD
-=======
-        max_chars = SODA_DEBUG_PRINT_VALUE_MAX_CHARS
-        max_rows = SODA_DEBUG_PRINT_RESULT_MAX_ROWS
-
->>>>>>> 8531e9a6b5ebfcaea49571d98804c0722913c867
         def truncate_cell(cell: Any) -> Any:
             if isinstance(cell, str) and len(cell) > (MAX_CHARS_PER_STRING-3):
                 return cell[:MAX_CHARS_PER_STRING-3] + "..."
             return cell
-<<<<<<< HEAD
         if len(rows) > MAX_ROWS:
             rows = rows[:MAX_ROWS]
-=======
-
->>>>>>> 8531e9a6b5ebfcaea49571d98804c0722913c867
         rows = [tuple(truncate_cell(cell) for cell in row) for row in rows]
 
         return rows
