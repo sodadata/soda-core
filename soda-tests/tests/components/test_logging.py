@@ -1,13 +1,14 @@
-from soda_core.common.logs import Logs
 import os
+
+from soda_core.common.logs import Logs
 
 MAX_CHARS_PER_STRING = int(os.environ.get("SODA_DEBUG_PRINT_VALUE_MAX_CHARS", 256))
 MAX_ROWS = int(os.environ.get("SODA_DEBUG_PRINT_RESULT_MAX_ROWS", 20))
 MAX_CHARS_PER_SQL = int(os.environ.get("SODA_DEBUG_PRINT_SQL_MAX_CHARS", 1024))
 
+
 def test_logging_debug_prints(data_source_test_helper):
     """Test that query results are correctly truncated."""
-
 
     multi_row_sql = """
         select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all
@@ -35,15 +36,13 @@ def test_logging_debug_prints(data_source_test_helper):
     data_source_test_helper.data_source_impl.execute_query(multi_row_sql)
     log_lines = logs.get_logs()
     sql_print_log = [l for l in log_lines if l.startswith("SQL query fetchall in datasource")][0]
-    truncated_sql = multi_row_sql[:MAX_CHARS_PER_SQL-3] + "..."
+    truncated_sql = multi_row_sql[: MAX_CHARS_PER_SQL - 3] + "..."
     assert truncated_sql in sql_print_log
-
 
     query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
     assert str(MAX_ROWS) in query_result_log
-    assert str(MAX_ROWS+1) not in query_result_log
+    assert str(MAX_ROWS + 1) not in query_result_log
 
-    
     logs = Logs()
     long_string = "a" * 10000
     sql_long_string = f"select '{long_string}', 'bbb', 'ccc'"
@@ -51,8 +50,6 @@ def test_logging_debug_prints(data_source_test_helper):
     log_lines = logs.get_logs()
 
     query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
-    assert long_string[:MAX_CHARS_PER_STRING-3] + "..." in query_result_log
+    assert long_string[: MAX_CHARS_PER_STRING - 3] + "..." in query_result_log
     assert "bbb" in query_result_log
     assert "ccc" in query_result_log
-
-    
