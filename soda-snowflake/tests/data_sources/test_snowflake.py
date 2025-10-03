@@ -1,5 +1,6 @@
 import os
 import tempfile
+import base64
 
 import pytest
 from helpers.test_connection import TestConnection
@@ -12,7 +13,7 @@ SNOWFLAKE_DATABASE = os.getenv("SNOWFLAKE_DATABASE", "soda_test")
 
 
 PRIVATE_KEY_PASSPHRASE = os.getenv("SNOWFLAKE_ENCRYPTION_KEY")
-PRIVATE_KEY = os.getenv("SNOWFLAKE_ENCRYPTED_PRIVATE_KEY")
+PRIVATE_KEY = base64.b64decode(os.getenv("SNOWFLAKE_ENCRYPTED_PRIVATE_KEY")).decode("utf-8")
 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
     temp_file.write(PRIVATE_KEY.encode())
     PRIVATE_KEY_FILE_PATH = temp_file.name
