@@ -1,6 +1,6 @@
+import base64
 import os
 import tempfile
-import base64
 
 import pytest
 from helpers.test_connection import TestConnection
