@@ -38,7 +38,7 @@ class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
-    private_key: str = Field(..., description="Private key for authentication")
+    private_key: SecretStr = Field(..., description="Private key for authentication")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
     def to_connection_kwargs(self) -> dict:
@@ -47,7 +47,7 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
         return connection_kwargs
 
     def _decrypt(self, private_key: str, private_key_passphrase: Optional[SecretStr]) -> bytes:
-        private_key_bytes = private_key.encode()
+        private_key_bytes = private_key.get_secret_value().encode()
         private_key_passphrase_bytes = (
             private_key_passphrase.get_secret_value().encode() if private_key_passphrase else None
         )
