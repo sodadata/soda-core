@@ -36,10 +36,9 @@ def test_logging_debug_prints(data_source_test_helper):
     data_source_test_helper.data_source_impl.execute_query(multi_row_sql)
     log_lines = logs.get_logs()
     sql_print_log = [l for l in log_lines if l.startswith("SQL query fetchall in datasource")][0]
-    if len(multi_row_sql) > MAX_CHARS_PER_SQL:  
+    if len(multi_row_sql) > MAX_CHARS_PER_SQL:
         truncated_sql = multi_row_sql[: MAX_CHARS_PER_SQL - 3] + "..."
         assert truncated_sql in sql_print_log
-    
 
     query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
     assert str(MAX_ROWS) in query_result_log
