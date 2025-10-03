@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logging_constants import soda_logger
@@ -10,6 +11,10 @@ from soda_core.common.logging_constants import soda_logger
 logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
+
+MAX_CHARS_PER_STRING = int(os.environ.get("SODA_DEBUG_PRINT_VALUE_MAX_CHARS", 256))
+MAX_ROWS = int(os.environ.get("SODA_DEBUG_PRINT_RESULT_MAX_ROWS", 20))
+MAX_CHARS_PER_SQL = int(os.environ.get("SODA_DEBUG_PRINT_SQL_MAX_CHARS", 1024))
 
 
 class DataSourceConnection(ABC):
@@ -69,23 +74,48 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(f"SQL query fetchall in datasource {self.name}: \n{sql}")
+            logger.debug(
+                f"SQL query fetchall in datasource {self.name} (first {MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
+            )
             cursor.execute(sql)
             rows = cursor.fetchall()
             formatted_rows = self.format_rows(rows)
+            truncated_rows = self.truncate_rows(formatted_rows)
             headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
             table_text: str = tabulate(
-                formatted_rows,
+                truncated_rows,
                 headers=headers,
                 tablefmt="github",
             )
 
-            logger.debug(f"SQL query result:\n{table_text}")
+            logger.debug(
+                f"SQL query result (max {MAX_ROWS} rows, {MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
+            )
             return QueryResult(rows=formatted_rows, columns=cursor.description)
         finally:
             cursor.close()
 
     def format_rows(self, rows: list[tuple]) -> list[tuple]:
+        return rows
+
+    def truncate_sql(self, sql: str) -> str:
+        """Truncate large strings in sql to a reasonable length."""
+        if len(sql) > (MAX_CHARS_PER_SQL - 3):
+            return sql[: MAX_CHARS_PER_SQL - 3] + "..."
+        return sql
+
+    def truncate_rows(self, rows: list[tuple]) -> list[tuple]:
+        """Truncate large strings in rows to a reasonable length, and return only the first n rows."""
+
+        def truncate_cell(cell: Any) -> Any:
+            if isinstance(cell, str) and len(cell) > (MAX_CHARS_PER_STRING - 3):
+                return cell[: MAX_CHARS_PER_STRING - 3] + "..."
+            return cell
+
+        if len(rows) > MAX_ROWS:
+            rows = rows[:MAX_ROWS]
+        rows = [tuple(truncate_cell(cell) for cell in row) for row in rows]
+
         return rows
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
