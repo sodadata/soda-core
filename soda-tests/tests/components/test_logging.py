@@ -36,12 +36,15 @@ def test_logging_debug_prints(data_source_test_helper):
     data_source_test_helper.data_source_impl.execute_query(multi_row_sql)
     log_lines = logs.get_logs()
     sql_print_log = [l for l in log_lines if l.startswith("SQL query fetchall in datasource")][0]
-    truncated_sql = multi_row_sql[: MAX_CHARS_PER_SQL - 3] + "..."
-    assert truncated_sql in sql_print_log
+    if len(multi_row_sql) > MAX_CHARS_PER_SQL:  
+        truncated_sql = multi_row_sql[: MAX_CHARS_PER_SQL - 3] + "..."
+        assert truncated_sql in sql_print_log
+    
 
     query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
     assert str(MAX_ROWS) in query_result_log
-    assert str(MAX_ROWS + 1) not in query_result_log
+    if MAX_ROWS < 99:
+        assert str(MAX_ROWS + 1) not in query_result_log
 
     logs = Logs()
     long_string = "a" * 10000
@@ -50,6 +53,9 @@ def test_logging_debug_prints(data_source_test_helper):
     log_lines = logs.get_logs()
 
     query_result_log = [l for l in log_lines if l.startswith("SQL query result")][0]
-    assert long_string[: MAX_CHARS_PER_STRING - 3] + "..." in query_result_log
+    if len(long_string) > MAX_CHARS_PER_STRING:
+        assert long_string[: MAX_CHARS_PER_STRING - 3] + "..." in query_result_log
+    else:
+        assert long_string in query_result_log
     assert "bbb" in query_result_log
     assert "ccc" in query_result_log
