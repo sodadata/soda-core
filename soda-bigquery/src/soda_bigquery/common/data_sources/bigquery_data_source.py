@@ -132,12 +132,13 @@ class BigQuerySqlDialect(SqlDialect):
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
+            "datetime": SodaDataTypeName.TIMESTAMP,                            
             "bool": SodaDataTypeName.BOOLEAN,
         }
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
-            ["int64", "integer"],
+            ["int64", "integer", "int", "bigint", "tinyint", "byteint"],
             ["bool", "boolean"],
             ["numeric", "decimal"],
             ["bignumeric", "bigdecimal"],
