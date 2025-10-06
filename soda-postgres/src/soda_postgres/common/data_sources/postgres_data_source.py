@@ -126,7 +126,7 @@ class PostgresSqlDialect(SqlDialect):
             [PG_DOUBLE_PRECISION, "float8"],
             ["timestamp", PG_TIMESTAMP_WITHOUT_TIME_ZONE],
             ["decimal", "numeric"],
-            ["boolean", "bool"]
+            ["boolean", "bool"],
         ]
 
     def get_sql_data_type_class(self) -> type:

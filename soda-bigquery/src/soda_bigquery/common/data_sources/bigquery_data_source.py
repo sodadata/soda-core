@@ -132,7 +132,7 @@ class BigQuerySqlDialect(SqlDialect):
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "date": SodaDataTypeName.DATE,
             "time": SodaDataTypeName.TIME,
-            "datetime": SodaDataTypeName.TIMESTAMP,                            
+            "datetime": SodaDataTypeName.TIMESTAMP,
             "bool": SodaDataTypeName.BOOLEAN,
         }
 
