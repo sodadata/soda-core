@@ -27,8 +27,8 @@ logger: logging.Logger = soda_logger
 
 
 class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
-    def __init__(self, data_source_model: AthenaDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: AthenaDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return AthenaSqlDialect(self)

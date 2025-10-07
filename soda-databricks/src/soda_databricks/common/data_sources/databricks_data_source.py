@@ -18,8 +18,8 @@ logger: Logger = soda_logger
 
 
 class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceModel):
-    def __init__(self, data_source_model: DatabricksDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: DatabricksDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return DatabricksSqlDialect()

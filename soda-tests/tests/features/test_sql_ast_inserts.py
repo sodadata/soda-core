@@ -1,4 +1,5 @@
 import datetime
+from logging import Logger
 
 import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -6,6 +7,7 @@ from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.datetime_conversions import interpret_datetime_as_utc
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -20,6 +22,8 @@ from soda_core.common.sql_ast import (
     VALUES_ROW,
 )
 from soda_core.common.sql_dialect import SqlDialect
+
+logger: Logger = soda_logger
 
 
 def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelper):
