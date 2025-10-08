@@ -63,7 +63,7 @@ class PostgresSqlDialect(SqlDialect):
             + (";" if add_semicolon else "")
         )
 
-    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
@@ -90,14 +90,21 @@ class PostgresSqlDialect(SqlDialect):
             "character": SodaDataTypeName.CHAR,
             "char": SodaDataTypeName.CHAR,
             "text": SodaDataTypeName.TEXT,
+            "bpchar": SodaDataTypeName.TEXT,
             "smallint": SodaDataTypeName.SMALLINT,
+            "int2": SodaDataTypeName.SMALLINT,
             "integer": SodaDataTypeName.INTEGER,
+            "int": SodaDataTypeName.INTEGER,
+            "int4": SodaDataTypeName.INTEGER,
             "bigint": SodaDataTypeName.BIGINT,
+            "int8": SodaDataTypeName.BIGINT,
             "decimal": SodaDataTypeName.DECIMAL,
             "numeric": SodaDataTypeName.NUMERIC,
             "float": SodaDataTypeName.FLOAT,
             "real": SodaDataTypeName.FLOAT,
+            "float4": SodaDataTypeName.FLOAT,
             PG_DOUBLE_PRECISION: SodaDataTypeName.DOUBLE,
+            "float8": SodaDataTypeName.DOUBLE,
             "timestamp": SodaDataTypeName.TIMESTAMP,
             PG_TIMESTAMP_WITHOUT_TIME_ZONE: SodaDataTypeName.TIMESTAMP,
             "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
@@ -106,6 +113,7 @@ class PostgresSqlDialect(SqlDialect):
             "time": SodaDataTypeName.TIME,
             "time without time zone": SodaDataTypeName.TIME,
             "boolean": SodaDataTypeName.BOOLEAN,
+            "bool": SodaDataTypeName.BOOLEAN,
         }
 
     def _build_cast_sql(self, cast: CAST) -> str:
