@@ -134,7 +134,7 @@ class SqlDialect:
         return self.get_data_source_data_type_name_by_soda_data_type_names()[soda_data_type_name]
 
     @abstractmethod
-    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
         """
         Maps SodaDataTypeName's names to native data source type names.
         """
