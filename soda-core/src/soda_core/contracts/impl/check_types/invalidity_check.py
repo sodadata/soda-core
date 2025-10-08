@@ -88,12 +88,12 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 )
             )
             # this is used in the check extension to extract failed keys and rows
-            self.ref_query =InvalidReferenceCountQuery(
-                    metric_impl=self.invalid_count_metric_impl,
-                    dataset_filter=self.contract_impl.filter,
-                    check_filter=self.check_yaml.filter,
-                    data_source_impl=contract_impl.data_source_impl,
-                )
+            self.ref_query = InvalidReferenceCountQuery(
+                metric_impl=self.invalid_count_metric_impl,
+                dataset_filter=self.contract_impl.filter,
+                check_filter=self.check_yaml.filter,
+                data_source_impl=contract_impl.data_source_impl,
+            )
             self.queries.append(self.ref_query)
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
@@ -200,12 +200,11 @@ class InvalidReferenceCountQuery(Query):
         # R stands for the 'R'eference dataset
         self.referenced_alias: str = "R"
 
-        
         sql_ast = self.build_query(SELECT(COUNT(STAR())))
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
     def build_query(self, select_expression: SqlExpression) -> SqlExpression:
-        sql_ast: list = [select_expression]  
+        sql_ast: list = [select_expression]
         sql_ast.extend(self.query_from())
 
         if self.dataset_filter or self.check_filter:
@@ -231,14 +230,13 @@ class InvalidReferenceCountQuery(Query):
             ] + sql_ast
         return sql_ast
 
-
     def query_from(self) -> SqlExpression:
         valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
 
         referencing_dataset_name: str = self.metric_impl.contract_impl.dataset_name
         referencing_dataset_prefix: Optional[str] = self.metric_impl.contract_impl.dataset_prefix
         referencing_column_name: str = self.metric_impl.column_impl.column_yaml.name
-        
+
         referenced_dataset_name: str = valid_reference_data.dataset_name
         referenced_dataset_prefix: Optional[list[str]] = (
             valid_reference_data.dataset_prefix
@@ -246,7 +244,7 @@ class InvalidReferenceCountQuery(Query):
             else self.metric_impl.contract_impl.dataset_prefix
         )
         referenced_column: str = valid_reference_data.column
-        
+
         # The variant to get the failed rows is:
         # SELECT(STAR().IN("C")),
         # which should translate to SELECT C.*
@@ -263,7 +261,7 @@ class InvalidReferenceCountQuery(Query):
         )
 
         return [
-        FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(self.referencing_alias),
+            FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(self.referencing_alias),
             LEFT_INNER_JOIN(referenced_dataset_name)
             .IN(referenced_dataset_prefix)
             .ON(
@@ -275,8 +273,6 @@ class InvalidReferenceCountQuery(Query):
             .AS(self.referenced_alias),
             WHERE(AND([NOT(is_referencing_column_missing), is_referencing_column_invalid])),
         ]
-    
-    
 
     def execute(self) -> list[Measurement]:
         try:
