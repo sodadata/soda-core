@@ -220,7 +220,7 @@ class InvalidReferenceCountQuery(Query):
                 check_filter_expr = SqlExpressionStr(self.check_filter)
                 combined_filter_expr = check_filter_expr
 
-            if self.dataset_filter_expr and self.check_filter_expr:
+            if dataset_filter_expr and check_filter_expr:
                 combined_filter_expr = AND([self.dataset_filter_expr, self.check_filter_expr])
 
             original_from = sql_ast[1].AS(None)
