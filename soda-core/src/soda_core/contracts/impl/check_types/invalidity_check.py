@@ -117,11 +117,15 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         row_count: int = measurement_values.get_value(self.row_count_metric)
         invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
 
+        self.dataset_rows_tested = self.contract_impl.dataset_rows_tested
+        self.check_rows_tested = row_count
+
+
         diagnostic_metric_values: dict[str, float] = {
             "invalid_count": invalid_count,
             "invalid_percent": invalid_percent,
-            "check_rows_tested": row_count,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "check_rows_tested": self.check_rows_tested,
+            "dataset_rows_tested": self.dataset_rows_tested,
         }
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count

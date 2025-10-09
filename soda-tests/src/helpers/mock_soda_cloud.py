@@ -62,6 +62,10 @@ class MockSodaCloud(SodaCloud):
         )
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
+        
+        # This needs to be read during testing but it's not accecssible from the main code path
+        # As a workaround, I'm stashing it in the mock soda cloud object when it's sent to soda cloud
+        self.failed_rows_diagnostics: Optional[list[dict]] = None   
 
     def _http_post(
         self,
@@ -91,6 +95,8 @@ class MockSodaCloud(SodaCloud):
         data: Optional[TemporaryFile],
     ) -> Response:
         self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
+        if self._is_send_failed_rows_diagnostics_request(json):
+            self.failed_rows_diagnostics = json["diagnostics"]            
         if self.responses:
             response = self.responses.pop(0)
             if isinstance(response, MockResponse):
@@ -98,6 +104,8 @@ class MockSodaCloud(SodaCloud):
                     raise AssertionError("Wrong response method")
                 if self._is_send_scan_results_request(json):
                     self._resolve_check_identities(json, response)
+                if self._is_send_failed_rows_diagnostics_request(json):
+                    self.failed_rows_diagnostics = json["diagnostics"]
                 logging.debug(f"MockSodaCloud responds to {method} {url} with provided response")
                 return response
         logging.debug(f"MockSodaCloud responds to {method} {url} with default empty 200 OK response")
@@ -108,6 +116,12 @@ class MockSodaCloud(SodaCloud):
             isinstance(request_json, dict)
             and "type" in request_json
             and request_json["type"] == "sodaCoreInsertScanResults"
+        )
+    def _is_send_failed_rows_diagnostics_request(self, request_json: Optional[dict]) -> bool:
+        return (
+            isinstance(request_json, dict)
+            and "type" in request_json
+            and request_json["type"] == "sodaCoreAddFailedRowsDiagnostics"
         )
 
     def _resolve_check_identities(self, request_json: dict, response: MockResponse):
