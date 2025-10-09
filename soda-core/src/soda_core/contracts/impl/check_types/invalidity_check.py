@@ -186,6 +186,11 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
             missing_and_validity=missing_and_validity,
         )
 
+from enum import Enum
+
+class DatasetAlias(Enum):
+    CONTRACT = "C"         # C stands for the 'C'ontract dataset
+    REFERENCE = "R"        # R stands for the 'R'eference dataset
 
 class InvalidReferenceCountQuery(Query):
     def __init__(
@@ -198,11 +203,10 @@ class InvalidReferenceCountQuery(Query):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
         self.metric_impl = metric_impl
         self.dataset_filter = dataset_filter
-        self.check_filter = check_filter
-        # C stands for the 'C'ontract dataset
-        self.referencing_alias: str = "C"
-        # R stands for the 'R'eference dataset
-        self.referenced_alias: str = "R"
+        self.check_filter = check_filter        
+        
+        self.referencing_alias: str = DatasetAlias.CONTRACT
+        self.referenced_alias: str = DatasetAlias.REFERENCE
 
         sql_ast = self.build_query(SELECT(COUNT(STAR())))
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
