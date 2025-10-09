@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -87,14 +88,14 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                     contract_impl=contract_impl, column_impl=column_impl, missing_and_validity=self.missing_and_validity
                 )
             )
-            self.queries.append(
-                InvalidReferenceCountQuery(
-                    metric_impl=self.invalid_count_metric_impl,
-                    dataset_filter=self.contract_impl.filter,
-                    check_filter=self.check_yaml.filter,
-                    data_source_impl=contract_impl.data_source_impl,
-                )
+            # this is used in the check extension to extract failed keys and rows
+            self.ref_query = InvalidReferenceCountQuery(
+                metric_impl=self.invalid_count_metric_impl,
+                dataset_filter=self.contract_impl.filter,
+                check_filter=self.check_yaml.filter,
+                data_source_impl=contract_impl.data_source_impl,
             )
+            self.queries.append(self.ref_query)
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
@@ -183,6 +184,11 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
         )
 
 
+class DatasetAlias(Enum):
+    CONTRACT = "C"  # C stands for the 'C'ontract dataset
+    REFERENCE = "R"  # R stands for the 'R'eference dataset
+
+
 class InvalidReferenceCountQuery(Query):
     def __init__(
         self,
@@ -192,78 +198,86 @@ class InvalidReferenceCountQuery(Query):
         data_source_impl: Optional[DataSourceImpl],
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
+        self.metric_impl = metric_impl
+        self.dataset_filter = dataset_filter
+        self.check_filter = check_filter
 
-        valid_reference_data: ValidReferenceData = metric_impl.missing_and_validity.valid_reference_data
+        self.referencing_alias: str = DatasetAlias.CONTRACT.value
+        self.referenced_alias: str = DatasetAlias.REFERENCE.value
 
-        referencing_dataset_name: str = metric_impl.contract_impl.dataset_name
-        referencing_dataset_prefix: Optional[str] = metric_impl.contract_impl.dataset_prefix
-        referencing_column_name: str = metric_impl.column_impl.column_yaml.name
-        # C stands for the 'C'ontract dataset
-        referencing_alias: str = "C"
+        sql_ast = self.build_query(SELECT(COUNT(STAR())))
+        self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
-        referenced_dataset_name: str = valid_reference_data.dataset_name
-        referenced_dataset_prefix: Optional[list[str]] = (
-            valid_reference_data.dataset_prefix
-            if valid_reference_data.dataset_prefix is not None
-            else metric_impl.contract_impl.dataset_prefix
-        )
-        referenced_column: str = valid_reference_data.column
-        # R stands for the 'R'eference dataset
-        referenced_alias: str = "R"
+    def build_query(self, select_expression: SqlExpression) -> SqlExpression:
+        sql_ast: list = [select_expression]
+        sql_ast.extend(self.query_from())
 
-        # The variant to get the failed rows is:
-        # SELECT(STAR().IN("C")),
-        # which should translate to SELECT C.*
-
-        is_referencing_column_missing: SqlExpression = metric_impl.missing_and_validity.is_missing_expr(
-            COLUMN(referencing_column_name).IN(referencing_alias)
-        )
-        is_referencing_column_invalid: SqlExpression = metric_impl.missing_and_validity.is_invalid_expr(
-            COLUMN(referencing_column_name).IN(referencing_alias)
-        )
-        is_referenced_column_null: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(referenced_alias))
-        is_referencing_column_invalid: SqlExpression = OR.optional(
-            [is_referenced_column_null, is_referencing_column_invalid]
-        )
-
-        sql_ast: list = [
-            SELECT(COUNT(STAR())),
-            FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(referencing_alias),
-            LEFT_INNER_JOIN(referenced_dataset_name)
-            .IN(referenced_dataset_prefix)
-            .ON(
-                EQ(
-                    COLUMN(referencing_column_name).IN(referencing_alias),
-                    COLUMN(referenced_column).IN(referenced_alias),
-                )
-            )
-            .AS(referenced_alias),
-            WHERE(AND([NOT(is_referencing_column_missing), is_referencing_column_invalid])),
-        ]
-
-        if dataset_filter or check_filter:
+        if self.dataset_filter or self.check_filter:
             dataset_filter_expr: Optional[SqlExpressionStr] = None
             check_filter_expr: Optional[SqlExpressionStr] = None
             combined_filter_expr: Optional[SqlExpression] = None
 
-            if dataset_filter:
-                dataset_filter_expr = SqlExpressionStr(dataset_filter)
+            if self.dataset_filter:
+                dataset_filter_expr = SqlExpressionStr(self.dataset_filter)
                 combined_filter_expr = dataset_filter_expr
 
-            if check_filter:
-                check_filter_expr = SqlExpressionStr(check_filter)
+            if self.check_filter:
+                check_filter_expr = SqlExpressionStr(self.check_filter)
                 combined_filter_expr = check_filter_expr
 
             if dataset_filter_expr and check_filter_expr:
                 combined_filter_expr = AND([dataset_filter_expr, check_filter_expr])
 
             original_from = sql_ast[1].AS(None)
-            sql_ast[1] = FROM("filtered_dataset").AS(referencing_alias)
+            sql_ast[1] = FROM("filtered_dataset").AS(self.referencing_alias)
             sql_ast = [
                 WITH("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(combined_filter_expr)]),
             ] + sql_ast
+        return sql_ast
 
-        self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
+    def query_from(self) -> SqlExpression:
+        valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
+
+        referencing_dataset_name: str = self.metric_impl.contract_impl.dataset_name
+        referencing_dataset_prefix: Optional[str] = self.metric_impl.contract_impl.dataset_prefix
+        referencing_column_name: str = self.metric_impl.column_impl.column_yaml.name
+
+        referenced_dataset_name: str = valid_reference_data.dataset_name
+        referenced_dataset_prefix: Optional[list[str]] = (
+            valid_reference_data.dataset_prefix
+            if valid_reference_data.dataset_prefix is not None
+            else self.metric_impl.contract_impl.dataset_prefix
+        )
+        referenced_column: str = valid_reference_data.column
+
+        # The variant to get the failed rows is:
+        # SELECT(STAR().IN("C")),
+        # which should translate to SELECT C.*
+
+        is_referencing_column_missing: SqlExpression = self.metric_impl.missing_and_validity.is_missing_expr(
+            COLUMN(referencing_column_name).IN(self.referencing_alias)
+        )
+        is_referencing_column_invalid: SqlExpression = self.metric_impl.missing_and_validity.is_invalid_expr(
+            COLUMN(referencing_column_name).IN(self.referencing_alias)
+        )
+        is_referenced_column_null: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(self.referenced_alias))
+        is_referencing_column_invalid: SqlExpression = OR.optional(
+            [is_referenced_column_null, is_referencing_column_invalid]
+        )
+
+        return [
+            FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(self.referencing_alias),
+            LEFT_INNER_JOIN(referenced_dataset_name)
+            .IN(referenced_dataset_prefix)
+            .ON(
+                EQ(
+                    COLUMN(referencing_column_name).IN(self.referencing_alias),
+                    COLUMN(referenced_column).IN(self.referenced_alias),
+                )
+            )
+            .AS(self.referenced_alias),
+            WHERE(AND([NOT(is_referencing_column_missing), is_referencing_column_invalid])),
+        ]
 
     def execute(self) -> list[Measurement]:
         try:
