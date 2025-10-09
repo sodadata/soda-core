@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -183,6 +184,11 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
         )
 
 
+class DatasetAlias(Enum):
+    CONTRACT = "C"  # C stands for the 'C'ontract dataset
+    REFERENCE = "R"  # R stands for the 'R'eference dataset
+
+
 class InvalidReferenceCountQuery(Query):
     def __init__(
         self,
@@ -195,10 +201,9 @@ class InvalidReferenceCountQuery(Query):
         self.metric_impl = metric_impl
         self.dataset_filter = dataset_filter
         self.check_filter = check_filter
-        # C stands for the 'C'ontract dataset
-        self.referencing_alias: str = "C"
-        # R stands for the 'R'eference dataset
-        self.referenced_alias: str = "R"
+
+        self.referencing_alias: str = DatasetAlias.CONTRACT.value
+        self.referenced_alias: str = DatasetAlias.REFERENCE.value
 
         sql_ast = self.build_query(SELECT(COUNT(STAR())))
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
