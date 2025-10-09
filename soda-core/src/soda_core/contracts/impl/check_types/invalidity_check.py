@@ -188,8 +188,9 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
 
 
 class DatasetAlias(Enum):
-    CONTRACT = "C"         # C stands for the 'C'ontract dataset
-    REFERENCE = "R"        # R stands for the 'R'eference dataset
+    CONTRACT = "C"  # C stands for the 'C'ontract dataset
+    REFERENCE = "R"  # R stands for the 'R'eference dataset
+
 
 class InvalidReferenceCountQuery(Query):
     def __init__(
@@ -202,8 +203,8 @@ class InvalidReferenceCountQuery(Query):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
         self.metric_impl = metric_impl
         self.dataset_filter = dataset_filter
-        self.check_filter = check_filter        
-        
+        self.check_filter = check_filter
+
         self.referencing_alias: str = DatasetAlias.CONTRACT
         self.referenced_alias: str = DatasetAlias.REFERENCE
 
