@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
+
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
@@ -121,7 +122,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             "invalid_count": invalid_count,
             "invalid_percent": invalid_percent,
             "check_rows_tested": row_count,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
@@ -199,9 +200,9 @@ class InvalidReferenceCountQuery(Query):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
         self.metric_impl = metric_impl
         self.dataset_filter = dataset_filter
-        self.check_filter = check_filter        
-        
-        self.referencing_alias: str = DatasetAlias.CONTRACT.value   
+        self.check_filter = check_filter
+
+        self.referencing_alias: str = DatasetAlias.CONTRACT.value
         self.referenced_alias: str = DatasetAlias.REFERENCE.value
 
         sql_ast = self.build_query(SELECT(COUNT(STAR())))
