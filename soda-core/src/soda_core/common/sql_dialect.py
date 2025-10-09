@@ -769,7 +769,10 @@ class SqlDialect:
             return "*"
 
     def _build_count_sql(self, count: COUNT) -> str:
-        return f"COUNT({self.build_expression_sql(count.expression)})"
+        count_sql = f"COUNT({self.build_expression_sql(count.expression)})"
+        if count.field_alias:
+            count_sql = f"{count_sql} AS {self.quote_default(count.field_alias)}"
+        return count_sql
 
     def _build_distinct_sql(self, distinct: DISTINCT) -> str:
         expressions: list[SqlExpression] = (
