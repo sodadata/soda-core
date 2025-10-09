@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
@@ -118,14 +117,11 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         row_count: int = measurement_values.get_value(self.row_count_metric)
         invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
 
-        self.dataset_rows_tested = self.contract_impl.dataset_rows_tested
-        self.check_rows_tested = row_count
-
         diagnostic_metric_values: dict[str, float] = {
             "invalid_count": invalid_count,
             "invalid_percent": invalid_percent,
-            "check_rows_tested": self.check_rows_tested,
-            "dataset_rows_tested": self.dataset_rows_tested,
+            "check_rows_tested": row_count,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested
         }
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
@@ -204,8 +200,8 @@ class InvalidReferenceCountQuery(Query):
         self.dataset_filter = dataset_filter
         self.check_filter = check_filter        
         
-        self.referencing_alias: str = DatasetAlias.CONTRACT
-        self.referenced_alias: str = DatasetAlias.REFERENCE
+        self.referencing_alias: str = DatasetAlias.CONTRACT.value   
+        self.referenced_alias: str = DatasetAlias.REFERENCE.value
 
         sql_ast = self.build_query(SELECT(COUNT(STAR())))
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)

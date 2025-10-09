@@ -620,11 +620,9 @@ class ContractImpl:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         try:
-            contract_verification_handler: Optional[
-                ContractVerificationHandler
-            ] = ContractVerificationHandler.instance()
-            if contract_verification_handler:
-                contract_verification_handler.handle(
+            self.contract_verification_handler = ContractVerificationHandler.instance()
+            if self.contract_verification_handler:
+                self.contract_verification_handler.handle(
                     contract_impl=self,
                     data_source_impl=self.data_source_impl,
                     contract_verification_result=contract_verification_result,
@@ -1204,6 +1202,8 @@ class CheckImpl:
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
         self.skip: bool = False
+        self.dataset_rows_tested: Optional[int] = None
+        self.check_rows_tested: Optional[int] = None
 
         # Merge check attributes with contract attributes
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
