@@ -121,7 +121,6 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         self.dataset_rows_tested = self.contract_impl.dataset_rows_tested
         self.check_rows_tested = row_count
 
-
         diagnostic_metric_values: dict[str, float] = {
             "invalid_count": invalid_count,
             "invalid_percent": invalid_percent,

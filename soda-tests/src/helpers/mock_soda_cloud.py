@@ -62,10 +62,10 @@ class MockSodaCloud(SodaCloud):
         )
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
-        
+
         # This needs to be read during testing but it's not accecssible from the main code path
         # As a workaround, I'm stashing it in the mock soda cloud object when it's sent to soda cloud
-        self.failed_rows_diagnostics: Optional[list[dict]] = None   
+        self.failed_rows_diagnostics: Optional[list[dict]] = None
 
     def _http_post(
         self,
@@ -96,7 +96,7 @@ class MockSodaCloud(SodaCloud):
     ) -> Response:
         self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
         if self._is_send_failed_rows_diagnostics_request(json):
-            self.failed_rows_diagnostics = json["diagnostics"]            
+            self.failed_rows_diagnostics = json["diagnostics"]
         if self.responses:
             response = self.responses.pop(0)
             if isinstance(response, MockResponse):
@@ -117,6 +117,7 @@ class MockSodaCloud(SodaCloud):
             and "type" in request_json
             and request_json["type"] == "sodaCoreInsertScanResults"
         )
+
     def _is_send_failed_rows_diagnostics_request(self, request_json: Optional[dict]) -> bool:
         return (
             isinstance(request_json, dict)
