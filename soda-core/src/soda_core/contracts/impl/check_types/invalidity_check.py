@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -186,7 +187,6 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
             missing_and_validity=missing_and_validity,
         )
 
-from enum import Enum
 
 class DatasetAlias(Enum):
     CONTRACT = "C"         # C stands for the 'C'ontract dataset
