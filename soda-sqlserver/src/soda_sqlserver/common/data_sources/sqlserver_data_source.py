@@ -317,3 +317,21 @@ class SqlServerSqlDialect(SqlDialect):
         if sql_data_type.name == "varchar" and sql_data_type.character_maximum_length is None:
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
+
+    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        if expected == SodaDataTypeName.CHAR and actual == SodaDataTypeName.VARCHAR:
+            logger.debug(
+                f"In is_same_soda_data_type_with_synonyms, expected {expected} and actual {actual} are treated as the same because of SQLServer cursor not distinguishing between varchar and char"
+            )
+            return True
+        elif expected == SodaDataTypeName.NUMERIC and actual == SodaDataTypeName.DECIMAL:
+            logger.debug(
+                f"In is_same_soda_data_type_with_synonyms, expected {expected} and actual {actual} are treated as the same because of SQLServer cursor not distinguishing between numeric and decimal"
+            )
+            return True
+        elif expected == SodaDataTypeName.TIMESTAMP_TZ and actual == SodaDataTypeName.VARCHAR:
+            logger.debug(
+                f"In is_same_soda_data_type_with_synonyms, expected {expected} and actual {actual} are treated as the same because of SQLServer cursor returns varchar for timestamps with timezone"
+            )
+            return True
+        return super().is_same_soda_data_type_with_synonyms(expected, actual)
