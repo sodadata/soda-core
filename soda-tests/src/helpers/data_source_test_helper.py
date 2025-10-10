@@ -589,3 +589,81 @@ class DataSourceTestHelper:
             dataset_prefix=self.dataset_prefix,
             dataset_name=test_table.unique_name,
         )
+
+    @classmethod
+    def create_test_table_with_all_datatypes(cls, table_purpose: str, number_of_rows: int) -> TestTableSpecification:
+        """
+        Creates a test table with all data types.
+        The smallint_default column will have a unique value for each row.
+        """
+        test_rows = [
+            (
+                # Chars
+                "a",
+                "abc",
+                # Varchars
+                "a",
+                "abc",
+                # Texts
+                "a",
+                # Integers
+                i,
+                100,
+                100000,
+                # Decimals
+                1.0,
+                100.0,
+                100000.1234567890,
+                # Numerics
+                1.0,
+                100.0,
+                100000.1234567890,
+                # Floats
+                1.1234,
+                # Doubles
+                1.1234567890,
+                # Timestamps
+                datetime.datetime(2021, 1, 1, 1, 1, 1),
+                datetime.datetime(2022, 1, 1, 1, 1, 1, 12),
+                # Timestamp Zones
+                datetime.datetime(2023, 1, 1, 1, 1, 1),
+                datetime.datetime(2024, 1, 1, 1, 1, 1, 12),
+                # Dates
+                datetime.date(2025, 1, 1),
+                # Times
+                datetime.time(1, 2, 3),
+                # Booleans
+                True,
+            )
+            for i in range(number_of_rows)
+        ]
+        test_table_specification = (
+            TestTableSpecification.builder()
+            .table_purpose(table_purpose)
+            .column_char("char_default")
+            .column_char("char_w_length", 100)
+            .column_varchar("varchar_default")
+            .column_varchar("varchar_w_length", 100)
+            .column_text("text_default")
+            .column_smallint("smallint_default")
+            .column_integer("integer_default")
+            .column_bigint("bigint_default")
+            .column_decimal("decimal_default")
+            .column_decimal("decimal_w_precision", 10)
+            .column_decimal("decimal_w_precision_and_scale", 10, 2)
+            .column_numeric("numeric_default")
+            .column_numeric("numeric_w_precision", 10)
+            .column_numeric("numeric_w_precision_and_scale", 10, 2)
+            .column_float("float_default")
+            .column_double("double_default")
+            .column_timestamp("timestamp_default")
+            .column_timestamp("timestamp_w_precision", 2)
+            .column_timestamp_tz("timestamp_tz_default")
+            .column_timestamp_tz("timestamp_tz_w_precision", 4)
+            .column_date("date_default")
+            .column_time("time_default")
+            .column_boolean("boolean_default")
+            .rows(rows=test_rows)
+            .build()
+        )
+        return test_table_specification
