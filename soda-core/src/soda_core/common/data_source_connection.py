@@ -125,9 +125,7 @@ class DataSourceConnection(ABC):
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(
-                f"SQL update (first {MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
-            )
+            logger.debug(f"SQL update (first {MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
             updates = cursor.execute(sql)
             self.commit()
             return updates

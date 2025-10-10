@@ -1223,4 +1223,3 @@ class SqlDialect:
         """Extract the column index from an element in cursor.description"""
         col_names = [self.get_column_name(c) for c in columns]
         return col_names.index(column_name)
-        
