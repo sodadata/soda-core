@@ -13,7 +13,7 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
-from soda_core.common.metadata_types import SqlDataType
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -667,3 +667,30 @@ class DataSourceTestHelper:
             .build()
         )
         return test_table_specification
+
+    def get_column_mappings(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "char_default": SodaDataTypeName.CHAR,
+            "char_w_length": SodaDataTypeName.CHAR,
+            "varchar_default": SodaDataTypeName.VARCHAR,
+            "varchar_w_length": SodaDataTypeName.VARCHAR,
+            "text_default": SodaDataTypeName.TEXT,
+            "smallint_default": SodaDataTypeName.SMALLINT,
+            "integer_default": SodaDataTypeName.INTEGER,
+            "bigint_default": SodaDataTypeName.BIGINT,
+            "decimal_default": SodaDataTypeName.DECIMAL,
+            "decimal_w_precision": SodaDataTypeName.DECIMAL,
+            "decimal_w_precision_and_scale": SodaDataTypeName.DECIMAL,
+            "numeric_default": SodaDataTypeName.NUMERIC,
+            "numeric_w_precision": SodaDataTypeName.NUMERIC,
+            "numeric_w_precision_and_scale": SodaDataTypeName.NUMERIC,
+            "float_default": SodaDataTypeName.FLOAT,
+            "double_default": SodaDataTypeName.DOUBLE,
+            "timestamp_default": SodaDataTypeName.TIMESTAMP,
+            "timestamp_w_precision": SodaDataTypeName.TIMESTAMP,
+            "timestamp_tz_default": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp_tz_w_precision": SodaDataTypeName.TIMESTAMP_TZ,
+            "date_default": SodaDataTypeName.DATE,
+            "time_default": SodaDataTypeName.TIME,
+            "boolean_default": SodaDataTypeName.BOOLEAN,
+        }
