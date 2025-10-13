@@ -27,8 +27,8 @@ logger: logging.Logger = soda_logger
 
 
 class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
-    def __init__(self, data_source_model: AthenaDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: AthenaDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return AthenaSqlDialect(self)
@@ -339,12 +339,11 @@ class AthenaSqlDialect(SqlDialect):
         formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
             return None
-        try:
-            # extract value from inside parentheses
-            data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+        # extract value from inside parentheses
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+        if data_type_tuple[0].isnumeric():
             return int(data_type_tuple[0])
-        except ValueError:
-            return None
+        return None
 
     def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         data_type_name: str = self.extract_data_type_name(row, columns)
@@ -386,3 +385,6 @@ class AthenaSqlDialect(SqlDialect):
             statement_lines.append(limit_line)
 
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def get_max_sql_statement_length(self) -> int:
+        return 262144

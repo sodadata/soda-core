@@ -74,6 +74,10 @@ class DataSourceImpl(ABC):
         cls.__model_classes[type_name] = model_class
         cls.__implementation_classes[type_name] = cls
 
+    def create_copy_with_different_connection(self, connection: DataSourceConnection) -> DataSourceImpl:
+        "Use this method when you want to use the DataSourceImpl while having multiple connections open. Can be used for bulk inserts for example."
+        return self.__class__(data_source_model=self.data_source_model, connection=connection)
+
     def __str__(self) -> str:
         return self.name
 

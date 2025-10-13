@@ -42,8 +42,8 @@ logger: logging.Logger = soda_logger
 
 
 class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceModel):
-    def __init__(self, data_source_model: SqlServerDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: SqlServerDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return SqlServerSqlDialect()
@@ -291,7 +291,7 @@ class SqlServerSqlDialect(SqlDialect):
 
     def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
         # SqlServer supports a max of 1000 rows in an insert statement. If that's the case, split the insert into multiple statements and recursively call this function.
-        STEP_SIZE = 1000
+        STEP_SIZE = self.get_preferred_number_of_rows_for_insert()
         if len(insert_into.values) > STEP_SIZE:
             final_insert_sql = ""
             for i in range(0, len(insert_into.values), STEP_SIZE):
@@ -307,6 +307,9 @@ class SqlServerSqlDialect(SqlDialect):
             return final_insert_sql
 
         return super().build_insert_into_sql(insert_into, add_semicolon=add_semicolon)
+
+    def get_preferred_number_of_rows_for_insert(self) -> int:
+        return 1000
 
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         """SQLServer always requires a varchar length in create table statements."""

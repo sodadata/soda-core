@@ -769,7 +769,10 @@ class SqlDialect:
             return "*"
 
     def _build_count_sql(self, count: COUNT) -> str:
-        return f"COUNT({self.build_expression_sql(count.expression)})"
+        count_sql = f"COUNT({self.build_expression_sql(count.expression)})"
+        if count.field_alias:
+            count_sql = f"{count_sql} AS {self.quote_default(count.field_alias)}"
+        return count_sql
 
     def _build_distinct_sql(self, distinct: DISTINCT) -> str:
         expressions: list[SqlExpression] = (
@@ -1206,3 +1209,17 @@ class SqlDialect:
                 )
             )
         return column_metadatas
+
+    def get_column_name(self, column: Any) -> str:
+        """Extract the column name from an element in cursor.description"""
+        if type(column) == tuple:
+            return column[0]
+        try:
+            return column.name
+        except:
+            raise NotImplementedError(f"Unknown column type: {type(column)}")
+
+    def get_column_index(self, column_name: str, columns: list[Any]) -> int:
+        """Extract the column index from an element in cursor.description"""
+        col_names = [self.get_column_name(c) for c in columns]
+        return col_names.index(column_name)

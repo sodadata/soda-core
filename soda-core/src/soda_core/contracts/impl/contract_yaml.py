@@ -21,7 +21,6 @@ from soda_core.common.yaml import (
     YamlObject,
     YamlValue,
 )
-from soda_core.model.reconciliation import ReconciliationYaml
 
 logger: logging.Logger = soda_logger
 
@@ -112,8 +111,6 @@ class ContractYaml:
 
         self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
-
-        self.reconciliation: Optional[ReconciliationYaml] = self._parse_reconciliation(self.contract_yaml_object)
 
         for extension_cls in ContractYaml.contract_yaml_extensions.values():
             try:
@@ -328,18 +325,6 @@ class ContractYaml:
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
-
-    def _parse_reconciliation(self, contract_yaml_object: YamlObject) -> ReconciliationYaml | None:
-        reconciliation_yaml_object: YamlObject | None = contract_yaml_object.read_object_opt("reconciliation")
-
-        if reconciliation_yaml_object:
-            recon_check_yamls = self._parse_checks(reconciliation_yaml_object)
-            recon_data = reconciliation_yaml_object.yaml_dict
-            recon_data["checks"] = recon_check_yamls
-
-            return ReconciliationYaml.model_validate(recon_data)
-
-        return None
 
     def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
         if isinstance(data_timestamp, str):

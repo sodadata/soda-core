@@ -171,6 +171,7 @@ class STAR(SqlExpression):
 @dataclass
 class COUNT(SqlExpression):
     expression: SqlExpression | str
+    field_alias: Optional[str] = None
 
     def __post_init__(self):
         super().__post_init__()
