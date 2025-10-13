@@ -318,6 +318,7 @@ class SqlServerSqlDialect(SqlDialect):
             sql_data_type.character_maximum_length = self.default_varchar_length()
         return sql_data_type
 
+    @classmethod
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         if expected == SodaDataTypeName.CHAR and actual == SodaDataTypeName.VARCHAR:
             logger.debug(

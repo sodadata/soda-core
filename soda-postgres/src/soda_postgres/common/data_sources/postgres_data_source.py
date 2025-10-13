@@ -149,6 +149,7 @@ class PostgresSqlDialect(SqlDialect):
             return "text"
         return super()._build_create_table_column_type(create_table_column=create_table_column)
 
+    @classmethod
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         # Postgres cursor can return bpchar, which is an unbounded synonym for char. We convert that to TEXT as that is the best fit. So we could expect CHAR, but actual is TEXT.
         if expected == SodaDataTypeName.CHAR and actual == SodaDataTypeName.TEXT:
