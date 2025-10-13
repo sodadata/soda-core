@@ -12,7 +12,7 @@ SNOWFLAKE_PASSWORD = os.getenv("SNOWFLAKE_PASSWORD")
 SNOWFLAKE_DATABASE = os.getenv("SNOWFLAKE_DATABASE", "soda_test")
 
 
-PRIVATE_KEY_PASSPHRASE = os.getenv("SNOWFLAKE_ENCRYPTION_KEY")
+PRIVATE_KEY_PASSPHRASE = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
 PRIVATE_KEY = base64.b64decode(os.getenv("SNOWFLAKE_PRIVATE_KEY_ENCRYPTED")).decode()
 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
     temp_file.write(PRIVATE_KEY.encode())
