@@ -1027,6 +1027,42 @@ class SodaCloud:
     def send_failed_rows_diagnostics(self, scan_id: str, failed_rows_diagnostics: list[FailedRowsDiagnostic]):
         print(f"TODO sending failed rows diagnostics for scan {scan_id} to Soda Cloud: {failed_rows_diagnostics}")
 
+    def migration_create(self, v4_datasource_name: str, v3_dataset_ids: list[str]) -> str:
+        logger.info(
+            f"Creating migration to datasource '{v4_datasource_name}' for datasets with ids: {v3_dataset_ids[:10]}{'...' if len(v3_dataset_ids) > 10 else ''}"
+        )
+
+        request = {
+            "type": "sodaCoreV3MigrationCreate",
+            "v3DatasetIds": v3_dataset_ids,
+            "v4DatasourceName": v4_datasource_name,
+        }
+        response = self._execute_command(request, request_log_name="create_migration")
+        response_dict = response.json()
+
+        if response.status_code != 200 or response_dict.get("v3MigrationId", None) is None:
+            raise SodaCloudException(f"Failed to start migration.': {response_dict['message']}")
+
+        migration_id = response_dict.get("v3MigrationId")
+        logger.info(f"Migration created with id: {migration_id}")
+
+        return migration_id
+
+    def migration_upload_contracts(self, migration_id: str, contracts: list["ContractMigration"]) -> None:
+        logger.info(f"Uploading {len(contracts)} contracts for migration {migration_id}")
+
+        request = {
+            "type": "sodaCoreV3MigrationUploadContracts",
+            "v3MigrationId": migration_id,
+            "generatedContracts": [c.model_dump(by_alias=True) for c in contracts],
+        }
+        response = self._execute_command(request, request_log_name="upload_migration_contracts")
+        response_dict = response.json()
+
+        if response.status_code != 200:
+            raise SodaCloudException(f"Failed to upload migration contracts: {response}")
+
+        logger.info(f"Uploaded {len(contracts)} contracts for migration {migration_id}")
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
