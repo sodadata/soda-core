@@ -1064,6 +1064,7 @@ class SodaCloud:
 
         logger.info(f"Uploaded {len(contracts)} contracts for migration {migration_id}")
 
+
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
         return o
