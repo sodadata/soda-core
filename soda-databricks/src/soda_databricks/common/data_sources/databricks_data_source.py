@@ -113,6 +113,17 @@ class DatabricksSqlDialect(SqlDialect):
             # "struct"
         }
 
+    def escape_string(self, value: str):
+        raw_string = rf"{value}"
+        string_literal: str = raw_string.replace(r"'", r"\'")
+        return string_literal
+
+    def encode_string_for_sql(self, string: str) -> str:
+        """This escapes values that contain newlines correctly."""
+        # For databricks, we don't need to encode the string, it's able to handle the newlines correctly.
+        # In fact, when we encode the string, we run into issues with the escape characters for the quotes
+        return string
+
     def column_data_type_numeric_scale(self) -> str:
         return self.default_casify("numeric_scale")
 
