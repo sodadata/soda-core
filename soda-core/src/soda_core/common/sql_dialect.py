@@ -457,7 +457,7 @@ class SqlDialect:
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
-        values_sql = self.encode_string_for_sql(values_sql)
+        # values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
 
     #########################################################
@@ -525,13 +525,15 @@ class SqlDialect:
                     select_element.cte_query = self.build_cte_values_sql(
                         values=select_element.cte_query, alias_columns=select_element.alias_columns
                     )
-                if isinstance(select_element.cte_query, str):
-                    cte_query_sql_str = indent(select_element.cte_query, "  ").strip()
+                # if isinstance(select_element.cte_query, str):
+                # cte_query_sql_str = indent(select_element.cte_query, "  ").strip()
+                cte_query_sql_str = select_element.cte_query
                 if cte_query_sql_str:
                     cte_query_sql_str = cte_query_sql_str.rstrip(";")
                     cte_lines.append(self._build_cte_with_sql_line(select_element))
-                    indented_nested_query: str = indent(cte_query_sql_str, "  ")
-                    cte_lines.extend(indented_nested_query.split("\n"))
+                    # indented_nested_query: str = indent(cte_query_sql_str, "  ")
+                    # cte_lines.extend(indented_nested_query.split("\n"))
+                    cte_lines.append(cte_query_sql_str)
                     cte_lines.append(f")")
         return cte_lines
 
