@@ -182,7 +182,7 @@ class BigQuerySqlDialect(SqlDialect):
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval 1 day"
 
-    def literal_string(self, value: str) -> str:
+    def literal_string(self, value: str) -> Optional[str]:
         if value is None:
             return None
         return "'''" + self.escape_string(value) + "'''"
