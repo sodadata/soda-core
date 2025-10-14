@@ -94,6 +94,30 @@ def test_variable_declaration_default():
     assert contract_yaml.checks[0].name == "abc_xx"
 
 
+def test_variable_declaration_default_numeric():
+    # Question: Shouldn't 'required' be derived from the presence of the 'default' key?
+
+    contract_yaml: ContractYaml = parse_contract(
+        contract_yaml_str="""
+            dataset: a/b/c/d
+            columns: []
+
+            variables:
+              DS_SUFFIX:
+                type: string
+                required: false
+                default: 1.5
+
+            checks:
+              - schema:
+                  name: abc_${var.DS_SUFFIX}
+        """,
+        provided_variable_values={},
+    )
+
+    assert contract_yaml.checks[0].name == "abc_1.5"
+
+
 def test_required_variable_not_provided(logs: Logs):
     parse_contract(
         contract_yaml_str="""

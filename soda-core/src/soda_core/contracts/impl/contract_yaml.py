@@ -345,7 +345,11 @@ class VariableYaml:
         self.name: str = variable_name
         self.type: any = variable_yaml_object.read_string_opt("type") if variable_yaml_object else None
         self.required: any = variable_yaml_object.read_bool_opt("required") if variable_yaml_object else None
-        self.default: any = variable_yaml_object.read_string_opt("default") if variable_yaml_object else None
+        self.default: any = (
+            variable_yaml_object.read_value(key="default", expected_type=[str, Number])
+            if variable_yaml_object
+            else None
+        )
 
 
 class ValidReferenceDataYaml:
