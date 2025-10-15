@@ -1,8 +1,19 @@
-from unittest.mock import MagicMock, patch
+from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
+from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.soda_cloud import SodaCloud
+from soda_core.contracts.contract_verification import (
+    ContractVerificationResult,
+    PostProcessingStage,
+)
+from soda_core.contracts.impl.contract_verification_impl import (
+    ContractImpl,
+    ContractVerificationHandler,
+    ContractVerificationHandlerRegistry,
+)
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -19,13 +30,25 @@ test_table_specification = (
 )
 
 
-@patch("soda_core.contracts.impl.contract_verification_impl.ContractVerificationHandler.instance")
 def test_failure_in_contract_verification_handler_does_not_fail_scan(
-    mock_instance, data_source_test_helper: DataSourceTestHelper, caplog
+    data_source_test_helper: DataSourceTestHelper, caplog
 ):
-    mock_handler = MagicMock()
-    mock_handler.handle.side_effect = Exception("Simulated failure in ContractVerificationHandler")
-    mock_instance.return_value = mock_handler
+    class DummyHandler(ContractVerificationHandler):
+        def handle(
+            self,
+            contract_impl: ContractImpl,
+            data_source_impl: Optional[DataSourceImpl],
+            contract_verification_result: ContractVerificationResult,
+            soda_cloud: SodaCloud,
+            soda_cloud_send_results_response_json: dict,
+            dwh_data_source_file_path: Optional[str] = None,
+        ):
+            raise Exception("Simulated failure in ContractVerificationHandler")
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return []
+
+    ContractVerificationHandlerRegistry.register(DummyHandler())
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

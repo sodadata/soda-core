@@ -69,15 +69,17 @@ class ContractVerificationHandler(ABC):
 
 
 class ContractVerificationHandlerRegistry(ABC):
-    contract_verification_handlers: dict[str, ContractVerificationHandler] = {}
+    contract_verification_handlers: list[ContractVerificationHandler] = []
+    post_processing_stages: dict[str, ContractVerificationHandler] = {}
 
     @classmethod
     def register(cls, verification_handler: ContractVerificationHandler) -> None:
+        cls.contract_verification_handlers.append(verification_handler)
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
-            if stage_name in cls.contract_verification_handlers:
+            if stage_name in cls.post_processing_stages:
                 logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
-            cls.contract_verification_handlers[stage_name] = verification_handler
+            cls.post_processing_stages[stage_name] = verification_handler
 
 
 class ContractVerificationSessionImpl:
@@ -591,11 +593,8 @@ class ContractImpl:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
 
         post_processing_stages: list[PostProcessingStage] = []
-        for (
-            contract_verification_handler
-        ) in ContractVerificationHandlerRegistry.contract_verification_handlers.values():
-            if contract_verification_handler and contract_verification_handler.provides_post_processing_stages():
-                post_processing_stages += contract_verification_handler.provides_post_processing_stages()
+        for contract_verification_handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
+            post_processing_stages += contract_verification_handler.provides_post_processing_stages()
 
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=Contract(
@@ -631,9 +630,7 @@ class ContractImpl:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         try:
-            for (
-                contract_verification_handler
-            ) in ContractVerificationHandlerRegistry.contract_verification_handlers.values():
+            for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
                 contract_verification_handler.handle(
                     contract_impl=self,
                     data_source_impl=self.data_source_impl,
