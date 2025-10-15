@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from ruamel.yaml import YAML
-from tabulate import tabulate
-
 from abc import ABC
 from datetime import timezone
 from enum import Enum
 from io import StringIO
 from logging import LogRecord
+from typing import Protocol
+
+from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
@@ -45,7 +45,7 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
-from typing import Protocol
+from tabulate import tabulate
 
 logger: logging.Logger = soda_logger
 
@@ -591,7 +591,9 @@ class ContractImpl:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
 
         post_processing_stages: list[PostProcessingStage] = []
-        for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers.values():
+        for (
+            contract_verification_handler
+        ) in ContractVerificationHandlerRegistry.contract_verification_handlers.values():
             if contract_verification_handler and contract_verification_handler.provides_post_processing_stages():
                 post_processing_stages += contract_verification_handler.provides_post_processing_stages()
 
@@ -629,7 +631,9 @@ class ContractImpl:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         try:
-            for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers.values():
+            for (
+                contract_verification_handler
+            ) in ContractVerificationHandlerRegistry.contract_verification_handlers.values():
                 contract_verification_handler.handle(
                     contract_impl=self,
                     data_source_impl=self.data_source_impl,

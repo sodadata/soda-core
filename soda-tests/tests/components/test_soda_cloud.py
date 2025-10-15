@@ -1,10 +1,6 @@
-from typing import Optional
-
 import os
 from datetime import datetime, timedelta, timezone
-from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry, \
-    ContractVerificationHandler, ContractImpl
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -17,6 +13,7 @@ from helpers.mock_soda_cloud import (
     MockSodaCloud,
 )
 from helpers.test_table import TestTableSpecification
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.exceptions import (
@@ -26,8 +23,16 @@ from soda_core.common.exceptions import (
 from soda_core.common.soda_cloud import ContractSkeletonGenerationState, SodaCloud
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
-from soda_core.contracts.contract_verification import ContractVerificationResult, PostProcessingStageState, \
-    PostProcessingStage
+from soda_core.contracts.contract_verification import (
+    ContractVerificationResult,
+    PostProcessingStage,
+    PostProcessingStageState,
+)
+from soda_core.contracts.impl.contract_verification_impl import (
+    ContractImpl,
+    ContractVerificationHandler,
+    ContractVerificationHandlerRegistry,
+)
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 test_table_specification = (
@@ -193,10 +198,7 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             pass
 
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
-            return [
-                PostProcessingStage('testStage', PostProcessingStageState.ONGOING)
-            ]
-
+            return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
 
     ContractVerificationHandlerRegistry.register(DummyHandler())
 
@@ -287,7 +289,6 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             ],
         },
     )
-
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
