@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
-from distutils.util import strtobool
 
 from dotenv import load_dotenv
 from soda.common.logs import Logs
+
+
+def strtobool(val: str) -> bool:
+    return val.lower() in ("yes", "y", "true", "t", "1")
 
 
 class EnvHelper:
