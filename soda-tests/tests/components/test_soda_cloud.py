@@ -166,8 +166,14 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
                     "checkPath": "checks.schema",
                 },
             ],
+            "postProcessingStages": [
+                {
+                    "name": "diagnosticWarehouse"
+                },
+            ],
         },
     )
+
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
