@@ -34,7 +34,7 @@ from soda_core.contracts.contract_verification import (
     Measurement,
     SodaException,
     Threshold,
-    YamlFileContentInfo,
+    YamlFileContentInfo, PostProcessingStage,
 )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
@@ -74,6 +74,9 @@ class ContractVerificationHandler:
         soda_cloud_send_results_response_json: dict,
         dwh_data_source_file_path: Optional[str] = None,
     ):
+        pass
+
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
         pass
 
 
@@ -587,6 +590,15 @@ class ContractImpl:
         if self.soda_cloud and self.publish_results:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
 
+        post_processing_stages: list[PostProcessingStage] = []
+        contract_verification_handler: Optional[ContractVerificationHandler] = None
+        try:
+            contract_verification_handler = ContractVerificationHandler.instance()
+            if contract_verification_handler and contract_verification_handler.provides_post_processing_stages():
+                post_processing_stages += contract_verification_handler.provides_post_processing_stages()
+        except Exception as e:
+            logger.error(f"Error in contract verification handler: {e}", exc_info=True)
+
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
@@ -608,6 +620,7 @@ class ContractImpl:
             sending_results_to_soda_cloud_failed=sending_results_to_soda_cloud_failed,
             status=contract_verification_status,
             log_records=log_records,
+            post_processing_stages=post_processing_stages,
         )
 
         if soda_cloud_file_id:
@@ -620,9 +633,6 @@ class ContractImpl:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         try:
-            contract_verification_handler: Optional[
-                ContractVerificationHandler
-            ] = ContractVerificationHandler.instance()
             if contract_verification_handler:
                 contract_verification_handler.handle(
                     contract_impl=self,

@@ -9,7 +9,7 @@ from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
 from time import sleep
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 import requests
 from requests import Response
@@ -391,9 +391,9 @@ class SodaCloud:
 
     CONTRACT_PERMISSION_REASON_TEXTS = {
         "missingCanCreateDatasourceAndDataset": "The contract doesn't exist and the user can't create new contract "
-        "since it would demand creation of dataset and datasource, but that permission is not available",
+                                                "since it would demand creation of dataset and datasource, but that permission is not available",
         "missingManageContracts": "The user can't release a new version of the contract or run a scan - "
-        "they are not allowed to manage contracts",
+                                  "they are not allowed to manage contracts",
     }
 
     def can_publish_and_verify_contract(
@@ -475,7 +475,7 @@ class SodaCloud:
         )
         if not can_publish_and_verify:
             if reason is None:
-                logger.error(f"Skipping contract verification because of an error (see logs)")
+                logger.error("Skipping contract verification because of an error (see logs)")
                 verification_result.sending_results_to_soda_cloud_failed = True
             else:
                 logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
@@ -483,7 +483,7 @@ class SodaCloud:
 
         file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
-            logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
+            logger.critical("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
             return []
 
         verify_contract_command: dict = {
@@ -1134,6 +1134,18 @@ def _build_scan_definition_name(contract_verification_result: ContractVerificati
         return contract_verification_result.contract.soda_qualified_dataset_name
 
 
+def _build_post_processing_stages_dicts(contract_verification_result: ContractVerificationResult) -> list[
+    Dict[str, str]]:
+    if contract_verification_result and contract_verification_result.post_processing_stages:
+        return [
+            {
+                "name": stage.name
+            }
+            for stage in contract_verification_result.post_processing_stages]
+    else:
+        return []
+
+
 def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
     return to_jsonnable(  # type: ignore
         {
@@ -1157,6 +1169,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
+            "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result)
         }
     )
 
