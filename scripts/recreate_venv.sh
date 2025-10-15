@@ -9,7 +9,4 @@ pip install "$(grep pip-tools < dev-requirements.in )"
 pip-compile dev-requirements.in
 pip install -r dev-requirements.txt
 
-cat requirements.txt | while read requirement || [[ -n $requirement ]];
-do
-   pip install -e $requirement
-done
+pip install $(cat requirements.txt | sed 's/^/-e /' | tr '\n' ' ')

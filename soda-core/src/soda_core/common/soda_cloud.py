@@ -9,7 +9,7 @@ from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
 from time import sleep
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 
 import requests
 from requests import Response
@@ -391,9 +391,9 @@ class SodaCloud:
 
     CONTRACT_PERMISSION_REASON_TEXTS = {
         "missingCanCreateDatasourceAndDataset": "The contract doesn't exist and the user can't create new contract "
-                                                "since it would demand creation of dataset and datasource, but that permission is not available",
+        "since it would demand creation of dataset and datasource, but that permission is not available",
         "missingManageContracts": "The user can't release a new version of the contract or run a scan - "
-                                  "they are not allowed to manage contracts",
+        "they are not allowed to manage contracts",
     }
 
     def can_publish_and_verify_contract(
@@ -1134,14 +1134,11 @@ def _build_scan_definition_name(contract_verification_result: ContractVerificati
         return contract_verification_result.contract.soda_qualified_dataset_name
 
 
-def _build_post_processing_stages_dicts(contract_verification_result: ContractVerificationResult) -> list[
-    Dict[str, str]]:
+def _build_post_processing_stages_dicts(
+    contract_verification_result: ContractVerificationResult,
+) -> list[Dict[str, str]]:
     if contract_verification_result and contract_verification_result.post_processing_stages:
-        return [
-            {
-                "name": stage.name
-            }
-            for stage in contract_verification_result.post_processing_stages]
+        return [{"name": stage.name} for stage in contract_verification_result.post_processing_stages]
     else:
         return []
 
@@ -1169,7 +1166,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
-            "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result)
+            "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
         }
     )
 

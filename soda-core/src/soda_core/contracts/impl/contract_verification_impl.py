@@ -32,9 +32,10 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationStatus,
     DataSource,
     Measurement,
+    PostProcessingStage,
     SodaException,
     Threshold,
-    YamlFileContentInfo, PostProcessingStage,
+    YamlFileContentInfo,
 )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
