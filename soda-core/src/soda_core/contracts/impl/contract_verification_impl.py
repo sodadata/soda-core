@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import traceback
+
 from abc import ABC
 from datetime import timezone
 from enum import Enum
@@ -34,6 +36,7 @@ from soda_core.contracts.contract_verification import (
     SodaException,
     Threshold,
     YamlFileContentInfo,
+    PostProcessingStageState,
 )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
@@ -620,17 +623,18 @@ class ContractImpl:
             post_processing_stages=post_processing_stages,
         )
 
+        scan_id: Optional[str] = None
         if soda_cloud_file_id:
             # send_contract_result will use contract.source.soda_cloud_file_id
             soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-            scan_id: Optional[str] = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
+            scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
             if not scan_id:
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        try:
-            for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+        for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+            try:
                 contract_verification_handler.handle(
                     contract_impl=self,
                     data_source_impl=self.data_source_impl,
@@ -639,8 +643,11 @@ class ContractImpl:
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
                     dwh_data_source_file_path=self.dwh_data_source_file_path,
                 )
-        except Exception as e:
-            logger.error(f"Error in contract verification handler: {e}", exc_info=True)
+            except Exception as e:
+                logger.error(f"Error in contract verification handler: {e}", exc_info=True)
+                self._handle_post_processing_failure(
+                    scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
+                )
 
         return contract_verification_result
 
@@ -737,6 +744,23 @@ class ContractImpl:
     @classmethod
     def compute_data_quality_score(cls, total_failed_rows_count: int, total_rows_count: int) -> float:
         return 100 - (total_failed_rows_count * 100 / total_rows_count)
+
+    def _handle_post_processing_failure(
+        self, scan_id: Optional[str], exc: Exception, contract_verification_handler: ContractVerificationHandler
+    ):
+        if scan_id is None:
+            logger.warning("Not sending post-processing stage updates to Soda Cloud - no scan ID")
+            return
+        if self.soda_cloud is None:
+            logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
+            return
+        for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
+            self.soda_cloud.post_processing_update(
+                stage=post_processing_stage.name,
+                scan_id=scan_id,
+                state=PostProcessingStageState.FAILED,
+                exception=exc,
+            )
 
 
 def _get_contract_verification_status(

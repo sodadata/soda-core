@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import traceback
+
 import base64
 import json
 import logging
@@ -43,6 +45,7 @@ from soda_core.contracts.contract_verification import (
     SodaException,
     Threshold,
     YamlFileContentInfo,
+    PostProcessingStageState,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
@@ -1225,6 +1228,28 @@ class SodaCloud:
             raise SodaCloudException(f"Failed to cancel migration: {response_dict['message']}")
 
         logger.info(f"Migration {migration_id} cancelled")
+
+    def post_processing_update(
+        self, stage: str, scan_id: str, state: PostProcessingStageState, exception: Optional[Exception] = None
+    ):
+        logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
+
+        request = {
+            "type": "sodaCorePostProcessingUpdate",
+            "scanId": scan_id,
+            "name": stage,
+            "state": state.value,
+        }
+        if exception:
+            formatted_exception: list[str] = traceback.format_exception(exception)
+            request["exception"] = "".join(formatted_exception)
+        response = self._execute_command(request, request_log_name="post_processing_update")
+        response_dict = response.json()
+
+        if response.status_code != 200:
+            raise SodaCloudException(f"Failed to update post processing stage: {response}")
+
+        logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
