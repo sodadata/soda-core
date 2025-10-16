@@ -431,6 +431,7 @@ class ContractVerificationResult:
     @param check_results: The results of the checks performed during the verification.
     @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
     @param log_records: The log records generated during the verification.
+    @param post_processing_stages: The post processing stages of the verification.
 
     """
 
