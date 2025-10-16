@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soda_core.common.sql_ast import DROP_VIEW, DROP_VIEW_IF_EXISTS
 from soda_core.common.sql_dialect import *
 
 
@@ -190,3 +191,56 @@ def test_sql_ast_drop_table_if_exists():
         DROP_TABLE_IF_EXISTS(fully_qualified_table_name='"customers"')
     )
     assert my_drop_table_statement == 'DROP TABLE IF EXISTS "customers";'
+
+
+def test_sql_ast_create_view():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_create_view_statement = sql_dialect.build_create_view_sql(
+        CREATE_VIEW(
+            fully_qualified_view_name='"customers_view"',
+            view_query=[SELECT(STAR()), FROM("customers")],
+            columns=[COLUMN("id"), COLUMN("name")],
+        )
+    )
+    assert my_create_view_statement == 'CREATE VIEW "customers_view" AS ("id", "name") (SELECT *\nFROM "customers");'
+
+
+def test_sql_ast_create_view_no_columns():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_create_view_statement = sql_dialect.build_create_view_sql(
+        CREATE_VIEW(
+            fully_qualified_view_name='"customers_view"', view_query=[SELECT(STAR()), FROM("customers")], columns=[]
+        )
+    )
+    assert my_create_view_statement == 'CREATE VIEW "customers_view" AS (SELECT *\nFROM "customers");'
+
+
+def test_sql_ast_create_view_string_query():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_create_view_statement = sql_dialect.build_create_view_sql(
+        CREATE_VIEW(
+            fully_qualified_view_name='"customers_view"',
+            view_query='SELECT * FROM "customers"',
+            columns=[COLUMN("id"), COLUMN("name")],
+        )
+    )
+    assert my_create_view_statement == 'CREATE VIEW "customers_view" AS ("id", "name") (SELECT * FROM "customers");'
+
+
+def test_sql_ast_drop_view():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_drop_view_statement = sql_dialect.build_drop_view_sql(DROP_VIEW(fully_qualified_view_name='"customers_view"'))
+    assert my_drop_view_statement == 'DROP VIEW "customers_view";'
+
+
+def test_sql_ast_drop_view_if_exists():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_drop_view_statement = sql_dialect.build_drop_view_sql(
+        DROP_VIEW_IF_EXISTS(fully_qualified_view_name='"customers_view"')
+    )
+    assert my_drop_view_statement == 'DROP VIEW IF EXISTS "customers_view";'

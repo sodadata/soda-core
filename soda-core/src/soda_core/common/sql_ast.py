@@ -637,3 +637,29 @@ class OFFSET(BaseSqlExpression):
     @classmethod
     def optional(cls, offset: int | None) -> Optional[OFFSET]:
         return OFFSET(offset) if offset else None
+
+
+@dataclass
+class CREATE_VIEW(BaseSqlExpression):
+    fully_qualified_view_name: str
+    view_query: list[SqlExpression] | SqlExpression | str
+    columns: list[COLUMN]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.view_query)
+        self.handle_parent_node_update(self.columns)
+
+
+@dataclass
+class DROP_VIEW(BaseSqlExpression):
+    fully_qualified_view_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class DROP_VIEW_IF_EXISTS(DROP_VIEW):
+    def __post_init__(self):
+        super().__post_init__()

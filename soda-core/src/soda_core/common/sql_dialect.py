@@ -26,9 +26,12 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CREATE_VIEW,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
+    DROP_VIEW,
+    DROP_VIEW_IF_EXISTS,
     EQ,
     EXISTS,
     FROM,
@@ -459,6 +462,39 @@ class SqlDialect:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
         values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
+
+    #########################################################
+    # VIEWS
+    #########################################################
+    def build_create_view_sql(self, create_view: CREATE_VIEW, add_semicolon: bool = True) -> str:
+        if create_view.columns:
+            columns_sql: str = (
+                "(" + ", ".join([self.build_expression_sql(column) for column in create_view.columns]) + ") "
+            )
+        else:
+            columns_sql: str = ""
+        view_sql: str = f"CREATE VIEW {create_view.fully_qualified_view_name} AS {columns_sql}("
+        if isinstance(create_view.view_query, list):
+            view_sql += self.build_select_sql(
+                create_view.view_query, add_semicolon=False
+            )  # No semicolon for the nested query!
+        elif isinstance(create_view.view_query, SqlExpression):
+            view_sql += self.build_expression_sql(create_view.view_query)
+        elif isinstance(create_view.view_query, str):
+            view_sql += create_view.view_query
+        else:
+            raise Exception(f"Invalid view query type: {create_view.view_query.__class__.__name__}")
+        view_sql += ")"
+        return view_sql + (";" if add_semicolon else "")
+
+    def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: bool = True) -> str:
+        if isinstance(drop_view, DROP_VIEW_IF_EXISTS):  # Must be checked first to avoid ambiguity
+            drop_view_sql = "DROP VIEW IF EXISTS"
+        elif isinstance(drop_view, DROP_VIEW):
+            drop_view_sql = "DROP VIEW"
+        else:
+            raise Exception(f"Invalid drop view type: {drop_view.__class__.__name__}")
+        return f"{drop_view_sql} {drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
 
     #########################################################
     # SELECT
@@ -1223,3 +1259,6 @@ class SqlDialect:
         """Extract the column index from an element in cursor.description"""
         col_names = [self.get_column_name(c) for c in columns]
         return col_names.index(column_name)
+
+    def unwrap_quoted_identifier(self, identifier: str) -> str:
+        return identifier.strip(self.DEFAULT_QUOTE_CHAR) if self.is_quoted(identifier) else identifier
