@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import os
+import traceback
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -42,6 +43,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     ContractVerificationStatus,
+    PostProcessingStageState,
     SodaException,
     Threshold,
     YamlFileContentInfo,
@@ -1137,6 +1139,7 @@ class SodaCloud:
             "generatedContracts": [c.model_dump(by_alias=True) for c in contracts],
         }
         response = self._execute_command(request, request_log_name="upload_migration_contracts")
+        response.json()  # verify response is in JSON format
 
         if not response.ok:
             raise SodaCloudException(f"Failed to upload migration contracts: {response}")
@@ -1244,7 +1247,7 @@ class SodaCloud:
             formatted_exception: list[str] = traceback.format_exception(exception)
             request["exception"] = "".join(formatted_exception)
         response = self._execute_command(request, request_log_name="post_processing_update")
-        response_dict = response.json()
+        response.json() # verify response is in JSON format
 
         if response.status_code != 200:
             raise SodaCloudException(f"Failed to update post processing stage: {response}")

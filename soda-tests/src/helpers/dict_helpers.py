@@ -18,6 +18,7 @@ def _assert_recursive_equals(path: list[str], actual: Any, expected: Any):
     else:
         assert expected == actual, f"{'.'.join(path)} expected {expected}, but was {actual}"
 
+
 def matcher_string_contains(expected: str):
     def check(x: str):
         assert isinstance(x, str), f"Expected a string, but was {type(x)}, value={x}"

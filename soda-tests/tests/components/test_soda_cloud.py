@@ -253,7 +253,9 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
     ), f"Expected 2 cloud requests, got more: {data_source_test_helper.soda_cloud.requests}"
 
 
-def test_soda_cloud_results_with_post_processing_with_failure(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
+def test_soda_cloud_results_with_post_processing_with_failure(
+    data_source_test_helper: DataSourceTestHelper, env_vars: dict
+):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     class DummyHandler(ContractVerificationHandler):
@@ -266,7 +268,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(data_source_test_h
             soda_cloud_send_results_response_json: dict,
             dwh_data_source_file_path: Optional[str] = None,
         ):
-            raise Exception("Intentional failure for testing")
+            raise RuntimeError("Intentional failure for testing")
 
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
@@ -326,7 +328,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(data_source_test_h
             "scanId": "env_var_scan_id",
             "name": "testStage",
             "state": "failed",
-            "exception": matcher_string_contains("Exception: Intentional failure for testing"),
+            "exception": matcher_string_contains("RuntimeError: Intentional failure for testing"),
         },
     )
 
