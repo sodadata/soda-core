@@ -5,7 +5,16 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName
-from soda_core.common.sql_ast import COLUMN, CONCAT, CONCAT_WS, COUNT, DISTINCT, REGEX_LIKE, TUPLE, VALUES
+from soda_core.common.sql_ast import (
+    COLUMN,
+    CONCAT,
+    CONCAT_WS,
+    COUNT,
+    DISTINCT,
+    REGEX_LIKE,
+    TUPLE,
+    VALUES,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
