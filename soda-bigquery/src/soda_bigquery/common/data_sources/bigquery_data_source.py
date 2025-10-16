@@ -14,8 +14,8 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
     COLUMN,
-    COUNT,
     CONCAT_WS,
+    COUNT,
     DISTINCT,
     LITERAL,
     REGEX_LIKE,

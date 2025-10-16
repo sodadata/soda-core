@@ -244,6 +244,7 @@ class CONCAT(SqlExpression):
         super().__post_init__()
         self.handle_parent_node_update(self.expressions)
 
+
 @dataclass
 class CONCAT_WS(SqlExpression):
     separator: str
@@ -261,6 +262,7 @@ class STRING_HASH(SqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.expression)
+
 
 @dataclass
 class IS_NULL(SqlExpression):

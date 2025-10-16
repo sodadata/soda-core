@@ -899,7 +899,7 @@ class SqlDialect:
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
-    
+
     def get_soda_null_string_value(self) -> str:
         return "__SODA_NULL__"
 
@@ -918,13 +918,13 @@ class SqlDialect:
         """Convert a set of columns into a unique hashed string which can be used as a key."""
 
         def format_expr(e: SqlExpression) -> SqlExpression:
-            """ Convert expression to a string, and replace nulls with a predefined string."""
+            """Convert expression to a string, and replace nulls with a predefined string."""
             return COALESCE([CAST(e, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())])
 
         formatted_expressions: list[SqlExpression] = [format_expr(e) for e in combined_hash.expressions]
         if len(formatted_expressions) == 1:
             string_to_hash = formatted_expressions[0]
-        else: 
+        else:
             string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
         return self.build_expression_sql(STRING_HASH(string_to_hash))
 
