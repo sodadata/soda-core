@@ -74,6 +74,59 @@ class RemoteScanStatus(Enum):
         raise ValueError(f"Unknown RemoteScanStatus value: {value}")
 
 
+class MigrationStatus(Enum):
+    CREATED = "created"
+    GENERATING_CONTRACTS = "generatingContracts"
+    COMPLETED_CONTRACT_GENERATION = "completedContractGeneration"
+    SUBMITTED_MIGRATION = "submittedMigration"
+    MIGRATING = "migrating"
+    COMPLETED_MIGRATION = "completedMigration"
+    GENERATION_FAILED = "generationFailed"
+    MIGRATION_FAILED = "migrationFailed"
+    CANCELED = "canceled"
+
+    @classmethod
+    def from_value(cls, value: str) -> MigrationStatus:
+        for status in cls:
+            if status.value == value:
+                return status
+        raise ValueError(f"Unknown MigrationStatus value: {value}")
+
+    @property
+    def is_generate_final_state(self) -> bool:
+        return self in {
+            MigrationStatus.COMPLETED_CONTRACT_GENERATION,
+            MigrationStatus.CANCELED,
+            MigrationStatus.GENERATION_FAILED,
+        }
+
+    @property
+    def is_generate_successful_state(self) -> bool:
+        return self in {MigrationStatus.COMPLETED_CONTRACT_GENERATION}
+
+    @property
+    def is_publish_final_state(self) -> bool:
+        return self in {MigrationStatus.COMPLETED_MIGRATION, MigrationStatus.CANCELED, MigrationStatus.MIGRATION_FAILED}
+
+    @property
+    def is_publish_successful_state(self) -> bool:
+        return self in {MigrationStatus.COMPLETED_MIGRATION}
+
+
+class DatasetMigrationStatus(Enum):
+    CREATED = "created"
+    GENERATING_CONTRACT = "generatingContract"
+    COMPLETED_CONTRACT_GENERATION = "completedContractGeneration"
+    SUBMITTED_MIGRATION = "submittedMigration"
+    MIGRATING = "migrating"
+    GENERATION_FAILED = "generationFailed"
+    MIGRATION_FAILED = "migrationFailed"
+    COMPLETED_MIGRATION = "completedMigration"
+    CANCELED = "canceled"
+    ALREADY_MIGRATING = "alreadyMigrating"
+    ALREADY_MIGRATED = "alreadyMigrated"
+
+
 class ContractSkeletonGenerationState(Enum):
     PENDING = "pending"
     FAILED = "failed"
@@ -938,7 +991,7 @@ class SodaCloud:
                     request_body=request_body,
                     is_retry=False,
                 )
-            elif response.status_code != 200:
+            elif not response.ok:
                 verbose_message: str = (
                     "" if logger.isEnabledFor(logging.DEBUG) else "Enable verbose mode to see more details."
                 )
@@ -1063,6 +1116,85 @@ class SodaCloud:
             raise SodaCloudException(f"Failed to upload migration contracts: {response}")
 
         logger.info(f"Uploaded {len(contracts)} contracts for migration {migration_id}")
+
+    def migration_poll_status(self, migration_id: str, blocking_timeout_in_minutes: int = 60) -> MigrationStatus:
+        logger.info(f"Polling migration status for migration {migration_id}")
+
+        blocking_timeout = datetime.now() + timedelta(minutes=blocking_timeout_in_minutes)
+        attempt = 0
+        while datetime.now() < blocking_timeout:
+            attempt += 1
+            max_wait: timedelta = blocking_timeout - datetime.now()
+            logger.debug(f"Polling for migration '{migration_id}' status.  Attempt {attempt}. Max wait: {max_wait}")
+            response = self._get_migration_status(migration_id)
+            logger.debug(f"Migration status response: {json.dumps(response.text)}")
+            if not response:
+                logger.error(f"Failed to poll remote migration status. " f"Response: {response}")
+                continue
+
+            response_body_dict: Optional[dict] = response.json() if response else None
+
+            if "migration" not in response_body_dict and "state" not in response["migration"]:
+                logger.debug("Unable to parse the Cloud response. Retry in 5 seconds.")
+                sleep(5)
+                continue
+
+            migration_state = MigrationStatus.from_value(response_body_dict["migration"]["state"])
+
+            logger.info(f"Migration {migration_id} has state '{migration_state.value}'")
+
+            if migration_state.is_publish_final_state:
+                return migration_state
+
+            time_to_wait_in_seconds: float = 5
+            next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+            if next_poll_time_str:
+                logger.debug(f"X-Soda-Next-Poll-Time: '{next_poll_time_str}'")
+                next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                if isinstance(next_poll_time, datetime):
+                    now = datetime.now(timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                else:
+                    time_to_wait_in_seconds = 60
+            if time_to_wait_in_seconds > 0:
+                logger.info(f"Polling for status in {time_to_wait_in_seconds} seconds.")
+                sleep(time_to_wait_in_seconds)
+
+    def _get_migration_status(self, migration_id: str) -> Response:
+        return self._execute_query(
+            request_log_name="migration_poll_status",
+            query_json_dict={
+                "type": "sodaCoreV3Migration",
+                "v3MigrationId": migration_id,
+            },
+        )
+
+    def migration_get_datasets(self, migration_id: str) -> list:
+        logger.info(f"Getting datasets for migration {migration_id}")
+
+        request = {"type": "sodaCoreV3DatasetMigrations", "migrationId": migration_id}
+        response = self._execute_query(request, request_log_name="get_migration_datasets")
+        response_dict = response.json()
+
+        if not response.ok or response_dict.get("results", None) is None:
+            raise SodaCloudException(f"Failed to get migration datasets.': {response_dict['message']}")
+
+        datasets_json = response_dict.get("results")
+
+        return datasets_json
+
+    def migration_cancel(self, migration_id: str) -> None:
+        logger.info(f"Cancelling migration {migration_id}")
+
+        request = {"type": "sodaCoreV3MigrationCancel", "migrationId": migration_id}
+        response = self._execute_command(request, request_log_name="cancel_migration")
+        response_dict = response.json()
+
+        if not response.ok:
+            raise SodaCloudException(f"Failed to cancel migration: {response_dict['message']}")
+
+        logger.info(f"Migration {migration_id} cancelled")
 
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
