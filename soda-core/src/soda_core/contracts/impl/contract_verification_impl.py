@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import traceback
-
 from abc import ABC
 from datetime import timezone
 from enum import Enum
@@ -37,7 +35,6 @@ from soda_core.contracts.contract_verification import (
     SodaException,
     Threshold,
     YamlFileContentInfo,
-    PostProcessingStageState,
 )
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,

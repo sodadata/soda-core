@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import traceback
-
 import base64
 import json
 import logging
@@ -47,7 +45,6 @@ from soda_core.contracts.contract_verification import (
     SodaException,
     Threshold,
     YamlFileContentInfo,
-    PostProcessingStageState,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
@@ -1247,7 +1244,7 @@ class SodaCloud:
             formatted_exception: list[str] = traceback.format_exception(exception)
             request["exception"] = "".join(formatted_exception)
         response = self._execute_command(request, request_log_name="post_processing_update")
-        response.json() # verify response is in JSON format
+        response.json()  # verify response is in JSON format
 
         if response.status_code != 200:
             raise SodaCloudException(f"Failed to update post processing stage: {response}")
