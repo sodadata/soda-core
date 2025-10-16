@@ -117,9 +117,12 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
     def convert_metadata_to_soda_data_type(metadata: ColumnMetadata) -> SodaDataTypeName:
         sql_data_type: SqlDataType = metadata.sql_data_type
         data_type_name = sql_data_type.name
-        return data_source_test_helper.data_source_impl.sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()[
-            data_type_name
-        ]
+        try:
+            return data_source_test_helper.data_source_impl.sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()[
+                data_type_name
+            ]
+        except KeyError as e:
+            raise KeyError(f"Data type mapping for '{data_type_name}' not found") from e
 
     # Map column names to SodaDataTypeNames
     column_mappings = {
