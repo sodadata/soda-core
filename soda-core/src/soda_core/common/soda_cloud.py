@@ -4,7 +4,6 @@ import base64
 import json
 import logging
 import os
-import traceback
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
