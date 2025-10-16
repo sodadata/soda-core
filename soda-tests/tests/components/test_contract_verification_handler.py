@@ -43,7 +43,7 @@ def test_failure_in_contract_verification_handler_does_not_fail_scan(
             soda_cloud_send_results_response_json: dict,
             dwh_data_source_file_path: Optional[str] = None,
         ):
-            raise Exception("Simulated failure in ContractVerificationHandler")
+            raise RuntimeError("Simulated failure in ContractVerificationHandler")
 
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return []

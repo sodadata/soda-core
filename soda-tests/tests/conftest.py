@@ -1,7 +1,9 @@
 import freezegun
 from helpers.test_fixtures import *  # noqa: F401
 from soda_core.common.logging_configuration import configure_logging
-from soda_core.contracts.impl.contract_verification_impl import ContractVerificationHandlerRegistry
+from soda_core.contracts.impl.contract_verification_impl import (
+    ContractVerificationHandlerRegistry,
+)
 
 
 def pytest_sessionstart(session) -> None:
@@ -42,6 +44,7 @@ my_ignore_list = [
 ]
 freezegun.configure(extend_ignore_list=my_ignore_list)
 freeze_time = freezegun.freeze_time
+
 
 @pytest.fixture(autouse=True)
 def clear_contract_verification_handlers():

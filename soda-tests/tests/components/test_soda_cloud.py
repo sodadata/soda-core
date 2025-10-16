@@ -195,6 +195,9 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             soda_cloud_send_results_response_json: dict,
             dwh_data_source_file_path: Optional[str] = None,
         ):
+            """
+            not needed for this test
+            """
             pass
 
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
