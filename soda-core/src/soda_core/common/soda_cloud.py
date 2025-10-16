@@ -1230,7 +1230,7 @@ class SodaCloud:
         logger.info(f"Migration {migration_id} cancelled")
 
     def post_processing_update(
-        self, stage: str, scan_id: str, state: PostProcessingStageState, exception: Optional[Exception] = None
+        self, stage: str, scan_id: str, state: PostProcessingStageState, error: Optional[str] = None
     ):
         logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
@@ -1240,9 +1240,8 @@ class SodaCloud:
             "name": stage,
             "state": state.value,
         }
-        if exception:
-            formatted_exception: list[str] = traceback.format_exception(exception)
-            request["exception"] = "".join(formatted_exception)
+        if error:
+            request["error"] = error
         response = self._execute_command(request, request_log_name="post_processing_update")
         response.json()  # verify response is in JSON format
 

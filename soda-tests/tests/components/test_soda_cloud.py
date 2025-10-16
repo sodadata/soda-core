@@ -328,7 +328,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
             "scanId": "env_var_scan_id",
             "name": "testStage",
             "state": "failed",
-            "exception": matcher_string_contains("RuntimeError: Intentional failure for testing"),
+            "error": matcher_string_contains("RuntimeError: Intentional failure for testing"),
         },
     )
 
