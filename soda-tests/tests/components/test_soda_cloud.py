@@ -198,7 +198,6 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             """
             not needed for this test
             """
-            pass
 
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
