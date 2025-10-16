@@ -25,6 +25,7 @@ from soda_core.common.sql_ast import (
     REGEX_LIKE,
     SELECT,
     STAR,
+    STRING_HASH,
     TUPLE,
     VALUES,
     WHERE,
@@ -336,3 +337,6 @@ class SqlServerSqlDialect(SqlDialect):
             )
             return True
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+    def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
+        return f"CAST(HASHBYTES('MD5', {self.build_expression_sql(string_hash.expression)}) AS VARCHAR(32))"

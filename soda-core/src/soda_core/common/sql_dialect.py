@@ -22,6 +22,9 @@ from soda_core.common.sql_ast import (
     CAST,
     COALESCE,
     COLUMN,
+    COMBINED_HASH,
+    CONCAT,
+    CONCAT_WS,
     COUNT,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
@@ -63,6 +66,7 @@ from soda_core.common.sql_ast import (
     REGEX_LIKE,
     SELECT,
     STAR,
+    STRING_HASH,
     SUM,
     TUPLE,
     VALUES,
@@ -568,6 +572,14 @@ class SqlDialect:
             return self._build_case_when_sql(expression)
         elif isinstance(expression, TUPLE):
             return self._build_tuple_sql(expression)
+        elif isinstance(expression, COMBINED_HASH):
+            return self._build_combined_hash_sql(expression)
+        elif isinstance(expression, CONCAT):
+            return self._build_concat_sql(expression)
+        elif isinstance(expression, CONCAT_WS):
+            return self._build_concat_ws_sql(expression)
+        elif isinstance(expression, STRING_HASH):
+            return self._build_string_hash_sql(expression)
         elif isinstance(expression, IS_NULL):
             return self._build_is_null_sql(expression)
         elif isinstance(expression, IS_NOT_NULL):
@@ -887,6 +899,34 @@ class SqlDialect:
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
+    
+    def get_soda_null_string_value(self) -> str:
+        return "__SODA_NULL__"
+
+    def _build_concat_sql(self, concat: CONCAT) -> str:
+        elements: str = ", ".join(self.build_expression_sql(e) for e in concat.expressions)
+        return f"CONCAT({elements})"
+
+    def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
+        elements: str = ", ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
+        return f"CONCAT_WS({concat_ws.separator}, {elements})"
+
+    def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
+        return f"MD5({self.build_expression_sql(string_hash.expression)})"
+
+    def _build_combined_hash_sql(self, combined_hash: COMBINED_HASH) -> str:
+        """Convert a set of columns into a unique hashed string which can be used as a key."""
+
+        def format_expr(e: SqlExpression) -> SqlExpression:
+            """ Convert expression to a string, and replace nulls with a predefined string."""
+            return COALESCE([CAST(e, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())])
+
+        formatted_expressions: list[SqlExpression] = [format_expr(e) for e in combined_hash.expressions]
+        if len(formatted_expressions) == 1:
+            string_to_hash = formatted_expressions[0]
+        else: 
+            string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
+        return self.build_expression_sql(STRING_HASH(string_to_hash))
 
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """

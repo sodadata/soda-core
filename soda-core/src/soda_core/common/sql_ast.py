@@ -228,6 +228,41 @@ class TUPLE(SqlExpression):
 
 
 @dataclass
+class COMBINED_HASH(SqlExpression):
+    expressions: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expressions)
+
+
+@dataclass
+class CONCAT(SqlExpression):
+    expressions: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expressions)
+
+@dataclass
+class CONCAT_WS(SqlExpression):
+    separator: str
+    expressions: list[SqlExpression | str]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expressions)
+
+
+@dataclass
+class STRING_HASH(SqlExpression):
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+@dataclass
 class IS_NULL(SqlExpression):
     expression: SqlExpression | str
 

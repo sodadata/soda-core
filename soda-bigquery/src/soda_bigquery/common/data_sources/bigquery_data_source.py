@@ -15,6 +15,7 @@ from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeNam
 from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
+    CONCAT_WS,
     DISTINCT,
     LITERAL,
     REGEX_LIKE,
@@ -215,3 +216,7 @@ class BigQuerySqlDialect(SqlDialect):
 
     def get_preferred_number_of_rows_for_insert(self) -> int:
         return 500
+
+    def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
+        elements: str = f", '{concat_ws.separator}', ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
+        return f"CONCAT({elements})"
