@@ -58,9 +58,9 @@ def test_sql_ast_modeling_cte():
         ]
     ) == (
         'WITH "customers_filtered" AS (\n'
-        "  SELECT *\n"
-        '    FROM "customers"\n'
-        '    WHERE "colA" >= 25\n'
+        "SELECT *\n"
+        'FROM "customers"\n'
+        'WHERE "colA" >= 25\n'
         ")\n"
         'SELECT SUM("size")\n'
         'FROM "customers_filtered";'
