@@ -334,7 +334,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
 
     assert (
         len(data_source_test_helper.soda_cloud.requests) == 3
-    ), f"Expected 2 cloud requests, got more: {data_source_test_helper.soda_cloud.requests}"
+    ), f"Expected 3 cloud requests, got more: {data_source_test_helper.soda_cloud.requests}"
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
