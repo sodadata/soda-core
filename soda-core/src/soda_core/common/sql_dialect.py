@@ -292,7 +292,7 @@ class SqlDialect:
             return None
         return str(value)
 
-    def literal_string(self, value: str):
+    def literal_string(self, value: str) -> Optional[str]:
         if value is None:
             return None
         return "'" + self.escape_string(value) + "'"
@@ -462,7 +462,8 @@ class SqlDialect:
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "(" + ", ".join([self.literal(value) for value in values.values]) + ")"
-        values_sql = self.encode_string_for_sql(values_sql)
+        # We used to have this line here to escape special characters.
+        # But this doesn't accurately insert text fields with escaped characters (such as newlines): values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
 
     #########################################################

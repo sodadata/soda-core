@@ -260,6 +260,7 @@ class AthenaSqlDialect(SqlDialect):
             + "\n)"
         )
         location = self.data_source_impl.table_s3_location(create_table.fully_qualified_table_name)
+        create_table_sql = create_table_sql + "\nSTORED AS PARQUET"
         create_table_sql = create_table_sql + f"\nLOCATION '{location}'"
         return create_table_sql + (";" if add_semicolon else "")
 
