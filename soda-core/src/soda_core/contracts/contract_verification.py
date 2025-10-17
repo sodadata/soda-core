@@ -406,8 +406,8 @@ class ContractVerificationStatus(Enum):
 
 
 class PostProcessingStageState(Enum):
-    ONGOING = ("ongoing",)
-    COMPLETED = ("completed",)
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
     FAILED = "failed"
 
 
