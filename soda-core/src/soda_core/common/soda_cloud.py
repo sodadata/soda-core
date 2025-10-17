@@ -126,6 +126,30 @@ class DatasetMigrationStatus(Enum):
     ALREADY_MIGRATING = "alreadyMigrating"
     ALREADY_MIGRATED = "alreadyMigrated"
 
+    @property
+    def is_generate_final_state(self) -> bool:
+        return self in {
+            DatasetMigrationStatus.COMPLETED_CONTRACT_GENERATION,
+            DatasetMigrationStatus.CANCELED,
+            DatasetMigrationStatus.GENERATION_FAILED,
+        }
+
+    @property
+    def is_generate_successful_state(self) -> bool:
+        return self in {DatasetMigrationStatus.COMPLETED_CONTRACT_GENERATION}
+
+    @property
+    def is_publish_final_state(self) -> bool:
+        return self in {
+            DatasetMigrationStatus.COMPLETED_MIGRATION,
+            MigrationStatus.CANCELED,
+            MigrationStatus.MIGRATION_FAILED,
+        }
+
+    @property
+    def is_publish_successful_state(self) -> bool:
+        return self in {DatasetMigrationStatus.COMPLETED_MIGRATION}
+
 
 class ContractSkeletonGenerationState(Enum):
     PENDING = "pending"
@@ -1093,7 +1117,7 @@ class SodaCloud:
         response = self._execute_command(request, request_log_name="create_migration")
         response_dict = response.json()
 
-        if response.status_code != 200 or response_dict.get("v3MigrationId", None) is None:
+        if not response.ok or response_dict.get("v3MigrationId", None) is None:
             raise SodaCloudException(f"Failed to start migration.': {response_dict['message']}")
 
         migration_id = response_dict.get("v3MigrationId")
@@ -1110,9 +1134,8 @@ class SodaCloud:
             "generatedContracts": [c.model_dump(by_alias=True) for c in contracts],
         }
         response = self._execute_command(request, request_log_name="upload_migration_contracts")
-        response_dict = response.json()
 
-        if response.status_code != 200:
+        if not response.ok:
             raise SodaCloudException(f"Failed to upload migration contracts: {response}")
 
         logger.info(f"Uploaded {len(contracts)} contracts for migration {migration_id}")
@@ -1173,14 +1196,21 @@ class SodaCloud:
     def migration_get_datasets(self, migration_id: str) -> list:
         logger.info(f"Getting datasets for migration {migration_id}")
 
-        request = {"type": "sodaCoreV3DatasetMigrations", "migrationId": migration_id}
+        request = {
+            "type": "sodaCoreV3DatasetMigrations",
+            "filter": {
+                "type": "equals",
+                "left": {"type": "columnValue", "columnName": "v3MigrationId"},
+                "right": {"type": "string", "value": migration_id},
+            },
+        }
         response = self._execute_query(request, request_log_name="get_migration_datasets")
         response_dict = response.json()
 
         if not response.ok or response_dict.get("results", None) is None:
             raise SodaCloudException(f"Failed to get migration datasets.': {response_dict['message']}")
 
-        datasets_json = response_dict.get("results")
+        datasets_json = response_dict.get("results", [])
 
         return datasets_json
 
