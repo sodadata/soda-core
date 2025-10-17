@@ -10,10 +10,11 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 
+MAX_TABLE_NAME_LENGTH = 63  # Postgres max table name length.  Needed or else table names may be incorrectly truncated.
 
-MAX_TABLE_NAME_LENGTH = 63 # Postgres max table name length.  Needed or else table names may be incorrectly truncated.
+
 # This should technically be pulled from SQL dialect and vary by data source, but we don't have access to that here
-# So far every data source can handle 63 characters.   
+# So far every data source can handle 63 characters.
 class TestTableSpecificationBuilder:
     """
     See TestTableSpecification for documentation
