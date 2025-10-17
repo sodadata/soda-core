@@ -29,6 +29,7 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CTE,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
@@ -518,34 +519,34 @@ class SqlDialect:
 
         return select_sql_lines
 
+    def _build_cte(self, cte: CTE) -> str:
+        if isinstance(cte.cte_query, list):
+            sql_str: str = self.build_select_sql(cte.cte_query)
+        elif isinstance(cte.cte_query, VALUES):
+            sql_str: str = self.build_cte_values_sql(values=cte.cte_query, alias_columns=cte.alias_columns)
+        elif isinstance(cte.cte_query, str):
+            sql_str: str = indent(cte.cte_query, "  ").strip()
+        else:
+            raise ValueError(f"Unexpected cte_query type: {cte.cte_query.__class__.__name__}")
+        sql_str = sql_str.rstrip(";")
+        sql_str = indent(sql_str, "  ")
+        alias_columns_str: str = ""
+        if cte.alias_columns:
+            alias_columns_str = (
+                "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
+            )
+        return f"{self.quote_default(cte.alias)}{alias_columns_str} AS (\n{sql_str}\n)"
+
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
         cte_lines: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, WITH):
-                cte_query_sql_str: str | None = None
-                if isinstance(select_element.cte_query, list):
-                    select_element.cte_query = self.build_select_sql(select_element.cte_query)
-                elif isinstance(select_element.cte_query, VALUES):
-                    select_element.cte_query = self.build_cte_values_sql(
-                        values=select_element.cte_query, alias_columns=select_element.alias_columns
-                    )
-                if isinstance(select_element.cte_query, str):
-                    cte_query_sql_str = indent(select_element.cte_query, "  ").strip()
-                if cte_query_sql_str:
-                    cte_query_sql_str = cte_query_sql_str.rstrip(";")
-                    cte_lines.append(self._build_cte_with_sql_line(select_element))
-                    indented_nested_query: str = indent(cte_query_sql_str, "  ")
-                    cte_lines.extend(indented_nested_query.split("\n"))
-                    cte_lines.append(f")")
+                cte_sql: list[str] = [self._build_cte(cte) for cte in select_element.cte_list]
+                cte_sql = "WITH \n" + ",\n".join(cte_sql)
+                cte_lines = cte_sql.split("\n")
         return cte_lines
 
-    def _build_cte_with_sql_line(self, with_element: WITH) -> str:
-        alias_columns_str: str = ""
-        if with_element.alias_columns:
-            alias_columns_str = (
-                "(" + ", ".join([self._build_column_sql(column) for column in with_element.alias_columns]) + ")"
-            )
-        return f"WITH {self.quote_default(with_element.alias)}{alias_columns_str} AS ("
+    
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):

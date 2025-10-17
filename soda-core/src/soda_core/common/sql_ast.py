@@ -131,6 +131,10 @@ class GROUP_BY(BaseSqlExpression):
 
 @dataclass
 class WITH(BaseSqlExpression):
+    cte_list: list[CTE]
+
+@dataclass
+class CTE(BaseSqlExpression):
     alias: str
     alias_columns: list[COLUMN] | None = None
     cte_query: list | str | VALUES | None = None
@@ -138,11 +142,10 @@ class WITH(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
 
-    def AS(self, cte_query: list | str) -> WITH:
+    def AS(self, cte_query: list | str) -> CTE:
         self.cte_query = cte_query
         self.handle_parent_node_update(cte_query)
         return self
-
 
 @dataclass
 class VALUES(BaseSqlExpression):

@@ -213,7 +213,7 @@ class FailedRowsQueryMetricImpl(MetricImpl):
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
         sql = data_source_impl.sql_dialect.build_select_sql(
-            [WITH(alias="failed_rows").AS(cte_query=failed_rows_query), SELECT(COUNT(STAR())), FROM("failed_rows")]
+            [WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]), SELECT(COUNT(STAR())), FROM("failed_rows")]
         )
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
 

@@ -52,7 +52,7 @@ def test_sql_ast_modeling_cte():
 
     assert sql_dialect.build_select_sql(
         [
-            WITH("customers_filtered").AS([SELECT(STAR()), FROM("customers"), WHERE(GTE("colA", LITERAL(25)))]),
+            WITH[CTE("customers_filtered").AS([SELECT(STAR()), FROM("customers"), WHERE(GTE("colA", LITERAL(25)))])],
             SELECT(SUM(COLUMN("size"))),
             FROM("customers_filtered"),
         ]
