@@ -57,9 +57,9 @@ def test_sql_ast_modeling_cte():
             FROM("customers_filtered"),
         ]
     ) == (
-        'WITH \n'
+        "WITH \n"
         '"customers_filtered" AS (\n'
-        '  SELECT *\n'
+        "  SELECT *\n"
         '  FROM "customers"\n'
         '  WHERE "colA" >= 25\n'
         ")\n"

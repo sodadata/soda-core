@@ -533,9 +533,7 @@ class SqlDialect:
         sql_str = indent(sql_str, "  ")
         alias_columns_str: str = ""
         if cte.alias_columns:
-            alias_columns_str = (
-                "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
-            )
+            alias_columns_str = "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
         return f"{self.quote_default(cte.alias)}{alias_columns_str} AS (\n{sql_str}\n)"
 
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
@@ -546,8 +544,6 @@ class SqlDialect:
                 cte_sql = "WITH \n" + ",\n".join(cte_sql)
                 cte_lines = cte_sql.split("\n")
         return cte_lines
-
-    
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):

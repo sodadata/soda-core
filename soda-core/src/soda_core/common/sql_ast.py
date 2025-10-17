@@ -133,6 +133,7 @@ class GROUP_BY(BaseSqlExpression):
 class WITH(BaseSqlExpression):
     cte_list: list[CTE]
 
+
 @dataclass
 class CTE(BaseSqlExpression):
     alias: str
@@ -146,6 +147,7 @@ class CTE(BaseSqlExpression):
         self.cte_query = cte_query
         self.handle_parent_node_update(cte_query)
         return self
+
 
 @dataclass
 class VALUES(BaseSqlExpression):
