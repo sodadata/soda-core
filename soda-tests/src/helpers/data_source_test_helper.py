@@ -308,10 +308,10 @@ class DataSourceTestHelper:
         schema = self.dataset_prefix[schema_index]
 
         self.drop_schema_if_exists(schema)
-    
+
     def drop_schema_if_exists(self, schema: str) -> None:
         try:
-            sql: str = self.drop_schema_if_exists_sql(schema = schema)
+            sql: str = self.drop_schema_if_exists_sql(schema=schema)
             self.data_source_impl.execute_update(sql)
         except Exception as e:
             logger.warning(f"Error dropping test schema: {e}")
