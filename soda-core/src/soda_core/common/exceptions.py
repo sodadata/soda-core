@@ -1,6 +1,5 @@
 import sys
 import traceback
-
 from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier

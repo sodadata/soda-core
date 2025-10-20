@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 from abc import ABC
 from datetime import timezone
 from enum import Enum
@@ -11,7 +10,11 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.exceptions import (
+    InvalidRegexException,
+    SodaCoreException,
+    get_exception_stacktrace,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -576,7 +579,7 @@ class ContractImpl:
                     check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
-            contract_verification_status = _get_contract_verification_status(self.logs.records, check_results)
+            contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
 
             logger.info(
                 self.build_log_summary(
@@ -762,10 +765,8 @@ class ContractImpl:
             )
 
 
-def _get_contract_verification_status(
-    log_records: list[logging.LogRecord], check_results: list[CheckResult]
-) -> ContractVerificationStatus:
-    if any(r.levelno >= logging.ERROR for r in log_records):
+def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> ContractVerificationStatus:
+    if has_errors:
         return ContractVerificationStatus.ERROR
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):

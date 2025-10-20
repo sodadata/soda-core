@@ -299,7 +299,7 @@ class SodaCloud:
             scan_id = os.environ["SODA_SCAN_ID"]
 
         cloud_log_dicts = (
-            [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
+            [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
         )
 
         if exc:
@@ -584,7 +584,6 @@ class SodaCloud:
         response_json: dict = response.json()
         scan_id: str = response_json.get("scanId")
 
-        log_records: Optional[list[LogRecord]] = None
         if response.status_code != 200:
             logger.error("Remote contract verification failed.")
             verification_result.sending_results_to_soda_cloud_failed = True
@@ -677,9 +676,7 @@ class SodaCloud:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
 
         logs.remove_from_root_logger()
-        log_records = logs.records
-
-        verification_result.log_records = logs.records
+        verification_result.log_records = logs.get_log_records()
 
         return verification_result
 
@@ -1249,6 +1246,22 @@ class SodaCloud:
 
         logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
+    def logs_batch(self, body):
+        headers = {
+            "Authorization": self._get_token(),
+            "Content-Type": "application/jsonlines",
+            "Is-V3": "true",
+            "Soda-Library-Version": SODA_LIBRARY_VERSION,
+        }
+
+        response = self._http_post(
+            url=f"{self.api_url}/logs/{self.scan_reference}/batch",
+            headers=headers,
+            data=body,
+            request_name="logs_batch",
+        )
+        return response
+
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
@@ -1570,10 +1583,10 @@ def _map_remote_scan_status_to_contract_verification_status(
 def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optional[list[dict]]:
     if not log_records:
         return None
-    return [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
+    return [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
 
 
-def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
+def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
     return {
         "level": log_record.levelname.lower(),
         "message": log_record.msg,

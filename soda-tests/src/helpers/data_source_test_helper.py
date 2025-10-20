@@ -122,7 +122,7 @@ class DataSourceTestHelper:
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
         logs.remove_from_root_logger()
         if logs.has_errors:
-            raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
+            raise RuntimeError(f"Couldn't create DataSource: {logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
         # Test table names that are present in the data source.
