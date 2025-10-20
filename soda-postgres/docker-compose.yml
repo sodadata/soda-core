@@ -1,7 +1,8 @@
 version: "3.7"
 services:
   soda-sql-postgres:
-    image: postgres:9.6.17-alpine
+    # please keep the postgres version in sync with the one in CI/CD
+    image: postgres:15.10-alpine3.21
     ports:
       - "5432:5432"
     volumes:
