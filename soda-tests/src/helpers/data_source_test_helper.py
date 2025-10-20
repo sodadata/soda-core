@@ -302,18 +302,22 @@ class DataSourceTestHelper:
         return self.data_source_impl.sql_dialect.post_schema_create_sql(self.dataset_prefix)
 
     def drop_test_schema_if_exists(self) -> None:
+        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
+        if schema_index is None:
+            raise AssertionError("Data source does not support schemas")
+        schema = self.dataset_prefix[schema_index]
+
+        self.drop_schema_if_exists(schema)
+
+    def drop_schema_if_exists(self, schema: str) -> None:
         try:
-            sql: str = self.drop_test_schema_if_exists_sql()
+            sql: str = self.drop_schema_if_exists_sql(schema=schema)
             self.data_source_impl.execute_update(sql)
         except Exception as e:
             logger.warning(f"Error dropping test schema: {e}")
 
-    def drop_test_schema_if_exists_sql(self) -> str:
-        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
-        if schema_index is None:
-            raise AssertionError("Data source does not support schemas")
-
-        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[schema_index]} CASCADE;"
+    def drop_schema_if_exists_sql(self, schema: str) -> str:
+        return f"DROP SCHEMA IF EXISTS {schema} CASCADE;"
 
     def ensure_test_table(
         self, test_table_specification: TestTableSpecification, force_recreate: bool = False
