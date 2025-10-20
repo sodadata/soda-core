@@ -1,3 +1,6 @@
+import sys
+import traceback
+
 from typing import Optional
 
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -107,3 +110,13 @@ class DatasetNotFoundException(SodaCloudException):
             f"Dataset '{dataset_identifier.dataset_name}' is unknown in Soda Cloud. "
             "Please verify the dataset name or configure it in Soda Cloud."
         )
+
+
+def get_exception_stacktrace(exception) -> Optional[str]:
+    if isinstance(exception, BaseException):
+        if sys.version_info < (3, 10):
+            return "".join(
+                traceback.format_exception(etype=type(exception), value=exception, tb=exception.__traceback__)
+            )
+        return "".join(traceback.format_exception(exception))
+    return None

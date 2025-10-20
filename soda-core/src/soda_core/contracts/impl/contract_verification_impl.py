@@ -754,12 +754,11 @@ class ContractImpl:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
             return
         for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
-            formatted_exception: list[str] = traceback.format_exception(exc)
             self.soda_cloud.post_processing_update(
                 stage=post_processing_stage.name,
                 scan_id=scan_id,
                 state=PostProcessingStageState.FAILED,
-                error="".join(formatted_exception),
+                error=get_exception_stacktrace(exc),
             )
 
 

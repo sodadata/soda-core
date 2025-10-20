@@ -653,7 +653,7 @@ class SodaCloud:
                             extra[ExtraKeys.DOC] = doc
 
                         exception: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.EXCEPTION)
-                        if doc:
+                        if exception:
                             extra[ExtraKeys.EXCEPTION] = exception
 
                         logger.log(level=level_logrecord, msg=soda_cloud_log_dict.get("message"), extra=extra)
