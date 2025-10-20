@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import timezone
 from enum import Enum
 from io import StringIO
@@ -11,9 +10,8 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
-from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
+from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
@@ -32,6 +30,7 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationStatus,
     DataSource,
     Measurement,
+    PostProcessingStage,
     SodaException,
     Threshold,
     YamlFileContentInfo,
@@ -51,20 +50,8 @@ from tabulate import tabulate
 logger: logging.Logger = soda_logger
 
 
-class ContractVerificationHandler:
-    @classmethod
-    def instance(cls, identifier: Optional[str] = None) -> Optional[ContractVerificationHandler]:
-        # TODO: replace with plugin extension mechanism
-        try:
-            from soda.failed_rows_extractor.failed_rows_extractor import (
-                FailedRowsExtractor,
-            )
-
-            return FailedRowsExtractor.create()
-        except (AttributeError, ModuleNotFoundError) as e:
-            # Extension not installed
-            return None
-
+class ContractVerificationHandler(ABC):
+    @abstractmethod
     def handle(
         self,
         contract_impl: ContractImpl,
@@ -75,6 +62,24 @@ class ContractVerificationHandler:
         dwh_data_source_file_path: Optional[str] = None,
     ):
         pass
+
+    @abstractmethod
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        pass
+
+
+class ContractVerificationHandlerRegistry(ABC):
+    contract_verification_handlers: list[ContractVerificationHandler] = []
+    post_processing_stages: dict[str, ContractVerificationHandler] = {}
+
+    @classmethod
+    def register(cls, verification_handler: ContractVerificationHandler) -> None:
+        cls.contract_verification_handlers.append(verification_handler)
+        for stage in verification_handler.provides_post_processing_stages():
+            stage_name = stage.name
+            if stage_name in cls.post_processing_stages:
+                logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
+            cls.post_processing_stages[stage_name] = verification_handler
 
 
 class ContractVerificationSessionImpl:
@@ -587,6 +592,10 @@ class ContractImpl:
         if self.soda_cloud and self.publish_results:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
 
+        post_processing_stages: list[PostProcessingStage] = []
+        for contract_verification_handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
+            post_processing_stages += contract_verification_handler.provides_post_processing_stages()
+
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
@@ -608,6 +617,7 @@ class ContractImpl:
             sending_results_to_soda_cloud_failed=sending_results_to_soda_cloud_failed,
             status=contract_verification_status,
             log_records=log_records,
+            post_processing_stages=post_processing_stages,
         )
 
         if soda_cloud_file_id:
@@ -620,10 +630,7 @@ class ContractImpl:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         try:
-            contract_verification_handler: Optional[
-                ContractVerificationHandler
-            ] = ContractVerificationHandler.instance()
-            if contract_verification_handler:
+            for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
                 contract_verification_handler.handle(
                     contract_impl=self,
                     data_source_impl=self.data_source_impl,

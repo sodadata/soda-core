@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -12,6 +13,7 @@ from helpers.mock_soda_cloud import (
     MockSodaCloud,
 )
 from helpers.test_table import TestTableSpecification
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.exceptions import (
@@ -21,7 +23,16 @@ from soda_core.common.exceptions import (
 from soda_core.common.soda_cloud import ContractSkeletonGenerationState, SodaCloud
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
-from soda_core.contracts.contract_verification import ContractVerificationResult
+from soda_core.contracts.contract_verification import (
+    ContractVerificationResult,
+    PostProcessingStage,
+    PostProcessingStageState,
+)
+from soda_core.contracts.impl.contract_verification_impl import (
+    ContractImpl,
+    ContractVerificationHandler,
+    ContractVerificationHandlerRegistry,
+)
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 test_table_specification = (
@@ -164,6 +175,118 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
                 },
                 {
                     "checkPath": "checks.schema",
+                },
+            ],
+            "postProcessingStages": [],
+        },
+    )
+
+
+def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    class DummyHandler(ContractVerificationHandler):
+        def handle(
+            self,
+            contract_impl: ContractImpl,
+            data_source_impl: Optional[DataSourceImpl],
+            contract_verification_result: ContractVerificationResult,
+            soda_cloud: SodaCloud,
+            soda_cloud_send_results_response_json: dict,
+            dwh_data_source_file_path: Optional[str] = None,
+        ):
+            """
+            not needed for this test
+            """
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
+
+    ContractVerificationHandlerRegistry.register(DummyHandler())
+
+    env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "777ggg"}),
+            MockResponse(
+                method=MockHttpMethod.POST,
+                status_code=200,
+                json_object={
+                    "scanId": "ssscanid",
+                    "checks": [
+                        {"id": "123e4567-e89b-12d3-a456-426655440000", "identities": ["0e741893"]},
+                        {"id": "456e4567-e89b-12d3-a456-426655441111", "identities": ["c12087d5"]},
+                    ],
+                },
+            ),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: id
+              - name: age
+                missing_values: [-1, -2]
+                checks:
+                  - missing:
+                      threshold:
+                        must_be_less_than_or_equal: 2
+                  - missing:
+                      qualifier: 2
+                      name: Second missing check
+                      threshold:
+                        must_be_less_than_or_equal: 5
+            checks:
+              - schema:
+        """,
+    )
+
+    request_2: MockRequest = data_source_test_helper.soda_cloud.requests[1]
+    assert request_2.url.endswith("api/command")
+    assert_dict(
+        request_2.json,
+        {
+            "type": "sodaCoreInsertScanResults",
+            "scanId": "env_var_scan_id",
+            "checks": [
+                {
+                    "checkPath": "columns.age.checks.missing",
+                    "name": "No missing values",
+                    "diagnostics": {
+                        "value": 2,
+                        "fail": {"greaterThan": 2},
+                        "v4": {
+                            "type": "missing",
+                            "failedRowsCount": 2,
+                            "failedRowsPercent": 50.0,
+                            "datasetRowsTested": 4,
+                        },
+                    },
+                },
+                {
+                    "checkPath": "columns.age.checks.missing.2",
+                    "name": "Second missing check",
+                    "diagnostics": {
+                        "value": 2,
+                        "fail": {"greaterThan": 5},
+                        "v4": {
+                            "type": "missing",
+                            "failedRowsCount": 2,
+                            "failedRowsPercent": 50.0,
+                            "datasetRowsTested": 4,
+                        },
+                    },
+                },
+                {
+                    "checkPath": "checks.schema",
+                },
+            ],
+            "postProcessingStages": [
+                {
+                    "name": "testStage",
                 },
             ],
         },

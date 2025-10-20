@@ -405,6 +405,18 @@ class ContractVerificationStatus(Enum):
     ERROR = "ERROR"
 
 
+class PostProcessingStageState(Enum):
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PostProcessingStage:
+    def __init__(self, name: str, stage: PostProcessingStageState):
+        self.name: str = name
+        self.stage: PostProcessingStageState = stage
+
+
 class ContractVerificationResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
@@ -434,6 +446,7 @@ class ContractVerificationResult:
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
         log_records: Optional[list[LogRecord]] = None,
+        post_processing_stages: Optional[list[PostProcessingStage]] = None,
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
@@ -445,6 +458,7 @@ class ContractVerificationResult:
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.log_records: Optional[list[LogRecord]] = log_records
         self.status = status
+        self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
 
     def get_logs(self) -> list[str]:
         return [r.msg for r in self.log_records]
