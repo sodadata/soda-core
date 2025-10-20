@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.dict_helpers import assert_dict
+from helpers.dict_helpers import assert_dict, matcher_string_contains
 from helpers.mock_soda_cloud import (
     MockHttpMethod,
     MockRequest,
@@ -180,6 +180,9 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
             "postProcessingStages": [],
         },
     )
+    assert (
+        len(data_source_test_helper.soda_cloud.requests) == 2
+    ), f"Expected 2 requests, got more: {data_source_test_helper.soda_cloud.requests}"
 
 
 def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
@@ -228,19 +231,6 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
         contract_yaml_str="""
             columns:
               - name: id
-              - name: age
-                missing_values: [-1, -2]
-                checks:
-                  - missing:
-                      threshold:
-                        must_be_less_than_or_equal: 2
-                  - missing:
-                      qualifier: 2
-                      name: Second missing check
-                      threshold:
-                        must_be_less_than_or_equal: 5
-            checks:
-              - schema:
         """,
     )
 
@@ -251,39 +241,6 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
         {
             "type": "sodaCoreInsertScanResults",
             "scanId": "env_var_scan_id",
-            "checks": [
-                {
-                    "checkPath": "columns.age.checks.missing",
-                    "name": "No missing values",
-                    "diagnostics": {
-                        "value": 2,
-                        "fail": {"greaterThan": 2},
-                        "v4": {
-                            "type": "missing",
-                            "failedRowsCount": 2,
-                            "failedRowsPercent": 50.0,
-                            "datasetRowsTested": 4,
-                        },
-                    },
-                },
-                {
-                    "checkPath": "columns.age.checks.missing.2",
-                    "name": "Second missing check",
-                    "diagnostics": {
-                        "value": 2,
-                        "fail": {"greaterThan": 5},
-                        "v4": {
-                            "type": "missing",
-                            "failedRowsCount": 2,
-                            "failedRowsPercent": 50.0,
-                            "datasetRowsTested": 4,
-                        },
-                    },
-                },
-                {
-                    "checkPath": "checks.schema",
-                },
-            ],
             "postProcessingStages": [
                 {
                     "name": "testStage",
@@ -291,6 +248,93 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             ],
         },
     )
+    assert (
+        len(data_source_test_helper.soda_cloud.requests) == 2
+    ), f"Expected 2 cloud requests, got more: {data_source_test_helper.soda_cloud.requests}"
+
+
+def test_soda_cloud_results_with_post_processing_with_failure(
+    data_source_test_helper: DataSourceTestHelper, env_vars: dict
+):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    class DummyHandler(ContractVerificationHandler):
+        def handle(
+            self,
+            contract_impl: ContractImpl,
+            data_source_impl: Optional[DataSourceImpl],
+            contract_verification_result: ContractVerificationResult,
+            soda_cloud: SodaCloud,
+            soda_cloud_send_results_response_json: dict,
+            dwh_data_source_file_path: Optional[str] = None,
+        ):
+            raise RuntimeError("Intentional failure for testing")
+
+        def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+            return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
+
+    ContractVerificationHandlerRegistry.register(DummyHandler())
+
+    env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "777ggg"}),
+            MockResponse(
+                method=MockHttpMethod.POST,
+                status_code=200,
+                json_object={
+                    "scanId": "env_var_scan_id",
+                    "checks": [
+                        {"id": "123e4567-e89b-12d3-a456-426655440000", "identities": ["0e741893"]},
+                        {"id": "456e4567-e89b-12d3-a456-426655441111", "identities": ["c12087d5"]},
+                    ],
+                },
+            ),
+            MockResponse(status_code=200, json_object={}),
+            MockResponse(status_code=200, json_object={}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: id
+        """,
+    )
+
+    request_2: MockRequest = data_source_test_helper.soda_cloud.requests[1]
+    assert request_2.url.endswith("api/command")
+    assert_dict(
+        request_2.json,
+        {
+            "type": "sodaCoreInsertScanResults",
+            "scanId": "env_var_scan_id",
+            "postProcessingStages": [
+                {
+                    "name": "testStage",
+                },
+            ],
+        },
+    )
+
+    request_3: MockRequest = data_source_test_helper.soda_cloud.requests[2]
+    assert request_3.url.endswith("api/command")
+    assert_dict(
+        request_3.json,
+        {
+            "type": "sodaCorePostProcessingUpdate",
+            "scanId": "env_var_scan_id",
+            "name": "testStage",
+            "state": "failed",
+            "error": matcher_string_contains("RuntimeError: Intentional failure for testing"),
+        },
+    )
+
+    assert (
+        len(data_source_test_helper.soda_cloud.requests) == 3
+    ), f"Expected 3 cloud requests, got more: {data_source_test_helper.soda_cloud.requests}"
 
 
 def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):

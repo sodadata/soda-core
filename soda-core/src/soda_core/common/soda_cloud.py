@@ -40,6 +40,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     ContractVerificationStatus,
+    PostProcessingStageState,
     SodaException,
     Threshold,
     YamlFileContentInfo,
@@ -1134,6 +1135,7 @@ class SodaCloud:
             "generatedContracts": [c.model_dump(by_alias=True) for c in contracts],
         }
         response = self._execute_command(request, request_log_name="upload_migration_contracts")
+        response.json()  # verify response is in JSON format
 
         if not response.ok:
             raise SodaCloudException(f"Failed to upload migration contracts: {response}")
@@ -1225,6 +1227,27 @@ class SodaCloud:
             raise SodaCloudException(f"Failed to cancel migration: {response_dict['message']}")
 
         logger.info(f"Migration {migration_id} cancelled")
+
+    def post_processing_update(
+        self, stage: str, scan_id: str, state: PostProcessingStageState, error: Optional[str] = None
+    ):
+        logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
+
+        request = {
+            "type": "sodaCorePostProcessingUpdate",
+            "scanId": scan_id,
+            "name": stage,
+            "state": state.value,
+        }
+        if error:
+            request["error"] = error
+        response = self._execute_command(request, request_log_name="post_processing_update")
+        response.json()  # verify response is in JSON format
+
+        if response.status_code != 200:
+            raise SodaCloudException(f"Failed to update post processing stage: {response}")
+
+        logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
