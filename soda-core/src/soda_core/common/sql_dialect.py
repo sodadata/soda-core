@@ -532,11 +532,12 @@ class SqlDialect:
         sql_str = sql_str.rstrip(";")
         sql_str = indent(sql_str, "  ")
         alias_columns_str: str = ""
-        if cte.alias_columns:
-            alias_columns_str = (
-                "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
-            )
+        if cte.alias_columns and self.supports_cte_alias_columns():
+            alias_columns_str = "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
         return f"{self.quote_default(cte.alias)}{alias_columns_str} AS (\n{sql_str}\n)"
+
+    def supports_cte_alias_columns(self) -> bool:
+        return True
 
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
         cte_lines: list[str] = []

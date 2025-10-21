@@ -158,6 +158,9 @@ class BigQuerySqlDialect(SqlDialect):
     def _build_tuple_sql_in_distinct(self, tuple: TUPLE) -> str:
         return f"TO_JSON_STRING(STRUCT({super()._build_tuple_sql(tuple)}))"
 
+    def supports_cte_alias_columns(self) -> bool:
+        return False
+
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
