@@ -188,6 +188,13 @@ jobs:
           fi
           python -m pytest -ra soda-${{ matrix.module }}/tests
 
+          if [ "${{ matrix.module }}" = "databricks" ]; then
+            # Set the environment variables for DATABRICKS_CATALOG to hive_metastore
+            export DATABRICKS_CATALOG=hive_metastore
+            echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
+            python -m pytest -ra soda-tests/tests/features
+          fi
+
   define-matrix:
     if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
