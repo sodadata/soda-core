@@ -168,6 +168,9 @@ class BigQuerySqlDialect(SqlDialect):
     def supports_data_type_numeric_precision(self) -> bool:
         return False
 
+    def supports_cte_alias_columns(self) -> bool:
+        return False
+
     def supports_data_type_numeric_scale(self) -> bool:
         return False
 
