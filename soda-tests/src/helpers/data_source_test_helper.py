@@ -112,6 +112,12 @@ class DataSourceTestHelper:
             )
 
             return AthenaDataSourceTestHelper(name)
+        elif test_datasource == "sparkdf":
+            from soda_sparkdf.test_helpers.sparkdf_data_source_test_helper import (
+                SparkDataFrameDataSourceTestHelper,
+            )
+
+            return SparkDataFrameDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

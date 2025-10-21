@@ -61,4 +61,6 @@ search = 'package_version = "{current_version}"'
 src = "soda-redshift/setup.py"
 search = 'package_version = "{current_version}"'
 
-
+[[file]]
+src = "soda-sparkdf/setup.py"
+search = 'package_version = "{current_version}"'
