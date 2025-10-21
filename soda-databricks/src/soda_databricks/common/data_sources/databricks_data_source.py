@@ -184,11 +184,6 @@ class DatabricksSqlDialect(SqlDialect):
         table_name_lower: str = table_name.lower()
         return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
 
-    def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
-        sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
-        query_result: QueryResult = self.execute_query(sql)
-        return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
-
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])
