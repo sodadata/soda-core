@@ -89,3 +89,6 @@ class Logs:
         log_records: list[LogRecord] = self.get_log_records()
         self.gatherer.close()
         return log_records
+
+    def close(self) -> None:
+        self.gatherer.close()

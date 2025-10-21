@@ -120,7 +120,6 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         dwh_data_source_file_path: Optional[str] = None,
     ):
-        # Start capturing logs
         logs: Logs = Logs()
 
         # Validate input contract_yaml_sources

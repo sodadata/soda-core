@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -985,7 +986,9 @@ class SodaCloud:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
-            logger.debug(f"Sending {request_type} {request_log_name} to Soda Cloud with body: {log_body_text}")
+            logger.debug(
+                f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
+            )
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
                 headers=self.headers,
@@ -1035,6 +1038,10 @@ class SodaCloud:
                 msg=f"Error while executing Soda Cloud {request_type} {request_log_name}",
                 exc_info=True,
             )
+
+    def _clean_request_from_private_info(self, json: str) -> str:
+        regex = re.compile(rb"\"token\": \"[^\"]+\"")
+        return regex.sub(b'"token": "****"', json.encode())
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
@@ -1246,19 +1253,19 @@ class SodaCloud:
 
         logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
-    def logs_batch(self, body):
+    def logs_batch(self, scan_reference: str, body: str):
         headers = {
             "Authorization": self._get_token(),
             "Content-Type": "application/jsonlines",
             "Is-V3": "true",
-            "Soda-Library-Version": SODA_LIBRARY_VERSION,
+            "Soda-Library-Version": SODA_CORE_VERSION,
         }
 
         response = self._http_post(
-            url=f"{self.api_url}/logs/{self.scan_reference}/batch",
+            url=f"{self.api_url}/logs/{scan_reference}/batchV3",
             headers=headers,
             data=body,
-            request_name="logs_batch",
+            request_log_name="logs_batch",
         )
         return response
 
@@ -1591,9 +1598,11 @@ def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
         "level": log_record.levelname.lower(),
         "message": log_record.msg,
         "timestamp": datetime.fromtimestamp(log_record.created),
-        "index": index,
+        "index": log_record.index if hasattr(log_record, "index") else index,
+        "stage": log_record.stage if hasattr(log_record, "stage") else None,
         "doc": log_record.doc if hasattr(log_record, "doc") else None,
         "exception": log_record.exception if hasattr(log_record, "exception") else None,
+        "thread": log_record.thread if hasattr(log_record, "thread") else None,
         "location": (
             log_record.location.get_dict()
             if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)

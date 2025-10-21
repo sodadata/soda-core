@@ -9,9 +9,9 @@ import time
 import uuid
 from datetime import datetime, timezone
 from logging import LogRecord
-from soda_core.common import soda_cloud
 from typing import Optional
 
+from soda_core.common import exceptions, soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.logs_base import LogsBase
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
@@ -21,18 +21,25 @@ MAX_LOG_LINES = int(os.environ.get("SODA_LOGS_BATCH_LIMIT_COUNT", "1000"))
 MAX_RETRIES = 3
 
 
-def _to_jsonl(batch: list[LogRecord]):
-    log_cloud_dicts = [
-        soda_cloud.build_log_cloud_json_dict(log_record, index)
-        for index, log_record in enumerate(batch)
-    ] if batch else []
-    return "\n".join(json.dumps(log_cloud_dicts))
+def _to_jsonl(batch: list[LogRecord]) -> str:
+    log_cloud_serialized_json_lines = (
+        [
+            json.dumps(to_jsonnable(soda_cloud.build_log_cloud_json_dict(log_record, index)))
+            for index, log_record in enumerate(batch)
+        ]
+        if batch
+        else []
+    )
+    return "\n".join(log_cloud_serialized_json_lines)
 
 
 class LogsQueue(LogsBase):
-    def __init__(self, soda_cloud: SodaCloud):
+    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_reference: str):
         super().__init__()
+        self.index = 0
         self.soda_cloud = soda_cloud
+        self.scan_reference = scan_reference
+        self.stage = stage
         self.thread = str(uuid.uuid4())
         self.flush_interval = DEFAULT_FLUSH_INTERVAL
         self.batch_size = MAX_LOG_LINES
@@ -81,6 +88,10 @@ class LogsQueue(LogsBase):
 
     def emit(self, log_record: LogRecord):
         with self.condition:
+            log_record.__setattr__("stage", self.stage)
+            log_record.__setattr__("index", self.index)
+            log_record.__setattr__("thread", self.thread)
+            self.index += 1
             self.log_queue.put(log_record)
             self._preserve_if_error_log(log_record)
             if self.log_queue.qsize() >= self.batch_size:
@@ -123,7 +134,12 @@ class LogsQueue(LogsBase):
                     if self.verbose:
                         print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
 
-                    response = self.soda_cloud.logs_batch(body=_to_jsonl(batch))
+                    response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
+
+                    if self.verbose:
+                        print(
+                            f"Logs sent to the cloud, trace={response.headers.get('X-Soda-Trace-Id')}, code={response.status_code}"
+                        )
 
                     return (
                         self.get_next_batch_timeout(response.headers.get("X-Soda-Next-Batch-Time"))
@@ -136,6 +152,7 @@ class LogsQueue(LogsBase):
                     if attempt == MAX_RETRIES - 1:
                         if self.verbose:
                             print("Max retries reached. Logs not sent. Returning to default flush interval.")
+                            print(exceptions.get_exception_stacktrace(e))
                         return self.flush_interval
 
                     if self.verbose:
