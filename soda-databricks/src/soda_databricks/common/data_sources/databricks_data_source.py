@@ -29,14 +29,6 @@ logger: Logger = soda_logger
 class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceModel):
     def __init__(self, data_source_model: DatabricksDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
-        self.is_hive_catalog: bool = self.__is_hive_catalog()
-        # Do some post-initialization work
-        # If we have a hive catalog, we need to change the dialect
-        # At the time of creating the base implementation, we don't have to connection information yet.
-        if self.is_hive_catalog:
-            self.sql_dialect = DatabricksHiveSqlDialect()
-        else:
-            self.sql_dialect = DatabricksSqlDialect()
 
     def _create_sql_dialect(self) -> SqlDialect:
         if self.__is_hive_catalog():
@@ -58,7 +50,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
     def __is_hive_catalog(self):
         # Check the connection "catalog"
-        catalog = self.data_source_connection.connection_properties.catalog
+        catalog: Optional[str] = self.data_source_model.connection_properties.catalog
         if catalog and catalog.lower() == "hive_metastore":
             return True
         # All other catalogs should be treated as "unity catalogs"
