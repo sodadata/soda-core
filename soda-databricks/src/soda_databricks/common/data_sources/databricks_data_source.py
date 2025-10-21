@@ -178,6 +178,12 @@ class DatabricksSqlDialect(SqlDialect):
             ["time", "time without time zone"],
         ]
 
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        # Unity catalog only stores things in lower case,
+        # even though create table may have been quoted and with mixed case
+        table_name_lower: str = table_name.lower()
+        return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
+
     def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
         sql: str = self.build_columns_metadata_query_str(dataset_prefixes=dataset_prefixes, dataset_name=dataset_name)
         query_result: QueryResult = self.execute_query(sql)
