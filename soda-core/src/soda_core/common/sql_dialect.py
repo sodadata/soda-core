@@ -22,10 +22,14 @@ from soda_core.common.sql_ast import (
     CAST,
     COALESCE,
     COLUMN,
+    COMBINED_HASH,
+    CONCAT,
+    CONCAT_WS,
     COUNT,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CTE,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
@@ -63,6 +67,7 @@ from soda_core.common.sql_ast import (
     REGEX_LIKE,
     SELECT,
     STAR,
+    STRING_HASH,
     SUM,
     TUPLE,
     VALUES,
@@ -515,32 +520,30 @@ class SqlDialect:
 
         return select_sql_lines
 
+    def _build_cte(self, cte: CTE) -> str:
+        if isinstance(cte.cte_query, list):
+            sql_str: str = self.build_select_sql(cte.cte_query)
+        elif isinstance(cte.cte_query, VALUES):
+            sql_str: str = self.build_cte_values_sql(values=cte.cte_query, alias_columns=cte.alias_columns)
+        elif isinstance(cte.cte_query, str):
+            sql_str: str = indent(cte.cte_query, "  ").strip()
+        else:
+            raise ValueError(f"Unexpected cte_query type: {cte.cte_query.__class__.__name__}")
+        sql_str = sql_str.rstrip(";")
+        sql_str = indent(sql_str, "  ")
+        alias_columns_str: str = ""
+        if cte.alias_columns:
+            alias_columns_str = "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
+        return f"{self.quote_default(cte.alias)}{alias_columns_str} AS (\n{sql_str}\n)"
+
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
         cte_lines: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, WITH):
-                cte_query_sql_str: str | None = None
-                if isinstance(select_element.cte_query, list):
-                    select_element.cte_query = self.build_select_sql(select_element.cte_query)
-                elif isinstance(select_element.cte_query, VALUES):
-                    select_element.cte_query = self.build_cte_values_sql(
-                        values=select_element.cte_query, alias_columns=select_element.alias_columns
-                    )
-                cte_query_sql_str = select_element.cte_query
-                if cte_query_sql_str:
-                    cte_query_sql_str = cte_query_sql_str.rstrip(";")
-                    cte_lines.append(self._build_cte_with_sql_line(select_element))
-                    cte_lines.append(cte_query_sql_str)
-                    cte_lines.append(f")")
+                cte_sql: list[str] = [self._build_cte(cte) for cte in select_element.cte_list]
+                cte_sql = "WITH \n" + ",\n".join(cte_sql)
+                cte_lines = cte_sql.split("\n")
         return cte_lines
-
-    def _build_cte_with_sql_line(self, with_element: WITH) -> str:
-        alias_columns_str: str = ""
-        if with_element.alias_columns:
-            alias_columns_str = (
-                "(" + ", ".join([self._build_column_sql(column) for column in with_element.alias_columns]) + ")"
-            )
-        return f"WITH {self.quote_default(with_element.alias)}{alias_columns_str} AS ("
 
     def build_expression_sql(self, expression: SqlExpression | str | Number) -> str:
         if isinstance(expression, str):
@@ -567,6 +570,14 @@ class SqlDialect:
             return self._build_case_when_sql(expression)
         elif isinstance(expression, TUPLE):
             return self._build_tuple_sql(expression)
+        elif isinstance(expression, COMBINED_HASH):
+            return self._build_combined_hash_sql(expression)
+        elif isinstance(expression, CONCAT):
+            return self._build_concat_sql(expression)
+        elif isinstance(expression, CONCAT_WS):
+            return self._build_concat_ws_sql(expression)
+        elif isinstance(expression, STRING_HASH):
+            return self._build_string_hash_sql(expression)
         elif isinstance(expression, IS_NULL):
             return self._build_is_null_sql(expression)
         elif isinstance(expression, IS_NOT_NULL):
@@ -886,6 +897,34 @@ class SqlDialect:
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
         return f"({elements})"
+
+    def get_soda_null_string_value(self) -> str:
+        return "__SODA_NULL__"
+
+    def _build_concat_sql(self, concat: CONCAT) -> str:
+        elements: str = ", ".join(self.build_expression_sql(e) for e in concat.expressions)
+        return f"CONCAT({elements})"
+
+    def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
+        elements: str = ", ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
+        return f"CONCAT_WS({concat_ws.separator}, {elements})"
+
+    def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
+        return f"MD5({self.build_expression_sql(string_hash.expression)})"
+
+    def _build_combined_hash_sql(self, combined_hash: COMBINED_HASH) -> str:
+        """Convert a set of columns into a unique hashed string which can be used as a key."""
+
+        def format_expr(e: SqlExpression) -> SqlExpression:
+            """Convert expression to a string, and replace nulls with a predefined string."""
+            return COALESCE([CAST(e, to_type=SodaDataTypeName.VARCHAR), LITERAL(self.get_soda_null_string_value())])
+
+        formatted_expressions: list[SqlExpression] = [format_expr(e) for e in combined_hash.expressions]
+        if len(formatted_expressions) == 1:
+            string_to_hash = formatted_expressions[0]
+        else:
+            string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
+        return self.build_expression_sql(STRING_HASH(string_to_hash))
 
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """

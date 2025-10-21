@@ -77,6 +77,7 @@ class DataSourceConnection(ABC):
             logger.debug(
                 f"SQL query fetchall in datasource {self.name} (first {MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
             )
+
             cursor.execute(sql)
             rows = cursor.fetchall()
             formatted_rows = self.format_rows(rows)
