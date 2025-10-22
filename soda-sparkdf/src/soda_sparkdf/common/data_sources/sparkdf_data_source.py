@@ -1,7 +1,15 @@
+from datetime import datetime
+
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import Row
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuery
+from soda_core.common.data_source_impl import (
+    DataSourceImpl,
+    DataSourceNamespace,
+    MetadataTablesQuery,
+)
+from soda_core.common.data_source_results import QueryResult
+from soda_core.common.metadata_types import ColumnMetadata
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source import (
@@ -93,7 +101,17 @@ class SparkDataFrameDataSourceConnectionWrapper:
 
 
 class SparkDataFrameSqlDialect(DatabricksSqlDialect):
-    SODA_DATA_TYPE_SYNONYMS = ()
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
+    )
+
+    # def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
+    #     super_dict = super().get_data_source_data_type_name_by_soda_data_type_names()
+    #     super_dict[SodaDataTypeName.TIMESTAMP] = "timestamp_ntz"
+    #     super_dict[SodaDataTypeName.TIMESTAMP] = "timestamp_ntz"
+    #     return super_dict
 
     def get_database_prefix_index(self) -> int | None:
         return None
@@ -108,6 +126,40 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect):
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         pass  # Do nothing, Spark does not have a post-schema-create concept
+
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+        return f"DESCRIBE {schema_name}.{table_name}"
+
+    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
+        filtered_rows = []
+        for row in query_result.rows:
+            if row[0].startswith("#"):  # ignore all description rows
+                break
+            if not row[0] and not row[1]:  # empty row
+                continue
+
+            # Trim data type details, e.g. decimal(10,0) -> decimal. Only decimal supports it anyway.
+            data_type = row[1]
+            if "(" in data_type:
+                data_type = data_type[: data_type.index("(")].strip()
+            row = (row[0], data_type)
+            filtered_rows.append(row)
+
+        return super().build_column_metadatas_from_query_result(
+            QueryResult(rows=filtered_rows, columns=query_result.columns)
+        )
+
+    def literal_datetime_with_tz(self, datetime: datetime):
+        # time_object = interpret_datetime_as_utc(datetime)
+        # return f"to_utc_timestamp('{time_object.strftime('%Y-%m-%d %H:%M:%S.%f')}', 'UTC')"
+        return f"to_utc_timestamp('{datetime.isoformat()}', 'UTC')"
+
+    def literal_datetime(self, datetime: datetime):
+        # time_object = interpret_datetime_as_utc(datetime)
+        # return f"to_timestamp('{time_object.strftime('%Y-%m-%d %H:%M:%S.%f')}')"
+        return f"to_utc_timestamp('{datetime.isoformat()}', 'UTC')"
 
 
 class SparkDataFrameDataSourceConnection(DataSourceConnection):
