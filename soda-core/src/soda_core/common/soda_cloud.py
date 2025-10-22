@@ -1257,8 +1257,6 @@ class SodaCloud:
         headers = {
             "Authorization": self._get_token(),
             "Content-Type": "application/jsonlines",
-            "Is-V3": "true",
-            "Soda-Library-Version": SODA_CORE_VERSION,
         }
 
         response = self._http_post(
