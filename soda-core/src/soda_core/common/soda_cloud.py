@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -299,7 +300,7 @@ class SodaCloud:
             scan_id = os.environ["SODA_SCAN_ID"]
 
         cloud_log_dicts = (
-            [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
+            [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
         )
 
         if exc:
@@ -584,7 +585,6 @@ class SodaCloud:
         response_json: dict = response.json()
         scan_id: str = response_json.get("scanId")
 
-        log_records: Optional[list[LogRecord]] = None
         if response.status_code != 200:
             logger.error("Remote contract verification failed.")
             verification_result.sending_results_to_soda_cloud_failed = True
@@ -653,7 +653,7 @@ class SodaCloud:
                             extra[ExtraKeys.DOC] = doc
 
                         exception: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.EXCEPTION)
-                        if doc:
+                        if exception:
                             extra[ExtraKeys.EXCEPTION] = exception
 
                         logger.log(level=level_logrecord, msg=soda_cloud_log_dict.get("message"), extra=extra)
@@ -677,9 +677,7 @@ class SodaCloud:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
 
         logs.remove_from_root_logger()
-        log_records = logs.records
-
-        verification_result.log_records = logs.records
+        verification_result.log_records = logs.get_log_records()
 
         return verification_result
 
@@ -988,7 +986,9 @@ class SodaCloud:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
-            logger.debug(f"Sending {request_type} {request_log_name} to Soda Cloud with body: {log_body_text}")
+            logger.debug(
+                f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
+            )
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
                 headers=self.headers,
@@ -1038,6 +1038,10 @@ class SodaCloud:
                 msg=f"Error while executing Soda Cloud {request_type} {request_log_name}",
                 exc_info=True,
             )
+
+    def _clean_request_from_private_info(self, json: str) -> str:
+        regex = re.compile(rb"\"token\": \"[^\"]+\"")
+        return regex.sub(b'"token": "****"', json.encode())
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
@@ -1248,6 +1252,22 @@ class SodaCloud:
             raise SodaCloudException(f"Failed to update post processing stage: {response}")
 
         logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
+
+    def logs_batch(self, scan_reference: str, body: str):
+        headers = {
+            "Authorization": self._get_token(),
+            "Content-Type": "application/jsonlines",
+            "Is-V3": "true",
+            "Soda-Library-Version": SODA_CORE_VERSION,
+        }
+
+        response = self._http_post(
+            url=f"{self.api_url}/logs/{scan_reference}/batchV3",
+            headers=headers,
+            data=body,
+            request_log_name="logs_batch",
+        )
+        return response
 
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
@@ -1570,17 +1590,19 @@ def _map_remote_scan_status_to_contract_verification_status(
 def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optional[list[dict]]:
     if not log_records:
         return None
-    return [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
+    return [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
 
 
-def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
+def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
     return {
         "level": log_record.levelname.lower(),
-        "message": log_record.msg,
+        "message": log_record.getMessage(),
         "timestamp": datetime.fromtimestamp(log_record.created),
-        "index": index,
+        "index": log_record.index if hasattr(log_record, "index") else index,
+        "stage": log_record.stage if hasattr(log_record, "stage") else None,
         "doc": log_record.doc if hasattr(log_record, "doc") else None,
         "exception": log_record.exception if hasattr(log_record, "exception") else None,
+        "thread": log_record.thread if hasattr(log_record, "thread") else None,
         "location": (
             log_record.location.get_dict()
             if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)

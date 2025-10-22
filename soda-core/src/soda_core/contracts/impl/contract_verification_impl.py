@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 from abc import ABC
 from datetime import timezone
 from enum import Enum
@@ -11,7 +10,11 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.exceptions import (
+    InvalidRegexException,
+    SodaCoreException,
+    get_exception_stacktrace,
+)
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
@@ -117,7 +120,6 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         dwh_data_source_file_path: Optional[str] = None,
     ):
-        # Start capturing logs
         logs: Logs = Logs()
 
         # Validate input contract_yaml_sources
@@ -576,7 +578,7 @@ class ContractImpl:
                     check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
-            contract_verification_status = _get_contract_verification_status(self.logs.records, check_results)
+            contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
 
             logger.info(
                 self.build_log_summary(
@@ -754,19 +756,16 @@ class ContractImpl:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
             return
         for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
-            formatted_exception: list[str] = traceback.format_exception(exc)
             self.soda_cloud.post_processing_update(
                 stage=post_processing_stage.name,
                 scan_id=scan_id,
                 state=PostProcessingStageState.FAILED,
-                error="".join(formatted_exception),
+                error=get_exception_stacktrace(exc),
             )
 
 
-def _get_contract_verification_status(
-    log_records: list[logging.LogRecord], check_results: list[CheckResult]
-) -> ContractVerificationStatus:
-    if any(r.levelno >= logging.ERROR for r in log_records):
+def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> ContractVerificationStatus:
+    if has_errors:
         return ContractVerificationStatus.ERROR
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):

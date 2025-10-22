@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import logging
 import threading
-from logging import ERROR, Handler, LogRecord
+from logging import Handler, LogRecord
 from typing import Optional
+
+from soda_core.common.logs_base import LogsBase
+from soda_core.common.logs_collector import LogsCollector
 
 
 class Location:
@@ -27,12 +30,12 @@ class Location:
 
 class LogCapturer(Handler):
     """
-    Captures logging records for the current thread and stores them in the given records list
+    Captures logging records for the current thread and sends them to the provided LogsBase gatherer.
     """
 
-    def __init__(self, records: list[LogRecord]):
+    def __init__(self, gatherer: LogsBase):
         super().__init__()
-        self.records: list[LogRecord] = records
+        self.gatherer: LogsBase = gatherer
         self.threading_ident: int = threading.get_ident()
         logging.root.addHandler(self)
 
@@ -41,15 +44,21 @@ class LogCapturer(Handler):
 
     def emit(self, record: LogRecord):
         if self.threading_ident == record.thread:
-            self.records.append(record)
+            self.gatherer.emit(record)
 
 
 class Logs:
-    def __init__(self):
-        # Stores all logs above debug level to be sent to soda cloud and for testing logs in the test suite.
-        # self.logs: list[Log] = logs or []
-        self.records: list[LogRecord] = []
-        self.log_capturer: LogCapturer = LogCapturer(self.records)
+    """
+    Configuration manager and entry point for log handling in soda core.
+    On creation, it attaches a LogCapturer to the root logger to capture logs for the current thread.
+    By default, it uses in-memory LogCollector to gather all logs.
+    """
+
+    def __init__(self, gatherer: Optional[LogsBase] = None):
+        if gatherer is None:
+            gatherer = LogsCollector()
+        self.gatherer: LogsBase = gatherer
+        self.log_capturer: LogCapturer = LogCapturer(gatherer)
 
     def remove_from_root_logger(self) -> None:
         self.log_capturer.remove_from_root_logger()
@@ -57,8 +66,11 @@ class Logs:
     def __str__(self) -> str:
         return self.get_logs_str()
 
+    def get_log_records(self) -> list[LogRecord]:
+        return self.gatherer.get_all_logs()
+
     def get_logs(self) -> list[str]:
-        return [r.msg for r in self.records]
+        return [r.getMessage() for r in self.gatherer.get_all_logs()]
 
     def get_logs_str(self):
         return "\n".join(self.get_logs())
@@ -67,13 +79,16 @@ class Logs:
         return "\n".join(self.get_errors())
 
     def get_errors(self) -> list[str]:
-        return [r.msg for r in self.records if r.levelno >= ERROR]
+        return [r.getMessage() for r in self.gatherer.get_error_logs()]
 
     @property
     def has_errors(self) -> bool:
         return len(self.get_errors()) > 0
 
     def pop_log_records(self) -> list[LogRecord]:
-        log_records: list[LogRecord] = self.records
-        self.records = []
+        log_records: list[LogRecord] = self.get_log_records()
+        self.gatherer.close()
         return log_records
+
+    def close(self) -> None:
+        self.gatherer.close()
