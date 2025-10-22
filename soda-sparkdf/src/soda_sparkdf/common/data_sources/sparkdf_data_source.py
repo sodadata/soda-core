@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
+from freezegun import freeze_time
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import Row
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -48,7 +49,10 @@ class SparkDataFrameCursor:
 
     def fetchall(self) -> tuple[tuple]:
         rows = []
-        spark_rows: list[Row] = self.df.collect()
+        with freeze_time(
+            datetime.now(timezone.utc)
+        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps
+            spark_rows: list[Row] = self.df.collect()
         self.rowcount = len(spark_rows)
         for spark_row in spark_rows:
             row = self.convert_spark_row_to_dbapi_row(spark_row)
@@ -58,7 +62,10 @@ class SparkDataFrameCursor:
     def fetchmany(self, size: int) -> tuple[tuple]:
         rows = []
         self.rowcount = self.df.count()
-        spark_rows: list[Row] = self.df.offset(self.cursor_index).limit(size).collect()
+        with freeze_time(
+            datetime.now(timezone.utc)
+        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps
+            spark_rows: list[Row] = self.df.offset(self.cursor_index).limit(size).collect()
         self.cursor_index += len(spark_rows)
         for spark_row in spark_rows:
             row = self.convert_spark_row_to_dbapi_row(spark_row)
@@ -66,7 +73,10 @@ class SparkDataFrameCursor:
         return tuple(rows)
 
     def fetchone(self) -> tuple:
-        spark_rows: list[Row] = self.df.collect()
+        with freeze_time(
+            datetime.now(timezone.utc)
+        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps
+            spark_rows: list[Row] = self.df.collect()
         self.rowcount = len(spark_rows)
         spark_row = spark_rows[0]
         row = self.convert_spark_row_to_dbapi_row(spark_row)
@@ -152,13 +162,11 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect):
         )
 
     def literal_datetime_with_tz(self, datetime: datetime):
-        # time_object = interpret_datetime_as_utc(datetime)
-        # return f"to_utc_timestamp('{time_object.strftime('%Y-%m-%d %H:%M:%S.%f')}', 'UTC')"
+        # Always convert the timestamp to utc when we insert. Spark is not aware of the timezones, so we need to do this conversion so it's ready to be extracted as UTC.
         return f"to_utc_timestamp('{datetime.isoformat()}', 'UTC')"
 
     def literal_datetime(self, datetime: datetime):
-        # time_object = interpret_datetime_as_utc(datetime)
-        # return f"to_timestamp('{time_object.strftime('%Y-%m-%d %H:%M:%S.%f')}')"
+        # Always convert the timestamp to utc when we insert. Spark is not aware of the timezones, so we need to do this conversion so it's ready to be extracted as UTC.
         return f"to_utc_timestamp('{datetime.isoformat()}', 'UTC')"
 
 
@@ -180,6 +188,8 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
                 .config("spark.sql.warehouse.dir", config.test_dir)
                 .getOrCreate()
             )
+            session.sql("SET spark.sql.session.timeZone = +00:00;")
+            session.sql("SET TIME ZONE 'UTC';")
         if session is None:
             raise ValueError("No session provided")
         self.session = session
