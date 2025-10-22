@@ -1,7 +1,7 @@
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.types import Row
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuery
-from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source import (
@@ -20,35 +20,60 @@ from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameExistingSessionProperties,
     SparkDataFrameNewSessionProperties,
 )
-from tabulate import tabulate
 
 _in_memory_connection = None
 
 
 class SparkDataFrameCursor:
-    def __init__(self, session: SparkSession):
-        self._session = session
-
-    # def __getattr__(self, attr):
-    #     if attr in self.__dict__:
-    #         return getattr(self, attr)
-    #     return getattr(self._session, attr)
+    # Copy from v3 of the cursor implementation
+    def __init__(self, spark_session: SparkSession, test_dir: Optional[str] = None):
+        self.spark_session = spark_session
+        self.df: DataFrame | None = None
+        self.description: tuple[tuple] | None = None
+        self.rowcount: int = -1
+        self.cursor_index: int = -1
 
     def execute(self, sql: str):
-        return self._session.sql(sql).collect()
+        self.df = self.spark_session.sql(sqlQuery=sql)
+        self.description = self.convert_spark_df_schema_to_dbapi_description(self.df)
+        self.cursor_index = 0
+
+    def fetchall(self) -> tuple[tuple]:
+        rows = []
+        spark_rows: list[Row] = self.df.collect()
+        self.rowcount = len(spark_rows)
+        for spark_row in spark_rows:
+            row = self.convert_spark_row_to_dbapi_row(spark_row)
+            rows.append(row)
+        return tuple(rows)
+
+    def fetchmany(self, size: int) -> tuple[tuple]:
+        rows = []
+        self.rowcount = self.df.count()
+        spark_rows: list[Row] = self.df.offset(self.cursor_index).limit(size).collect()
+        self.cursor_index += len(spark_rows)
+        for spark_row in spark_rows:
+            row = self.convert_spark_row_to_dbapi_row(spark_row)
+            rows.append(row)
+        return tuple(rows)
+
+    def fetchone(self) -> tuple:
+        spark_rows: list[Row] = self.df.collect()
+        self.rowcount = len(spark_rows)
+        spark_row = spark_rows[0]
+        row = self.convert_spark_row_to_dbapi_row(spark_row)
+        return tuple(row)
+
+    @staticmethod
+    def convert_spark_row_to_dbapi_row(spark_row):
+        return [spark_row[field] for field in spark_row.__fields__]
 
     def close(self):
-        # because a spark dataframe cursor is actually the current connection,
-        # we don't want to close it
-        pass
+        pass  # No-op
 
-    @property
-    def description(self):
-        """
-        Makes the cursor description available as a list of SparkDataFrameColumn namedtuples.
-        This is to be compatible with the expected interface of a DBAPI cursor.
-        """
-        return [list(*col) for col in self._connection.description]  # TODO: implement this
+    @staticmethod
+    def convert_spark_df_schema_to_dbapi_description(df) -> tuple[tuple]:
+        return tuple((field.name, type(field.dataType).__name__) for field in df.schema.fields)
 
 
 class SparkDataFrameDataSourceConnectionWrapper:
@@ -111,29 +136,32 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
     def close_connection(self) -> None:
         "This is a no-op for SparkDataFrameDataSourceConnection, there is no connection to close."
 
-    def execute_query(self, sql: str) -> QueryResult:
-        logger.debug(
-            f"SQL query fetchall in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
-        )
-
-        df = self.session.sql(sql)
-        rows = df.collect()
-        formatted_rows = self.format_rows(rows)
-        truncated_rows = self.truncate_rows(formatted_rows)
-        headers = [self._execute_query_get_result_row_column_name(c) for c in df.columns]
-        table_text: str = tabulate(
-            truncated_rows,
-            headers=headers,
-            tablefmt="github",
-        )
-
-        logger.debug(
-            f"SQL query result (max {self.MAX_ROWS} rows, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
-        )
-        return QueryResult(rows=formatted_rows, columns=df.columns)
-
     def _execute_query_get_result_row_column_name(self, column) -> str:
-        return column  # No processing needed for SparkDataFrame
+        return column[0]  # The first element of the tuple is the column name
+
+    # def execute_query(self, sql: str) -> QueryResult:
+    #     logger.debug(
+    #         f"SQL query fetchall in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
+    #     )
+
+    #     df = self.session.sql(sql)
+    #     rows = df.collect()
+    #     formatted_rows = self.format_rows(rows)
+    #     truncated_rows = self.truncate_rows(formatted_rows)
+    #     headers = [self._execute_query_get_result_row_column_name(c) for c in df.columns]
+    #     table_text: str = tabulate(
+    #         truncated_rows,
+    #         headers=headers,
+    #         tablefmt="github",
+    #     )
+
+    #     logger.debug(
+    #         f"SQL query result (max {self.MAX_ROWS} rows, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
+    #     )
+    #     return QueryResult(rows=formatted_rows, columns=df.columns)
+
+    # def _execute_query_get_result_row_column_name(self, column) -> str:
+    #     return column  # No processing needed for SparkDataFrame
 
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
@@ -144,6 +172,9 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         return SparkDataFrameDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        return HiveMetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
 
     @classmethod
     def from_existing_session(cls, session: SparkSession, name: str) -> DataSourceImpl:
@@ -158,6 +189,3 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
             connection=SparkDataFrameDataSourceConnectionWrapper(session),
         )
         return cls(data_source_model=ds_model, connection=soda_connection)
-
-    def create_metadata_tables_query(self) -> MetadataTablesQuery:
-        return HiveMetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
