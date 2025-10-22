@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 import os
-from distutils.util import strtobool
 
 from dotenv import load_dotenv
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.utils import strtobool
 
 logger: logging.Logger = soda_logger
 
