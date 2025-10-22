@@ -70,7 +70,7 @@ class Logs:
         return self.gatherer.get_all_logs()
 
     def get_logs(self) -> list[str]:
-        return [r.msg for r in self.gatherer.get_all_logs()]
+        return [r.getMessage() for r in self.gatherer.get_all_logs()]
 
     def get_logs_str(self):
         return "\n".join(self.get_logs())
@@ -79,7 +79,7 @@ class Logs:
         return "\n".join(self.get_errors())
 
     def get_errors(self) -> list[str]:
-        return [r.msg for r in self.gatherer.get_error_logs()]
+        return [r.getMessage() for r in self.gatherer.get_error_logs()]
 
     @property
     def has_errors(self) -> bool:

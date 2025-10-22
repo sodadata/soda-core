@@ -462,19 +462,19 @@ class ContractVerificationResult:
         self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
 
     def get_logs(self) -> list[str]:
-        return [r.msg for r in self.log_records]
+        return [r.getMessage() for r in self.log_records]
 
     def get_logs_str(self) -> str:
         return "\n".join(self.get_logs())
 
     def get_errors(self) -> list[str]:
-        return [r.msg for r in self.log_records if r.levelno >= ERROR]
+        return [r.getMessage() for r in self.log_records if r.levelno >= ERROR]
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
     def get_warnings(self) -> list[str]:
-        return [r.msg for r in self.log_records if r.levelno == WARNING]
+        return [r.getMessage() for r in self.log_records if r.levelno == WARNING]
 
     def get_warnings_str(self) -> str:
         return "\n".join(self.get_warnings())

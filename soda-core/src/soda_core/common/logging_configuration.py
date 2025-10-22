@@ -90,9 +90,9 @@ class SodaConsoleFormatter(Formatter):
 
     def format_message(self, record: LogRecord) -> str:
         if record.levelno >= ERROR:
-            return f"{Emoticons.POLICE_CAR_LIGHT} {record.msg}"
+            return f"{Emoticons.POLICE_CAR_LIGHT} {record.getMessage()}"
         else:
-            return record.msg
+            return record.getMessage()
 
     def format_timestamp(self, record: LogRecord) -> Optional[str]:
         timestamp: datetime = datetime.fromtimestamp(record.created)

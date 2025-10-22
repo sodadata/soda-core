@@ -1596,7 +1596,7 @@ def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optio
 def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
     return {
         "level": log_record.levelname.lower(),
-        "message": log_record.msg,
+        "message": log_record.getMessage(),
         "timestamp": datetime.fromtimestamp(log_record.created),
         "index": log_record.index if hasattr(log_record, "index") else index,
         "stage": log_record.stage if hasattr(log_record, "stage") else None,
