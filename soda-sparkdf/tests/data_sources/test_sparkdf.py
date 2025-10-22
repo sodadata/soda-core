@@ -1,5 +1,3 @@
-# TODO: change this!
-
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from pyspark.sql import SparkSession
@@ -41,14 +39,29 @@ def test_basic_setup(data_source_test_helper: DataSourceTestHelper):
 
     # connection.session.createDataFrame([(1,), (2,), (3,)], ["id"]).createOrReplaceTempView("my_test_table")
 
-    data_source_test_helper.ensure_test_table(test_table_specification)
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=contract_str,
+    )
 
 
 def test_basic_setup_with_existing_session(data_source_test_helper: DataSourceTestHelper):
-    my_spark_session = SparkSession.builder.master("local").appName("test_sparkdf").getOrCreate()
-
-    another_data_source_impl = SparkDataFrameDataSourceImpl.from_existing_session(
-        session=my_spark_session, name="test_sparkdf"
+    my_spark_session = (
+        SparkSession.builder.master("local")
+        .appName("test_sparkdf")
+        .config("spark.sql.warehouse.dir", data_source_test_helper.test_dir)
+        .getOrCreate()
     )
 
-    # TODO: the rest
+    another_data_source_impl = SparkDataFrameDataSourceImpl.from_existing_session(
+        session=my_spark_session, name=data_source_test_helper.name
+    )
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=contract_str,
+    )
