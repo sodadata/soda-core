@@ -29,6 +29,7 @@ on:
 
 env:
   PROJECT_NAME: soda-core
+  ADDITIONAL_DATA_SOURCES: oracle  # space-separated list of additional data sources
 
 jobs:
   check:
@@ -64,9 +65,10 @@ jobs:
       - name: Define modules
         id: modules
         run: |
-          echo "INFO: DATA_SOURCE is set to ${DATA_SOURCE}"
           if [ "${DATA_SOURCE}" = "all" ]; then
-            echo modules=$(bash scripts/test_matrix.sh) >> "$GITHUB_OUTPUT"
+            BASE_MODULES=$(bash scripts/test_matrix.sh)
+            ADDITIONAL_JSON=$(echo "$ADDITIONAL_DATA_SOURCES" | sed 's/\w\+/,"&"/g' 2>/dev/null || echo "")
+            echo "modules=[${BASE_MODULES}${ADDITIONAL_JSON}]" >> "$GITHUB_OUTPUT"
           else
             echo 'modules=["__DATA_SOURCE__"]' | sed "s|__DATA_SOURCE__|${DATA_SOURCE}|g" >> "$GITHUB_OUTPUT"
           fi
@@ -144,10 +146,13 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -x
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
           sudo apt-get update
           ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
+
+          
 
       - name: Get external secrets
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
@@ -170,17 +175,31 @@ jobs:
           secret-ids: |
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
 
+      - name: Checkout soda-extensions
+        uses: actions/checkout@v4
+        with:
+          repository: sodadata/soda-extensions
+          token: ${{ secrets.USER_GITHUB_TOKEN }}
+          path: soda-extensions
       - name: Run tests
         run: |
+          set -x
           python -m venv .venv
           source .venv/bin/activate
+      
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
-          pip install -e soda-${{ matrix.module }}
+          
+          if [[ " $ADDITIONAL_DATA_SOURCES " =~ " ${{ matrix.module }} " ]]; then
+            pip install -e soda-extensions/soda-${{ matrix.module }} 
+          else
+            pip install -e soda-${{ matrix.module }}
+          fi
+      
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
