@@ -6,7 +6,8 @@ package_name = "soda-sparkdf"
 package_version = "4.0.0b11"
 description = "Soda SparkDF V4"
 
-requires = [f"soda-core=={package_version}"]
+requires = [f"soda-core=={package_version}", "freezegun", "pyspark>=3.5.0", f"soda-databricks=={package_version}"]
+# Note: some java runtime (>17) is required to run the tests.
 
 setup(
     name=package_name,
