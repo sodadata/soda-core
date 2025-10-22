@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Optional
 
 from freezegun import freeze_time
 from pyspark.sql import DataFrame, SparkSession
@@ -10,8 +11,7 @@ from soda_core.common.data_source_impl import (
     MetadataTablesQuery,
 )
 from soda_core.common.data_source_results import QueryResult
-from soda_core.common.metadata_types import ColumnMetadata
-from soda_core.common.sql_ast import *
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_databricks.common.data_sources.databricks_data_source import (
     DatabricksSqlDialect,
@@ -117,12 +117,6 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect):
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
 
-    # def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
-    #     super_dict = super().get_data_source_data_type_name_by_soda_data_type_names()
-    #     super_dict[SodaDataTypeName.TIMESTAMP] = "timestamp_ntz"
-    #     super_dict[SodaDataTypeName.TIMESTAMP] = "timestamp_ntz"
-    #     return super_dict
-
     def get_database_prefix_index(self) -> int | None:
         return None
 
@@ -200,30 +194,6 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]  # The first element of the tuple is the column name
-
-    # def execute_query(self, sql: str) -> QueryResult:
-    #     logger.debug(
-    #         f"SQL query fetchall in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
-    #     )
-
-    #     df = self.session.sql(sql)
-    #     rows = df.collect()
-    #     formatted_rows = self.format_rows(rows)
-    #     truncated_rows = self.truncate_rows(formatted_rows)
-    #     headers = [self._execute_query_get_result_row_column_name(c) for c in df.columns]
-    #     table_text: str = tabulate(
-    #         truncated_rows,
-    #         headers=headers,
-    #         tablefmt="github",
-    #     )
-
-    #     logger.debug(
-    #         f"SQL query result (max {self.MAX_ROWS} rows, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
-    #     )
-    #     return QueryResult(rows=formatted_rows, columns=df.columns)
-
-    # def _execute_query_get_result_row_column_name(self, column) -> str:
-    #     return column  # No processing needed for SparkDataFrame
 
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
