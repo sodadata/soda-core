@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import os
-import shutil
+import tempfile
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -13,13 +12,7 @@ class SparkDataFrameDataSourceTestHelper(DataSourceTestHelper):
         Called in _create_data_source_impl to initialized self.data_source_impl
         self.database_name and self.schema_name are available if appropriate for the data source type
         """
-        self.test_dir = f"/tmp/soda_test_sparkdf_{self.name}"
-        # Create the directory if it doesn't exist,
-        if not os.path.exists(self.test_dir):
-            os.makedirs(self.test_dir)
-        else:  # Remove it if it does.
-            shutil.rmtree(self.test_dir)
-            os.makedirs(self.test_dir)
+        self.test_dir = tempfile.mkdtemp(prefix=f"soda_test_sparkdf_{self.name}_")
         return f"""
             type: sparkdf
             name: {self.name}
