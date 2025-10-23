@@ -38,7 +38,7 @@ class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
-    private_key: str = Field(..., description="Private key for authentication")
+    private_key: SecretStr = Field(..., description="Private key for authentication")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
     def to_connection_kwargs(self) -> dict:
@@ -47,7 +47,7 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
         return connection_kwargs
 
     def _decrypt(self, private_key: str, private_key_passphrase: Optional[SecretStr]) -> bytes:
-        private_key_bytes = private_key.encode()
+        private_key_bytes = private_key.get_secret_value().encode()
         private_key_passphrase_bytes = (
             private_key_passphrase.get_secret_value().encode() if private_key_passphrase else None
         )
@@ -78,11 +78,8 @@ class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
         return connection_kwargs
 
 
-class SnowflakeJWTAuth(SnowflakeSharedConnectionProperties):
-    jwt_token: SecretStr = Field(..., description="JWT token for authentication")
-
-
 class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
+    authenticator: Literal["oauth"] = Field(..., description="Use OAuth access token")
     token: SecretStr = Field(..., description="OAuth access token")
 
 
@@ -115,8 +112,6 @@ class SnowflakeDataSource(DataSourceBase, ABC):
             return SnowflakeKeyPairAuth(**value)
         elif "private_key_path" in value:
             return SnowflakeKeyPairFileAuth(**value)
-        elif "jwt_token" in value:
-            return SnowflakeJWTAuth(**value)
         elif "token" in value:
             return SnowflakeOAuthAuth(**value)
         elif value.get("authenticator") == "externalbrowser":
