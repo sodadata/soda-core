@@ -52,7 +52,11 @@ class SparkDataFrameCursor:
         with freeze_time(
             datetime.now(timezone.utc)
         ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps
+            # Spark stores the timestamps in UTC (verified by reading the parquet file that spark creates), but when querying it converts it to the (python) session-local timezone.
+            # By using freeze_time, we can ensure that the timestamps are collected in UTC, regardless of the session-local timezone. This plays nice with the freshness checks.
             spark_rows: list[Row] = self.df.collect()
+        # Alternative approach: convert to PyArrow. This will set the timestamps correctly, but introduces memory and time overhead (for the conversion).
+        # This also requires more changes regarding the cursor implementation: spark_rows: list[Row] = self.df.toArrow().to_pylist()
         self.rowcount = len(spark_rows)
         for spark_row in spark_rows:
             row = self.convert_spark_row_to_dbapi_row(spark_row)
@@ -64,7 +68,7 @@ class SparkDataFrameCursor:
         self.rowcount = self.df.count()
         with freeze_time(
             datetime.now(timezone.utc)
-        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps
+        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps. See the comment in fetchall() for more details.
             spark_rows: list[Row] = self.df.offset(self.cursor_index).limit(size).collect()
         self.cursor_index += len(spark_rows)
         for spark_row in spark_rows:
@@ -75,7 +79,7 @@ class SparkDataFrameCursor:
     def fetchone(self) -> tuple:
         with freeze_time(
             datetime.now(timezone.utc)
-        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps
+        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps. See the comment in fetchall() for more details.
             spark_rows: list[Row] = self.df.collect()
         self.rowcount = len(spark_rows)
         spark_row = spark_rows[0]
