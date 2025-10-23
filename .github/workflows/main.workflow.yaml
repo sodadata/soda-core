@@ -20,6 +20,7 @@ on:
           - snowflake
           - sqlserver
           - synapse
+          - sparkdf
   push:
     branches:
       - 'v4'
@@ -177,9 +178,24 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
+          
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
+
+          if [ "${{ matrix.module }}" = "sparkdf" ]; then
+            pip install -e soda-databricks
+            # Install java jdk 17
+            sudo apt-get update
+            sudo apt-get install -y openjdk-17-jdk
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+            echo "PATH=$PATH" >> "$GITHUB_ENV"
+            echo "JAVA_HOME=$JAVA_HOME"
+            echo "PATH=$PATH"
+          fi
+
           pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
