@@ -1436,6 +1436,9 @@ def check_outcome_to_soda_cloud(outcome: CheckOutcome) -> str:
 
 
 def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
+    # if check_result.outcome == CheckOutcome.EXCLUDED:
+    # return None
+
     return {
         #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
         "value": check_result.threshold_value or 0,
