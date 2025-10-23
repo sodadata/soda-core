@@ -225,3 +225,7 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
             connection=SparkDataFrameDataSourceConnectionWrapper(session),
         )
         return cls(data_source_model=ds_model, connection=soda_connection)
+
+
+# Alias to make the import and usage cleaner
+SparkDataFrameDataSource = SparkDataFrameDataSourceImpl
