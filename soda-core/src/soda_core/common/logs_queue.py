@@ -34,13 +34,14 @@ def _to_jsonl(batch: list[LogRecord]) -> str:
 
 
 class LogsQueue(LogsBase):
-    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_reference: str):
+    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_reference: str, dataset: str):
         super().__init__()
         self.index = 0
         self.soda_cloud = soda_cloud
         self.scan_reference = scan_reference
         self.stage = stage
         self.thread = str(uuid.uuid4())
+        self.dataset = dataset
         self.flush_interval = DEFAULT_FLUSH_INTERVAL
         self.batch_size = MAX_LOG_LINES
         self.log_queue = queue.Queue()
@@ -91,6 +92,7 @@ class LogsQueue(LogsBase):
             log_record.__setattr__("stage", self.stage)
             log_record.__setattr__("index", self.index)
             log_record.__setattr__("thread", self.thread)
+            log_record.__setattr__("dataset", self.dataset)
             self.index += 1
             self.log_queue.put(log_record)
             self._preserve_if_error_log(log_record)

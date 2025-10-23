@@ -1595,12 +1595,13 @@ def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
     return {
         "level": log_record.levelname.lower(),
         "message": log_record.getMessage(),
-        "timestamp": datetime.fromtimestamp(log_record.created),
+        "timestamp": datetime.fromtimestamp(log_record.created, tz=timezone.utc),
         "index": log_record.index if hasattr(log_record, "index") else index,
         "stage": log_record.stage if hasattr(log_record, "stage") else None,
         "doc": log_record.doc if hasattr(log_record, "doc") else None,
         "exception": log_record.exception if hasattr(log_record, "exception") else None,
         "thread": log_record.thread if hasattr(log_record, "thread") else None,
+        "dataset": log_record.dataset if hasattr(log_record, "dataset") else None,
         "location": (
             log_record.location.get_dict()
             if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)
