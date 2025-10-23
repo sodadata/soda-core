@@ -387,7 +387,7 @@ class YamlObject(YamlValue):
         self,
         key: str,
         env_var: Optional[str] = None,
-        expected_type: type = None,
+        expected_type: type | list[type] = None,
         required: bool = False,
         default_value=None,
     ) -> Optional[object]:
@@ -406,7 +406,13 @@ class YamlObject(YamlValue):
                 raise YamlParserException(f"{key_description} is required", str(location))
             value = default_value
 
-        if expected_type is not None and not isinstance(value, expected_type) and value != default_value:
+        expected_types: list[type] = []
+        if expected_type and not isinstance(expected_type, list):
+            expected_types = [expected_type]
+        elif isinstance(expected_type, list):
+            expected_types = expected_type
+
+        if expected_types and not any(isinstance(value, t) for t in expected_types) and value != default_value:
             actual_type_str: str = type(value).__name__
             if value is None:
                 actual_type_str = "None"
@@ -415,7 +421,8 @@ class YamlObject(YamlValue):
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
             logger.error(
-                msg=f"{key_description} expected a {expected_type.__name__}, " f"but was {actual_type_str}",
+                msg=f"{key_description} expected one of {[et.__name__ for et in expected_types]}, "
+                f"but was {actual_type_str}",
                 extra={
                     ExtraKeys.LOCATION: location,
                 },
@@ -500,7 +507,8 @@ class VariableResolver:
             use_env_vars=use_env_vars,
             location=location,
         )
-        return value if isinstance(value, str) else f"${{{namespace}.{variable}}}"
+        # If the variable is not found, return the original expression. Cast to string in case the value is a number so that we can re-insert it into the text.
+        return str(value) if isinstance(value, str) or isinstance(value, Number) else f"${{{namespace}.{variable}}}"
 
     @classmethod
     def get_variable(

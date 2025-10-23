@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import timezone
 from enum import Enum
 from io import StringIO
@@ -11,9 +10,12 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.data_source_results import QueryResult
-from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
-from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
+from soda_core.common.exceptions import (
+    InvalidRegexException,
+    SodaCoreException,
+    get_exception_stacktrace,
+)
+from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_dialect import *
@@ -32,6 +34,8 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationStatus,
     DataSource,
     Measurement,
+    PostProcessingStage,
+    PostProcessingStageState,
     SodaException,
     Threshold,
     YamlFileContentInfo,
@@ -51,20 +55,8 @@ from tabulate import tabulate
 logger: logging.Logger = soda_logger
 
 
-class ContractVerificationHandler:
-    @classmethod
-    def instance(cls, identifier: Optional[str] = None) -> Optional[ContractVerificationHandler]:
-        # TODO: replace with plugin extension mechanism
-        try:
-            from soda.failed_rows_extractor.failed_rows_extractor import (
-                FailedRowsExtractor,
-            )
-
-            return FailedRowsExtractor.create()
-        except (AttributeError, ModuleNotFoundError) as e:
-            # Extension not installed
-            return None
-
+class ContractVerificationHandler(ABC):
+    @abstractmethod
     def handle(
         self,
         contract_impl: ContractImpl,
@@ -75,6 +67,24 @@ class ContractVerificationHandler:
         dwh_data_source_file_path: Optional[str] = None,
     ):
         pass
+
+    @abstractmethod
+    def provides_post_processing_stages(self) -> list[PostProcessingStage]:
+        pass
+
+
+class ContractVerificationHandlerRegistry(ABC):
+    contract_verification_handlers: list[ContractVerificationHandler] = []
+    post_processing_stages: dict[str, ContractVerificationHandler] = {}
+
+    @classmethod
+    def register(cls, verification_handler: ContractVerificationHandler) -> None:
+        cls.contract_verification_handlers.append(verification_handler)
+        for stage in verification_handler.provides_post_processing_stages():
+            stage_name = stage.name
+            if stage_name in cls.post_processing_stages:
+                logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
+            cls.post_processing_stages[stage_name] = verification_handler
 
 
 class ContractVerificationSessionImpl:
@@ -110,7 +120,6 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         dwh_data_source_file_path: Optional[str] = None,
     ):
-        # Start capturing logs
         logs: Logs = Logs()
 
         # Validate input contract_yaml_sources
@@ -569,7 +578,7 @@ class ContractImpl:
                     check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
-            contract_verification_status = _get_contract_verification_status(self.logs.records, check_results)
+            contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
 
             logger.info(
                 self.build_log_summary(
@@ -586,6 +595,10 @@ class ContractImpl:
 
         if self.soda_cloud and self.publish_results:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
+
+        post_processing_stages: list[PostProcessingStage] = []
+        for contract_verification_handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
+            post_processing_stages += contract_verification_handler.provides_post_processing_stages()
 
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
             contract=Contract(
@@ -608,22 +621,21 @@ class ContractImpl:
             sending_results_to_soda_cloud_failed=sending_results_to_soda_cloud_failed,
             status=contract_verification_status,
             log_records=log_records,
+            post_processing_stages=post_processing_stages,
         )
 
+        scan_id: Optional[str] = None
         if soda_cloud_file_id:
             # send_contract_result will use contract.source.soda_cloud_file_id
             soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-            scan_id: Optional[str] = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
+            scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
             if not scan_id:
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        try:
-            contract_verification_handler: Optional[
-                ContractVerificationHandler
-            ] = ContractVerificationHandler.instance()
-            if contract_verification_handler:
+        for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+            try:
                 contract_verification_handler.handle(
                     contract_impl=self,
                     data_source_impl=self.data_source_impl,
@@ -632,8 +644,11 @@ class ContractImpl:
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
                     dwh_data_source_file_path=self.dwh_data_source_file_path,
                 )
-        except Exception as e:
-            logger.error(f"Error in contract verification handler: {e}", exc_info=True)
+            except Exception as e:
+                logger.error(f"Error in contract verification handler: {e}", exc_info=True)
+                self._handle_post_processing_failure(
+                    scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
+                )
 
         return contract_verification_result
 
@@ -731,11 +746,26 @@ class ContractImpl:
     def compute_data_quality_score(cls, total_failed_rows_count: int, total_rows_count: int) -> float:
         return 100 - (total_failed_rows_count * 100 / total_rows_count)
 
+    def _handle_post_processing_failure(
+        self, scan_id: Optional[str], exc: Exception, contract_verification_handler: ContractVerificationHandler
+    ):
+        if scan_id is None:
+            logger.warning("Not sending post-processing stage updates to Soda Cloud - no scan ID")
+            return
+        if self.soda_cloud is None:
+            logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
+            return
+        for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
+            self.soda_cloud.post_processing_update(
+                stage=post_processing_stage.name,
+                scan_id=scan_id,
+                state=PostProcessingStageState.FAILED,
+                error=get_exception_stacktrace(exc),
+            )
 
-def _get_contract_verification_status(
-    log_records: list[logging.LogRecord], check_results: list[CheckResult]
-) -> ContractVerificationStatus:
-    if any(r.levelno >= logging.ERROR for r in log_records):
+
+def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> ContractVerificationStatus:
+    if has_errors:
         return ContractVerificationStatus.ERROR
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):

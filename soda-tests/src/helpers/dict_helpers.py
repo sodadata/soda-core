@@ -13,5 +13,16 @@ def _assert_recursive_equals(path: list[str], actual: Any, expected: Any):
         for index, element in enumerate(expected):
             superset_value = actual[index] if len(actual) > index else None
             _assert_recursive_equals(path=path + [str(index)], actual=superset_value, expected=element)
+    elif callable(expected):
+        expected(actual)
     else:
         assert expected == actual, f"{'.'.join(path)} expected {expected}, but was {actual}"
+
+
+def matcher_string_contains(expected: str):
+    def check(x: str):
+        assert isinstance(x, str), f"Expected a string, but was {type(x)}, value={x}"
+        assert expected in x, f"Expected '{x}' to contain '{expected}', value={x}"
+        return x
+
+    return check

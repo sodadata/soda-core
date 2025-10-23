@@ -20,6 +20,7 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    STRING_HASH,
 )
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -259,6 +260,7 @@ class AthenaSqlDialect(SqlDialect):
             + "\n)"
         )
         location = self.data_source_impl.table_s3_location(create_table.fully_qualified_table_name)
+        create_table_sql = create_table_sql + "\nSTORED AS PARQUET"
         create_table_sql = create_table_sql + f"\nLOCATION '{location}'"
         return create_table_sql + (";" if add_semicolon else "")
 
@@ -388,3 +390,6 @@ class AthenaSqlDialect(SqlDialect):
 
     def get_max_sql_statement_length(self) -> int:
         return 262144
+
+    def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
+        return f"to_hex(md5(to_utf8({self.build_expression_sql(string_hash.expression)})))"

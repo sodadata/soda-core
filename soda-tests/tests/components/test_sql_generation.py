@@ -52,15 +52,16 @@ def test_sql_ast_modeling_cte():
 
     assert sql_dialect.build_select_sql(
         [
-            WITH("customers_filtered").AS([SELECT(STAR()), FROM("customers"), WHERE(GTE("colA", LITERAL(25)))]),
+            WITH([CTE("customers_filtered").AS([SELECT(STAR()), FROM("customers"), WHERE(GTE("colA", LITERAL(25)))])]),
             SELECT(SUM(COLUMN("size"))),
             FROM("customers_filtered"),
         ]
     ) == (
-        'WITH "customers_filtered" AS (\n'
+        "WITH \n"
+        '"customers_filtered" AS (\n'
         "  SELECT *\n"
-        '    FROM "customers"\n'
-        '    WHERE "colA" >= 25\n'
+        '  FROM "customers"\n'
+        '  WHERE "colA" >= 25\n'
         ")\n"
         'SELECT SUM("size")\n'
         'FROM "customers_filtered";'

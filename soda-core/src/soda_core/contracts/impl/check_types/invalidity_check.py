@@ -231,7 +231,7 @@ class InvalidReferenceCountQuery(Query):
             original_from = sql_ast[1].AS(None)
             sql_ast[1] = FROM("filtered_dataset").AS(self.referencing_alias)
             sql_ast = [
-                WITH("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(combined_filter_expr)]),
+                WITH([CTE("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(combined_filter_expr)])]),
             ] + sql_ast
         return sql_ast
 

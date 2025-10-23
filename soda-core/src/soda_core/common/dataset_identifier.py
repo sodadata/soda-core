@@ -19,11 +19,11 @@ class DatasetIdentifier:
         from soda_core.common.exceptions import InvalidDatasetQualifiedNameException
 
         if not dataset_qualified_name:
-            raise InvalidDatasetQualifiedNameException("Identifier must be a valid string and cannot be None")
+            raise InvalidDatasetQualifiedNameException("Dataset DQN must be a valid string and cannot be None")
 
         parts = dataset_qualified_name.split("/")
         if len(parts) < 2:
-            raise InvalidDatasetQualifiedNameException("Identifier must contain at least a data source and a dataset")
+            raise InvalidDatasetQualifiedNameException("Dataset DQN must contain at least a data source and a dataset")
 
         data_source_name = parts[0]
         dataset_name = parts[-1]

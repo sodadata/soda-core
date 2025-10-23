@@ -330,9 +330,9 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
     def sql_expression(self) -> SqlExpression:
         filter_expr: SqlExpression = SqlExpressionStr.optional(self.check_filter)
         if filter_expr:
-            return COUNT(DISTINCT(CASE_WHEN(filter_expr, TUPLE(self.column_names))))
+            return COUNT(DISTINCT(CASE_WHEN(filter_expr, COMBINED_HASH(self.column_names))))
         else:
-            return COUNT(DISTINCT(TUPLE(self.column_names)))
+            return COUNT(DISTINCT(COMBINED_HASH(self.column_names)))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

@@ -20,6 +20,7 @@ on:
           - snowflake
           - sqlserver
           - synapse
+          - sparkdf
   push:
     branches:
       - 'v4'
@@ -75,6 +76,7 @@ jobs:
     needs: [define-test-matrix]
     services:
       postgres:
+        # please keep the postgres version in sync with the one in docker-compose.yml for postgres
         image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
           POSTGRES_USER: soda_test
@@ -176,9 +178,24 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
+          
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
+
+          if [ "${{ matrix.module }}" = "sparkdf" ]; then
+            pip install -e soda-databricks
+            # Install java jdk 17
+            sudo apt-get update
+            sudo apt-get install -y openjdk-17-jdk
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+            echo "PATH=$PATH" >> "$GITHUB_ENV"
+            echo "JAVA_HOME=$JAVA_HOME"
+            echo "PATH=$PATH"
+          fi
+
           pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
@@ -186,6 +203,13 @@ jobs:
             python -m pytest -ra soda-tests/tests/components
           fi
           python -m pytest -ra soda-${{ matrix.module }}/tests
+
+          if [ "${{ matrix.module }}" = "databricks" ]; then
+            # Set the environment variables for DATABRICKS_CATALOG to hive_metastore
+            export DATABRICKS_CATALOG=hive_metastore
+            echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
+            python -m pytest -ra soda-tests/tests/features
+          fi
 
   define-matrix:
     if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')

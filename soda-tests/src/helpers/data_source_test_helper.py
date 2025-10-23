@@ -13,7 +13,7 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logs import Logs
-from soda_core.common.metadata_types import SqlDataType
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -112,6 +112,12 @@ class DataSourceTestHelper:
             )
 
             return AthenaDataSourceTestHelper(name)
+        elif test_datasource == "sparkdf":
+            from soda_sparkdf.test_helpers.sparkdf_data_source_test_helper import (
+                SparkDataFrameDataSourceTestHelper,
+            )
+
+            return SparkDataFrameDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -122,7 +128,7 @@ class DataSourceTestHelper:
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
         logs.remove_from_root_logger()
         if logs.has_errors:
-            raise RuntimeError(f"Couldn't create DataSource: {self.data_source_impl.logs}")
+            raise RuntimeError(f"Couldn't create DataSource: {logs}")
         self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
         # Test table names that are present in the data source.
@@ -302,15 +308,22 @@ class DataSourceTestHelper:
         return self.data_source_impl.sql_dialect.post_schema_create_sql(self.dataset_prefix)
 
     def drop_test_schema_if_exists(self) -> None:
-        sql: str = self.drop_test_schema_if_exists_sql()
-        self.data_source_impl.execute_update(sql)
-
-    def drop_test_schema_if_exists_sql(self) -> str:
         schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
         if schema_index is None:
             raise AssertionError("Data source does not support schemas")
+        schema = self.dataset_prefix[schema_index]
 
-        return f"DROP SCHEMA IF EXISTS {self.dataset_prefix[schema_index]} CASCADE;"
+        self.drop_schema_if_exists(schema)
+
+    def drop_schema_if_exists(self, schema: str) -> None:
+        try:
+            sql: str = self.drop_schema_if_exists_sql(schema=schema)
+            self.data_source_impl.execute_update(sql)
+        except Exception as e:
+            logger.warning(f"Error dropping test schema: {e}")
+
+    def drop_schema_if_exists_sql(self, schema: str) -> str:
+        return f"DROP SCHEMA IF EXISTS {schema} CASCADE;"
 
     def ensure_test_table(
         self, test_table_specification: TestTableSpecification, force_recreate: bool = False
@@ -589,3 +602,108 @@ class DataSourceTestHelper:
             dataset_prefix=self.dataset_prefix,
             dataset_name=test_table.unique_name,
         )
+
+    @classmethod
+    def create_test_table_with_all_datatypes(cls, table_purpose: str, number_of_rows: int) -> TestTableSpecification:
+        """
+        Creates a test table with all data types.
+        The smallint_default column will have a unique value for each row.
+        """
+        test_rows = [
+            (
+                # Chars
+                "a",
+                "abc",
+                # Varchars
+                "a",
+                "abc",
+                # Texts
+                "a",
+                # Integers
+                i,
+                100,
+                100000,
+                # Decimals
+                1.0,
+                100.0,
+                100000.1234567890,
+                # Numerics
+                1.0,
+                100.0,
+                100000.1234567890,
+                # Floats
+                1.1234,
+                # Doubles
+                1.1234567890,
+                # Timestamps
+                datetime.datetime(2021, 1, 1, 1, 1, 1),
+                datetime.datetime(2022, 1, 1, 1, 1, 1, 12),
+                # Timestamp Zones
+                datetime.datetime(2023, 1, 1, 1, 1, 1),
+                datetime.datetime(2024, 1, 1, 1, 1, 1, 12),
+                # Dates
+                datetime.date(2025, 1, 1),
+                # Times
+                datetime.time(1, 2, 3),
+                # Booleans
+                True,
+            )
+            for i in range(number_of_rows)
+        ]
+        test_table_specification = (
+            TestTableSpecification.builder()
+            .table_purpose(table_purpose)
+            .column_char("char_default")
+            .column_char("char_w_length", 100)
+            .column_varchar("varchar_default")
+            .column_varchar("varchar_w_length", 100)
+            .column_text("text_default")
+            .column_smallint("smallint_default")
+            .column_integer("integer_default")
+            .column_bigint("bigint_default")
+            .column_decimal("decimal_default")
+            .column_decimal("decimal_w_precision", 10)
+            .column_decimal("decimal_w_precision_and_scale", 10, 2)
+            .column_numeric("numeric_default")
+            .column_numeric("numeric_w_precision", 10)
+            .column_numeric("numeric_w_precision_and_scale", 10, 2)
+            .column_float("float_default")
+            .column_double("double_default")
+            .column_timestamp("timestamp_default")
+            .column_timestamp("timestamp_w_precision", 2)
+            .column_timestamp_tz("timestamp_tz_default")
+            .column_timestamp_tz("timestamp_tz_w_precision", 4)
+            .column_date("date_default")
+            .column_time("time_default")
+            .column_boolean("boolean_default")
+            .rows(rows=test_rows)
+            .build()
+        )
+        return test_table_specification
+
+    def get_column_mappings(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "char_default": SodaDataTypeName.CHAR,
+            "char_w_length": SodaDataTypeName.CHAR,
+            "varchar_default": SodaDataTypeName.VARCHAR,
+            "varchar_w_length": SodaDataTypeName.VARCHAR,
+            "text_default": SodaDataTypeName.TEXT,
+            "smallint_default": SodaDataTypeName.SMALLINT,
+            "integer_default": SodaDataTypeName.INTEGER,
+            "bigint_default": SodaDataTypeName.BIGINT,
+            "decimal_default": SodaDataTypeName.DECIMAL,
+            "decimal_w_precision": SodaDataTypeName.DECIMAL,
+            "decimal_w_precision_and_scale": SodaDataTypeName.DECIMAL,
+            "numeric_default": SodaDataTypeName.NUMERIC,
+            "numeric_w_precision": SodaDataTypeName.NUMERIC,
+            "numeric_w_precision_and_scale": SodaDataTypeName.NUMERIC,
+            "float_default": SodaDataTypeName.FLOAT,
+            "double_default": SodaDataTypeName.DOUBLE,
+            "timestamp_default": SodaDataTypeName.TIMESTAMP,
+            "timestamp_w_precision": SodaDataTypeName.TIMESTAMP,
+            "timestamp_tz_default": SodaDataTypeName.TIMESTAMP_TZ,
+            "timestamp_tz_w_precision": SodaDataTypeName.TIMESTAMP_TZ,
+            "date_default": SodaDataTypeName.DATE,
+            "time_default": SodaDataTypeName.TIME,
+            "boolean_default": SodaDataTypeName.BOOLEAN,
+        }

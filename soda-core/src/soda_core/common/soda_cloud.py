@@ -4,12 +4,13 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from logging import LogRecord
 from time import sleep
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import requests
 from requests import Response
@@ -40,6 +41,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     ContractVerificationStatus,
+    PostProcessingStageState,
     SodaException,
     Threshold,
     YamlFileContentInfo,
@@ -72,6 +74,83 @@ class RemoteScanStatus(Enum):
             if status.value_ == value:
                 return status
         raise ValueError(f"Unknown RemoteScanStatus value: {value}")
+
+
+class MigrationStatus(Enum):
+    CREATED = "created"
+    GENERATING_CONTRACTS = "generatingContracts"
+    COMPLETED_CONTRACT_GENERATION = "completedContractGeneration"
+    SUBMITTED_MIGRATION = "submittedMigration"
+    MIGRATING = "migrating"
+    COMPLETED_MIGRATION = "completedMigration"
+    GENERATION_FAILED = "generationFailed"
+    MIGRATION_FAILED = "migrationFailed"
+    CANCELED = "canceled"
+
+    @classmethod
+    def from_value(cls, value: str) -> MigrationStatus:
+        for status in cls:
+            if status.value == value:
+                return status
+        raise ValueError(f"Unknown MigrationStatus value: {value}")
+
+    @property
+    def is_generate_final_state(self) -> bool:
+        return self in {
+            MigrationStatus.COMPLETED_CONTRACT_GENERATION,
+            MigrationStatus.CANCELED,
+            MigrationStatus.GENERATION_FAILED,
+        }
+
+    @property
+    def is_generate_successful_state(self) -> bool:
+        return self in {MigrationStatus.COMPLETED_CONTRACT_GENERATION}
+
+    @property
+    def is_publish_final_state(self) -> bool:
+        return self in {MigrationStatus.COMPLETED_MIGRATION, MigrationStatus.CANCELED, MigrationStatus.MIGRATION_FAILED}
+
+    @property
+    def is_publish_successful_state(self) -> bool:
+        return self in {MigrationStatus.COMPLETED_MIGRATION}
+
+
+class DatasetMigrationStatus(Enum):
+    CREATED = "created"
+    GENERATING_CONTRACT = "generatingContract"
+    COMPLETED_CONTRACT_GENERATION = "completedContractGeneration"
+    SUBMITTED_MIGRATION = "submittedMigration"
+    MIGRATING = "migrating"
+    GENERATION_FAILED = "generationFailed"
+    MIGRATION_FAILED = "migrationFailed"
+    COMPLETED_MIGRATION = "completedMigration"
+    CANCELED = "canceled"
+    ALREADY_MIGRATING = "alreadyMigrating"
+    ALREADY_MIGRATED = "alreadyMigrated"
+
+    @property
+    def is_generate_final_state(self) -> bool:
+        return self in {
+            DatasetMigrationStatus.COMPLETED_CONTRACT_GENERATION,
+            DatasetMigrationStatus.CANCELED,
+            DatasetMigrationStatus.GENERATION_FAILED,
+        }
+
+    @property
+    def is_generate_successful_state(self) -> bool:
+        return self in {DatasetMigrationStatus.COMPLETED_CONTRACT_GENERATION}
+
+    @property
+    def is_publish_final_state(self) -> bool:
+        return self in {
+            DatasetMigrationStatus.COMPLETED_MIGRATION,
+            MigrationStatus.CANCELED,
+            MigrationStatus.MIGRATION_FAILED,
+        }
+
+    @property
+    def is_publish_successful_state(self) -> bool:
+        return self in {DatasetMigrationStatus.COMPLETED_MIGRATION}
 
 
 class ContractSkeletonGenerationState(Enum):
@@ -221,7 +300,7 @@ class SodaCloud:
             scan_id = os.environ["SODA_SCAN_ID"]
 
         cloud_log_dicts = (
-            [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
+            [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(logs)] if logs else []
         )
 
         if exc:
@@ -475,7 +554,7 @@ class SodaCloud:
         )
         if not can_publish_and_verify:
             if reason is None:
-                logger.error(f"Skipping contract verification because of an error (see logs)")
+                logger.error("Skipping contract verification because of an error (see logs)")
                 verification_result.sending_results_to_soda_cloud_failed = True
             else:
                 logger.error(f"Skipping contract verification because of insufficient permissions: {reason}")
@@ -483,7 +562,7 @@ class SodaCloud:
 
         file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
-            logger.critical(f"Contract wasn't uploaded so skipping " "sending the results to Soda Cloud")
+            logger.critical("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
             return []
 
         verify_contract_command: dict = {
@@ -506,7 +585,6 @@ class SodaCloud:
         response_json: dict = response.json()
         scan_id: str = response_json.get("scanId")
 
-        log_records: Optional[list[LogRecord]] = None
         if response.status_code != 200:
             logger.error("Remote contract verification failed.")
             verification_result.sending_results_to_soda_cloud_failed = True
@@ -575,7 +653,7 @@ class SodaCloud:
                             extra[ExtraKeys.DOC] = doc
 
                         exception: Optional[str] = soda_cloud_log_dict.get(ExtraKeys.EXCEPTION)
-                        if doc:
+                        if exception:
                             extra[ExtraKeys.EXCEPTION] = exception
 
                         logger.log(level=level_logrecord, msg=soda_cloud_log_dict.get("message"), extra=extra)
@@ -599,9 +677,7 @@ class SodaCloud:
             logger.info(f"See contract dataset on Soda Cloud: {contract_dataset_cloud_url}")
 
         logs.remove_from_root_logger()
-        log_records = logs.records
-
-        verification_result.log_records = logs.records
+        verification_result.log_records = logs.get_log_records()
 
         return verification_result
 
@@ -910,7 +986,9 @@ class SodaCloud:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
-            logger.debug(f"Sending {request_type} {request_log_name} to Soda Cloud with body: {log_body_text}")
+            logger.debug(
+                f"Sending {request_type} {request_log_name} to Soda Cloud with body: {self._clean_request_from_private_info(log_body_text)}"
+            )
             response: Response = self._http_post(
                 url=f"{self.api_url}/{request_type}",
                 headers=self.headers,
@@ -938,7 +1016,7 @@ class SodaCloud:
                     request_body=request_body,
                     is_retry=False,
                 )
-            elif response.status_code != 200:
+            elif not response.ok:
                 verbose_message: str = (
                     "" if logger.isEnabledFor(logging.DEBUG) else "Enable verbose mode to see more details."
                 )
@@ -960,6 +1038,10 @@ class SodaCloud:
                 msg=f"Error while executing Soda Cloud {request_type} {request_log_name}",
                 exc_info=True,
             )
+
+    def _clean_request_from_private_info(self, json: str) -> str:
+        regex = re.compile(rb"\"token\": \"[^\"]+\"")
+        return regex.sub(b'"token": "****"', json.encode())
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
@@ -1026,6 +1108,164 @@ class SodaCloud:
 
     def send_failed_rows_diagnostics(self, scan_id: str, failed_rows_diagnostics: list[FailedRowsDiagnostic]):
         print(f"TODO sending failed rows diagnostics for scan {scan_id} to Soda Cloud: {failed_rows_diagnostics}")
+
+    def migration_create(self, v4_datasource_name: str, v3_dataset_ids: list[str]) -> str:
+        logger.info(
+            f"Creating migration to datasource '{v4_datasource_name}' for datasets with ids: {v3_dataset_ids[:10]}{'...' if len(v3_dataset_ids) > 10 else ''}"
+        )
+
+        request = {
+            "type": "sodaCoreV3MigrationCreate",
+            "v3DatasetIds": v3_dataset_ids,
+            "v4DatasourceName": v4_datasource_name,
+        }
+        response = self._execute_command(request, request_log_name="create_migration")
+        response_dict = response.json()
+
+        if not response.ok or response_dict.get("v3MigrationId", None) is None:
+            raise SodaCloudException(f"Failed to start migration.': {response_dict['message']}")
+
+        migration_id = response_dict.get("v3MigrationId")
+        logger.info(f"Migration created with id: {migration_id}")
+
+        return migration_id
+
+    def migration_upload_contracts(self, migration_id: str, contracts: list["ContractMigration"]) -> None:
+        logger.info(f"Uploading {len(contracts)} contracts for migration {migration_id}")
+
+        request = {
+            "type": "sodaCoreV3MigrationUploadContracts",
+            "v3MigrationId": migration_id,
+            "generatedContracts": [c.model_dump(by_alias=True) for c in contracts],
+        }
+        response = self._execute_command(request, request_log_name="upload_migration_contracts")
+        response.json()  # verify response is in JSON format
+
+        if not response.ok:
+            raise SodaCloudException(f"Failed to upload migration contracts: {response}")
+
+        logger.info(f"Uploaded {len(contracts)} contracts for migration {migration_id}")
+
+    def migration_poll_status(self, migration_id: str, blocking_timeout_in_minutes: int = 60) -> MigrationStatus:
+        logger.info(f"Polling migration status for migration {migration_id}")
+
+        blocking_timeout = datetime.now() + timedelta(minutes=blocking_timeout_in_minutes)
+        attempt = 0
+        while datetime.now() < blocking_timeout:
+            attempt += 1
+            max_wait: timedelta = blocking_timeout - datetime.now()
+            logger.debug(f"Polling for migration '{migration_id}' status.  Attempt {attempt}. Max wait: {max_wait}")
+            response = self._get_migration_status(migration_id)
+            logger.debug(f"Migration status response: {json.dumps(response.text)}")
+            if not response:
+                logger.error(f"Failed to poll remote migration status. " f"Response: {response}")
+                continue
+
+            response_body_dict: Optional[dict] = response.json() if response else None
+
+            if "migration" not in response_body_dict and "state" not in response["migration"]:
+                logger.debug("Unable to parse the Cloud response. Retry in 5 seconds.")
+                sleep(5)
+                continue
+
+            migration_state = MigrationStatus.from_value(response_body_dict["migration"]["state"])
+
+            logger.info(f"Migration {migration_id} has state '{migration_state.value}'")
+
+            if migration_state.is_publish_final_state:
+                return migration_state
+
+            time_to_wait_in_seconds: float = 5
+            next_poll_time_str = response.headers.get("X-Soda-Next-Poll-Time")
+            if next_poll_time_str:
+                logger.debug(f"X-Soda-Next-Poll-Time: '{next_poll_time_str}'")
+                next_poll_time: datetime = convert_str_to_datetime(next_poll_time_str)
+                if isinstance(next_poll_time, datetime):
+                    now = datetime.now(timezone.utc)
+                    time_to_wait = next_poll_time - now
+                    time_to_wait_in_seconds = time_to_wait.total_seconds()
+                else:
+                    time_to_wait_in_seconds = 60
+            if time_to_wait_in_seconds > 0:
+                logger.info(f"Polling for status in {time_to_wait_in_seconds} seconds.")
+                sleep(time_to_wait_in_seconds)
+
+    def _get_migration_status(self, migration_id: str) -> Response:
+        return self._execute_query(
+            request_log_name="migration_poll_status",
+            query_json_dict={
+                "type": "sodaCoreV3Migration",
+                "v3MigrationId": migration_id,
+            },
+        )
+
+    def migration_get_datasets(self, migration_id: str) -> list:
+        logger.info(f"Getting datasets for migration {migration_id}")
+
+        request = {
+            "type": "sodaCoreV3DatasetMigrations",
+            "filter": {
+                "type": "equals",
+                "left": {"type": "columnValue", "columnName": "v3MigrationId"},
+                "right": {"type": "string", "value": migration_id},
+            },
+        }
+        response = self._execute_query(request, request_log_name="get_migration_datasets")
+        response_dict = response.json()
+
+        if not response.ok or response_dict.get("results", None) is None:
+            raise SodaCloudException(f"Failed to get migration datasets.': {response_dict['message']}")
+
+        datasets_json = response_dict.get("results", [])
+
+        return datasets_json
+
+    def migration_cancel(self, migration_id: str) -> None:
+        logger.info(f"Cancelling migration {migration_id}")
+
+        request = {"type": "sodaCoreV3MigrationCancel", "migrationId": migration_id}
+        response = self._execute_command(request, request_log_name="cancel_migration")
+        response_dict = response.json()
+
+        if not response.ok:
+            raise SodaCloudException(f"Failed to cancel migration: {response_dict['message']}")
+
+        logger.info(f"Migration {migration_id} cancelled")
+
+    def post_processing_update(
+        self, stage: str, scan_id: str, state: PostProcessingStageState, error: Optional[str] = None
+    ):
+        logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
+
+        request = {
+            "type": "sodaCorePostProcessingUpdate",
+            "scanId": scan_id,
+            "name": stage,
+            "state": state.value,
+        }
+        if error:
+            request["error"] = error
+        response = self._execute_command(request, request_log_name="post_processing_update")
+        response.json()  # verify response is in JSON format
+
+        if response.status_code != 200:
+            raise SodaCloudException(f"Failed to update post processing stage: {response}")
+
+        logger.info(f"Updated post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
+
+    def logs_batch(self, scan_reference: str, body: str):
+        headers = {
+            "Authorization": self._get_token(),
+            "Content-Type": "application/jsonlines",
+        }
+
+        response = self._http_post(
+            url=f"{self.api_url}/logs/{scan_reference}/batchV3",
+            headers=headers,
+            data=body,
+            request_log_name="logs_batch",
+        )
+        return response
 
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
@@ -1097,6 +1337,15 @@ def _build_scan_definition_name(contract_verification_result: ContractVerificati
         return contract_verification_result.contract.soda_qualified_dataset_name
 
 
+def _build_post_processing_stages_dicts(
+    contract_verification_result: ContractVerificationResult,
+) -> list[Dict[str, str]]:
+    if contract_verification_result and contract_verification_result.post_processing_stages:
+        return [{"name": stage.name} for stage in contract_verification_result.post_processing_stages]
+    else:
+        return []
+
+
 def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
     return to_jsonnable(  # type: ignore
         {
@@ -1120,6 +1369,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
+            "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
         }
     )
 
@@ -1338,17 +1588,20 @@ def _map_remote_scan_status_to_contract_verification_status(
 def _build_log_cloud_json_dicts(log_records: Optional[list[LogRecord]]) -> Optional[list[dict]]:
     if not log_records:
         return None
-    return [_build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
+    return [build_log_cloud_json_dict(log_record, index) for index, log_record in enumerate(log_records)]
 
 
-def _build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
+def build_log_cloud_json_dict(log_record: LogRecord, index: int) -> dict:
     return {
         "level": log_record.levelname.lower(),
-        "message": log_record.msg,
-        "timestamp": datetime.fromtimestamp(log_record.created),
-        "index": index,
+        "message": log_record.getMessage(),
+        "timestamp": datetime.fromtimestamp(log_record.created, tz=timezone.utc),
+        "index": log_record.index if hasattr(log_record, "index") else index,
+        "stage": log_record.stage if hasattr(log_record, "stage") else None,
         "doc": log_record.doc if hasattr(log_record, "doc") else None,
         "exception": log_record.exception if hasattr(log_record, "exception") else None,
+        "thread": log_record.thread if hasattr(log_record, "thread") else None,
+        "dataset": log_record.dataset if hasattr(log_record, "dataset") else None,
         "location": (
             log_record.location.get_dict()
             if hasattr(log_record, ExtraKeys.LOCATION) and isinstance(log_record.location, Location)

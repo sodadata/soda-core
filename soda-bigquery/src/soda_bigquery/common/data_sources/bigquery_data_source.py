@@ -14,6 +14,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
     COLUMN,
+    CONCAT_WS,
     COUNT,
     DISTINCT,
     LITERAL,
@@ -167,6 +168,9 @@ class BigQuerySqlDialect(SqlDialect):
     def supports_data_type_numeric_precision(self) -> bool:
         return False
 
+    def supports_cte_alias_columns(self) -> bool:
+        return False
+
     def supports_data_type_numeric_scale(self) -> bool:
         return False
 
@@ -181,6 +185,11 @@ class BigQuerySqlDialect(SqlDialect):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"{timestamp_literal} + interval 1 day"
+
+    def literal_string(self, value: str) -> Optional[str]:
+        if value is None:
+            return None
+        return "'''" + self.escape_string(value) + "'''"
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         # The first select row should have column aliases
@@ -215,3 +224,7 @@ class BigQuerySqlDialect(SqlDialect):
 
     def get_preferred_number_of_rows_for_insert(self) -> int:
         return 500
+
+    def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
+        elements: str = f", '{concat_ws.separator}', ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
+        return f"CONCAT({elements})"

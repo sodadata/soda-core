@@ -405,6 +405,18 @@ class ContractVerificationStatus(Enum):
     ERROR = "ERROR"
 
 
+class PostProcessingStageState(Enum):
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PostProcessingStage:
+    def __init__(self, name: str, stage: PostProcessingStageState):
+        self.name: str = name
+        self.stage: PostProcessingStageState = stage
+
+
 class ContractVerificationResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
@@ -419,6 +431,7 @@ class ContractVerificationResult:
     @param check_results: The results of the checks performed during the verification.
     @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
     @param log_records: The log records generated during the verification.
+    @param post_processing_stages: The post processing stages of the verification.
 
     """
 
@@ -434,6 +447,7 @@ class ContractVerificationResult:
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
         log_records: Optional[list[LogRecord]] = None,
+        post_processing_stages: Optional[list[PostProcessingStage]] = None,
     ):
         self.contract: Contract = contract
         self.data_source: DataSource = data_source
@@ -445,21 +459,22 @@ class ContractVerificationResult:
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.log_records: Optional[list[LogRecord]] = log_records
         self.status = status
+        self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
 
     def get_logs(self) -> list[str]:
-        return [r.msg for r in self.log_records]
+        return [r.getMessage() for r in self.log_records]
 
     def get_logs_str(self) -> str:
         return "\n".join(self.get_logs())
 
     def get_errors(self) -> list[str]:
-        return [r.msg for r in self.log_records if r.levelno >= ERROR]
+        return [r.getMessage() for r in self.log_records if r.levelno >= ERROR]
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
     def get_warnings(self) -> list[str]:
-        return [r.msg for r in self.log_records if r.levelno == WARNING]
+        return [r.getMessage() for r in self.log_records if r.levelno == WARNING]
 
     def get_warnings_str(self) -> str:
         return "\n".join(self.get_warnings())

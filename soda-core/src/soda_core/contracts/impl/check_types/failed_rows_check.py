@@ -67,7 +67,7 @@ class FailedRowsCheckImpl(CheckImpl):
         )
 
         self.failed_rows_count_metric_impl: Optional[MetricImpl] = None
-        if self.failed_rows_check_yaml.expression:
+        if self.is_expression_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
@@ -75,7 +75,7 @@ class FailedRowsCheckImpl(CheckImpl):
                 RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
 
-        elif self.failed_rows_check_yaml.query:
+        elif self.is_query_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
@@ -141,6 +141,15 @@ class FailedRowsCheckImpl(CheckImpl):
             diagnostic_metric_values=diagnostic_metric_values,
         )
 
+    def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
+        return self.failed_rows_count_metric_impl
+
+    def is_expression_check(self) -> bool:
+        return self.failed_rows_check_yaml.expression
+
+    def is_query_check(self) -> bool:
+        return self.failed_rows_check_yaml.query
+
 
 class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
@@ -168,6 +177,9 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
 
     def sql_expression(self) -> SqlExpression:
         return COUNT(CASE_WHEN(SqlExpressionStr(self.expression), LITERAL(1)))
+
+    def sql_condition_expression(self) -> SqlExpression:
+        return SqlExpressionStr(self.expression)
 
     def convert_db_value(self, value) -> any:
         return int(value) if value is not None else 0
@@ -201,7 +213,11 @@ class FailedRowsQueryMetricImpl(MetricImpl):
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
         sql = data_source_impl.sql_dialect.build_select_sql(
-            [WITH(alias="failed_rows").AS(cte_query=failed_rows_query), SELECT(COUNT(STAR())), FROM("failed_rows")]
+            [
+                WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]),
+                SELECT(COUNT(STAR())),
+                FROM("failed_rows"),
+            ]
         )
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
 
