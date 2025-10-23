@@ -3,12 +3,21 @@ from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    DataSourceNamespace,
+    SodaDataTypeName,
+)
 from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
+)
+from soda_databricks.common.statements.hive_metadata_tables_query import (
+    HiveMetadataTablesQuery,
 )
 from soda_databricks.model.data_source.databricks_data_source import (
     DatabricksDataSource as DatabricksDataSourceModel,
@@ -22,12 +31,30 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
+        if self.__is_hive_catalog():
+            return DatabricksHiveSqlDialect()
         return DatabricksSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DatabricksDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        if self.__is_hive_catalog():
+            return HiveMetadataTablesQuery(
+                sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+            )
+        else:
+            return super().create_metadata_tables_query()
+
+    def __is_hive_catalog(self):
+        # Check the connection "catalog"
+        catalog: Optional[str] = self.data_source_model.connection_properties.catalog
+        if catalog and catalog.lower() == "hive_metastore":
+            return True
+        # All other catalogs should be treated as "unity catalogs"
+        return False
 
 
 class DatabricksSqlDialect(SqlDialect):
@@ -173,3 +200,37 @@ class DatabricksSqlDialect(SqlDialect):
             )
             return True
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+
+class DatabricksHiveSqlDialect(DatabricksSqlDialect):
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+        return f"DESCRIBE {database_name}.{schema_name}.{table_name}"
+
+    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
+        filtered_rows = []
+        for row in query_result.rows:
+            if row[0].startswith("#"):  # ignore all description rows
+                break
+            if not row[0] and not row[1]:  # empty row
+                continue
+
+            # Trim data type details, e.g. decimal(10,0) -> decimal. Only decimal supports it anyway.
+            data_type = row[1]
+            if "(" in data_type:
+                data_type = data_type[: data_type.index("(")].strip()
+            row = (row[0], data_type) + row[2:]
+            filtered_rows.append(row)
+
+        return super().build_column_metadatas_from_query_result(
+            QueryResult(rows=filtered_rows, columns=query_result.columns)
+        )
+
+    def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
+        assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
+        catalog_name: str = self.quote_default(prefixes[0])
+        schema_name: str = self.quote_default(prefixes[1])
+
+        return [f"GRANT SELECT, USAGE, CREATE ON SCHEMA {catalog_name}.{schema_name} TO `users`;"]
