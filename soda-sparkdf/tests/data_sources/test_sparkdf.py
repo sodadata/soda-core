@@ -59,7 +59,7 @@ def test_basic_setup_with_existing_session(data_source_test_helper: DataSourceTe
         .getOrCreate()
     )
 
-    another_data_source_impl = SparkDataFrameDataSourceImpl.from_existing_session(
+    another_data_source_impl = SparkDataFrameDataSource.from_existing_session(
         session=my_spark_session, name=data_source_test_helper.name
     )
 
