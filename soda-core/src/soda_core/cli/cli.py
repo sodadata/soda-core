@@ -163,7 +163,13 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         default=False,
         help="Show more detailed logs on the console.",
     )
-
+    verify_parser.add_argument(
+        "-cp",
+        "--check-paths",
+        type=str,
+        nargs="*",
+        help="One or more check paths to run in a contract.",
+    )
     # TODO: move into extensions
     verify_parser.add_argument(
         "-dw",
@@ -185,6 +191,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         verbose = args.verbose
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
+        check_paths = args.check_paths
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
 
         exit_code = handle_verify_contract(
@@ -197,6 +204,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             verbose,
             use_agent,
             blocking_timeout_in_minutes,
+            check_paths,
             diagnostics_warehouse_file_path,
         )
 

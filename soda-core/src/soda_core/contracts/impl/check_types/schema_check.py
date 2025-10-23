@@ -95,6 +95,12 @@ class SchemaCheckImpl(CheckImpl):
         self.allow_extra_columns: bool = bool(check_yaml.allow_extra_columns)
         self.allow_other_column_order: bool = bool(check_yaml.allow_other_column_order)
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: SchemaCheckYaml,
+    ):
         self.schema_metric = self._resolve_metric(
             SchemaMetricImpl(
                 contract_impl=contract_impl,

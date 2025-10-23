@@ -159,6 +159,12 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             threshold_yaml=check_yaml.threshold,
         )
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: FreshnessCheckYaml,
+    ):
         self.max_timestamp_metric = self._resolve_metric(
             MaxTimestampMetricImpl(
                 contract_impl=contract_impl,

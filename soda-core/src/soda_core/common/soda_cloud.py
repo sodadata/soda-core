@@ -1370,6 +1370,10 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "sourceOwner": "soda-core",
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
+            "partial": any(
+                check_result.outcome == CheckOutcome.EXCLUDED
+                for check_result in contract_verification_result.check_results or []
+            ),
         }
     )
 
@@ -1426,6 +1430,8 @@ def check_outcome_to_soda_cloud(outcome: CheckOutcome) -> str:
         return "warn"
     elif outcome == CheckOutcome.FAILED:
         return "fail"
+    elif outcome == CheckOutcome.EXCLUDED:
+        return "excluded"
     return "unevaluated"
 
 
@@ -1439,6 +1445,10 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
 
 
 def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Optional[dict]:
+    if check_result.outcome == CheckOutcome.EXCLUDED:
+        # TODO: can we come up with any diagnostics for excluded checks?
+        return None
+
     from soda_core.contracts.contract_interfaces import SodaCloudJsonable
     from soda_core.contracts.impl.check_types.freshness_check import (
         FreshnessCheckResult,

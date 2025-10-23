@@ -118,6 +118,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
     ):
         logs: Logs = Logs()
@@ -165,6 +166,9 @@ class ContractVerificationSessionImpl:
         # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
         assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
 
+        if check_paths is None:
+            check_paths = []
+
         if soda_cloud_use_agent:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
                 contract_yaml_sources=contract_yaml_sources,
@@ -186,6 +190,7 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
+                check_paths=check_paths,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
@@ -202,6 +207,7 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: list[DataSourceYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
+        check_paths: list[str],
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies a Contract locally."
@@ -240,6 +246,7 @@ class ContractVerificationSessionImpl:
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
+                        check_paths=check_paths,
                         dwh_data_source_file_path=dwh_data_source_file_path,
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
@@ -363,6 +370,7 @@ class ContractImpl:
         execution_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
+        check_paths: list[str] = [],
         dwh_data_source_file_path: Optional[str] = None,
     ):
         self.logs: Logs = logs
@@ -374,6 +382,7 @@ class ContractImpl:
         self.publish_results: bool = publish_results
 
         self.filter: Optional[str] = self.contract_yaml.filter
+        self.check_paths: list[str] = check_paths
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
 
@@ -575,7 +584,13 @@ class ContractImpl:
             if self.data_source_impl:
                 # Evaluate the checks
                 for check_impl in self.all_check_impls:
-                    check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                    if check_impl.skip:
+                        logger.info(f"Skipping evaluation of check at path '{check_impl.path}'")
+                        check_result: CheckResult = CheckResult(
+                            check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
+                        )
+                    else:
+                        check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
             contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
@@ -659,6 +674,7 @@ class ContractImpl:
         warned_count: int = 0
         not_evaluated_count: int = 0
         passed_count: int = 0
+        excluded_count: int = 0
 
         for check_result in check_results:
             if check_result.is_failed:
@@ -669,7 +685,9 @@ class ContractImpl:
                 passed_count += 1
             elif check_result.is_warned:
                 warned_count += 1
-        total_count: int = failed_count + not_evaluated_count + passed_count
+            elif check_result.is_excluded:
+                excluded_count += 1
+        total_count: int = failed_count + not_evaluated_count + passed_count + warned_count + excluded_count
 
         error_count: int = len(self.logs.get_errors())
 
@@ -692,6 +710,12 @@ class ContractImpl:
             table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.CROSS_MARK])
         else:
             table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.WHITE_CHECK_MARK])
+
+        if excluded_count > 0:
+            table_lines.append(["Excluded", excluded_count, Emoticons.QUESTION_MARK])
+        else:
+            table_lines.append(["Excluded", excluded_count, Emoticons.WHITE_CHECK_MARK])
+
         if error_count > 0:
             table_lines.append(["Runtime Errors", error_count, Emoticons.CROSS_MARK])
         else:
@@ -1202,11 +1226,20 @@ class CheckImpl:
         if isinstance(check_yaml.type_name, str):
             check_parser: Optional[CheckParser] = cls.check_parsers.get(check_yaml.type_name)
             if check_parser:
-                return check_parser.parse_check(
+                check_impl = check_parser.parse_check(
                     contract_impl=contract_impl,
                     column_impl=column_impl,
                     check_yaml=check_yaml,
                 )
+
+                if not check_impl.skip:
+                    check_impl.setup_metrics(
+                        contract_impl=contract_impl,
+                        column_impl=column_impl,
+                        check_yaml=check_yaml,
+                    )
+
+                return check_impl
             else:
                 logger.error(f"Unknown check type '{check_yaml.type_name}'")
 
@@ -1234,6 +1267,10 @@ class CheckImpl:
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
         self.skip: bool = False
+
+        if contract_impl.check_paths:
+            if self.path not in contract_impl.check_paths:
+                self.skip = True
 
         # Merge check attributes with contract attributes
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
@@ -1280,6 +1317,15 @@ class CheckImpl:
         resolved_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(metric_impl)
         self.metrics.append(resolved_metric_impl)
         return resolved_metric_impl
+
+    @abstractmethod
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: CheckYaml,
+    ) -> None:
+        pass
 
     @abstractmethod
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:

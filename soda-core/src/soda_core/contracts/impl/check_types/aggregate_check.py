@@ -70,6 +70,12 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
             )
             self.function = None
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: AggregateCheckYaml,
+    ):
         self.aggregate_metric = self._resolve_metric(
             AggregateFunctionMetricImpl(
                 contract_impl=contract_impl, column_impl=column_impl, check_impl=self, function=self.function

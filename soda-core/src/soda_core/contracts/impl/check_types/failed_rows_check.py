@@ -66,6 +66,12 @@ class FailedRowsCheckImpl(CheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: FailedRowsCheckYaml,
+    ):
         self.failed_rows_count_metric_impl: Optional[MetricImpl] = None
         if self.is_expression_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
