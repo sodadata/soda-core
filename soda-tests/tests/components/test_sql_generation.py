@@ -59,9 +59,38 @@ def test_sql_ast_modeling_cte():
     ) == (
         "WITH \n"
         '"customers_filtered" AS (\n'
-        "  SELECT *\n"
-        '  FROM "customers"\n'
-        '  WHERE "colA" >= 25\n'
+        "SELECT *\n"
+        'FROM "customers"\n'
+        'WHERE "colA" >= 25\n'
+        ")\n"
+        'SELECT SUM("size")\n'
+        'FROM "customers_filtered";'
+    )
+
+
+def test_sql_ast_modeling_cte_with_multi_line_text_field():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    assert sql_dialect.build_select_sql(
+        [
+            WITH(
+                [
+                    CTE("customers_filtered").AS(
+                        [SELECT([STAR(), LITERAL("My\nLine")]), FROM("customers"), WHERE(GTE("colA", LITERAL(25)))]
+                    )
+                ]
+            ),
+            SELECT(SUM(COLUMN("size"))),
+            FROM("customers_filtered"),
+        ]
+    ) == (
+        "WITH \n"
+        '"customers_filtered" AS (\n'
+        "SELECT *,\n"
+        "       'My\n"
+        "Line'\n"
+        'FROM "customers"\n'
+        'WHERE "colA" >= 25\n'
         ")\n"
         'SELECT SUM("size")\n'
         'FROM "customers_filtered";'

@@ -530,7 +530,7 @@ class SqlDialect:
         else:
             raise ValueError(f"Unexpected cte_query type: {cte.cte_query.__class__.__name__}")
         sql_str = sql_str.rstrip(";")
-        sql_str = indent(sql_str, "  ")
+        # Do not indent the query string! This could cause issues with multi-line text fields. sql_str = indent(sql_str, "  ")
         alias_columns_str: str = ""
         if cte.alias_columns and self.supports_cte_alias_columns():
             alias_columns_str = "(" + ", ".join([self._build_column_sql(column) for column in cte.alias_columns]) + ")"
