@@ -10,6 +10,7 @@ from soda_core.common.datetime_conversions import interpret_datetime_as_utc
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ALTER_TABLE_ADD_COLUMN,
     COLUMN,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
@@ -73,6 +74,17 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         )
         data_source_impl.execute_update(create_table_sql)
 
+        # Then add another column, just because we can
+        extra_column: CREATE_TABLE_COLUMN = CREATE_TABLE_COLUMN(
+            name="some_number", type=SqlDataType(name=SodaDataTypeName.INTEGER), nullable=True
+        )
+        alter_table_add_column_sql = sql_dialect.build_alter_table_sql(
+            ALTER_TABLE_ADD_COLUMN(fully_qualified_table_name=my_table_name, column=extra_column)
+        )
+        data_source_impl.execute_update(alter_table_add_column_sql)
+        # Add the column to the standard columns list
+        standard_columns.append(extra_column.convert_to_standard_column())
+
         # Check the metadata, we want the columns to be in the correct order
         metadata_columns_query_sql = data_source_impl.build_columns_metadata_query_str(
             dataset_prefixes=dataset_prefixes,
@@ -83,6 +95,9 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert metadata_result.rows[1][0] == "name"
         assert metadata_result.rows[2][0] == "small_text"
         assert metadata_result.rows[3][0] == "my_date"
+        assert metadata_result.rows[4][0] == "my_timestamp"
+        assert metadata_result.rows[5][0] == "my_timestamp_tz"
+        assert metadata_result.rows[6][0] == "some_number"
 
         # Then insert into the table
         tz = pytz.timezone("America/Los_Angeles")  # to test a non-UTC timezone
@@ -98,6 +113,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                             LITERAL(datetime.date(2021, 1, 1)),
                             LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0)),
                             LITERAL(datetime.datetime(2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc)),
+                            LITERAL(100),
                         ]
                     ),
                     VALUES_ROW(
@@ -108,6 +124,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                             LITERAL(datetime.date(2021, 1, 2)),
                             LITERAL(datetime.datetime(2021, 1, 2, 10, 0, 0)),
                             LITERAL(tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))),
+                            LITERAL(25),
                         ]
                     ),
                 ],
@@ -138,6 +155,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                         COLUMN("my_date"),
                         COLUMN("my_timestamp"),
                         COLUMN("my_timestamp_tz"),
+                        COLUMN("some_number"),
                     ]
                 ),
                 # This has to be changed in the select sql. We should expect the fully qualified table name, like with other ASTs
@@ -178,6 +196,10 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         )
         assert interpret_datetime_as_utc(result.rows[1][5]) == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
         assert result.rows[2][5] is None
+
+        assert result.rows[0][6] == 100
+        assert result.rows[1][6] == 25
+        assert result.rows[2][6] is None
 
     finally:
         # Then drop the table to clean up

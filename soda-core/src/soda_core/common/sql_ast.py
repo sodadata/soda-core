@@ -679,3 +679,29 @@ class OFFSET(BaseSqlExpression):
     @classmethod
     def optional(cls, offset: int | None) -> Optional[OFFSET]:
         return OFFSET(offset) if offset else None
+
+
+@dataclass
+class ALTER_TABLE(BaseSqlExpression):
+    fully_qualified_table_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class ALTER_TABLE_ADD_COLUMN(ALTER_TABLE):
+    column: CREATE_TABLE_COLUMN
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.column)
+
+
+@dataclass
+class ALTER_TABLE_DROP_COLUMN(ALTER_TABLE):
+    column_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.column_name)
