@@ -72,3 +72,35 @@ def test_check_paths(data_source_test_helper: DataSourceTestHelper):
 
         # There should be only 2 measurements: one for the aggregate check on id, and one for the row count we collect for all contract verifications.
         assert len(contract_verification_result.measurements) == 2
+
+
+def test_check_paths_qualifier(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
+        contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+            test_table=test_table,
+            check_paths=["columns.id.checks.invalid.invalid_min"],
+            contract_yaml_str="""
+                columns:
+                    - name: id
+                      checks:
+                        - invalid:
+                            valid_values: [1, 2, 3]
+                        - invalid:
+                            qualifier: invalid_min
+                            valid_min: 1
+                checks:
+            """,
+        )
+        assert len(contract_verification_result.check_results) == 2
+        assert contract_verification_result.number_of_checks_excluded == 1
+
+        # There should be only 2 measurements: one for the invalid check on id, and one for the row count we collect for all contract verifications.
+        assert len(contract_verification_result.measurements) == 2
