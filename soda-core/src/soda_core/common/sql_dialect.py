@@ -443,9 +443,12 @@ class SqlDialect:
         )
         default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
         return (
-            f"ALTER TABLE {alter_table.fully_qualified_table_name} ADD COLUMN {column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
             + (";" if add_semicolon else "")
         )
+
+    def _get_add_column_sql_expr(self) -> str:
+        return f"ADD COLUMN"
 
     def _build_alter_table_drop_column_sql(
         self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
@@ -454,6 +457,9 @@ class SqlDialect:
         return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMN {column_name_quoted}" + (
             ";" if add_semicolon else ""
         )
+
+    def drop_column_supported(self) -> bool:
+        return True
 
     #########################################################
     # DROP TABLE

@@ -16,6 +16,7 @@ from soda_core.common.data_source_results import UpdateResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ALTER_TABLE_ADD_COLUMN,
     COLUMN,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
@@ -393,3 +394,23 @@ class AthenaSqlDialect(SqlDialect):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         return f"to_hex(md5(to_utf8({self.build_expression_sql(string_hash.expression)})))"
+
+    def _build_alter_table_add_column_sql(self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True) -> str:
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
+        column_type_sql: str = self._build_create_table_column_type(alter_table.column)
+        is_nullable_sql: str = (
+            " NOT NULL" if (alter_table.column.nullable is False and self._is_not_null_ddl_supported()) else ""
+        )
+        default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
+        return (
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} ({column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql})"
+            + (";" if add_semicolon else "")
+        )
+
+    def _get_add_column_sql_expr(self) -> str:
+        return f"ADD COLUMNS"
+
+    def drop_column_supported(self) -> bool:
+        return (
+            False  # It MAY be possible to drop columns in Athena by using REPLACE COLUMNS, but we don't support it yet.
+        )

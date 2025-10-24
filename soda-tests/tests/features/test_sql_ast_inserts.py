@@ -11,6 +11,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
+    ALTER_TABLE_DROP_COLUMN,
     COLUMN,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
@@ -200,6 +201,13 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[0][6] == 100
         assert result.rows[1][6] == 25
         assert result.rows[2][6] is None
+
+        # Then drop the extra column, if supported
+        if sql_dialect.drop_column_supported():
+            alter_table_drop_column_sql = sql_dialect.build_alter_table_sql(
+                ALTER_TABLE_DROP_COLUMN(fully_qualified_table_name=my_table_name, column_name="some_number")
+            )
+            data_source_impl.execute_update(alter_table_drop_column_sql)
 
     finally:
         # Then drop the table to clean up
