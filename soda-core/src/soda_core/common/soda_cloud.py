@@ -1069,7 +1069,7 @@ class SodaCloud:
                 f"Soda Cloud authentication failed when executing GET '{url}'. Check your API key and secret. | "
                 f"X-Soda-Trace-Id:{trace_id}"
             )
-        elif not response.status_code.ok:
+        elif not response.ok:
             logger.warning(
                 f"Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
