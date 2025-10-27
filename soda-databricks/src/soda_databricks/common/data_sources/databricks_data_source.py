@@ -10,7 +10,11 @@ from soda_core.common.metadata_types import (
     DataSourceNamespace,
     SodaDataTypeName,
 )
-from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
+from soda_core.common.sql_ast import (
+    ALTER_TABLE_ADD_COLUMN,
+    ALTER_TABLE_DROP_COLUMN,
+    CREATE_TABLE_COLUMN,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
@@ -200,6 +204,32 @@ class DatabricksSqlDialect(SqlDialect):
             )
             return True
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+    def _build_alter_table_add_column_sql(self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True) -> str:
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
+        column_type_sql: str = self._build_create_table_column_type(alter_table.column)
+        is_nullable_sql: str = (
+            " NOT NULL" if (alter_table.column.nullable is False and self._is_not_null_ddl_supported()) else ""
+        )
+        default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
+        return (
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} ({column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql})"
+            + (";" if add_semicolon else "")
+        )
+
+    def _get_add_column_sql_expr(self) -> str:
+        return f"ADD COLUMNS"
+
+    def _build_alter_table_drop_column_sql(
+        self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
+    ) -> str:
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
+        return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMNS ({column_name_quoted})" + (
+            ";" if add_semicolon else ""
+        )
+
+    def drop_column_supported(self) -> bool:
+        return False  # Note, this is technically supported. But we need to change the delta table mapping mode name for this (out of scope at the time of writing)
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect):
