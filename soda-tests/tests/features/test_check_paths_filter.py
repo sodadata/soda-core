@@ -89,13 +89,12 @@ def test_check_paths_qualifier(data_source_test_helper: DataSourceTestHelper):
         contract_yaml_str="""
             columns:
                 - name: id
-                    checks:
+                  checks:
                     - invalid:
                         valid_values: [1, 2, 3]
                     - invalid:
                         qualifier: invalid_min
                         valid_min: 1
-            checks:
         """,
     )
     assert len(contract_verification_result.check_results) == 2
