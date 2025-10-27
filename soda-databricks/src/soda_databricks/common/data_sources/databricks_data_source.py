@@ -60,6 +60,13 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         # All other catalogs should be treated as "unity catalogs"
         return False
 
+    def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        try:
+            return super().get_columns_metadata(dataset_prefixes, dataset_name)
+        except Exception as e:
+            logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
+            return []
+
 
 class DatabricksSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
@@ -182,11 +189,38 @@ class DatabricksSqlDialect(SqlDialect):
             ["time", "time without time zone"],
         ]
 
+    # Explicitly leaving this here for reference. See comment below why we moved to DESCRIBE TABLE.
+    # def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+    # Unity catalog only stores things in lower case,
+    # even though create table may have been quoted and with mixed case
+    # table_name_lower: str = table_name.lower()
+    # return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
+
+    # We move to DESCRIBE TABLE, that is a more up-to-date way to get the columns metadata. (information_schema is lagging behind sometimes, and does not always return the correct columns)
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
-        # Unity catalog only stores things in lower case,
-        # even though create table may have been quoted and with mixed case
-        table_name_lower: str = table_name.lower()
-        return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+        return f"DESCRIBE {database_name}.{schema_name}.{table_name}"
+
+    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
+        # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
+        filtered_rows = []
+        for row in query_result.rows:
+            if row[0].startswith("#"):  # ignore all description rows
+                break
+            if not row[0] and not row[1]:  # empty row
+                continue
+
+            # Trim data type details, e.g. decimal(10,0) -> decimal. Only decimal supports it anyway.
+            data_type = row[1]
+            if "(" in data_type:
+                data_type = data_type[: data_type.index("(")].strip()
+            row = (row[0], data_type) + row[2:]
+            filtered_rows.append(row)
+
+        return super().build_column_metadatas_from_query_result(
+            QueryResult(rows=filtered_rows, columns=query_result.columns)
+        )
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
@@ -233,31 +267,6 @@ class DatabricksSqlDialect(SqlDialect):
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect):
-    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
-        database_name: str | None = table_namespace.get_database_for_metadata_query()
-        schema_name: str = table_namespace.get_schema_for_metadata_query()
-        return f"DESCRIBE {database_name}.{schema_name}.{table_name}"
-
-    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
-        # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
-        filtered_rows = []
-        for row in query_result.rows:
-            if row[0].startswith("#"):  # ignore all description rows
-                break
-            if not row[0] and not row[1]:  # empty row
-                continue
-
-            # Trim data type details, e.g. decimal(10,0) -> decimal. Only decimal supports it anyway.
-            data_type = row[1]
-            if "(" in data_type:
-                data_type = data_type[: data_type.index("(")].strip()
-            row = (row[0], data_type) + row[2:]
-            filtered_rows.append(row)
-
-        return super().build_column_metadatas_from_query_result(
-            QueryResult(rows=filtered_rows, columns=query_result.columns)
-        )
-
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])
