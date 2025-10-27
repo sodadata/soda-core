@@ -52,8 +52,14 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
             threshold_yaml=check_yaml.threshold,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
-
         self.metric_name = "missing_percent" if check_yaml.metric == "percent" else "missing_count"
+
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: MissingCheckYaml,
+    ):
         self.missing_count_metric_impl = self._resolve_metric(
             MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )

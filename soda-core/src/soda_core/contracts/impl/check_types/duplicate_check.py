@@ -71,9 +71,14 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             threshold_yaml=check_yaml.threshold,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
-
         self.metric_name = "duplicate_percent" if check_yaml.metric == "percent" else "duplicate_count"
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: ColumnDuplicateCheckYaml,
+    ):
         self.distinct_count_metric_impl: MetricImpl = self._resolve_metric(
             ColumnDistinctCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
         )
@@ -236,6 +241,12 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be=0),
         )
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: MultiColumnDuplicateCheckYaml,
+    ):
         self.metric_name = "duplicate_percent" if check_yaml.metric == "percent" else "duplicate_count"
 
         self.multi_column_distinct_count_metric_impl: MetricImpl = self._resolve_metric(

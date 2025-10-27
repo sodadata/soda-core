@@ -62,6 +62,12 @@ class MetricCheckImpl(CheckImpl):
             threshold_yaml=check_yaml.threshold,
         )
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_yaml: MetricCheckYaml,
+    ):
         self.numeric_metric_impl: Optional[MetricImpl] = None
         if self.metric_check_yaml.expression:
             self.numeric_metric_impl = self._resolve_metric(

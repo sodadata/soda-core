@@ -55,6 +55,7 @@ def test_handle_verify_contract_exit_codes(
         verbose=False,
         use_agent=False,
         blocking_timeout_in_minutes=10,
+        check_paths=[],
         diagnostics_warehouse_file_path=None,
     )
 

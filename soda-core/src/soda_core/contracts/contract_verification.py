@@ -48,6 +48,7 @@ class ContractVerificationSession:
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
     ) -> ContractVerificationSessionResult:
         from soda_core.contracts.impl.contract_verification_impl import (
@@ -66,6 +67,7 @@ class ContractVerificationSession:
             soda_cloud_use_agent=soda_cloud_use_agent,
             soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            check_paths=check_paths,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
@@ -117,6 +119,13 @@ class ContractVerificationSessionResult:
             for contract_verification_result in self.contract_verification_results
         )
 
+    @property
+    def number_of_checks_excluded(self) -> int:
+        return sum(
+            contract_verification_result.number_of_checks_excluded
+            for contract_verification_result in self.contract_verification_results
+        )
+
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
@@ -165,6 +174,17 @@ class ContractVerificationSessionResult:
         )
 
     @property
+    def has_excluded(self) -> bool:
+        """
+        Returns true if there are checks that have been excluded.
+        Ignores execution errors in the logs.
+        """
+        return any(
+            contract_verification_result.has_excluded
+            for contract_verification_result in self.contract_verification_results
+        )
+
+    @property
     def is_ok(self) -> bool:
         return all(
             contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
@@ -195,6 +215,7 @@ class CheckOutcome(Enum):
     FAILED = "FAILED"
     WARN = "WARN"
     NOT_EVALUATED = "NOT_EVALUATED"
+    EXCLUDED = "EXCLUDED"
 
 
 @dataclass
@@ -301,6 +322,9 @@ class CheckResult:
     @property
     def is_not_evaluated(self) -> bool:
         return self.outcome == CheckOutcome.NOT_EVALUATED
+
+    def is_excluded(self) -> bool:
+        return self.outcome == CheckOutcome.EXCLUDED
 
     def log_table_row(self) -> dict:
         row = {}
@@ -524,3 +548,9 @@ class ContractVerificationResult:
     @property
     def number_of_checks_failed(self) -> int:
         return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])
+
+    @property
+    def number_of_checks_excluded(self) -> int:
+        return len(
+            [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
+        )

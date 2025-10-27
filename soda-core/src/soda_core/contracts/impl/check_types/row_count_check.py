@@ -50,7 +50,6 @@ class RowCountCheckImpl(CheckImpl):
             threshold_yaml=check_yaml.threshold,
             default_threshold=ThresholdImpl(type=ThresholdType.SINGLE_COMPARATOR, must_be_greater_than=0),
         )
-
         metric_name: str = ThresholdImpl.get_metric_name(check_yaml.type_name, column_impl=column_impl)
         self.summary = (
             self.threshold.get_assertion_summary(metric_name=metric_name)
@@ -58,6 +57,12 @@ class RowCountCheckImpl(CheckImpl):
             else f"{check_yaml.type_name} (invalid threshold)"
         )
 
+    def setup_metrics(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: RowCountCheckYaml,
+    ):
         self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
