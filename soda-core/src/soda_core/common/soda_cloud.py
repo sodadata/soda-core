@@ -720,14 +720,17 @@ class SodaCloud:
         return response_dict.get("contents")
 
     def fetch_checks_for_dataset_id(self, dataset_id: str) -> list[dict]:
-        response = self._execute_rest_get(
-            relative_url_path=f"checks/?datasetId={dataset_id}",
-            request_log_name="get_checks_for_dataset_id",
+        response = self._execute_query(
+            query_json_dict={
+                "type": "sodaCoreV3MigrationCheckInformation",
+                "datasetId": dataset_id,
+            },
+            request_log_name="get_migration_checks_for_dataset_id",
         )
+
         if response and response.ok and response.content:
             json_content = json.loads(response.content)
-            return json_content.get("content", [])
-
+            return json_content.get("checks", [])
         return []
 
     def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> str:
@@ -1046,7 +1049,7 @@ class SodaCloud:
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
 
-    def _execute_rest_get(self, relative_url_path: str, request_log_name: str, is_retry: bool = True) -> Response:
+    def _execute_rest_get(self, relative_url_path: str, request_log_name: str, is_retry: bool = False) -> Response:
         credentials_plain = f"{self.api_key_id}:{self.api_key_secret}"
         credentials_encoded = base64.b64encode(credentials_plain.encode()).decode()
 
@@ -1061,17 +1064,13 @@ class SodaCloud:
 
         trace_id: str = response.headers.get("X-Soda-Trace-Id")
 
-        if response.status_code == 401 and is_retry:
-            logger.debug(
-                f"Soda Cloud authentication failed. Probably token expired. Re-authenticating... | "
+        if response.status_code == 401:
+            logger.error(
+                f"Soda Cloud authentication failed when executing GET '{url}'. Check your API key and secret. | "
                 f"X-Soda-Trace-Id:{trace_id}"
             )
-            self.token = None
-            response = self._execute_rest_get(
-                relative_url_path=relative_url_path, request_log_name=request_log_name, is_retry=False
-            )
-        elif response.status_code != 200:
-            logger.debug(
+        elif not response.status_code.ok:
+            logger.warning(
                 f"Soda Cloud error for {request_log_name} | status_code:{response.status_code} | "
                 f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
             )
@@ -1220,17 +1219,17 @@ class SodaCloud:
 
         return datasets_json
 
-    def migration_cancel(self, migration_id: str) -> None:
-        logger.info(f"Cancelling migration {migration_id}")
+    def migration_fail_contract_generation(self, migration_id: str) -> None:
+        logger.info(f"Failing contract generation for migration '{migration_id}'")
 
-        request = {"type": "sodaCoreV3MigrationCancel", "migrationId": migration_id}
-        response = self._execute_command(request, request_log_name="cancel_migration")
+        request = {"type": "sodaCoreV3MigrationFailContractGeneration", "migrationId": migration_id}
+        response = self._execute_command(request, request_log_name="fail_contract_generation")
         response_dict = response.json()
 
         if not response.ok:
-            raise SodaCloudException(f"Failed to cancel migration: {response_dict['message']}")
+            raise SodaCloudException(f"Failed to fail contract generation: {response_dict['message']}")
 
-        logger.info(f"Migration {migration_id} cancelled")
+        logger.info(f"Migration {migration_id} failed")
 
     def post_processing_update(
         self, stage: str, scan_id: str, state: PostProcessingStageState, error: Optional[str] = None
