@@ -408,7 +408,7 @@ class AthenaSqlDialect(SqlDialect):
         )
 
     def _get_add_column_sql_expr(self) -> str:
-        return f"ADD COLUMNS"
+        return "ADD COLUMNS"
 
     def drop_column_supported(self) -> bool:
         return (

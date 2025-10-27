@@ -218,7 +218,7 @@ class DatabricksSqlDialect(SqlDialect):
         )
 
     def _get_add_column_sql_expr(self) -> str:
-        return f"ADD COLUMNS"
+        return "ADD COLUMNS"
 
     def _build_alter_table_drop_column_sql(
         self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
