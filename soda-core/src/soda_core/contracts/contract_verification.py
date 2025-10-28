@@ -233,6 +233,7 @@ class Contract:
     dataset_name: str
     soda_qualified_dataset_name: str
     source: YamlFileContentInfo
+    dataset_id: Optional[str] = None  # This one can be filled later when we get the dataset id from Soda Cloud
 
 
 @dataclass
@@ -487,7 +488,6 @@ class ContractVerificationResult:
 
         # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
         self.scan_id: Optional[str] = None
-        self.dataset_id: Optional[str] = None
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records]
