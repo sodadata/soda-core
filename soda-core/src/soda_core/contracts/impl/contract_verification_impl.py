@@ -626,6 +626,7 @@ class ContractImpl:
                     local_file_path=self.contract_yaml.contract_yaml_source.file_path,
                     soda_cloud_file_id=soda_cloud_file_id,
                 ),
+                dataset_id=None,  # Set this to None for now (default). Will be filled later when we get the dataset id from Soda Cloud
             ),
             data_source=data_source,
             data_timestamp=self.data_timestamp,
@@ -646,6 +647,12 @@ class ContractImpl:
             scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
             if not scan_id:
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
+            else:
+                contract_verification_result.scan_id = scan_id
+                # Put the dataset id in the contract object
+                contract_verification_result.contract.dataset_id = self.__get_dataset_id(
+                    soda_cloud_response_json, self.soda_qualified_dataset_name
+                )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -666,6 +673,15 @@ class ContractImpl:
                 )
 
         return contract_verification_result
+
+    def __get_dataset_id(self, soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
+        # Find the dataset id for the given qualified dataset name
+        for check in soda_cloud_response_json.get("checks", []):
+            for datasets in check.get("datasets", []):
+                dataset_dqn: Optional[str] = datasets.get("dqn")
+                if dataset_dqn and dataset_dqn == qualified_dataset_name:
+                    return datasets.get("id")
+        return None
 
     def build_log_summary(self, soda_qualified_dataset_name: str, check_results: list[CheckResult]) -> str:
         summary_lines: list[str] = []
