@@ -1,19 +1,18 @@
 import abc
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
 
 
-class DataSourceBase(
-    BaseModel,
-    abc.ABC,
-    frozen=True,
-    extra="forbid",
-    validate_by_name=True,  # Allow to use both field names and aliases when populating from dict
-):
+class DataSourceBase(BaseModel, abc.ABC):
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        validate_by_name=True,  # Allow to use both field names and aliases when populating from dict
+    )
     name: str = Field(..., description="Data source name")
     type: Literal["data_source"]
     # Alias connection -> connection_properties to read that from yaml config

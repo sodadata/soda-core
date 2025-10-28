@@ -4,10 +4,11 @@ import numbers
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class CheckAttributes(BaseModel, populate_by_name=True):
+class CheckAttributes(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     check_attributes: list[CheckAttribute] = Field(..., alias="resourceAttributes")
 
 

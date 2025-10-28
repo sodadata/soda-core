@@ -1,16 +1,12 @@
 from abc import ABC
 from typing import ClassVar, Dict
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 
-class DataSourceConnectionProperties(
-    BaseModel,
-    ABC,
-    frozen=True,
-    extra="allow",
-    validate_by_name=True,
-):
+class DataSourceConnectionProperties(BaseModel, ABC):
+    model_config = ConfigDict(frozen=True, extra="allow", validate_by_name=True)
+
     field_mapping: ClassVar[Dict[str, str]] = {}
 
     def to_connection_kwargs(self) -> dict:
