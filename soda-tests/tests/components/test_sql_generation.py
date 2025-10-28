@@ -220,3 +220,26 @@ def test_sql_ast_drop_table_if_exists():
         DROP_TABLE_IF_EXISTS(fully_qualified_table_name='"customers"')
     )
     assert my_drop_table_statement == 'DROP TABLE IF EXISTS "customers";'
+
+
+def test_sql_ast_alter_table_add_column():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_alter_table_statement = sql_dialect.build_alter_table_sql(
+        ALTER_TABLE_ADD_COLUMN(
+            fully_qualified_table_name='"customers"',
+            column=CREATE_TABLE_COLUMN(
+                name="age", type=SqlDataType(name=SodaDataTypeName.INTEGER), nullable=False, default=LITERAL(25)
+            ),
+        )
+    )
+    assert my_alter_table_statement == 'ALTER TABLE "customers" ADD COLUMN "age" integer NOT NULL DEFAULT 25;'
+
+
+def test_sql_ast_alter_table_drop_column():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_alter_table_statement = sql_dialect.build_alter_table_sql(
+        ALTER_TABLE_DROP_COLUMN(fully_qualified_table_name='"customers"', column_name="age")
+    )
+    assert my_alter_table_statement == 'ALTER TABLE "customers" DROP COLUMN "age";'

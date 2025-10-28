@@ -16,6 +16,7 @@ from soda_core.common.data_source_results import UpdateResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
+    ALTER_TABLE_ADD_COLUMN,
     COLUMN,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
@@ -393,3 +394,16 @@ class AthenaSqlDialect(SqlDialect):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         return f"to_hex(md5(to_utf8({self.build_expression_sql(string_hash.expression)})))"
+
+    def _build_alter_table_add_column_sql(
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+    ) -> str:
+        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=True, add_paranthesis=True)
+
+    def _get_add_column_sql_expr(self) -> str:
+        return "ADD COLUMNS"
+
+    def drop_column_supported(self) -> bool:
+        return (
+            False  # It MAY be possible to drop columns in Athena by using REPLACE COLUMNS, but we don't support it yet.
+        )

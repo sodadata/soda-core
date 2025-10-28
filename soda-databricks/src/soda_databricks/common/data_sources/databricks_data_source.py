@@ -10,7 +10,11 @@ from soda_core.common.metadata_types import (
     DataSourceNamespace,
     SodaDataTypeName,
 )
-from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
+from soda_core.common.sql_ast import (
+    ALTER_TABLE_ADD_COLUMN,
+    ALTER_TABLE_DROP_COLUMN,
+    CREATE_TABLE_COLUMN,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
@@ -55,6 +59,13 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             return True
         # All other catalogs should be treated as "unity catalogs"
         return False
+
+    def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
+        try:
+            return super().get_columns_metadata(dataset_prefixes, dataset_name)
+        except Exception as e:
+            logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
+            return []
 
 
 class DatabricksSqlDialect(SqlDialect):
@@ -178,31 +189,14 @@ class DatabricksSqlDialect(SqlDialect):
             ["time", "time without time zone"],
         ]
 
-    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
-        # Unity catalog only stores things in lower case,
-        # even though create table may have been quoted and with mixed case
-        table_name_lower: str = table_name.lower()
-        return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
+    # Explicitly leaving this here for reference. See comment below why we moved to DESCRIBE TABLE.
+    # def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+    # Unity catalog only stores things in lower case,
+    # even though create table may have been quoted and with mixed case
+    # table_name_lower: str = table_name.lower()
+    # return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
 
-    def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
-        assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
-        catalog_name: str = self.quote_default(prefixes[0])
-        schema_name: str = self.quote_default(prefixes[1])
-        return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
-        #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
-
-    @classmethod
-    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
-        # Special case of a 1-way synonym: TEXT is allowed where TIME is expected
-        if expected == SodaDataTypeName.TIME and actual == SodaDataTypeName.TEXT:
-            logger.debug(
-                f"In is_same_soda_data_type_with_synonyms, Expected {expected} and actual {actual} are the same"
-            )
-            return True
-        return super().is_same_soda_data_type_with_synonyms(expected, actual)
-
-
-class DatabricksHiveSqlDialect(DatabricksSqlDialect):
+    # We move to DESCRIBE TABLE, that is a more up-to-date way to get the columns metadata. (information_schema is lagging behind sometimes, and does not always return the correct columns)
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         database_name: str | None = table_namespace.get_database_for_metadata_query()
         schema_name: str = table_namespace.get_schema_for_metadata_query()
@@ -228,6 +222,44 @@ class DatabricksHiveSqlDialect(DatabricksSqlDialect):
             QueryResult(rows=filtered_rows, columns=query_result.columns)
         )
 
+    def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
+        assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
+        catalog_name: str = self.quote_default(prefixes[0])
+        schema_name: str = self.quote_default(prefixes[1])
+        return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
+        #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
+
+    @classmethod
+    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        # Special case of a 1-way synonym: TEXT is allowed where TIME is expected
+        if expected == SodaDataTypeName.TIME and actual == SodaDataTypeName.TEXT:
+            logger.debug(
+                f"In is_same_soda_data_type_with_synonyms, Expected {expected} and actual {actual} are the same"
+            )
+            return True
+        return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+    def _build_alter_table_add_column_sql(
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+    ) -> str:
+        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=add_semicolon, add_paranthesis=True)
+
+    def _get_add_column_sql_expr(self) -> str:
+        return "ADD COLUMNS"
+
+    def _build_alter_table_drop_column_sql(
+        self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
+    ) -> str:
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
+        return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMNS ({column_name_quoted})" + (
+            ";" if add_semicolon else ""
+        )
+
+    def drop_column_supported(self) -> bool:
+        return False  # Note, this is technically supported. But we need to change the delta table mapping mode name for this (out of scope at the time of writing)
+
+
+class DatabricksHiveSqlDialect(DatabricksSqlDialect):
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])

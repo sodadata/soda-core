@@ -340,3 +340,6 @@ class SqlServerSqlDialect(SqlDialect):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         return f"CONVERT(VARCHAR(32), HASHBYTES('MD5', {self.build_expression_sql(string_hash.expression)}), 2)"
+
+    def _get_add_column_sql_expr(self) -> str:
+        return "ADD"

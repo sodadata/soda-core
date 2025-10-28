@@ -17,6 +17,9 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ALTER_TABLE,
+    ALTER_TABLE_ADD_COLUMN,
+    ALTER_TABLE_DROP_COLUMN,
     AND,
     CASE_WHEN,
     CAST,
@@ -419,6 +422,47 @@ class SqlDialect:
         )  # Some datasources (Athena) require a different quoting when creating a table.
 
     def _is_not_null_ddl_supported(self) -> bool:
+        return True
+
+    #########################################################
+    # ALTER TABLE
+    #########################################################
+    def build_alter_table_sql(self, alter_table: ALTER_TABLE, add_semicolon: bool = True) -> str:
+        if isinstance(alter_table, ALTER_TABLE_ADD_COLUMN):
+            return self._build_alter_table_add_column_sql(alter_table, add_semicolon)
+        elif isinstance(alter_table, ALTER_TABLE_DROP_COLUMN):
+            return self._build_alter_table_drop_column_sql(alter_table, add_semicolon)
+        else:
+            raise ValueError(f"Unexpected alter table type: {alter_table.__class__.__name__}")
+
+    def _build_alter_table_add_column_sql(
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+    ) -> str:
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
+        column_type_sql: str = self._build_create_table_column_type(alter_table.column)
+        is_nullable_sql: str = (
+            " NOT NULL" if (alter_table.column.nullable is False and self._is_not_null_ddl_supported()) else ""
+        )
+        default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
+        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
+        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        return (
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {pre_paranthesis_sql}{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}{post_paranthesis_sql}"
+            + (";" if add_semicolon else "")
+        )
+
+    def _get_add_column_sql_expr(self) -> str:
+        return "ADD COLUMN"
+
+    def _build_alter_table_drop_column_sql(
+        self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
+    ) -> str:
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
+        return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMN {column_name_quoted}" + (
+            ";" if add_semicolon else ""
+        )
+
+    def drop_column_supported(self) -> bool:
         return True
 
     #########################################################
