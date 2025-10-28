@@ -646,6 +646,9 @@ class ContractImpl:
             scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
             if not scan_id:
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
+            else:
+                contract_verification_result.scan_id = scan_id
+                contract_verification_result.dataset_ids = self.__get_dataset_ids(soda_cloud_response_json)
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -666,6 +669,16 @@ class ContractImpl:
                 )
 
         return contract_verification_result
+
+    def __get_dataset_ids(self, soda_cloud_response_json: dict) -> list[str]:
+        # There can be one, or more dataset ids in the response. We will return all of them. (i.e. recon checks)
+        dataset_ids: list[str] = []
+        for check_result in soda_cloud_response_json.get("checks", []):
+            for datasets in check_result.get("datasets", []):
+                dataset_id: Optional[str] = datasets.get("id")
+                if dataset_id and dataset_id not in dataset_ids:
+                    dataset_ids.append(dataset_id)
+        return dataset_ids
 
     def build_log_summary(self, soda_qualified_dataset_name: str, check_results: list[CheckResult]) -> str:
         summary_lines: list[str] = []

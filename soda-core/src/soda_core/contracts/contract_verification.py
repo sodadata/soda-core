@@ -485,6 +485,12 @@ class ContractVerificationResult:
         self.status = status
         self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
 
+        # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
+        self.scan_id: Optional[str] = None
+        self.dataset_ids: list[
+            str
+        ] = []  # Multiple dataset ids are possible if the contract has multiple datasets (i.e. recon checks)
+
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records]
 
