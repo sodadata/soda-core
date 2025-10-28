@@ -435,15 +435,19 @@ class SqlDialect:
         else:
             raise ValueError(f"Unexpected alter table type: {alter_table.__class__.__name__}")
 
-    def _build_alter_table_add_column_sql(self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True) -> str:
+    def _build_alter_table_add_column_sql(
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+    ) -> str:
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
         column_type_sql: str = self._build_create_table_column_type(alter_table.column)
         is_nullable_sql: str = (
             " NOT NULL" if (alter_table.column.nullable is False and self._is_not_null_ddl_supported()) else ""
         )
         default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
+        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
+        post_paranthesis_sql: str = ")" if add_paranthesis else ""
         return (
-            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}"
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {pre_paranthesis_sql}{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}{post_paranthesis_sql}"
             + (";" if add_semicolon else "")
         )
 
