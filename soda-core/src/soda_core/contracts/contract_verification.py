@@ -487,9 +487,7 @@ class ContractVerificationResult:
 
         # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
         self.scan_id: Optional[str] = None
-        self.dataset_ids: list[
-            str
-        ] = []  # Multiple dataset ids are possible if the contract has multiple datasets (i.e. recon checks)
+        self.dataset_id: Optional[str] = None
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records]
