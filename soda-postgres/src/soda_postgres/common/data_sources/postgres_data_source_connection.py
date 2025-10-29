@@ -82,9 +82,9 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 config = PostgresConnectionPassword(**config_dict)
         return psycopg2.connect(**config.to_connection_kwargs())
 
-    def execute_query(self, sql: str) -> QueryResult:
+    def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         try:
-            return super().execute_query(sql)
+            return super().execute_query(sql, log_query=log_query)
         except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
             logger.warning(f"SQL query failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
