@@ -172,6 +172,11 @@ class ContractType(Enum):
     DRAFT = "draft"
 
 
+class VerificationIngestionMode(Enum):
+    FULL = "full"
+    PARTIAL = "partial"
+
+
 class TimestampToCreatedLoggingFilter(logging.Filter):
     # The log record created timestamp cannot be passed into the constructor.
     # It has to be updated after it's creation.
@@ -1369,10 +1374,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "sourceOwner": "soda-core",
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
-            "partial": any(
-                check_result.outcome == CheckOutcome.EXCLUDED
-                for check_result in contract_verification_result.check_results or []
-            ),
+            "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
         }
     )
 
@@ -1642,3 +1644,16 @@ def _append_exception_to_cloud_log_dicts(cloud_log_dicts: list[dict], exception:
 
 def _build_check_attributes(data: dict[str, Any]) -> CheckAttributes:
     return CheckAttributes(check_attributes=[CheckAttribute.from_raw(k, v) for k, v in data.items()])
+
+
+def determine_verification_ingestion_mode(
+    contract_verification_result: ContractVerificationResult,
+) -> VerificationIngestionMode:
+    ingestion_mode = VerificationIngestionMode.FULL
+
+    if any(
+        check_result.outcome == CheckOutcome.EXCLUDED for check_result in contract_verification_result.check_results
+    ):
+        ingestion_mode = VerificationIngestionMode.PARTIAL
+
+    return ingestion_mode
