@@ -11,7 +11,7 @@ class DataSourceConnectionProperties(BaseModel, ABC):
 
     def to_connection_kwargs(self) -> dict:
         data = self.model_dump()  # Pydantic v2
-        model_fields = set(self.__pydantic_fields__.keys())
+        model_fields = set(self.__class__.model_fields.keys())
 
         # Known fields (declared ones)
         known_fields = {field_name: value for field_name, value in data.items() if field_name in model_fields}
