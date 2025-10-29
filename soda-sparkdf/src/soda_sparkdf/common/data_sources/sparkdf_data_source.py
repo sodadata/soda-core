@@ -136,8 +136,12 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect):
         pass  # Do nothing, Spark does not have a post-schema-create concept
 
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
         schema_name: str = table_namespace.get_schema_for_metadata_query()
-        return f"DESCRIBE {schema_name}.{table_name}"
+        if database_name is None:
+            return f"DESCRIBE {schema_name}.{table_name}"
+        else:
+            return f"DESCRIBE {database_name}.{schema_name}.{table_name}"
 
     def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
