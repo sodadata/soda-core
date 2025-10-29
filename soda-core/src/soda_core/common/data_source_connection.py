@@ -70,13 +70,14 @@ class DataSourceConnection(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_connection()
 
-    def execute_query(self, sql: str) -> QueryResult:
+    def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(
-                f"SQL query fetchall in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
-            )
+            if log_query:
+                logger.debug(
+                    f"SQL query fetchall in datasource {self.name} (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
+                )
 
             cursor.execute(sql)
             rows = cursor.fetchall()
@@ -122,25 +123,29 @@ class DataSourceConnection(ABC):
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column.name
 
-    def execute_update(self, sql: str) -> UpdateResult:
+    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(f"SQL update (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
+            if log_query:
+                logger.debug(f"SQL update (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
             updates = cursor.execute(sql)
             self.commit()
             return updates
         finally:
             cursor.close()
 
-    def execute_query_one_by_one(self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None]) -> None:
+    def execute_query_one_by_one(
+        self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
+    ) -> None:
         """
         usage: execute_query_one_by_one("SELECT ...", lambda row, description: your_handle_row(row))
         """
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
-            logger.debug(f"SQL query fetch one-by-one:\n{sql}")
+            if log_query:
+                logger.debug(f"SQL query fetch one-by-one:\n{sql}")
             cursor.execute(sql)
 
             row = cursor.fetchone()
