@@ -5,11 +5,7 @@ from freezegun import freeze_time
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import Row
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_impl import (
-    DataSourceImpl,
-    DataSourceNamespace,
-    MetadataTablesQuery,
-)
+from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuery
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
@@ -135,14 +131,6 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect):
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         pass  # Do nothing, Spark does not have a post-schema-create concept
 
-    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
-        database_name: str | None = table_namespace.get_database_for_metadata_query()
-        schema_name: str = table_namespace.get_schema_for_metadata_query()
-        if database_name is None:
-            return f"DESCRIBE {schema_name}.{table_name}"
-        else:
-            return f"DESCRIBE {database_name}.{schema_name}.{table_name}"
-
     def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
         filtered_rows = []
@@ -229,6 +217,19 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
             connection=SparkDataFrameDataSourceConnectionWrapper(session),
         )
         return cls(data_source_model=ds_model, connection=soda_connection)
+
+    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+        if len(dataset_prefixes) == 0:
+            return f"DESCRIBE {dataset_name}"
+        elif len(dataset_prefixes) == 1:
+            schema_name: str = dataset_prefixes[0]
+            return f"DESCRIBE {schema_name}.{dataset_name}"
+        elif len(dataset_prefixes) == 2:
+            database_name: str = dataset_prefixes[0]
+            schema_name: str = dataset_prefixes[1]
+            return f"DESCRIBE {database_name}.{schema_name}.{dataset_name}"
+        else:
+            raise ValueError(f"Invalid number of dataset prefixes: {len(dataset_prefixes)}")
 
 
 # Alias to make the import and usage cleaner
