@@ -98,10 +98,11 @@ def test_more_complex_setup_with_existing_session(data_source_test_helper: DataS
     dataset: primary_datasource/my_test_table
     columns:
         - name: id
-          data_type: integer
+          data_type: bigint
           checks:
             - missing:
     checks:
+        - schema:
         - row_count:
             threshold:
                 must_be: 3
@@ -138,10 +139,49 @@ def test_another_with_existing_session(data_source_test_helper: DataSourceTestHe
     dataset: {data_source_name}/my_table
     columns:
         - name: id
-          data_type: integer
+          data_type: bigint
           checks:
             - missing:
     checks:
+        - schema:
+        - row_count:
+            threshold:
+                must_be: 3
+    """
+
+    # Create a temporary file with the contract
+    contract_file_path = tempfile.mkstemp(suffix=".yaml", prefix="contract_")[1]
+    with open(contract_file_path, "w") as f:
+        f.write(contract_str)
+
+    # Run contract verification
+    result = verify_contracts_locally(data_sources=[spark_data_source], contract_file_paths=[contract_file_path])
+
+    assert result.is_ok, f"Expected contract to be ok, but got {result.get_errors_str()}"
+
+
+def test_schema_check_with_existing_session(data_source_test_helper: DataSourceTestHelper):
+    spark = SparkSession.builder.master("local").appName("soda_sparkdf").getOrCreate()
+
+    # Create some sample data
+    spark.sql("CREATE SCHEMA IF NOT EXISTS my_schema")
+    spark.sql("CREATE TABLE IF NOT EXISTS my_schema.my_table (id bigint)")
+    spark.sql("INSERT INTO my_schema.my_table (id) VALUES (1), (2), (3)")
+
+    data_source_name = "sparkdf"
+
+    # Initialize the Soda Spark data source
+    spark_data_source = SparkDataFrameDataSource.from_existing_session(session=spark, name=data_source_name)
+
+    contract_str = f"""
+    dataset: {data_source_name}/my_schema/my_table
+    columns:
+        - name: id
+          data_type: bigint
+          checks:
+            - missing:
+    checks:
+        - schema:
         - row_count:
             threshold:
                 must_be: 3
