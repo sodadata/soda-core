@@ -67,6 +67,20 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
             return []
 
+    def test_schema_exists(self, prefixes: list[str]) -> bool:
+        if not self.__is_hive_catalog():
+            return super().test_schema_exists(prefixes)
+
+        schema_name: str = prefixes[1]
+
+        result = self.execute_query(
+            f"SHOW SCHEMAS LIKE '{schema_name}'"
+        ).rows  # We only need to check the schema name, as the catalog name is always the same
+        for row in result:
+            if row[0] and row[0].lower() == schema_name.lower():
+                return True
+        return False
+
 
 class DatabricksSqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
