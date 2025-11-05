@@ -231,6 +231,13 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         else:
             raise ValueError(f"Invalid number of dataset prefixes: {len(dataset_prefixes)}")
 
+    def test_schema_exists(self, prefixes: list[str]) -> bool:
+        result = self.connection.session.sql(f"SHOW SCHEMAS LIKE '{prefixes[0]}'").collect()
+        for row in result:
+            if row[0] and row[0].lower() == prefixes[0].lower():
+                return True
+        return False
+
 
 # Alias to make the import and usage cleaner
 SparkDataFrameDataSource = SparkDataFrameDataSourceImpl

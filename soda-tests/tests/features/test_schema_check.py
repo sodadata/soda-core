@@ -178,3 +178,18 @@ def test_schema_allow_extra_columns(data_source_test_helper: DataSourceTestHelpe
 
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert schema_check_result.actual_column_names_not_expected == []
+
+
+def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHelper):
+    # We run this so we are sure the schema exists
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    schema_exists: bool = data_source_test_helper.data_source_impl.test_schema_exists(
+        prefixes=data_source_test_helper.dataset_prefix
+    )
+    assert schema_exists == True
+
+    schema_should_not_exist: bool = data_source_test_helper.data_source_impl.test_schema_exists(
+        prefixes=data_source_test_helper.dataset_prefix[:-1] + ["not_a_schema"]
+    )
+    assert schema_should_not_exist == False

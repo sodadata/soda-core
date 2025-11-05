@@ -169,3 +169,43 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
+        """
+        Builds the table namespace for the schema query.
+        Returns the table namespace and the schema name.
+        """
+        database_index: int | None = self.sql_dialect.get_database_prefix_index()
+        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
+
+        schema_name: str = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        if schema_name is None:
+            raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
+
+        table_namespace: DataSourceNamespace = (
+            SchemaDataSourceNamespace(schema=prefixes[schema_index])
+            if database_index is None
+            else DbSchemaDataSourceNamespace(
+                database=prefixes[database_index] if database_index < len(prefixes) else None,
+                schema=prefixes[schema_index],
+            )
+        )
+        return table_namespace, schema_name
+
+    def test_schema_exists(self, prefixes: list[str]) -> bool:
+        table_namespace, schema_name = self._build_table_namespace_for_schema_query(prefixes=prefixes)
+
+        # Query all schemas to check if the target schema exists
+        schemas_query_sql: str = self.sql_dialect.build_schemas_metadata_query_str(
+            table_namespace=table_namespace, filter_on_schema_name=schema_name
+        )
+        query_result: QueryResult = self.execute_query(schemas_query_sql)
+
+        # Check if schema exists in the results
+        schema_exists: bool = False
+        schema_name_lower: str = schema_name.lower()
+        for row in query_result.rows:
+            if row[0] and row[0].lower() == schema_name_lower:
+                schema_exists = True
+                break
+        return schema_exists
