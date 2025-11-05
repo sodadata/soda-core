@@ -182,7 +182,7 @@ def test_schema_allow_extra_columns(data_source_test_helper: DataSourceTestHelpe
 
 def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHelper):
     # We run this so we are sure the schema exists
-    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    _ = data_source_test_helper.ensure_test_table(test_table_specification)
 
     schema_exists: bool = data_source_test_helper.data_source_impl.test_schema_exists(
         prefixes=data_source_test_helper.dataset_prefix
