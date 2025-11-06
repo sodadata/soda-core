@@ -1,0 +1,14 @@
+- `sudo rm -rf .dremio-data`, if you need to reset
+- Run `docker compose up --build`
+- Wait for Dremio to start up
+- Go to http://localhost:9047/, you should see 'Welcome to Dremio' showing the create admin account form.
+- Create admin account using the form, username `admin`, password `admin1234`, other fields not important
+- Add data source:
+    - Type: Postgres
+    - Name: `postgres`
+    - Host: `soda-postgres`  (it is connecting internally via docker-compose, that's why it's soda-postgres not localhost)
+    - Post: 5432
+    - Database name: `soda_test`
+    - Authentication: Master Credentials
+    - Username: `soda_test`
+    - Password: `soda_test` (ignored, but you have to provide something)

@@ -15,9 +15,7 @@ services:
 
   dremio:
     user: "0:0"   # run as root
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: dremio/dremio-oss:latest
     container_name: soda-dremio
     depends_on:
       - postgres
