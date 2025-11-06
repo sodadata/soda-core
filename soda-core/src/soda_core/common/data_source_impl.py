@@ -182,7 +182,9 @@ class DataSourceImpl(ABC):
         if schema_name is None:
             raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
 
-        database_name: str | None = prefixes[database_index] if database_index < len(prefixes) else None
+        database_name: str | None = (
+            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+        )
 
         table_namespace: DataSourceNamespace = (
             SchemaDataSourceNamespace(schema=prefixes[schema_index])
