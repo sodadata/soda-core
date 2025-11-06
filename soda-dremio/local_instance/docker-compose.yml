@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15.10-alpine3.21
+    container_name: soda-postgres
+    environment:
+      - POSTGRES_USER=soda_test
+      - POSTGRES_DB=soda_test
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.postgres-data:/var/lib/postgresql/data
+
+  dremio:
+    user: "0:0"   # run as root
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: soda-dremio
+    depends_on:
+      - postgres
+    ports:
+      - "9047:9047"   # Web UI
+      - "32010:32010" # JDBC/ODBC
+      - "45678:45678" # Debug
+    environment:
+      - DREMIO_HOME=/opt/dremio
+      - DREMIO_JAVA_SERVER_HEAP_MAX=4G
+      - DREMIO_JAVA_SERVER_HEAP_MIN=2G
+      - FLIGHT_SSL_ENABLED=false
+    volumes:
+      - ./.dremio-data:/opt/dremio/data
+    restart: unless-stopped

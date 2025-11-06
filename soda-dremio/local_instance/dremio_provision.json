@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "userName": "admin",
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@dremio.local",
+      "password": "admin1234"
+    }
+  ],
+  "roles": [
+    {
+      "roleName": "admin",
+      "users": ["admin"]
+    }
+  ]
+}
