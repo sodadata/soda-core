@@ -123,7 +123,8 @@ class DataSourceImpl(ABC):
 
     def execute_query_one_by_one(
         self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
-    ) -> None:
+    ) -> tuple[tuple]:
+        # Returns the description of the query.
         return self.data_source_connection.execute_query_one_by_one(
             sql=sql, row_callback=row_callback, log_query=log_query
         )

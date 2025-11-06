@@ -137,9 +137,10 @@ class DataSourceConnection(ABC):
 
     def execute_query_one_by_one(
         self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
-    ) -> None:
+    ) -> tuple[tuple]:
         """
         usage: execute_query_one_by_one("SELECT ...", lambda row, description: your_handle_row(row))
+        Returns the description of the query.
         """
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
@@ -148,13 +149,16 @@ class DataSourceConnection(ABC):
                 logger.debug(f"SQL query fetch one-by-one:\n{sql}")
             cursor.execute(sql)
 
+            description: tuple[tuple] = cursor.description
+
             row = cursor.fetchone()
             while row:
-                row_callback(row, cursor.description)
+                row_callback(row, description)
                 row = cursor.fetchone()
 
         finally:
             cursor.close()
+        return description
 
     def commit(self) -> None:
         # noinspection PyUnresolvedReferences
