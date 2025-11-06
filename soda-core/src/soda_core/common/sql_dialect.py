@@ -1002,6 +1002,27 @@ class SqlDialect:
         """
         return self.default_casify("columns")
 
+    def table_schemata(self) -> str:
+        """
+        Name of the table that has the schema information in the metadata.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("schemata")
+
+    def column_schemata_catalog_name(self) -> str:
+        """
+        Name of the column that has the database/catalog information in the schemata metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("catalog_name")
+
+    def column_schema_name(self) -> str:
+        """
+        Name of the column that has the schema name in the schemata metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("schema_name")
+
     def column_table_catalog(self) -> str:
         """
         Name of the column that has the database information in the tables metadata table
@@ -1220,6 +1241,36 @@ class SqlDialect:
                 ORDER_BY_ASC(ORDINAL_POSITION()),
             ]
         )
+
+    def build_schemas_metadata_query_str(
+        self, table_namespace: Optional[DataSourceNamespace] = None, filter_on_schema_name: Optional[str] = None
+    ) -> str:
+        """
+        Builds the full SQL query to query schema names from the data source metadata.
+        Optionally filters by database/catalog if provided in table_namespace.
+
+        If the filter_on_schema_name is provided, it will only return the schema name that matches the filter. This is useful to check if a schema exists.
+        """
+        database_name: str | None = table_namespace.get_database_for_metadata_query() if table_namespace else None
+
+        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
+
+        select_elements = [
+            SELECT([self.column_schema_name()]),
+            FROM(self.table_schemata()).IN(information_schema_namespace_elements),
+        ]
+
+        and_elements = [
+            EQ(self.column_schemata_catalog_name(), LITERAL(self.metadata_casify(database_name))),
+        ]
+
+        if filter_on_schema_name:
+            and_elements.append(EQ(self.column_schema_name(), LITERAL(self.metadata_casify(filter_on_schema_name))))
+
+        if database_name:
+            select_elements.append(WHERE(AND(and_elements)))
+
+        return self.build_select_sql(select_elements)
 
     def extract_column_index(self, column_name: str, columns: list[Tuple[Any, ...]]) -> int:
         column_names = [c[0] for c in columns]

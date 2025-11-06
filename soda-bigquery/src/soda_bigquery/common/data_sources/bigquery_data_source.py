@@ -91,6 +91,20 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
             table_namespace=table_namespace, table_name=dataset_name
         )
 
+    def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
+        table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
+            project_id=prefixes[0],
+            dataset=None,  # We only need the project id to query the schemas, as it's always in the `INFORMATION_SCHEMA`
+        )
+
+        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
+
+        schema_name: str = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        if schema_name is None:
+            raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
+
+        return table_namespace, schema_name
+
 
 class BigQuerySqlDialect(SqlDialect):
     DEFAULT_QUOTE_CHAR = "`"
