@@ -1009,7 +1009,7 @@ class SqlDialect:
         """
         return self.default_casify("schemata")
 
-    def column_catalog_name(self) -> str:
+    def column_schemata_catalog_name(self) -> str:
         """
         Name of the column that has the database/catalog information in the schemata metadata table.
         Purpose of this method is to allow specific data source to override.
@@ -1261,7 +1261,7 @@ class SqlDialect:
         ]
 
         and_elements = [
-            EQ(self.column_catalog_name(), LITERAL(self.metadata_casify(database_name))),
+            EQ(self.column_schemata_catalog_name(), LITERAL(self.metadata_casify(database_name))),
         ]
 
         if filter_on_schema_name:
