@@ -1,8 +1,7 @@
 from abc import ABC
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from pydantic import Field, field_validator
-from pyspark.sql import SparkSession
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
@@ -21,7 +20,9 @@ class SparkDataFrameNewSessionProperties(SparkDataFrameConnectionProperties):
 
 
 class SparkDataFrameExistingSessionProperties(SparkDataFrameConnectionProperties, arbitrary_types_allowed=True):
-    spark_session: SparkSession = Field(..., description="The existing Spark session to use")
+    # We set the type to Any to avoid type errors when the SparkSession is not a SparkSession object
+    # This could be the case on Databricks serverless, where the SparkSession is imported as a different object
+    spark_session: Any = Field(..., description="The existing Spark session to use")
 
 
 class SparkDataFrameDataSource(DataSourceBase, ABC):
