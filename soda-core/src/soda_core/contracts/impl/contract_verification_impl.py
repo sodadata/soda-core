@@ -1486,7 +1486,8 @@ class MetricImpl:
             id_properties["check_filter"] = self.check_filter
         if self.missing_and_validity:
             id_properties["missing_values"] = self.missing_and_validity.missing_values
-            id_properties["missing_format"] = self.missing_and_validity.missing_format
+            if self.missing_and_validity.missing_format:
+                id_properties["missing_format_regex"] = self.missing_and_validity.missing_format.regex
             id_properties["invalid_values"] = self.missing_and_validity.invalid_values
             if self.missing_and_validity.invalid_format:
                 id_properties["invalid_format_regex"] = self.missing_and_validity.invalid_format.regex
