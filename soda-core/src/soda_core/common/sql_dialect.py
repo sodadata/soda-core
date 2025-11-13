@@ -1105,6 +1105,10 @@ class SqlDialect:
         """Define case for metadata identifiers if needed."""
         return identifier
 
+    def create_table_casify_qualified_name(self, qualified_name: str) -> str:
+        # For data sources that default to a specific case for the table name (e.g. Snowflake prefers uppercase), this method can be overridden to casify the qualified table name.
+        return qualified_name  # By default, we don't casify the qualified table name when creating a table as these are quoted
+
     # Very lightweight dialect-specific interpretation of dataset prefixes.
     def get_database_prefix_index(self) -> int | None:
         return 0

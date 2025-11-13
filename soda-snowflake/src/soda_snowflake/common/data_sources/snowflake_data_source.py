@@ -58,6 +58,16 @@ class SnowflakeSqlDialect(SqlDialect):
         """Metadata identifiers are not uppercased for Snowflake."""
         return identifier
 
+    def create_table_casify_qualified_name(self, qualified_name: str) -> str:
+        # Parse the last element from the qualified name and casify it
+        if "." in qualified_name:  # It is an actual qualified name, not just a table name
+            name_parts = qualified_name.split(".")
+            # Caseify the last element
+            name_parts[-1] = name_parts[-1].upper()
+            return ".".join(name_parts)
+        # It is not a fully qualified name, just a table name
+        return qualified_name.upper()
+
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return " SELECT * FROM VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
 
