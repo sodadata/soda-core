@@ -10,13 +10,13 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api import test_contracts, verify_contracts
-from soda_core.contracts.contract_publication import ContractPublication
+from soda_core.contracts.api import test_contracts, verify_contract
+from soda_core.contracts.api.publish_api import publish_contracts
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 
 
 def handle_verify_contract(
-    contract_file_paths: Optional[list[str]],
+    contract_file_path: Optional[str],
     dataset_identifiers: Optional[list[str]],
     data_source_file_paths: Optional[str],
     soda_cloud_file_path: Optional[str],
@@ -29,8 +29,8 @@ def handle_verify_contract(
     diagnostics_warehouse_file_path: Optional[str],
 ) -> ExitCode:
     try:
-        contract_verification_result = verify_contracts(
-            contract_file_paths=contract_file_paths,
+        contract_verification_result = verify_contract(
+            contract_file_path=contract_file_path,
             dataset_identifiers=dataset_identifiers,
             data_source_file_path=None,
             data_source_file_paths=data_source_file_paths,
@@ -78,15 +78,7 @@ def handle_publish_contract(
     soda_cloud_file_path: Optional[str],
 ) -> ExitCode:
     try:
-        contract_publication_builder = ContractPublication.builder()
-
-        for contract_file_path in contract_file_paths:
-            contract_publication_builder.with_contract_yaml_file(contract_file_path)
-
-        if soda_cloud_file_path:
-            contract_publication_builder.with_soda_cloud_yaml_file(soda_cloud_file_path)
-
-        contract_publication_result = contract_publication_builder.build().execute()
+        contract_publication_result = publish_contracts(contract_file_paths, soda_cloud_file_path)
         if contract_publication_result.has_errors:
             # TODO: detect/deal with exit code 4?
             return ExitCode.LOG_ERRORS

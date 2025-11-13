@@ -111,7 +111,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "--contract",
         type=str,
         nargs="+",
-        help="One or more contract file paths. Use this to work with local contracts.",
+        help="One contract file path. Use this to work with local contracts.",
     )
     verify_parser.add_argument(
         "-d",
@@ -180,7 +180,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        contract_file_paths = args.contract
+        contract_file_path = args.contract
         dataset_identifiers = args.dataset
         data_source_file_paths = args.data_source
         soda_cloud_file_path = args.soda_cloud
@@ -195,7 +195,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
 
         exit_code = handle_verify_contract(
-            contract_file_paths,
+            contract_file_path,
             dataset_identifiers,
             data_source_file_paths,
             soda_cloud_file_path,

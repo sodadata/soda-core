@@ -18,7 +18,7 @@ from soda_core.telemetry.soda_telemetry import SodaTelemetry
 soda_telemetry = SodaTelemetry()
 
 
-def verify_contracts_locally(
+def verify_contract_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
     data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
@@ -30,6 +30,7 @@ def verify_contracts_locally(
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
+    contract_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
@@ -37,8 +38,10 @@ def verify_contracts_locally(
     if not isinstance(data_sources, list):
         data_sources = [data_sources]
 
-    return verify_contracts(
-        contract_file_paths=contract_file_paths,
+    contract_file_path = __verify_contract_file_paths(contract_file_paths, contract_file_path)
+
+    return verify_contract(
+        contract_file_path=contract_file_path,
         dataset_identifiers=dataset_identifiers,
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
@@ -53,7 +56,7 @@ def verify_contracts_locally(
     )
 
 
-def verify_contracts_on_agent(
+def verify_contract_on_agent(
     soda_cloud_file_path: str,
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     dataset_identifiers: Optional[list[str]] = None,
@@ -63,12 +66,14 @@ def verify_contracts_on_agent(
     publish: bool = False,
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
+    contract_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract on an agent.
     """
-    return verify_contracts(
-        contract_file_paths=contract_file_paths,
+    contract_file_path = __verify_contract_file_paths(contract_file_paths, contract_file_path)
+    return verify_contract(
+        contract_file_path=contract_file_path,
         dataset_identifiers=dataset_identifiers,
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
@@ -81,8 +86,33 @@ def verify_contracts_on_agent(
     )
 
 
-def verify_contracts(
-    contract_file_paths: Optional[Union[str, list[str]]],
+def __verify_contract_file_paths(
+    contract_file_paths: Optional[Union[str, list[str]]] = None,
+    contract_file_path: Optional[str] = None,
+) -> Optional[str]:
+    if contract_file_path and contract_file_paths:
+        raise InvalidArgumentException(
+            "Do not provide contracts in both `contract_file_paths` and `contract_file_path`"
+        )
+
+    # In case a contract file path is provided, use it.
+    if contract_file_path:
+        return contract_file_path
+
+    if contract_file_paths and not contract_file_path:
+        if isinstance(contract_file_paths, list):
+            if len(contract_file_paths) > 1:
+                raise InvalidArgumentException("Only one contract is allowed at a time")
+            # Only 1 contract found, use it.
+            contract_file_path = contract_file_paths[0]
+        else:
+            contract_file_path = contract_file_paths
+
+    return contract_file_path
+
+
+def verify_contract(
+    contract_file_path: Optional[str],
     dataset_identifiers: Optional[list[str]],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
@@ -109,8 +139,12 @@ def verify_contracts(
         if soda_cloud_file_path:
             soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
 
-        if isinstance(contract_file_paths, str):
-            contract_file_paths = [contract_file_paths]
+        # TODO: change this when we fully deprecate a list of contract file paths
+        # This is only here to make sure the rest of the code still works.
+        if isinstance(contract_file_path, str):
+            contract_file_paths = [contract_file_path]
+        else:
+            contract_file_paths = None
 
         # TODO: verify the path where connection is provided
         validate_verify_arguments(

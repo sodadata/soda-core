@@ -11,7 +11,7 @@ from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api.verify_api import (
     ContractVerificationSession,
     all_none_or_empty,
-    verify_contracts,
+    verify_contract,
 )
 from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
@@ -77,8 +77,8 @@ def test_handle_verify_contract_raises_exception_when_using_dataset_names_withou
         match="A Soda Cloud configuration file is required to use the -d/--dataset argument."
         "Please provide the '--soda-cloud' argument with a valid configuration file path.",
     ):
-        _ = verify_contracts(
-            contract_file_paths=None,
+        _ = verify_contract(
+            contract_file_path=None,
             dataset_identifiers=["some_dataset"],
             data_source_file_path="ds.yaml",
             soda_cloud_file_path=None,
@@ -96,8 +96,8 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
         match="A Soda Cloud configuration file is required to use the -p/--publish argument. "
         "Please provide the '--soda-cloud' argument with a valid configuration file path.",
     ):
-        _ = verify_contracts(
-            contract_file_paths=None,
+        _ = verify_contract(
+            contract_file_path=None,
             dataset_identifiers=["some_dataset"],
             data_source_file_path="ds.yaml",
             soda_cloud_file_path=None,
@@ -116,8 +116,8 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
     with pytest.raises(
         InvalidArgumentException, match="At least one of -c/--contract or -d/--dataset arguments is required."
     ):
-        _ = verify_contracts(
-            contract_file_paths=None,
+        _ = verify_contract(
+            contract_file_path=None,
             dataset_identifiers=None,
             data_source_file_path="ds.yaml",
             soda_cloud_file_path="sc.yaml",
@@ -136,8 +136,8 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
     with pytest.raises(
         InvalidArgumentException, match="At least one of -ds/--data-source or -d/--dataset value is required."
     ):
-        _ = verify_contracts(
-            contract_file_paths=["contract.yaml"],
+        _ = verify_contract(
+            contract_file_path="contract.yaml",
             dataset_identifiers=None,
             data_source_file_path=None,
             soda_cloud_file_path="sc.yaml",
@@ -157,8 +157,8 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
     mock_cloud_client.return_value = MagicMock(spec=SodaCloud)
 
     try:
-        _ = verify_contracts(
-            contract_file_paths=["contract.yaml"],
+        _ = verify_contract(
+            contract_file_path="contract.yaml",
             dataset_identifiers=None,
             data_source_file_path=None,
             soda_cloud_file_path="sc.yaml",
@@ -178,8 +178,8 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
 ):
     mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
 
-    _ = verify_contracts(
-        contract_file_paths=None,
+    _ = verify_contract(
+        contract_file_path=None,
         dataset_identifiers=["my/super/awesome/identifier"],
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
@@ -199,8 +199,8 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
 def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contracts_left(mock_cloud_client, caplog):
     mock_cloud_client.return_value.fetch_contract_for_dataset.side_effect = SodaCloudException("woopsie")
 
-    _ = verify_contracts(
-        contract_file_paths=None,
+    _ = verify_contract(
+        contract_file_path=None,
         dataset_identifiers=["my/super/awesome/identifier"],
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",

@@ -478,6 +478,7 @@ class SodaCloud:
                     soda_cloud_file_id=response_json.get("fileId", None),
                 ),
                 soda_qualified_dataset_name=contract_yaml.dataset,
+                dataset_id=response_json.get("datasetId", None),
             ),
         )
 

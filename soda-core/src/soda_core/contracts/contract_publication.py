@@ -53,6 +53,7 @@ class Contract:
     soda_qualified_dataset_name: str
     source: YamlFileContentInfo
     id: str
+    dataset_id: Optional[str] = None
 
 
 @dataclass(frozen=True)

@@ -46,7 +46,7 @@ def test_handle_verify_contract_exit_codes(
     mock_execute.return_value = mock_result
 
     exit_code = handle_verify_contract(
-        contract_file_paths=["contract.yaml"],
+        contract_file_path="contract.yaml",
         dataset_identifiers=None,
         data_source_file_paths=["ds.yaml"],
         soda_cloud_file_path="sc.yaml",
