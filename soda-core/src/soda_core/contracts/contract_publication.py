@@ -52,7 +52,6 @@ class Contract:
     dataset_name: str
     soda_qualified_dataset_name: str
     source: YamlFileContentInfo
-    id: str
     dataset_id: Optional[str] = None
 
 

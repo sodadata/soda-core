@@ -10,8 +10,8 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api import test_contracts, verify_contract
-from soda_core.contracts.api.publish_api import publish_contracts
+from soda_core.contracts.api import test_contract, verify_contract
+from soda_core.contracts.api.publish_api import publish_contract
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 
 
@@ -74,11 +74,11 @@ def interpret_contract_verification_result(verification_result: ContractVerifica
 
 
 def handle_publish_contract(
-    contract_file_paths: Optional[list[str]],
+    contract_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
 ) -> ExitCode:
     try:
-        contract_publication_result = publish_contracts(contract_file_paths, soda_cloud_file_path)
+        contract_publication_result = publish_contract(contract_file_path, soda_cloud_file_path)
         if contract_publication_result.has_errors:
             # TODO: detect/deal with exit code 4?
             return ExitCode.LOG_ERRORS
@@ -97,7 +97,7 @@ def handle_test_contract(
     variables: Optional[Dict[str, str]],
 ) -> ExitCode:
     for contract_file_path in contract_file_paths:
-        contract_verification_result = test_contracts(contract_file_paths=[contract_file_path], variables=variables)
+        contract_verification_result = test_contract(contract_file_paths=[contract_file_path], variables=variables)
         if contract_verification_result.has_errors:
             return ExitCode.LOG_ERRORS
         else:

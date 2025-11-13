@@ -86,7 +86,7 @@ def test_handle_publish_contract_exit_codes(mock_builder, has_errors, cloud_fail
     mock_builder.return_value = mock_builder_instance
 
     exit_code = handle_publish_contract(
-        contract_file_paths=["contract.yaml"],
+        contract_file_path="contract.yaml",
         soda_cloud_file_path="sc.yaml",
     )
 

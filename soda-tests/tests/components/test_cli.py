@@ -225,7 +225,6 @@ def test_cli_argument_mapping_for_contract_publish_command(mock_handler):
         "publish",
         "-c",
         "a.yaml",
-        "b.yaml",
         "-sc",
         "cloud.yaml",
         "-v",
@@ -240,7 +239,7 @@ def test_cli_argument_mapping_for_contract_publish_command(mock_handler):
     assert e.value.code == 0
 
     mock_handler.assert_called_once_with(
-        ["a.yaml", "b.yaml"],
+        "a.yaml",
         "cloud.yaml",
     )
 
@@ -254,7 +253,6 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
         "test",
         "-c",
         "a.yaml",
-        "b.yaml",
         "-v",
     ]
 
@@ -267,7 +265,7 @@ def test_cli_argument_mapping_for_contract_test_command(mock_handler):
     assert e.value.code == 0
 
     mock_handler.assert_called_once_with(
-        ["a.yaml", "b.yaml"],
+        "a.yaml",
         {},
     )
 

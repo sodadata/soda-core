@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Union
 
 from soda_core.common.yaml import ContractYamlSource
+from soda_core.contracts.api.verify_api import _verify_contract_file_paths
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
@@ -10,11 +11,14 @@ from soda_core.telemetry.soda_telemetry import SodaTelemetry
 soda_telemetry = SodaTelemetry()
 
 
-def test_contracts(
+def test_contract(
     contract_file_paths: Union[str, list[str]],
     variables: Optional[Dict[str, str]] = None,
     verbose: bool = False,
+    contract_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
+    contract_file_path = _verify_contract_file_paths(contract_file_paths, contract_file_path)
+
     if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
 

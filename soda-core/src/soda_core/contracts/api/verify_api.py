@@ -38,7 +38,7 @@ def verify_contract_locally(
     if not isinstance(data_sources, list):
         data_sources = [data_sources]
 
-    contract_file_path = __verify_contract_file_paths(contract_file_paths, contract_file_path)
+    contract_file_path = _verify_contract_file_paths(contract_file_paths, contract_file_path)
 
     return verify_contract(
         contract_file_path=contract_file_path,
@@ -71,7 +71,7 @@ def verify_contract_on_agent(
     """
     Verifies the contract on an agent.
     """
-    contract_file_path = __verify_contract_file_paths(contract_file_paths, contract_file_path)
+    contract_file_path = _verify_contract_file_paths(contract_file_paths, contract_file_path)
     return verify_contract(
         contract_file_path=contract_file_path,
         dataset_identifiers=dataset_identifiers,
@@ -86,7 +86,7 @@ def verify_contract_on_agent(
     )
 
 
-def __verify_contract_file_paths(
+def _verify_contract_file_paths(
     contract_file_paths: Optional[Union[str, list[str]]] = None,
     contract_file_path: Optional[str] = None,
 ) -> Optional[str]:
