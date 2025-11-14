@@ -13,6 +13,7 @@ from time import sleep
 from typing import Any, Dict, Optional
 
 import requests
+from pydantic import ValidationError
 from requests import Response
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
@@ -30,7 +31,14 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
-from soda_core.common.soda_cloud_dto import CheckAttribute, CheckAttributes
+from soda_core.common.soda_cloud_dto import (
+    CheckAttribute,
+    CheckAttributes,
+    DatasetConfigurationDTO,
+    DatasetConfigurationsDTO,
+    RequestDatasetsConfigurationDatasetDTO,
+    RequestDatasetsConfigurationDTO,
+)
 from soda_core.common.utils import to_camel_case
 from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
@@ -772,6 +780,63 @@ class SodaCloud:
             )
 
         return response_dict.get("contents")
+
+    def fetch_dataset_configuration(self, dataset_identifier: DatasetIdentifier) -> Optional[DatasetConfigurationDTO]:
+        """Fetches the dataset configuration.
+
+        Returns:
+            DatasetConfigurationDTO or None
+        """
+        configs: DatasetConfigurationsDTO = self.fetch_datasets_configurations([dataset_identifier])
+        if configs and configs.dataset_configurations and len(configs.dataset_configurations) > 0:
+            assumed_configuration = configs.dataset_configurations[0]
+            if assumed_configuration.dataset_qualified_name != dataset_identifier.to_string():
+                raise SodaCloudException(
+                    f"Expected to receive configuration for dataset '{dataset_identifier}' but received configuration for dataset '{assumed_configuration.dataset_qualified_name}'"
+                )
+            return assumed_configuration
+        return None
+
+    def fetch_datasets_configurations(self, dataset_identifiers: list[DatasetIdentifier]) -> DatasetConfigurationsDTO:
+        """Fetches the datasets configurations.
+
+        Returns:
+            DatasetConfigurationsDTO
+        """
+        logger.info(
+            f"{Emoticons.CLOUD} Fetching datasets configurations from Soda Cloud for datasets '{dataset_identifiers}'"
+        )
+        datasets_request_list = []
+        for dataset_identifier in dataset_identifiers:
+            datasets_request_list.append(
+                RequestDatasetsConfigurationDatasetDTO(
+                    dataset_qualified_name=dataset_identifier.to_string(),
+                    table=dataset_identifier.dataset_name,
+                    data_source=dataset_identifier.data_source_name,
+                )
+            )
+        request_dto: RequestDatasetsConfigurationDTO = RequestDatasetsConfigurationDTO(datasets=datasets_request_list)
+
+        response = self._execute_query(
+            request_dto.model_dump(by_alias=True), request_log_name="get_datasets_configurations"
+        )
+        response_dict = response.json()
+
+        if not response.ok:
+            raise SodaCloudException(
+                f"Failed to retrieve datasets configurations for datasets '{dataset_identifiers}': {response_dict['message']}"
+            )
+
+        try:
+            dataset_configs = DatasetConfigurationsDTO.model_validate(
+                {"datasetConfigurations": response_dict.get("results", [])}
+            )
+
+            return dataset_configs
+        except ValidationError as e:
+            raise SodaCloudException(
+                f"Failed to parse datasets configurations for datasets '{dataset_identifiers}': {str(e)}"
+            ) from e
 
     def fetch_contract(
         self,
