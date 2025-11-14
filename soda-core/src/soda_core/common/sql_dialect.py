@@ -727,6 +727,9 @@ class SqlDialect:
             )
         ]
 
+        if isinstance(from_part.sample_type, str) and isinstance(from_part.sample_size, Number):
+            from_parts.append(self._build_sample_sql(from_part.sample_type, from_part.sample_size))
+
         if isinstance(from_part.alias, str):
             from_parts.append(self._alias_format(from_part.alias))
 
@@ -972,6 +975,9 @@ class SqlDialect:
         else:
             string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
         return self.build_expression_sql(STRING_HASH(string_to_hash))
+
+    def _build_sample_sql(self, sample_type: str, sample_size: Number) -> str:
+        raise NotImplementedError("Sampling not implemented for this dialect")
 
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """

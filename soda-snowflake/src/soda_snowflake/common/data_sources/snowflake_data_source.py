@@ -1,10 +1,12 @@
 from logging import Logger
+from numbers import Number
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.soda_cloud_dto import SamplerType
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -152,3 +154,9 @@ class SnowflakeSqlDialect(SqlDialect):
             "timestamp_ltz",
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
+
+    def _build_sample_sql(self, sample_type: str, sample_size: Number) -> str:
+        if sample_type == SamplerType.ABSOLUTE_LIMIT:
+            return f"SAMPLE ({int(sample_size)} ROWS)"
+        else:
+            raise ValueError(f"Unsupported sample type: {sample_type}")

@@ -18,6 +18,7 @@ from soda_core.common.exceptions import (
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import (
     ContractYamlSource,
@@ -396,6 +397,7 @@ class ContractImpl:
         self.dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
         self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
         self.dataset_name = self.dataset_identifier.dataset_name
+        self.cte_dataset_name: str = "filtered_dataset"
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
@@ -421,6 +423,33 @@ class ContractImpl:
             RowCountMetricImpl(contract_impl=self)
         )
         self.dataset_rows_tested: Optional[int] = None
+
+        self.cte = CTE(self.cte_dataset_name).AS(
+            [
+                SELECT(STAR()),
+                FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),
+                WHERE.optional(SqlExpressionStr.optional(self.filter)),
+            ]
+        )
+
+        self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
+        if self.soda_cloud:
+            self.dataset_configuration = self.soda_cloud.fetch_dataset_configuration(self.dataset_identifier)
+
+        if self.dataset_configuration:
+            if (
+                self.dataset_configuration.test_row_sampler_configuration
+                and self.dataset_configuration.test_row_sampler_configuration.enabled
+                and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
+            ):
+                logger.info(
+                    f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
+                    f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
+                )
+                self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
+                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type,
+                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit,
+                )
 
         self.extensions: list[ContractImplExtension] = []
         for extension_cls in ContractImpl.contract_impl_extensions.values():
@@ -515,9 +544,10 @@ class ContractImpl:
             if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
                 aggregation_queries.append(
                     AggregationQuery(
+                        cte=self.cte,
+                        cte_dataset_name=self.cte_dataset_name,
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
-                        filter=self.filter,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
                     )
@@ -1644,16 +1674,18 @@ class Query(ABC):
 class AggregationQuery(Query):
     def __init__(
         self,
+        cte: CTE,
+        cte_dataset_name: str,
         dataset_prefix: list[str],
         dataset_name: str,
-        filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
+        self.cte: CTE = cte
+        self.cte_dataset_name: str = cte_dataset_name
         self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
-        self.filter: str = filter
         self.aggregation_metrics: list[AggregationMetricImpl] = []
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.query_size: int = len(self.build_sql())
@@ -1670,9 +1702,11 @@ class AggregationQuery(Query):
 
     def build_sql(self) -> str:
         field_expressions: list[SqlExpression] = self.build_field_expressions()
-        select = [SELECT(field_expressions), FROM(self.dataset_name, self.dataset_prefix)]
-        if self.filter:
-            select.append(WHERE(SqlExpressionStr(self.filter)))
+        select = [
+            WITH([self.cte]),
+            SELECT(field_expressions),
+            FROM(self.cte_dataset_name),
+        ]
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(select)
         return self.sql
 
