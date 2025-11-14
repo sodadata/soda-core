@@ -547,7 +547,6 @@ class ContractImpl:
                         cte_dataset_name=self.cte_dataset_name,
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
-                        # filter=self.filter,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
                     )

@@ -162,8 +162,6 @@ class DataSourceTestHelper:
             raise AssertionError(str(logs))
 
     def enable_soda_cloud_mock(self, responses: list[MockResponse]):
-        # Always add a mock response for the initial dataset configuration fetch
-        # responses.insert(0, MockResponse(json_object={"datasetConfiguration": DatasetConfigurationDTO().model_dump()}))
         self.soda_cloud = MockSodaCloud(responses)
 
     def _create_data_source_impl(self) -> "DataSourceImpl":
