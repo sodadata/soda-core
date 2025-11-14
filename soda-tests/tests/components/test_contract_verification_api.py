@@ -79,7 +79,7 @@ def test_handle_verify_contract_raises_exception_when_using_dataset_names_withou
     ):
         _ = verify_contract(
             contract_file_path=None,
-            dataset_identifiers=["some_dataset"],
+            dataset_identifier="some_dataset",
             data_source_file_path="ds.yaml",
             soda_cloud_file_path=None,
             variables={},
@@ -98,7 +98,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_using_publish_without_c
     ):
         _ = verify_contract(
             contract_file_path=None,
-            dataset_identifiers=["some_dataset"],
+            dataset_identifier="some_dataset",
             data_source_file_path="ds.yaml",
             soda_cloud_file_path=None,
             variables={},
@@ -118,7 +118,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_contract_file_paths_
     ):
         _ = verify_contract(
             contract_file_path=None,
-            dataset_identifiers=None,
+            dataset_identifier=None,
             data_source_file_path="ds.yaml",
             soda_cloud_file_path="sc.yaml",
             variables={},
@@ -138,7 +138,7 @@ def test_handle_verify_contract_returns_exit_code_3_when_no_data_source_configur
     ):
         _ = verify_contract(
             contract_file_path="contract.yaml",
-            dataset_identifiers=None,
+            dataset_identifier=None,
             data_source_file_path=None,
             soda_cloud_file_path="sc.yaml",
             variables={},
@@ -159,7 +159,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_data_source_configur
     try:
         _ = verify_contract(
             contract_file_path="contract.yaml",
-            dataset_identifiers=None,
+            dataset_identifier=None,
             data_source_file_path=None,
             soda_cloud_file_path="sc.yaml",
             variables={},
@@ -180,7 +180,7 @@ def test_handle_verify_contract_skips_contract_when_contract_fetching_from_cloud
 
     _ = verify_contract(
         contract_file_path=None,
-        dataset_identifiers=["my/super/awesome/identifier"],
+        dataset_identifier="my/super/awesome/identifier",
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
         variables={},
@@ -201,7 +201,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
 
     _ = verify_contract(
         contract_file_path=None,
-        dataset_identifiers=["my/super/awesome/identifier"],
+        dataset_identifier="my/super/awesome/identifier",
         data_source_file_path="ds.yaml",
         soda_cloud_file_path="sc.yaml",
         variables={},

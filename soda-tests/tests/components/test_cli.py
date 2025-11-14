@@ -18,7 +18,6 @@ from soda_core.cli.exit_codes import ExitCode
                 "verify",
                 "-c",
                 "a.yaml",
-                "b.yaml",
                 "-d",
                 "some/remote/dataset/identifier",
                 "-ds",
@@ -36,8 +35,8 @@ from soda_core.cli.exit_codes import ExitCode
                 "key2=value2",
             ],
             [
-                ["a.yaml", "b.yaml"],
-                ["some/remote/dataset/identifier"],
+                "a.yaml",
+                "some/remote/dataset/identifier",
                 ["ds.yaml"],
                 "cloud.yaml",
                 {"key1": "value1", "key2": "value2"},
@@ -70,7 +69,7 @@ from soda_core.cli.exit_codes import ExitCode
             ],
             [
                 None,
-                ["some-dataset"],
+                "some-dataset",
                 ["ds.yaml"],
                 "cloud.yaml",
                 {"key1": "value1"},
@@ -94,7 +93,7 @@ from soda_core.cli.exit_codes import ExitCode
                 "-sc",
                 "cloud.yaml",
             ],
-            [None, ["some-dataset"], ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None, None],
+            [None, "some-dataset", ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None, None],
         ),
         (
             [
@@ -112,7 +111,7 @@ from soda_core.cli.exit_codes import ExitCode
             ],
             [
                 None,
-                ["some-dataset"],
+                "some-dataset",
                 ["ds.yaml"],
                 "cloud.yaml",
                 {},
@@ -141,7 +140,7 @@ from soda_core.cli.exit_codes import ExitCode
             ],
             [
                 None,
-                ["some-dataset"],
+                "some-dataset",
                 ["ds.yaml"],
                 "cloud.yaml",
                 {},

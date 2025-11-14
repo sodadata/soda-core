@@ -110,15 +110,13 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "-c",
         "--contract",
         type=str,
-        nargs="+",
         help="One contract file path. Use this to work with local contracts.",
     )
     verify_parser.add_argument(
         "-d",
         "--dataset",
         type=str,
-        nargs="+",
-        help="Names of datasets to verify. Use this to work with remote contracts present in Soda Cloud.",
+        help="Name of dataset to verify. Use this to work with remote contracts present in Soda Cloud.",
     )
 
     verify_parser.add_argument(
@@ -181,7 +179,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
     def handle(args):
         contract_file_path = args.contract
-        dataset_identifiers = args.dataset
+        dataset_identifier = args.dataset
         data_source_file_paths = args.data_source
         soda_cloud_file_path = args.soda_cloud
         variables = _parse_variables(args.set)
@@ -196,7 +194,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
 
         exit_code = handle_verify_contract(
             contract_file_path,
-            dataset_identifiers,
+            dataset_identifier,
             data_source_file_paths,
             soda_cloud_file_path,
             variables,

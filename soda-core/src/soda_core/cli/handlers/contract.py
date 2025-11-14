@@ -17,7 +17,7 @@ from soda_core.contracts.contract_verification import ContractVerificationSessio
 
 def handle_verify_contract(
     contract_file_path: Optional[str],
-    dataset_identifiers: Optional[list[str]],
+    dataset_identifier: Optional[str],
     data_source_file_paths: Optional[str],
     soda_cloud_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
@@ -31,7 +31,7 @@ def handle_verify_contract(
     try:
         contract_verification_result = verify_contract(
             contract_file_path=contract_file_path,
-            dataset_identifiers=dataset_identifiers,
+            dataset_identifier=dataset_identifier,
             data_source_file_path=None,
             data_source_file_paths=data_source_file_paths,
             soda_cloud_file_path=soda_cloud_file_path,
@@ -93,18 +93,15 @@ def handle_publish_contract(
 
 
 def handle_test_contract(
-    contract_file_paths: Optional[list[str]],
+    contract_file_path: Optional[str],
     variables: Optional[Dict[str, str]],
 ) -> ExitCode:
-    for contract_file_path in contract_file_paths:
-        contract_verification_result = test_contract(contract_file_paths=[contract_file_path], variables=variables)
-        if contract_verification_result.has_errors:
-            return ExitCode.LOG_ERRORS
-        else:
-            soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")
-            return ExitCode.OK
-
-    return ExitCode.OK
+    contract_verification_result = test_contract(contract_file_path=contract_file_path, variables=variables)
+    if contract_verification_result.has_errors:
+        return ExitCode.LOG_ERRORS
+    else:
+        soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} {contract_file_path} is valid")
+        return ExitCode.OK
 
 
 def handle_fetch_contract(
