@@ -78,7 +78,7 @@ def verify_contract_locally(
 
     return verify_contract(
         contract_file_path=contract_file_path,
-        dataset_identifiers=[dataset_identifier],
+        dataset_identifier=dataset_identifier,
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
         data_sources=data_sources,
