@@ -440,6 +440,7 @@ class ContractImpl:
             if (
                 self.dataset_configuration.test_row_sampler_configuration
                 and self.dataset_configuration.test_row_sampler_configuration.enabled
+                and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
             ):
                 logger.info(
                     f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
@@ -1677,7 +1678,6 @@ class AggregationQuery(Query):
         cte_dataset_name: str,
         dataset_prefix: list[str],
         dataset_name: str,
-        # filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
     ):
