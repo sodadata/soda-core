@@ -1,5 +1,4 @@
 from typing import Dict, Optional, Union
-from warnings import deprecated
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import (
@@ -15,6 +14,7 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
 )
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from typing_extensions import deprecated
 
 soda_telemetry = SodaTelemetry()
 
