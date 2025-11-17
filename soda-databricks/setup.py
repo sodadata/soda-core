@@ -8,7 +8,7 @@ description = "Soda Databricks V4"
 
 requires = [
     f"soda-core=={package_version}",
-    "databricks-sql-connector<4.2.0",  # Breaking change/bug with transactions in 4.2.0
+    "databricks-sql-connector",
 ]
 
 setup(
