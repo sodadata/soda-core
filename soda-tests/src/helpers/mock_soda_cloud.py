@@ -64,6 +64,7 @@ class MockSodaCloud(SodaCloud):
         )
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
+        self.dataset_configurations = None
 
     def _http_post(
         self,
@@ -130,9 +131,17 @@ class MockSodaCloud(SodaCloud):
 
         response.set_json_object(new_json_object)
 
+    def set_dataset_configuration_response(
+        self, dataset_identifier: "DatasetIdentifier", dataset_configuration_dto: "DatasetConfigurationDTO"
+    ):
+        self.dataset_configurations = dataset_configuration_dto
+
     def fetch_dataset_configuration(
         self, dataset_identifier: "DatasetIdentifier"
     ) -> Optional["DatasetConfigurationDTO"]:
+        if self.dataset_configurations:
+            return self.dataset_configurations
+
         # Return an empty DatasetConfigurationDTO for testing purposes. This is sufficient for tests that do not depend on specific configuration values.
         # This overrides the mock response setup in tests, but it would be annoying to have to set up the mock response for every test just to return an empty configuration.
         return DatasetConfigurationDTO()

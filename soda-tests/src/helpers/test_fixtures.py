@@ -24,6 +24,13 @@ def is_in_memory_data_source() -> bool:
     return test_datasource in in_memory_data_sources
 
 
+def is_sampling_supported_data_source() -> bool:
+    supported_sampling_data_sources = [
+        "snowflake",
+    ]
+    return test_datasource in supported_sampling_data_sources
+
+
 @pytest.fixture(scope="function")
 def env_vars() -> dict:
     original_env_vars = dict(os.environ)

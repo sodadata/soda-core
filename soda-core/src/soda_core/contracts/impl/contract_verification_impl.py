@@ -433,6 +433,8 @@ class ContractImpl:
                 WHERE.optional(SqlExpressionStr.optional(self.filter)),
             ]
         )
+        self.sampler_type: Optional[str] = None
+        self.sampler_limit: Optional[Number] = None
 
         self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
         if self.soda_cloud:
@@ -449,10 +451,15 @@ class ContractImpl:
                         f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
                         f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
                     )
+                    self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                    self.sampler_limit = (
+                        self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
+                    )
+
                     # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
                     self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
-                        self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type,
-                        self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit,
+                        self.sampler_type,
+                        self.sampler_limit,
                     )
 
         self.extensions: list[ContractImplExtension] = []
