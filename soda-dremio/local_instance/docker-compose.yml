@@ -28,6 +28,9 @@ services:
       - DREMIO_JAVA_SERVER_HEAP_MAX=4G
       - DREMIO_JAVA_SERVER_HEAP_MIN=2G
       - FLIGHT_SSL_ENABLED=false
+      - DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$$en_US
+
+
     volumes:
       - ./.dremio-data:/opt/dremio/data
     restart: unless-stopped
