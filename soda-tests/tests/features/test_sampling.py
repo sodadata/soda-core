@@ -1,16 +1,15 @@
-from unittest import mock
 from datetime import datetime, timezone
-from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.mock_soda_cloud import MockResponse
-from helpers.test_functions import get_diagnostic_value
-from helpers.test_table import TestTableSpecification
-from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO, TestRowSamplerConfigurationDTO
-from soda_core.contracts.contract_verification import (
-    CheckResult,
-    ContractVerificationResult,
-)
-from helpers.test_fixtures import is_sampling_supported_data_source
+from unittest import mock
+
 import pytest
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_fixtures import is_sampling_supported_data_source
+from helpers.test_table import TestTableSpecification
+from soda_core.common.soda_cloud_dto import (
+    DatasetConfigurationDTO,
+    TestRowSamplerConfigurationDTO,
+)
+from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -119,17 +118,3 @@ def test_sampling_simple_pass(mocked_env_config_helper, data_source_test_helper:
 
         if "check_rows_tested" in check_result.diagnostic_metric_values:
             assert check_result.diagnostic_metric_values["check_rows_tested"] == 3
-
-
-# - failed_rows:
-#     qualifier: fr_query
-#     query: |
-#     Select * from {test_table.qualified_name} where {age_quoted} > 100
-
-# - metric:
-#     query: |
-#         SELECT AVG({age_quoted})
-#         FROM {test_table.qualified_name}
-#     threshold:
-#         must_be_greater_than: 0
-#     filter: 1 = 1
