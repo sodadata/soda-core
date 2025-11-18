@@ -15,7 +15,10 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
+from soda_core.common.statements.metadata_tables_query import (
+    FullyQualifiedTableName,
+    MetadataTablesQuery,
+)
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -214,3 +217,21 @@ class DataSourceImpl(ABC):
                 schema_exists = True
                 break
         return schema_exists
+
+    def test_table_exists(self, prefixes: list[str], table_name: str) -> bool:
+        metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
+        database_index = self.sql_dialect.get_database_prefix_index()
+        schema_index = self.sql_dialect.get_schema_prefix_index()
+        database_name = (
+            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+        )
+        schema_name = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
+            database_name=database_name,
+            schema_name=schema_name,
+            include_table_name_like_filters=[table_name],
+        )
+        return any(
+            fully_qualified_table_name.table_name == table_name
+            for fully_qualified_table_name in fully_qualified_table_names
+        )
