@@ -110,7 +110,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "-c",
         "--contract",
         type=str,
-        help="One contract file path. Use this to work with local contracts.",
+        help="Contract file path to verify. Use this to work with local contracts.",
     )
     verify_parser.add_argument(
         "-d",
@@ -234,7 +234,7 @@ def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]
 
 def _setup_contract_publish_command(contract_parsers) -> None:
     publish_parser = contract_parsers.add_parser("publish", help="Publish a contract")
-    publish_parser.add_argument("-c", "--contract", type=str, help="One contract file path.")
+    publish_parser.add_argument("-c", "--contract", type=str, help="Contract file path to publish.")
 
     publish_parser.add_argument(
         "-sc",
@@ -264,7 +264,7 @@ def _setup_contract_publish_command(contract_parsers) -> None:
 
 def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser = contract_parsers.add_parser(name="test", help="Test a contract syntax without executing it")
-    test_contract_parser.add_argument("-c", "--contract", type=str, help="One contract file path.")
+    test_contract_parser.add_argument("-c", "--contract", type=str, help="Contract file path to test.")
 
     test_contract_parser.add_argument(
         "-v",

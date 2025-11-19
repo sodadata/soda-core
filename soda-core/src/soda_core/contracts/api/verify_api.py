@@ -33,7 +33,7 @@ def verify_contracts_locally(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
-    if not isinstance(contract_file_paths, list):
+    if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
 
     if len(contract_file_paths) > 1:
@@ -104,7 +104,7 @@ def verify_contracts_on_agent(
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
-    if not isinstance(contract_file_paths, list):
+    if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
 
     if len(contract_file_paths) > 1:
@@ -183,17 +183,17 @@ def verify_contract(
     else:
         dataset_identifiers = None
 
+    # TODO: change this when we fully deprecate a list of contract file paths
+    # This is only here to make sure the rest of the code still works.
+    if isinstance(contract_file_path, str):
+        contract_file_paths = [contract_file_path]
+    else:
+        contract_file_paths = None
+
     soda_cloud_client: Optional[SodaCloud] = None
     try:
         if soda_cloud_file_path:
             soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
-
-        # TODO: change this when we fully deprecate a list of contract file paths
-        # This is only here to make sure the rest of the code still works.
-        if isinstance(contract_file_path, str):
-            contract_file_paths = [contract_file_path]
-        else:
-            contract_file_paths = None
 
         # TODO: verify the path where connection is provided
         validate_verify_arguments(
