@@ -250,7 +250,7 @@ def test_sql_ast_alter_table_drop_column():
 
 
 def test_sql_ast_create_table_as_select():
-    sql_dialect: SqlDialect = SqlDialect()
+    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
 
     my_create_table_as_select_statement = sql_dialect.build_create_table_as_select_sql(
         CREATE_TABLE_AS_SELECT(
