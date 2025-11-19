@@ -27,7 +27,7 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return PostgresSqlDialect()
+        return PostgresSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return PostgresDataSourceConnection(
@@ -49,9 +49,6 @@ class PostgresSqlDialect(SqlDialect):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),
     )
-
-    def __init__(self):
-        super().__init__()
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)

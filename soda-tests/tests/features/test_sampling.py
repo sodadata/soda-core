@@ -50,7 +50,7 @@ country_test_table_specification = (
 @pytest.mark.skipif(not is_sampling_supported_data_source(), reason="Sampling not supported for this data source")
 def test_sampling_simple_pass(mocked_env_config_helper, data_source_test_helper: DataSourceTestHelper):
     # Simple test to verify that sampling is applied to all checks when enabled. Sample of 3 rows should be used, dataset has 5 rows.
-    # Verifying diagnostics value verifies that.
+    # Verifying diagnostics value verifies that. All tests in one test to save time.
     # TODO: Testing the query generated would be more efficient and more strict but is more complex to implement.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     country_test_table = data_source_test_helper.ensure_test_table(country_test_table_specification)
@@ -118,3 +118,71 @@ def test_sampling_simple_pass(mocked_env_config_helper, data_source_test_helper:
 
         if "check_rows_tested" in check_result.diagnostic_metric_values:
             assert check_result.diagnostic_metric_values["check_rows_tested"] == 3
+
+
+@mock.patch(
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    new_callable=mock.PropertyMock(return_value=True),
+)
+@pytest.mark.skipif(not is_sampling_supported_data_source(), reason="Sampling not supported for this data source")
+def test_sampling_custom_sql_pass(mocked_env_config_helper, data_source_test_helper: DataSourceTestHelper):
+    # Checking the actual sql in logs, even though just in logs as result does not have them.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock()
+
+    age_quoted = data_source_test_helper.quote_column("age")
+    table_full_name = test_table.qualified_name
+    sampler_type = "absoluteLimit"
+    sample_size = 3
+
+    def add_sample(name: str) -> str:
+        return f"{name} {data_source_test_helper.data_source_impl.sql_dialect._build_sample_sql(sampler_type, sample_size)}"
+
+    def build_name_with_alias(name: str, alias: str) -> str:
+        return f"{name} AS {alias}"
+
+    data_source_test_helper.soda_cloud.set_dataset_configuration_response(
+        dataset_identifier=test_table.dataset_identifier,
+        dataset_configuration_dto=DatasetConfigurationDTO(
+            test_row_sampler_configuration=TestRowSamplerConfigurationDTO(
+                enabled=True, test_row_sampler={"type": sampler_type, "limit": sample_size}
+            )
+        ),
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        publish_results=False,
+        contract_yaml_str=f"""
+            checks:
+                - metric:
+                    query: |
+                        select avg({age_quoted}) from {build_name_with_alias(table_full_name, "metric_query")} where 1 = 1
+                    threshold:
+                        must_be_greater_than: 0
+                - failed_rows:
+                    query: |
+                        select * from {build_name_with_alias(table_full_name, "fr_query")} where {age_quoted} > 100
+        """,
+    )
+
+    # Simple way to verify that the sampling was applied to the custom sql queries is to check the generated sql in the logs.
+    # The original query should not be there, only the modified one with sampling.
+    # Use case-insensitive check to avoid issues with casing differences.
+    logs = contract_verification_result.get_logs_str().lower()
+
+    assert (
+        f"from {build_name_with_alias(table_full_name, 'metric_query')} where 1 = 1".lower() not in logs
+    ), "Original metric query should not be in logs"
+    assert (
+        f"from {add_sample(build_name_with_alias(table_full_name, 'metric_query'))} where 1 = 1".lower() in logs
+    ), "Sampled metric query should be in logs"
+
+    assert (
+        f"from {build_name_with_alias(table_full_name, 'fr_query')} where {age_quoted} > 100".lower() not in logs
+    ), "Original failed_rows query should not be in logs"
+    assert (
+        f"from {add_sample(build_name_with_alias(table_full_name, 'fr_query'))} where {age_quoted} > 100".lower()
+        in logs
+    ), "Sampled failed_rows query should be in logs"

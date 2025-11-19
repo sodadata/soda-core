@@ -16,6 +16,7 @@ from soda_core.common.metadata_types import (
     SodaDataTypeName,
     SqlDataType,
 )
+from soda_core.common.soda_cloud_dto import SamplerType
 from soda_core.common.sql_ast import (
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
@@ -81,6 +82,7 @@ from soda_core.common.sql_ast import (
     SqlExpression,
     SqlExpressionStr,
 )
+from soda_core.common.sql_utils import apply_sampling_to_sql
 
 logger: logging.Logger = soda_logger
 
@@ -96,7 +98,14 @@ class SqlDialect:
 
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
 
-    def __init__(self):
+    def __init__(
+        self,
+        data_source_impl: "DataSourceImpl",
+    ):
+        from soda_core.common.data_source_impl import DataSourceImpl
+
+        self.data_source_impl: DataSourceImpl = data_source_impl
+
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
@@ -727,8 +736,8 @@ class SqlDialect:
             )
         ]
 
-        if isinstance(from_part.sample_type, str) and isinstance(from_part.sample_size, Number):
-            from_parts.append(self._build_sample_sql(from_part.sample_type, from_part.sample_size))
+        if isinstance(from_part.sampler_type, str) and isinstance(from_part.sample_size, Number):
+            from_parts.append(self._build_sample_sql(from_part.sampler_type, from_part.sample_size))
 
         if isinstance(from_part.alias, str):
             from_parts.append(self._alias_format(from_part.alias))
@@ -976,7 +985,7 @@ class SqlDialect:
             string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
         return self.build_expression_sql(STRING_HASH(string_to_hash))
 
-    def _build_sample_sql(self, sample_type: str, sample_size: Number) -> str:
+    def _build_sample_sql(self, sampler_type: str, sample_size: Number) -> str:
         raise NotImplementedError("Sampling not implemented for this dialect")
 
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
@@ -1190,6 +1199,20 @@ class SqlDialect:
 
     def supports_case_sensitive_column_names(self) -> bool:
         return True
+
+    def apply_sampling_to_sql(
+        self,
+        sql: str,
+        sampler_limit: Number,
+        sampler_type: SamplerType,
+    ) -> str:
+        return apply_sampling_to_sql(
+            sql=sql,
+            sampler_limit=sampler_limit,
+            sampler_type=sampler_type,
+            read_dialect=self.data_source_impl.type_name,
+            write_dialect=self.data_source_impl.type_name,
+        )
 
     ########################################################
     # Metadata columns query

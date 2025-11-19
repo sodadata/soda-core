@@ -262,7 +262,7 @@ class DuckDBDataSourceConnection(DataSourceConnection):
 
 class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
-        return DuckDBSqlDialect()
+        return DuckDBSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DuckDBDataSourceConnection(

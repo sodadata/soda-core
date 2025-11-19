@@ -426,6 +426,7 @@ class ContractImpl:
         )
         self.dataset_rows_tested: Optional[int] = None
 
+        # Dataset defining CTE - used as basis for all queries in this contract
         self.cte = CTE(self.cte_name).AS(
             [
                 SELECT(STAR()),
@@ -433,6 +434,7 @@ class ContractImpl:
                 WHERE.optional(SqlExpressionStr.optional(self.filter)),
             ]
         )
+        # Optional sampler configuration. Is there a better place or way to store this?
         self.sampler_type: Optional[str] = None
         self.sampler_limit: Optional[Number] = None
 
@@ -446,21 +448,20 @@ class ContractImpl:
                 and self.dataset_configuration.test_row_sampler_configuration.enabled
                 and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
             ):
-                if self.soda_config.is_running_on_agent and not self.publish_results:
-                    logger.info(
-                        f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
-                        f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
-                    )
-                    self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
-                    self.sampler_limit = (
-                        self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
-                    )
+                self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
 
-                    # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
-                    self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
-                        self.sampler_type,
-                        self.sampler_limit,
-                    )
+        if self.do_apply_sampling:
+            logger.info(
+                f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
+                f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
+            )
+
+            # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
+            self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
+                self.sampler_type,
+                self.sampler_limit,
+            )
 
         self.extensions: list[ContractImplExtension] = []
         for extension_cls in ContractImpl.contract_impl_extensions.values():
@@ -494,6 +495,18 @@ class ContractImpl:
             self.queries = self._build_queries()
 
         self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+
+    @property
+    def is_test_verification_on_agent(self) -> bool:
+        return self.soda_config.is_running_on_agent and not self.publish_results
+
+    @property
+    def is_sampling_enabled(self) -> bool:
+        return self.sampler_type is not None and self.sampler_limit is not None
+
+    @property
+    def do_apply_sampling(self) -> bool:
+        return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()

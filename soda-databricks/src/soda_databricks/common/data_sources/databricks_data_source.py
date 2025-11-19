@@ -36,8 +36,8 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
     def _create_sql_dialect(self) -> SqlDialect:
         if self.__is_hive_catalog():
-            return DatabricksHiveSqlDialect()
-        return DatabricksSqlDialect()
+            return DatabricksHiveSqlDialect(data_source_impl=self)
+        return DatabricksSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DatabricksDataSourceConnection(

@@ -29,7 +29,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SnowflakeSqlDialect()
+        return SnowflakeSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SnowflakeDataSourceConnection(
@@ -49,9 +49,6 @@ class SnowflakeSqlDialect(SqlDialect):
         ),
         (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
     )
-
-    def __init__(self):
-        super().__init__()
 
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
@@ -165,8 +162,8 @@ class SnowflakeSqlDialect(SqlDialect):
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
 
-    def _build_sample_sql(self, sample_type: str, sample_size: Number) -> str:
-        if sample_type == SamplerType.ABSOLUTE_LIMIT:
-            return f"SAMPLE ({int(sample_size)} ROWS)"
+    def _build_sample_sql(self, sampler_type: str, sample_size: Number) -> str:
+        if sampler_type == SamplerType.ABSOLUTE_LIMIT:
+            return f"TABLESAMPLE ({int(sample_size)} ROWS)"
         else:
-            raise ValueError(f"Unsupported sample type: {sample_type}")
+            raise ValueError(f"Unsupported sample type: {sampler_type}")

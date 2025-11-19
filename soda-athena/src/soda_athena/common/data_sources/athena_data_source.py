@@ -33,7 +33,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return AthenaSqlDialect(self)
+        return AthenaSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return AthenaDataSourceConnection(
@@ -137,11 +137,6 @@ class AthenaSqlDialect(SqlDialect):
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
         (SodaDataTypeName.TIME, SodaDataTypeName.VARCHAR),
     )
-
-    # We need to pass the data source impl to the dialect to be able to access connection properties (such as the staging dir)
-    def __init__(self, data_source_impl: AthenaDataSourceImpl):
-        super().__init__()
-        self.data_source_impl = data_source_impl
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()

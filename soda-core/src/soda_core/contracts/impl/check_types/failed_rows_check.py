@@ -85,11 +85,20 @@ class FailedRowsCheckImpl(CheckImpl):
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
+
+            sql = self.failed_rows_check_yaml.query
+
+            if contract_impl.do_apply_sampling:
+                sql = contract_impl.data_source_impl.sql_dialect.apply_sampling_to_sql(
+                    sql=sql,
+                    sampler_limit=contract_impl.sampler_limit,
+                    sampler_type=contract_impl.sampler_type,
+                )
             if contract_impl.data_source_impl:
                 failed_rows_count_query: Query = FailedRowsCountQuery(
                     data_source_impl=contract_impl.data_source_impl,
                     metrics=[self.failed_rows_count_metric_impl],
-                    failed_rows_query=self.failed_rows_check_yaml.query,
+                    failed_rows_query=sql,
                 )
                 self.queries.append(failed_rows_count_query)
 

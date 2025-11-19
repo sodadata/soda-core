@@ -78,6 +78,13 @@ class MetricCheckImpl(CheckImpl):
             )
 
         elif self.metric_check_yaml.query:
+            sql = self.metric_check_yaml.query
+
+            if contract_impl.do_apply_sampling:
+                sql = contract_impl.data_source_impl.sql_dialect.apply_sampling_to_sql(
+                    sql, contract_impl.sampler_limit, sampler_type=contract_impl.sampler_type
+                )
+
             self.numeric_metric_impl = self._resolve_metric(
                 MetricQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
@@ -85,7 +92,7 @@ class MetricCheckImpl(CheckImpl):
                 metric_query: Query = MetricQuery(
                     data_source_impl=contract_impl.data_source_impl,
                     metrics=[self.numeric_metric_impl],
-                    sql=self.metric_check_yaml.query,
+                    sql=sql,
                 )
                 self.queries.append(metric_query)
 

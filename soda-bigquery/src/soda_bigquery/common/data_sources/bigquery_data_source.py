@@ -54,7 +54,7 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         self.cached_location = None
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return BigQuerySqlDialect()
+        return BigQuerySqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return BigQueryDataSourceConnection(
