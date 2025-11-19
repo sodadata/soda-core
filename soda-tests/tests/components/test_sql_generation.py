@@ -247,3 +247,15 @@ def test_sql_ast_alter_table_drop_column():
         ALTER_TABLE_DROP_COLUMN(fully_qualified_table_name='"customers"', column_name="age")
     )
     assert my_alter_table_statement == 'ALTER TABLE "customers" DROP COLUMN "age";'
+
+
+def test_sql_ast_create_table_as_select():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_create_table_as_select_statement = sql_dialect.build_create_table_as_select_sql(
+        CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name='"customers"',
+            select_elements=[SELECT(COLUMN("name")), FROM("customers")],
+        )
+    )
+    assert my_create_table_as_select_statement == 'CREATE TABLE "customers" AS (\nSELECT "name"\nFROM "customers");'
