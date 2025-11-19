@@ -90,7 +90,6 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # this is used in the check extension to extract failed keys and rows
             self.ref_query = InvalidReferenceCountQuery(
                 cte=contract_impl.cte,
-                cte_name=contract_impl.cte_name,
                 sampler_type=contract_impl.sampler_type,
                 sampler_limit=contract_impl.sampler_limit,
                 metric_impl=self.invalid_count_metric_impl,
@@ -196,7 +195,6 @@ class InvalidReferenceCountQuery(Query):
     def __init__(
         self,
         cte: CTE,
-        cte_name: str,
         sampler_type: Optional[str],
         sampler_limit: Optional[Number],
         metric_impl: InvalidReferenceCountMetricImpl,
@@ -210,19 +208,19 @@ class InvalidReferenceCountQuery(Query):
 
         self.referencing_alias: str = DatasetAlias.CONTRACT.value
         self.referenced_alias: str = DatasetAlias.REFERENCE.value
-        self.referenced_cte_name: str = "filtered_referenced_dataset"
+        self._referenced_cte_name: str = "_soda_filtered_referenced_dataset"
 
         self.sampler_type: Optional[str] = sampler_type
         self.sampler_limit: Optional[Number] = sampler_limit
 
-        sql_ast = self.build_query(cte=cte, cte_name=cte_name)
+        sql_ast = self.build_query(cte=cte)
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
-    def build_query(self, cte: CTE, cte_name: str) -> list[SqlExpression]:
+    def build_query(self, cte: CTE) -> list[SqlExpression]:
         query = [
             WITH([cte, self.referenced_cte()]),
             SELECT(COUNT(STAR())),
-            FROM(cte_name).AS(self.referencing_alias),
+            FROM(cte.alias).AS(self.referencing_alias),
             WHERE.optional(SqlExpressionStr.optional(self.check_filter)),
         ]
 
@@ -235,7 +233,7 @@ class InvalidReferenceCountQuery(Query):
         referenced_dataset_name: str = valid_reference_data.dataset_name
         referenced_dataset_prefix: Optional[list[str]] = valid_reference_data.dataset_prefix
 
-        cte = CTE(self.referenced_cte_name).AS(
+        cte = CTE(self._referenced_cte_name).AS(
             [
                 SELECT(STAR()),
                 FROM(referenced_dataset_name).IN(referenced_dataset_prefix),
@@ -252,7 +250,7 @@ class InvalidReferenceCountQuery(Query):
 
         referencing_column_name: str = self.metric_impl.column_impl.column_yaml.name
 
-        referenced_dataset_name: str = self.referenced_cte_name
+        referenced_dataset_name: str = self._referenced_cte_name
         referenced_column: str = valid_reference_data.column
 
         # The variant to get the failed rows is:

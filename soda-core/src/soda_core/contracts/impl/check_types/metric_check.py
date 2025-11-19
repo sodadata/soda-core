@@ -80,8 +80,8 @@ class MetricCheckImpl(CheckImpl):
         elif self.metric_check_yaml.query:
             sql = self.metric_check_yaml.query
 
-            if contract_impl.do_apply_sampling:
-                sql = contract_impl.data_source_impl.sql_dialect.apply_sampling_to_sql(
+            if contract_impl.should_apply_sampling:
+                sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
                     sql, contract_impl.sampler_limit, sampler_type=contract_impl.sampler_type
                 )
 

@@ -5,7 +5,7 @@ from abc import abstractmethod
 from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
-from typing import Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -84,6 +84,9 @@ from soda_core.common.sql_ast import (
 )
 from soda_core.common.sql_utils import apply_sampling_to_sql
 
+if TYPE_CHECKING:
+    from soda_core.common.data_source_impl import DataSourceImpl
+
 logger: logging.Logger = soda_logger
 
 
@@ -100,10 +103,8 @@ class SqlDialect:
 
     def __init__(
         self,
-        data_source_impl: "DataSourceImpl",
+        data_source_impl: DataSourceImpl,
     ):
-        from soda_core.common.data_source_impl import DataSourceImpl
-
         self.data_source_impl: DataSourceImpl = data_source_impl
 
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
@@ -1200,7 +1201,7 @@ class SqlDialect:
     def supports_case_sensitive_column_names(self) -> bool:
         return True
 
-    def apply_sampling_to_sql(
+    def apply_sampling(
         self,
         sql: str,
         sampler_limit: Number,

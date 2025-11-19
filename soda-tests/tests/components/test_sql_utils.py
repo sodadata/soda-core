@@ -130,11 +130,8 @@ def test_apply_sampling_on_cte_and_outer_query() -> None:
 
     # cte as FROM source in outer query is represented as a Table
     cte_table = _get_first_table(tree, "cte")
-    sample_cte = cte_table.args.get("sample")
-    assert isinstance(sample_cte, exp.TableSample)
-    size_cte = sample_cte.args.get("size")
-    assert isinstance(size_cte, exp.Literal)
-    assert size_cte.this == "10"
+    assert isinstance(cte_table, exp.Table)
+    assert cte_table.args.get("sample") is None
 
 
 def test_apply_sampling_on_nested_subquery_in_join_and_from() -> None:

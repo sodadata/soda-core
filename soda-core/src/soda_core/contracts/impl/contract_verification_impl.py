@@ -399,7 +399,6 @@ class ContractImpl:
         self.dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
         self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
         self.dataset_name = self.dataset_identifier.dataset_name
-        self.cte_name: str = "filtered_dataset"
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
@@ -427,7 +426,7 @@ class ContractImpl:
         self.dataset_rows_tested: Optional[int] = None
 
         # Dataset defining CTE - used as basis for all queries in this contract
-        self.cte = CTE(self.cte_name).AS(
+        self.cte = CTE("_soda_filtered_dataset").AS(
             [
                 SELECT(STAR()),
                 FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),
@@ -451,7 +450,7 @@ class ContractImpl:
                 self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
                 self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
 
-        if self.do_apply_sampling:
+        if self.should_apply_sampling:
             logger.info(
                 f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
                 f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
@@ -505,7 +504,7 @@ class ContractImpl:
         return self.sampler_type is not None and self.sampler_limit is not None
 
     @property
-    def do_apply_sampling(self) -> bool:
+    def should_apply_sampling(self) -> bool:
         return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
@@ -569,7 +568,6 @@ class ContractImpl:
                 aggregation_queries.append(
                     AggregationQuery(
                         cte=self.cte,
-                        cte_name=self.cte_name,
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
                         data_source_impl=self.data_source_impl,
@@ -1699,7 +1697,6 @@ class AggregationQuery(Query):
     def __init__(
         self,
         cte: CTE,
-        cte_name: str,
         dataset_prefix: list[str],
         dataset_name: str,
         data_source_impl: Optional[DataSourceImpl],
@@ -1707,7 +1704,6 @@ class AggregationQuery(Query):
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
         self.cte: CTE = cte
-        self.cte_name: str = cte_name
         self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
         self.aggregation_metrics: list[AggregationMetricImpl] = []
@@ -1729,7 +1725,7 @@ class AggregationQuery(Query):
         select = [
             WITH([self.cte]),
             SELECT(field_expressions),
-            FROM(self.cte_name),
+            FROM(self.cte.alias),
         ]
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(select)
         return self.sql
