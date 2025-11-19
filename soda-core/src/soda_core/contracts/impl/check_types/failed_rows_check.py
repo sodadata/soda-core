@@ -234,7 +234,6 @@ class FailedRowsCountQuery(Query):
                 FROM("failed_rows"),
             ]
         )
-        self.failed_rows_query = failed_rows_query
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
 
     def execute(self) -> list[Measurement]:
@@ -246,5 +245,4 @@ class FailedRowsCountQuery(Query):
 
         metric_value = query_result.rows[0][0]
         metric_impl: MetricImpl = self.metrics[0]
-        self.cursor_description = query_result.columns
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
