@@ -47,3 +47,12 @@ class EnvConfigHelper:
     @property
     def soda_core_telemetry_test_mode(self) -> bool:
         return strtobool(os.getenv("SODA_CORE_TELEMETRY_TEST_MODE", "false"))
+
+    @property
+    def soda_instruction_id(self) -> str | None:
+        return os.getenv("SODA_INSTRUCTION_ID")
+
+    @property
+    def is_running_on_agent(self) -> bool:
+        # SODA_INSTRUCTION_ID is only set when running in Soda Agent
+        return self.soda_instruction_id is not None

@@ -25,7 +25,7 @@ class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSource
         super().__init__(data_source_model=data_source_model)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return FabricSqlDialect()
+        return FabricSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return FabricDataSourceConnection(

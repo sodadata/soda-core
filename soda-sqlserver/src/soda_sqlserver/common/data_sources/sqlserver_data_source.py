@@ -47,7 +47,7 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SqlServerSqlDialect()
+        return SqlServerSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SqlServerDataSourceConnection(

@@ -10,6 +10,7 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     InvalidRegexException,
     SodaCoreException,
@@ -381,6 +382,7 @@ class ContractImpl:
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.publish_results: bool = publish_results
+        self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = self.contract_yaml.filter
         self.check_paths: list[str] = check_paths
@@ -397,7 +399,6 @@ class ContractImpl:
         self.dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
         self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
         self.dataset_name = self.dataset_identifier.dataset_name
-        self.cte_dataset_name: str = "filtered_dataset"
 
         self.metrics_resolver: MetricsResolver = MetricsResolver()
 
@@ -424,13 +425,17 @@ class ContractImpl:
         )
         self.dataset_rows_tested: Optional[int] = None
 
-        self.cte = CTE(self.cte_dataset_name).AS(
+        # Dataset defining CTE - used as basis for all queries in this contract
+        self.cte = CTE("_soda_filtered_dataset").AS(
             [
                 SELECT(STAR()),
                 FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),
                 WHERE.optional(SqlExpressionStr.optional(self.filter)),
             ]
         )
+        # Optional sampler configuration. Is there a better place or way to store this?
+        self.sampler_type: Optional[str] = None
+        self.sampler_limit: Optional[Number] = None
 
         self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
         if self.soda_cloud:
@@ -442,14 +447,20 @@ class ContractImpl:
                 and self.dataset_configuration.test_row_sampler_configuration.enabled
                 and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
             ):
-                logger.info(
-                    f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
-                    f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
-                )
-                self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
-                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type,
-                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit,
-                )
+                self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
+
+        if self.should_apply_sampling:
+            logger.info(
+                f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
+                f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
+            )
+
+            # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
+            self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
+                self.sampler_type,
+                self.sampler_limit,
+            )
 
         self.extensions: list[ContractImplExtension] = []
         for extension_cls in ContractImpl.contract_impl_extensions.values():
@@ -483,6 +494,18 @@ class ContractImpl:
             self.queries = self._build_queries()
 
         self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+
+    @property
+    def is_test_verification_on_agent(self) -> bool:
+        return self.soda_config.is_running_on_agent and not self.publish_results
+
+    @property
+    def is_sampling_enabled(self) -> bool:
+        return self.sampler_type is not None and self.sampler_limit is not None
+
+    @property
+    def should_apply_sampling(self) -> bool:
+        return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
@@ -545,7 +568,6 @@ class ContractImpl:
                 aggregation_queries.append(
                     AggregationQuery(
                         cte=self.cte,
-                        cte_dataset_name=self.cte_dataset_name,
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
                         data_source_impl=self.data_source_impl,
@@ -1675,7 +1697,6 @@ class AggregationQuery(Query):
     def __init__(
         self,
         cte: CTE,
-        cte_dataset_name: str,
         dataset_prefix: list[str],
         dataset_name: str,
         data_source_impl: Optional[DataSourceImpl],
@@ -1683,7 +1704,6 @@ class AggregationQuery(Query):
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
         self.cte: CTE = cte
-        self.cte_dataset_name: str = cte_dataset_name
         self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
         self.aggregation_metrics: list[AggregationMetricImpl] = []
@@ -1705,7 +1725,7 @@ class AggregationQuery(Query):
         select = [
             WITH([self.cte]),
             SELECT(field_expressions),
-            FROM(self.cte_dataset_name),
+            FROM(self.cte.alias),
         ]
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(select)
         return self.sql

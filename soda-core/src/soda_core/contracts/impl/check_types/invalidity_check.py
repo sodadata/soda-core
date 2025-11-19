@@ -89,6 +89,9 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
             # this is used in the check extension to extract failed keys and rows
             self.ref_query = InvalidReferenceCountQuery(
+                cte=contract_impl.cte,
+                sampler_type=contract_impl.sampler_type,
+                sampler_limit=contract_impl.sampler_limit,
                 metric_impl=self.invalid_count_metric_impl,
                 dataset_filter=self.contract_impl.filter,
                 check_filter=self.check_yaml.filter,
@@ -191,6 +194,9 @@ class DatasetAlias(Enum):
 class InvalidReferenceCountQuery(Query):
     def __init__(
         self,
+        cte: CTE,
+        sampler_type: Optional[str],
+        sampler_limit: Optional[Number],
         metric_impl: InvalidReferenceCountMetricImpl,
         dataset_filter: Optional[str],
         check_filter: Optional[str],
@@ -198,55 +204,53 @@ class InvalidReferenceCountQuery(Query):
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[metric_impl])
         self.metric_impl = metric_impl
-        self.dataset_filter = dataset_filter
         self.check_filter = check_filter
 
         self.referencing_alias: str = DatasetAlias.CONTRACT.value
         self.referenced_alias: str = DatasetAlias.REFERENCE.value
+        self._referenced_cte_name: str = "_soda_filtered_referenced_dataset"
 
-        sql_ast = self.build_query(SELECT(COUNT(STAR())))
+        self.sampler_type: Optional[str] = sampler_type
+        self.sampler_limit: Optional[Number] = sampler_limit
+
+        sql_ast = self.build_query(cte=cte)
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
-    def build_query(self, select_expression: SqlExpression) -> SqlExpression:
-        sql_ast: list = [select_expression]
-        sql_ast.extend(self.query_from())
+    def build_query(self, cte: CTE) -> list[SqlExpression]:
+        query = [
+            WITH([cte, self.referenced_cte()]),
+            SELECT(COUNT(STAR())),
+            FROM(cte.alias).AS(self.referencing_alias),
+            WHERE.optional(SqlExpressionStr.optional(self.check_filter)),
+        ]
 
-        if self.dataset_filter or self.check_filter:
-            dataset_filter_expr: Optional[SqlExpressionStr] = None
-            check_filter_expr: Optional[SqlExpressionStr] = None
-            combined_filter_expr: Optional[SqlExpression] = None
+        query.extend(self.query_join())
 
-            if self.dataset_filter:
-                dataset_filter_expr = SqlExpressionStr(self.dataset_filter)
-                combined_filter_expr = dataset_filter_expr
+        return query
 
-            if self.check_filter:
-                check_filter_expr = SqlExpressionStr(self.check_filter)
-                combined_filter_expr = check_filter_expr
+    def referenced_cte(self) -> CTE:
+        valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
+        referenced_dataset_name: str = valid_reference_data.dataset_name
+        referenced_dataset_prefix: Optional[list[str]] = valid_reference_data.dataset_prefix
 
-            if dataset_filter_expr and check_filter_expr:
-                combined_filter_expr = AND([dataset_filter_expr, check_filter_expr])
+        cte = CTE(self._referenced_cte_name).AS(
+            [
+                SELECT(STAR()),
+                FROM(referenced_dataset_name).IN(referenced_dataset_prefix),
+            ]
+        )
 
-            original_from = sql_ast[1].AS(None)
-            sql_ast[1] = FROM("filtered_dataset").AS(self.referencing_alias)
-            sql_ast = [
-                WITH([CTE("filtered_dataset").AS([SELECT(STAR()), original_from, WHERE(combined_filter_expr)])]),
-            ] + sql_ast
-        return sql_ast
+        if self.sampler_type and self.sampler_limit:
+            cte.cte_query[1] = cte.cte_query[1].SAMPLE(self.sampler_type, self.sampler_limit)
 
-    def query_from(self) -> SqlExpression:
+        return cte
+
+    def query_join(self) -> SqlExpression:
         valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
 
-        referencing_dataset_name: str = self.metric_impl.contract_impl.dataset_name
-        referencing_dataset_prefix: Optional[str] = self.metric_impl.contract_impl.dataset_prefix
         referencing_column_name: str = self.metric_impl.column_impl.column_yaml.name
 
-        referenced_dataset_name: str = valid_reference_data.dataset_name
-        referenced_dataset_prefix: Optional[list[str]] = (
-            valid_reference_data.dataset_prefix
-            if valid_reference_data.dataset_prefix is not None
-            else self.metric_impl.contract_impl.dataset_prefix
-        )
+        referenced_dataset_name: str = self._referenced_cte_name
         referenced_column: str = valid_reference_data.column
 
         # The variant to get the failed rows is:
@@ -265,9 +269,7 @@ class InvalidReferenceCountQuery(Query):
         )
 
         return [
-            FROM(referencing_dataset_name).IN(referencing_dataset_prefix).AS(self.referencing_alias),
             LEFT_INNER_JOIN(referenced_dataset_name)
-            .IN(referenced_dataset_prefix)
             .ON(
                 EQ(
                     COLUMN(referencing_column_name).IN(self.referencing_alias),

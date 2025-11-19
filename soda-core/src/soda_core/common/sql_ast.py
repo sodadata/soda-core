@@ -71,7 +71,7 @@ class FROM(BaseSqlExpression):
     table_name: str
     table_prefix: Optional[list[str]] = None
     alias: Optional[str] = None
-    sample_type: Optional[str] = None
+    sampler_type: Optional[str] = None
     sample_size: Optional[Number] = None
 
     def __post_init__(self):
@@ -85,8 +85,8 @@ class FROM(BaseSqlExpression):
         self.table_prefix = table_prefix if isinstance(table_prefix, list) else [table_prefix]
         return self
 
-    def SAMPLE(self, sample_type: str, sample_size: Number) -> FROM:
-        self.sample_type = sample_type
+    def SAMPLE(self, sampler_type: str, sample_size: Number) -> FROM:
+        self.sampler_type = sampler_type
         self.sample_size = sample_size
         return self
 
