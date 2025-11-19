@@ -1,3 +1,5 @@
+from numbers import Number
+
 import sqlglot
 from soda_core.common.soda_cloud_dto import SamplerType
 from sqlglot import exp
@@ -5,7 +7,7 @@ from sqlglot import exp
 
 def apply_sampling_to_sql(
     sql: str,
-    sampler_limit: int,
+    sampler_limit: Number,
     sampler_type: SamplerType,
     read_dialect: str | None = None,
     write_dialect: str | None = None,
