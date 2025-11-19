@@ -25,7 +25,7 @@ class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSour
         super().__init__(data_source_model=data_source_model)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SynapseSqlDialect()
+        return SynapseSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SynapseDataSourceConnection(

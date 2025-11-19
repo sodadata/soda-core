@@ -194,7 +194,7 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
-        return SparkDataFrameSqlDialect()
+        return SparkDataFrameSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SparkDataFrameDataSourceConnection(
