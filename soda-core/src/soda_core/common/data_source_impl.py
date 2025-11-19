@@ -218,7 +218,7 @@ class DataSourceImpl(ABC):
                 break
         return schema_exists
 
-    def test_table_exists(self, prefixes: list[str], table_name: str) -> bool:
+    def verify_if_table_exists(self, prefixes: list[str], table_name: str) -> bool:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_index = self.sql_dialect.get_database_prefix_index()
         schema_index = self.sql_dialect.get_schema_prefix_index()
