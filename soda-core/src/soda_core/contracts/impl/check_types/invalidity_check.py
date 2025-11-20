@@ -213,13 +213,15 @@ class InvalidReferenceCountQuery(Query):
         self.sampler_type: Optional[str] = sampler_type
         self.sampler_limit: Optional[Number] = sampler_limit
 
-        sql_ast = self.build_query(cte=cte)
+        self._cte = cte
+
+        sql_ast = self.build_query(cte=self._cte, select_clause=SELECT(COUNT(STAR())))
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
-    def build_query(self, cte: CTE) -> list[SqlExpression]:
+    def build_query(self, cte: CTE, select_clause: SqlExpression) -> list[SqlExpression]:
         query = [
             WITH([cte, self.referenced_cte()]),
-            SELECT(COUNT(STAR())),
+            select_clause,
             FROM(cte.alias).AS(self.referencing_alias),
             WHERE.optional(SqlExpressionStr.optional(self.check_filter)),
         ]
