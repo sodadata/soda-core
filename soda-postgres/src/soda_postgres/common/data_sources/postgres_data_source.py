@@ -5,7 +5,12 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import CAST, CREATE_TABLE_COLUMN, REGEX_LIKE
+from soda_core.common.sql_ast import (
+    CAST,
+    CREATE_TABLE_AS_SELECT,
+    CREATE_TABLE_COLUMN,
+    REGEX_LIKE,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
@@ -156,3 +161,12 @@ class PostgresSqlDialect(SqlDialect):
             return True
 
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+    ) -> str:
+        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
+        result_sql += f"(\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)})" + (
+            ";" if add_semicolon else ""
+        )
+        return result_sql

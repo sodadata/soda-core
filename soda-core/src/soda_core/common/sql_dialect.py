@@ -31,6 +31,7 @@ from soda_core.common.sql_ast import (
     CONCAT_WS,
     COUNT,
     CREATE_TABLE,
+    CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     CTE,
@@ -433,6 +434,13 @@ class SqlDialect:
 
     def _is_not_null_ddl_supported(self) -> bool:
         return True
+
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+    ) -> str:
+        raise NotImplementedError(
+            "This method (build_create_table_as_select_sql) should be overwritten by the data source dialect"
+        )
 
     #########################################################
     # ALTER TABLE

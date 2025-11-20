@@ -598,6 +598,16 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 
 
 @dataclass
+class CREATE_TABLE_AS_SELECT(BaseSqlExpression):
+    fully_qualified_table_name: str
+    select_elements: list[Any]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
+
+
+@dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
     type: SqlDataType

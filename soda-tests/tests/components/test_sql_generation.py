@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest import mock
 
 from soda_core.common.sql_dialect import *
+from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
 mock_data_source_impl = mock.MagicMock()
 
@@ -247,3 +248,17 @@ def test_sql_ast_alter_table_drop_column():
         ALTER_TABLE_DROP_COLUMN(fully_qualified_table_name='"customers"', column_name="age")
     )
     assert my_alter_table_statement == 'ALTER TABLE "customers" DROP COLUMN "age";'
+
+
+def test_sql_ast_create_table_as_select():
+    sql_dialect: SqlDialect = PostgresSqlDialect(
+        mock_data_source_impl
+    )  # Temporarily use the postgres method specifically. It's not implemented in the base class yet.
+
+    my_create_table_as_select_statement = sql_dialect.build_create_table_as_select_sql(
+        CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name='"customers"',
+            select_elements=[SELECT(COLUMN("name")), FROM("customers")],
+        )
+    )
+    assert my_create_table_as_select_statement == 'CREATE TABLE "customers" AS (\nSELECT "name"\nFROM "customers");'
