@@ -525,6 +525,7 @@ class DataSourceTestHelper:
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
+        publish_results: bool = True,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
@@ -532,6 +533,7 @@ class DataSourceTestHelper:
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
             extra_data_source_impls=extra_data_source_impls,
+            publish_results=publish_results,
         )
         if contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification failed")
@@ -544,6 +546,7 @@ class DataSourceTestHelper:
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
+        publish_results: bool = True,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
@@ -551,6 +554,7 @@ class DataSourceTestHelper:
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
             extra_data_source_impls=extra_data_source_impls,
+            publish_results=publish_results,
         )
         if not contract_verification_session_result.is_warned:
             raise AssertionError(f"Expected contract verification warned")
