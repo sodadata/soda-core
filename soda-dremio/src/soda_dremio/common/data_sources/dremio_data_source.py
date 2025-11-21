@@ -1,5 +1,6 @@
 from logging import Logger
 from typing import Optional
+from datetime import datetime
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -12,6 +13,10 @@ from soda_dremio.common.data_sources.dremio_data_source_connection import (
 )
 from soda_dremio.common.data_sources.dremio_data_source_connection import (
     DremioDataSourceConnection,
+)
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
 )
 
 logger: Logger = soda_logger
@@ -138,3 +143,34 @@ class DremioSqlDialect(SqlDialect):
             ["int", "integer"],
             ["decimal", "numeric"],
         ]
+
+    def literal_datetime(self, datetime: datetime):
+        # Dremio doesn't like datetime.isoformat()
+        return f"'{datetime.strftime('%Y-%m-%d %H:%M:%S')}'"
+
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        # Dremio doesn't support ISO8601 format with 'T' separator
+        # Convert from '2025-01-21T12:34:56+00:00' to '2025-01-21 12:34:56+00:00'
+        # This also preserves variable placeholders like '${soda.NOW}' unchanged
+        datetime_str = datetime_in_iso8601.replace('T', ' ')
+        return f"timestamp '{datetime_str}'"
+
+
+    def literal_datetime_with_tz(self, datetime: datetime):
+        # Dremio doesn't support timezones
+        return self.literal_datetime(datetime)
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
+        return f"TIMESTAMPADD(DAY, 1, {timestamp_literal})"
+
+    def convert_str_to_datetime(self, datetime_str: str) -> datetime:
+        # format will be '2025-01-21 12:34:56+00:00'
+        # convert to iso format '2025-01-21T12:34:56+00:00'
+        datetime_iso_str = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S%z').isoformat()
+        return convert_str_to_datetime(datetime_iso_str)
+    
+    def convert_datetime_to_str(self, datetime: datetime) -> str:
+        datetime_iso_str: str = convert_datetime_to_str(datetime)
+        # convert to dremio format '2025-01-21 12:34:56 (no T, no timezone)'
+        # remove final 6 characters to strip timezone offset
+        return datetime_iso_str.replace('T', ' ')[:-6]
