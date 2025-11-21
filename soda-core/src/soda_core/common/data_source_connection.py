@@ -93,7 +93,7 @@ class DataSourceConnection(ABC):
                     tablefmt="github",
                 )
             except UnicodeDecodeError as e:
-                logger.debug("Error formatting rows. These may contain non-ASCII characters. {e}")
+                logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
                 table_text = "Error formatting rows. These may contain non-ASCII characters."
 
             logger.debug(
