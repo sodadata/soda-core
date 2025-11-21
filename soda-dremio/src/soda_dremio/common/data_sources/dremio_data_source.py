@@ -174,3 +174,11 @@ class DremioSqlDialect(SqlDialect):
         # convert to dremio format '2025-01-21 12:34:56 (no T, no timezone)'
         # remove final 6 characters to strip timezone offset
         return datetime_iso_str.replace('T', ' ')[:-6]
+
+    def _get_add_column_sql_expr(self) -> str:
+        """Dremio uses ADD COLUMNS (plural) instead of ADD COLUMN"""
+        return "ADD COLUMNS"
+
+    def _build_alter_table_add_column_sql(self, alter_table, add_semicolon: bool = True) -> str:
+        """Override to use parentheses required by Dremio's ADD COLUMNS syntax"""
+        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon, add_paranthesis=True)
