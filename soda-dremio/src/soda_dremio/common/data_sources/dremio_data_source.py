@@ -34,6 +34,9 @@ class DremioSqlDialect(SqlDialect):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),
+        (SodaDataTypeName.CHAR, SodaDataTypeName.VARCHAR, SodaDataTypeName.TEXT),
+        (SodaDataTypeName.SMALLINT, SodaDataTypeName.INTEGER),
+        (SodaDataTypeName.TIMESTAMP, SodaDataTypeName.TIMESTAMP_TZ),
     )
 
     
@@ -89,35 +92,36 @@ class DremioSqlDialect(SqlDialect):
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
         return {
-            SodaDataTypeName.CHAR: "CHARACTER VARYING",
-            SodaDataTypeName.VARCHAR: "CHARACTER VARYING",
-            SodaDataTypeName.TEXT: "CHARACTER VARYING",
-            SodaDataTypeName.INTEGER: "INT",
-            SodaDataTypeName.DECIMAL: "DECIMAL",
-            SodaDataTypeName.BIGINT: "BIGINT",
-            SodaDataTypeName.NUMERIC: "DECIMAL",
-            SodaDataTypeName.FLOAT: "FLOAT",
-            SodaDataTypeName.DOUBLE: "DOUBLE",
-            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
-            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP",
-            SodaDataTypeName.DATE: "DATE",
-            SodaDataTypeName.TIME: "TIME",
-            SodaDataTypeName.BOOLEAN: "BOOLEAN",
+            SodaDataTypeName.CHAR: "character varying",
+            SodaDataTypeName.VARCHAR: "character varying",
+            SodaDataTypeName.TEXT: "character varying",
+            SodaDataTypeName.INTEGER: "integer",
+            SodaDataTypeName.DECIMAL: "decimal",
+            SodaDataTypeName.BIGINT: "bigint",
+            SodaDataTypeName.SMALLINT: "integer",
+            SodaDataTypeName.NUMERIC: "decimal",
+            SodaDataTypeName.FLOAT: "float",
+            SodaDataTypeName.DOUBLE: "double",
+            SodaDataTypeName.TIMESTAMP: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.DATE: "date",
+            SodaDataTypeName.TIME: "time",
+            SodaDataTypeName.BOOLEAN: "boolean",
         }
 
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         return {
-            "CHARACTER VARYING": SodaDataTypeName.VARCHAR,
-            "INT": SodaDataTypeName.INTEGER,
-            "BIGINT": SodaDataTypeName.BIGINT,
-            "DECIMAL": SodaDataTypeName.DECIMAL,
-            "NUMERIC": SodaDataTypeName.NUMERIC,
-            "FLOAT": SodaDataTypeName.FLOAT,
-            "DOUBLE": SodaDataTypeName.DOUBLE,
-            "TIMESTAMP": SodaDataTypeName.TIMESTAMP,
-            "DATE": SodaDataTypeName.DATE,
-            "TIME": SodaDataTypeName.TIME,
-            "BOOLEAN": SodaDataTypeName.BOOLEAN,
+            "character varying": SodaDataTypeName.VARCHAR,
+            "integer": SodaDataTypeName.INTEGER,
+            "bigint": SodaDataTypeName.BIGINT,
+            "decimal": SodaDataTypeName.DECIMAL,
+            "numeric": SodaDataTypeName.NUMERIC,
+            "float": SodaDataTypeName.FLOAT,
+            "double": SodaDataTypeName.DOUBLE,
+            "timestamp": SodaDataTypeName.TIMESTAMP,
+            "date": SodaDataTypeName.DATE,
+            "time": SodaDataTypeName.TIME,
+            "boolean": SodaDataTypeName.BOOLEAN,
         }
 
     def _build_cast_sql(self, cast: CAST) -> str:
@@ -131,7 +135,6 @@ class DremioSqlDialect(SqlDialect):
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
             ["varchar", "character varying"],
-            ["char", "character"],
             ["int", "integer"],
             ["decimal", "numeric"],
         ]
