@@ -56,3 +56,11 @@ class EnvConfigHelper:
     def is_running_on_agent(self) -> bool:
         # SODA_INSTRUCTION_ID is only set when running in Soda Agent
         return self.soda_instruction_id is not None
+
+    @property
+    def soda_scan_definition_type(self) -> str | None:
+        return os.getenv("SODA_SCAN_DEFINITION_TYPE")
+
+    @property
+    def is_contract_test_scan_definition_type(self) -> bool:
+        return self.soda_scan_definition_type == "contractTest"
