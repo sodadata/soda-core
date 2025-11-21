@@ -497,7 +497,7 @@ class ContractImpl:
 
     @property
     def is_test_verification_on_agent(self) -> bool:
-        return self.soda_config.is_running_on_agent and not self.publish_results
+        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
 
     @property
     def is_sampling_enabled(self) -> bool:
