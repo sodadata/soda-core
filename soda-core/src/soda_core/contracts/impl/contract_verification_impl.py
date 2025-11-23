@@ -410,11 +410,19 @@ class ContractImpl:
         # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
         self.sql_qualified_dataset_name: Optional[str] = None
 
+        self.datasource_warehouse: Optional[str] = None
+        self.compute_warehouse: Optional[str] = None
+
         if data_source_impl:
             # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
             self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
+            if hasattr(data_source_impl.data_source_model, "warehouse"):
+                self.datasource_warehouse = data_source_impl.data_source_model.warehouse
+
+            if self.datasource_warehouse is None:
+                self.datasource_warehouse = data_source_impl.get_current_warehouse()
 
         from soda_core.contracts.impl.check_types.row_count_check import (
             RowCountMetricImpl,
@@ -450,10 +458,13 @@ class ContractImpl:
                 self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
                 self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
 
+            if self.dataset_configuration.compute_warehouse_override:
+                self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
+
         if self.should_apply_sampling:
             logger.info(
                 f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
-                f"with sampler {self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}"
+                f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', limit:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit}'"
             )
 
             # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
@@ -598,6 +609,16 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractVerificationResult:
+        if (
+            self.data_source_impl
+            and self.datasource_warehouse
+            and self.compute_warehouse
+            and self.datasource_warehouse != self.compute_warehouse
+        ):
+            logger.info(
+                f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+            )
+            self.data_source_impl.switch_warehouse(self.compute_warehouse)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
@@ -723,6 +744,18 @@ class ContractImpl:
                 self._handle_post_processing_failure(
                     scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
                 )
+
+        # Switch back to original warehouse if changed
+        if (
+            self.data_source_impl
+            and self.compute_warehouse
+            and self.datasource_warehouse
+            and self.datasource_warehouse != self.compute_warehouse
+        ):
+            logger.info(
+                f"Switching back warehouse to '{self.datasource_warehouse}' after Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+            )
+            self.data_source_impl.switch_warehouse(self.datasource_warehouse)
 
         return contract_verification_result
 

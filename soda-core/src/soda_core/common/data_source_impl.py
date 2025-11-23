@@ -235,3 +235,11 @@ class DataSourceImpl(ABC):
             fully_qualified_table_name.table_name == table_name
             for fully_qualified_table_name in fully_qualified_table_names
         )
+
+    def switch_warehouse(self, warehouse: str) -> None:
+        # Noop by default, only some data sources need to implement this
+        pass
+
+    def get_current_warehouse(self) -> Optional[str]:
+        # Noop by default, only some data sources need to implement this
+        return None
