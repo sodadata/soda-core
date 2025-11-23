@@ -614,6 +614,7 @@ class ContractImpl:
             and self.datasource_warehouse
             and self.compute_warehouse
             and self.datasource_warehouse != self.compute_warehouse
+            and self.soda_config.is_running_on_agent
         ):
             logger.info(
                 f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
@@ -751,6 +752,7 @@ class ContractImpl:
             and self.compute_warehouse
             and self.datasource_warehouse
             and self.datasource_warehouse != self.compute_warehouse
+            and self.soda_config.is_running_on_agent
         ):
             logger.info(
                 f"Switching back warehouse to '{self.datasource_warehouse}' after Contract verification of dataset '{self.dataset_identifier.to_string()}'"
