@@ -36,6 +36,19 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def switch_warehouse(self, warehouse: str) -> None:
+        switch_warehouse_sql = f"USE WAREHOUSE {warehouse}"
+        self.execute_query(switch_warehouse_sql)
+
+    def get_current_warehouse(self) -> Optional[str]:
+        sql = "SELECT CURRENT_WAREHOUSE()"
+        current_warehouse_sql = "SELECT CURRENT_WAREHOUSE()"
+        result = self.execute_query(current_warehouse_sql)
+        result_rows = result.rows
+        row = result_rows[0] if result_rows else None
+
+        return row[0] if row and row[0] else None
+
 
 class SnowflakeSqlDialect(SqlDialect):
     SODA_DATA_TYPE_SYNONYMS = (

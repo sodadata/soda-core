@@ -46,6 +46,12 @@ class DatasetConfigurationsDTO(BaseModel):
     dataset_configurations: list[DatasetConfigurationDTO] = Field(..., alias="datasetConfigurations")
 
 
+class ComputeWarehouseOverrideDTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    name: str = Field(..., alias="name")
+
+
 class DatasetConfigurationDTO(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
@@ -61,6 +67,7 @@ class DatasetConfigurationDTO(BaseModel):
     test_row_sampler_configuration: Optional[TestRowSamplerConfigurationDTO] = Field(
         None, alias="testRowSamplerConfiguration"
     )
+    compute_warehouse_override: Optional[ComputeWarehouseOverrideDTO] = Field(None, alias="computeWarehouseOverride")
 
 
 class TestRowSamplerAbsoluteLimitDTO(BaseModel):
