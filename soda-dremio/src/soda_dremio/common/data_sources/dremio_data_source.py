@@ -21,7 +21,8 @@ from soda_dremio.common.data_sources.dremio_data_source_connection import (
 
 logger: Logger = soda_logger
 
-CHARACTER_VARYING="character varying"  # constant used to avoid triggering Sonar duplicate check
+CHARACTER_VARYING = "character varying"  # constant used to avoid triggering Sonar duplicate check
+
 
 class DremioDataSourceImpl(DataSourceImpl, model_class=DremioDataSourceModel):
     def __init__(self, data_source_model: DremioDataSourceModel, connection: Optional[DataSourceConnection] = None):
@@ -46,7 +47,7 @@ class DremioSqlDialect(SqlDialect):
     )
 
     def __init__(self):
-        super().__init__()    
+        super().__init__()
 
     def get_database_prefix_index(self) -> int | None:
         return None
@@ -88,7 +89,7 @@ class DremioSqlDialect(SqlDialect):
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
         return {
-            SodaDataTypeName.CHAR: CHARACTER_VARYING,   # constant used to avoid triggering Sonar duplicate check
+            SodaDataTypeName.CHAR: CHARACTER_VARYING,  # constant used to avoid triggering Sonar duplicate check
             SodaDataTypeName.VARCHAR: CHARACTER_VARYING,
             SodaDataTypeName.TEXT: CHARACTER_VARYING,
             SodaDataTypeName.INTEGER: "integer",
@@ -169,6 +170,8 @@ class DremioSqlDialect(SqlDialect):
         """Dremio uses ADD COLUMNS (plural) instead of ADD COLUMN"""
         return "ADD COLUMNS"
 
-    def _build_alter_table_add_column_sql(self, alter_table, add_semicolon: bool = True, add_paranthesis: bool = False) -> str:
+    def _build_alter_table_add_column_sql(
+        self, alter_table, add_semicolon: bool = True, add_paranthesis: bool = False
+    ) -> str:
         """Override to use parentheses required by Dremio's ADD COLUMNS syntax"""
         return super()._build_alter_table_add_column_sql(alter_table, add_semicolon, add_paranthesis=True)
