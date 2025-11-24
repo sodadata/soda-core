@@ -21,6 +21,7 @@ from soda_core.common.datetime_conversions import (
 
 logger: Logger = soda_logger
 
+CHARACTER_VARYING="character varying"  # constant used to avoid triggering Sonar duplicate check
 
 class DremioDataSourceImpl(DataSourceImpl, model_class=DremioDataSourceModel):
     def __init__(self, data_source_model: DremioDataSourceModel, connection: Optional[DataSourceConnection] = None):
@@ -47,13 +48,7 @@ class DremioSqlDialect(SqlDialect):
     
 
     def __init__(self):
-        super().__init__()
-
-    # def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
-    #     # Dremio supports CREATE SCHEMA IF NOT EXISTS
-    #     # Format: CREATE SCHEMA IF NOT EXISTS source.schema_name
-    #     schema_name = ".".join(self.quote_default(prefix) for prefix in prefixes if prefix is not None)
-    #     return f"CREATE SCHEMA IF NOT EXISTS {schema_name}" + (";" if add_semicolon else "")
+        super().__init__()    
 
     def get_database_prefix_index(self) -> int | None:
         return None
@@ -97,9 +92,9 @@ class DremioSqlDialect(SqlDialect):
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
         return {
-            SodaDataTypeName.CHAR: "character varying",
-            SodaDataTypeName.VARCHAR: "character varying",
-            SodaDataTypeName.TEXT: "character varying",
+            SodaDataTypeName.CHAR: CHARACTER_VARYING,   # constant used to avoid triggering Sonar duplicate check
+            SodaDataTypeName.VARCHAR: CHARACTER_VARYING,
+            SodaDataTypeName.TEXT: CHARACTER_VARYING,
             SodaDataTypeName.INTEGER: "integer",
             SodaDataTypeName.DECIMAL: "decimal",
             SodaDataTypeName.BIGINT: "bigint",
@@ -116,7 +111,7 @@ class DremioSqlDialect(SqlDialect):
 
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
         return {
-            "character varying": SodaDataTypeName.VARCHAR,
+            CHARACTER_VARYING: SodaDataTypeName.VARCHAR,
             "integer": SodaDataTypeName.INTEGER,
             "bigint": SodaDataTypeName.BIGINT,
             "decimal": SodaDataTypeName.DECIMAL,
@@ -139,7 +134,7 @@ class DremioSqlDialect(SqlDialect):
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
-            ["varchar", "character varying"],
+            ["varchar", CHARACTER_VARYING],
             ["int", "integer"],
             ["decimal", "numeric"],
         ]
@@ -179,6 +174,6 @@ class DremioSqlDialect(SqlDialect):
         """Dremio uses ADD COLUMNS (plural) instead of ADD COLUMN"""
         return "ADD COLUMNS"
 
-    def _build_alter_table_add_column_sql(self, alter_table, add_semicolon: bool = True) -> str:
+    def _build_alter_table_add_column_sql(self, alter_table, add_semicolon: bool = True, add_paranthesis: bool = False) -> str:
         """Override to use parentheses required by Dremio's ADD COLUMNS syntax"""
         return super()._build_alter_table_add_column_sql(alter_table, add_semicolon, add_paranthesis=True)
