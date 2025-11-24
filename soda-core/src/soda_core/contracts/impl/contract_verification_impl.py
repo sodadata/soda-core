@@ -418,8 +418,8 @@ class ContractImpl:
             self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
-            if hasattr(data_source_impl.data_source_model, "warehouse"):
-                self.datasource_warehouse = data_source_impl.data_source_model.warehouse
+            if hasattr(data_source_impl.data_source_connection.connection_properties, "warehouse"):
+                self.datasource_warehouse = data_source_impl.data_source_connection.connection_properties.warehouse
 
             if self.datasource_warehouse is None:
                 self.datasource_warehouse = data_source_impl.get_current_warehouse()
@@ -611,7 +611,6 @@ class ContractImpl:
     def verify(self) -> ContractVerificationResult:
         if (
             self.data_source_impl
-            and self.datasource_warehouse
             and self.compute_warehouse
             and self.datasource_warehouse != self.compute_warehouse
             and self.soda_config.is_running_on_agent
@@ -749,8 +748,8 @@ class ContractImpl:
         # Switch back to original warehouse if changed
         if (
             self.data_source_impl
-            and self.compute_warehouse
             and self.datasource_warehouse
+            and self.compute_warehouse
             and self.datasource_warehouse != self.compute_warehouse
             and self.soda_config.is_running_on_agent
         ):

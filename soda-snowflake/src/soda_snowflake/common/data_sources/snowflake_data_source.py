@@ -42,8 +42,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
 
     def get_current_warehouse(self) -> Optional[str]:
         sql = "SELECT CURRENT_WAREHOUSE()"
-        current_warehouse_sql = "SELECT CURRENT_WAREHOUSE()"
-        result = self.execute_query(current_warehouse_sql)
+        result = self.execute_query(sql)
         result_rows = result.rows
         row = result_rows[0] if result_rows else None
 
