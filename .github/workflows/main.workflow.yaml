@@ -178,7 +178,7 @@ jobs:
           pip install -r dev-requirements.txt
           pip install -e soda-core
           pip install -e soda-tests
-          
+
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
             pip install -e soda-sqlserver
           fi
@@ -223,7 +223,7 @@ jobs:
         id: modules
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
-  release:
+  release-to-dev-pypi:
     if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
 
     runs-on: ubuntu-24.04
@@ -264,3 +264,49 @@ jobs:
           user: ${{ secrets.DEV_PYPI_USERNAME }}
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}
+  release-to-cloud-pypi:
+    if: github.ref_name == 'v4' && contains(github.ref, 'refs/tags/')
+
+    runs-on: ubuntu-24.04
+    needs: [define-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Debug GITHUB_REF
+        run: echo "GITHUB_REF=$GITHUB_REF"
+      - name: Get external secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            PYPI_USERNAME,/soda/github/common/SODA_PYPI_CLOUD_WRITE_USERNAME
+            PYPI_PASSWORD,/soda/github/common/SODA_PYPI_CLOUD_WRITE_PASSWORD
+      - name: Release ${{ matrix.module }}
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install tbump build twine
+
+          RELEASE_VERSION="$(echo ${GITHUB_REF_NAME} | sed -E 's/v(.*)/\1/')"
+          tbump --only-patch --non-interactive ${RELEASE_VERSION}
+          echo "Using tag version: $VERSION"
+
+          cd ${{ matrix.module }}
+          python3 -m build
+      - name: Publish package to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ matrix.module }}/dist
+          user: ${{ secrets.PYPI_USERNAME }}
+          password: ${{ secrets.PYPI_PASSWORD }}
+          repository-url: ${{ vars.CLOUD_PYPI_REPOSITORY }}
