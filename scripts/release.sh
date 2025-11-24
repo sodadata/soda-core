@@ -28,7 +28,7 @@ fi
 echo "Releasing $NEXT"
 if [ "$DRY_RUN" = true ]; then
   echo "[DRY RUN] Would execute: tbump --non-interactive $NEXT"
-  tbump --non-interactive --dry-run $NEXT
+  tbump --dry-run $NEXT
 else
   tbump --non-interactive "$NEXT"
 fi
@@ -52,7 +52,7 @@ fi
 echo "Setting next prerelease $NEXT_PRERELEASE"
 if [ "$DRY_RUN" = true ]; then
    echo "[DRY RUN] Would execute: tbump --non-interactive --no-tag $NEXT_PRERELEASE"
-   tbump --non-interactive --no-tag --dry-run $NEXT_PRERELEASE
+   tbump --no-tag --dry-run $NEXT_PRERELEASE
 else
   tbump --non-interactive --no-tag "$NEXT_PRERELEASE"
 fi
