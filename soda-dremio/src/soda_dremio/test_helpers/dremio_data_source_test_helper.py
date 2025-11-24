@@ -9,7 +9,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 class DremioDataSourceTestHelper(DataSourceTestHelper):
     def _create_schema_name(self) -> Optional[str]:
         # Dremio can only reliably write to the $scratch space
-        # Use a multi-level schema name to expose any related bugs 
+        # Use a multi-level schema name to expose any related bugs
         schema: str = super()._create_schema_name()
         return f"$scratch.foo.bar.{schema}"
 

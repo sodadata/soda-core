@@ -229,7 +229,7 @@ class ContractVerificationSessionImpl:
                         contract_yaml_source=contract_yaml_source,
                         provided_variable_values=provided_variable_values,
                         data_timestamp=data_timestamp,
-                        primary_data_source_impl=data_source_impls_by_name.get('primary_datasource'),
+                        primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
                     )
                     data_source_name: str = (
                         contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None

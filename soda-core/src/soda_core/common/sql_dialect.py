@@ -9,16 +9,16 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     DataSourceNamespace,
     SodaDataTypeName,
     SqlDataType,
-)
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
 )
 from soda_core.common.soda_cloud_dto import SamplerType
 from soda_core.common.sql_ast import (
