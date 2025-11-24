@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
@@ -14,7 +15,6 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
-from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.yaml import (
     ContractYamlSource,
     VariableResolver,
@@ -89,7 +89,6 @@ class ContractYaml:
             # some dialects (Dremio) don't use ISO format, we need to override
             f_convert_str_to_datetime = primary_data_source_impl.sql_dialect.convert_str_to_datetime
             f_convert_datetime_to_str = primary_data_source_impl.sql_dialect.convert_datetime_to_str
-
 
         soda_variable_values: dict[str, str] = {
             "NOW": f_convert_datetime_to_str(self.execution_timestamp),

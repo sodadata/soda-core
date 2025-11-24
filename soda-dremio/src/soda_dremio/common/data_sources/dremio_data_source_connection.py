@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
+import time
 from abc import ABC
 from typing import Any, Literal, Optional, Union
-import time
 
 import adbc_driver_flightsql.dbapi as dbapi
 from pydantic import Field, IPvAnyAddress, SecretStr
@@ -83,5 +83,5 @@ class DremioDataSourceConnection(DataSourceConnection):
         # ADBC DBAPI cursors use execute() for all operations (including DDL/DML)
         # Autocommit is enabled at connection level, so no explicit commit needed
         updates = cursor.execute(sql)
-        time.sleep(1) # there's a race condition
+        time.sleep(1)  # there's a race condition
         return updates

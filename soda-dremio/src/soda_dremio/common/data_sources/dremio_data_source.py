@@ -1,11 +1,15 @@
+from datetime import datetime
 from logging import Logger
 from typing import Optional
-from datetime import datetime
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_ast import CAST, REGEX_LIKE
 from soda_core.common.sql_dialect import SqlDialect
 from soda_dremio.common.data_sources.dremio_data_source_connection import (
@@ -13,10 +17,6 @@ from soda_dremio.common.data_sources.dremio_data_source_connection import (
 )
 from soda_dremio.common.data_sources.dremio_data_source_connection import (
     DremioDataSourceConnection,
-)
-from soda_core.common.datetime_conversions import (
-    convert_datetime_to_str,
-    convert_str_to_datetime,
 )
 
 logger: Logger = soda_logger
@@ -45,8 +45,6 @@ class DremioSqlDialect(SqlDialect):
         (SodaDataTypeName.TIMESTAMP, SodaDataTypeName.TIMESTAMP_TZ),
     )
 
-    
-
     def __init__(self):
         super().__init__()    
 
@@ -58,7 +56,7 @@ class DremioSqlDialect(SqlDialect):
 
     def default_varchar_length(self) -> Optional[int]:
         return 65535
-    
+
     def supports_data_type_character_maximum_length(self) -> bool:
         return False
 
@@ -83,8 +81,6 @@ class DremioSqlDialect(SqlDialect):
         parts: list[str] = schema.split(".") + [dataset_name]
         parts = [self.quote_default(p) for p in parts if p]
         return ".".join(parts)
-
-
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
@@ -147,9 +143,8 @@ class DremioSqlDialect(SqlDialect):
         # Dremio doesn't support ISO8601 format with 'T' separator
         # Convert from '2025-01-21T12:34:56+00:00' to '2025-01-21 12:34:56+00:00'
         # This also preserves variable placeholders like '${soda.NOW}' unchanged
-        datetime_str = datetime_in_iso8601.replace('T', ' ')
+        datetime_str = datetime_in_iso8601.replace("T", " ")
         return f"timestamp '{datetime_str}'"
-
 
     def literal_datetime_with_tz(self, datetime: datetime):
         # Dremio doesn't support timezones
@@ -161,14 +156,14 @@ class DremioSqlDialect(SqlDialect):
     def convert_str_to_datetime(self, datetime_str: str) -> datetime:
         # format will be '2025-01-21 12:34:56+00:00'
         # convert to iso format '2025-01-21T12:34:56+00:00'
-        datetime_iso_str = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S%z').isoformat()
+        datetime_iso_str = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S%z").isoformat()
         return convert_str_to_datetime(datetime_iso_str)
-    
+
     def convert_datetime_to_str(self, datetime: datetime) -> str:
         datetime_iso_str: str = convert_datetime_to_str(datetime)
         # convert to dremio format '2025-01-21 12:34:56 (no T, no timezone)'
         # remove final 6 characters to strip timezone offset
-        return datetime_iso_str.replace('T', ' ')[:-6]
+        return datetime_iso_str.replace("T", " ")[:-6]
 
     def _get_add_column_sql_expr(self) -> str:
         """Dremio uses ADD COLUMNS (plural) instead of ADD COLUMN"""
