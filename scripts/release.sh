@@ -3,7 +3,7 @@
 set -euo pipefail
 shopt -s nullglob globstar
 
-if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+if [[ $# -lt 1 ]] || [[ $# -gt 2 ]]; then
   echo "Usage: $0 <version> [--dry-run]" >&2
   exit 1
 fi
@@ -11,7 +11,7 @@ fi
 NEXT="$1"
 
 # Check for dry run flag as second parameter
-if [ $# -eq 2 ] && [ "$2" = "--dry-run" ]; then
+if [[ $# -eq 2 ]] && [[ "$2" = "--dry-run" ]]; then
   DRY_RUN=true
 else
   DRY_RUN=false
@@ -26,7 +26,7 @@ else
 fi
 
 echo "Releasing $NEXT"
-if [ "$DRY_RUN" = true ]; then
+if [[ "$DRY_RUN" = true ]]; then
   echo "[DRY RUN] Would execute: tbump --non-interactive $NEXT"
   tbump --dry-run $NEXT
 else
@@ -50,7 +50,7 @@ else
 fi
 
 echo "Setting next prerelease $NEXT_PRERELEASE"
-if [ "$DRY_RUN" = true ]; then
+if [[[ "$DRY_RUN" = true ]]; then
    echo "[DRY RUN] Would execute: tbump --non-interactive --no-tag $NEXT_PRERELEASE"
    tbump --no-tag --dry-run $NEXT_PRERELEASE
 else
