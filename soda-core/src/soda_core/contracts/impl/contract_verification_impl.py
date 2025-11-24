@@ -611,7 +611,6 @@ class ContractImpl:
     def verify(self) -> ContractVerificationResult:
         if (
             self.data_source_impl
-            and self.datasource_warehouse
             and self.compute_warehouse
             and self.datasource_warehouse != self.compute_warehouse
             and self.soda_config.is_running_on_agent
@@ -750,7 +749,6 @@ class ContractImpl:
         if (
             self.data_source_impl
             and self.compute_warehouse
-            and self.datasource_warehouse
             and self.datasource_warehouse != self.compute_warehouse
             and self.soda_config.is_running_on_agent
         ):
