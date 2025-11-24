@@ -9,7 +9,9 @@ from tempfile import TemporaryFile
 from typing import Optional
 
 from requests import Response
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 
 
 class MockHttpMethod(Enum):
@@ -62,6 +64,7 @@ class MockSodaCloud(SodaCloud):
         )
         self.requests: list[MockRequest] = []
         self.responses: list[Optional[MockResponse]] = responses if isinstance(responses, list) else []
+        self.dataset_configurations: dict[DatasetIdentifier, DatasetConfigurationDTO] = {}
 
     def _http_post(
         self,
@@ -127,3 +130,18 @@ class MockSodaCloud(SodaCloud):
                 response_check["identities"] = [request_check_identities[index]]
 
         response.set_json_object(new_json_object)
+
+    def set_dataset_configuration_response(
+        self, dataset_identifier: "DatasetIdentifier", dataset_configuration_dto: "DatasetConfigurationDTO"
+    ):
+        self.dataset_configurations[str(dataset_identifier)] = dataset_configuration_dto
+
+    def fetch_dataset_configuration(
+        self, dataset_identifier: "DatasetIdentifier"
+    ) -> Optional["DatasetConfigurationDTO"]:
+        if str(dataset_identifier) in self.dataset_configurations:
+            return self.dataset_configurations[str(dataset_identifier)]
+
+        # Return an empty DatasetConfigurationDTO for testing purposes. This is sufficient for tests that do not depend on specific configuration values.
+        # This overrides the mock response setup in tests, but it would be annoying to have to set up the mock response for every test just to return an empty configuration.
+        return DatasetConfigurationDTO()

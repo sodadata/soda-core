@@ -27,6 +27,7 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 
 class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
     project_id: Optional[str] = Field(None, description="BigQuery project ID")
+    storage_project_id: Optional[str] = Field(None, description="BigQuery storage project ID")
     location: Optional[str] = Field(None, description="BigQuery location")
     client_options: Optional[dict] = Field(None, description="Client options")
     labels: Optional[dict] = Field({}, description="Labels")
@@ -116,6 +117,10 @@ class BigQueryDataSourceConnection(DataSourceConnection):
         self.project_id = config.project_id if config.project_id else self.project_id
         self.location = config.location
         self.client_options = config.client_options
+
+        # Storage project ID is currently not used, because the project is configured via the DQN in the data contract.
+        # When we implement discovery, we'll need to use this value.
+        self.storage_project_id = config.storage_project_id if config.storage_project_id else self.project_id
 
         self.labels = config.labels
 

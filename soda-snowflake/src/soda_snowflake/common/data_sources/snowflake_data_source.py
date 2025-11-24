@@ -1,10 +1,12 @@
 from logging import Logger
+from numbers import Number
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.soda_cloud_dto import SamplerType
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -27,12 +29,25 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SnowflakeSqlDialect()
+        return SnowflakeSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SnowflakeDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
+
+    def switch_warehouse(self, warehouse: str) -> None:
+        switch_warehouse_sql = f"USE WAREHOUSE {warehouse}"
+        self.execute_query(switch_warehouse_sql)
+
+    def get_current_warehouse(self) -> Optional[str]:
+        sql = "SELECT CURRENT_WAREHOUSE()"
+        current_warehouse_sql = "SELECT CURRENT_WAREHOUSE()"
+        result = self.execute_query(current_warehouse_sql)
+        result_rows = result.rows
+        row = result_rows[0] if result_rows else None
+
+        return row[0] if row and row[0] else None
 
 
 class SnowflakeSqlDialect(SqlDialect):
@@ -48,15 +63,22 @@ class SnowflakeSqlDialect(SqlDialect):
         (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
     )
 
-    def __init__(self):
-        super().__init__()
-
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
     def metadata_casify(self, identifier: str) -> str:
         """Metadata identifiers are not uppercased for Snowflake."""
         return identifier
+
+    def create_table_casify_qualified_name(self, qualified_name: str) -> str:
+        # Parse the last element from the qualified name and casify it
+        if "." in qualified_name:  # It is an actual qualified name, not just a table name
+            name_parts = qualified_name.split(".")
+            # Caseify the last element
+            name_parts[-1] = name_parts[-1].upper()
+            return ".".join(name_parts)
+        # It is not a fully qualified name, just a table name
+        return qualified_name.upper()
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return " SELECT * FROM VALUES\n" + ",\n".join([self.build_expression_sql(value) for value in values.values])
@@ -152,3 +174,9 @@ class SnowflakeSqlDialect(SqlDialect):
             "timestamp_ltz",
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
+
+    def _build_sample_sql(self, sampler_type: str, sample_size: Number) -> str:
+        if sampler_type == SamplerType.ABSOLUTE_LIMIT:
+            return f"TABLESAMPLE ({int(sample_size)} ROWS)"
+        else:
+            raise ValueError(f"Unsupported sample type: {sampler_type}")

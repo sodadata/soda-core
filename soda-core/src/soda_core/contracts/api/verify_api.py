@@ -14,10 +14,12 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
 )
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from typing_extensions import deprecated
 
 soda_telemetry = SodaTelemetry()
 
 
+@deprecated("Use verify_contract_locally instead")
 def verify_contracts_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
@@ -31,15 +33,52 @@ def verify_contracts_locally(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+
+    if len(contract_file_paths) > 1:
+        raise InvalidArgumentException("Only one contract is allowed at a time")
+
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
+
+    return verify_contract_locally(
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        data_sources=data_sources,
+        contract_file_path=contract_file_paths[0],
+        dataset_identifier=dataset_identifiers[0],
+        soda_cloud_file_path=soda_cloud_file_path,
+        variables=variables,
+        data_timestamp=data_timestamp,
+        publish=publish,
+        check_paths=check_paths,
+        dwh_data_source_file_path=dwh_data_source_file_path,
+    )
+
+
+def verify_contract_locally(
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
+    contract_file_path: Optional[str] = None,
+    dataset_identifier: Optional[str] = None,
+    soda_cloud_file_path: Optional[str] = None,
+    variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
+    publish: bool = False,
+    check_paths: Optional[list[str]] = None,
+    dwh_data_source_file_path: Optional[str] = None,
+) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
     """
     if not isinstance(data_sources, list):
         data_sources = [data_sources]
 
-    return verify_contracts(
-        contract_file_paths=contract_file_paths,
-        dataset_identifiers=dataset_identifiers,
+    return verify_contract(
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
         data_sources=data_sources,
@@ -53,6 +92,7 @@ def verify_contracts_locally(
     )
 
 
+@deprecated("Use verify_contract_on_agent instead")
 def verify_contracts_on_agent(
     soda_cloud_file_path: str,
     contract_file_paths: Optional[Union[str, list[str]]] = None,
@@ -64,12 +104,45 @@ def verify_contracts_on_agent(
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+
+    if len(contract_file_paths) > 1:
+        raise InvalidArgumentException("Only one contract is allowed at a time")
+
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
+
+    return verify_contract_on_agent(
+        soda_cloud_file_path=soda_cloud_file_path,
+        contract_file_path=contract_file_paths[0],
+        dataset_identifier=dataset_identifiers[0],
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        variables=variables,
+        publish=publish,
+        verbose=verbose,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+    )
+
+
+def verify_contract_on_agent(
+    soda_cloud_file_path: str,
+    contract_file_path: Optional[str] = None,
+    dataset_identifier: Optional[str] = None,
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    variables: Optional[Dict[str, str]] = None,
+    publish: bool = False,
+    verbose: bool = False,
+    blocking_timeout_in_minutes: int = 60,
+) -> ContractVerificationSessionResult:
     """
     Verifies the contract on an agent.
     """
-    return verify_contracts(
-        contract_file_paths=contract_file_paths,
-        dataset_identifiers=dataset_identifiers,
+    return verify_contract(
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
         soda_cloud_file_path=soda_cloud_file_path,
@@ -81,9 +154,9 @@ def verify_contracts_on_agent(
     )
 
 
-def verify_contracts(
-    contract_file_paths: Optional[Union[str, list[str]]],
-    dataset_identifiers: Optional[list[str]],
+def verify_contract(
+    contract_file_path: Optional[str],
+    dataset_identifier: Optional[str],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
     publish: bool,
@@ -104,13 +177,23 @@ def verify_contracts(
     if data_source_file_path and data_source_file_path not in data_source_file_paths:
         data_source_file_paths.append(data_source_file_path)
 
+    # Backward compatibility for single dataset identifier - convert to list
+    if dataset_identifier is not None:
+        dataset_identifiers = [dataset_identifier]
+    else:
+        dataset_identifiers = None
+
+    # TODO: change this when we fully deprecate a list of contract file paths
+    # This is only here to make sure the rest of the code still works.
+    if isinstance(contract_file_path, str):
+        contract_file_paths = [contract_file_path]
+    else:
+        contract_file_paths = None
+
     soda_cloud_client: Optional[SodaCloud] = None
     try:
         if soda_cloud_file_path:
             soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
-
-        if isinstance(contract_file_paths, str):
-            contract_file_paths = [contract_file_paths]
 
         # TODO: verify the path where connection is provided
         validate_verify_arguments(

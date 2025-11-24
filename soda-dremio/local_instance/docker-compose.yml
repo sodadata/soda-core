@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
   postgres:
     image: postgres:15.10-alpine3.21
@@ -12,7 +11,6 @@ services:
       - "5432:5432"
     volumes:
       - ./.postgres-data:/var/lib/postgresql/data
-
   dremio:
     user: "0:0"   # run as root
     image: dremio/dremio-oss:latest
@@ -29,8 +27,6 @@ services:
       - DREMIO_JAVA_SERVER_HEAP_MIN=2G
       - FLIGHT_SSL_ENABLED=false
       - DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$$en_US
-
-
     volumes:
       - ./.dremio-data:/opt/dremio/data
     restart: unless-stopped

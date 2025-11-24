@@ -7,7 +7,7 @@ from helpers.test_table import TestTableSpecification
 from pyspark.sql import SparkSession
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import ContractYamlSource
-from soda_core.contracts.api.verify_api import verify_contracts_locally
+from soda_core.contracts.api.verify_api import verify_contract_locally
 from soda_core.contracts.contract_verification import ContractVerificationSession
 from soda_sparkdf.common.data_sources.sparkdf_data_source import (
     SparkDataFrameDataSource,
@@ -155,7 +155,7 @@ def test_another_with_existing_session(data_source_test_helper: DataSourceTestHe
         f.write(contract_str)
 
     # Run contract verification
-    result = verify_contracts_locally(data_sources=[spark_data_source], contract_file_paths=[contract_file_path])
+    result = verify_contract_locally(data_sources=[spark_data_source], contract_file_path=contract_file_path)
 
     assert result.is_ok, f"Expected contract to be ok, but got {result.get_errors_str()}"
 
@@ -193,6 +193,6 @@ def test_schema_check_with_existing_session(data_source_test_helper: DataSourceT
         f.write(contract_str)
 
     # Run contract verification
-    result = verify_contracts_locally(data_sources=[spark_data_source], contract_file_paths=[contract_file_path])
+    result = verify_contract_locally(data_sources=[spark_data_source], contract_file_path=contract_file_path)
 
     assert result.is_ok, f"Expected contract to be ok, but got {result.get_errors_str()}"

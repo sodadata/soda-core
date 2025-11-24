@@ -194,7 +194,7 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
-        return SparkDataFrameSqlDialect()
+        return SparkDataFrameSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SparkDataFrameDataSourceConnection(
@@ -230,6 +230,13 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
             return f"DESCRIBE {database_name}.{schema_name}.{dataset_name}"
         else:
             raise ValueError(f"Invalid number of dataset prefixes: {len(dataset_prefixes)}")
+
+    def test_schema_exists(self, prefixes: list[str]) -> bool:
+        result = self.connection.session.sql(f"SHOW SCHEMAS LIKE '{prefixes[0]}'").collect()
+        for row in result:
+            if row[0] and row[0].lower() == prefixes[0].lower():
+                return True
+        return False
 
 
 # Alias to make the import and usage cleaner

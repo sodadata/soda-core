@@ -5,7 +5,7 @@ from abc import abstractmethod
 from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
-from typing import Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -20,6 +20,7 @@ from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
+from soda_core.common.soda_cloud_dto import SamplerType
 from soda_core.common.sql_ast import (
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
@@ -34,6 +35,7 @@ from soda_core.common.sql_ast import (
     CONCAT_WS,
     COUNT,
     CREATE_TABLE,
+    CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     CTE,
@@ -85,6 +87,10 @@ from soda_core.common.sql_ast import (
     SqlExpression,
     SqlExpressionStr,
 )
+from soda_core.common.sql_utils import apply_sampling_to_sql
+
+if TYPE_CHECKING:
+    from soda_core.common.data_source_impl import DataSourceImpl
 
 logger: logging.Logger = soda_logger
 
@@ -100,7 +106,12 @@ class SqlDialect:
 
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
 
-    def __init__(self):
+    def __init__(
+        self,
+        data_source_impl: DataSourceImpl,
+    ):
+        self.data_source_impl: DataSourceImpl = data_source_impl
+
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
@@ -428,6 +439,13 @@ class SqlDialect:
     def _is_not_null_ddl_supported(self) -> bool:
         return True
 
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+    ) -> str:
+        raise NotImplementedError(
+            "This method (build_create_table_as_select_sql) should be overwritten by the data source dialect"
+        )
+
     #########################################################
     # ALTER TABLE
     #########################################################
@@ -731,6 +749,9 @@ class SqlDialect:
             )
         ]
 
+        if isinstance(from_part.sampler_type, str) and isinstance(from_part.sample_size, Number):
+            from_parts.append(self._build_sample_sql(from_part.sampler_type, from_part.sample_size))
+
         if isinstance(from_part.alias, str):
             from_parts.append(self._alias_format(from_part.alias))
 
@@ -977,6 +998,9 @@ class SqlDialect:
             string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
         return self.build_expression_sql(STRING_HASH(string_to_hash))
 
+    def _build_sample_sql(self, sampler_type: str, sample_size: Number) -> str:
+        raise NotImplementedError("Sampling not implemented for this dialect")
+
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """
         The prefixes / namespace of the information schema for a given dataset prefix / namespace
@@ -1005,6 +1029,27 @@ class SqlDialect:
         Purpose of this method is to allow specific data source to override.
         """
         return self.default_casify("columns")
+
+    def table_schemata(self) -> str:
+        """
+        Name of the table that has the schema information in the metadata.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("schemata")
+
+    def column_schemata_catalog_name(self) -> str:
+        """
+        Name of the column that has the database/catalog information in the schemata metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("catalog_name")
+
+    def column_schema_name(self) -> str:
+        """
+        Name of the column that has the schema name in the schemata metadata table.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return self.default_casify("schema_name")
 
     def column_table_catalog(self) -> str:
         """
@@ -1088,6 +1133,10 @@ class SqlDialect:
         """Define case for metadata identifiers if needed."""
         return identifier
 
+    def create_table_casify_qualified_name(self, qualified_name: str) -> str:
+        # For data sources that default to a specific case for the table name (e.g. Snowflake prefers uppercase), this method can be overridden to casify the qualified table name.
+        return qualified_name  # By default, we don't casify the qualified table name when creating a table as these are quoted
+
     # Very lightweight dialect-specific interpretation of dataset prefixes.
     def get_database_prefix_index(self) -> int | None:
         return 0
@@ -1164,6 +1213,20 @@ class SqlDialect:
     def supports_case_sensitive_column_names(self) -> bool:
         return True
 
+    def apply_sampling(
+        self,
+        sql: str,
+        sampler_limit: Number,
+        sampler_type: SamplerType,
+    ) -> str:
+        return apply_sampling_to_sql(
+            sql=sql,
+            sampler_limit=sampler_limit,
+            sampler_type=sampler_type,
+            read_dialect=self.data_source_impl.type_name,
+            write_dialect=self.data_source_impl.type_name,
+        )
+
     ########################################################
     # Metadata columns query
     ########################################################
@@ -1224,6 +1287,36 @@ class SqlDialect:
                 ORDER_BY_ASC(ORDINAL_POSITION()),
             ]
         )
+
+    def build_schemas_metadata_query_str(
+        self, table_namespace: Optional[DataSourceNamespace] = None, filter_on_schema_name: Optional[str] = None
+    ) -> str:
+        """
+        Builds the full SQL query to query schema names from the data source metadata.
+        Optionally filters by database/catalog if provided in table_namespace.
+
+        If the filter_on_schema_name is provided, it will only return the schema name that matches the filter. This is useful to check if a schema exists.
+        """
+        database_name: str | None = table_namespace.get_database_for_metadata_query() if table_namespace else None
+
+        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
+
+        select_elements = [
+            SELECT([self.column_schema_name()]),
+            FROM(self.table_schemata()).IN(information_schema_namespace_elements),
+        ]
+
+        and_elements = [
+            EQ(self.column_schemata_catalog_name(), LITERAL(self.metadata_casify(database_name))),
+        ]
+
+        if filter_on_schema_name:
+            and_elements.append(EQ(self.column_schema_name(), LITERAL(self.metadata_casify(filter_on_schema_name))))
+
+        if database_name:
+            select_elements.append(WHERE(AND(and_elements)))
+
+        return self.build_select_sql(select_elements)
 
     def extract_column_index(self, column_name: str, columns: list[Tuple[Any, ...]]) -> int:
         column_names = [c[0] for c in columns]

@@ -15,7 +15,10 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
+from soda_core.common.statements.metadata_tables_query import (
+    FullyQualifiedTableName,
+    MetadataTablesQuery,
+)
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -170,3 +173,73 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
+        """
+        Builds the table namespace for the schema query.
+        Returns the table namespace and the schema name.
+        """
+        database_index: int | None = self.sql_dialect.get_database_prefix_index()
+        schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
+
+        schema_name: str = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        if schema_name is None:
+            raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
+
+        database_name: str | None = (
+            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+        )
+
+        table_namespace: DataSourceNamespace = (
+            SchemaDataSourceNamespace(schema=prefixes[schema_index])
+            if database_index is None
+            else DbSchemaDataSourceNamespace(
+                database=database_name,
+                schema=prefixes[schema_index],
+            )
+        )
+        return table_namespace, schema_name
+
+    def test_schema_exists(self, prefixes: list[str]) -> bool:
+        table_namespace, schema_name = self._build_table_namespace_for_schema_query(prefixes=prefixes)
+
+        # Query all schemas to check if the target schema exists
+        schemas_query_sql: str = self.sql_dialect.build_schemas_metadata_query_str(
+            table_namespace=table_namespace, filter_on_schema_name=schema_name
+        )
+        query_result: QueryResult = self.execute_query(schemas_query_sql)
+
+        # Check if schema exists in the results
+        schema_exists: bool = False
+        schema_name_lower: str = schema_name.lower()
+        for row in query_result.rows:
+            if row[0] and row[0].lower() == schema_name_lower:
+                schema_exists = True
+                break
+        return schema_exists
+
+    def verify_if_table_exists(self, prefixes: list[str], table_name: str) -> bool:
+        metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
+        database_index = self.sql_dialect.get_database_prefix_index()
+        schema_index = self.sql_dialect.get_schema_prefix_index()
+        database_name = (
+            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+        )
+        schema_name = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
+            database_name=database_name,
+            schema_name=schema_name,
+            include_table_name_like_filters=[table_name],
+        )
+        return any(
+            fully_qualified_table_name.table_name == table_name
+            for fully_qualified_table_name in fully_qualified_table_names
+        )
+
+    def switch_warehouse(self, warehouse: str) -> None:
+        # Noop by default, only some data sources need to implement this
+        pass
+
+    def get_current_warehouse(self) -> Optional[str]:
+        # Noop by default, only some data sources need to implement this
+        return None

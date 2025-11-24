@@ -6,7 +6,10 @@ package_name = "soda-databricks"
 package_version = "4.0.0b12"
 description = "Soda Databricks V4"
 
-requires = [f"soda-core=={package_version}", "databricks-sql-connector"]
+requires = [
+    f"soda-core=={package_version}",
+    "databricks-sql-connector",
+]
 
 setup(
     name=package_name,

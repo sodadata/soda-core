@@ -29,7 +29,11 @@ class DatabricksDataSourceConnection(DataSourceConnection):
         )
 
     def rollback(self) -> None:
-        # Databricks does not support transactions.
+        # We do not start any transactions, Databricks default is autocommit.
+        pass
+
+    def commit(self) -> None:
+        # We do not start any transactions, Databricks default is autocommit.
         pass
 
     def _execute_query_get_result_row_column_name(self, column) -> str:

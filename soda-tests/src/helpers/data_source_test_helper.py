@@ -147,7 +147,6 @@ class DataSourceTestHelper:
 
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
-        self.publish_results = True
 
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
@@ -167,7 +166,7 @@ class DataSourceTestHelper:
         if logs.has_errors:
             raise AssertionError(str(logs))
 
-    def enable_soda_cloud_mock(self, responses: list[MockResponse]):
+    def enable_soda_cloud_mock(self, responses: Optional[list[MockResponse]] = None):
         self.soda_cloud = MockSodaCloud(responses)
 
     def _create_data_source_impl(self) -> "DataSourceImpl":
@@ -506,6 +505,7 @@ class DataSourceTestHelper:
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
         check_paths: Optional[list[str]] = None,
+        publish_results: bool = True,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
@@ -514,6 +514,7 @@ class DataSourceTestHelper:
             dwh_data_source_file_path=dwh_data_source_file_path,
             extra_data_source_impls=extra_data_source_impls,
             check_paths=check_paths,
+            publish_results=publish_results,
         )
         if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
             raise AssertionError(f"No contract verification result session")
@@ -530,6 +531,7 @@ class DataSourceTestHelper:
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
+        publish_results: bool = True,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
@@ -537,6 +539,7 @@ class DataSourceTestHelper:
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
             extra_data_source_impls=extra_data_source_impls,
+            publish_results=publish_results,
         )
         if contract_verification_session_result.is_ok:
             raise AssertionError(f"Expected contract verification failed")
@@ -549,6 +552,7 @@ class DataSourceTestHelper:
         variables: Optional[dict[str, str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
+        publish_results: bool = True,
     ) -> ContractVerificationResult:
         contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
             contract_yaml_str=contract_yaml_str,
@@ -556,6 +560,7 @@ class DataSourceTestHelper:
             variables=variables,
             dwh_data_source_file_path=dwh_data_source_file_path,
             extra_data_source_impls=extra_data_source_impls,
+            publish_results=publish_results,
         )
         if not contract_verification_session_result.is_warned:
             raise AssertionError(f"Expected contract verification warned")
@@ -569,6 +574,7 @@ class DataSourceTestHelper:
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
         check_paths: Optional[list[str]] = None,
+        publish_results: bool = True,
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
         logger.debug(f"Contract:\n{contract_yaml_str}")
@@ -579,7 +585,7 @@ class DataSourceTestHelper:
             data_source_impls=[self.data_source_impl, *extra_data_source_impls],
             soda_cloud_impl=self.soda_cloud,
             soda_cloud_use_agent=self.use_agent,
-            soda_cloud_publish_results=self.publish_results,
+            soda_cloud_publish_results=publish_results,
             dwh_data_source_file_path=dwh_data_source_file_path,
             check_paths=check_paths,
         )

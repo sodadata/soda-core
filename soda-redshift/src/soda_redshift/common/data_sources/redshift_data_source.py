@@ -35,7 +35,7 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return RedshiftSqlDialect()
+        return RedshiftSqlDialect(data_source_impl=self)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return RedshiftDataSourceConnection(
@@ -48,9 +48,6 @@ class RedshiftSqlDialect(SqlDialect):
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
-
-    def __init__(self):
-        super().__init__()
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {

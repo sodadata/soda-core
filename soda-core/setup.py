@@ -21,6 +21,7 @@ requires = [
     "opentelemetry-exporter-otlp-proto-http>=1.16.0,<2.0.0",
     "tabulate[widechars]",
     "python-dotenv~=1.0",
+    "sqlglot",
 ]
 
 setup(

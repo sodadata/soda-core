@@ -10,6 +10,7 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     InvalidRegexException,
     SodaCoreException,
@@ -18,6 +19,7 @@ from soda_core.common.exceptions import (
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import (
     ContractYamlSource,
@@ -381,6 +383,7 @@ class ContractImpl:
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls
         self.soda_cloud: Optional[SodaCloud] = soda_cloud
         self.publish_results: bool = publish_results
+        self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = self.contract_yaml.filter
         self.check_paths: list[str] = check_paths
@@ -408,11 +411,19 @@ class ContractImpl:
         # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
         self.sql_qualified_dataset_name: Optional[str] = None
 
+        self.datasource_warehouse: Optional[str] = None
+        self.compute_warehouse: Optional[str] = None
+
         if data_source_impl:
             # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
             self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
+            if hasattr(data_source_impl.data_source_model, "warehouse"):
+                self.datasource_warehouse = data_source_impl.data_source_model.warehouse
+
+            if self.datasource_warehouse is None:
+                self.datasource_warehouse = data_source_impl.get_current_warehouse()
 
         from soda_core.contracts.impl.check_types.row_count_check import (
             RowCountMetricImpl,
@@ -422,6 +433,46 @@ class ContractImpl:
             RowCountMetricImpl(contract_impl=self)
         )
         self.dataset_rows_tested: Optional[int] = None
+
+        # Dataset defining CTE - used as basis for all queries in this contract
+        self.cte = CTE("_soda_filtered_dataset").AS(
+            [
+                SELECT(STAR()),
+                FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),
+                WHERE.optional(SqlExpressionStr.optional(self.filter)),
+            ]
+        )
+        # Optional sampler configuration. Is there a better place or way to store this?
+        self.sampler_type: Optional[str] = None
+        self.sampler_limit: Optional[Number] = None
+
+        self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
+        if self.soda_cloud:
+            self.dataset_configuration = self.soda_cloud.fetch_dataset_configuration(self.dataset_identifier)
+
+        if self.dataset_configuration:
+            if (
+                self.dataset_configuration.test_row_sampler_configuration
+                and self.dataset_configuration.test_row_sampler_configuration.enabled
+                and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
+            ):
+                self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
+
+            if self.dataset_configuration.compute_warehouse_override:
+                self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
+
+        if self.should_apply_sampling:
+            logger.info(
+                f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
+                f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', limit:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit}'"
+            )
+
+            # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
+            self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
+                self.sampler_type,
+                self.sampler_limit,
+            )
 
         self.extensions: list[ContractImplExtension] = []
         for extension_cls in ContractImpl.contract_impl_extensions.values():
@@ -455,6 +506,18 @@ class ContractImpl:
             self.queries = self._build_queries()
 
         self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+
+    @property
+    def is_test_verification_on_agent(self) -> bool:
+        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
+
+    @property
+    def is_sampling_enabled(self) -> bool:
+        return self.sampler_type is not None and self.sampler_limit is not None
+
+    @property
+    def should_apply_sampling(self) -> bool:
+        return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
@@ -516,9 +579,9 @@ class ContractImpl:
             if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
                 aggregation_queries.append(
                     AggregationQuery(
+                        cte=self.cte,
                         dataset_prefix=self.dataset_prefix,
                         dataset_name=self.dataset_name,
-                        filter=self.filter,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
                     )
@@ -547,6 +610,17 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractVerificationResult:
+        if (
+            self.data_source_impl
+            and self.datasource_warehouse
+            and self.compute_warehouse
+            and self.datasource_warehouse != self.compute_warehouse
+            and self.soda_config.is_running_on_agent
+        ):
+            logger.info(
+                f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+            )
+            self.data_source_impl.switch_warehouse(self.compute_warehouse)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
@@ -672,6 +746,19 @@ class ContractImpl:
                 self._handle_post_processing_failure(
                     scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
                 )
+
+        # Switch back to original warehouse if changed
+        if (
+            self.data_source_impl
+            and self.compute_warehouse
+            and self.datasource_warehouse
+            and self.datasource_warehouse != self.compute_warehouse
+            and self.soda_config.is_running_on_agent
+        ):
+            logger.info(
+                f"Switching back warehouse to '{self.datasource_warehouse}' after Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+            )
+            self.data_source_impl.switch_warehouse(self.datasource_warehouse)
 
         return contract_verification_result
 
@@ -1487,7 +1574,8 @@ class MetricImpl:
             id_properties["check_filter"] = self.check_filter
         if self.missing_and_validity:
             id_properties["missing_values"] = self.missing_and_validity.missing_values
-            id_properties["missing_format"] = self.missing_and_validity.missing_format
+            if self.missing_and_validity.missing_format:
+                id_properties["missing_format_regex"] = self.missing_and_validity.missing_format.regex
             id_properties["invalid_values"] = self.missing_and_validity.invalid_values
             if self.missing_and_validity.invalid_format:
                 id_properties["invalid_format_regex"] = self.missing_and_validity.invalid_format.regex
@@ -1644,16 +1732,16 @@ class Query(ABC):
 class AggregationQuery(Query):
     def __init__(
         self,
+        cte: CTE,
         dataset_prefix: list[str],
         dataset_name: str,
-        filter: Optional[str],
         data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
+        self.cte: CTE = cte
         self.dataset_prefix: list[str] = dataset_prefix
         self.dataset_name: str = dataset_name
-        self.filter: str = filter
         self.aggregation_metrics: list[AggregationMetricImpl] = []
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.query_size: int = len(self.build_sql())
@@ -1670,9 +1758,11 @@ class AggregationQuery(Query):
 
     def build_sql(self) -> str:
         field_expressions: list[SqlExpression] = self.build_field_expressions()
-        select = [SELECT(field_expressions), FROM(self.dataset_name, self.dataset_prefix)]
-        if self.filter:
-            select.append(WHERE(SqlExpressionStr(self.filter)))
+        select = [
+            WITH([self.cte]),
+            SELECT(field_expressions),
+            FROM(self.cte.alias),
+        ]
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(select)
         return self.sql
 

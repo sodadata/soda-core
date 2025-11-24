@@ -110,15 +110,13 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "-c",
         "--contract",
         type=str,
-        nargs="+",
-        help="One or more contract file paths. Use this to work with local contracts.",
+        help="Contract file path to verify. Use this to work with local contracts.",
     )
     verify_parser.add_argument(
         "-d",
         "--dataset",
         type=str,
-        nargs="+",
-        help="Names of datasets to verify. Use this to work with remote contracts present in Soda Cloud.",
+        help="Name of dataset to verify. Use this to work with remote contracts present in Soda Cloud.",
     )
 
     verify_parser.add_argument(
@@ -180,8 +178,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        contract_file_paths = args.contract
-        dataset_identifiers = args.dataset
+        contract_file_path = args.contract
+        dataset_identifier = args.dataset
         data_source_file_paths = args.data_source
         soda_cloud_file_path = args.soda_cloud
         variables = _parse_variables(args.set)
@@ -195,8 +193,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
 
         exit_code = handle_verify_contract(
-            contract_file_paths,
-            dataset_identifiers,
+            contract_file_path,
+            dataset_identifier,
             data_source_file_paths,
             soda_cloud_file_path,
             variables,
@@ -236,7 +234,7 @@ def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]
 
 def _setup_contract_publish_command(contract_parsers) -> None:
     publish_parser = contract_parsers.add_parser("publish", help="Publish a contract")
-    publish_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
+    publish_parser.add_argument("-c", "--contract", type=str, help="Contract file path to publish.")
 
     publish_parser.add_argument(
         "-sc",
@@ -256,9 +254,9 @@ def _setup_contract_publish_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        contract_file_paths = args.contract
+        contract_file_path = args.contract
         soda_cloud_file_path = args.soda_cloud
-        exit_code = handle_publish_contract(contract_file_paths, soda_cloud_file_path)
+        exit_code = handle_publish_contract(contract_file_path, soda_cloud_file_path)
         exit_with_code(exit_code)
 
     publish_parser.set_defaults(handler_func=handle)
@@ -266,7 +264,7 @@ def _setup_contract_publish_command(contract_parsers) -> None:
 
 def _setup_contract_test_command(contract_parsers) -> None:
     test_contract_parser = contract_parsers.add_parser(name="test", help="Test a contract syntax without executing it")
-    test_contract_parser.add_argument("-c", "--contract", type=str, nargs="+", help="One or more contract file paths.")
+    test_contract_parser.add_argument("-c", "--contract", type=str, help="Contract file path to test.")
 
     test_contract_parser.add_argument(
         "-v",
@@ -278,9 +276,9 @@ def _setup_contract_test_command(contract_parsers) -> None:
     )
 
     def handle(args):
-        contract_file_paths = args.contract
+        contract_file_path = args.contract
 
-        exit_code = handle_test_contract(contract_file_paths, {})
+        exit_code = handle_test_contract(contract_file_path, {})
         exit_with_code(exit_code)
 
     test_contract_parser.set_defaults(handler_func=handle)

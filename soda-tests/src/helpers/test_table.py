@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
+from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     SodaDataTypeName,
@@ -283,6 +284,14 @@ class TestTable:
     def get_dataset_qualified_name(self) -> str:
         slash_separated_prefixes: str = "/".join(self.dataset_prefix)
         return f"{self.data_source_name}/{slash_separated_prefixes}/{self.unique_name}"
+
+    @property
+    def dataset_identifier(self) -> "DatasetIdentifier":
+        return DatasetIdentifier(
+            data_source_name=self.data_source_name,
+            prefixes=self.dataset_prefix,
+            dataset_name=self.unique_name,
+        )
 
 
 class TestColumn:

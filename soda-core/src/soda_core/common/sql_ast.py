@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from numbers import Number
 from typing import Any, Optional
 
 from soda_core.common.logging_constants import soda_logger
@@ -70,6 +71,8 @@ class FROM(BaseSqlExpression):
     table_name: str
     table_prefix: Optional[list[str]] = None
     alias: Optional[str] = None
+    sampler_type: Optional[str] = None
+    sample_size: Optional[Number] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -80,6 +83,11 @@ class FROM(BaseSqlExpression):
 
     def IN(self, table_prefix: str | list[str]) -> FROM:
         self.table_prefix = table_prefix if isinstance(table_prefix, list) else [table_prefix]
+        return self
+
+    def SAMPLE(self, sampler_type: str, sample_size: Number) -> FROM:
+        self.sampler_type = sampler_type
+        self.sample_size = sample_size
         return self
 
 
@@ -587,6 +595,16 @@ class CREATE_TABLE(BaseSqlExpression):
 class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
     def __post_init__(self):
         super().__post_init__()
+
+
+@dataclass
+class CREATE_TABLE_AS_SELECT(BaseSqlExpression):
+    fully_qualified_table_name: str
+    select_elements: list[Any]
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
 
 
 @dataclass
