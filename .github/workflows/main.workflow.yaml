@@ -299,7 +299,7 @@ jobs:
 
           RELEASE_VERSION="$(echo ${GITHUB_REF_NAME} | sed -E 's/v(.*)/\1/')"
           tbump --only-patch --non-interactive ${RELEASE_VERSION}
-          echo "Using tag version: $VERSION"
+          echo "Using tag version: RELEASE_VERSION"
 
           cd ${{ matrix.module }}
           python3 -m build

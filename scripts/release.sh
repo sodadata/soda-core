@@ -42,17 +42,18 @@ if [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)([0-9]+)$ ]]; then
   PRERELEASE_SUFFIX="${BASH_REMATCH[1]}$((BASH_REMATCH[2] + 1))"
   NEXT_PRERELEASE="${MAJOR}.${MINOR}.${PATCH}${PRERELEASE_SUFFIX}"
 # Matches: 1.2.3-alpha.1 / 1.2.3-beta.2 (SemVer)
-elif [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha.|-beta.)([0-9]+)?$ ]]; then
+elif [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha.|-beta.)([0-9]+)$ ]]; then
   PRERELEASE_SUFFIX="${BASH_REMATCH[1]}$((BASH_REMATCH[2] + 1))"
   NEXT_PRERELEASE="${MAJOR}.${MINOR}.${PATCH}${PRERELEASE_SUFFIX}"
 else
-  echo "No or unknown prerelease schema; not bumping to next prerelease version."
+  echo "No or unknown prerelease schema"
+  exit 1
 fi
 
 echo "Setting next prerelease $NEXT_PRERELEASE"
-if [[[ "$DRY_RUN" = true ]]; then
-   echo "[DRY RUN] Would execute: tbump --non-interactive --no-tag $NEXT_PRERELEASE"
-   tbump --no-tag --dry-run $NEXT_PRERELEASE
+if [[ "$DRY_RUN" = true ]]; then
+  echo "[DRY RUN] Would execute: tbump --non-interactive --no-tag $NEXT_PRERELEASE"
+  tbump --no-tag --dry-run $NEXT_PRERELEASE
 else
   tbump --non-interactive --no-tag "$NEXT_PRERELEASE"
 fi
