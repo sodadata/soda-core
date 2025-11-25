@@ -84,11 +84,17 @@ class DataSourceConnection(ABC):
             formatted_rows = self.format_rows(rows)
             truncated_rows = self.truncate_rows(formatted_rows)
             headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
-            table_text: str = tabulate(
-                truncated_rows,
-                headers=headers,
-                tablefmt="github",
-            )
+            # The tabulate can crash if the rows contain non-ASCII characters.
+            # This is purely for debugging/logging purposes, so we can try/catch this.
+            try:
+                table_text: str = tabulate(
+                    truncated_rows,
+                    headers=headers,
+                    tablefmt="github",
+                )
+            except UnicodeDecodeError as e:
+                logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
+                table_text = "Error formatting rows. These may contain non-ASCII characters."
 
             logger.debug(
                 f"SQL query result (max {self.MAX_ROWS} rows, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"
