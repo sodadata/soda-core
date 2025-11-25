@@ -144,8 +144,7 @@ class DataSourceConnection(ABC):
         updates = cursor.execute(sql)
         self.commit()
         return updates
- 
-    
+
     def execute_query_one_by_one(
         self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
     ) -> tuple[tuple]:
