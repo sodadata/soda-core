@@ -441,7 +441,7 @@ class SqlDialect:
         return True
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = False
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = True
     ) -> str:
         pre_paranthesis_sql: str = "(" if add_paranthesis else ""
         post_paranthesis_sql: str = ")" if add_paranthesis else ""
