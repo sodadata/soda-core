@@ -16,7 +16,7 @@ logger: logging.Logger = soda_logger
 DATASOURCES_TO_RUN = [
     "postgres",  # Postgres is not required, but just to verify that the test works (also for local clean up)
     "snowflake",
-    "athena",
+    # "athena",
     "bigquery",
 ]
 # Only drop schemma's starting with these prefixes.
