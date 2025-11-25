@@ -4,7 +4,6 @@ scripts/antlr*.jar
 .idea/
 .postgres/
 .db2/
-.dremio-data
 *.db
 .sqlserver/
 .mysql/
