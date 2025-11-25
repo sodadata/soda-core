@@ -118,6 +118,13 @@ class DataSourceTestHelper:
             )
 
             return SparkDataFrameDataSourceTestHelper(name)
+
+        elif test_datasource == "dremio":
+            from soda_dremio.test_helpers.dremio_data_source_test_helper import (
+                DremioDataSourceTestHelper,
+            )
+
+            return DremioDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
@@ -57,11 +58,13 @@ class ContractYaml:
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
+        primary_data_source_impl: Optional[DataSourceImpl] = None,
     ) -> Optional[ContractYaml]:
         contract_yaml = ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
+            primary_data_source_impl=primary_data_source_impl,
         )
         return contract_yaml
 
@@ -70,6 +73,7 @@ class ContractYaml:
         contract_yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
         data_timestamp: Optional[str] = None,
+        primary_data_source_impl: Optional[DataSourceImpl] = None,
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
@@ -79,9 +83,16 @@ class ContractYaml:
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
 
+        # Some dialects (Dremio) don't use ISO format, we need to override
+        f_convert_str_to_datetime = convert_str_to_datetime
+        f_convert_datetime_to_str = convert_datetime_to_str
+        if primary_data_source_impl:
+            f_convert_str_to_datetime = primary_data_source_impl.sql_dialect.convert_str_to_datetime
+            f_convert_datetime_to_str = primary_data_source_impl.sql_dialect.convert_datetime_to_str
+
         soda_variable_values: dict[str, str] = {
-            "NOW": convert_datetime_to_str(self.execution_timestamp),
-            "DATA_TIMESTAMP": convert_datetime_to_str(self.data_timestamp),
+            "NOW": f_convert_datetime_to_str(self.execution_timestamp),
+            "DATA_TIMESTAMP": f_convert_datetime_to_str(self.data_timestamp),
         }
 
         self.resolved_variable_values: dict[str, str] = self._resolve_variable_values(
@@ -92,7 +103,7 @@ class ContractYaml:
 
         if "NOW" in self.resolved_variable_values:
             now_value = self.resolved_variable_values.get("NOW")
-            if convert_str_to_datetime(now_value) is None:
+            if f_convert_str_to_datetime(now_value) is None:
                 logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
 
         self.contract_yaml_source.resolve_on_read_value(
