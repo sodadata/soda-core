@@ -129,12 +129,17 @@ class DataSourceConnection(ABC):
         try:
             if log_query:
                 logger.debug(f"SQL update (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
-            updates = cursor.execute(sql)
-            self.commit()
-            return updates
+            return self._cursor_execute_update_and_commit(cursor, sql)
+
         finally:
             cursor.close()
 
+    def _cursor_execute_update_and_commit(self, cursor: Any, sql: str):
+        updates = cursor.execute(sql)
+        self.commit()
+        return updates
+ 
+    
     def execute_query_one_by_one(
         self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
     ) -> tuple[tuple]:

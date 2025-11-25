@@ -10,6 +10,10 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     DataSourceNamespace,
@@ -1401,3 +1405,9 @@ class SqlDialect:
         """Extract the column index from an element in cursor.description"""
         col_names = [self.get_column_name(c) for c in columns]
         return col_names.index(column_name)
+
+    def convert_str_to_datetime(self, datetime_str: str) -> datetime:
+        return convert_str_to_datetime(datetime_str)
+
+    def convert_datetime_to_str(self, datetime: datetime) -> str:
+        return convert_datetime_to_str(datetime)
