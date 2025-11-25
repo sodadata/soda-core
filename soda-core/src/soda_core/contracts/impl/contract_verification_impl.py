@@ -418,11 +418,13 @@ class ContractImpl:
             self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
                 dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
             )
-            if hasattr(data_source_impl.data_source_connection.connection_properties, "warehouse"):
-                self.datasource_warehouse = data_source_impl.data_source_connection.connection_properties.warehouse
 
-            if self.datasource_warehouse is None:
-                self.datasource_warehouse = data_source_impl.get_current_warehouse()
+            if data_source_impl.data_source_connection:
+                if hasattr(data_source_impl.data_source_connection.connection_properties, "warehouse"):
+                    self.datasource_warehouse = data_source_impl.data_source_connection.connection_properties.warehouse
+
+                if self.datasource_warehouse is None:
+                    self.datasource_warehouse = data_source_impl.get_current_warehouse()
 
         from soda_core.contracts.impl.check_types.row_count_check import (
             RowCountMetricImpl,
@@ -615,9 +617,14 @@ class ContractImpl:
             and self.datasource_warehouse != self.compute_warehouse
             and self.soda_config.is_running_on_agent
         ):
-            logger.info(
-                f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
-            )
+            if self.datasource_warehouse is None:
+                logger.info(
+                    f"Setting warehouse to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+                )
+            else:
+                logger.info(
+                    f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+                )
             self.data_source_impl.switch_warehouse(self.compute_warehouse)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
@@ -744,19 +751,6 @@ class ContractImpl:
                 self._handle_post_processing_failure(
                     scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
                 )
-
-        # Switch back to original warehouse if changed
-        if (
-            self.data_source_impl
-            and self.datasource_warehouse
-            and self.compute_warehouse
-            and self.datasource_warehouse != self.compute_warehouse
-            and self.soda_config.is_running_on_agent
-        ):
-            logger.info(
-                f"Switching back warehouse to '{self.datasource_warehouse}' after Contract verification of dataset '{self.dataset_identifier.to_string()}'"
-            )
-            self.data_source_impl.switch_warehouse(self.datasource_warehouse)
 
         return contract_verification_result
 
