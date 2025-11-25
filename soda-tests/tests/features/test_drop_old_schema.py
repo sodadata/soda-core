@@ -38,22 +38,20 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
             # There are too many structures for this to be done in a simple way, so we have to try all the possibilities for dates.
             # Start from the beginning and try every substring of 8 characters (after removing underscore)
             no_underscore_schema_name: str = schema_name.replace("_", "")
+            found_date: bool = False
             for i in range(len(no_underscore_schema_name) - 8):
                 potential_date_string: str = no_underscore_schema_name[i : i + 8]
                 try:
                     date_obj: datetime.datetime = parse(potential_date_string, fuzzy=False)
                     if (
-                        date_obj.year < 2025 or date_obj.year > 2026
+                        date_obj.year >= 2025 and date_obj.year <= 2027
                     ):  # Some safeguards to avoid parsing a completely wrong date (because of some hashes etc)
-                        logger.debug(
-                            f"Potential date string: {potential_date_string} parsed to date: {date_obj.isoformat()} but was deemed in the incorrect year range."
-                        )
+                        found_date = True
                         break
-                    else:
-                        return True
                 except ValueError:
                     continue
-            return False
+            if not found_date:
+                return False
         elif "my_dwh_" in schema_name:
             first_part_index = len("my_dwh_") + 6
             second_part_index = first_part_index + 8
