@@ -608,6 +608,14 @@ class CREATE_TABLE_AS_SELECT(BaseSqlExpression):
 
 
 @dataclass
+class INTO(BaseSqlExpression):  # Only tested and verified for SqlServer and data sources that inherit from it.
+    fully_qualified_table_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
 class CREATE_TABLE_COLUMN(BaseSqlExpression):
     name: str
     type: SqlDataType

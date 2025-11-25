@@ -13,15 +13,20 @@ from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
     COLUMN,
+    COUNT,
+    CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CTE,
     DROP_TABLE_IF_EXISTS,
     FROM,
     INSERT_INTO,
     LITERAL,
     ORDER_BY_ASC,
     SELECT,
+    STAR,
     VALUES_ROW,
+    WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -34,9 +39,14 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     dataset_prefixes = data_source_test_helper.dataset_prefix
 
     my_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table")
+    my_table_name_as_select = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table_as_select")
 
     # Drop table if exists
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
+    data_source_impl.execute_update(drop_table_sql)
+    drop_table_sql = sql_dialect.build_drop_table_sql(
+        DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name_as_select)
+    )
     data_source_impl.execute_update(drop_table_sql)
 
     def col_type(name: str) -> str:
@@ -209,11 +219,53 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
             )
             data_source_impl.execute_update(alter_table_drop_column_sql)
 
+        # Then create a table as a select
+        create_table_as_select_sql = sql_dialect.build_create_table_as_select_sql(
+            CREATE_TABLE_AS_SELECT(
+                fully_qualified_table_name=my_table_name_as_select,
+                select_elements=[
+                    # Use a CTE just to cover more edge cases
+                    WITH(
+                        cte_list=[
+                            CTE(
+                                alias="my_cte",
+                                cte_query=[
+                                    SELECT(STAR()),
+                                    FROM(
+                                        my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name
+                                    ),
+                                ],
+                            ),
+                        ]
+                    ),
+                    SELECT(STAR()),
+                    FROM("my_cte"),
+                ],
+            )
+        )
+        data_source_impl.execute_update(create_table_as_select_sql)
+        # Then query the row count from that new table
+        select_sql = sql_dialect.build_select_sql(
+            [
+                SELECT([COUNT(STAR())]),
+                FROM(
+                    my_table_name_as_select[1:-1]
+                    if sql_dialect.is_quoted(my_table_name_as_select)
+                    else my_table_name_as_select
+                ),
+            ]
+        )
+        result: QueryResult = data_source_impl.execute_query(select_sql)
+        assert result.rows[0][0] == 3
+
     finally:
         # Then drop the table to clean up
-        # We explicitly do not use the "if exists" variant, because the table should exist at this point.
         drop_table_sql = sql_dialect.build_drop_table_sql(
             DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name)
+        )
+        data_source_impl.execute_update(drop_table_sql)
+        drop_table_sql = sql_dialect.build_drop_table_sql(
+            DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name_as_select)
         )
         data_source_impl.execute_update(drop_table_sql)
 

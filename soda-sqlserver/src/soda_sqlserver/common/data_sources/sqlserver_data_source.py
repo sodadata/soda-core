@@ -12,12 +12,14 @@ from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
     CREATE_TABLE,
+    CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     FROM,
     INSERT_INTO,
+    INTO,
     LENGTH,
     LIMIT,
     OFFSET,
@@ -63,6 +65,7 @@ class SqlServerSqlDialect(SqlDialect):
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
+        statement_lines.extend(self._build_into_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
@@ -343,3 +346,12 @@ class SqlServerSqlDialect(SqlDialect):
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD"
+
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+    ) -> str:
+        # Copy the select elements and insert an INTO with the same table name as the create table as select statement
+        select_elements = create_table_as_select.select_elements.copy()
+        select_elements += [INTO(fully_qualified_table_name=create_table_as_select.fully_qualified_table_name)]
+        result_sql: str = self.build_select_sql(select_elements, add_semicolon=add_semicolon)
+        return result_sql

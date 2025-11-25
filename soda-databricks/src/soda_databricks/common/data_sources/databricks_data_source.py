@@ -13,6 +13,7 @@ from soda_core.common.metadata_types import (
 from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
+    CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -271,6 +272,15 @@ class DatabricksSqlDialect(SqlDialect):
 
     def drop_column_supported(self) -> bool:
         return False  # Note, this is technically supported. But we need to change the delta table mapping mode name for this (out of scope at the time of writing)
+
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+    ) -> str:
+        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
+        result_sql += f"(\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)})" + (
+            ";" if add_semicolon else ""
+        )
+        return result_sql
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect):
