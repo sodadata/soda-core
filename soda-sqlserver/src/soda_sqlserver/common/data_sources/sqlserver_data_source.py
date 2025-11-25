@@ -348,7 +348,7 @@ class SqlServerSqlDialect(SqlDialect):
         return "ADD"
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = True
     ) -> str:
         # Copy the select elements and insert an INTO with the same table name as the create table as select statement
         select_elements = create_table_as_select.select_elements.copy()
