@@ -14,8 +14,11 @@ logger: logging.Logger = soda_logger
 
 
 DATASOURCES_TO_RUN = [
-    "postgres"
-]  # , "bigquery", "snowflake"] # Only enabled on these datasources for now, first want to get this reviewed. Once it's approved, we can enable the other datasources.
+    "postgres",  # Postgres is not required, but just to verify that the test works (also for local clean up)
+    "snowflake",
+    "athena",
+    "bigquery",
+]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
 # Schema's starting with these prefixes are exempt from being dropped.
@@ -38,11 +41,16 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
             for i in range(len(no_underscore_schema_name) - 8):
                 potential_date_string: str = no_underscore_schema_name[i : i + 8]
                 try:
-                    date_obj: datetime.datetime = parse(potential_date_string, fuzzy=True)
+                    date_obj: datetime.datetime = parse(potential_date_string, fuzzy=False)
                     if (
-                        date_obj.year > 2025 and date_obj.year < 2026
+                        date_obj.year < 2025 or date_obj.year > 2026
                     ):  # Some safeguards to avoid parsing a completely wrong date (because of some hashes etc)
+                        logger.debug(
+                            f"Potential date string: {potential_date_string} parsed to date: {date_obj.isoformat()} but was deemed in the incorrect year range."
+                        )
                         break
+                    else:
+                        return True
                 except ValueError:
                     continue
             return False
@@ -80,7 +88,9 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
                 if determine_if_schema_needs_to_be_dropped(schema_name):
                     logger.info(f"Dropping schema name: {schema_name}")
                     data_source_test_helper.data_source_impl.execute_update(
-                        data_source_test_helper.drop_schema_sql(schema_name)
+                        data_source_test_helper.drop_schema_if_exists_sql(
+                            schema_name
+                        )  # Use if exists because we may have multiple CI runs at the same time, removing the same schema.
                     )
                 else:
                     logger.info(f"Schema name: {schema_name} is not old enough to be dropped")

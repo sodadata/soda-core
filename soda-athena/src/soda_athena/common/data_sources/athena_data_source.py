@@ -49,13 +49,25 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
             table_location = self.table_s3_location(qualified_table_name)
             self._delete_s3_files(table_location)
         elif sql.startswith("DROP SCHEMA"):
-            pass  # This is for later, if we ever support dropping schemas in the SQL AST.
+            schema_name = self.__parse_schema_name_from_drop_schema_sql(sql)
+            schema_location = self.table_s3_location(schema_name)
+            self._delete_s3_files(schema_location)
         return result
 
     def table_s3_location(self, qualified_table_name: str) -> str:
         table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "")
         location = f"{self.connection.athena_staging_dir}/{table_part_for_location}/"
         return location
+
+    def __parse_schema_name_from_drop_schema_sql(self, sql: str) -> str:
+        remaining_sql = sql[len("DROP SCHEMA ") :].strip()
+        if remaining_sql.startswith("IF EXISTS "):
+            remaining_sql = remaining_sql[len("IF EXISTS ") :].strip()
+        if remaining_sql.endswith(";"):
+            remaining_sql = remaining_sql[:-1]
+        if remaining_sql.endswith(" CASCADE"):
+            remaining_sql = remaining_sql[: -len(" CASCADE")]
+        return remaining_sql.strip()
 
     def __parse_table_name_from_drop_table_sql(self, sql: str) -> str:
         remaining_sql = sql[len("DROP TABLE ") :].strip()
