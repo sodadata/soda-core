@@ -13,7 +13,7 @@ package_name = "soda-tests"
 package_version = "4.0.0b12"
 description = "Soda Core V4 Tests"
 
-requires = [f"soda-core=={package_version}", "pytz"]
+requires = [f"soda-core=={package_version}", "pytz", "python-dateutil"]
 
 setup(
     name=package_name,

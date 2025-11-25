@@ -7,7 +7,14 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.soda_cloud_dto import SamplerType
-from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
+from soda_core.common.sql_ast import (
+    COLUMN,
+    COUNT,
+    CREATE_TABLE_AS_SELECT,
+    DISTINCT,
+    TUPLE,
+    VALUES,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
@@ -179,3 +186,13 @@ class SnowflakeSqlDialect(SqlDialect):
             return f"TABLESAMPLE ({int(sample_size)} ROWS)"
         else:
             raise ValueError(f"Unsupported sample type: {sampler_type}")
+
+    # Exact copy from Postgres. So we can refactor this once more data sources support this.
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+    ) -> str:
+        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
+        result_sql += f"(\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)})" + (
+            ";" if add_semicolon else ""
+        )
+        return result_sql

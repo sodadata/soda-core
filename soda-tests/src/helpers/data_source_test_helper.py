@@ -329,7 +329,10 @@ class DataSourceTestHelper:
             logger.warning(f"Error dropping test schema: {e}")
 
     def drop_schema_if_exists_sql(self, schema: str) -> str:
-        return f"DROP SCHEMA IF EXISTS {schema} CASCADE;"
+        return f"DROP SCHEMA IF EXISTS {self.data_source_impl.sql_dialect.quote_default(schema)} CASCADE;"
+
+    def drop_schema_sql(self, schema: str) -> str:
+        return f"DROP SCHEMA {self.data_source_impl.sql_dialect.quote_default(schema)} CASCADE;"
 
     def ensure_test_table(
         self, test_table_specification: TestTableSpecification, force_recreate: bool = False
