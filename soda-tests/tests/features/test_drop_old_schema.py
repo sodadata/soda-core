@@ -61,7 +61,7 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
             ]  # my_dwh_20251119_postgres_0db10c31
         else:
             return False
-        date_obj: datetime.datetime = parse(potential_date_string, fuzzy=True)
+        date_obj: datetime.datetime = parse(potential_date_string, fuzzy=False)
         return date_obj < datetime.datetime.now() - datetime.timedelta(days=2)  # Remove everything older than 2 days.
     except ValueError:  # Cannot parse the date, so there is none -> drop it.
         return True
