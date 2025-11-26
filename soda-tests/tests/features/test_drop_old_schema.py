@@ -33,8 +33,8 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
             potential_date_string: str = schema_name[
                 len("soda_diagnostics_") + 9 : -7
             ]  # soda_diagnostics_0db10c31_20251119_093446
-        elif "ALTERNATE_DWH" in schema_name:
-            potential_date_string: str = schema_name[len("ALTERNATE_DWH_") + 9 :]  # ALTERNATE_DWH_0db10c31_20251119
+        elif "alternate_dwh" in schema_name:
+            potential_date_string: str = schema_name[len("alternate_dwh_") + 9 :]  # ALTERNATE_DWH_0db10c31_20251119
         elif "ci_" in schema_name:
             # There are too many structures for this to be done in a simple way, so we have to try all the possibilities for dates.
             # Start from the beginning and try every substring of 8 characters (after removing underscore)
@@ -82,8 +82,8 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(schemas_query_sql)
     schema_names: list[str] = [row[0] for row in query_result.rows]
     for schema_name in schema_names:
-        if any(schema_name.lower().startswith(prefix) for prefix in LIST_OF_PREFIXES_TO_DROP):
-            if not any(schema_name.lower().startswith(prefix) for prefix in LIST_OF_EXEMPTIONS):
+        if any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
+            if not any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
                 if determine_if_schema_needs_to_be_dropped(schema_name):
                     logger.info(f"Dropping schema name: {schema_name}")
                     try:
