@@ -265,10 +265,9 @@ jobs:
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}
   release-to-cloud-pypi:
-    if: github.ref_name == 'v4' && contains(github.ref, 'refs/tags/')
-
+    if: startsWith(github.ref, 'refs/tags/v4')
     runs-on: ubuntu-24.04
-    needs: [define-matrix]
+    needs: [release-to-dev-pypi]
     strategy:
       fail-fast: false
       matrix:
