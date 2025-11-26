@@ -627,6 +627,11 @@ class ContractImpl:
                     f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
                 )
             self.data_source_impl.switch_warehouse(self.compute_warehouse)
+        else:
+            if self.data_source_impl:
+                logger.info(
+                    f"Using warehouse '{self.datasource_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
+                )
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
