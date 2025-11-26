@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
@@ -24,6 +24,9 @@ from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
 
 logger: logging.Logger = soda_logger
+
+if TYPE_CHECKING:
+    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
 
 class DataSourceImpl(ABC):
@@ -236,7 +239,7 @@ class DataSourceImpl(ABC):
             for fully_qualified_table_name in fully_qualified_table_names
         )
 
-    def switch_warehouse(self, warehouse: str) -> None:
+    def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
         # Noop by default, only some data sources need to implement this
         pass
 

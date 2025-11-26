@@ -756,9 +756,7 @@ class SodaCloud:
             - an unexpected response is received from the backend
         """
 
-        logger.info(
-            f"{Emoticons.CLOUD} Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'"
-        )
+        logger.info(f"Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'")
         parsed_identifier = DatasetIdentifier.parse(dataset_identifier)
         request = {
             "type": "sodaCoreGetDatasourceConfigurationFile",
@@ -804,9 +802,7 @@ class SodaCloud:
         Returns:
             DatasetConfigurationsDTO
         """
-        logger.info(
-            f"{Emoticons.CLOUD} Fetching datasets configurations from Soda Cloud for datasets '{dataset_identifiers}'"
-        )
+        logger.info(f"Fetching datasets configurations from Soda Cloud for datasets '{dataset_identifiers}'")
         datasets_request_list = []
         for dataset_identifier in dataset_identifiers:
             datasets_request_list.append(

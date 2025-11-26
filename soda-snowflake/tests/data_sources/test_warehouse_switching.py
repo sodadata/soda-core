@@ -38,7 +38,7 @@ def stub_get_current_warehouse_none() -> Optional[str]:
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
-    "soda_snowflake.common.data_sources.snowflake_data_source.SnowflakeDataSourceImpl.switch_warehouse",
+    "soda_snowflake.common.data_sources.snowflake_data_source.SnowflakeDataSourceImpl._execute_switch_warehouse",
     side_effect=lambda warehouse: logger.info(f"Executing SQL to switch warehouse to: USE WAREHOUSE {warehouse}"),
 )
 @mock.patch(
@@ -81,7 +81,7 @@ def test_warehouse_switching(
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
-    "soda_snowflake.common.data_sources.snowflake_data_source.SnowflakeDataSourceImpl.switch_warehouse",
+    "soda_snowflake.common.data_sources.snowflake_data_source.SnowflakeDataSourceImpl._execute_switch_warehouse",
     side_effect=lambda warehouse: logger.info(f"Executing SQL to switch warehouse to: USE WAREHOUSE {warehouse}"),
 )
 @mock.patch(

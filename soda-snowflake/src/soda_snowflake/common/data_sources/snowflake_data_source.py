@@ -1,6 +1,6 @@
 from logging import Logger
 from numbers import Number
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -16,6 +16,7 @@ from soda_core.common.sql_ast import (
     VALUES,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )
@@ -25,6 +26,8 @@ from soda_snowflake.common.data_sources.snowflake_data_source_connection import 
 
 logger: Logger = soda_logger
 
+if TYPE_CHECKING:
+    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
 TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
 TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
@@ -43,7 +46,23 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def switch_warehouse(self, warehouse: str) -> None:
+    def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
+        if warehouse and contract_impl.datasource_warehouse != warehouse:
+            if contract_impl.datasource_warehouse is None:
+                logger.info(
+                    f"Setting warehouse to '{warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                )
+            else:
+                logger.info(
+                    f"Switching warehouse from '{contract_impl.datasource_warehouse}' to '{warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                )
+            self._execute_switch_warehouse(warehouse)
+        else:
+            logger.info(
+                f"Using warehouse '{contract_impl.datasource_warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+            )
+
+    def _execute_switch_warehouse(self, warehouse: str) -> None:
         switch_warehouse_sql = f"USE WAREHOUSE {warehouse}"
         self.execute_query(switch_warehouse_sql)
 
