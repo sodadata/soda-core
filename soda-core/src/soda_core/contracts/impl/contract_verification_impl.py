@@ -612,26 +612,8 @@ class ContractImpl:
         return columns
 
     def verify(self) -> ContractVerificationResult:
-        if (
-            self.data_source_impl
-            and self.compute_warehouse
-            and self.datasource_warehouse != self.compute_warehouse
-            and self.soda_config.is_running_on_agent
-        ):
-            if self.datasource_warehouse is None:
-                logger.info(
-                    f"Setting warehouse to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
-                )
-            else:
-                logger.info(
-                    f"Switching warehouse from '{self.datasource_warehouse}' to '{self.compute_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
-                )
-            self.data_source_impl.switch_warehouse(self.compute_warehouse)
-        else:
-            if self.data_source_impl:
-                logger.info(
-                    f"Using warehouse '{self.datasource_warehouse}' for Contract verification of dataset '{self.dataset_identifier.to_string()}'"
-                )
+        if self.data_source_impl and self.soda_config.is_running_on_agent:
+            self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
