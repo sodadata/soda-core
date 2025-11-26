@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-postgres"
-package_version = "4.0.0b13"
+package_version = "4.0.0b14"
 description = "Soda Postgres V4"
 
 requires = [
