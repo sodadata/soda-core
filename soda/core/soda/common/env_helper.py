@@ -7,7 +7,16 @@ from soda.common.logs import Logs
 
 
 def strtobool(val: str) -> bool:
-    return val.lower() in ("yes", "y", "true", "t", "1")
+    if not isinstance(val, str):
+        raise ValueError(f"Invalid type for truth value: {type(val).__name__}. Expected str, got {val!r}")
+    if val.lower() in ("yes", "y", "true", "t", "on", "1"):
+        return True
+    elif val.lower() in ("no", "n", "false", "f", "off", "0"):
+        return False
+    else:
+        raise ValueError(
+            f"Invalid truth value: {val!r}. Expected one of: yes, y, true, t, on, 1, no, n, false, f, off, 0"
+        )
 
 
 class EnvHelper:
