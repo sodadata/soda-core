@@ -10,6 +10,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.semconv.resource import ResourceAttributes
 from soda.__version__ import SODA_CORE_VERSION
 from soda.common.config_helper import ConfigHelper
+from soda.common.env_helper import strtobool
 
 # from soda.execution.data_source import DataSource
 from soda.telemetry.memory_span_exporter import MemorySpanExporter
@@ -84,8 +85,8 @@ class SodaTelemetry:
 
     def __setup(self):
         """Set up Open Telemetry processors and exporters for normal use."""
-        local_debug_mode = self.soda_config.get_value("telemetry_local_debug_mode") or (
-            os.getenv("telemetry_local_debug_mode", "false").lower() in ("y", "yes", "t", "true", "on", "1")
+        local_debug_mode = self.soda_config.get_value("telemetry_local_debug_mode") or strtobool(
+            os.getenv("telemetry_local_debug_mode", "false")
         )
 
         if local_debug_mode or logger.getEffectiveLevel() == logging.DEBUG:
