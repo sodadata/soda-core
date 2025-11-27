@@ -224,8 +224,7 @@ jobs:
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release-to-dev-pypi:
-    if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
-
+    if: github.ref_name == 'v4' # Pushes to "main" branch
     runs-on: ubuntu-24.04
     needs: [define-matrix]
     strategy:
@@ -265,9 +264,9 @@ jobs:
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}
   release-to-cloud-pypi:
-    if: startsWith(github.ref, 'refs/tags/v4')
+    if: startsWith(github.ref, 'refs/tags/')  # When tagged
     runs-on: ubuntu-24.04
-    needs: [release-to-dev-pypi]
+    needs: [define-matrix]
     strategy:
       fail-fast: false
       matrix:
