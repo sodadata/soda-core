@@ -55,5 +55,7 @@ if [[ "$DRY_RUN" = true ]]; then
   echo "[DRY RUN] Would execute: tbump --non-interactive --no-tag $NEXT_PRERELEASE"
   tbump --no-tag --dry-run $NEXT_PRERELEASE
 else
-  tbump --non-interactive --no-tag "$NEXT_PRERELEASE"
+  tbump --non-interactive --only-patch "$NEXT_PRERELEASE"
+  git commit -a -m "[skip ci] Bump to next prerelease version $NEXT_PRERELEASE"
+  git push
 fi
