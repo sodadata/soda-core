@@ -16,7 +16,6 @@ from soda_core.common.sql_ast import (
     COLUMN,
     CONCAT_WS,
     COUNT,
-    CREATE_TABLE_AS_SELECT,
     DISTINCT,
     LITERAL,
     REGEX_LIKE,
@@ -243,13 +242,3 @@ class BigQuerySqlDialect(SqlDialect):
     def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
         elements: str = f", '{concat_ws.separator}', ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
         return f"CONCAT({elements})"
-
-    # Exact copy from Postgres. So we can refactor this once more data sources support this.
-    def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
-    ) -> str:
-        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
-        result_sql += f"(\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)})" + (
-            ";" if add_semicolon else ""
-        )
-        return result_sql

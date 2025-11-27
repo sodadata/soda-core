@@ -12,12 +12,15 @@ from soda_core.common.sql_ast import (
     COLUMN,
     COUNT,
     CREATE_TABLE,
+    CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_IF_NOT_EXISTS,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     FROM,
     INSERT_INTO,
+    INSERT_INTO_VIA_SELECT,
+    INTO,
     LENGTH,
     LIMIT,
     OFFSET,
@@ -29,6 +32,7 @@ from soda_core.common.sql_ast import (
     TUPLE,
     VALUES,
     WHERE,
+    WITH,
     SqlExpressionStr,
 )
 from soda_core.common.sql_dialect import SqlDialect
@@ -63,6 +67,7 @@ class SqlServerSqlDialect(SqlDialect):
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
+        statement_lines.extend(self._build_into_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
@@ -309,6 +314,24 @@ class SqlServerSqlDialect(SqlDialect):
 
         return super().build_insert_into_sql(insert_into, add_semicolon=add_semicolon)
 
+    def build_insert_into_via_select_sql(
+        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
+    ) -> str:
+        # First get all the WITH clauses from the select elements.
+        with_clauses: list[str] = []
+        remaining_select_elements: list[str] = []
+        for select_element in insert_into_via_select.select_elements:
+            if isinstance(select_element, WITH):
+                with_clauses.append(select_element)
+            else:  # Split of the other elements
+                remaining_select_elements.append(select_element)
+        # Then build the with statements.
+        with_statements: str = "\n".join(self._build_cte_sql_lines(with_clauses))
+        insert_into_sql: str = f"{with_statements}\nINSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
+        insert_into_sql += self._build_insert_into_columns_sql(insert_into_via_select) + "\n"
+        insert_into_sql += "(\n" + self.build_select_sql(remaining_select_elements, add_semicolon=False) + "\n)"
+        return insert_into_sql + (";" if add_semicolon else "")
+
     def get_preferred_number_of_rows_for_insert(self) -> int:
         return 1000
 
@@ -343,3 +366,12 @@ class SqlServerSqlDialect(SqlDialect):
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD"
+
+    def build_create_table_as_select_sql(
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = True
+    ) -> str:
+        # Copy the select elements and insert an INTO with the same table name as the create table as select statement
+        select_elements = create_table_as_select.select_elements.copy()
+        select_elements += [INTO(fully_qualified_table_name=create_table_as_select.fully_qualified_table_name)]
+        result_sql: str = self.build_select_sql(select_elements, add_semicolon=add_semicolon)
+        return result_sql

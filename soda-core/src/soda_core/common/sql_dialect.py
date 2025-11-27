@@ -53,6 +53,7 @@ from soda_core.common.sql_ast import (
     IN_SELECT,
     INSERT_INTO,
     INSERT_INTO_VIA_SELECT,
+    INTO,
     IS_NOT_NULL,
     IS_NULL,
     JOIN,
@@ -440,11 +441,16 @@ class SqlDialect:
         return True
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = True
     ) -> str:
-        raise NotImplementedError(
-            "This method (build_create_table_as_select_sql) should be overwritten by the data source dialect"
+        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
+        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
+        result_sql += (
+            f"{pre_paranthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_paranthesis_sql}"
+            + (";" if add_semicolon else "")
         )
+        return result_sql
 
     #########################################################
     # ALTER TABLE
@@ -541,6 +547,7 @@ class SqlDialect:
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
+        statement_lines.extend(self._build_into_sql_lines(select_elements))
         statement_lines.extend(self._build_from_sql_lines(select_elements))
         statement_lines.extend(self._build_where_sql_lines(select_elements))
         statement_lines.extend(self._build_group_by_sql_lines(select_elements))
@@ -585,6 +592,13 @@ class SqlDialect:
             select_sql_lines.append(sql_line)
 
         return select_sql_lines
+
+    def _build_into_sql_lines(self, select_elements: list) -> list[str]:
+        into_lines: list[str] = []
+        for select_element in select_elements:
+            if isinstance(select_element, INTO):
+                into_lines.append(f"INTO {select_element.fully_qualified_table_name}")
+        return into_lines
 
     def _build_cte(self, cte: CTE) -> str:
         if isinstance(cte.cte_query, list):

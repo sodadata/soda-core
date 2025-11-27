@@ -222,6 +222,15 @@ class DataSourceImpl(ABC):
         return schema_exists
 
     def verify_if_table_exists(self, prefixes: list[str], table_name: str) -> bool:
+        fully_qualified_table_names: list[FullyQualifiedTableName] = self._get_fully_qualified_table_names(
+            prefixes=prefixes, table_name=table_name
+        )
+        return any(
+            fully_qualified_table_name.table_name == table_name
+            for fully_qualified_table_name in fully_qualified_table_names
+        )
+
+    def _get_fully_qualified_table_names(self, prefixes: list[str], table_name: str) -> list[FullyQualifiedTableName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_index = self.sql_dialect.get_database_prefix_index()
         schema_index = self.sql_dialect.get_schema_prefix_index()
@@ -234,10 +243,7 @@ class DataSourceImpl(ABC):
             schema_name=schema_name,
             include_table_name_like_filters=[table_name],
         )
-        return any(
-            fully_qualified_table_name.table_name == table_name
-            for fully_qualified_table_name in fully_qualified_table_names
-        )
+        return fully_qualified_table_names
 
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
         # Noop by default, only some data sources need to implement this
