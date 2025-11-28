@@ -47,7 +47,7 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
             """
 
     def _get_3_schema_dir(self):
-        schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+        schema_name = self.extract_schema_from_prefix()
         return f"{self.s3_test_dir}/staging-dir/{ATHENA_CATALOG}/{schema_name}"
 
     def drop_test_schema_if_exists(self) -> str:
