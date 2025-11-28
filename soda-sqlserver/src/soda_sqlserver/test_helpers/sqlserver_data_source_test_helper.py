@@ -46,7 +46,7 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
             drop_table_sql = dialect.build_drop_table_sql(DROP_TABLE(table_identifier))
             self.data_source_impl.execute_update(drop_table_sql)
         # Drop the schema if it exists.
-        schema_name = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+        schema_name = self.extract_schema_from_prefix()
         if self._does_schema_exist(schema_name):
             self.data_source_impl.execute_update(f"DROP SCHEMA {dialect.quote_default(schema_name)};")
 
