@@ -279,7 +279,7 @@ class DataSourceTestHelper:
     def query_existing_test_tables(self) -> list[FullyQualifiedTableName]:
         database: Optional[str] = self.extract_database_from_prefix()
         schema: Optional[str] = self.extract_schema_from_prefix()
-        
+
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
             database_name=database,
@@ -310,10 +310,10 @@ class DataSourceTestHelper:
 
     def extract_database_from_prefix(self) -> str:
         return self.data_source_impl.extract_database_from_prefix(self.dataset_prefix)
-    
+
     def extract_schema_from_prefix(self) -> str:
         return self.data_source_impl.extract_schema_from_prefix(self.dataset_prefix)
-    
+
     def drop_test_schema_if_exists(self) -> None:
         schema = self.extract_schema_from_prefix()
         if not schema:

@@ -164,13 +164,11 @@ class DataSourceImpl(ABC):
     def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
         schema_name: str = self.extract_schema_from_prefix(dataset_prefixes)
         database_name: str = self.extract_database_from_prefix(dataset_prefixes)
-        
+
         table_namespace: DataSourceNamespace = (
             SchemaDataSourceNamespace(schema=schema_name)
             if database_name is None
-            else DbSchemaDataSourceNamespace(
-                database=database_name, schema=schema_name
-            )
+            else DbSchemaDataSourceNamespace(database=database_name, schema=schema_name)
         )
 
         # BigQuery must be able to override to get the location
@@ -178,9 +176,7 @@ class DataSourceImpl(ABC):
             table_namespace=table_namespace, table_name=dataset_name
         )
 
-    
-    
-    def extract_schema_from_prefix(self, prefixes: list[str]) -> str:                
+    def extract_schema_from_prefix(self, prefixes: list[str]) -> str:
         schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
         if schema_index is None:
             return None
@@ -191,14 +187,16 @@ class DataSourceImpl(ABC):
         database_index: int | None = self.sql_dialect.get_database_prefix_index()
         if database_index is None:
             return None
-        database_name: str = prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+        database_name: str = (
+            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+        )
         return database_name
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         """
         Builds the table namespace for the schema query.
         Returns the table namespace and the schema name.
-        """             
+        """
         schema_name: str = self.extract_schema_from_prefix(prefixes)
         database_name: str | None = self.extract_database_from_prefix(prefixes)
         database_index: int | None = self.sql_dialect.get_database_prefix_index()
@@ -246,7 +244,7 @@ class DataSourceImpl(ABC):
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_name = self.extract_database_from_prefix(prefixes)
         schema_name = self.extract_schema_from_prefix(prefixes)
-                
+
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
             database_name=database_name,
             schema_name=schema_name,
