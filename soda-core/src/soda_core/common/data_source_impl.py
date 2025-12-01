@@ -180,7 +180,7 @@ class DataSourceImpl(ABC):
         schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
         if schema_index is None:
             return None
-        schema_name: str = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        schema_name: str = prefixes[schema_index] if schema_index < len(prefixes) else None
         return schema_name
 
     def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
