@@ -199,13 +199,12 @@ class DataSourceImpl(ABC):
         """
         schema_name: str = self.extract_schema_from_prefix(prefixes)
         database_name: str | None = self.extract_database_from_prefix(prefixes)
-        database_index: int | None = self.sql_dialect.get_database_prefix_index()
         if schema_name is None:
             raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
 
         table_namespace: DataSourceNamespace = (
             SchemaDataSourceNamespace(schema=schema_name)
-            if database_index is None
+            if database_name is None
             else DbSchemaDataSourceNamespace(
                 database=database_name,
                 schema=schema_name,
