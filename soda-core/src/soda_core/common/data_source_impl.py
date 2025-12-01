@@ -176,14 +176,14 @@ class DataSourceImpl(ABC):
             table_namespace=table_namespace, table_name=dataset_name
         )
 
-    def extract_schema_from_prefix(self, prefixes: list[str]) -> str:
+    def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
         if schema_index is None:
             return None
         schema_name: str = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
         return schema_name
 
-    def extract_database_from_prefix(self, prefixes: list[str]) -> str:
+    def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         database_index: int | None = self.sql_dialect.get_database_prefix_index()
         if database_index is None:
             return None
