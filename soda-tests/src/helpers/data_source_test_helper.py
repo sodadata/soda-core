@@ -311,7 +311,7 @@ class DataSourceTestHelper:
     def extract_database_from_prefix(self) -> str:
         return self.data_source_impl.extract_database_from_prefix(self.dataset_prefix)
 
-    def extract_schema_from_prefix(self) -> str:
+    def extract_schema_from_prefix(self) -> Optional[str]:
         return self.data_source_impl.extract_schema_from_prefix(self.dataset_prefix)
 
     def drop_test_schema_if_exists(self) -> None:
