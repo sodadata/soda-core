@@ -277,13 +277,8 @@ class DataSourceTestHelper:
             self.drop_test_schema_if_exists()
 
     def query_existing_test_tables(self) -> list[FullyQualifiedTableName]:
-        database: Optional[str] = None
-        if self.data_source_impl.sql_dialect.get_database_prefix_index() is not None:
-            database = self.dataset_prefix[self.data_source_impl.sql_dialect.get_database_prefix_index()]
-
-        schema: Optional[str] = None
-        if self.data_source_impl.sql_dialect.get_schema_prefix_index() is not None:
-            schema = self.dataset_prefix[self.data_source_impl.sql_dialect.get_schema_prefix_index()]
+        database: Optional[str] = self.extract_database_from_prefix()
+        schema: Optional[str] = self.extract_schema_from_prefix()
 
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
@@ -313,11 +308,16 @@ class DataSourceTestHelper:
     def post_test_schema_create_sql(self) -> str:
         return self.data_source_impl.sql_dialect.post_schema_create_sql(self.dataset_prefix)
 
+    def extract_database_from_prefix(self) -> Optional[str]:
+        return self.data_source_impl.extract_database_from_prefix(self.dataset_prefix)
+
+    def extract_schema_from_prefix(self) -> Optional[str]:
+        return self.data_source_impl.extract_schema_from_prefix(self.dataset_prefix)
+
     def drop_test_schema_if_exists(self) -> None:
-        schema_index = self.data_source_impl.sql_dialect.get_schema_prefix_index()
-        if schema_index is None:
+        schema = self.extract_schema_from_prefix()
+        if not schema:
             raise AssertionError("Data source does not support schemas")
-        schema = self.dataset_prefix[schema_index]
 
         self.drop_schema_if_exists(schema)
 
