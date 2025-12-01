@@ -188,7 +188,7 @@ class DataSourceImpl(ABC):
         if database_index is None:
             return None
         database_name: str = (
-            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
+            prefixes[database_index] if database_index < len(prefixes) else None
         )
         return database_name
 
