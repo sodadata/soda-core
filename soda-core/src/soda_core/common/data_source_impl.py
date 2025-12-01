@@ -162,7 +162,7 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
 
     def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
-        schema_name: str = self.extract_schema_from_prefix(dataset_prefixes)
+        schema_name: Optional[str] = self.extract_schema_from_prefix(dataset_prefixes)
         database_name: str = self.extract_database_from_prefix(dataset_prefixes)
 
         table_namespace: DataSourceNamespace = (
