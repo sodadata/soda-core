@@ -197,7 +197,7 @@ class DataSourceImpl(ABC):
         Builds the table namespace for the schema query.
         Returns the table namespace and the schema name.
         """
-        schema_name: str = self.extract_schema_from_prefix(prefixes)
+        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
         database_name: str | None = self.extract_database_from_prefix(prefixes)
         database_index: int | None = self.sql_dialect.get_database_prefix_index()
         if schema_name is None:
