@@ -187,9 +187,7 @@ class DataSourceImpl(ABC):
         database_index: int | None = self.sql_dialect.get_database_prefix_index()
         if database_index is None:
             return None
-        database_name: str = (
-            prefixes[database_index] if database_index < len(prefixes) else None
-        )
+        database_name: str = prefixes[database_index] if database_index < len(prefixes) else None
         return database_name
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
