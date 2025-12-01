@@ -162,8 +162,8 @@ class DataSourceImpl(ABC):
         return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
 
     def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
-        schema_name: str = self.extract_schema_from_prefix(dataset_prefixes)
-        database_name: str = self.extract_database_from_prefix(dataset_prefixes)
+        schema_name: Optional[str] = self.extract_schema_from_prefix(dataset_prefixes)
+        database_name: Optional[str] = self.extract_database_from_prefix(dataset_prefixes)
 
         table_namespace: DataSourceNamespace = (
             SchemaDataSourceNamespace(schema=schema_name)
@@ -176,20 +176,18 @@ class DataSourceImpl(ABC):
             table_namespace=table_namespace, table_name=dataset_name
         )
 
-    def extract_schema_from_prefix(self, prefixes: list[str]) -> str:
+    def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
         if schema_index is None:
             return None
-        schema_name: str = prefixes[schema_index] if schema_index is not None and schema_index < len(prefixes) else None
+        schema_name: str = prefixes[schema_index] if schema_index < len(prefixes) else None
         return schema_name
 
-    def extract_database_from_prefix(self, prefixes: list[str]) -> str:
+    def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         database_index: int | None = self.sql_dialect.get_database_prefix_index()
         if database_index is None:
             return None
-        database_name: str = (
-            prefixes[database_index] if database_index is not None and database_index < len(prefixes) else None
-        )
+        database_name: str = prefixes[database_index] if database_index < len(prefixes) else None
         return database_name
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
@@ -197,7 +195,7 @@ class DataSourceImpl(ABC):
         Builds the table namespace for the schema query.
         Returns the table namespace and the schema name.
         """
-        schema_name: str = self.extract_schema_from_prefix(prefixes)
+        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
         database_name: str | None = self.extract_database_from_prefix(prefixes)
         if schema_name is None:
             raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
