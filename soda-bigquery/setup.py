@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-bigquery"
-package_version = "4.0.0b16"
+package_version = "4.0.4b17"
 description = "Soda BigQuery V4"
 
 requires = [
