@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-sparkdf"
-package_version = "4.0.0b15"
+package_version = "4.0.0b16"
 description = "Soda SparkDF V4"
 
 requires = [f"soda-core=={package_version}", "freezegun", "pyspark>=3.5.0", f"soda-databricks=={package_version}"]
