@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -33,6 +34,11 @@ class DatasetIdentifier:
 
     def to_string(self) -> str:
         return "/".join([self.data_source_name] + self.prefixes + [self.dataset_name])
+
+    def to_hash(self) -> str:
+        consistent_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=32)  # Use 32 chars
+        consistent_hash_builder.add(self.to_string())
+        return consistent_hash_builder.get_hash()
 
     def __repr__(self):
         return (
