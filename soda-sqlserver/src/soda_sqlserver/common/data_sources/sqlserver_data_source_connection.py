@@ -41,6 +41,7 @@ class SqlServerConnectionProperties(DataSourceConnectionProperties, ABC):
     enable_tracing: Optional[bool] = Field(False, description="Whether to enable tracing")
     login_timeout: Optional[int] = Field(0, description="Login timeout")
     scope: Optional[str] = Field(None, description="Scope for the connection")
+    connection_parameters: Optional[dict[str, str]] = Field(None, description="Connection parameters")
 
 
 class SqlServerPasswordAuth(SqlServerConnectionProperties):
@@ -152,6 +153,11 @@ class SqlServerDataSourceConnection(DataSourceConnection):
             conn_params.append(f"PWD={{{config.client_secret.get_secret_value()}}}")
         elif "activedirectory" in config.authentication.lower():
             conn_params.append(f"Authentication={config.authentication}")
+
+        if config.connection_parameters:
+            for key, value in config.connection_parameters.items():
+                logger.info(f"Adding connection parameter: {key}={value}")
+                conn_params.append(f"{key}={value}")
 
         conn_params.append(f"APP=soda-core-fabric/{SODA_CORE_VERSION}")
 

@@ -132,6 +132,23 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="Login failed for user '",
     ),
+    TestConnection(
+        test_name="connection_parameters",
+        connection_yaml_str=f"""
+                type: sqlserver
+                name: SQLSERVER_TEST_DS
+                connection:
+                    host: '{SQLSERVER_HOST}'
+                    port: '{SQLSERVER_PORT}'
+                    database: '{SQLSERVER_DATABASE}'
+                    user: '{SQLSERVER_USERNAME}'
+                    password: '{SQLSERVER_PASSWORD}'
+                    driver: '{SQLSERVER_DRIVER}'
+                    trust_server_certificate: '{SQLSERVER_TRUST_SERVER_CERTIFICATE}'
+                    connection_parameters:
+                        application_intent: 'ReadOnly'
+            """,
+    ),
 ]
 
 
