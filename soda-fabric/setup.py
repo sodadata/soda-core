@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-fabric"
-package_version = "4.0.4b18"
+package_version = "4.0.4b19"
 description = "Soda Fabric V4"
 
 requires = [
