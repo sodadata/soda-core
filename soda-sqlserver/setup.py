@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-sqlserver"
-package_version = "4.0.4b19"
+package_version = "4.0.4b20"
 description = "Soda SQL Server V4"
 
 requires = [
