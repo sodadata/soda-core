@@ -212,3 +212,52 @@ def test_apply_sampling_does_not_override_existing_sample() -> None:
     size = sample.args.get("size")
     assert isinstance(size, exp.Literal)
     assert size.this == "5"
+
+
+# ------------------------------
+# Subquery test
+# ------------------------------
+
+
+def test_apply_sampling_complex_query() -> None:
+    sql = """
+        SELECT COUNT(*)
+            FROM (
+                SELECT
+                CASE WHEN
+                    FIELD_NK1 not regexp '[1-6]|[a-z0-9]{8}(-[a-z0-9]{4}){3}-[a-z0-9]{12}|[0-9]{4}|-[12]|Ambient'
+                OR
+                    IFF(try_cast(TO_CHAR(FIELD_NK1) as TEXT) IN (select distinct FIELD_NK1 from MY_DB.MY_SCHEMA.T1), FALSE, TRUE)
+                THEN TRUE ELSE FALSE
+                END as check_result
+                FROM
+                    MY_DB.MY_SCHEMA.T2
+            ) subquery
+        WHERE check_result = TRUE;"""
+    out = apply_sampling_to_sql(
+        sql=sql,
+        sampler_limit=15,
+        sampler_type=SamplerType.ABSOLUTE_LIMIT,
+    )
+    # Check that the output SQL contains the expected TABLESAMPLE clauses
+    tree = sqlglot.parse_one(out)
+    t1 = _get_first_table(tree, "T1")
+    sample1 = t1.args.get("sample")
+    assert isinstance(sample1, exp.TableSample)
+    size1 = sample1.args.get("size")
+    assert isinstance(size1, exp.Literal)
+    assert size1.this == "15"
+
+    t2 = _get_first_table(tree, "T2")
+    sample2 = t2.args.get("sample")
+    assert isinstance(sample2, exp.TableSample)
+    size2 = sample2.args.get("size")
+    assert isinstance(size2, exp.Literal)
+    assert size2.this == "15"
+
+    # Make sure that the subselect itself is not sampled since it's already sampled at its definition
+    subquery = _get_first_subquery_with_alias(tree, "subquery")
+    subquery_sample = subquery.args.get("sample")
+    assert subquery_sample is None
+    print(out)
+    assert 1 == 2
