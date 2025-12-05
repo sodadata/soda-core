@@ -190,13 +190,13 @@ def test_sampling_custom_sql_pass(
         f"from {build_name_with_alias(table_full_name, 'metric_query')} where 1 = 1".lower() not in logs
     ), "Original metric query should not be in logs"
     assert (
-        f"from {add_sample(build_name_with_alias(table_full_name, 'metric_query'))} where 1 = 1".lower() in logs
+        f"from {add_sample(build_name_with_alias(table_full_name, 'metric_query'))}\nwhere\n  1 = 1".lower() in logs
     ), "Sampled metric query should be in logs"
 
     assert (
         f"from {build_name_with_alias(table_full_name, 'fr_query')} where {age_quoted} > 100".lower() not in logs
     ), "Original failed_rows query should not be in logs"
     assert (
-        f"from {add_sample(build_name_with_alias(table_full_name, 'fr_query'))} where {age_quoted} > 100".lower()
+        f"from {add_sample(build_name_with_alias(table_full_name, 'fr_query'))}\n  where\n    {age_quoted} > 100".lower()
         in logs
     ), "Sampled failed_rows query should be in logs"
