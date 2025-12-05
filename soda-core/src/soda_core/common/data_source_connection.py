@@ -146,7 +146,11 @@ class DataSourceConnection(ABC):
         return updates
 
     def execute_query_one_by_one(
-        self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
     ) -> tuple[tuple]:
         """
         usage: execute_query_one_by_one("SELECT ...", lambda row, description: your_handle_row(row))
@@ -161,8 +165,11 @@ class DataSourceConnection(ABC):
 
             description: tuple[tuple] = cursor.description
 
+            rows_processed: int = 0
+
             row = cursor.fetchone()
-            while row:
+            while row and (row_limit is None or rows_processed < row_limit):
+                rows_processed += 1
                 row_callback(row, description)
                 row = cursor.fetchone()
 

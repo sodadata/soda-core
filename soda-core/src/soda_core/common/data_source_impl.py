@@ -128,11 +128,15 @@ class DataSourceImpl(ABC):
         return self.connection.execute_query(sql=sql, log_query=log_query)
 
     def execute_query_one_by_one(
-        self, sql: str, row_callback: Callable[[tuple, tuple[tuple]], None], log_query: bool = True
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
     ) -> tuple[tuple]:
         # Returns the description of the query.
         return self.data_source_connection.execute_query_one_by_one(
-            sql=sql, row_callback=row_callback, log_query=log_query
+            sql=sql, row_callback=row_callback, log_query=log_query, row_limit=row_limit
         )
 
     def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
