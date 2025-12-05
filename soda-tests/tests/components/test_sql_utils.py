@@ -259,5 +259,3 @@ def test_apply_sampling_complex_query() -> None:
     subquery = _get_first_subquery_with_alias(tree, "subquery")
     subquery_sample = subquery.args.get("sample")
     assert subquery_sample is None
-    print(out)
-    assert 1 == 2
