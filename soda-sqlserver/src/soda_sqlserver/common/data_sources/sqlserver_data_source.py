@@ -79,8 +79,36 @@ class SqlServerSqlDialect(SqlDialect):
 
         limit_line = self._build_limit_line(select_elements)
         if limit_line:
-            statement_lines.append(limit_line)
+            if not limit_line.startswith("__SODA_LIMIT_TOP__"):
+                statement_lines.append(limit_line)
+            else:  # We should add the TOP statement to the SELECT statement.
+                # Get the last SELECT line and add the TOP statement to it.
+                last_select_line: str = [line for line in statement_lines if line.startswith("SELECT")][-1]
+                last_select_line_with_top = last_select_line.replace(
+                    "SELECT ", f"SELECT TOP {limit_line.split('__SODA_LIMIT_TOP__')[1]} "
+                )
+                # Find the index of the last SELECT line and replace it with the new line.
+                last_select_line_index = statement_lines.index(last_select_line)
+                statement_lines[last_select_line_index] = last_select_line_with_top
+
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def _build_limit_line(self, select_elements: list) -> Optional[str]:
+        # First, check if there is a LIMIT statement in the select elements.
+        limit_statement_present = any(isinstance(select_element, LIMIT) for select_element in select_elements)
+        if not limit_statement_present:
+            return None
+
+        # Check if there is an OFFSET statement in the select elements. If so, use the default logic.
+        uses_offset = any(isinstance(select_element, OFFSET) for select_element in select_elements)
+        if uses_offset:
+            return super()._build_limit_line(select_elements)
+
+        # If no OFFSET is used, but there is a LIMIT, we should use TOP instead of FETCH NEXT.
+        limit_element: LIMIT = [
+            select_element for select_element in select_elements if isinstance(select_element, LIMIT)
+        ][0]
+        return f"__SODA_LIMIT_TOP__{limit_element.limit}"  # Use a custom keyword to indicate that we are using TOP instead of FETCH NEXT.
 
     def literal_date(self, date: date):
         """Technically dates can be passed directly as strings, but this is more explicit."""
