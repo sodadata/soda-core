@@ -80,7 +80,37 @@ class SqlServerSqlDialect(SqlDialect):
         limit_line = self._build_limit_line(select_elements)
         if limit_line:
             statement_lines.append(limit_line)
+
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def _build_select_sql_lines(self, select_elements: list) -> list[str]:
+        # Use the default implementation, but we need to handle the case where the select elements contain a LIMIT statement.
+        select_sql_lines: list[str] = super()._build_select_sql_lines(select_elements)
+        if self.__requires_select_top(select_elements):
+            limit_element: LIMIT = [
+                select_element for select_element in select_elements if isinstance(select_element, LIMIT)
+            ][0]
+            select_sql_lines[0] = select_sql_lines[0].replace("SELECT ", f"SELECT TOP {limit_element.limit} ")
+        return select_sql_lines
+
+    def __requires_select_top(self, select_elements: list) -> bool:
+        # We require TOP when there is a LIMIT statement and no OFFSET statement.
+        return any(isinstance(select_element, LIMIT) for select_element in select_elements) and not any(
+            isinstance(select_element, OFFSET) for select_element in select_elements
+        )
+
+    def _build_limit_line(self, select_elements: list) -> Optional[str]:
+        # First, check if there is a LIMIT statement in the select elements.
+        limit_statement_present = any(isinstance(select_element, LIMIT) for select_element in select_elements)
+        if not limit_statement_present:
+            return None
+
+        # Check if there is an OFFSET statement in the select elements. If so, use the default logic.
+        uses_offset = any(isinstance(select_element, OFFSET) for select_element in select_elements)
+        if uses_offset:
+            return super()._build_limit_line(select_elements)
+        else:
+            return None  # This case (limit, but no offset) is handled by the _build_select_sql_lines method; it adds TOP N instead of FETCH NEXT.
 
     def literal_date(self, date: date):
         """Technically dates can be passed directly as strings, but this is more explicit."""
