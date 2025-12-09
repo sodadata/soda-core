@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import re
@@ -197,40 +198,53 @@ class YamlValue:
         self.yaml_source: YamlSource = yaml_source
 
     def _yaml_wrap(self, value: any, location: Optional[Location] = None):
-        if isinstance(value, dict):
+        # Resolve variables on read if configured to do so.
+        # Only resolve one level deep in dicts and lists, we are not building a full template engine here.
+
+        if value is None:
+            return None
+
+        # To avoid modifying the original value during variable resolution
+        wrapped_value = copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+
+        if isinstance(wrapped_value, dict):
             if self.yaml_source.resolve_on_read:
-                for k, v in value.items():
+                for k, v in wrapped_value.items():
                     if isinstance(v, str):
-                        value[k] = VariableResolver.resolve(
+                        wrapped_value[k] = self._resolve_variable(
                             source_text=v,
-                            variable_values=self.yaml_source.resolve_on_read_variable_values,
-                            soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
-                            use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
                             location=location,
                         )
-            return YamlObject(yaml_source=self.yaml_source, yaml_dict=value)
-        if isinstance(value, list):
+            return YamlObject(yaml_source=self.yaml_source, yaml_dict=wrapped_value)
+        elif isinstance(wrapped_value, list):
             if self.yaml_source.resolve_on_read:
-                for i in range(0, len(value)):
-                    v = value[i]
+                for i in range(0, len(wrapped_value)):
+                    v = wrapped_value[i]
                     if isinstance(v, str):
-                        value[i] = VariableResolver.resolve(
+                        wrapped_value[i] = self._resolve_variable(
                             source_text=v,
-                            variable_values=self.yaml_source.resolve_on_read_variable_values,
-                            soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
-                            use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
                             location=location,
                         )
-            return YamlList(yaml_source=self.yaml_source, yaml_list=value)
-        if isinstance(value, str) and self.yaml_source.resolve_on_read:
-            value = VariableResolver.resolve(
-                source_text=value,
-                variable_values=self.yaml_source.resolve_on_read_variable_values,
-                soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
-                use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
+            return YamlList(yaml_source=self.yaml_source, yaml_list=wrapped_value)
+        elif isinstance(wrapped_value, str) and self.yaml_source.resolve_on_read:
+            wrapped_value = self._resolve_variable(
+                source_text=wrapped_value,
                 location=location,
             )
-        return value
+        return wrapped_value
+
+    def _resolve_variable(
+        self,
+        source_text: str,
+        location: Optional[Location] = None,
+    ) -> str:
+        return VariableResolver.resolve(
+            source_text=source_text,
+            variable_values=self.yaml_source.resolve_on_read_variable_values,
+            soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
+            use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
+            location=location,
+        )
 
     @classmethod
     def yaml_unwrap(cls, o) -> Optional[object]:
