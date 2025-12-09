@@ -103,17 +103,9 @@ class MetricCheckImpl(CheckImpl):
 
         diagnostic_metric_values: dict[str, float] = {}
 
-        if self.metric_check_yaml.expression:
-            diagnostic_metric_values: dict[str, float] = {
-                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-            }
-        elif self.metric_check_yaml.query:
-            # TODO delete this after
-            # https://linear.app/sodadata/issue/DTL-922/fix-backend-diagnostics-mismatches-from-core
-            # is done
-            diagnostic_metric_values: dict[str, float] = {
-                "dataset_rows_tested": 0,
-            }
+        diagnostic_metric_values: dict[str, float] = {
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         outcome = self.evaluate_threshold(numeric_metric_value)
 
