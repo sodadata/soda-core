@@ -198,8 +198,29 @@ class YamlValue:
 
     def _yaml_wrap(self, value: any, location: Optional[Location] = None):
         if isinstance(value, dict):
+            if self.yaml_source.resolve_on_read:
+                for k, v in value.items():
+                    if isinstance(v, str):
+                        value[k] = VariableResolver.resolve(
+                            source_text=v,
+                            variable_values=self.yaml_source.resolve_on_read_variable_values,
+                            soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
+                            use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
+                            location=location,
+                        )
             return YamlObject(yaml_source=self.yaml_source, yaml_dict=value)
         if isinstance(value, list):
+            if self.yaml_source.resolve_on_read:
+                for i in range(0, len(value)):
+                    v = value[i]
+                    if isinstance(v, str):
+                        value[i] = VariableResolver.resolve(
+                            source_text=v,
+                            variable_values=self.yaml_source.resolve_on_read_variable_values,
+                            soda_variable_values=self.yaml_source.resolve_on_read_soda_variable_values,
+                            use_env_vars=self.yaml_source.resolve_on_read_use_env_vars,
+                            location=location,
+                        )
             return YamlList(yaml_source=self.yaml_source, yaml_list=value)
         if isinstance(value, str) and self.yaml_source.resolve_on_read:
             value = VariableResolver.resolve(

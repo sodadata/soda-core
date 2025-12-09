@@ -255,3 +255,24 @@ def test_variables_example1_in_docs(logs: Logs):
 
     assert dedent_and_strip(contract_yaml.dataset) == "postgres_adventureworks/adventureworks/advw/dim_employee"
     assert "" == logs.get_errors_str()
+
+
+def test_variable_in_list():
+    ### Known limitation: numeric variables are resolved into strings because:
+    # 1. to ensure they can be concatenated into strings as well.
+    # 2. we use regex substitution which only works with strings
+    contract_yaml: ContractYaml = parse_contract(
+        contract_yaml_str="""
+            dataset: a/b/c/d
+            columns:
+                - name: test_col
+                  checks:
+                    - invalid:
+                        valid_values: ["a", "b", "${var.c}"]
+            variables:
+              c:
+                default: c
+        """,
+    )
+
+    assert contract_yaml.columns[0].check_yamls[0].valid_values == ["a", "b", "c"]
