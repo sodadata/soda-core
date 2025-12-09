@@ -79,19 +79,25 @@ class SqlServerSqlDialect(SqlDialect):
 
         limit_line = self._build_limit_line(select_elements)
         if limit_line:
-            if not limit_line.startswith("__SODA_LIMIT_TOP__"):
-                statement_lines.append(limit_line)
-            else:  # We should add the TOP statement to the SELECT statement.
-                # Get the last SELECT line and add the TOP statement to it.
-                last_select_line: str = [line for line in statement_lines if line.startswith("SELECT")][-1]
-                last_select_line_with_top = last_select_line.replace(
-                    "SELECT ", f"SELECT TOP {limit_line.split('__SODA_LIMIT_TOP__')[1]} "
-                )
-                # Find the index of the last SELECT line and replace it with the new line.
-                last_select_line_index = statement_lines.index(last_select_line)
-                statement_lines[last_select_line_index] = last_select_line_with_top
+            statement_lines.append(limit_line)
 
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def _build_select_sql_lines(self, select_elements: list) -> list[str]:
+        # Use the default implementation, but we need to handle the case where the select elements contain a LIMIT statement.
+        select_sql_lines: list[str] = super()._build_select_sql_lines(select_elements)
+        if self.__requires_select_top(select_elements):
+            limit_element: LIMIT = [
+                select_element for select_element in select_elements if isinstance(select_element, LIMIT)
+            ][0]
+            select_sql_lines[0] = select_sql_lines[0].replace("SELECT ", f"SELECT TOP {limit_element.limit} ")
+        return select_sql_lines
+
+    def __requires_select_top(self, select_elements: list) -> bool:
+        # We require TOP when there is a LIMIT statement and no OFFSET statement.
+        return any(isinstance(select_element, LIMIT) for select_element in select_elements) and not any(
+            isinstance(select_element, OFFSET) for select_element in select_elements
+        )
 
     def _build_limit_line(self, select_elements: list) -> Optional[str]:
         # First, check if there is a LIMIT statement in the select elements.
@@ -103,12 +109,8 @@ class SqlServerSqlDialect(SqlDialect):
         uses_offset = any(isinstance(select_element, OFFSET) for select_element in select_elements)
         if uses_offset:
             return super()._build_limit_line(select_elements)
-
-        # If no OFFSET is used, but there is a LIMIT, we should use TOP instead of FETCH NEXT.
-        limit_element: LIMIT = [
-            select_element for select_element in select_elements if isinstance(select_element, LIMIT)
-        ][0]
-        return f"__SODA_LIMIT_TOP__{limit_element.limit}"  # Use a custom keyword to indicate that we are using TOP instead of FETCH NEXT.
+        else:
+            return None  # This case (limit, but no offset) is handled by the _build_select_sql_lines method; it adds TOP N instead of FETCH NEXT.
 
     def literal_date(self, date: date):
         """Technically dates can be passed directly as strings, but this is more explicit."""
