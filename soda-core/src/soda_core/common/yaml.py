@@ -509,6 +509,19 @@ class VariableResolver:
         location: Optional[Location] = None,
     ) -> str:
         if isinstance(source_text, str):
+            # First pass: sometimes the value is just the variable with quotes. If so, we can just return the value directly, no casting to string needed.
+            match = re.fullmatch(r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}", source_text)
+            if match:
+                return cls.get_variable(
+                    namespace=match.group(1).strip(),
+                    variable=match.group(2).strip(),
+                    variable_values=variable_values,
+                    soda_variable_values=soda_variable_values,
+                    use_env_vars=use_env_vars,
+                    location=location,
+                )
+
+            # Otherwise do a regex replace for all variable patterns in the string, which may be mixed with other text.
             return re.sub(
                 pattern=r"\$\{ *([a-z]+)\.([a-zA-Z_][a-zA-Z_0-9]*) *\}",
                 repl=lambda m: cls._resolve_variable_pattern(
