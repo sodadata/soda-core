@@ -249,9 +249,15 @@ class Threshold:
     must_be_greater_than_or_equal: Optional[Number] = None
     must_be_less_than: Optional[Number] = None
     must_be_less_than_or_equal: Optional[Number] = None
+    must_be: Optional[Number] = None
+    must_not_be: Optional[Number] = None
 
     def __str__(self) -> str:
         parts = []
+        if self.must_be is not None:
+            parts.append(f"= {self.must_be}")
+        if self.must_not_be is not None:
+            parts.append(f"!= {self.must_not_be}")
         if self.must_be_greater_than is not None:
             parts.append(f"> {self.must_be_greater_than}")
         if self.must_be_greater_than_or_equal is not None:
@@ -260,8 +266,8 @@ class Threshold:
             parts.append(f"< {self.must_be_less_than}")
         if self.must_be_less_than_or_equal is not None:
             parts.append(f"<= {self.must_be_less_than_or_equal}")
-        parts_str = "\n ".join(parts)
-        return f"{self.level}:\n {parts_str}" if parts_str else self.level
+        parts_str = ", ".join(parts)
+        return f"Level: {self.level}\nPassing condition:\n({parts_str})" if parts_str else self.level
 
 
 @dataclass
@@ -344,11 +350,11 @@ class CheckResult:
         row = {}
         row["Column"] = self.check.column_name if self.check.column_name else "[dataset-level]"
         row["Check"] = self.check.name
+        row["Threshold"] = self.check.threshold
         row["Outcome"] = f"{self.outcome_emoticon} {self.outcome.name}"
 
         if is_verbose():
             row["Check Type"] = self.check.type
-            row["Threshold"] = self.check.threshold
             row["Identity"] = self.check.identity
         row["Diagnostics"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
 
