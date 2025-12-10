@@ -63,6 +63,50 @@ def test_attributes_global_apply(data_source_test_helper: DataSourceTestHelper):
             }
 
 
+def test_attributes_global_with_vars(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
+        contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+            test_table=test_table,
+            contract_yaml_str="""
+                variables:
+                    attribute_test:
+                        default: 'Test description'
+                check_attributes:
+                    description: ${var.attribute_test}
+                columns:
+                    - name: id
+                      checks:
+                        - aggregate:
+                            function: avg
+                            threshold:
+                                must_be: 2
+                        - invalid:
+                            valid_values: [1, 2, 3]
+                        - missing:
+                        - duplicate:
+                    - name: created_at
+                checks:
+                    - schema:
+                    - freshness:
+                        column: created_at
+                        threshold:
+                            must_be_less_than: 12
+            """,
+        )
+        for check_result in contract_verification_result.check_results:
+            assert check_result.check.attributes == {
+                "description": "Test description",
+            }
+
+
 def test_attributes_individual_apply_and_override(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
