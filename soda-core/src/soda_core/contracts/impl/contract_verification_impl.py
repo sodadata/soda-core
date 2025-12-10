@@ -635,8 +635,11 @@ class ContractImpl:
         elif not self.only_validate_without_execute:
             # Executing the queries will set the value of the metrics linked to queries
             for query in self.queries:
-                query_measurements: list[Measurement] = query.execute()
-                measurements.extend(query_measurements)
+                try:
+                    query_measurements: list[Measurement] = query.execute()
+                    measurements.extend(query_measurements)
+                except Exception as e:
+                    logger.error(f"Error executing query: {e}")
 
             measurement_values: MeasurementValues = MeasurementValues(measurements)
 
