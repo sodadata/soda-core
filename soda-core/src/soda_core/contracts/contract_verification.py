@@ -250,6 +250,19 @@ class Threshold:
     must_be_less_than: Optional[Number] = None
     must_be_less_than_or_equal: Optional[Number] = None
 
+    def __str__(self) -> str:
+        parts = []
+        if self.must_be_greater_than is not None:
+            parts.append(f"> {self.must_be_greater_than}")
+        if self.must_be_greater_than_or_equal is not None:
+            parts.append(f">= {self.must_be_greater_than_or_equal}")
+        if self.must_be_less_than is not None:
+            parts.append(f"< {self.must_be_less_than}")
+        if self.must_be_less_than_or_equal is not None:
+            parts.append(f"<= {self.must_be_less_than_or_equal}")
+        parts_str = "\n ".join(parts)
+        return f"{self.level}:\n {parts_str}" if parts_str else self.level
+
 
 @dataclass
 class Check:
@@ -335,6 +348,7 @@ class CheckResult:
 
         if is_verbose():
             row["Check Type"] = self.check.type
+            row["Threshold"] = self.check.threshold
             row["Identity"] = self.check.identity
         row["Diagnostics"] = self.log_table_row_diagnostics(verbose=True if is_verbose() else False)
 
