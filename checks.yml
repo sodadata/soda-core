@@ -1,0 +1,24 @@
+checks for reports_amazon_v3_sp_search_term_keywords:
+#   Ensure that columns has no missing values
+  - missing_count(LOAD_TIMESTAMP) = 0
+
+  - missing_count(LOAD_FILENAME) = 0
+
+  - missing_count(PROFILE_ID) = 0
+
+  - missing_count(REPORT_DATE) = 0
+
+  # Ensure that columns missing values are within threshold selected
+  - missing_percent(KEYWORD_ID) < 1
+
+  - missing_percent(KEYWORD) < 1
+
+  - missing_percent(SEARCH_TERM) < 1
+
+  - missing_percent(CAMPAIGN_ID) < 1
+
+  - missing_percent(KEYWORD_BID) < 60
+
+checks for reports_amazon_v3_sp_campaign_ad_groups:
+  # Ensure that columns has no missing values
+  - missing_count(REPORT_DATE) = 0

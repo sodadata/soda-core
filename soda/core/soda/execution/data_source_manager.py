@@ -45,7 +45,7 @@ class DataSourceManager:
                         )
 
                         try:
-                            data_source.connect()
+                            # data_source.connect() # @PATTERN_FORK:REMOVED - remove this line to prevent connection to data source. This eliminates the need to provide connection details in the configuration file
                             self.data_sources[data_source_name] = data_source
                         except BaseException as e:
                             self.logs.error(f'Could not connect to data source "{data_source_name}": {e}', exception=e)

@@ -1,0 +1,10 @@
+data_source my_snowflake_db:
+  type: snowflake
+  connection:
+    account: WEDSQVX-PATTERN
+    warehouse: INFORMATION_TECHNOLOGY_TEAM_WH
+    database: predict_db
+    schema: ads
+    role: adczar_role
+    username: joseph.paradis@pattern.com
+    authenticator: externalbrowser
