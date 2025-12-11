@@ -6,7 +6,6 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
 )
-import pytest
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -78,7 +77,7 @@ def test_aggregate_function_min_length(data_source_test_helper: DataSourceTestHe
                         must_be: 2
         """,
     )
-    check_result: CheckResult = contract_verification_result.check_results[0]    
+    check_result: CheckResult = contract_verification_result.check_results[0]
     assert get_diagnostic_value(check_result, "min_length") == 2
 
 
@@ -103,8 +102,9 @@ def test_aggregate_function_max_length(data_source_test_helper: DataSourceTestHe
                         must_be: 3
         """,
     )
-    check_result: CheckResult = contract_verification_result.check_results[0]    
+    check_result: CheckResult = contract_verification_result.check_results[0]
     assert get_diagnostic_value(check_result, "max_length") == 3
+
 
 def test_aggregate_function_avg_length(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
@@ -127,9 +127,8 @@ def test_aggregate_function_avg_length(data_source_test_helper: DataSourceTestHe
                         must_be: 2.2
         """,
     )
-    check_result: CheckResult = contract_verification_result.check_results[0]    
+    check_result: CheckResult = contract_verification_result.check_results[0]
     assert get_diagnostic_value(check_result, "avg_length") == 2.2
-
 
 
 def test_aggregate_function_avg_with_missing(data_source_test_helper: DataSourceTestHelper):

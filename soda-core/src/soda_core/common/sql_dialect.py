@@ -692,7 +692,7 @@ class SqlDialect:
         elif isinstance(expression, CAST):
             return self._build_cast_sql(expression)
         elif isinstance(expression, FUNCTION):
-            return self._build_function_sql(expression)        
+            return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
             return self._build_distinct_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
@@ -990,7 +990,18 @@ class SqlDialect:
         return f"OFFSET {offset_element.offset}"
 
     def supports_function(self, function: str) -> bool:
-        return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum", "avglength", "maxlength", "minlength"]
+        return function in [
+            "avg",
+            "avg_length",
+            "max",
+            "min",
+            "max_length",
+            "min_length",
+            "sum",
+            "avglength",
+            "maxlength",
+            "minlength",
+        ]
 
     def get_function_expression(self, function: str, arg: SqlExpression) -> SqlExpression:
         if function in ["avglength", "avg_length"]:
@@ -1008,7 +1019,6 @@ class SqlDialect:
         elif function == "sum":
             return SUM(arg)
         return FUNCTION(name=function, args=[arg])
-
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)

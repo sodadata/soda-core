@@ -406,7 +406,6 @@ class MIN(SqlExpression):
         self.handle_parent_node_update(self.expression)
 
 
-
 @dataclass
 class LITERAL(SqlExpression):
     value: object
