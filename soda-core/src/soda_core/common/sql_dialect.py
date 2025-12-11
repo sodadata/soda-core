@@ -685,7 +685,6 @@ class SqlDialect:
             return self._build_max_sql(expression)
         elif isinstance(expression, MIN):
             return self._build_min_sql(expression)
-
         elif isinstance(expression, AVERAGE):
             return self._build_average_sql(expression)
         elif isinstance(expression, COALESCE):
@@ -693,9 +692,7 @@ class SqlDialect:
         elif isinstance(expression, CAST):
             return self._build_cast_sql(expression)
         elif isinstance(expression, FUNCTION):
-            return self._build_function_sql(expression)
-        elif isinstance(expression, AVERAGE):
-            return self._build_average_sql(expression)
+            return self._build_function_sql(expression)        
         elif isinstance(expression, DISTINCT):
             return self._build_distinct_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
