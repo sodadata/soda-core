@@ -1,14 +1,14 @@
 import requests
 import json
 import time
-import traceback
 
 class HeimdallCursor:
-    def __init__(self, log=None):
+    def __init__(self, data_source_type: str, log=None):
         self.log = log or (lambda *a, **k: None)  # minimal fallback if no logger provided
         self.description = None
         self._rows = []
         self._row_index = 0
+        self.data_source_type = data_source_type
 
         # Hardwired config per your note
         self.endpoint = "http://127.0.0.1:9090/api/v1/job"
@@ -18,11 +18,11 @@ class HeimdallCursor:
         }
 
     def execute(self, sql: str):
-        # traceback.print_stack(limit=None, file=None)
+        self.log.info(f"Data source engine: {self.data_source_type}")
         payload = {
             "name": "user-analytics-query",
             "version": "1.0.0",
-            "command_criteria": ["type:snowflake"],
+            "command_criteria": [f"type:{self.data_source_type}"],
             "cluster_criteria": ["data:prod"],
             "tags": ["dag_id:jp_test"],
             "context": {"query": sql, "return_result": True},

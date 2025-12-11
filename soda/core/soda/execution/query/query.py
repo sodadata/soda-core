@@ -35,6 +35,7 @@ class Query:
     ):
         self.logs = data_source_scan.scan._logs
         self.data_source_scan = data_source_scan
+        self.data_source_type = data_source_scan.data_source.type # @PATTERN_FORK:NEW - capture the data source type for Heimdall
         self.query_name: str = Query.build_query_name(
             data_source_scan, table, partition, column, unqualified_query_name
         )
@@ -140,7 +141,7 @@ class Query:
         data_source = self.data_source_scan.data_source
         try:
             # cursor = data_source.connection.cursor() # @PATTERN_FORK:ORIGINAL - remove original cursor that would point to a datasource connection
-            cursor = HeimdallConnection(log=self.logs).cursor() # @PATTERN_FORK:REPLACEMENT
+            cursor = HeimdallConnection(data_source_type=self.data_source_type, log=self.logs).cursor() # @PATTERN_FORK:REPLACEMENT
             try:
                 self.logs.debug(f"Query {self.query_name}:\n{self.sql}")
                 if execute:
@@ -239,8 +240,7 @@ class Query:
                     # self.logs.info(
                     #     f"Skipping samples from query '{self.query_name}'. Excluded column(s) present: {offending_columns}."
                     # )
-                    # @PATTERN_FORK:REPLACEMENT
-                    continue
+                    continue # @PATTERN_FORK:REPLACEMENT
             except BaseException as e:
                 self._cursor_execute_exception_handler(e)
 
