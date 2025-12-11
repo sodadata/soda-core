@@ -6,6 +6,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
 )
+import pytest
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -54,6 +55,81 @@ def test_aggregate_function_avg(data_source_test_helper: DataSourceTestHelper):
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
     assert check_json["diagnostics"]["v4"] == {"type": "aggregate", "datasetRowsTested": 5, "checkRowsTested": 5}
+
+
+def test_aggregate_function_min_length(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                checks:
+                  - aggregate:
+                      function: min_length
+                      threshold:
+                        must_be: 2
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]    
+    assert get_diagnostic_value(check_result, "min_length") == 2
+
+
+def test_aggregate_function_max_length(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                checks:
+                  - aggregate:
+                      function: max_length
+                      threshold:
+                        must_be: 3
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]    
+    assert get_diagnostic_value(check_result, "max_length") == 3
+
+def test_aggregate_function_avg_length(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                checks:
+                  - aggregate:
+                      function: avg_length
+                      threshold:
+                        must_be: 2.2
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]    
+    assert get_diagnostic_value(check_result, "avg_length") == 2.2
+
 
 
 def test_aggregate_function_avg_with_missing(data_source_test_helper: DataSourceTestHelper):

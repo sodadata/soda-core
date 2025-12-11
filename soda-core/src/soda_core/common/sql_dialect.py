@@ -26,6 +26,7 @@ from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
     AND,
+    AVERAGE,
     CASE_WHEN,
     CAST,
     COALESCE,
@@ -66,6 +67,7 @@ from soda_core.common.sql_ast import (
     LT,
     LTE,
     MAX,
+    MIN,
     NEQ,
     NOT,
     NOT_LIKE,
@@ -681,12 +683,19 @@ class SqlDialect:
             return self._build_length_sql(expression)
         elif isinstance(expression, MAX):
             return self._build_max_sql(expression)
+        elif isinstance(expression, MIN):
+            return self._build_min_sql(expression)
+
+        elif isinstance(expression, AVERAGE):
+            return self._build_average_sql(expression)
         elif isinstance(expression, COALESCE):
             return self._build_coalesce_sql(expression)
         elif isinstance(expression, CAST):
             return self._build_cast_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
+        elif isinstance(expression, AVERAGE):
+            return self._build_average_sql(expression)
         elif isinstance(expression, DISTINCT):
             return self._build_distinct_sql(expression)
         elif isinstance(expression, SqlExpressionStr):
@@ -921,6 +930,12 @@ class SqlDialect:
     def _build_max_sql(self, max: MAX) -> str:
         return f"MAX({self.build_expression_sql(max.expression)})"
 
+    def _build_min_sql(self, min: MIN) -> str:
+        return f"MIN({self.build_expression_sql(min.expression)})"
+
+    def _build_average_sql(self, average: AVERAGE) -> str:
+        return f"AVG({self.build_expression_sql(average.expression)})"
+
     def _build_coalesce_sql(self, coalesce: COALESCE) -> str:
         args: str = ", ".join([self.build_expression_sql(expression) for expression in coalesce.args])
         return f"COALESCE({args})"
@@ -978,7 +993,25 @@ class SqlDialect:
         return f"OFFSET {offset_element.offset}"
 
     def supports_function(self, function: str) -> bool:
-        return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum"]
+        return function in ["avg", "avg_length", "max", "min", "max_length", "min_length", "sum", "avglength", "maxlength", "minlength"]
+
+    def get_function_expression(self, function: str, arg: SqlExpression) -> SqlExpression:
+        if function in ["avglength", "avg_length"]:
+            return AVERAGE(LENGTH(arg))
+        elif function in ["maxlength", "max_length"]:
+            return MAX(LENGTH(arg))
+        elif function in ["minlength", "min_length"]:
+            return MIN(LENGTH(arg))
+        elif function == "max":
+            return MAX(arg)
+        elif function == "min":
+            return MIN(arg)
+        elif function == "avg":
+            return AVERAGE(arg)
+        elif function == "sum":
+            return SUM(arg)
+        return FUNCTION(name=function, args=[arg])
+
 
     def _build_tuple_sql(self, tuple: TUPLE) -> str:
         elements: str = ", ".join(self.build_expression_sql(e) for e in tuple.expressions)
