@@ -1,6 +1,8 @@
 import requests
 import json
 import time
+from datetime import datetime, date
+from typing import Any
 
 class HeimdallCursor:
     def __init__(self, data_source_type: str, log=None):
@@ -89,25 +91,83 @@ class HeimdallCursor:
         self._rows = self._extract_rows(result_payload)
         self._build_description_from_rows()
 
+    def _convert_cell(self, value: Any, type_name: str):
+        if value is None:
+            return None
+
+        t = type_name.upper()
+
+        # DATE → Python date
+        if t == "DATE":
+            if isinstance(value, str):
+                # "2025-12-11T00:00:00Z" → date(2025, 12, 11)
+                dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                return dt.date()
+            return value
+
+        # TIMESTAMP → Python datetime
+        if "TIMESTAMP" in t:
+            if isinstance(value, str):
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return value
+
+        # NUMBER / FLOAT / INT
+        if t in ("NUMBER", "FLOAT", "DOUBLE", "INT", "INTEGER", "DECIMAL"):
+            if isinstance(value, str):
+                return float(value) if "." in value else int(value)
+            return value
+
+        # BOOLEAN
+        if t == "BOOLEAN":
+            return value in ("true", "True", True, 1)
+
+        return value
+
     def _extract_rows(self, result_payload):
         """
-        Normalizes possible Heimdall result shapes into a list-of-rows.
-        Expected shapes:
-          - {"rows": [[...], [...]]}
-          - [[...], [...]]
-          - {"result": {"rows": ...}} (defensive)
-          - {"data": [[...]]} (defensive)
+        Extract rows AND convert values according to column metadata.
+        Expected structure:
+        {
+            "columns": [{"name": ..., "type": ...}, ...],
+            "data": [[...], [...]]
+        }
         """
-        if isinstance(result_payload, dict):
-            if "rows" in result_payload and isinstance(result_payload["rows"], list):
-                return [tuple(r) for r in result_payload["rows"]]
-            if "result" in result_payload and isinstance(result_payload["result"], dict):
-                return self._extract_rows(result_payload["result"])
-            if "data" in result_payload and isinstance(result_payload["data"], list):
-                return [tuple(r) for r in result_payload["data"]]
+        # Case 1 — payload has columns + data
+        if isinstance(result_payload, dict) and "columns" in result_payload and "data" in result_payload:
+            columns = result_payload["columns"]
+            rows = result_payload["data"]
+
+            # Build a parsed row list
+            parsed_rows = []
+            for row in rows:
+                parsed_row = []
+                for i, value in enumerate(row):
+                    col_type = columns[i].get("type", "STRING")
+                    parsed_value = self._convert_cell(value, col_type)
+                    parsed_row.append(parsed_value)
+                parsed_rows.append(tuple(parsed_row))
+
+            # Store metadata for cursor description
+            self.description = tuple(
+                (col["name"], col.get("type"), None, None, None, None, None)
+                for col in columns
+            )
+
+            return parsed_rows
+
+        # Case 2 — nested "result" dict
+        if isinstance(result_payload, dict) and "result" in result_payload:
+            return self._extract_rows(result_payload["result"])
+
+        # Case 3 — legacy "rows"
+        if isinstance(result_payload, dict) and "rows" in result_payload:
+            raw_rows = result_payload["rows"]
+            return [tuple(r) for r in raw_rows]
+
+        # Case 4 — bare list
         if isinstance(result_payload, list):
             return [tuple(r) for r in result_payload]
-        # fallback: no rows
+
         return []
 
     def _build_description_from_rows(self):
