@@ -131,6 +131,33 @@ def test_aggregate_function_avg_length(data_source_test_helper: DataSourceTestHe
     assert get_diagnostic_value(check_result, "avg_length") == 2.2
 
 
+
+def test_aggregate_function_avg_length_alt(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                checks:
+                  - aggregate:
+                      function: avgLength
+                      threshold:
+                        must_be: 2.2
+        """,
+    )
+    # The platform will generate 'avglength' instead of 'avg_length', check to make sure this is supported
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "avglength") == 2.2  # nb avgLength becomes avglength in results 
+
+    
 def test_aggregate_function_avg_with_missing(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
