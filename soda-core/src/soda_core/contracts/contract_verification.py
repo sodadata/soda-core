@@ -255,19 +255,19 @@ class Threshold:
     def __str__(self) -> str:
         parts = []
         if self.must_be is not None:
-            parts.append(f"= {self.must_be}")
+            parts.append(f"must be: {self.must_be}")
         if self.must_not_be is not None:
-            parts.append(f"!= {self.must_not_be}")
+            parts.append(f"must not be: {self.must_not_be}")
         if self.must_be_greater_than is not None:
-            parts.append(f"> {self.must_be_greater_than}")
+            parts.append(f"must be greater than: {self.must_be_greater_than}")
         if self.must_be_greater_than_or_equal is not None:
-            parts.append(f">= {self.must_be_greater_than_or_equal}")
+            parts.append(f"must be greater than or equal: {self.must_be_greater_than_or_equal}")
         if self.must_be_less_than is not None:
-            parts.append(f"< {self.must_be_less_than}")
+            parts.append(f"must be less than: {self.must_be_less_than}")
         if self.must_be_less_than_or_equal is not None:
-            parts.append(f"<= {self.must_be_less_than_or_equal}")
-        parts_str = ", ".join(parts)
-        return f"Level: {self.level}\nPassing condition:\n({parts_str})" if parts_str else self.level
+            parts.append(f"must be less than or equal: {self.must_be_less_than_or_equal}")
+        parts_str = "\n".join(parts)
+        return f"level: {self.level}\n{parts_str}" if parts_str else self.level
 
 
 @dataclass
