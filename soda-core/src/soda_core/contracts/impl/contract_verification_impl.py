@@ -1199,14 +1199,12 @@ class ThresholdImpl:
         elif self.must_be is not None:
             return Threshold(
                 level=self.level.value,
-                must_be_greater_than_or_equal=self.must_be,
-                must_be_less_than_or_equal=self.must_be,
+                must_be=self.must_be,
             )
         elif self.must_not_be is not None:
             return Threshold(
                 level=self.level.value,
-                must_be_greater_than=self.must_not_be,
-                must_be_less_than=self.must_not_be,
+                must_not_be=self.must_not_be,
             )
 
     @classmethod

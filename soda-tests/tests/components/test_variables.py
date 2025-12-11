@@ -258,9 +258,6 @@ def test_variables_example1_in_docs(logs: Logs):
 
 
 def test_variable_in_list():
-    ### Known limitation: numeric variables are resolved into strings because:
-    # 1. to ensure they can be concatenated into strings as well.
-    # 2. we use regex substitution which only works with strings
     contract_yaml: ContractYaml = parse_contract(
         contract_yaml_str="""
             dataset: a/b/c/d
@@ -276,3 +273,24 @@ def test_variable_in_list():
     )
 
     assert contract_yaml.columns[0].check_yamls[0].valid_values == ["a", "b", "c"]
+
+
+def test_variable_in_list_with_numeric_value():
+    contract_yaml: ContractYaml = parse_contract(
+        contract_yaml_str="""
+            dataset: a/b/c/d
+            columns:
+                - name: test_col
+                  checks:
+                    - invalid:
+                        valid_values: [1, 2, "${var.three}"]
+                        threshold:
+                            must_be_greater_than_or_equal: ${var.three}
+            variables:
+              three:
+                default: 3
+        """,
+    )
+
+    assert contract_yaml.columns[0].check_yamls[0].valid_values == [1, 2, 3]
+    assert contract_yaml.columns[0].check_yamls[0].threshold.must_be_greater_than_or_equal == 3

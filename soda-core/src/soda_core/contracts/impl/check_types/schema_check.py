@@ -197,7 +197,7 @@ class SchemaCheckImpl(CheckImpl):
         )
 
     def _build_threshold(self) -> Threshold:
-        return Threshold(must_be_less_than_or_equal=0, level=ThresholdLevel.FAIL)
+        return Threshold(must_be_less_than_or_equal=0, level=ThresholdLevel.FAIL.value)
 
 
 class SchemaMetricImpl(MetricImpl):
