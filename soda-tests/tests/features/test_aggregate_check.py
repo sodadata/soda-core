@@ -126,7 +126,7 @@ def test_aggregate_function_avg_length(data_source_test_helper: DataSourceTestHe
                   - aggregate:
                       function: avg_length
                       threshold:
-                        must_be: 2.2
+                        must_be_less_than: 2.3
         """,
     )
     check_result: CheckResult = contract_verification_result.check_results[0]
@@ -152,7 +152,7 @@ def test_aggregate_function_avg_length_alt(data_source_test_helper: DataSourceTe
                   - aggregate:
                       function: avgLength
                       threshold:
-                        must_be: 2.2
+                        must_be_less_than: 2.3
         """,
     )
     # The platform will generate 'avglength' instead of 'avg_length', check to make sure this is supported
