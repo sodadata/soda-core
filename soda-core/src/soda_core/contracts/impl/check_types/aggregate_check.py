@@ -147,7 +147,7 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         if filters:
             arg = CASE_WHEN(condition=AND(clauses=filters), if_expression=self.column_name, else_expression=None)
 
-        return FUNCTION(name=self.function, args=[arg])
+        return self.data_source_impl.sql_dialect.get_function_expression(self.function, arg)
 
     def convert_db_value(self, value) -> any:
         return float(value) if value is not None else None
