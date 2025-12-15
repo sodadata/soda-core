@@ -19,6 +19,9 @@ requires = [
     "inflect~=7.0",
     "pydantic>=2.0.0,<3.0.0",
     "python-dotenv~=1.0",
+    
+    "soda-core-trino~=3.5.6", # @PATTERN_FORK:NEW
+    "soda-core-snowflake~=3.5.6", # @PATTERN_FORK:NEW
 ]
 
 setup(
