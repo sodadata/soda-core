@@ -8,7 +8,7 @@ description = "Soda Core MySQL Package"
 
 requires = [
     f"soda-core=={package_version}",
-    "mysql-connector-python==8.0.30",
+    "mysql-connector-python>=8.0.30",
 ]
 # TODO Fix the params
 setup(
