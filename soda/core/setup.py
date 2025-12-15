@@ -31,11 +31,7 @@ setup(
     author_email="info@soda.io",
     description="Soda Core library & CLI",
     long_description_content_type="text/markdown",
-    # packages=find_namespace_packages(include=["soda*"]), # @PATTERN_FORK:MODIFIED
-    packages=find_namespace_packages(
-        include=["soda*"],
-        exclude=["docker*", "docs*", "examples*", "scripts*", "tests*"],
-    ),
+    packages=find_namespace_packages(include=["soda*"]),
     install_requires=requires,
     entry_points={"console_scripts": ["soda=soda.cli.cli:main"]},
     classifiers=[
