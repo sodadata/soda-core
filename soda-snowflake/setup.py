@@ -6,7 +6,10 @@ package_name = "soda-snowflake"
 package_version = "4.0.4b22"
 description = "Soda Snowflake V4"
 
-requires = [f"soda-core=={package_version}", "snowflake-connector-python~=3.0"]
+requires = [
+    f"soda-core=={package_version}",
+    "snowflake-connector-python>=3.0",
+]  # 4.0 is also fine, but for backwards compatibility we include 3.0
 
 setup(
     name=package_name,
