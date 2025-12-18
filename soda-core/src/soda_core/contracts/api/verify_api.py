@@ -21,6 +21,8 @@ logger: logging.Logger = soda_logger
 
 soda_telemetry = SodaTelemetry()
 
+__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED = "At least one of -c/--contract or -d/--dataset arguments is required."
+
 
 @deprecated("Use verify_contract_locally instead")
 def verify_contracts_locally(
@@ -37,7 +39,7 @@ def verify_contracts_locally(
     dwh_data_source_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
     if not contract_file_paths and not dataset_identifiers:
-        raise InvalidArgumentException("At least one of -c/--contract or -d/--dataset arguments is required.")
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
 
     if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
@@ -123,7 +125,7 @@ def verify_contracts_on_agent(
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
     if not contract_file_paths and not dataset_identifiers:
-        raise InvalidArgumentException("At least one of -c/--contract or -d/--dataset arguments is required.")
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
 
     if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
@@ -306,7 +308,7 @@ def validate_verify_arguments(
         )
 
     if all_none_or_empty(contract_file_paths, dataset_identifiers):
-        raise InvalidArgumentException("At least one of -c/--contract or -d/--dataset arguments is required.")
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
 
     if dataset_identifiers and not soda_cloud_client:
         raise InvalidArgumentException(
