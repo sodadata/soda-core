@@ -18,6 +18,8 @@ from soda_core.model.data_source.data_source_connection_properties import (
 
 logger: logging.Logger = soda_logger
 
+USER_DESCRIPTION = "Username for authentication"
+
 
 class SnowflakeConnectionProperties(DataSourceConnectionProperties, ABC):
     ...
@@ -33,12 +35,12 @@ class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):
 
 
 class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
-    user: str = Field(..., description="Username for authentication")
+    user: str = Field(..., description=USER_DESCRIPTION)
     password: SecretStr = Field(..., description="User password")
 
 
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
-    user: str = Field(..., description="Username for authentication")
+    user: str = Field(..., description=USER_DESCRIPTION)
     private_key: SecretStr = Field(..., description="Private key for authentication")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
@@ -65,7 +67,7 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
-    user: str = Field(..., description="Username for authentication")
+    user: str = Field(..., description=USER_DESCRIPTION)
     private_key_path: Path = Field(..., description="Path to private key file")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
