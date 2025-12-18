@@ -89,14 +89,13 @@ test_connections: list[TestConnection] = [
     #     valid_connection_params=False,
     #     expected_connection_error="Failed to connect to DB"
     # ),
-    TestConnection(  # connect using oauth credentials
-        test_name="oauth_credentials_connection",
+    TestConnection(  # connect using oauth credentials, without user
+        test_name="oauth_credentials_connection_without_user",
         connection_yaml_str=f"""
                 type: snowflake
                 name: SNOWFLAKE_TEST
                 connection:
                     account: '{SNOWFLAKE_ACCOUNT}'
-                    user: '{SNOWFLAKE_USER}'
                     authenticator: 'OAUTH_CLIENT_CREDENTIALS'
                     oauth_client_id: 'foo'
                     oauth_client_secret: 'foo'

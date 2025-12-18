@@ -25,7 +25,6 @@ class SnowflakeConnectionProperties(DataSourceConnectionProperties, ABC):
 
 class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):
     account: str = Field(..., description="Snowflake account identifier")
-    user: str = Field(..., description="Username for authentication")
     warehouse: Optional[str] = Field(None, description="Name of the warehouse to use")
     database: Optional[str] = Field(None, description="Name of the database to use")
     role: Optional[str] = Field(None, description="Role to assume after connecting")
@@ -34,10 +33,12 @@ class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):
 
 
 class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
+    user: str = Field(..., description="Username for authentication")
     password: SecretStr = Field(..., description="User password")
 
 
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
+    user: str = Field(..., description="Username for authentication")
     private_key: SecretStr = Field(..., description="Private key for authentication")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
@@ -64,6 +65,7 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
+    user: str = Field(..., description="Username for authentication")
     private_key_path: Path = Field(..., description="Path to private key file")
     private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
 
@@ -84,6 +86,7 @@ class SnowflakeOAuthAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeClientCredentialsOAuthAuth(SnowflakeSharedConnectionProperties):
+    # User is not required for OAuth Client Credentials Flow.
     authenticator: Literal["OAUTH_CLIENT_CREDENTIALS"] = Field(
         ..., description="Authenticator to use for OAuth Client Credentials Flow."
     )
@@ -94,6 +97,7 @@ class SnowflakeClientCredentialsOAuthAuth(SnowflakeSharedConnectionProperties):
 
 
 class SnowflakeSSOAuth(SnowflakeSharedConnectionProperties):
+    # User is not required for SSO Flow.
     authenticator: Literal["externalbrowser"] = Field("externalbrowser", description="Use external browser SSO login")
 
 
