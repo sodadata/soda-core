@@ -55,16 +55,10 @@ def verify_contracts_locally(
             "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
         )
 
-    contract_file_path = (
-        contract_file_paths[0]
-        if contract_file_paths and isinstance(contract_file_paths, list) and len(contract_file_paths) > 0
-        else None
-    )  # Very defensive programming
-    dataset_identifier = (
-        dataset_identifiers[0]
-        if dataset_identifiers and isinstance(dataset_identifiers, list) and len(dataset_identifiers) > 0
-        else None
-    )  # Very defensive programming
+    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
+
+    contract_file_path = __attempt_pick_first_element(contract_file_paths)
+    dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
 
     return verify_contract_locally(
         data_source_file_path=data_source_file_path,
@@ -147,16 +141,10 @@ def verify_contracts_on_agent(
             "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
         )
 
-    contract_file_path = (
-        contract_file_paths[0]
-        if contract_file_paths and isinstance(contract_file_paths, list) and len(contract_file_paths) > 0
-        else None
-    )  # Very defensive programming
-    dataset_identifier = (
-        dataset_identifiers[0]
-        if dataset_identifiers and isinstance(dataset_identifiers, list) and len(dataset_identifiers) > 0
-        else None
-    )  # Very defensive programming
+    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
+
+    contract_file_path = __attempt_pick_first_element(contract_file_paths)
+    dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
 
     return verify_contract_on_agent(
         soda_cloud_file_path=soda_cloud_file_path,
@@ -415,4 +403,14 @@ def _create_datasource_yamls(
     raise InvalidDataSourceConfigurationException(
         "No data source configuration provided and no dataset identifiers given. "
         "Please provide a data source configuration file or a dataset identifier."
+    )
+
+
+def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:
+    if my_list is None:
+        return None
+    if isinstance(my_list, list) and len(my_list) >= 1:
+        return my_list[0]
+    raise InvalidArgumentException(
+        "Expected a list with at least one element, got an empty list or another type of object."
     )
