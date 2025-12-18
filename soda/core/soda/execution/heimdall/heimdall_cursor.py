@@ -13,14 +13,13 @@ class HeimdallCursor:
         self.data_source_type = data_source_type
 
         # Hardwired config per your note
-        self.endpoint = "http://127.0.0.1:9090/api/v1/job"
+        self.endpoint = "http://127.0.0.1:9090/api/v1/job" # TODO: Change endpoint for service to service
         self.headers = {
-            "X-Heimdall-User": "jparadis@pattern.com",
+            "X-Heimdall-User": "jparadis@pattern.com", # TODO: Does this become the user's email?
             "Content-Type": "application/json",
         }
 
     def execute(self, sql: str):
-        self.log.info(f"Data source engine: {self.data_source_type}")
         payload = {
             "name": "user-analytics-query",
             "version": "1.0.0",

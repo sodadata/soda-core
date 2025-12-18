@@ -514,6 +514,7 @@ class Scan:
                     self._logs.error("""An error occurred while executing data source scan""", exception=e)
 
                 # Each data_source is asked to create metric values that are returned as a list of query results
+                self._logs.info(f"Running Soda scan: `{self._scan_definition_name}` on data source: `{data_source_scan_cfg.data_source_name}`") # @PATTERN_FORK:NEW
                 for data_source_scan in self._data_source_scans:
                     data_source_scan.execute_queries()
 
