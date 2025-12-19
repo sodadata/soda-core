@@ -1640,7 +1640,7 @@ def _map_remote_scan_status_to_contract_verification_status(
         return ContractVerificationStatus.PASSED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
         return ContractVerificationStatus.FAILED
-    elif scan_status in RemoteScanStatus.COMPLETED_WITH_ERRORS:
+    elif scan_status in (RemoteScanStatus.COMPLETED_WITH_ERRORS,):
         return ContractVerificationStatus.ERROR
     else:
         return ContractVerificationStatus.UNKNOWN
