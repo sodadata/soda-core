@@ -27,8 +27,14 @@ class CheckAttribute(BaseModel):
 
     @staticmethod
     def _format_value(value: Any) -> Any:
+        # Handle boolean strings explicitly to avoid misinterpretation
+        if isinstance(value, str):
+            if value.lower() == "true":
+                return True
+            elif value.lower() == "false":
+                return False
         if isinstance(value, bool):
-            return value
+            return bool(value)
         if not isinstance(value, datetime) and isinstance(value, date):
             value = datetime.combine(value, datetime.min.time())
         if isinstance(value, datetime):
