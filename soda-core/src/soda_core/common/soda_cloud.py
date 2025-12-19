@@ -1087,13 +1087,22 @@ class SodaCloud:
                     is_retry=False,
                 )
             elif not response.ok:
-                message = response.json().get("message")
-                code = response.json().get("code")
+                try:
+                    response_data = response.json()
+                    message = response_data.get("message")
+                    code = response_data.get("code")
+                except json.JSONDecodeError:
+                    # Fallback for non-JSON responses (e.g., HTML/plain-text error pages)
+                    message = response.text
+                    code = None
+                safe_message = message or "N/A"
+                safe_code = code or "N/A"
+                safe_trace_id = trace_id or "N/A"
 
                 logger.error(
                     f"Soda Cloud error for {request_type} '{request_log_name}':\n"
                     f"Status Code: {response.status_code}\n"
-                    f"Message: '{message}' | Response Code: '{code}' | Trace Id: {trace_id}"
+                    f"Message: '{safe_message}' | Response Code: '{safe_code}' | Trace Id: {safe_trace_id}"
                 )
                 logger.debug(f"Response_text:\n{response.text}")
             else:
