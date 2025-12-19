@@ -1066,14 +1066,7 @@ class SodaCloud:
                 request_log_name=request_log_name,
             )
 
-            trace_id: str = response.headers.get("X-Soda-Trace-Id")
-            # TODO let m1no check if this is still needed...
-            # if request_name:
-            #     trace_id = response.headers.get("X-Soda-Trace-Id")
-            #
-            #     if trace_id:
-            #         self.soda_cloud_trace_ids[request_name] = trace_id
-
+            trace_id: str = response.headers.get("X-Soda-Trace-Id", "N/A")
             if response.status_code == 401 and is_retry:
                 logger.debug(
                     f"Soda Cloud authentication failed for {request_type} {request_log_name}. "
@@ -1089,20 +1082,17 @@ class SodaCloud:
             elif not response.ok:
                 try:
                     response_data = response.json()
-                    message = response_data.get("message")
-                    code = response_data.get("code")
+                    message = response_data.get("message", "N/A")
+                    code = response_data.get("code", "N/A")
                 except json.JSONDecodeError:
                     # Fallback for non-JSON responses (e.g., HTML/plain-text error pages)
                     message = response.text
                     code = None
-                safe_message = message or "N/A"
-                safe_code = code or "N/A"
-                safe_trace_id = trace_id or "N/A"
 
                 logger.error(
                     f"Soda Cloud error for {request_type} '{request_log_name}':\n"
                     f"Status Code: {response.status_code}\n"
-                    f"Message: '{safe_message}' | Response Code: '{safe_code}' | Trace Id: {safe_trace_id}"
+                    f"Message: '{message}' | Response Code: '{code}' | Trace Id: {trace_id}"
                 )
                 logger.debug(f"Response_text:\n{response.text}")
             else:
