@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Optional, Union
 
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -16,7 +17,11 @@ from soda_core.contracts.contract_verification import (
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 
+logger: logging.Logger = soda_logger
+
 soda_telemetry = SodaTelemetry()
+
+__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED = "At least one of -c/--contract or -d/--dataset arguments is required."
 
 
 @deprecated("Use verify_contract_locally instead")
@@ -33,21 +38,36 @@ def verify_contracts_locally(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
 ) -> ContractVerificationSessionResult:
+    if not contract_file_paths and not dataset_identifiers:
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+
     if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
 
-    if len(contract_file_paths) > 1:
+    if (
+        contract_file_paths and len(contract_file_paths) > 1
+    ):  # We still need the "none" check, if there is no contract file path, we don't want to raise an error for the len()
         raise InvalidArgumentException("Only one contract is allowed at a time")
 
     if dataset_identifiers and len(dataset_identifiers) > 1:
         raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
 
+    if contract_file_paths and dataset_identifiers:
+        logger.info(
+            "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
+        )
+
+    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
+
+    contract_file_path = __attempt_pick_first_element(contract_file_paths)
+    dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
+
     return verify_contract_locally(
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
         data_sources=data_sources,
-        contract_file_path=contract_file_paths[0],
-        dataset_identifier=dataset_identifiers[0],
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
         soda_cloud_file_path=soda_cloud_file_path,
         variables=variables,
         data_timestamp=data_timestamp,
@@ -104,19 +124,34 @@ def verify_contracts_on_agent(
     verbose: bool = False,
     blocking_timeout_in_minutes: int = 60,
 ) -> ContractVerificationSessionResult:
+    if not contract_file_paths and not dataset_identifiers:
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+
     if isinstance(contract_file_paths, str):
         contract_file_paths = [contract_file_paths]
 
-    if len(contract_file_paths) > 1:
+    if (
+        contract_file_paths and len(contract_file_paths) > 1
+    ):  # We still need the "none" check, if there is no contract file path, we don't want to raise an error for the len()
         raise InvalidArgumentException("Only one contract is allowed at a time")
 
     if dataset_identifiers and len(dataset_identifiers) > 1:
         raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
 
+    if contract_file_paths and dataset_identifiers:
+        logger.info(
+            "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
+        )
+
+    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
+
+    contract_file_path = __attempt_pick_first_element(contract_file_paths)
+    dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
+
     return verify_contract_on_agent(
         soda_cloud_file_path=soda_cloud_file_path,
-        contract_file_path=contract_file_paths[0],
-        dataset_identifier=dataset_identifiers[0],
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
         data_source_file_path=data_source_file_path,
         data_source_file_paths=data_source_file_paths,
         variables=variables,
@@ -273,7 +308,7 @@ def validate_verify_arguments(
         )
 
     if all_none_or_empty(contract_file_paths, dataset_identifiers):
-        raise InvalidArgumentException("At least one of -c/--contract or -d/--dataset arguments is required.")
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
 
     if dataset_identifiers and not soda_cloud_client:
         raise InvalidArgumentException(
@@ -370,4 +405,14 @@ def _create_datasource_yamls(
     raise InvalidDataSourceConfigurationException(
         "No data source configuration provided and no dataset identifiers given. "
         "Please provide a data source configuration file or a dataset identifier."
+    )
+
+
+def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:
+    if my_list is None:
+        return None
+    if isinstance(my_list, list) and len(my_list) >= 1:
+        return my_list[0]
+    raise InvalidArgumentException(
+        "Expected a list with at least one element, got an empty list or another type of object."
     )
