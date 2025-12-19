@@ -34,7 +34,7 @@ class CheckAttribute(BaseModel):
             elif value.lower() == "false":
                 return False
         if isinstance(value, bool):
-            return bool(value)
+            return value
         if not isinstance(value, datetime) and isinstance(value, date):
             value = datetime.combine(value, datetime.min.time())
         if isinstance(value, datetime):
