@@ -19,13 +19,20 @@ from soda_core.common.sql_ast import (
     COLUMN,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
+    CREATE_VIEW,
     DROP_TABLE,
+    DROP_VIEW,
+    FROM,
     INSERT_INTO,
+    SELECT,
+    STAR,
     VALUES_ROW,
 )
 from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
+    FullyQualifiedViewName,
     MetadataTablesQuery,
+    TableType,
 )
 from soda_core.common.yaml import (
     ContractYamlSource,
@@ -293,6 +300,7 @@ class DataSourceTestHelper:
         return [
             fully_qualified_test_table_name.table_name
             for fully_qualified_test_table_name in fully_qualified_table_names
+            if isinstance(fully_qualified_test_table_name, FullyQualifiedTableName)
         ]
 
     def create_test_schema_if_not_exists(self) -> None:
@@ -472,6 +480,55 @@ class DataSourceTestHelper:
             fully_qualified_table_name=fully_qualified_table_name,
         )
         sql: str = self.data_source_impl.sql_dialect.build_drop_table_sql(my_drop_table)
+        self.data_source_impl.execute_update(sql)
+
+    def query_existing_test_views(self) -> list[FullyQualifiedViewName]:
+        metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
+        fully_qualified_view_names: list[FullyQualifiedViewName] = metadata_tables_query.execute(
+            database_name=self.extract_database_from_prefix(),
+            schema_name=self.extract_schema_from_prefix(),
+            include_table_name_like_filters=["SODATEST_%"],
+            types_to_return=[TableType.VIEW],
+        )
+        return fully_qualified_view_names
+
+    def query_existing_test_view_names(self) -> list[str]:
+        fully_qualified_view_names = self.query_existing_test_views()
+        return [
+            fully_qualified_view_name.view_name
+            for fully_qualified_view_name in fully_qualified_view_names
+            if isinstance(fully_qualified_view_name, FullyQualifiedViewName)
+        ]
+
+    def create_view_from_test_table(self, test_table: TestTable) -> str:
+        # TODO: verify if the view already exists, and if so, drop it first.
+        view_name = f"{test_table.unique_name}_view"
+        existing_view_names = self.query_existing_test_view_names()
+        if view_name in existing_view_names:
+            self._drop_test_view(view_name)
+        my_create_view = CREATE_VIEW(
+            fully_qualified_view_name=self.data_source_impl.sql_dialect.qualify_dataset_name(
+                dataset_prefix=self.dataset_prefix,
+                dataset_name=view_name,
+            ),
+            select_elements=[
+                SELECT(STAR()),
+                FROM(self.data_source_impl.sql_dialect.get_from_name_from_qualified_name(test_table.qualified_name)),
+            ],
+        )
+        sql: str = self.data_source_impl.sql_dialect.build_create_view_sql(my_create_view)
+        self.data_source_impl.execute_update(sql)
+        return view_name
+
+    def _drop_test_view(self, view_name: str) -> None:
+        fully_qualified_view_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=view_name,
+        )
+        my_drop_view = DROP_VIEW(
+            fully_qualified_view_name=fully_qualified_view_name,
+        )
+        sql: str = self.data_source_impl.sql_dialect.build_drop_view_sql(my_drop_view)
         self.data_source_impl.execute_update(sql)
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
