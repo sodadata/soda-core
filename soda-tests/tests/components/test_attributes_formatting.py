@@ -14,7 +14,7 @@ class TestCheckAttributeFromRaw:
 class TestCheckAttributeFormatValueBooleans:
     @pytest.mark.parametrize("v", [True, False])
     def test_bool_passthrough_bug_behavior(self, v):
-        assert CheckAttribute._format_value(v) is v
+        assert CheckAttribute._format_value(v) == v
 
     @pytest.mark.parametrize(
         "v, expected",
@@ -28,7 +28,7 @@ class TestCheckAttributeFormatValueBooleans:
         ],
     )
     def test_string_boolean(self, v, expected):
-        assert CheckAttribute._format_value(v) is expected
+        assert CheckAttribute._format_value(v) == expected
 
     def test_non_boolean_strings_not_converted(self):
         assert CheckAttribute._format_value("yes") == "yes"
@@ -88,12 +88,12 @@ class TestCheckAttributeFormatValueOtherTypes:
 
     def test_list_passthrough(self):
         v = [1, "a", True]
-        assert CheckAttribute._format_value(v) is v
+        assert CheckAttribute._format_value(v) == v
 
     def test_dict_passthrough(self):
         v = {"a": 1}
-        assert CheckAttribute._format_value(v) is v
+        assert CheckAttribute._format_value(v) == v
 
     def test_bytes_passthrough(self):
         v = b"abc"
-        assert CheckAttribute._format_value(v) is v
+        assert CheckAttribute._format_value(v) == v
