@@ -13,7 +13,7 @@ class TestCheckAttributeFromRaw:
 
 class TestCheckAttributeFormatValueBooleans:
     @pytest.mark.parametrize("v", [True, False])
-    def test_bool_passthrough_bug_behavior(self, v):
+    def test_bool_passthrough(self, v):
         assert CheckAttribute._format_value(v) == v
 
     @pytest.mark.parametrize(
