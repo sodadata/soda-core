@@ -727,6 +727,3 @@ class DataSourceTestHelper:
             "time_default": SodaDataTypeName.TIME,
             "boolean_default": SodaDataTypeName.BOOLEAN,
         }
-
-    def adjust_test_schema_name(self, diagnostics_schema_name: str) -> str:
-        return diagnostics_schema_name
