@@ -1066,14 +1066,7 @@ class SodaCloud:
                 request_log_name=request_log_name,
             )
 
-            trace_id: str = response.headers.get("X-Soda-Trace-Id")
-            # TODO let m1no check if this is still needed...
-            # if request_name:
-            #     trace_id = response.headers.get("X-Soda-Trace-Id")
-            #
-            #     if trace_id:
-            #         self.soda_cloud_trace_ids[request_name] = trace_id
-
+            trace_id: str = response.headers.get("X-Soda-Trace-Id", "N/A")
             if response.status_code == 401 and is_retry:
                 logger.debug(
                     f"Soda Cloud authentication failed for {request_type} {request_log_name}. "
@@ -1087,14 +1080,21 @@ class SodaCloud:
                     is_retry=False,
                 )
             elif not response.ok:
-                verbose_message: str = (
-                    "" if logger.isEnabledFor(logging.DEBUG) else "Enable verbose mode to see more details."
+                try:
+                    response_data = response.json()
+                    message = response_data.get("message", "N/A")
+                    code = response_data.get("code", "N/A")
+                except json.JSONDecodeError:
+                    # Fallback for non-JSON responses (e.g., HTML/plain-text error pages)
+                    message = response.text
+                    code = None
+
+                logger.error(
+                    f"Soda Cloud error for {request_type} '{request_log_name}':\n"
+                    f"Status Code: {response.status_code}\n"
+                    f"Message: '{message}' | Response Code: '{code}' | Trace Id: {trace_id}"
                 )
-                logger.error(f"Soda Cloud error for {request_type} `{request_log_name}`. {verbose_message}")
-                logger.debug(
-                    f"Status_code:{response.status_code} | "
-                    f"X-Soda-Trace-Id:{trace_id} | response_text:{response.text}"
-                )
+                logger.debug(f"Response_text:\n{response.text}")
             else:
                 logger.debug(
                     f"{Emoticons.OK_HAND} Soda Cloud {request_type} {request_log_name} OK | X-Soda-Trace-Id:{trace_id}"
@@ -1109,9 +1109,9 @@ class SodaCloud:
                 exc_info=True,
             )
 
-    def _clean_request_from_private_info(self, json: str) -> str:
-        regex = re.compile(rb"\"token\": \"[^\"]+\"")
-        return regex.sub(b'"token": "****"', json.encode())
+    def _clean_request_from_private_info(self, json_str: str) -> str:
+        regex = re.compile(r'"token":\s*"[^"]+"')
+        return regex.sub(r'"token": "****"', json_str)
 
     def _http_post(self, request_log_name: str = None, **kwargs) -> Response:
         return requests.post(**kwargs)
