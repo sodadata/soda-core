@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from datetime import date, datetime
 from typing import Optional
 
@@ -14,9 +15,12 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CREATE_VIEW,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
+    DROP_VIEW,
+    DROP_VIEW_IF_EXISTS,
     FROM,
     INSERT_INTO,
     INSERT_INTO_VIA_SELECT,
@@ -405,3 +409,17 @@ class SqlServerSqlDialect(SqlDialect):
         select_elements += [INTO(fully_qualified_table_name=create_table_as_select.fully_qualified_table_name)]
         result_sql: str = self.build_select_sql(select_elements, add_semicolon=add_semicolon)
         return result_sql
+
+    def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: bool = True) -> str:
+        # SqlServer does not allow for the database name to be specified in the view name, so we need to drop it.
+        drop_view_copy = deepcopy(drop_view)  # Copy the object so we don't modify the original object
+        # Drop the first prefix (database name) from the fully qualified view name
+        drop_view_copy.fully_qualified_view_name = ".".join(drop_view_copy.fully_qualified_view_name.split(".")[1:])
+        return super().build_drop_view_sql(drop_view_copy, add_semicolon)
+
+    def build_create_view_sql(self, create_view: CREATE_VIEW, add_semicolon: bool = True) -> str:
+        # SqlServer does not allow for the database name to be specified in the view name, so we need to drop it.
+        create_view_copy = deepcopy(create_view)  # Copy the object so we don't modify the original object
+        # Drop the first prefix (database name) from the fully qualified view name
+        create_view_copy.fully_qualified_view_name = ".".join(create_view_copy.fully_qualified_view_name.split(".")[1:])
+        return super().build_create_view_sql(create_view_copy, add_semicolon)
