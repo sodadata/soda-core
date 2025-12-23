@@ -19,6 +19,7 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
+from soda_core.common.statements.table_types import FullyQualifiedObjectName
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -233,25 +234,26 @@ class DataSourceImpl(ABC):
         return schema_exists
 
     def verify_if_table_exists(self, prefixes: list[str], table_name: str) -> bool:
-        fully_qualified_table_names: list[FullyQualifiedTableName] = self._get_fully_qualified_table_names(
+        fully_qualified_object_names: list[FullyQualifiedObjectName] = self._get_fully_qualified_table_names(
             prefixes=prefixes, table_name=table_name
         )
         return any(
-            fully_qualified_table_name.table_name == table_name
-            for fully_qualified_table_name in fully_qualified_table_names
+            fully_qualified_object_name.get_object_name() == table_name
+            for fully_qualified_object_name in fully_qualified_object_names
+            if isinstance(fully_qualified_object_name, FullyQualifiedTableName)  # Only check TABLES
         )
 
-    def _get_fully_qualified_table_names(self, prefixes: list[str], table_name: str) -> list[FullyQualifiedTableName]:
+    def _get_fully_qualified_table_names(self, prefixes: list[str], table_name: str) -> list[FullyQualifiedObjectName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_name = self.extract_database_from_prefix(prefixes)
         schema_name = self.extract_schema_from_prefix(prefixes)
 
-        fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
+        fully_qualified_object_names: list[FullyQualifiedObjectName] = metadata_tables_query.execute(
             database_name=database_name,
             schema_name=schema_name,
             include_table_name_like_filters=[table_name],
         )
-        return fully_qualified_table_names
+        return fully_qualified_object_names
 
     def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
         # Noop by default, only some data sources need to implement this
