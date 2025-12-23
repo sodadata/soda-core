@@ -19,6 +19,7 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
+from soda_core.common.sql_ast import CREATE_TABLE_IF_NOT_EXISTS
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -240,7 +241,7 @@ class DataSourceImpl(ABC):
             fully_qualified_table_name.table_name == table_name
             for fully_qualified_table_name in fully_qualified_table_names
         )
-
+    
     def _get_fully_qualified_table_names(self, prefixes: list[str], table_name: str) -> list[FullyQualifiedTableName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_name = self.extract_database_from_prefix(prefixes)
@@ -260,3 +261,20 @@ class DataSourceImpl(ABC):
     def get_current_warehouse(self) -> Optional[str]:
         # Noop by default, only some data sources need to implement this
         return None
+
+
+    def create_table_if_not_exists(self, table_name: str, prefixes: list[str], fully_qualified_table_name: str, columns: list[ColumnMetadata]) -> None:
+        if self.sql_dialect.verify_table_exists_through_metadata(): 
+            # some data sources (Dremio) will not always catch table existence using CREATE TABLE IF NOT EXISTS
+            # in this case we should test existence using metadata instead
+            if self.verify_if_table_exists(prefixes=prefixes, table_name=table_name):
+                return
+        
+        create_table_sql: str = self.sql_dialect.build_create_table_sql(
+                CREATE_TABLE_IF_NOT_EXISTS(
+                    fully_qualified_table_name=fully_qualified_table_name,
+                    columns=columns,
+                )
+            )
+        self.execute_update(sql=create_table_sql)
+

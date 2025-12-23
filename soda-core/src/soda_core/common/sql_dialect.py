@@ -619,6 +619,10 @@ class SqlDialect:
     def supports_cte_alias_columns(self) -> bool:
         return True
 
+    def verify_table_exists_through_metadata(self) -> bool:
+        """If True, check metadata before attempting to create tables."""
+        return False
+
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
         cte_lines: list[str] = []
         for select_element in select_elements:
