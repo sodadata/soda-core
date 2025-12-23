@@ -158,7 +158,16 @@ class DatasetMigrationStatus(Enum):
 
     @property
     def is_publish_successful_state(self) -> bool:
-        return self in {DatasetMigrationStatus.COMPLETED_MIGRATION}
+        return self in {
+            DatasetMigrationStatus.COMPLETED_MIGRATION,
+        }
+
+    @property
+    def is_publish_warning_state(self) -> bool:
+        return self in {
+            DatasetMigrationStatus.ALREADY_MIGRATED,
+            DatasetMigrationStatus.ALREADY_MIGRATING,
+        }
 
 
 class ContractSkeletonGenerationState(Enum):
