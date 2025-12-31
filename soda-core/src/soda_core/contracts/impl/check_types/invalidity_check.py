@@ -92,6 +92,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 cte=contract_impl.cte,
                 sampler_type=contract_impl.sampler_type,
                 sampler_limit=contract_impl.sampler_limit,
+                apply_sampling=contract_impl.should_apply_sampling,
                 metric_impl=self.invalid_count_metric_impl,
                 dataset_filter=self.contract_impl.filter,
                 check_filter=self.check_yaml.filter,
@@ -197,6 +198,7 @@ class InvalidReferenceCountQuery(Query):
         cte: CTE,
         sampler_type: Optional[str],
         sampler_limit: Optional[Number],
+        apply_sampling: bool,
         metric_impl: InvalidReferenceCountMetricImpl,
         dataset_filter: Optional[str],
         check_filter: Optional[str],
@@ -210,6 +212,7 @@ class InvalidReferenceCountQuery(Query):
         self.referenced_alias: str = DatasetAlias.REFERENCE.value
         self._referenced_cte_name: str = "_soda_filtered_referenced_dataset"
 
+        self.apply_sampling: bool = apply_sampling
         self.sampler_type: Optional[str] = sampler_type
         self.sampler_limit: Optional[Number] = sampler_limit
 
@@ -242,7 +245,7 @@ class InvalidReferenceCountQuery(Query):
             ]
         )
 
-        if self.sampler_type and self.sampler_limit:
+        if self.apply_sampling and self.sampler_type and self.sampler_limit:
             cte.cte_query[1] = cte.cte_query[1].SAMPLE(self.sampler_type, self.sampler_limit)
 
         return cte
