@@ -9,6 +9,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from logging import LogRecord
+from soda_core.common.logging_configuration import _mask_message
 from typing import Optional
 
 from soda_core.common import exceptions, soda_cloud
@@ -94,6 +95,7 @@ class LogsQueue(LogsBase):
             log_record.__setattr__("thread", self.thread)
             log_record.__setattr__("dataset", self.dataset)
             self.index += 1
+            _mask_message(log_record)
             self.log_queue.put(log_record)
             self._preserve_if_error_log(log_record)
             if self.log_queue.qsize() >= self.batch_size:

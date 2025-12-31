@@ -1,5 +1,7 @@
-import logging
 import sys
+
+import logging
+import os
 from datetime import datetime
 from logging import (
     CRITICAL,
@@ -11,9 +13,8 @@ from logging import (
     LogRecord,
     StreamHandler,
 )
-from typing import Optional
-
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
+from typing import Optional
 
 verbose_mode: bool = False
 
@@ -26,6 +27,8 @@ def configure_logging(
     """
     global verbose_mode
     verbose_mode = verbose
+
+    _prepare_masked_file()
 
     sys.stderr = sys.stdout
     for logger_to_mute in [
@@ -50,6 +53,29 @@ def configure_logging(
         # https://docs.python.org/3/library/logging.html#logrecord-attributes
         handlers=[SodaConsoleHandler()],
     )
+
+
+_masked_values = set()
+def _prepare_masked_file():
+    global _masked_values
+    file_with_masked_values = os.environ.get("SODA_MASKED_VALUES_FILE", None)
+    if file_with_masked_values is not None and os.path.exists(file_with_masked_values):
+        with open(file_with_masked_values) as f:
+            _masked_values.clear()
+            _masked_values.update(l.strip() for l in f.readlines())
+
+
+def _mask_message(record: LogRecord):
+    message = record.getMessage()
+    updated = False
+    if message:
+        for masked in _masked_values:
+            updated = True
+            message = message.replace(masked, "***")
+    if updated:
+        record.msg = message
+        # since getMessage evaluates args, we need to clear them after the full message has been cleared
+        record.args = ()
 
 
 def is_verbose() -> bool:
@@ -89,6 +115,7 @@ class SodaConsoleFormatter(Formatter):
         return self.level_names.get(record.levelno, "UNKNOWN")
 
     def format_message(self, record: LogRecord) -> str:
+        _mask_message(record)
         if record.levelno >= ERROR:
             return f"{Emoticons.POLICE_CAR_LIGHT} {record.getMessage()}"
         else:

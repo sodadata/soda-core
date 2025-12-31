@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from logging import LogRecord
+from soda_core.common.logging_configuration import _mask_message
 
 from soda_core.common.logs_base import LogsBase
 
@@ -29,4 +30,5 @@ class LogsCollector(LogsBase):
         return self
 
     def emit(self, log_record: LogRecord):
+        _mask_message(log_record)
         self.logs.append(log_record)
