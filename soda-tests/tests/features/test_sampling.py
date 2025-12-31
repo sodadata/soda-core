@@ -101,7 +101,7 @@ def test_sampling_simple_pass(
                         qualifier: reference_check
                         valid_reference_data:
                             dataset: {data_source_test_helper.build_dqn(country_test_table)}
-                            column: {country_quoted}
+                            column: country
             checks:
                 - freshness:
                     column: event_time
@@ -183,7 +183,7 @@ def test_sampling_not_applied_simple_pass(
                         qualifier: reference_check
                         valid_reference_data:
                             dataset: {data_source_test_helper.build_dqn(country_test_table)}
-                            column: {country_quoted}
+                            column: country
             checks:
                 - freshness:
                     column: event_time
