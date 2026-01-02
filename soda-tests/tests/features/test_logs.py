@@ -1,9 +1,10 @@
 import logging
 import os
 import tempfile
-from soda_core.common.logging_configuration import _prepare_masked_file, _masked_values
-from soda_core.common.logs import Logs
 from unittest.mock import patch
+
+from soda_core.common.logging_configuration import _masked_values, _prepare_masked_file
+from soda_core.common.logs import Logs
 
 
 def test_catch_args_in_logs_messages():
@@ -29,7 +30,7 @@ def test_mask_values_in_logs_messages(caplog):
         with open(masked_values_file, "w") as f:
             f.write("message\n")
             f.flush()
-        with patch.dict('os.environ', SODA_MASKED_VALUES_FILE=masked_values_file):
+        with patch.dict("os.environ", SODA_MASKED_VALUES_FILE=masked_values_file):
             # override the config file for masked values
             _prepare_masked_file()
         assert _masked_values == {"message"}

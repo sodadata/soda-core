@@ -1,7 +1,6 @@
-import sys
-
 import logging
 import os
+import sys
 from datetime import datetime
 from logging import (
     CRITICAL,
@@ -13,8 +12,9 @@ from logging import (
     LogRecord,
     StreamHandler,
 )
-from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from typing import Optional
+
+from soda_core.common.logging_constants import Emoticons, ExtraKeys
 
 verbose_mode: bool = False
 
@@ -56,6 +56,8 @@ def configure_logging(
 
 
 _masked_values = set()
+
+
 def _prepare_masked_file():
     global _masked_values
     file_with_masked_values = os.environ.get("SODA_MASKED_VALUES_FILE", None)

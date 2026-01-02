@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 from logging import LogRecord
-from soda_core.common.logging_configuration import _mask_message
 
+from soda_core.common.logging_configuration import _mask_message
 from soda_core.common.logs_base import LogsBase
 
 

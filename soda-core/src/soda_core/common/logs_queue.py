@@ -9,11 +9,11 @@ import time
 import uuid
 from datetime import datetime, timezone
 from logging import LogRecord
-from soda_core.common.logging_configuration import _mask_message
 from typing import Optional
 
 from soda_core.common import exceptions, soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
+from soda_core.common.logging_configuration import _mask_message
 from soda_core.common.logs_base import LogsBase
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
 
