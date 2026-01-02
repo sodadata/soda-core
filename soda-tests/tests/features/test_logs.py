@@ -35,6 +35,13 @@ def test_mask_values_in_logs_messages(caplog):
             _prepare_masked_file()
         assert _masked_values == {"message"}
 
+    # verify main logger processing
+    caplog.set_level(logging.DEBUG)
+    logging.debug("This is a test message X")
+    log_messages = [record.message for record in caplog.records]
+    assert "This is a test *** X" in log_messages
+
+    # verify internal logs processing
     l = Logs()
     logging.debug("This is a test message 1")
     logging.warning("This is a test %s", "message 2")
