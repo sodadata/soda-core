@@ -567,7 +567,7 @@ class Scan:
             checks_warn_count = self.__log_checks(CheckOutcome.WARN)
             warn_text = "warning" if checks_warn_count == 1 else "warnings"
             checks_fail_count = self.__log_checks(CheckOutcome.FAIL)
-            fail_text = "failure" if checks_warn_count == 1 else "failures"
+            fail_text = "failure" if checks_fail_count == 1 else "failures"
             error_count = len(self.get_error_logs())
             error_text = "error" if error_count == 1 else "errors"
             self.__log_checks(None)
