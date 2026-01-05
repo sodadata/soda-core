@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import re
@@ -10,7 +11,6 @@ from helpers.test_column import TestColumn
 from helpers.test_scan import TestScan
 from helpers.test_table import TestTable
 from soda.common.lazy import Lazy
-from soda.common.random_helper import generate_random_alpha_num_str
 from soda.common.yaml_helper import YamlHelper
 from soda.execution.data_source import DataSource
 
@@ -59,6 +59,7 @@ class DataSourceFixture:
         else:
             python_version = os.getenv("PYTHON_VERSION")
             python_version_short = f'P{python_version.replace(".", "")}' if python_version else ""
+            timestamp = datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S_%f")
 
             if github_head_ref:
                 github_head_ref_short = (
@@ -67,12 +68,12 @@ class DataSourceFixture:
                 schema_name_parts.append("ci")
                 schema_name_parts.append(github_head_ref_short)
                 schema_name_parts.append(python_version_short)
-                schema_name_parts.append(generate_random_alpha_num_str(5))
+                schema_name_parts.append(timestamp)
 
             else:
                 schema_name_parts.append("ci_main")
                 schema_name_parts.append(python_version_short)
-                schema_name_parts.append(generate_random_alpha_num_str(5))
+                schema_name_parts.append(timestamp)
 
         schema_name_raw = "_".join(schema_name_parts)
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
