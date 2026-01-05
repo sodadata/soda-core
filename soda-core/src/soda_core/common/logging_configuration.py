@@ -61,7 +61,9 @@ _masked_values = set()
 def _prepare_masked_file():
     global _masked_values
     file_with_masked_values = os.environ.get("SODA_MASKED_VALUES_FILE", None)
-    if file_with_masked_values is not None and os.path.exists(file_with_masked_values):
+    if file_with_masked_values is not None:
+        if not os.path.exists(file_with_masked_values):
+            raise RuntimeError(f"Masked values file '{file_with_masked_values}' does not exist")
         with open(file_with_masked_values) as f:
             _masked_values.clear()
             _masked_values.update(l.strip() for l in f.readlines())

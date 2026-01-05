@@ -56,3 +56,18 @@ def test_mask_values_in_logs_messages(caplog):
     error_logs = l.get_errors()
     assert len(error_logs) == 1, f"Expected 1 error log, got {len(error_logs)}"
     assert "This is a test *** 3" in error_logs, f"Expected error log message not found in {error_logs}"
+
+
+def test_masked_file_if_present_as_env_must_actually_exist():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        masked_values_file = os.path.join(tmpdirname, "masked_values.txt")
+        with open(masked_values_file, "w") as f:
+            f.write("message\n")
+            f.flush()
+        with patch.dict("os.environ", SODA_MASKED_VALUES_FILE=masked_values_file + "_not_actually_present"):
+            # override the config file for masked values
+            try:
+                _prepare_masked_file()
+                assert False, "Expected exception not raised"
+            except RuntimeError as e:
+                assert str(e) == f"Masked values file '{masked_values_file}_not_actually_present' does not exist"
