@@ -19,7 +19,7 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
-from soda_core.common.statements.table_types import FullyQualifiedObjectName
+from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -252,6 +252,24 @@ class DataSourceImpl(ABC):
             database_name=database_name,
             schema_name=schema_name,
             include_table_name_like_filters=[table_name],
+        )
+        return fully_qualified_object_names
+
+    def get_fully_qualified_object_names(
+        self,
+        prefixes: list[str],
+        object_types: list[TableType] = [
+            TableType.TABLE
+        ],  # This default argument should match the "execute" method in the MetadataTablesQuery class
+    ) -> list[FullyQualifiedObjectName]:
+        metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
+        database_name = self.extract_database_from_prefix(prefixes)
+        schema_name = self.extract_schema_from_prefix(prefixes)
+
+        fully_qualified_object_names: list[FullyQualifiedObjectName] = metadata_tables_query.execute(
+            database_name=database_name,
+            schema_name=schema_name,
+            types_to_return=object_types,
         )
         return fully_qualified_object_names
 
