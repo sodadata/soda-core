@@ -72,6 +72,8 @@ def _mask_message(record: LogRecord):
     updated = False
     if message:
         for masked in _masked_values:
+            if masked not in message:
+                continue
             updated = True
             message = message.replace(masked, "***")
     if updated:
