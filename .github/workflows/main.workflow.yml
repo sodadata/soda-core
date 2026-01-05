@@ -270,3 +270,4 @@ jobs:
           repository: sodadata/soda-core
           event-type: started-from-version-tag
           client-payload: '{"tag": "${{ steps.check-version-tag.outputs.versiontag }}", "ref": "${{ github.ref }}"}'
+
