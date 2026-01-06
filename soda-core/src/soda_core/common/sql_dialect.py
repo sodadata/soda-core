@@ -547,9 +547,13 @@ class SqlDialect:
     #########################################################
     # CREATE VIEW
     #########################################################
-    def build_create_view_sql(self, create_view: CREATE_VIEW, add_semicolon: bool = True) -> str:
+    def build_create_view_sql(
+        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_paranthesis: bool = True
+    ) -> str:
+        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
+        post_paranthesis_sql: str = ")" if add_paranthesis else ""
         return (
-            f"CREATE VIEW {create_view.fully_qualified_view_name} AS (\n{self.build_select_sql(create_view.select_elements, add_semicolon=False)}\n)"
+            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{self.build_select_sql(create_view.select_elements, add_semicolon=False)}{post_paranthesis_sql}\n"
             + (";" if add_semicolon else "")
         )
 

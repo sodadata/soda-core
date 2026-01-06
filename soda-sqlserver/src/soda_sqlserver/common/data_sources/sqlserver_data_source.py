@@ -422,4 +422,4 @@ class SqlServerSqlDialect(SqlDialect):
         create_view_copy = deepcopy(create_view)  # Copy the object so we don't modify the original object
         # Drop the first prefix (database name) from the fully qualified view name
         create_view_copy.fully_qualified_view_name = ".".join(create_view_copy.fully_qualified_view_name.split(".")[1:])
-        return super().build_create_view_sql(create_view_copy, add_semicolon)
+        return super().build_create_view_sql(create_view_copy, add_semicolon, add_paranthesis=False)
