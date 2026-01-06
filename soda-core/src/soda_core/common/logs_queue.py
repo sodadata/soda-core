@@ -13,7 +13,7 @@ from typing import Optional
 
 from soda_core.common import exceptions, soda_cloud
 from soda_core.common.datetime_conversions import convert_str_to_datetime
-from soda_core.common.logging_configuration import _mask_message
+from soda_core.common.logging_configuration import _mask_record
 from soda_core.common.logs_base import LogsBase
 from soda_core.common.soda_cloud import SodaCloud, to_jsonnable
 
@@ -95,7 +95,7 @@ class LogsQueue(LogsBase):
             log_record.__setattr__("thread", self.thread)
             log_record.__setattr__("dataset", self.dataset)
             self.index += 1
-            _mask_message(log_record)
+            _mask_record(log_record)
             self.log_queue.put(log_record)
             self._preserve_if_error_log(log_record)
             if self.log_queue.qsize() >= self.batch_size:
