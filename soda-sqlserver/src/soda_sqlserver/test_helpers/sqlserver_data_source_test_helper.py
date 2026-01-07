@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 from helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.common.sql_ast import DROP_TABLE
+from soda_core.common.sql_ast import DROP_TABLE, DROP_VIEW
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
     SqlServerDataSourceImpl,
     SqlServerSqlDialect,
@@ -45,6 +45,13 @@ class SqlServerDataSourceTestHelper(DataSourceTestHelper):
             table_identifier = f"{dialect.quote_default(fully_qualified_table_name.database_name)}.{dialect.quote_default(fully_qualified_table_name.schema_name)}.{dialect.quote_default(fully_qualified_table_name.table_name)}"
             drop_table_sql = dialect.build_drop_table_sql(DROP_TABLE(table_identifier))
             self.data_source_impl.execute_update(drop_table_sql)
+
+        view_names: list[str] = self.query_existing_test_views()
+        for fully_qualified_view_name in view_names:
+            view_identifier = f"{dialect.quote_default(fully_qualified_view_name.database_name)}.{dialect.quote_default(fully_qualified_view_name.schema_name)}.{dialect.quote_default(fully_qualified_view_name.view_name)}"
+            drop_view_sql = dialect.build_drop_view_sql(DROP_VIEW(view_identifier))
+            self.data_source_impl.execute_update(drop_view_sql)
+
         # Drop the schema if it exists.
         schema_name = self.extract_schema_from_prefix()
         if self._does_schema_exist(schema_name):
