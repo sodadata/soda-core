@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-redshift"
-package_version = "4.0.4b22"
+package_version = "4.0.4b23"
 description = "Soda Redshift V4"
 
 requires = [f"soda-core=={package_version}", "psycopg2-binary>=2.8.5, <3.0", "boto3"]
