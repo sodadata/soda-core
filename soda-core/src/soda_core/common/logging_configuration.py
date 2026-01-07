@@ -1,4 +1,6 @@
+import hashlib
 import logging
+import os
 import sys
 from datetime import datetime
 from logging import (
@@ -27,6 +29,8 @@ def configure_logging(
     global verbose_mode
     verbose_mode = verbose
 
+    _prepare_masked_file()
+
     sys.stderr = sys.stdout
     for logger_to_mute in [
         "urllib3",
@@ -50,6 +54,57 @@ def configure_logging(
         # https://docs.python.org/3/library/logging.html#logrecord-attributes
         handlers=[SodaConsoleHandler()],
     )
+
+
+_masked_values = set()
+
+
+def _prepare_masked_file():
+    global _masked_values
+    file_with_masked_values = os.environ.get("SODA_MASKED_VALUES_FILE", None)
+    if file_with_masked_values is not None:
+        if not os.path.exists(file_with_masked_values):
+            raise RuntimeError(f"Masked values file '{file_with_masked_values}' does not exist")
+        sha_expected = os.environ.get("SODA_MASKED_VALUES_FILE_HASH", None)
+        if not sha_expected:
+            raise RuntimeError(f"Hash for the masked values file '{file_with_masked_values}' is not present")
+        sha_hash = hashlib.sha256()
+        with open(file_with_masked_values) as f:
+            _masked_values.clear()
+            read_lines = [l for l in f.readlines()]
+            for l in read_lines:
+                sha_hash.update(l.encode("utf-8"))
+            sha_actual = sha_hash.hexdigest()
+            if sha_actual != sha_expected:
+                raise RuntimeError(
+                    f"Hash mismatch for the masked values file '{file_with_masked_values}' (expected '{sha_expected}', got '{sha_actual}')"
+                )
+            _masked_values.update({l.strip() for l in read_lines})
+
+
+def _mask_record(record: LogRecord):
+    message = record.getMessage()
+    updated = False
+    if message:
+        for masked in _masked_values:
+            if masked not in message:
+                continue
+            updated = True
+            message = message.replace(masked, "***")
+    if updated:
+        record.msg = message
+        # since getMessage evaluates args, we need to clear them after the full message has been cleared
+        record.args = ()
+
+
+def _mask_message(message: str) -> str:
+    if not message or not _masked_values:
+        return message
+    for masked in _masked_values:
+        if masked not in message:
+            continue
+        message = message.replace(masked, "***")
+    return message
 
 
 def is_verbose() -> bool:
@@ -89,6 +144,7 @@ class SodaConsoleFormatter(Formatter):
         return self.level_names.get(record.levelno, "UNKNOWN")
 
     def format_message(self, record: LogRecord) -> str:
+        _mask_record(record)
         if record.levelno >= ERROR:
             return f"{Emoticons.POLICE_CAR_LIGHT} {record.getMessage()}"
         else:
@@ -119,7 +175,8 @@ class SodaConsoleFormatter(Formatter):
             # Cache the traceback text to avoid converting it multiple times
             # (it's constant anyway)
             if not record.exc_text:
-                return self.formatException(record.exc_info)
+                record.exc_text = _mask_message(self.formatException(record.exc_info))
+                return record.exc_text
 
         if hasattr(record, ExtraKeys.EXCEPTION):
             return record.exception
