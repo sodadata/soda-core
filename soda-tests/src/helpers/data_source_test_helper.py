@@ -501,8 +501,8 @@ class DataSourceTestHelper:
         ]
 
     def create_view_from_test_table(self, test_table: TestTable) -> str:
-        # TODO: verify if the view already exists, and if so, drop it first.
         view_name = f"{test_table.unique_name}_view"
+        view_name = self.data_source_impl.sql_dialect.metadata_casify(view_name)
         existing_view_names = self.query_existing_test_view_names()
         if view_name in existing_view_names:
             self._drop_test_view(view_name)

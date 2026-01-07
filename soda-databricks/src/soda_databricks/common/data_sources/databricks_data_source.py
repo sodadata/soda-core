@@ -17,6 +17,7 @@ from soda_core.common.sql_ast import (
 )
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
+from soda_core.common.statements.table_types import TableType
 from soda_databricks.common.data_sources.databricks_data_source_connection import (
     DatabricksDataSourceConnection,
 )
@@ -271,6 +272,19 @@ class DatabricksSqlDialect(SqlDialect):
 
     def drop_column_supported(self) -> bool:
         return False  # Note, this is technically supported. But we need to change the delta table mapping mode name for this (out of scope at the time of writing)
+
+    def convert_table_type_to_enum(self, table_type: str) -> TableType:
+        if table_type == "MANAGED":
+            return TableType.TABLE
+        elif table_type == "VIEW":
+            return TableType.VIEW
+        elif table_type == "MATERIALIZED_VIEW":
+            return TableType.VIEW  # For now, a materialized view is treated as a view.
+        else:
+            raise ValueError(f"Invalid table type: {table_type}")
+
+    def metadata_casify(self, identifier: str) -> str:
+        return identifier.lower()
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect):

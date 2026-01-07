@@ -276,6 +276,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
             [
                 SELECT(STAR()),
                 FROM(sql_dialect.get_from_name_from_qualified_name(my_view_name)),
+                ORDER_BY_ASC(COLUMN("id")),  # To make it deterministic (some datasources don't guarantee order of rows)
             ]
         )
         result: QueryResult = data_source_impl.execute_query(select_view_sql)
