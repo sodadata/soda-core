@@ -754,7 +754,7 @@ class ALTER_TABLE_DROP_COLUMN(ALTER_TABLE):
 @dataclass
 class CREATE_VIEW(BaseSqlExpression):
     fully_qualified_view_name: str
-    select_elements: list[Any]
+    select_elements: list[Any]  # | UNION | UNION_ALL
 
     def __post_init__(self):
         super().__post_init__()
@@ -773,3 +773,18 @@ class DROP_VIEW(BaseSqlExpression):
 class DROP_VIEW_IF_EXISTS(DROP_VIEW):
     def __post_init__(self):
         super().__post_init__()
+
+
+# @dataclass
+# class UNION(BaseSqlExpression): # Union and Union all are not fully supported for all datasources yet. Only tested/verified for Postgres.
+#     select_elements: list[Any]
+
+#     def __post_init__(self):
+#         super().__post_init__()
+#         self.handle_parent_node_update(self.select_elements)
+
+
+# @dataclass
+# class UNION_ALL(UNION):
+#     def __post_init__(self):
+#         super().__post_init__()

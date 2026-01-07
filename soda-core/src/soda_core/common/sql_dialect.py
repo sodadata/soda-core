@@ -552,14 +552,24 @@ class SqlDialect:
     ) -> str:
         pre_paranthesis_sql: str = "(" if add_paranthesis else ""
         post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        select_sql: str = self.build_select_sql(create_view.select_elements, add_semicolon=False)
         return (
-            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{self.build_select_sql(create_view.select_elements, add_semicolon=False)}{post_paranthesis_sql}\n"
+            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{select_sql}{post_paranthesis_sql}\n"
             + (";" if add_semicolon else "")
         )
 
     def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: bool = True) -> str:
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_VIEW_IF_EXISTS) else ""
         return f"DROP VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
+
+    #########################################################
+    # UNION
+    #########################################################
+    # Commenting this out, as it's not ready for production yet. Just want to leave this here for future reference.
+    # def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: bool = True) -> str:
+    #     # TODO: add support for other datasources. Currently only tested/verified for Postgres.
+    #     union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION"
+    #     return f"\n{union_sql}\n".join([f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)" for select_element in union.select_elements]) + (";" if add_semicolon else "")
 
     #########################################################
     # SELECT
