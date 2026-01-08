@@ -1,3 +1,4 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.common.metadata_types import (
@@ -131,6 +132,8 @@ def test_table_metadata(data_source_test_helper: DataSourceTestHelper):
 
 
 def test_view_metadata(data_source_test_helper: DataSourceTestHelper):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_views():
+        pytest.skip("This data source does not support views")
     # This is the same as the test_table_metadata test, but we create a view from the test table and then get the metadata from the view.
     # So we verify if the metadata query is able to get the data from the view.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
@@ -146,6 +149,8 @@ def test_view_metadata(data_source_test_helper: DataSourceTestHelper):
 
 
 def test_view_not_detected_by_table_metadata(data_source_test_helper: DataSourceTestHelper):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_views():
+        pytest.skip("This data source does not support views")
     # This test verifies the "default behavior" of the metadata tables query, which is to return only tables.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -164,6 +169,8 @@ def test_view_not_detected_by_table_metadata(data_source_test_helper: DataSource
 
 
 def test_view_detected_by_table_metadata(data_source_test_helper: DataSourceTestHelper):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_views():
+        pytest.skip("This data source does not support views")
     # This test verifies that the metadata tables query is able to return only views.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

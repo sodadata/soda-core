@@ -1529,3 +1529,8 @@ class SqlDialect:
 
     def convert_datetime_to_str(self, datetime: datetime) -> str:
         return convert_datetime_to_str(datetime)
+
+    def supports_views(
+        self,
+    ) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
+        return True

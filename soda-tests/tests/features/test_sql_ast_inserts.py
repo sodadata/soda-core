@@ -259,34 +259,38 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         result: QueryResult = data_source_impl.execute_query(select_sql)
         assert result.rows[0][0] == 3
 
-        # Then create a view
-        create_view_sql = sql_dialect.build_create_view_sql(
-            CREATE_VIEW(
-                fully_qualified_view_name=my_view_name,
-                select_elements=[
-                    SELECT(STAR()),
-                    FROM(sql_dialect.get_from_name_from_qualified_name(my_table_name)),
-                ],
+        if sql_dialect.supports_views():
+            # Then create a view
+            create_view_sql = sql_dialect.build_create_view_sql(
+                CREATE_VIEW(
+                    fully_qualified_view_name=my_view_name,
+                    select_elements=[
+                        SELECT(STAR()),
+                        FROM(sql_dialect.get_from_name_from_qualified_name(my_table_name)),
+                    ],
+                )
             )
-        )
-        data_source_impl.execute_update(create_view_sql)
+            data_source_impl.execute_update(create_view_sql)
 
-        # Then query the view
-        select_view_sql = sql_dialect.build_select_sql(
-            [
-                SELECT(STAR()),
-                FROM(sql_dialect.get_from_name_from_qualified_name(my_view_name)),
-                ORDER_BY_ASC(COLUMN("id")),  # To make it deterministic (some datasources don't guarantee order of rows)
-            ]
-        )
-        result: QueryResult = data_source_impl.execute_query(select_view_sql)
-        assert result.rows[0][0] == 1
-        assert result.rows[1][0] == 2
-        assert result.rows[2][0] == 3
+            # Then query the view
+            select_view_sql = sql_dialect.build_select_sql(
+                [
+                    SELECT(STAR()),
+                    FROM(sql_dialect.get_from_name_from_qualified_name(my_view_name)),
+                    ORDER_BY_ASC(
+                        COLUMN("id")
+                    ),  # To make it deterministic (some datasources don't guarantee order of rows)
+                ]
+            )
+            result: QueryResult = data_source_impl.execute_query(select_view_sql)
+            assert result.rows[0][0] == 1
+            assert result.rows[1][0] == 2
+            assert result.rows[2][0] == 3
     finally:
         # Drop the view first, otherwise the table drop will fail because we should "cascade" the drop
-        drop_view_sql = sql_dialect.build_drop_view_sql(DROP_VIEW_IF_EXISTS(fully_qualified_view_name=my_view_name))
-        data_source_impl.execute_update(drop_view_sql)
+        if sql_dialect.supports_views():
+            drop_view_sql = sql_dialect.build_drop_view_sql(DROP_VIEW_IF_EXISTS(fully_qualified_view_name=my_view_name))
+            data_source_impl.execute_update(drop_view_sql)
         # Then drop the table to clean up
         drop_table_sql = sql_dialect.build_drop_table_sql(
             DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name)
