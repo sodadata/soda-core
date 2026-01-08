@@ -117,7 +117,7 @@ class MetadataTablesQuery:
         for database_name, schema_name, table_name, table_type in query_result.rows:
             converted_table_type = self.sql_dialect.convert_table_type_to_enum(table_type)
             # If we don't have to return this table table, skip it
-            if not converted_table_type in types_to_return:
+            if converted_table_type not in types_to_return:
                 continue
 
             # Create the fully qualified name object

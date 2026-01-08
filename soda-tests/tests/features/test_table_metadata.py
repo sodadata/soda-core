@@ -166,7 +166,6 @@ def test_view_not_detected_by_table_metadata(data_source_test_helper: DataSource
 def test_view_detected_by_table_metadata(data_source_test_helper: DataSourceTestHelper):
     # This test verifies that the metadata tables query is able to return only views.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
-    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
     view_name = data_source_test_helper.create_view_from_test_table(test_table)
 

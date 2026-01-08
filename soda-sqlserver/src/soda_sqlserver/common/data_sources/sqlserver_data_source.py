@@ -417,7 +417,9 @@ class SqlServerSqlDialect(SqlDialect):
         drop_view_copy.fully_qualified_view_name = ".".join(drop_view_copy.fully_qualified_view_name.split(".")[1:])
         return super().build_drop_view_sql(drop_view_copy, add_semicolon)
 
-    def build_create_view_sql(self, create_view: CREATE_VIEW, add_semicolon: bool = True) -> str:
+    def build_create_view_sql(
+        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_paranthesis: bool = True
+    ) -> str:
         # SqlServer does not allow for the database name to be specified in the view name, so we need to drop it.
         create_view_copy = deepcopy(create_view)  # Copy the object so we don't modify the original object
         # Drop the first prefix (database name) from the fully qualified view name
