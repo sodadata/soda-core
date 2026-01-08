@@ -84,20 +84,23 @@ def _prepare_masked_file():
 
 def _mask_record(record: LogRecord):
     message = record.getMessage()
-    updated = False
     if message:
         for masked in _masked_values:
             if masked not in message:
                 continue
-            updated = True
             message = message.replace(masked, "***")
-    if updated:
-        record.msg = message
-        # since getMessage evaluates args, we need to clear them after the full message has been cleared
-        record.args = ()
+    record.msg = message
+    # since getMessage evaluates args, we need to clear them after the full message has been cleared
+    record.args = ()
+    if record.exc_info:
+        exc_type, exc_value, exc_tb = record.exc_info
+        masked_exc = _mask_exception(exc_value)
+        record.exc_info = (exc_type, masked_exc, exc_tb)
+    else:
+        record.exc_info = None
 
 
-def _mask_message(message: str) -> str:
+def _mask_message(message: Optional[str]) -> Optional[str]:
     if not message or not _masked_values:
         return message
     for masked in _masked_values:
@@ -105,6 +108,41 @@ def _mask_message(message: str) -> str:
             continue
         message = message.replace(masked, "***")
     return message
+
+
+def _mask_exception(e: Optional[BaseException]) -> Optional[BaseException]:
+    if e is None:
+        return None
+
+    # Mask the exception's args (usually contains the error message)
+    if e.args:
+        masked_args = []
+        for arg in e.args:
+            if isinstance(arg, str):
+                masked_arg = _mask_message(arg)
+                masked_args.append(masked_arg)
+            else:
+                masked_args.append(arg)
+        e.args = tuple(masked_args)
+
+    # Mask the traceback frames
+    tb = e.__traceback__
+    while tb is not None:
+        frame = tb.tb_frame
+        # Mask local variables in the frame that are strings
+        if frame.f_locals:
+            for var_name, var_value in frame.f_locals.items():
+                if isinstance(var_value, str):
+                    masked_value = _mask_message(var_value)
+                    frame.f_locals[var_name] = masked_value
+        tb = tb.tb_next
+
+    # Recursively mask chained exceptions
+    if e.__cause__ is not None:
+        _mask_exception(e.__cause__)
+    if e.__context__ is not None:
+        _mask_exception(e.__context__)
+    return e
 
 
 def is_verbose() -> bool:

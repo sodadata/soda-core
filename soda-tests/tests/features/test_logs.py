@@ -3,6 +3,7 @@ import os
 import tempfile
 from unittest.mock import patch
 
+from soda_core.common.exceptions import get_exception_stacktrace
 from soda_core.common.logging_configuration import _masked_values, _prepare_masked_file
 from soda_core.common.logs import Logs
 
@@ -51,13 +52,18 @@ def test_mask_values_in_logs_messages(caplog):
     l = Logs()
     logging.debug("This is a test message 1")
     logging.warning("This is a test %s", "message 2")
-    logging.error("This is a test message 3")
+    logging.error("This is a test message 3", exc_info=Exception("This is a test message exception"))
     l.remove_from_root_logger()
     logs = l.get_logs()
     assert len(logs) == 3, f"Expected 3 error log, got {len(logs)}"
     assert "This is a test *** 1" in logs
     assert "This is a test *** 2" in logs
     assert "This is a test *** 3" in logs
+    exceptions = [m.exc_info for m in l.get_log_records() if m.exc_info]
+    assert len(exceptions) == 1
+    _, exc_value, _ = exceptions[0]
+    assert "message" not in str(exc_value)
+    assert "message" not in get_exception_stacktrace(exc_value)
 
     error_logs = l.get_errors()
     assert len(error_logs) == 1, f"Expected 1 error log, got {len(error_logs)}"
