@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-synapse"
-package_version = "4.0.4b23"
+package_version = "4.0.4b24"
 description = "Soda Synapse V4"
 
 requires = [
