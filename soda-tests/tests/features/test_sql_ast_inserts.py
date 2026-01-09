@@ -17,8 +17,10 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CREATE_VIEW,
     CTE,
     DROP_TABLE_IF_EXISTS,
+    DROP_VIEW_IF_EXISTS,
     FROM,
     INSERT_INTO,
     LITERAL,
@@ -40,6 +42,11 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
 
     my_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table")
     my_table_name_as_select = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table_as_select")
+    my_view_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_view")
+
+    # Drop the view if it exists (do this first, otherwise the table drop will fail because we should "cascade" the drop)
+    drop_view_sql = sql_dialect.build_drop_view_sql(DROP_VIEW_IF_EXISTS(fully_qualified_view_name=my_view_name))
+    data_source_impl.execute_update(drop_view_sql)
 
     # Drop table if exists
     drop_table_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name))
@@ -171,7 +178,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                 ),
                 # This has to be changed in the select sql. We should expect the fully qualified table name, like with other ASTs
                 # This is a fix for now, as Athena does not support quoted table names, so we don't need to drop the "quotes".
-                FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
+                FROM(sql_dialect.get_from_name_from_qualified_name(my_table_name)),
                 ORDER_BY_ASC(COLUMN("id")),
             ]
         )
@@ -231,9 +238,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                                 alias="my_cte",
                                 cte_query=[
                                     SELECT(STAR()),
-                                    FROM(
-                                        my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name
-                                    ),
+                                    FROM(sql_dialect.get_from_name_from_qualified_name(my_table_name)),
                                 ],
                             ),
                         ]
@@ -248,22 +253,50 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         select_sql = sql_dialect.build_select_sql(
             [
                 SELECT([COUNT(STAR())]),
-                FROM(
-                    my_table_name_as_select[1:-1]
-                    if sql_dialect.is_quoted(my_table_name_as_select)
-                    else my_table_name_as_select
-                ),
+                FROM(sql_dialect.get_from_name_from_qualified_name(my_table_name_as_select)),
             ]
         )
         result: QueryResult = data_source_impl.execute_query(select_sql)
         assert result.rows[0][0] == 3
 
+        if sql_dialect.supports_views():
+            # Then create a view
+            create_view_sql = sql_dialect.build_create_view_sql(
+                CREATE_VIEW(
+                    fully_qualified_view_name=my_view_name,
+                    select_elements=[
+                        SELECT(STAR()),
+                        FROM(sql_dialect.get_from_name_from_qualified_name(my_table_name)),
+                    ],
+                )
+            )
+            data_source_impl.execute_update(create_view_sql)
+
+            # Then query the view
+            select_view_sql = sql_dialect.build_select_sql(
+                [
+                    SELECT(STAR()),
+                    FROM(sql_dialect.get_from_name_from_qualified_name(my_view_name)),
+                    ORDER_BY_ASC(
+                        COLUMN("id")
+                    ),  # To make it deterministic (some datasources don't guarantee order of rows)
+                ]
+            )
+            result: QueryResult = data_source_impl.execute_query(select_view_sql)
+            assert result.rows[0][0] == 1
+            assert result.rows[1][0] == 2
+            assert result.rows[2][0] == 3
     finally:
+        # Drop the view first, otherwise the table drop will fail because we should "cascade" the drop
+        if sql_dialect.supports_views():
+            drop_view_sql = sql_dialect.build_drop_view_sql(DROP_VIEW_IF_EXISTS(fully_qualified_view_name=my_view_name))
+            data_source_impl.execute_update(drop_view_sql)
         # Then drop the table to clean up
         drop_table_sql = sql_dialect.build_drop_table_sql(
             DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name)
         )
         data_source_impl.execute_update(drop_table_sql)
+        # Table we created with the "as select"
         drop_table_sql = sql_dialect.build_drop_table_sql(
             DROP_TABLE_IF_EXISTS(fully_qualified_table_name=my_table_name_as_select)
         )
