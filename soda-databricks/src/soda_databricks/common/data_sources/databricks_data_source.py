@@ -281,7 +281,9 @@ class DatabricksSqlDialect(SqlDialect):
         elif table_type == "MATERIALIZED_VIEW":
             return TableType.VIEW  # For now, a materialized view is treated as a view.
         else:
-            raise ValueError(f"Invalid table type: {table_type}")
+            # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
+            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            return TableType.TABLE
 
     def metadata_casify(self, identifier: str) -> str:
         return identifier.lower()

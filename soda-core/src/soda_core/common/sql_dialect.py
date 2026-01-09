@@ -1185,7 +1185,9 @@ class SqlDialect:
         elif table_type == "VIEW":
             return TableType.VIEW
         else:
-            raise ValueError(f"Invalid table type: {table_type}")
+            # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
+            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            return TableType.TABLE
 
     def column_column_name(self) -> str:
         """
