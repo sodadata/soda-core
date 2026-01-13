@@ -129,6 +129,7 @@ class DataSourceTestHelper:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
     def __init__(self, name: str):
+        self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
         self.name = name
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
@@ -136,7 +137,6 @@ class DataSourceTestHelper:
         logs.remove_from_root_logger()
         if logs.has_errors:
             raise RuntimeError(f"Couldn't create DataSource: {logs}")
-        self.is_cicd = os.getenv("GITHUB_ACTIONS") is not None
 
         # Test table names that are present in the data source.
         # None means the data source is not queried
