@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 from abc import ABC
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Callable, Literal, Optional, Union
 
 import psycopg2
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_results import QueryResult
+from soda_core.common.data_source_results import QueryResult, UpdateResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -87,6 +87,30 @@ class PostgresDataSourceConnection(DataSourceConnection):
             return super().execute_query(sql, log_query=log_query)
         except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
             logger.warning(f"SQL query failed: \n{sql}\n{e}")
+            logger.debug("Rolling back transaction")
+            self.rollback()
+            raise e
+
+    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
+        try:
+            return super().execute_update(sql, log_query=log_query)
+        except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
+            logger.warning(f"SQL update failed: \n{sql}\n{e}")
+            logger.debug("Rolling back transaction")
+            self.rollback()
+            raise e
+
+    def execute_query_one_by_one(
+        self,
+        sql: str,
+        row_callback: Callable[[tuple, tuple[tuple]], None],
+        log_query: bool = True,
+        row_limit: Optional[int] = None,
+    ) -> tuple[tuple]:
+        try:
+            return super().execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
+        except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
+            logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
             raise e
