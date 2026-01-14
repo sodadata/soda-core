@@ -13,6 +13,7 @@ from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
     COLUMN,
+    COMBINED_HASH,
     COUNT,
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
@@ -371,3 +372,33 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
             # We're not here to check the timezone returned, only that the microsecond is correct.
             returned_datetime = result.rows[i][3].replace(tzinfo=None)
             assert returned_datetime == datetime.datetime(2021, 1, 1, i, 0, 0)
+
+
+def test_hashing_output_text(data_source_test_helper: DataSourceTestHelper):
+    NUMBER_OF_ROWS = 20
+    hashing_test_table_specification = (
+        TestTableSpecification.builder()
+        .table_purpose("testing_hashing_output_text")
+        .column_varchar("id", 100)
+        .column_varchar("id2", 100)
+        .column_integer("my_value")
+        .rows(rows=[(f"my_id_{i}", f"my_id2_{i}", 10) for i in range(NUMBER_OF_ROWS)])
+        .build()
+    )
+
+    test_table = data_source_test_helper.ensure_test_table(hashing_test_table_specification, force_recreate=True)
+    my_table_name = data_source_test_helper.get_qualified_name_from_test_table(test_table)
+
+    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    select_sql = sql_dialect.build_select_sql(
+        [
+            SELECT([COMBINED_HASH([COLUMN("id"), COLUMN("id2"), COLUMN("my_value")])]),
+            FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
+        ]
+    )
+    result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
+    assert len(result.rows) == NUMBER_OF_ROWS
+    for i in range(NUMBER_OF_ROWS):
+        assert result.rows[i][0] is not None
+        assert isinstance(result.rows[i][0], str)
