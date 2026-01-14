@@ -255,12 +255,10 @@ class DataSourceImpl(ABC):
         )
         return fully_qualified_object_names
 
-    def get_fully_qualified_object_names(
+    def discover_qualified_objects(
         self,
         prefixes: list[str],
-        object_types: list[TableType] = [
-            TableType.TABLE
-        ],  # This default argument should match the "execute" method in the MetadataTablesQuery class
+        object_types: Optional[list[TableType]] = None,
     ) -> list[FullyQualifiedObjectName]:
         metadata_tables_query: MetadataTablesQuery = self.create_metadata_tables_query()
         database_name = self.extract_database_from_prefix(prefixes)

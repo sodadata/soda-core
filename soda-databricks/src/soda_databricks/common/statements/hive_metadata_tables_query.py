@@ -30,10 +30,12 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
         schema_name: Optional[str] = None,
         include_table_name_like_filters: Optional[list[str]] = None,
         exclude_table_name_like_filters: Optional[list[str]] = None,
-        types_to_return: list[TableType] = [
-            TableType.TABLE,
-        ],  # To make it backwards compatible with the old behavior TODO: refactor this so we support views everywhere?
+        types_to_return: Optional[
+            list[TableType]
+        ] = None,  # To make sure it's backwards compatible with the old behavior, when we use None it should default to [TableType.TABLE]
     ) -> list[FullyQualifiedTableName]:
+        if types_to_return is None:
+            types_to_return = [TableType.TABLE]
         results: list[FullyQualifiedTableName] = []
         if TableType.TABLE in types_to_return:
             sql: str = self.build_sql_statement(
@@ -43,9 +45,9 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
             results.extend(
                 self.get_results(
                     query_result,
-                    include_table_name_like_filters,
-                    exclude_table_name_like_filters,
                     object_type_to_fetch=TableType.TABLE,
+                    include_table_name_like_filters=include_table_name_like_filters,
+                    exclude_table_name_like_filters=exclude_table_name_like_filters,
                 )
             )
         if TableType.VIEW in types_to_return:
@@ -56,9 +58,9 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
             results.extend(
                 self.get_results(
                     query_result,
-                    include_table_name_like_filters,
-                    exclude_table_name_like_filters,
                     object_type_to_fetch=TableType.VIEW,
+                    include_table_name_like_filters=include_table_name_like_filters,
+                    exclude_table_name_like_filters=exclude_table_name_like_filters,
                 )
             )
         return results
@@ -84,9 +86,9 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
     def get_results(
         self,
         query_result: QueryResult,
+        object_type_to_fetch: TableType,
         include_table_name_like_filters: Optional[list[str]] = None,
         exclude_table_name_like_filters: Optional[list[str]] = None,
-        object_type_to_fetch: TableType = TableType.TABLE,
     ) -> list[FullyQualifiedTableName]:
         if object_type_to_fetch == TableType.TABLE:
             names_for_filtering = [table_name for _, table_name, _ in query_result.rows]

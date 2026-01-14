@@ -31,10 +31,12 @@ class MetadataTablesQuery:
         schema_name: Optional[str] = None,
         include_table_name_like_filters: Optional[list[str]] = None,
         exclude_table_name_like_filters: Optional[list[str]] = None,
-        types_to_return: list[TableType] = [
-            TableType.TABLE,
-        ],  # To make it backwards compatible with the old behavior TODO: refactor this so we support views everywhere?
+        types_to_return: Optional[
+            list[TableType]
+        ] = None,  # To make sure it's backwards compatible with the old behavior, when we use None it should default to [TableType.TABLE]
     ) -> list[FullyQualifiedObjectName]:
+        if types_to_return is None:
+            types_to_return = [TableType.TABLE]
         select_statement: list = self.build_sql_statement(
             database_name=database_name,
             schema_name=schema_name,
@@ -111,7 +113,7 @@ class MetadataTablesQuery:
         return select
 
     def get_results(
-        self, query_result: QueryResult, types_to_return: list[TableType] = [TableType.TABLE]
+        self, query_result: QueryResult, types_to_return: list[TableType]
     ) -> list[FullyQualifiedObjectName]:
         result: list[FullyQualifiedObjectName] = []
         for database_name, schema_name, table_name, table_type in query_result.rows:
