@@ -6,13 +6,12 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
-
-
-@dataclass
-class FullyQualifiedTableName:
-    database_name: str
-    schema_name: str
-    table_name: str
+from soda_core.common.statements.table_types import (
+    FullyQualifiedObjectName,
+    FullyQualifiedTableName,
+    FullyQualifiedViewName,
+    TableType,
+)
 
 
 class MetadataTablesQuery:
@@ -32,7 +31,12 @@ class MetadataTablesQuery:
         schema_name: Optional[str] = None,
         include_table_name_like_filters: Optional[list[str]] = None,
         exclude_table_name_like_filters: Optional[list[str]] = None,
-    ) -> list[FullyQualifiedTableName]:
+        types_to_return: Optional[
+            list[TableType]
+        ] = None,  # To make sure it's backwards compatible with the old behavior, when we use None it should default to [TableType.TABLE]
+    ) -> list[FullyQualifiedObjectName]:
+        if types_to_return is None:
+            types_to_return = [TableType.TABLE]
         select_statement: list = self.build_sql_statement(
             database_name=database_name,
             schema_name=schema_name,
@@ -41,7 +45,7 @@ class MetadataTablesQuery:
         )
         sql: str = self.sql_dialect.build_select_sql(select_statement)
         query_result: QueryResult = self.data_source_connection.execute_query(sql)
-        return self.get_results(query_result)
+        return self.get_results(query_result, types_to_return)
 
     def build_sql_statement(
         self,
@@ -69,6 +73,7 @@ class MetadataTablesQuery:
                     self.sql_dialect.column_table_catalog() or COLUMN(LITERAL(None), field_alias="database_name"),
                     self.sql_dialect.column_table_schema(),
                     self.sql_dialect.column_table_name(),
+                    self.sql_dialect.column_table_type() or COLUMN(LITERAL(None), field_alias="table_type"),
                 ]
             ),
         ]
@@ -107,8 +112,26 @@ class MetadataTablesQuery:
 
         return select
 
-    def get_results(self, query_result: QueryResult) -> list[FullyQualifiedTableName]:
-        return [
-            FullyQualifiedTableName(database_name=database_name, schema_name=schema_name, table_name=table_name)
-            for database_name, schema_name, table_name in query_result.rows
-        ]
+    def get_results(
+        self, query_result: QueryResult, types_to_return: list[TableType]
+    ) -> list[FullyQualifiedObjectName]:
+        result: list[FullyQualifiedObjectName] = []
+        for database_name, schema_name, table_name, table_type in query_result.rows:
+            converted_table_type = self.sql_dialect.convert_table_type_to_enum(table_type)
+            # If we don't have to return this table table, skip it
+            if converted_table_type not in types_to_return:
+                continue
+
+            # Create the fully qualified name object
+            if converted_table_type == TableType.TABLE:
+                result.append(
+                    FullyQualifiedTableName(database_name=database_name, schema_name=schema_name, table_name=table_name)
+                )
+            elif converted_table_type == TableType.VIEW:
+                result.append(
+                    FullyQualifiedViewName(database_name=database_name, schema_name=schema_name, view_name=table_name)
+                )
+            else:
+                logger.warning(f"Unexpected table type: {table_type}")
+
+        return result

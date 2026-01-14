@@ -262,3 +262,21 @@ def test_sql_ast_create_table_as_select():
         )
     )
     assert my_create_table_as_select_statement == 'CREATE TABLE "customers" AS (\nSELECT "name"\nFROM "customers");'
+
+
+# def test_sql_ast_union():
+#     sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+
+#     my_union_statement = sql_dialect.build_union_sql(
+#         UNION(select_elements=[[SELECT(COLUMN("name")), FROM("customers")], [SELECT(COLUMN("age")), FROM("customers")]])
+#     )
+#     assert my_union_statement == '(\nSELECT "name"\nFROM "customers"\n)\nUNION\n(\nSELECT "age"\nFROM "customers"\n);'
+
+
+# def test_sql_ast_union_all():
+#     sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+
+#     my_union_statement = sql_dialect.build_union_sql(
+#         UNION_ALL(select_elements=[[SELECT(COLUMN("name")), FROM("customers")], [SELECT(COLUMN("age")), FROM("customers")]])
+#     )
+#     assert my_union_statement == '(\nSELECT "name"\nFROM "customers"\n)\nUNION ALL\n(\nSELECT "age"\nFROM "customers"\n);'

@@ -39,10 +39,13 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    CREATE_VIEW,
     CTE,
     DISTINCT,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
+    DROP_VIEW,
+    DROP_VIEW_IF_EXISTS,
     EQ,
     EXISTS,
     FROM,
@@ -91,6 +94,7 @@ from soda_core.common.sql_ast import (
     SqlExpressionStr,
 )
 from soda_core.common.sql_utils import apply_sampling_to_sql
+from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 
 if TYPE_CHECKING:
     from soda_core.common.data_source_impl import DataSourceImpl
@@ -541,6 +545,33 @@ class SqlDialect:
         return values_sql
 
     #########################################################
+    # CREATE VIEW
+    #########################################################
+    def build_create_view_sql(
+        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_paranthesis: bool = True
+    ) -> str:
+        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
+        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        select_sql: str = self.build_select_sql(create_view.select_elements, add_semicolon=False)
+        return (
+            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{select_sql}{post_paranthesis_sql}\n"
+            + (";" if add_semicolon else "")
+        )
+
+    def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: bool = True) -> str:
+        if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_VIEW_IF_EXISTS) else ""
+        return f"DROP VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
+
+    #########################################################
+    # UNION
+    #########################################################
+    # Commenting this out, as it's not ready for production yet. Just want to leave this here for future reference.
+    # def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: bool = True) -> str:
+    #     # TODO: add support for other datasources. Currently only tested/verified for Postgres.
+    #     union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION"
+    #     return f"\n{union_sql}\n".join([f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)" for select_element in union.select_elements]) + (";" if add_semicolon else "")
+
+    #########################################################
     # SELECT
     #########################################################
 
@@ -756,6 +787,25 @@ class SqlDialect:
 
         sql_lines.append(from_sql_line)
         return sql_lines
+
+    def get_from_name_from_qualified_name(self, qualified_name: str) -> str:
+        # FROM in the current AST will always quote the table name. So we need to check it, and remove the first and last quote characters if they exist.
+        return qualified_name[1:-1] if self.is_quoted(qualified_name) else qualified_name
+
+    def convert_fully_qualified_object_name_to_sql_qualified_name(
+        self, fully_qualified_object_name: FullyQualifiedObjectName
+    ) -> str:
+        return ".".join(
+            [
+                self.quote_default(name_part)
+                for name_part in [
+                    fully_qualified_object_name.database_name,
+                    fully_qualified_object_name.schema_name,
+                    fully_qualified_object_name.get_object_name(),
+                ]
+                if isinstance(name_part, str)
+            ]
+        )
 
     def _alias_format(self, alias: str) -> str:
         return f"AS {self.quote_default(alias)}"
@@ -1123,6 +1173,22 @@ class SqlDialect:
         """
         return self.default_casify("table_name")
 
+    def column_table_type(self) -> str:
+        """
+        Name of the column that has the table type in the tables metadata table
+        """
+        return self.default_casify("table_type")
+
+    def convert_table_type_to_enum(self, table_type: str) -> TableType:
+        if table_type == "BASE TABLE":
+            return TableType.TABLE
+        elif table_type == "VIEW":
+            return TableType.VIEW
+        else:
+            # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
+            logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
+            return TableType.TABLE
+
     def column_column_name(self) -> str:
         """
         Name of the column that has the column name in the tables metadata table.
@@ -1465,3 +1531,8 @@ class SqlDialect:
 
     def convert_datetime_to_str(self, datetime: datetime) -> str:
         return convert_datetime_to_str(datetime)
+
+    def supports_views(
+        self,
+    ) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
+        return True
