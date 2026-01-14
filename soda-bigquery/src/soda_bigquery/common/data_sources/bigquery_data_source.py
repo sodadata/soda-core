@@ -242,4 +242,4 @@ class BigQuerySqlDialect(SqlDialect):
         return f"CONCAT({elements})"
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
-        return f"to_hex(MD5({self.build_expression_sql(string_hash.expression)}))"
+        return f"to_hex({super()._build_string_hash_sql(string_hash)})"
