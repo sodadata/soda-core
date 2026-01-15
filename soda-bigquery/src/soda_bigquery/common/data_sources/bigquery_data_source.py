@@ -19,6 +19,7 @@ from soda_core.common.sql_ast import (
     DISTINCT,
     LITERAL,
     REGEX_LIKE,
+    STRING_HASH,
     TUPLE,
     VALUES,
     WITH,
@@ -239,3 +240,6 @@ class BigQuerySqlDialect(SqlDialect):
     def _build_concat_ws_sql(self, concat_ws: CONCAT_WS) -> str:
         elements: str = f", '{concat_ws.separator}', ".join(self.build_expression_sql(e) for e in concat_ws.expressions)
         return f"CONCAT({elements})"
+
+    def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
+        return f"to_hex({super()._build_string_hash_sql(string_hash)})"
