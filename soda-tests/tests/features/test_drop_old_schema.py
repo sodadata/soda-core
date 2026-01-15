@@ -16,7 +16,7 @@ logger: logging.Logger = soda_logger
 DATASOURCES_TO_RUN = [
     "postgres",  # Postgres is not required, but just to verify that the test works (also for local clean up)
     "snowflake",
-    # "athena",
+    "athena",
     "bigquery",
 ]
 # Only drop schemma's starting with these prefixes.
@@ -29,13 +29,13 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
     # We determine if the schema needs to be dropped by checking if the schema name contains a date that we can parse. If it's older than 2 days, we drop it.
     try:
         schema_name = schema_name.lower()
-        if "soda_diagnostics" in schema_name:
+        if schema_name.lower().startswith("soda_diagnostics_"):
             potential_date_string: str = schema_name[
                 len("soda_diagnostics_") + 9 : -7
             ]  # soda_diagnostics_0db10c31_20251119_093446
-        elif "ALTERNATE_DWH" in schema_name:
+        elif schema_name.upper().startswith("ALTERNATE_DWH_"):
             potential_date_string: str = schema_name[len("ALTERNATE_DWH_") + 9 :]  # ALTERNATE_DWH_0db10c31_20251119
-        elif "ci_" in schema_name:
+        elif schema_name.lower().startswith("ci_"):
             # There are too many structures for this to be done in a simple way, so we have to try all the possibilities for dates.
             # Start from the beginning and try every substring of 8 characters (after removing underscore)
             no_underscore_schema_name: str = schema_name.replace("_", "")
@@ -53,7 +53,7 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
                     continue
             if not found_date:
                 return False  # Do not drop the schema if we cannot find a date in the schema name. (safeguard, we can manually remove these schemas if needed)
-        elif "my_dwh_" in schema_name:
+        elif schema_name.lower().startswith("my_dwh_"):
             first_part_index = len("my_dwh_") + 6
             second_part_index = first_part_index + 8
             potential_date_string: str = schema_name[
@@ -82,8 +82,8 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(schemas_query_sql)
     schema_names: list[str] = [row[0] for row in query_result.rows]
     for schema_name in schema_names:
-        if any(schema_name.lower().startswith(prefix) for prefix in LIST_OF_PREFIXES_TO_DROP):
-            if not any(schema_name.lower().startswith(prefix) for prefix in LIST_OF_EXEMPTIONS):
+        if any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
+            if not any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
                 if determine_if_schema_needs_to_be_dropped(schema_name):
                     logger.info(f"Dropping schema name: {schema_name}")
                     try:
