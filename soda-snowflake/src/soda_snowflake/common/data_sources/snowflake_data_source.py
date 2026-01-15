@@ -198,3 +198,15 @@ class SnowflakeSqlDialect(SqlDialect):
             return f"TABLESAMPLE ({int(sample_size)} ROWS)"
         else:
             raise ValueError(f"Unsupported sample type: {sampler_type}")
+
+    def _build_column_sql(self, column: COLUMN) -> str:
+        table_alias_sql: str = f"{self.quote_default(column.table_alias)}." if column.table_alias else ""
+        if isinstance(column.name, str):
+            column_name = column.name.replace('"', '""')  # Escape quotes in the column name if it's a string
+        else:
+            column_name = column.name
+        column_sql: str = self.build_expression_sql(
+            column_name
+        )  # If column.name is a SqlExpression, it will be compiled; if a string, it will be quoted
+        field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
+        return f"{table_alias_sql}{column_sql}{field_alias_sql}"
