@@ -22,10 +22,12 @@
 > If you are currently using Soda Core, you will need to migrate your existing checks to Data Contracts when upgrading to v4.
 > 
 > 📖 **More details**, including migration guidance and examples of the new Data Contract format, will be shared closer to the release date.
+>
+> 📄 Check out the [Soda Core 4.0 documentation](https://docs.soda.io/soda-v4/deployment-options/soda-python-libraries) to learn how to install it and see what’s coming.
 > ### Soda Cloud users
 > If you are using [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=soda_cloud), a Customer Engineer will reach out to you to help schedule and support your migration to v4.
 > ### Not ready to upgrade yet?
-> If you want to stay on Soda Core v3 and avoid automatically upgrading to v4, make sure to pin your dependency to a v3 version.
+> If you want to stay on Soda Core v3 and avoid automatically upgrading to v4, make sure to pin your dependency to a v3 version. Check out all previous versions of [Soda Core releases](https://github.com/sodadata/soda-core/releases).
 > #### Example (pip)
 > Specify a v3 version to prevent automatic upgrades:
 > ```bash
