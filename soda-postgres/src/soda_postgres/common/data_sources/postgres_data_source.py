@@ -4,14 +4,22 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import CAST, CREATE_TABLE_COLUMN, REGEX_LIKE
+from soda_core.common.metadata_types import (
+    DataSourceNamespace,
+    SodaDataTypeName,
+    SqlDataType,
+)
+from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSource as PostgresDataSourceModel,
 )
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
     PostgresDataSourceConnection,
+)
+from soda_postgres.statements.postgres_metadata_tables_query import (
+    PostgresMetadataTablesQuery,
 )
 
 logger: Logger = soda_logger
@@ -34,6 +42,11 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        return PostgresMetadataTablesQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
+
 
 class PostgresSqlDataType(SqlDataType):
     def get_sql_data_type_str_with_parameters(self) -> str:
@@ -49,6 +62,9 @@ class PostgresSqlDialect(SqlDialect):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),
     )
+
+    def supports_materialized_views(self) -> bool:
+        return True
 
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
@@ -156,3 +172,200 @@ class PostgresSqlDialect(SqlDialect):
             return True
 
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
+    ###
+    # Tables and columns metadata queries
+    ###
+    def pg_catalog(self) -> str:
+        return "pg_catalog"
+
+    def pg_class(self) -> str:
+        return "pg_class"
+
+    def pg_namespace(self) -> str:
+        return "pg_namespace"
+
+    def current_database(self) -> str:
+        return "current_database()"
+
+    def relkind_table_type_sql_expression(self, table_alias: str = "c", column_alias: str = "table_type") -> str:
+        return f"""CASE {table_alias}.relkind
+            WHEN 'r' THEN
+            CASE {table_alias}.relpersistence
+                WHEN 't' THEN 'TEMPORARY TABLE'
+                WHEN 'p' THEN 'BASE TABLE'
+                WHEN 'u' THEN 'UNLOGGED TABLE'
+                END
+            WHEN 'v' THEN 'VIEW'
+            WHEN 'm' THEN 'MATERIALIZED VIEW'
+            WHEN 'i' THEN 'INDEX'
+            WHEN 'S' THEN 'SEQUENCE'
+            WHEN 't' THEN 'TOAST TABLE'
+            WHEN 'f' THEN 'FOREIGN TABLE'
+            WHEN 'p' THEN 'PARTITIONED TABLE'
+            WHEN 'I' THEN 'PARTITIONED INDEX'
+            END as {column_alias}"""
+
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        """
+        Builds the full SQL query to query table names from the data source metadata.
+        """
+
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+
+        ######
+        current_databasse_expression = RAW_SQL(self.current_database())
+        select: list = [
+            SELECT(
+                [
+                    COLUMN("attname", table_alias="a", field_alias="column_name"),
+                    # Normalize data type into information_schema.columns style. Consider doing this in python instead, but this is lightweight and simple enough.
+                    RAW_SQL(
+                        """CASE
+                            -- arrays
+                            WHEN t.typcategory = 'A' OR t.typelem <> 0 THEN 'ARRAY'
+
+                            -- choose base type for domains, otherwise the type itself
+                            ELSE CASE COALESCE(bt.typname, t.typname)
+                            WHEN 'varchar'     THEN 'character varying'
+                            WHEN 'bpchar'      THEN 'character'
+                            WHEN 'bool'        THEN 'boolean'
+                            WHEN 'int2'        THEN 'smallint'
+                            WHEN 'int4'        THEN 'integer'
+                            WHEN 'int8'        THEN 'bigint'
+                            WHEN 'float4'      THEN 'real'
+                            WHEN 'float8'      THEN 'double precision'
+                            WHEN 'timestamptz' THEN 'timestamp with time zone'
+                            WHEN 'timestamp'   THEN 'timestamp without time zone'
+                            WHEN 'timetz'      THEN 'time with time zone'
+                            WHEN 'time'        THEN 'time without time zone'
+                            WHEN 'bit'         THEN 'bit'
+                            WHEN 'varbit'      THEN 'bit varying'
+                            ELSE COALESCE(bt.typname, t.typname)
+                            END
+                        END AS  \"data_type\"
+                    """
+                    ),
+                    # Extract type parameters. No abstract level api for this, we have to replicate Postgres logic here.
+                    # All a.atttypmod are offset by 4 in Postgres
+                    #  varchar/char length (NULL otherwise)
+                    RAW_SQL(
+                        """CASE
+                            WHEN t.typname IN ('varchar','bpchar') THEN
+                                CASE
+                                    WHEN a.atttypmod > 4 THEN a.atttypmod - 4
+                                    ELSE NULL
+                                END
+                            ELSE NULL
+                        END AS "character_maximum_length"
+                    """
+                    ),
+                    # numeric precision (NULL otherwise)
+                    RAW_SQL(
+                        """CASE
+                            WHEN t.typname = 'numeric' THEN
+                                CASE
+                                    WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) >> 16)
+                                    ELSE NULL
+                                END
+                            ELSE NULL
+                        END AS "numeric_precision"
+                    """
+                    ),
+                    # numeric scale (NULL otherwise)
+                    RAW_SQL(
+                        """CASE
+                            WHEN t.typname = 'numeric' THEN
+                                CASE
+                                    WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) & 65535)
+                                    ELSE NULL
+                                END
+                            ELSE NULL
+                        END AS "numeric_scale"
+                    """
+                    ),
+                    # datetime precision (NULL otherwise)
+                    RAW_SQL(
+                        """CASE
+                            WHEN t.typname IN ('time','timetz','timestamp','timestamptz') THEN
+                                CASE
+                                    WHEN a.atttypmod >= 0 THEN a.atttypmod
+                                    ELSE NULL
+                                END
+                            ELSE NULL
+                        END AS "datetime_precision"
+                    """
+                    ),
+                    COLUMN(current_databasse_expression, field_alias="table_catalog"),
+                    COLUMN("nspname", table_alias="n", field_alias="table_schema"),
+                    COLUMN("relname", table_alias="c", field_alias="table_name"),
+                    RAW_SQL(self.relkind_table_type_sql_expression()),
+                ]
+            ),
+            FROM(
+                self.pg_class(),
+                table_prefix=[self.pg_catalog()],
+                alias="c",
+            ),
+            JOIN(
+                table_name=self.pg_namespace(),
+                table_prefix=[self.pg_catalog()],
+                alias="n",
+                on_condition=EQ(
+                    COLUMN("relnamespace", "c"),
+                    COLUMN("oid", "n"),
+                ),
+            ),
+            JOIN(
+                table_name="pg_attribute",
+                table_prefix=[self.pg_catalog()],
+                alias="a",
+                on_condition=EQ(
+                    COLUMN("attrelid", "a"),
+                    COLUMN("oid", "c"),
+                ),
+            ),
+            JOIN(
+                table_name="pg_type",
+                table_prefix=[self.pg_catalog()],
+                alias="t",
+                on_condition=EQ(
+                    COLUMN("atttypid", "a"),
+                    COLUMN("oid", "t"),
+                ),
+            ),
+            LEFT_INNER_JOIN(
+                table_name="pg_type",
+                table_prefix=[self.pg_catalog()],
+                alias="bt",
+                on_condition=EQ(
+                    COLUMN("oid", "bt"),
+                    RAW_SQL("NULLIF(t.typbasetype, 0)"),
+                ),
+            ),
+            WHERE(
+                AND(
+                    [
+                        # Only get object types that correspond to tables/views in information_schema.tables
+                        IN(
+                            COLUMN("relkind", "c"),
+                            [LITERAL("r"), LITERAL("p"), LITERAL("v"), LITERAL("m"), LITERAL("f")],
+                        ),
+                        # Only get columns that are not dropped
+                        GT(COLUMN("attnum", "a"), LITERAL(0)),
+                        EQ(COLUMN("relname", "c"), LITERAL(self.metadata_casify(table_name))),
+                    ]
+                )
+            ),
+            ORDER_BY_ASC(COLUMN("attnum", "a")),
+        ]
+
+        if database_name:
+            database_name_lower: str = database_name.lower()
+            select.append(WHERE(EQ(LOWER(current_databasse_expression), LITERAL(database_name_lower))))
+
+        if schema_name:
+            select.append(WHERE(EQ(LOWER(COLUMN("nspname", "n")), LITERAL(schema_name.lower()))))
+
+        return self.build_select_sql(select)

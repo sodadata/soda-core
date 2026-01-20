@@ -33,7 +33,7 @@ def test_check_paths(data_source_test_helper: DataSourceTestHelper):
     )
 
     with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
-        contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        contract_verification_session_result: ContractVerificationResult = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_paths=["columns.id.checks.aggregate"],
             contract_yaml_str="""
@@ -67,6 +67,10 @@ def test_check_paths(data_source_test_helper: DataSourceTestHelper):
                             must_be_less_than: 12
             """,
         )
+        assert contract_verification_session_result.is_ok
+        contract_verification_result: ContractVerificationResult = (
+            contract_verification_session_result.contract_verification_results[0]
+        )
         assert len(contract_verification_result.check_results) == 9
         assert contract_verification_result.number_of_checks_excluded == 8
 
@@ -83,7 +87,7 @@ def test_check_paths_qualifier(data_source_test_helper: DataSourceTestHelper):
         ]
     )
 
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+    contract_verification_session_result: ContractVerificationResult = data_source_test_helper.verify_contract(
         test_table=test_table,
         check_paths=["columns.id.checks.invalid.invalid_min"],
         contract_yaml_str="""
@@ -96,6 +100,10 @@ def test_check_paths_qualifier(data_source_test_helper: DataSourceTestHelper):
                         qualifier: invalid_min
                         valid_min: 1
         """,
+    )
+    assert contract_verification_session_result.is_ok
+    contract_verification_result: ContractVerificationResult = (
+        contract_verification_session_result.contract_verification_results[0]
     )
     assert len(contract_verification_result.check_results) == 2
     assert contract_verification_result.number_of_checks_excluded == 1

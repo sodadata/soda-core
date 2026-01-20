@@ -50,3 +50,25 @@ def test_postgres_schema_fail(data_source_test_helper: DataSourceTestHelper):
               - name: destroyed
         """,
     )
+
+
+def test_postgres_schema_pass_materialized_view(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    view = data_source_test_helper.create_materialized_view_from_test_table(test_table=test_table)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=view,
+        contract_yaml_str=f"""
+            checks:
+              - schema:
+            columns:
+              - name: id
+                data_type: varchar
+              - name: size
+                data_type: varchar
+              - name: created
+                data_type: varchar
+              - name: destroyed
+                data_type: varchar
+        """,
+    )

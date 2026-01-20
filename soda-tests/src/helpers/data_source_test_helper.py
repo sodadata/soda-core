@@ -6,6 +6,7 @@ import os
 import random
 import re
 import string
+from copy import deepcopy
 from textwrap import dedent
 from typing import Optional
 
@@ -17,9 +18,11 @@ from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import (
     COLUMN,
+    CREATE_MATERIALIZED_VIEW,
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_VIEW,
+    DROP_MATERIALIZED_VIEW,
     DROP_TABLE,
     DROP_VIEW,
     FROM,
@@ -34,6 +37,7 @@ from soda_core.common.statements.metadata_tables_query import (
     MetadataTablesQuery,
     TableType,
 )
+from soda_core.common.statements.table_types import FullyQualifiedMaterializedViewName
 from soda_core.common.yaml import (
     ContractYamlSource,
     DataSourceYamlSource,
@@ -436,6 +440,7 @@ class DataSourceTestHelper:
             ),
             columns=columns,
             row_values=test_table_specification.row_values,
+            table_type=test_table_specification.table_type,
         )
 
     def _create_and_insert_test_table(self, test_table: TestTable) -> None:
@@ -492,6 +497,16 @@ class DataSourceTestHelper:
         )
         return fully_qualified_view_names
 
+    def query_existing_materialized_test_views(self) -> list[FullyQualifiedMaterializedViewName]:
+        metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
+        fully_qualified_view_names: list[FullyQualifiedMaterializedViewName] = metadata_tables_query.execute(
+            database_name=self.extract_database_from_prefix(),
+            schema_name=self.extract_schema_from_prefix(),
+            include_table_name_like_filters=["SODATEST_%"],
+            types_to_return=[TableType.MATERIALIZED_VIEW],
+        )
+        return fully_qualified_view_names
+
     def query_existing_test_view_names(self) -> list[str]:
         fully_qualified_view_names = self.query_existing_test_views()
         return [
@@ -500,7 +515,15 @@ class DataSourceTestHelper:
             if isinstance(fully_qualified_view_name, FullyQualifiedViewName)
         ]
 
-    def create_view_from_test_table(self, test_table: TestTable) -> str:
+    def query_existing_test_materialized_view_names(self) -> list[str]:
+        fully_qualified_view_names = self.query_existing_materialized_test_views()
+        return [
+            fully_qualified_view_name.materialized_view_name
+            for fully_qualified_view_name in fully_qualified_view_names
+            if isinstance(fully_qualified_view_name, FullyQualifiedMaterializedViewName)
+        ]
+
+    def create_view_from_test_table(self, test_table: TestTable) -> TestTable:
         view_name = f"{test_table.unique_name}_view"
         view_name = self.data_source_impl.sql_dialect.metadata_casify(view_name)
         existing_view_names = self.query_existing_test_view_names()
@@ -518,7 +541,15 @@ class DataSourceTestHelper:
         )
         sql: str = self.data_source_impl.sql_dialect.build_create_view_sql(my_create_view)
         self.data_source_impl.execute_update(sql)
-        return view_name
+
+        view_object = deepcopy(test_table)
+        view_object.unique_name = view_name
+        view_object.qualified_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=view_name,
+        )
+
+        return view_object
 
     def _drop_test_view(self, view_name: str) -> None:
         fully_qualified_view_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
@@ -529,6 +560,44 @@ class DataSourceTestHelper:
             fully_qualified_view_name=fully_qualified_view_name,
         )
         sql: str = self.data_source_impl.sql_dialect.build_drop_view_sql(my_drop_view)
+        self.data_source_impl.execute_update(sql)
+
+    def create_materialized_view_from_test_table(self, test_table: TestTable) -> TestTable:
+        view_name = f"{test_table.unique_name}_materialized_view"
+        view_name = self.data_source_impl.sql_dialect.metadata_casify(view_name)
+        existing_view_names = self.query_existing_test_materialized_view_names()
+        if view_name in existing_view_names:
+            self._drop_test_materialized_view(view_name)
+        my_create_view = CREATE_MATERIALIZED_VIEW(
+            fully_qualified_view_name=self.data_source_impl.sql_dialect.qualify_dataset_name(
+                dataset_prefix=self.dataset_prefix,
+                dataset_name=view_name,
+            ),
+            select_elements=[
+                SELECT(STAR()),
+                FROM(self.data_source_impl.sql_dialect.get_from_name_from_qualified_name(test_table.qualified_name)),
+            ],
+        )
+        sql: str = self.data_source_impl.sql_dialect.build_create_materialized_view_sql(my_create_view)
+        self.data_source_impl.execute_update(sql)
+
+        view_object = deepcopy(test_table)
+        view_object.unique_name = view_name
+        view_object.qualified_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=view_name,
+        )
+        return view_object
+
+    def _drop_test_materialized_view(self, view_name: str) -> None:
+        fully_qualified_view_name = self.data_source_impl.sql_dialect.qualify_dataset_name(
+            dataset_prefix=self.dataset_prefix,
+            dataset_name=view_name,
+        )
+        my_drop_view = DROP_MATERIALIZED_VIEW(
+            fully_qualified_view_name=fully_qualified_view_name,
+        )
+        sql: str = self.data_source_impl.sql_dialect.build_drop_materialized_view_sql(my_drop_view)
         self.data_source_impl.execute_update(sql)
 
     def get_parse_errors_str(self, contract_yaml_str: str) -> str:
@@ -583,6 +652,12 @@ class DataSourceTestHelper:
             raise AssertionError(f"Expected contract verification passed")
         if len(contract_verification_session_result.contract_verification_results) == 0:
             raise AssertionError(f"No contract verification results")
+
+        # Final assert, is_ok does not guarantee all checks passed (could be skipped or non evaluated)
+        assert (
+            contract_verification_session_result.is_passed == True
+        ), "Contract verification session result should be passed"
+
         return contract_verification_session_result.contract_verification_results[0]
 
     def assert_contract_fail(

@@ -10,6 +10,7 @@ from soda_core.common.metadata_types import (
     SodaDataTypeName,
     SqlDataType,
 )
+from soda_core.common.statements.table_types import TableType
 
 MAX_TABLE_NAME_LENGTH = 63  # Postgres max table name length.  Needed or else table names may be incorrectly truncated.
 
@@ -30,6 +31,7 @@ class TestTableSpecificationBuilder:
         self._table_purpose: Optional[str] = None
         self._columns: list[ColumnMetadata] = []
         self._rows: Optional[list[tuple]] = None
+        self._table_type: TableType = TableType.TABLE
 
     def table_purpose(self, table_purpose: str) -> TestTableSpecificationBuilder:
         """
@@ -193,7 +195,11 @@ class TestTableSpecificationBuilder:
         self.__names.append(name_lower)
         unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
         return TestTableSpecification(
-            name=self._table_purpose, columns=self._columns, row_values=self._rows, unique_name=unique_name
+            name=self._table_purpose,
+            columns=self._columns,
+            row_values=self._rows,
+            unique_name=unique_name,
+            table_type=self._table_type,
         )
 
     def __test_table_hash(self) -> str:
@@ -252,6 +258,7 @@ class TestTableSpecification:
     columns: list[ColumnMetadata]
     row_values: Optional[list[tuple]]
     unique_name: Optional[str]
+    table_type: TableType
 
 
 class TestTable:
@@ -266,6 +273,7 @@ class TestTable:
         qualified_name: str,
         columns: list[TestColumn],
         row_values: Optional[list[tuple]],
+        table_type: TableType = TableType.TABLE,
     ):
         self.data_source_name: str = data_source_name
         self.dataset_prefix: list[str] = dataset_prefix
@@ -277,6 +285,7 @@ class TestTable:
         self.qualified_name: str = qualified_name
         self.columns: dict[str, TestColumn] = {column.name: column for column in columns}
         self.row_values: Optional[list[tuple]] = row_values
+        self.table_type: TableType = table_type
 
     def data_type(self, column_name: str) -> str:
         return self.columns[column_name].sql_data_type.name

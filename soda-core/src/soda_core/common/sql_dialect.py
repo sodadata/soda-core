@@ -35,6 +35,7 @@ from soda_core.common.sql_ast import (
     CONCAT,
     CONCAT_WS,
     COUNT,
+    CREATE_MATERIALIZED_VIEW,
     CREATE_TABLE,
     CREATE_TABLE_AS_SELECT,
     CREATE_TABLE_COLUMN,
@@ -42,6 +43,8 @@ from soda_core.common.sql_ast import (
     CREATE_VIEW,
     CTE,
     DISTINCT,
+    DROP_MATERIALIZED_VIEW,
+    DROP_MATERIALIZED_VIEW_IF_EXISTS,
     DROP_TABLE,
     DROP_TABLE_IF_EXISTS,
     DROP_VIEW,
@@ -79,6 +82,7 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     ORDINAL_POSITION,
+    RAW_SQL,
     REGEX_LIKE,
     SELECT,
     STAR,
@@ -563,6 +567,31 @@ class SqlDialect:
         return f"DROP VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
 
     #########################################################
+    # CREATE MATERIALIZED VIEW
+    #########################################################
+    def build_create_materialized_view_sql(
+        self,
+        create_materialized_view: CREATE_MATERIALIZED_VIEW,
+        add_semicolon: bool = True,
+        add_paranthesis: bool = True,
+    ) -> str:
+        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
+        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        select_sql: str = self.build_select_sql(create_materialized_view.select_elements, add_semicolon=False)
+        return (
+            f"CREATE MATERIALIZED VIEW {create_materialized_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{select_sql}{post_paranthesis_sql}\n"
+            + (";" if add_semicolon else "")
+        )
+
+    def build_drop_materialized_view_sql(
+        self, drop_view: DROP_MATERIALIZED_VIEW | DROP_MATERIALIZED_VIEW_IF_EXISTS, add_semicolon: bool = True
+    ) -> str:
+        if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_MATERIALIZED_VIEW_IF_EXISTS) else ""
+        return f"DROP MATERIALIZED VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (
+            ";" if add_semicolon else ""
+        )
+
+    #########################################################
     # UNION
     #########################################################
     # Commenting this out, as it's not ready for production yet. Just want to leave this here for future reference.
@@ -670,6 +699,8 @@ class SqlDialect:
             return self._build_column_sql(expression)
         elif isinstance(expression, LITERAL):
             return self.literal(expression.value)
+        elif isinstance(expression, RAW_SQL):
+            return expression.value
         elif isinstance(expression, OR):
             return self._build_or_sql(expression)
         elif isinstance(expression, AND):
@@ -1184,6 +1215,8 @@ class SqlDialect:
             return TableType.TABLE
         elif table_type == "VIEW":
             return TableType.VIEW
+        elif table_type == "MATERIALIZED VIEW":
+            return TableType.MATERIALIZED_VIEW
         else:
             # Default to TABLE if the table type is not recognized (so we're backwards compatible with existing code)
             logger.warning(f"Invalid table type: {table_type}, defaulting to TABLE")
@@ -1536,3 +1569,8 @@ class SqlDialect:
         self,
     ) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
         return True
+
+    def supports_materialized_views(
+        self,
+    ) -> bool:  # Default to False, so that we roll out support for materialized views explicitly
+        return False

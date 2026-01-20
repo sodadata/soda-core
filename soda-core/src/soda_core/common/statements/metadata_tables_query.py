@@ -7,6 +7,7 @@ from soda_core.common.data_source_results import QueryResult
 from soda_core.common.sql_ast import *
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.table_types import (
+    FullyQualifiedMaterializedViewName,
     FullyQualifiedObjectName,
     FullyQualifiedTableName,
     FullyQualifiedViewName,
@@ -130,6 +131,12 @@ class MetadataTablesQuery:
             elif converted_table_type == TableType.VIEW:
                 result.append(
                     FullyQualifiedViewName(database_name=database_name, schema_name=schema_name, view_name=table_name)
+                )
+            elif converted_table_type == TableType.MATERIALIZED_VIEW:
+                result.append(
+                    FullyQualifiedMaterializedViewName(
+                        database_name=database_name, schema_name=schema_name, materialized_view_name=table_name
+                    )
                 )
             else:
                 logger.warning(f"Unexpected table type: {table_type}")
