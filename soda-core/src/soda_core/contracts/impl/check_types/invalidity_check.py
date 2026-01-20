@@ -188,8 +188,8 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
 
 
 class DatasetAlias(Enum):
-    CONTRACT = "C"  # C stands for the 'C'ontract dataset
-    REFERENCE = "R"  # R stands for the 'R'eference dataset
+    TARGET = "TARGET"
+    REFERENCE = "REFERENCE"
 
 
 class InvalidReferenceCountQuery(Query):
@@ -208,7 +208,7 @@ class InvalidReferenceCountQuery(Query):
         self.metric_impl = metric_impl
         self.check_filter = check_filter
 
-        self.referencing_alias: str = DatasetAlias.CONTRACT.value
+        self.referencing_alias: str = DatasetAlias.TARGET.value
         self.referenced_alias: str = DatasetAlias.REFERENCE.value
         self._referenced_cte_name: str = "_soda_filtered_referenced_dataset"
 

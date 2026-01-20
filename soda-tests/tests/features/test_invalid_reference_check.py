@@ -165,3 +165,30 @@ def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelpe
         )
         == 0
     )
+
+
+def test_invalid_count_with_check_filter_alias(data_source_test_helper: DataSourceTestHelper):
+    # Run on the same table so that conflicting alias names would be detected
+    referencing_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
+    referenced_table = data_source_test_helper.ensure_test_table(referencing_table_specification)
+
+    target_quoted: str = data_source_test_helper.quote_column("TARGET")
+    zip_quoted: str = data_source_test_helper.quote_column("zip")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=referencing_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: country
+                valid_reference_data:
+                  dataset: {data_source_test_helper.build_dqn(referenced_table)}
+                  column: country
+                checks:
+                  - invalid:
+                      filter: |
+                        {data_source_test_helper.get_qualified_name_from_test_table(referenced_table)}.{zip_quoted} = 'NL4775'
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert get_diagnostic_value(check_result, "invalid_count") == 1
+    assert get_diagnostic_value(check_result, "check_rows_tested") == 3
