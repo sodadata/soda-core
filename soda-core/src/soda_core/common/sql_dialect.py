@@ -508,7 +508,10 @@ class SqlDialect:
     #########################################################
     def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = True) -> str:
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_table, DROP_TABLE_IF_EXISTS) else ""
-        return f"DROP TABLE {if_exists_sql}{drop_table.fully_qualified_table_name}" + (";" if add_semicolon else "")
+        cascade_sql: str = " CASCADE" if getattr(drop_table, "cascade", False) else ""
+        return f"DROP TABLE {if_exists_sql}{drop_table.fully_qualified_table_name}{cascade_sql}" + (
+            ";" if add_semicolon else ""
+        )
 
     #########################################################
     # INSERT INTO

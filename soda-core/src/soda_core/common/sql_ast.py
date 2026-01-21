@@ -699,6 +699,7 @@ class VALUES_ROW(BaseSqlExpression):
 @dataclass
 class DROP_TABLE(BaseSqlExpression):
     fully_qualified_table_name: str
+    cascade: bool = False
 
     def __post_init__(self):
         super().__post_init__()

@@ -481,9 +481,7 @@ class DataSourceTestHelper:
             dataset_prefix=self.dataset_prefix,
             dataset_name=table_name,
         )
-        my_drop_table = DROP_TABLE(
-            fully_qualified_table_name=fully_qualified_table_name,
-        )
+        my_drop_table = DROP_TABLE(fully_qualified_table_name=fully_qualified_table_name, cascade=True)
         sql: str = self.data_source_impl.sql_dialect.build_drop_table_sql(my_drop_table)
         self.data_source_impl.execute_update(sql)
 
