@@ -31,7 +31,7 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
         """
         Builds the full SQL query statement to query table names from the data source metadata.
         """
-        current_database_expression = RAW_SQL(self.sql_dialect.current_database())
+        current_database_expression = RAW_SQL(self.sql_dialect._current_database())
         select: list = [
             SELECT(
                 [
@@ -42,13 +42,13 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
                 ]
             ),
             FROM(
-                self.sql_dialect.pg_class(),
-                table_prefix=[self.sql_dialect.pg_catalog()],
+                self.sql_dialect._pg_class(),
+                table_prefix=[self.sql_dialect._pg_catalog()],
                 alias="c",
             ),
             JOIN(
-                table_name=self.sql_dialect.pg_namespace(),
-                table_prefix=[self.sql_dialect.pg_catalog()],
+                table_name=self.sql_dialect._pg_namespace(),
+                table_prefix=[self.sql_dialect._pg_catalog()],
                 alias="n",
                 on_condition=EQ(
                     COLUMN("relnamespace", "c"),
@@ -56,7 +56,18 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
                 ),
             ),
             # Only get object types that correspond to tables/views in information_schema.tables
-            WHERE(IN(COLUMN("relkind", "c"), [LITERAL("r"), LITERAL("p"), LITERAL("v"), LITERAL("m"), LITERAL("f")])),
+            WHERE(
+                IN(
+                    COLUMN("relkind", "c"),
+                    [
+                        LITERAL("r"),  # ordinary table
+                        LITERAL("p"),  # partitioned table
+                        LITERAL("v"),  # view
+                        LITERAL("m"),  # materialized view
+                        LITERAL("f"),  # foreign table
+                    ],
+                )
+            ),
         ]
 
         if database_name:

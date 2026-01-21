@@ -194,16 +194,16 @@ class PostgresSqlDialect(SqlDialect):
     ###
     # Tables and columns metadata queries
     ###
-    def pg_catalog(self) -> str:
+    def _pg_catalog(self) -> str:
         return "pg_catalog"
 
-    def pg_class(self) -> str:
+    def _pg_class(self) -> str:
         return "pg_class"
 
-    def pg_namespace(self) -> str:
+    def _pg_namespace(self) -> str:
         return "pg_namespace"
 
-    def current_database(self) -> str:
+    def _current_database(self) -> str:
         return "current_database()"
 
     def relkind_table_type_sql_expression(self, table_alias: str = "c", column_alias: str = "table_type") -> str:
@@ -233,7 +233,7 @@ class PostgresSqlDialect(SqlDialect):
         schema_name: str = table_namespace.get_schema_for_metadata_query()
 
         ######
-        current_database_expression = RAW_SQL(self.current_database())
+        current_database_expression = RAW_SQL(self._current_database())
         select: list = [
             SELECT(
                 [
@@ -322,13 +322,13 @@ class PostgresSqlDialect(SqlDialect):
                 ]
             ),
             FROM(
-                self.pg_class(),
-                table_prefix=[self.pg_catalog()],
+                self._pg_class(),
+                table_prefix=[self._pg_catalog()],
                 alias="c",
             ),
             JOIN(
-                table_name=self.pg_namespace(),
-                table_prefix=[self.pg_catalog()],
+                table_name=self._pg_namespace(),
+                table_prefix=[self._pg_catalog()],
                 alias="n",
                 on_condition=EQ(
                     COLUMN("relnamespace", "c"),
@@ -337,7 +337,7 @@ class PostgresSqlDialect(SqlDialect):
             ),
             JOIN(
                 table_name="pg_attribute",
-                table_prefix=[self.pg_catalog()],
+                table_prefix=[self._pg_catalog()],
                 alias="a",
                 on_condition=EQ(
                     COLUMN("attrelid", "a"),
@@ -346,7 +346,7 @@ class PostgresSqlDialect(SqlDialect):
             ),
             JOIN(
                 table_name="pg_type",
-                table_prefix=[self.pg_catalog()],
+                table_prefix=[self._pg_catalog()],
                 alias="t",
                 on_condition=EQ(
                     COLUMN("atttypid", "a"),
@@ -355,7 +355,7 @@ class PostgresSqlDialect(SqlDialect):
             ),
             LEFT_INNER_JOIN(
                 table_name="pg_type",
-                table_prefix=[self.pg_catalog()],
+                table_prefix=[self._pg_catalog()],
                 alias="bt",
                 on_condition=EQ(
                     COLUMN("oid", "bt"),

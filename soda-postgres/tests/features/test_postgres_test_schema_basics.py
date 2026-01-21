@@ -94,12 +94,62 @@ def test_postgres_schema_fail(data_source_test_helper: DataSourceTestHelper):
     )
 
 
+def test_postgres_schema_pass_view(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    view = data_source_test_helper.create_view_from_test_table(test_table=test_table)
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=view,
+        contract_yaml_str=f"""
+            checks:
+              - schema:
+            columns:
+              - name: id
+                data_type: varchar
+              - name: size
+                data_type: varchar
+              - name: created
+                data_type: varchar
+              - name: destroyed
+                data_type: varchar
+              - name: bigint
+                data_type: bigint
+              - name: char_4
+                data_type: character
+              - name: char_8
+                data_type: character
+              - name: smallint
+                data_type: smallint
+              - name: integer
+                data_type: integer
+              - name: flag
+                data_type: boolean
+              - name: decimal_10_2
+                data_type: numeric
+              - name: numeric_15_5
+                data_type: numeric
+              - name: float
+                data_type: double precision
+              - name: double
+                data_type: double precision
+              - name: ts
+                data_type: timestamp
+              - name: ts_tz
+                data_type: timestamp with time zone
+              - name: date
+                data_type: date
+              - name: time
+                data_type: time without time zone
+        """,
+    )
+
+
 def test_postgres_schema_pass_materialized_view(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     view = data_source_test_helper.create_materialized_view_from_test_table(test_table=test_table)
 
     data_source_test_helper.assert_contract_pass(
-        test_table=test_table,
+        test_table=view,
         contract_yaml_str=f"""
             checks:
               - schema:
