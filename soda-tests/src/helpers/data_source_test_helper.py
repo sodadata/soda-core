@@ -656,6 +656,34 @@ class DataSourceTestHelper:
 
         return contract_verification_session_result.contract_verification_results[0]
 
+    def assert_contract_ok(
+        self,
+        test_table: TestTable,
+        contract_yaml_str: str,
+        variables: Optional[dict[str, str]] = None,
+        dwh_data_source_file_path: Optional[str] = None,
+        extra_data_source_impls: list[DataSourceImpl] = [],
+        check_paths: Optional[list[str]] = None,
+        publish_results: bool = True,
+    ) -> ContractVerificationResult:
+        contract_verification_session_result: ContractVerificationSessionResult = self.verify_contract(
+            contract_yaml_str=contract_yaml_str,
+            test_table=test_table,
+            variables=variables,
+            dwh_data_source_file_path=dwh_data_source_file_path,
+            extra_data_source_impls=extra_data_source_impls,
+            check_paths=check_paths,
+            publish_results=publish_results,
+        )
+        if not isinstance(contract_verification_session_result, ContractVerificationSessionResult):
+            raise AssertionError(f"No contract verification result session")
+        if not contract_verification_session_result.is_ok:
+            raise AssertionError(f"Expected contract verification passed")
+        if len(contract_verification_session_result.contract_verification_results) == 0:
+            raise AssertionError(f"No contract verification results")
+
+        return contract_verification_session_result.contract_verification_results[0]
+
     def assert_contract_fail(
         self,
         test_table: TestTable,
