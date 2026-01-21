@@ -86,7 +86,7 @@ def _mask_record(record: LogRecord):
     message = record.getMessage()
     if message:
         for masked in _masked_values:
-            if masked not in message:
+            if (not masked) or masked not in message:
                 continue
             message = message.replace(masked, "***")
     record.msg = message
@@ -104,7 +104,7 @@ def _mask_message(message: Optional[str]) -> Optional[str]:
     if not message or not _masked_values:
         return message
     for masked in _masked_values:
-        if masked not in message:
+        if (not masked) or masked not in message:
             continue
         message = message.replace(masked, "***")
     return message
