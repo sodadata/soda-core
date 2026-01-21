@@ -25,6 +25,42 @@ def test_catch_args_in_logs_messages():
     assert "This is a test message 3" in error_logs, f"Expected error log message not found in {error_logs}"
 
 
+def test_avoid_empty_string(caplog):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        masked_values_file = os.path.join(tmpdirname, "masked_values.txt")
+        with open(masked_values_file, "w") as f:
+            f.write("\n")
+            f.flush()
+        with patch.dict(
+            "os.environ",
+            SODA_MASKED_VALUES_FILE=masked_values_file,
+            SODA_MASKED_VALUES_FILE_HASH="01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        ):
+            # override the config file for masked values
+            _prepare_masked_file()
+        assert _masked_values == {""}
+
+    # verify main logger processing
+    caplog.set_level(logging.DEBUG)
+    logging.debug("This is a test message X", exc_info=Exception("This is a test message exception"))
+    log_messages = [record.message for record in caplog.records]
+    assert "This is a test message X" in log_messages
+    formatted_logs = [record.exc_text for record in caplog.records]
+    assert "Exception: This is a test message exception" in formatted_logs
+
+    # verify internal logs processing
+    l = Logs()
+    logging.debug("This is a test message 1")
+    logging.warning("This is a test %s", "message 2")
+    logging.error("This is a test message 3", exc_info=Exception("This is a test message exception"))
+    l.remove_from_root_logger()
+    logs = l.get_logs()
+    assert len(logs) == 3, f"Expected 3 error log, got {len(logs)}"
+    assert "This is a test message 1" in logs
+    assert "This is a test message 2" in logs
+    assert "This is a test message 3" in logs
+
+
 def test_mask_values_in_logs_messages(caplog):
     with tempfile.TemporaryDirectory() as tmpdirname:
         masked_values_file = os.path.join(tmpdirname, "masked_values.txt")
