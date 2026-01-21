@@ -117,15 +117,6 @@ class JOIN(FROM, BaseSqlExpression):
 
 
 @dataclass
-class LEFT_JOIN(FROM, BaseSqlExpression):
-    on_condition: Optional[SqlExpression] = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.handle_parent_node_update(self.on_condition)
-
-
-@dataclass
 class WHERE(BaseSqlExpression):
     condition: SqlExpression
 

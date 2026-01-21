@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from soda_core.common.sql_ast import *
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-
-if TYPE_CHECKING:
-    from soda_postgres.common.data_sources.postgres_data_source import (
-        PostgresSqlDialect,
-    )
 
 
 class PostgresMetadataTablesQuery(MetadataTablesQuery):
@@ -22,8 +17,6 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
         """
         Builds the full SQL query statement to query table names from the data source metadata.
         """
-        self.sql_dialect: PostgresSqlDialect = self.sql_dialect  # type: ignore
-
         current_databasse_expression = RAW_SQL(self.sql_dialect.current_database())
         select: list = [
             SELECT(
