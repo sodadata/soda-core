@@ -8,12 +8,34 @@
   <a href="#"><img src="https://static.pepy.tech/personalized-badge/soda-core?period=total&units=international_system&left_color=black&right_color=green&left_text=Downloads"></a>
 </p>
 
-<hr />
+### Upcoming Major Release: Soda Core 4.0 (January 28)
 
+> We’re preparing a major release of Soda Core (v4.0), scheduled for January 28.
 > 
-> **Be the first to try Soda’s new AI-powered metrics observability and collaborative data contracts — all in Soda Cloud. [Request a demo!](https://www.soda.io/schedule-a-demo)**
+> This release introduces **Data Contracts as the default way to define data quality rules for tables**.
+>
+> ⚠️ This is a breaking change: Soda Core is moving from the checks language to a Data Contracts–based syntax.
+> 
+> The new approach offers a cleaner, more structured, and more maintainable way to define and manage data quality rules, based on community feedback and real-world usage.
+> 
+> If you are currently using Soda Core, you will need to migrate your existing checks to Data Contracts when upgrading to v4.
+> 
+> 📖 **More details**, including migration guidance and examples of the new Data Contract format, will be shared closer to the release date.
+>
+> 📄 Check out the [Soda Core 4.0 documentation](https://docs.soda.io/soda-v4/deployment-options/soda-python-libraries) to learn how to install it and see what’s coming.
+> ### Soda Cloud users
+> If you are using [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=soda_cloud), a Customer Engineer will reach out to you to help schedule and support your migration to v4.
+> ### Not ready to upgrade yet?
+> If you want to stay on Soda Core v3 and avoid automatically upgrading to v4, make sure to pin your dependency to a v3 version. Check out all previous versions of [Soda Core releases](https://github.com/sodadata/soda-core/releases).
+> #### Example (pip)
+> Specify a v3 version to prevent automatic upgrades:
+> ```bash
+> pip install soda-core==3.5.6
+> ```
+> We strongly recommend pinning versions in production environments to avoid unexpected breaking changes.
 
-<hr />
+
+<hr/>
 
 &#10004;  An open-source, CLI tool and Python library for data quality testing<br />
 &#10004;  Compatible with the <a href="https://docs.soda.io/soda-cl/soda-cl-overview.html" target="_blank">Soda Checks Language (SodaCL)</a>  <br />
