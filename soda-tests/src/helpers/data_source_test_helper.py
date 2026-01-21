@@ -561,7 +561,7 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def create_materialized_view_from_test_table(self, test_table: TestTable) -> TestTable:
-        view_name = f"{test_table.unique_name}_materialized_view"
+        view_name = f"{test_table.unique_name}_mv"
         view_name = self.data_source_impl.sql_dialect.metadata_casify(view_name)
         existing_view_names = self.query_existing_test_materialized_view_names()
         if view_name in existing_view_names:
@@ -855,3 +855,10 @@ class DataSourceTestHelper:
             "time_default": SodaDataTypeName.TIME,
             "boolean_default": SodaDataTypeName.BOOLEAN,
         }
+
+    def map_table_type_to_short_string(self, table_type: TableType) -> str:
+        return {
+            TableType.TABLE: "t",
+            TableType.MATERIALIZED_VIEW: "mv",
+            TableType.VIEW: "v",
+        }[table_type]
