@@ -654,9 +654,7 @@ class DataSourceTestHelper:
             raise AssertionError(f"No contract verification results")
 
         # Final assert, is_ok does not guarantee all checks passed (could be skipped or non evaluated)
-        assert (
-            contract_verification_session_result.is_passed == True
-        ), "Contract verification session result should be passed"
+        assert contract_verification_session_result.is_passed, "Contract verification session result should be passed"
 
         return contract_verification_session_result.contract_verification_results[0]
 

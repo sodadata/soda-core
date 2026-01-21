@@ -451,13 +451,13 @@ class SqlDialect:
         return True
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = True
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
-        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
-        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        pre_parenthesis_sql: str = "(" if add_parenthesis else ""
+        post_parenthesis_sql: str = ")" if add_parenthesis else ""
         result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
         result_sql += (
-            f"{pre_paranthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_paranthesis_sql}"
+            f"{pre_parenthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
         )
         return result_sql
@@ -474,7 +474,7 @@ class SqlDialect:
             raise ValueError(f"Unexpected alter table type: {alter_table.__class__.__name__}")
 
     def _build_alter_table_add_column_sql(
-        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
     ) -> str:
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
         column_type_sql: str = self._build_create_table_column_type(alter_table.column)
@@ -482,10 +482,10 @@ class SqlDialect:
             " NOT NULL" if (alter_table.column.nullable is False and self._is_not_null_ddl_supported()) else ""
         )
         default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
-        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
-        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        pre_parenthesis_sql: str = "(" if add_parenthesis else ""
+        post_parenthesis_sql: str = ")" if add_parenthesis else ""
         return (
-            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {pre_paranthesis_sql}{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}{post_paranthesis_sql}"
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {pre_parenthesis_sql}{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
         )
 
@@ -552,13 +552,13 @@ class SqlDialect:
     # CREATE VIEW
     #########################################################
     def build_create_view_sql(
-        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_paranthesis: bool = True
+        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
-        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
-        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        pre_parenthesis_sql: str = "(" if add_parenthesis else ""
+        post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_view.select_elements, add_semicolon=False)
         return (
-            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{select_sql}{post_paranthesis_sql}\n"
+            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
             + (";" if add_semicolon else "")
         )
 
@@ -573,13 +573,13 @@ class SqlDialect:
         self,
         create_materialized_view: CREATE_MATERIALIZED_VIEW,
         add_semicolon: bool = True,
-        add_paranthesis: bool = True,
+        add_parenthesis: bool = True,
     ) -> str:
-        pre_paranthesis_sql: str = "(" if add_paranthesis else ""
-        post_paranthesis_sql: str = ")" if add_paranthesis else ""
+        pre_parenthesis_sql: str = "(" if add_parenthesis else ""
+        post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_materialized_view.select_elements, add_semicolon=False)
         return (
-            f"CREATE MATERIALIZED VIEW {create_materialized_view.fully_qualified_view_name} AS {pre_paranthesis_sql}\n{select_sql}{post_paranthesis_sql}\n"
+            f"CREATE MATERIALIZED VIEW {create_materialized_view.fully_qualified_view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
             + (";" if add_semicolon else "")
         )
 

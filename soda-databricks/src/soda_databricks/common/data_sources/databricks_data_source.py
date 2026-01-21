@@ -255,9 +255,9 @@ class DatabricksSqlDialect(SqlDialect):
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
 
     def _build_alter_table_add_column_sql(
-        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
     ) -> str:
-        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=add_semicolon, add_paranthesis=True)
+        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=add_semicolon, add_parenthesis=True)
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD COLUMNS"

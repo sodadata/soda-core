@@ -2,7 +2,21 @@ from __future__ import annotations
 
 from typing import Optional
 
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import (
+    COLUMN,
+    EQ,
+    FROM,
+    IN,
+    JOIN,
+    LIKE,
+    LITERAL,
+    LOWER,
+    NOT_LIKE,
+    OR,
+    RAW_SQL,
+    SELECT,
+    WHERE,
+)
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 
 
@@ -17,11 +31,11 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
         """
         Builds the full SQL query statement to query table names from the data source metadata.
         """
-        current_databasse_expression = RAW_SQL(self.sql_dialect.current_database())
+        current_database_expression = RAW_SQL(self.sql_dialect.current_database())
         select: list = [
             SELECT(
                 [
-                    COLUMN(current_databasse_expression, field_alias="table_catalog"),
+                    COLUMN(current_database_expression, field_alias="table_catalog"),
                     COLUMN("nspname", table_alias="n", field_alias="table_schema"),
                     COLUMN("relname", table_alias="c", field_alias="table_name"),
                     RAW_SQL(self.sql_dialect.relkind_table_type_sql_expression()),
@@ -47,7 +61,7 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
 
         if database_name:
             database_name_lower: str = database_name.lower()
-            select.append(WHERE(EQ(LOWER(current_databasse_expression), LITERAL(database_name_lower))))
+            select.append(WHERE(EQ(LOWER(current_database_expression), LITERAL(database_name_lower))))
 
         if schema_name:
             select.append(WHERE(EQ(LOWER(COLUMN("nspname", "n")), LITERAL(schema_name.lower()))))

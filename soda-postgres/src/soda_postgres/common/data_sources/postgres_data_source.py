@@ -9,7 +9,25 @@ from soda_core.common.metadata_types import (
     SodaDataTypeName,
     SqlDataType,
 )
-from soda_core.common.sql_ast import *
+from soda_core.common.sql_ast import (
+    AND,
+    CAST,
+    COLUMN,
+    CREATE_TABLE_COLUMN,
+    EQ,
+    FROM,
+    GT,
+    IN,
+    JOIN,
+    LEFT_INNER_JOIN,
+    LITERAL,
+    LOWER,
+    ORDER_BY_ASC,
+    RAW_SQL,
+    REGEX_LIKE,
+    SELECT,
+    WHERE,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_postgres.common.data_sources.postgres_data_source_connection import (
@@ -215,7 +233,7 @@ class PostgresSqlDialect(SqlDialect):
         schema_name: str = table_namespace.get_schema_for_metadata_query()
 
         ######
-        current_databasse_expression = RAW_SQL(self.current_database())
+        current_database_expression = RAW_SQL(self.current_database())
         select: list = [
             SELECT(
                 [
@@ -297,7 +315,7 @@ class PostgresSqlDialect(SqlDialect):
                         END AS "datetime_precision"
                     """
                     ),
-                    COLUMN(current_databasse_expression, field_alias="table_catalog"),
+                    COLUMN(current_database_expression, field_alias="table_catalog"),
                     COLUMN("nspname", table_alias="n", field_alias="table_schema"),
                     COLUMN("relname", table_alias="c", field_alias="table_name"),
                     RAW_SQL(self.relkind_table_type_sql_expression()),
@@ -363,7 +381,7 @@ class PostgresSqlDialect(SqlDialect):
 
         if database_name:
             database_name_lower: str = database_name.lower()
-            select.append(WHERE(EQ(LOWER(current_databasse_expression), LITERAL(database_name_lower))))
+            select.append(WHERE(EQ(LOWER(current_database_expression), LITERAL(database_name_lower))))
 
         if schema_name:
             select.append(WHERE(EQ(LOWER(COLUMN("nspname", "n")), LITERAL(schema_name.lower()))))

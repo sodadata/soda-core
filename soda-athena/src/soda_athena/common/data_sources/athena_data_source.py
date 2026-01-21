@@ -418,9 +418,9 @@ class AthenaSqlDialect(SqlDialect):
         return f"to_hex(md5(to_utf8({self.build_expression_sql(string_hash.expression)})))"
 
     def _build_alter_table_add_column_sql(
-        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_paranthesis: bool = False
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
     ) -> str:
-        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=True, add_paranthesis=True)
+        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=True, add_parenthesis=True)
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD COLUMNS"

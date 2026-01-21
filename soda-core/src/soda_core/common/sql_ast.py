@@ -413,7 +413,9 @@ class LITERAL(SqlExpression):
 
 
 @dataclass
-@deprecated("Do not use this unless absolutely necessary. Build expressions that are not supported yet.")
+@deprecated(
+    "Do not use this unless absolutely necessary. Build expressions using supported AST nodes instead of raw SQL."
+)
 class RAW_SQL(SqlExpression):
     value: object
 
