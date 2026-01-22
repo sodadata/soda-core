@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from typing_extensions import deprecated
 
 logger: logging.Logger = soda_logger
 
@@ -412,6 +413,14 @@ class LITERAL(SqlExpression):
 
 
 @dataclass
+@deprecated(
+    "Do not use this unless absolutely necessary. Build expressions using supported AST nodes instead of raw SQL."
+)
+class RAW_SQL(SqlExpression):
+    value: object
+
+
+@dataclass
 class Operator(SqlExpression):
     left: SqlExpression | str
     right: SqlExpression | str
@@ -690,6 +699,7 @@ class VALUES_ROW(BaseSqlExpression):
 @dataclass
 class DROP_TABLE(BaseSqlExpression):
     fully_qualified_table_name: str
+    cascade: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -771,6 +781,30 @@ class DROP_VIEW(BaseSqlExpression):
 
 @dataclass
 class DROP_VIEW_IF_EXISTS(DROP_VIEW):
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class CREATE_MATERIALIZED_VIEW(BaseSqlExpression):
+    fully_qualified_view_name: str
+    select_elements: list[Any]  # | UNION | UNION_ALL
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
+
+
+@dataclass
+class DROP_MATERIALIZED_VIEW(BaseSqlExpression):
+    fully_qualified_view_name: str
+
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class DROP_MATERIALIZED_VIEW_IF_EXISTS(DROP_MATERIALIZED_VIEW):
     def __post_init__(self):
         super().__post_init__()
 

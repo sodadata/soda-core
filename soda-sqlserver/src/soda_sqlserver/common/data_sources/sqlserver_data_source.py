@@ -402,7 +402,7 @@ class SqlServerSqlDialect(SqlDialect):
         return "ADD"
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_paranthesis: bool = True
+        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
         # Copy the select elements and insert an INTO with the same table name as the create table as select statement
         select_elements = create_table_as_select.select_elements.copy()
@@ -418,10 +418,10 @@ class SqlServerSqlDialect(SqlDialect):
         return super().build_drop_view_sql(drop_view_copy, add_semicolon)
 
     def build_create_view_sql(
-        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_paranthesis: bool = True
+        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
         # SqlServer does not allow for the database name to be specified in the view name, so we need to drop it.
         create_view_copy = deepcopy(create_view)  # Copy the object so we don't modify the original object
         # Drop the first prefix (database name) from the fully qualified view name
         create_view_copy.fully_qualified_view_name = ".".join(create_view_copy.fully_qualified_view_name.split(".")[1:])
-        return super().build_create_view_sql(create_view_copy, add_semicolon, add_paranthesis=False)
+        return super().build_create_view_sql(create_view_copy, add_semicolon, add_parenthesis=False)

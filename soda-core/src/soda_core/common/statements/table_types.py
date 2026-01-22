@@ -8,6 +8,7 @@ from enum import Enum
 class TableType(Enum):
     TABLE = "BASE TABLE"
     VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED VIEW"
 
 
 @dataclass
@@ -34,3 +35,11 @@ class FullyQualifiedViewName(FullyQualifiedObjectName):
 
     def get_object_name(self) -> str:
         return self.view_name
+
+
+@dataclass
+class FullyQualifiedMaterializedViewName(FullyQualifiedObjectName):
+    materialized_view_name: str
+
+    def get_object_name(self) -> str:
+        return self.materialized_view_name
