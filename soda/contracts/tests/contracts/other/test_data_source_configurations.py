@@ -26,8 +26,7 @@ def test_data_source_file_variable_resolving(environ):
 
 
 def test_invalid_database():
-    data_source_yaml_str = dedent(
-        """
+    data_source_yaml_str = dedent("""
             name: postgres_ds
             type: postgres
             connection:
@@ -35,8 +34,7 @@ def test_invalid_database():
               database: invalid_db
               user: sodasql
               port: ${POSTGRES_PORT}
-        """
-    )
+        """)
 
     contract_verification = ContractVerification.builder().with_data_source_yaml_str(data_source_yaml_str).execute()
 
@@ -46,8 +44,7 @@ def test_invalid_database():
 
 
 def test_invalid_username():
-    data_source_yaml_str = dedent(
-        """
+    data_source_yaml_str = dedent("""
             name: postgres_ds
             type: postgres
             connection:
@@ -55,8 +52,7 @@ def test_invalid_username():
               database: sodasql
               user: invalid_usr
               port: ${POSTGRES_PORT}
-        """
-    )
+        """)
 
     try:
         (ContractVerification.builder().with_data_source_yaml_str(data_source_yaml_str).execute().assert_ok())

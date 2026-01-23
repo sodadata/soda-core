@@ -42,58 +42,48 @@ def mock_file_system_and_run_cli(mock_file_system, data_source_fixture, dro_file
     "dro_config",
     [
         pytest.param(
-            dedent(
-                """
+            dedent("""
             table: {table_name}
             column: cst_size
             distribution_type: continuous
-            """
-            ),
+            """),
             id="no sample, no filter",
         ),
         pytest.param(
-            dedent(
-                """
+            dedent("""
                 table: {table_name}
                 column: cst_size
                 distribution_type: continuous
                 sample: TABLESAMPLE BERNOULLI(50) REPEATABLE(61)
-                """
-            ),
+                """),
             id="with sample, no filter",
         ),
         pytest.param(
-            dedent(
-                """
+            dedent("""
                 table: {table_name}
                 column: cst_size
                 distribution_type: continuous
                 filter: cst_size > 0
-                """
-            ),
+                """),
             id="no sample, with filter",
         ),
         pytest.param(
-            dedent(
-                """
+            dedent("""
                 table: {table_name}
                 column: cst_size
                 distribution_type: continuous
                 sample: TABLESAMPLE BERNOULLI(50) REPEATABLE(61)
                 filter: cst_size > 0
-                """
-            ),
+                """),
             id="with sample, with filter",
         ),
         pytest.param(
-            dedent(
-                """
+            dedent("""
                 table: {table_name}
                 column: cst_size
                 distribution_type: continuous
                 filter: random() > 0.5
-                """
-            ),
+                """),
             id="hacky sample with filter",
         ),
     ],
@@ -145,22 +135,18 @@ def test_cli_update_distribution_file_bins_and_weights(
 ):
     if distribution_type == "continuous":
         table_name = data_source_fixture.ensure_test_table(customers_test_table)
-        dro_file = dedent(
-            f"""
+        dro_file = dedent(f"""
             table: {table_name}
             column: cst_size
             distribution_type: continuous
-            """
-        )
+            """)
     else:
         table_name = data_source_fixture.ensure_test_table(dro_categorical_test_table)
-        dro_file = dedent(
-            f"""
+        dro_file = dedent(f"""
                 table: {table_name}
                 column: categorical_value
                 distribution_type: categorical
-                """
-        )
+                """)
     mock_file_system_and_run_cli(mock_file_system, data_source_fixture, dro_file)
     user_home_dir = mock_file_system.user_home_dir()
     parsed_dro: dict = YAML().load(mock_file_system.files[f"{user_home_dir}/customers_distribution_reference.yml"])
@@ -186,13 +172,11 @@ def test_cli_update_distribution_errors(
 ):
     table_name = data_source_fixture.ensure_test_table(null_test_table)
 
-    dro_file = dedent(
-        f"""
+    dro_file = dedent(f"""
         table: {table_name}
         column: column_with_null_values
         distribution_type: {distribution_type}
-        """
-    )
+        """)
     cli_output = mock_file_system_and_run_cli(mock_file_system, data_source_fixture, dro_file).output
 
     assert (

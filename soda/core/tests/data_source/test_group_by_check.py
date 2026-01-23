@@ -15,8 +15,7 @@ def test_group_by(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             checks for {table_name}:
               - group by:
                   group_limit: 23
@@ -31,8 +30,7 @@ def test_group_by(data_source_fixture: DataSourceFixture):
                         warn: when < 10
                         fail: when < 100
                         name: Average distance
-    """
-    )
+    """)
 
     scan.execute()
 

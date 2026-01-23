@@ -29,15 +29,13 @@ contracts_skip_test_table = TestTable(
 def test_skip_all_checks_except_schema_check(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_skip_test_table)
 
-    contract_yaml_str: str = dedent(
-        f"""
+    contract_yaml_str: str = dedent(f"""
         dataset: {table_name}
         columns:
           - name: one
             checks:
             - type: no_missing_values
-    """
-    ).strip()
+    """).strip()
 
     contract_yaml_str = data_source_test_helper.casify_contract_yaml_str(
         test_table=contracts_skip_test_table, contract_yaml_str=contract_yaml_str

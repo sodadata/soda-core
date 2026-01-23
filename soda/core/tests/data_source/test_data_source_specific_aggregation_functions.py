@@ -40,14 +40,12 @@ def test_data_source_specific_statistics_aggregation_metrics(data_source_fixture
             checks_str += f"  - {check}\n"
 
         scan = data_source_fixture.create_test_scan()
-        scan.add_sodacl_yaml_str(
-            f"""
+        scan.add_sodacl_yaml_str(f"""
 checks for {table_name}:
 {checks_str}
 configurations for {table_name}:
     valid min for distance: 0
-"""
-        )
+""")
         scan.execute()
 
         scan.assert_all_checks_pass()

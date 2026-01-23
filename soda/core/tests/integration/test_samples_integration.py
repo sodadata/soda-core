@@ -20,21 +20,15 @@ def test_scan(data_source_fixture: DataSourceFixture, data_source_config_str: st
     scan.add_configuration_yaml_str(data_source_config_str)
     scan.set_data_source_name("postgres")
 
-    scan.add_configuration_yaml_str(
-        dedent(
-            f"""
+    scan.add_configuration_yaml_str(dedent(f"""
               soda_cloud:
                 api_key_id: ${{DEV_SODADATA_IO_API_KEY_ID}}
                 api_key_secret: ${{DEV_SODADATA_IO_API_KEY_SECRET}}
                 host: dev.sodadata.io
-            """
-        )
-    )
+            """))
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - row_count > 0
-        """
-    )
+        """)
     scan.execute()

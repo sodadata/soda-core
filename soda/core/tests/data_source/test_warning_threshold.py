@@ -6,8 +6,7 @@ def test_warning_threshold(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count:
             warn: when not between (19 and 25]
@@ -24,8 +23,7 @@ def test_warning_threshold(data_source_fixture: DataSourceFixture):
         - row_count:
             warn: when between 1 and 100
             fail: when between 5 and 15
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_check_warn()

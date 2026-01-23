@@ -11,13 +11,11 @@ def test_default_invalid(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"zero": "0"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - invalid_count(id) = ${{zero}}
         - valid_count(id) = 9
-    """
-    )
+    """)
     scan.execute_unchecked()
 
     scan.assert_log_warning("Counting invalid without valid or invalid specification does not make sense")
@@ -28,8 +26,7 @@ def test_column_configured_invalid_values(data_source_fixture: DataSourceFixture
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - invalid_count(id) = 6
         - valid_count(id) = 3
@@ -38,8 +35,7 @@ def test_column_configured_invalid_values(data_source_fixture: DataSourceFixture
          - ID1
          - ID2
          - ID3
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -50,15 +46,13 @@ def test_valid_failed_passing_rows_queries_uniqueness(data_source_fixture: DataS
 
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - invalid_count(cst_size) = 3:
             valid min: 0
         - invalid_count(cst_size) = 4:
             valid max: 0
-    """
-    )
+    """)
     scan.execute()
     scan.assert_all_checks_pass()
 
@@ -72,15 +66,13 @@ def test_valid_min_max(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - invalid_count(cst_size) = 3:
             valid min: 0
         - invalid_count(cst_size) = 4:
             valid max: 0
-    """
-    )
+    """)
     scan.execute()
     scan.assert_all_checks_pass()
 
@@ -93,14 +85,12 @@ def test_valid_format_email(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(email) = 2:
                 valid format: email
 
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -114,8 +104,7 @@ def test_column_configured_invalid_and_missing_values(data_source_fixture: DataS
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - missing_count(pct) = 3
             - invalid_count(pct) = 1
@@ -123,8 +112,7 @@ def test_column_configured_invalid_and_missing_values(data_source_fixture: DataS
           configurations for {table_name}:
             missing values for pct: ['N/A', 'No value']
             valid format for pct: percentage
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -135,15 +123,13 @@ def test_invalid_values_and_max_length(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(cat) = 1:
                 invalid values: ["LOW"]
                 valid max length: 6
 
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -154,15 +140,13 @@ def test_invalid_values_and_max_length_one_failing_row(data_source_fixture: Data
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(cat) = 2:
                 invalid values: ["LOW"]
                 valid max length: 5
 
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -173,16 +157,14 @@ def test_invalid_values_and_max_length_one_failing_row_include_null(data_source_
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(cat) = 6:
                 invalid values: ["LOW"]
                 valid max length: 6
                 include null: True
 
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -192,30 +174,26 @@ def test_valid_length(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(cat) = 2
             - valid_count(cat) = 3
           configurations for {table_name}:
             valid min length for cat: 4
             valid max length for cat: 4
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(cat) = 2
             - valid_count(cat) = 3
           configurations for {table_name}:
             valid length for cat: 4
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -230,8 +208,7 @@ def test_check_and_column_configured_invalid_values(data_source_fixture: DataSou
     digit_regex = data_source_fixture.data_source.escape_regex(id_regex)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - valid_count(id) = 9
             - valid_count(id) = 2:
@@ -245,8 +222,7 @@ def test_check_and_column_configured_invalid_values(data_source_fixture: DataSou
                  - ID2
           configurations for {table_name}:
             valid regex for id: {digit_regex}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -258,13 +234,11 @@ def test_non_existing_format(data_source_fixture: DataSourceFixture):
 
     format = "non-existing"
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - invalid_count(email) = 2:
                 valid format: {format}
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     scan.assert_log(f"Format {format} is not supported")
@@ -303,12 +277,10 @@ def test_invalid_with_invalid_config(check: str, data_source_fixture: DataSource
     check = check.replace("{{digit_regex}}", digit_regex)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
                 - {check}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -346,12 +318,10 @@ def test_valid_with_invalid_config(check: str, data_source_fixture: DataSourceFi
     check = check.replace("{{digit_regex}}", digit_regex)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - {check}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -362,14 +332,12 @@ def test_invalid_include_null(data_source_fixture: DataSourceFixture):
 
     # Row count is 10
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - invalid_count(pct) = 3:
             invalid values: ["error", "No value"]
             include null: True
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -380,14 +348,12 @@ def test_valid_include_null(data_source_fixture: DataSourceFixture):
 
     # Row count is 10
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - valid_count(pct) = 8:
             invalid values: ["error", "No value"]
             include null: True
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()

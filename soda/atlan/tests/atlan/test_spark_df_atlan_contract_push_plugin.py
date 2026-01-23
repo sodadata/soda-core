@@ -59,8 +59,7 @@ def test_spark_df_atlan_contract_push_plugin():
 
         os.environ["DATE"] = "2024-08-21"
 
-        contract_yaml_str: str = dedent(
-            f"""
+        contract_yaml_str: str = dedent(f"""
             data_source: spark_ds
             database: gluedb
             dataset: students
@@ -69,23 +68,18 @@ def test_spark_df_atlan_contract_push_plugin():
               data_type: varchar
             - name: country
               data_type: varchar
-        """
-        )
+        """)
 
-        soda_cloud_yaml_str: str = dedent(
-            """
+        soda_cloud_yaml_str: str = dedent("""
             api_key_id: ${DEV_SODADATA_IO_API_KEY_ID}
             api_key_secret: ${DEV_SODADATA_IO_API_KEY_SECRET}
-        """
-        )
+        """)
 
-        atlan_yaml_str: str = dedent(
-            """
+        atlan_yaml_str: str = dedent("""
             plugin: atlan
             atlan_api_key: ${ATLAN_API_KEY}
             atlan_base_url: https://soda-partner.atlan.com
-        """
-        )
+        """)
 
         contract_verification_result: ContractVerificationResult = (
             contract_data_source_test_helper.create_test_verification_builder()
@@ -105,7 +99,7 @@ def test_spark_df_atlan_contract_push_plugin():
     # data_source_yaml_str: str = dedent(
     #     """
     #     name: spark_ds
-    #     type: spark_df
+    # type: spark_df
     #     atlan_qualified_name: default/postgres/1718112025
     #     connection:
     #         host: ${CONTRACTS_POSTGRES_HOST}

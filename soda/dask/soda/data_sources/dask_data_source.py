@@ -248,8 +248,7 @@ class DaskDataSource(DataSource):
         qualified_table_name = self.qualified_table_name(table_name)
 
         # count distinct raises an error if it runs together with other profiling computations in dask-sql
-        return dedent(
-            f"""
+        return dedent(f"""
             WITH profile_except_distinct AS (
                 SELECT
                     avg({quoted_column_name}) as average
@@ -271,15 +270,13 @@ class DaskDataSource(DataSource):
                 , distinct_values
                 , missing_values
             FROM profile_except_distinct JOIN profile_distinct ON 1=1
-            """
-        )
+            """)
 
     def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
         quoted_column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
         # count distinct raises an error if it runs together with other profiling computations in dask-sql
-        return dedent(
-            f"""
+        return dedent(f"""
             WITH profile_except_distinct AS (
                 SELECT
                     sum(case when {quoted_column_name} is null then 1 else 0 end) as missing_values
@@ -300,8 +297,7 @@ class DaskDataSource(DataSource):
                 , min_length
                 , max_length
             FROM profile_except_distinct JOIN profile_distinct ON 1=1
-            """
-        )
+            """)
 
     def cast_text_to_number(self, column_name, validity_format: str):
         """Cast string to number
@@ -311,8 +307,7 @@ class DaskDataSource(DataSource):
         - Nullif makes sure that if regexes return empty string then Null is returned instead
         """
         regex = self.escape_regex(r"'[^-0-9\.\,]'")
-        return dedent(
-            f"""
+        return dedent(f"""
             CAST(
                 NULLIF_CUSTOM(
                     REGEXP_REPLACE_CUSTOM(
@@ -326,8 +321,7 @@ class DaskDataSource(DataSource):
                     ),
                     ''
                 ) AS {self.SQL_TYPE_FOR_CREATE_TABLE_MAP[DataType.DECIMAL]}
-            )"""
-        )
+            )""")
 
     def test(self, sql: str) -> None:
         logging.debug(f"Running SQL query:\n{sql}")

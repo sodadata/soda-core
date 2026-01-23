@@ -26,8 +26,7 @@ def example_python_api():
     scan.add_configuration_yaml_file(file_path="~/.soda/my_local_soda_environment.yml")
 
     # Environment YAML can also be included in the Python code as a string:
-    scan.add_configuration_yaml_str(
-        """
+    scan.add_configuration_yaml_str("""
         data_source events:
           type: snowflake
           host: ${SNOWFLAKE_HOST}
@@ -41,8 +40,7 @@ def example_python_api():
           api_key_secret: "..."
           host: sodadata.io
 
-    """
-    )
+    """)
 
     # Adding SodaCL files
     #####################

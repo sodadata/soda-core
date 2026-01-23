@@ -17,8 +17,7 @@ def test_mismatching_columns_pass(data_source_fixture: DataSourceFixture):
         )
         return f"{casified_column_name}: {casified_data_type}"
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
@@ -35,8 +34,7 @@ def test_mismatching_columns_pass(data_source_fixture: DataSourceFixture):
                 {column_type_format('date_updated')}
                 {column_type_format('ts')}
                 {column_type_format('ts_with_tz')}
-    """
-    )
+    """)
     # This Also verifies type aliasing - check using "varchar", actual is "character varying"
     scan.execute()
 
@@ -56,8 +54,7 @@ def test_mismatching_columns_with_optional_columns_pass(data_source_fixture: Dat
         casified_data_type = ds.default_casify_type_name(ds.get_sql_type_for_schema_check(test_column.data_type))
         return f"{casified_column_name}: {casified_data_type}"
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
@@ -79,8 +76,7 @@ def test_mismatching_columns_with_optional_columns_pass(data_source_fixture: Dat
               with optional columns:
                 - {ds.default_casify_column_name('optcol1')}
                 - {ds.default_casify_column_name('optcol2')}
-    """
-    )
+    """)
     # This Also verifies type aliasing - check using "varchar", actual is "character varying"
     scan.execute()
 

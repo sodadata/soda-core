@@ -70,12 +70,10 @@ We filtered values above {lower_range} and below {upper_range} using IQR
             data_len = data.shape[0]
             none_count = np.count_nonzero(np.isnan(data))
             data = data[~np.isnan(data)]
-            self.logs.warning(
-                f"""{none_count} out of {data_len} rows
+            self.logs.warning(f"""{none_count} out of {data_len} rows
 has None values! To estimate the weights and bins, the null values
 has been ignored!
-            """
-            )
+            """)
 
         n_bins = self._compute_n_bins(data)
 
@@ -106,13 +104,11 @@ take the square root of the data size to set the number of bins.
                     )
                     weights, bins = np.histogram(outlier_filtered_data, bins=n_sqrt_bins, density=False)
                 else:
-                    self.logs.warning(
-                        f"""We set n_bins={self.maximum_allowed_bin_size} as maximum since
+                    self.logs.warning(f"""We set n_bins={self.maximum_allowed_bin_size} as maximum since
 automatically computed {n_bins} is higher than maximum allowed bin size: {self.maximum_allowed_bin_size}
 
 {BINS_AND_WEIGHTS_REF_LOG}
-"""
-                    )
+""")
                     weights, bins = np.histogram(
                         outlier_filtered_data, bins=self.maximum_allowed_bin_size, density=False
                     )

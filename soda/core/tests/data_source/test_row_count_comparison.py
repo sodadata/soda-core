@@ -7,12 +7,10 @@ def test_row_count_comparison(data_source_fixture: DataSourceFixture):
     rawcustomers_table_name = data_source_fixture.ensure_test_table(raw_customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             checks for {customers_table_name}:
               - row_count same as {rawcustomers_table_name}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -23,8 +21,7 @@ def test_row_count_comparison_with_filters(data_source_fixture: DataSourceFixtur
     rawcustomers_table_name = data_source_fixture.ensure_test_table(raw_customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             filter {customers_table_name} [daily]:
               where: cst_size IS NULL
 
@@ -33,8 +30,7 @@ def test_row_count_comparison_with_filters(data_source_fixture: DataSourceFixtur
 
             checks for {customers_table_name} [daily]:
               - row_count same as {rawcustomers_table_name} [daily]
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -52,12 +48,10 @@ def test_row_count_comparison_cross_data_source(data_source_fixture: DataSourceF
     other_data_source_name = data_source_fixture.data_source.data_source_name
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             checks for {customers_table_name}:
               - row_count same as {rawcustomers_table_name} in {other_data_source_name}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -75,8 +69,7 @@ def test_row_count_comparison_cross_data_source_with_filter(data_source_fixture:
     other_data_source_name = data_source_fixture.data_source.data_source_name
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             filter {customers_table_name} [daily]:
               where: cst_size IS NULL
 
@@ -85,8 +78,7 @@ def test_row_count_comparison_cross_data_source_with_filter(data_source_fixture:
 
             checks for {customers_table_name} [daily]:
               - row_count same as {rawcustomers_table_name} daily-ref in {other_data_source_name}
-        """
-    )
+        """)
 
     scan.execute()
     print(scan.get_passing_queries())

@@ -14,8 +14,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
 
     ones_expression = f"SUM({length_expr}(cst_size_txt))"
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - avg_surface between 1068 and 1069:
             avg_surface expression: AVG(cst_size * distance)
@@ -24,8 +23,7 @@ def test_user_defined_table_expression_metric_check(data_source_fixture: DataSou
             ones expression: {ones_expression}
             warn: when <= 14
             fail: when > 14
-    """
-    )
+    """)
     scan.execute()
 
     avg_surface_check = scan._checks[0]
@@ -45,13 +43,11 @@ def test_user_defined_table_expression_metric_check_with_variables(data_source_f
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"dist": "distance"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - avg_surface between 1068 and 1069:
                 avg_surface expression: AVG(cst_size * ${{dist}})
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -67,15 +63,13 @@ def test_user_defined_data_source_query_metric_check(data_source_fixture: DataSo
     qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - avg_surface between 1068 and 1069:
                 avg_surface query: |
                   SELECT AVG(cst_size * distance) as avg_surface
                   FROM {qualified_table_name}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -92,15 +86,13 @@ def test_user_defined_data_source_query_metric_check_with_variable(data_source_f
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"dist": "distance"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
               checks:
                 - avg_surface between 1068 and 1069:
                     avg_surface query: |
                       SELECT AVG(cst_size * ${{dist}}) as avg_surface
                       FROM {qualified_table_name}
-            """
-    )
+            """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -119,15 +111,13 @@ def test_user_defined_data_source_query_metric_check_with_variable_special_chars
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"cst_size": ">= -5"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
               checks:
                 - avg_surface between 1068 and 1069:
                     avg_surface query: |
                       SELECT AVG(cst_size * distance) as avg_surface
                       FROM {qualified_table_name} WHERE cst_size ${{cst_size}} OR cst_size IS NULL
-            """
-    )
+            """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -147,13 +137,11 @@ def test_user_defined_data_source_query_metric_with_sql_file(data_source_fixture
         with os.fdopen(fd, "w") as tmp:
             tmp.write(f"SELECT AVG(cst_size * distance) as avg_surface \n" f"FROM {qualified_table_name}")
 
-        scan.add_sodacl_yaml_str(
-            f"""
+        scan.add_sodacl_yaml_str(f"""
               checks:
                 - avg_surface between 1068 and 1069:
                     avg_surface sql_file: "{path}"
-                """
-        )
+                """)
         scan.execute()
         scan.assert_all_checks_pass()
         avg_surface = scan._checks[0].check_value
@@ -172,8 +160,7 @@ def test_user_defined_data_source_query_metric_check_with_fail_query(data_source
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - belgium_customers = 6:
                 belgium_customers query: |
@@ -184,8 +171,7 @@ def test_user_defined_data_source_query_metric_check_with_fail_query(data_source
                     SELECT *
                     FROM {qualified_table_name}
                     WHERE country != 'BE'
-        """
-    )
+        """)
     scan.execute()
     scan.assert_all_checks_pass()
 
@@ -204,8 +190,7 @@ def test_user_defined_data_source_query_metric_check_with_fail_query_file(data_s
         with os.fdopen(fd, "w") as tmp:
             tmp.write(f"SELECT * FROM {qualified_table_name} WHERE country != 'BE'")
 
-        scan.add_sodacl_yaml_str(
-            f"""
+        scan.add_sodacl_yaml_str(f"""
               checks:
                 - belgium_customers = 6:
                     belgium_customers query: |
@@ -213,8 +198,7 @@ def test_user_defined_data_source_query_metric_check_with_fail_query_file(data_s
                         FROM {qualified_table_name}
                         WHERE country = 'BE'
                     failed rows sql_file: "{path}"
-                """
-        )
+                """)
         scan.execute()
         scan.assert_all_checks_pass()
         assert mock_soda_cloud.find_failed_rows_line_count(0) == 4

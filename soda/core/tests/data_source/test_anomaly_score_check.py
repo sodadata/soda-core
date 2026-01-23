@@ -23,12 +23,10 @@ def test_anomaly_detection_historic_descriptors(data_source_fixture: DataSourceF
     np.random.seed(61)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count < default
-        """
-    )
+        """)
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
         metric_values=[10, 10, 10, 9, 8, 8, 8, 0, 0, 0],
@@ -64,12 +62,10 @@ def test_anomaly_detection_default(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count < default
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -87,12 +83,10 @@ def test_anomaly_detection_not_enough_data(data_source_fixture: DataSourceFixtur
     scan = data_source_fixture.create_test_scan()
 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count < default
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -116,12 +110,10 @@ def test_anomaly_detection_have_no_data(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count < default
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_cloud_result = mock_soda_cloud.pop_scan_result()
     assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
@@ -139,12 +131,10 @@ def test_anomaly_detection_custom_threshold(data_source_fixture: DataSourceFixtu
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count < .7
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -162,13 +152,11 @@ def test_anomaly_detection_fail_with_custom_threshold(data_source_fixture: DataS
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count:
                 fail: when > .5
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -201,12 +189,10 @@ def test_anomaly_detection_pass_numeric_metrics(numeric_metric, column, data_sou
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for {numeric_metric}({column}) < default
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-{column}-{numeric_metric}",
@@ -229,13 +215,11 @@ def test_anomaly_detection_missing_values(data_source_fixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
               - anomaly score for missing_count(id) < default:
                     missing values: ["ID2"]
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-id-missing_count-1beec996",
@@ -258,13 +242,11 @@ def test_anomaly_detection_invalid_values(data_source_fixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
               - anomaly score for invalid_count(id) < default:
                     valid format: uuid
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-id-invalid_count-05d677bc",
@@ -284,12 +266,10 @@ def test_anomaly_detection_incorrect_metric(data_source_fixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
               - anomaly score for incorrect_metric < default
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-id-invalid_count-05d677bc",
@@ -318,13 +298,11 @@ def test_anomaly_detection_warn_only(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - anomaly score for row_count < default:
                 warn_only: True
-        """
-    )
+        """)
     # The real value is 10, but we mock it to 10000000 to trigger an anomaly
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",

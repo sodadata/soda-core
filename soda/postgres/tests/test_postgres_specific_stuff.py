@@ -32,8 +32,7 @@ def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
     )
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - missing_count(c01) = 1
         - missing_count(c02) = 1
@@ -43,8 +42,7 @@ def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
         - missing_count(c06) = 1
         - missing_count(c07) = 1
         - missing_count(c08) = 1
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()

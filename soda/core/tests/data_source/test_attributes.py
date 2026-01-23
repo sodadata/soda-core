@@ -18,15 +18,13 @@ def test_dataset_attributes_valid(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - attributes:
             priority: 1
             tags: ["user-created"]
         - row_count > 0
-    """
-    )
+    """)
     scan.execute()
     scan.assert_all_checks_pass()
 
@@ -43,8 +41,7 @@ def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count > 0:
             attributes:
@@ -54,8 +51,7 @@ def test_check_attributes_valid(data_source_fixture: DataSourceFixture):
                 tags: ["user-created"]
                 arrival_date: "2022-12-12"
                 arrival_datetime: "2022-12-12T12:00:00"
-    """
-    )
+    """)
     scan.execute()
     scan.assert_all_checks_pass()
 
@@ -76,8 +72,7 @@ def test_check_attributes_invalid(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count > 0:
             attributes:
@@ -87,8 +82,7 @@ def test_check_attributes_invalid(data_source_fixture: DataSourceFixture):
                 arrival_date: 2022/01/01
                 arrival_datetime: 2022/01/01T01:01:01
 
-    """
-    )
+    """)
     scan.execute_unchecked()
 
     scan_result = scan.build_scan_results()
@@ -115,8 +109,7 @@ def test_foreach_attributes(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       for each dataset D:
         datasets:
               - {table_name}
@@ -128,8 +121,7 @@ def test_foreach_attributes(data_source_fixture: DataSourceFixture):
                 department: ${{DEPT}}
                 ${{DEPT}}_owner: John Doe
 
-    """
-    )
+    """)
     scan.execute()
     scan.assert_all_checks_pass()
 
@@ -148,8 +140,7 @@ def test_check_attributes_skip_invalid(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count > 0:
             name: count
@@ -158,8 +149,7 @@ def test_check_attributes_skip_invalid(data_source_fixture: DataSourceFixture):
         - missing_count(id) = 0:
             attributes:
                 does-not-exist: 1
-    """
-    )
+    """)
     scan.execute_unchecked()
 
     scan_result = scan.build_scan_results()
@@ -172,8 +162,7 @@ def test_all_supported_check_types(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     scan.mock_check_attributes_schema(mock_schema)
     scan.add_variables(mock_variables)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count > 0:
             name: count
@@ -194,8 +183,7 @@ def test_all_supported_check_types(data_source_fixture: DataSourceFixture):
         - freshness(ts) < 10000d:
             attributes:
                 priority: 1
-    """
-    )
+    """)
     scan.execute()
     scan.assert_all_checks_pass()
     scan.assert_no_error_nor_warning_logs()

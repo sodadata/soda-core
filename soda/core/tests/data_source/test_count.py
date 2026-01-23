@@ -10,12 +10,10 @@ def test_row_count_thresholds_with_variables(data_source_fixture: DataSourceFixt
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"nine": "9"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count > ${{nine}}
-    """
-    )
+    """)
     # - row_count between (${{nine}} and 15]
     scan.execute()
 
@@ -30,12 +28,10 @@ def test_row_count_between_thresholds_with_variables(data_source_fixture: DataSo
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"row_count_min": "9", "row_count_max": "11"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count between ${{row_count_min}} and ${{row_count_max}}
-    """
-    )
+    """)
 
     scan.execute()
 
@@ -49,8 +45,7 @@ def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count = 10.0
         - row_count < 11
@@ -67,8 +62,7 @@ def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
         - row_count not between [-5 and 9]
         - row_count not between (10 and 15
         - row_count not between -5 and 10)
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -82,8 +76,7 @@ def test_row_count_thresholds_failing(data_source_fixture: DataSourceFixture):
 
     # Row count is 10
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - row_count < 10
         - row_count > 10
@@ -97,8 +90,7 @@ def test_row_count_thresholds_failing(data_source_fixture: DataSourceFixture):
         - row_count not between [5 and 10]
         - row_count not between (9 and 15]
         - row_count not between [5 and 11)
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_fail()

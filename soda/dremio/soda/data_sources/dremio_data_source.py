@@ -138,8 +138,7 @@ class DremioDataSource(DataSource):
         column_name = self.quote_column(column_name)
 
         qualified_table_name = self.qualified_table_name(table_name)
-        return dedent(
-            f"""
+        return dedent(f"""
             SELECT
                 avg({column_name}) as average
                 , sum({column_name}) as "sum"
@@ -148,5 +147,4 @@ class DremioDataSource(DataSource):
                 , count(distinct({column_name})) as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             FROM {qualified_table_name}
-            """
-        )
+            """)

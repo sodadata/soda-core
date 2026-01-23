@@ -15,8 +15,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
         {"DATE_LOWER": "2020-06-23", "DATE_UPPER": "2020-06-24"}
     )  # use DATE_LOWER and DATE_UPPER to avoid issues with dask
     date_expr = "" if test_data_source in ["fabric", "sqlserver"] else "DATE"
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           filter {table_name} [daily]:
             where: date_updated >= {date_expr} '${{DATE_LOWER}}' AND date_updated < {date_expr} '${{DATE_UPPER}}'
 
@@ -30,8 +29,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
             - schema:
                 warn:
                     when forbidden column present: [non-existing]
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -40,8 +38,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
     scan.add_variables(
         {"DATE_LOWER": "2020-06-24", "DATE_UPPER": "2020-06-25"}
     )  # use DATE_LOWER and DATE_UPPER to avoid issues with dask
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           filter {table_name} [daily]:
             where: date_updated >= {date_expr} '${{DATE_LOWER}}' AND date_updated < {date_expr} '${{DATE_UPPER}}'
 
@@ -53,8 +50,7 @@ def test_filter_on_date(data_source_fixture: DataSourceFixture):
             - row_count = 4
             - missing_count(cat) = 3
             - values in (id) must exist in {cst_dist_table_name} (id)
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -77,8 +73,7 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
         where_cond = f"""TIMESTAMP '${{ts_start}}' <= ts AND ts < TIMESTAMP '${{ts_end}}'"""
 
     scan.add_variables({"ts_start": "2020-06-23 00:00:00", "ts_end": "2020-06-24 00:00:00"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           filter {table_name} [daily]:
             where: {where_cond}
 
@@ -89,16 +84,14 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
           checks for {table_name} [daily]:
             - row_count = 6
             - missing_count(cat) = 2
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"ts_start": "2020-06-24 00:00:00", "ts_end": "2020-06-25 00:00:00"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           filter {table_name} [daily]:
             where:  {where_cond}
 
@@ -109,8 +102,7 @@ def test_table_filter_on_timestamp(data_source_fixture: DataSourceFixture):
           checks for {table_name} [daily]:
             - row_count = 4
             - missing_count(cat) = 3
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()

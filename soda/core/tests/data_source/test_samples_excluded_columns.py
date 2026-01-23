@@ -67,14 +67,10 @@ def test_dataset_checks(check: str, skip_samples: bool, data_source_fixture: Dat
     if "{{another_table_name}}" in check:
         check = check.replace("{{another_table_name}}", another_table_name)
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           checks for {table_name}:
             {check}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_no_error_nor_warning_logs()
@@ -121,17 +117,13 @@ def test_for_each_checks(check: str, skip_samples: bool, data_source_fixture: Da
 
     scan._configuration.exclude_columns = {table_name: ["cat", "cst_size"]}
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           for each dataset D:
             datasets:
               - include {table_name}
             checks:
               {check}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_no_error_nor_warning_logs()
@@ -165,14 +157,10 @@ def test_datasource_checks(check: str, data_source_fixture: DataSourceFixture):
 
     scan._configuration.exclude_columns = {table_name: ["cat", "cst_size"]}
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           checks:
             {check}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_no_error_nor_warning_logs()

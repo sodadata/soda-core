@@ -9,9 +9,7 @@ logger = logging.getLogger(__name__)
 
 def test_checks_parsing():
     scan = Scan()
-    scan.add_sodacl_yaml_str(
-        sodacl_yaml_str=dedent(
-            """
+    scan.add_sodacl_yaml_str(sodacl_yaml_str=dedent("""
       checks for CUSTOMERS:
         - row_count > 0
         - row_count between .0005 and 10.45
@@ -22,9 +20,7 @@ def test_checks_parsing():
       checks for "Quoted table name with weird $%()[]\\" chars":
         - row_count between 100 and 500
         - custom_column_metric("Weird column with [$%\\(\\)[] special chars") = 0
-    """
-        )
-    )
+    """))
 
     scan.assert_no_error_nor_warning_logs()
 
@@ -45,9 +41,7 @@ def test_checks_parsing():
 
 def test_configurations_parsing():
     scan = Scan()
-    scan.add_sodacl_yaml_str(
-        dedent(
-            """
+    scan.add_sodacl_yaml_str(dedent("""
       checks for CUSTOMERS:
         - row_count > 0:
             filter: |
@@ -58,9 +52,7 @@ def test_configurations_parsing():
         valid format for id: uuid
         valid max length for cst_size: 6
         valid min for cst_size: -500.10
-    """
-        ).strip()
-    )
+    """).strip())
     scan.assert_no_error_nor_warning_logs()
 
     data_source_scan_cfg = scan._sodacl_cfg.data_source_scan_cfgs[None]
@@ -74,14 +66,10 @@ def test_configurations_parsing():
 
 def test_wrong_yaml():
     scan = Scan()
-    scan.add_sodacl_yaml_str(
-        dedent(
-            """
+    scan.add_sodacl_yaml_str(dedent("""
       checks for CUSTOMERS: ...
       "invalid" yaml
-    """
-        ).strip()
-    )
+    """).strip())
 
     log = next(log for log in scan._logs.logs if "yaml syntax error" in log.message.lower())
     assert log.level == LogLevel.ERROR
@@ -92,14 +80,10 @@ def test_wrong_yaml():
 
 def test_invalid_check():
     scan = Scan()
-    scan.add_sodacl_yaml_str(
-        dedent(
-            """
+    scan.add_sodacl_yaml_str(dedent("""
       checks for CUSTOMERS:
           - this is not a good check
-    """
-        ).strip()
-    )
+    """).strip())
     log = next(log for log in scan._logs.logs if "this is not a good check" in log.message.lower())
     assert log.level == LogLevel.ERROR
     assert "invalid check" in log.message.lower()

@@ -10,9 +10,7 @@ def test_parse_environment_yaml(monkeypatch):
     # to Soda CLI and Soda Core library usage
 
     scan = Scan()
-    scan.add_configuration_yaml_str(
-        dedent(
-            """
+    scan.add_configuration_yaml_str(dedent("""
         data_source local_postgres_soda:
           type: postgres
           host: localhost
@@ -23,9 +21,7 @@ def test_parse_environment_yaml(monkeypatch):
         soda_cloud:
           api_key_id: s09d8fs09d8f09sd
           scheme: http
-    """
-        )
-    )
+    """))
     scan.assert_no_error_nor_warning_logs()
 
     lpsp_properties: dict = scan._configuration.data_source_properties_by_name["local_postgres_soda"]
@@ -47,9 +43,7 @@ def test_parse_configuration_yaml_env_var_resolving(monkeypatch):
     monkeypatch.setenv("E", "x")
 
     scan = Scan()
-    scan.add_configuration_yaml_str(
-        dedent(
-            """
+    scan.add_configuration_yaml_str(dedent("""
         data_source local_postgres_soda:
           type: postgres
           host: ${ E }
@@ -61,9 +55,7 @@ def test_parse_configuration_yaml_env_var_resolving(monkeypatch):
         soda_cloud:
           api_key_id: ${ env_var('E') }
           api_key_secret: ${ env_var('E') }
-    """
-        )
-    )
+    """))
     scan.assert_no_error_nor_warning_logs()
 
     lpsp_properties: dict = scan._configuration.data_source_properties_by_name["local_postgres_soda"]
@@ -80,14 +72,10 @@ def test_parse_configuration_yaml_env_var_resolving(monkeypatch):
 
 def test_no_data_source_type():
     scan = Scan()
-    scan.add_configuration_yaml_str(
-        dedent(
-            """
+    scan.add_configuration_yaml_str(dedent("""
         data_source local_postgres_soda:
           host: localhost
-    """
-        )
-    )
+    """))
 
     assert scan.has_error_logs()
     error_log_text = scan.get_error_logs_text()

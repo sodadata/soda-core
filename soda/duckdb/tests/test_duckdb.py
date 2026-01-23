@@ -12,14 +12,12 @@ def test_pandas_df(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     scan.add_duckdb_connection(con)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for test_df:
             - row_count = 4
             - missing_count(i) = 0
             - missing_count(j) = 0
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     scan.assert_all_checks_pass()
     scan.assert_no_error_logs()
@@ -37,21 +35,17 @@ def test_df_from_csv(data_source_fixture: DataSourceFixture, tmp_path: Path):
 
     scan = data_source_fixture.create_test_scan()
     scan.set_data_source_name("csv_dataset")
-    scan.add_configuration_yaml_str(
-        f"""
+    scan.add_configuration_yaml_str(f"""
           data_source csv_dataset:
             type: duckdb
             path: {csv_path}
-        """
-    )
-    scan.add_sodacl_yaml_str(
-        """
+        """)
+    scan.add_sodacl_yaml_str("""
           checks for csv_dataset:
             - row_count = 4
             - missing_count(i) = 0
             - missing_count(j) = 0
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     scan.assert_all_checks_pass()
     scan.assert_no_error_logs()
@@ -69,20 +63,16 @@ def test_df_from_json(data_source_fixture: DataSourceFixture, tmp_path: Path):
 
     scan = data_source_fixture.create_test_scan()
     scan.set_data_source_name("json_dataset")
-    scan.add_configuration_yaml_str(
-        f"""
+    scan.add_configuration_yaml_str(f"""
           data_source json_dataset:
             type: duckdb
             path: {json_path}
-        """
-    )
-    scan.add_sodacl_yaml_str(
-        """
+        """)
+    scan.add_sodacl_yaml_str("""
           checks for json_dataset:
             - missing_count(i) = 0
             - missing_count(j) = 0
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     scan.assert_all_checks_pass()
     scan.assert_no_error_logs()
@@ -100,21 +90,17 @@ def test_df_from_parquet(data_source_fixture: DataSourceFixture, tmp_path: Path)
 
     scan = data_source_fixture.create_test_scan()
     scan.set_data_source_name("parquet_dataset")
-    scan.add_configuration_yaml_str(
-        f"""
+    scan.add_configuration_yaml_str(f"""
           data_source parquet_dataset:
             type: duckdb
             path: {parquet_path}
-        """
-    )
-    scan.add_sodacl_yaml_str(
-        """
+        """)
+    scan.add_sodacl_yaml_str("""
           checks for parquet_dataset:
             - row_count = 4
             - missing_count(i) = 0
             - missing_count(j) = 0
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     scan.assert_all_checks_pass()
     scan.assert_no_error_logs()

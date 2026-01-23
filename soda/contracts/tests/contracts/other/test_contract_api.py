@@ -40,8 +40,7 @@ def test_contract_verification_api(data_source_test_helper: ContractDataSourceTe
     environ["USERNAME"] = "sodasql"
     environ["PORT"] = os.getenv("POSTGRES_PORT", "5432")
 
-    data_source_yaml_str = dedent(
-        """
+    data_source_yaml_str = dedent("""
         name: postgres_ds
         type: postgres
         connection:
@@ -49,11 +48,9 @@ def test_contract_verification_api(data_source_test_helper: ContractDataSourceTe
             database: sodasql
             user: ${USERNAME}
             port: ${PORT}
-    """
-    )
+    """)
 
-    contract_yaml_str = dedent(
-        """
+    contract_yaml_str = dedent("""
       dataset: ${TABLE_NAME}
       columns:
       - name: id
@@ -64,8 +61,7 @@ def test_contract_verification_api(data_source_test_helper: ContractDataSourceTe
         data_type: integer
       - name: created
         data_type: date
-    """
-    )
+    """)
 
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()

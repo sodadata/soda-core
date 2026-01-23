@@ -24,30 +24,26 @@ contracts_missing_test_table = TestTable(
 
 
 def test_no_missing_with_threshold(data_source_test_helper: ContractDataSourceTestHelper):
-    errors_str = data_source_test_helper.get_parse_errors_str(
-        """
+    errors_str = data_source_test_helper.get_parse_errors_str("""
           dataset: TABLE_NAME
           columns:
             - name: one
               checks:
                 - type: no_missing_values
                   must_be: 5
-        """
-    )
+        """)
 
     assert "Check type 'no_missing_values' does not allow for threshold keys must_..." in errors_str
 
 
 def test_missing_count_without_threshold(data_source_test_helper: ContractDataSourceTestHelper):
-    errors_str = data_source_test_helper.get_parse_errors_str(
-        """
+    errors_str = data_source_test_helper.get_parse_errors_str("""
           dataset: TABLE_NAME
           columns:
             - name: one
               checks:
                 - type: missing_count
-        """
-    )
+        """)
 
     assert "Check type 'missing_count' requires threshold configuration" in errors_str
 

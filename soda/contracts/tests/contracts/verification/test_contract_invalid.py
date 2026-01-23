@@ -74,8 +74,7 @@ def test_contract_no_invalid_with_valid_values_fail(data_source_test_helper: Con
 
 
 def test_no_invalid_with_threshold(data_source_test_helper: ContractDataSourceTestHelper):
-    errors_str = data_source_test_helper.get_parse_errors_str(
-        """
+    errors_str = data_source_test_helper.get_parse_errors_str("""
           dataset: TABLE_NAME
           columns:
             - name: one
@@ -83,22 +82,19 @@ def test_no_invalid_with_threshold(data_source_test_helper: ContractDataSourceTe
                 - type: no_invalid_values
                   valid_values: ['ID1']
                   must_be: 0
-        """
-    )
+        """)
 
     assert "Check type 'no_invalid_values' does not allow for threshold keys must_..." in errors_str
 
 
 def test_no_invalid_without_valid_configuration(data_source_test_helper: ContractDataSourceTestHelper):
-    errors_str = data_source_test_helper.get_parse_errors_str(
-        """
+    errors_str = data_source_test_helper.get_parse_errors_str("""
           dataset: TABLE_NAME
           columns:
             - name: one
               checks:
                 - type: no_invalid_values
-        """
-    )
+        """)
 
     assert "Check type 'no_invalid_values' must have a validity configuration like" in errors_str
 

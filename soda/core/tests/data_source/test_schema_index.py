@@ -14,15 +14,13 @@ def test_required_columns_indexes_pass(data_source_fixture: DataSourceFixture):
         indent=15,
         data_source=data_source_fixture.data_source,
     )
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
               when wrong column index:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -38,15 +36,13 @@ def test_required_columns_indexes_fail(data_source_fixture: DataSourceFixture):
     )
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
               when wrong column index:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_fail()
@@ -80,15 +76,13 @@ def test_required_columns_indexes_warn(data_source_fixture: DataSourceFixture):
     )
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             warn:
               when wrong column index:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_warn()

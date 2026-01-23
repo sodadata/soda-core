@@ -20,14 +20,12 @@ def test_schema_changes_pass(data_source_fixture: DataSourceFixture):
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
           - schema:
               fail:
                 when schema changes: any
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -39,14 +37,12 @@ def test_schema_check_have_no_data(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
 
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
           - schema:
               fail:
                 when schema changes: any
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_cloud_result = mock_soda_cloud.pop_scan_result()
     assert scan_cloud_result["checks"][0]["outcomeReasons"] == [
@@ -77,8 +73,7 @@ def test_schema_changes_column_addition(data_source_fixture: DataSourceFixture):
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
@@ -118,8 +113,7 @@ def test_schema_changes_column_addition(data_source_fixture: DataSourceFixture):
         - schema:
             warn:
               when schema changes: any
-    """
-    )
+    """)
     scan.execute()
 
     assert scan._checks[0].outcome == CheckOutcome.FAIL
@@ -158,8 +152,7 @@ def test_schema_changes_column_deletion(data_source_fixture: DataSourceFixture):
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
@@ -199,8 +192,7 @@ def test_schema_changes_column_deletion(data_source_fixture: DataSourceFixture):
         - schema:
             warn:
               when schema changes: any
-    """
-    )
+    """)
     scan.execute()
 
     assert scan._checks[0].outcome == CheckOutcome.PASS
@@ -234,8 +226,7 @@ def test_schema_changes_warn_and_fail(data_source_fixture: DataSourceFixture):
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             warn:
@@ -246,8 +237,7 @@ def test_schema_changes_warn_and_fail(data_source_fixture: DataSourceFixture):
                 id: integer
                 does_not_exist: integer
                 pct: varchar
-    """
-    )
+    """)
     scan.execute()
 
     assert scan._checks[0].outcome == CheckOutcome.FAIL

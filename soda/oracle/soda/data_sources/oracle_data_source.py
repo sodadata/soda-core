@@ -214,16 +214,14 @@ class OracleDataSource(DataSource):
                         )"""
 
         if data_type_category == "text":
-            return dedent(
-                f"""
+            return dedent(f"""
                     WITH
                         {value_frequencies_cte},
                         {frequent_values_cte}
                     SELECT *
                     FROM frequent_values
                     ORDER BY metric_ ASC, index_ ASC
-                """
-            )
+                """)
 
         elif data_type_category == "numeric":
             mins_cte = f"""mins AS (
@@ -244,8 +242,7 @@ class OracleDataSource(DataSource):
 
                         )"""
 
-            return dedent(
-                f"""
+            return dedent(f"""
                     WITH
                         {value_frequencies_cte},
                         {mins_cte},
@@ -261,8 +258,7 @@ class OracleDataSource(DataSource):
                     SELECT *
                     FROM result
                     ORDER BY metric_ ASC, index_ ASC
-                """
-            )
+                """)
 
         raise AssertionError("data_type_category must be either 'numeric' or 'text'")
 
@@ -299,8 +295,7 @@ class OracleDataSource(DataSource):
         qualified_main_query_columns = ", ".join([f"main.{c}" for c in main_query_columns])
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {column_names}
                 FROM {qualified_table_name}
@@ -310,8 +305,7 @@ class OracleDataSource(DataSource):
             SELECT {qualified_main_query_columns}
             FROM {qualified_table_name} main
             JOIN frequencies ON {join}
-            """
-        )
+            """)
 
         if limit:
             sql += f"\nFETCH FIRST {limit} ROWS ONLY"
@@ -333,8 +327,7 @@ class OracleDataSource(DataSource):
         qualified_table_name = self.qualified_table_name(table_name)
         main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {column_names}, {self.expr_count_all()} AS frequency
                 FROM {qualified_table_name}
@@ -343,8 +336,7 @@ class OracleDataSource(DataSource):
             SELECT {main_query_columns}
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
-            ORDER BY frequency DESC"""
-        )
+            ORDER BY frequency DESC""")
 
         if limit:
             sql += f"\nFETCH FIRST {limit} ROWS ONLY"
@@ -360,8 +352,7 @@ class OracleDataSource(DataSource):
         cte = select_query.replace("\n", " ")
         # delete multiple spaces
         cte = re.sub(" +", " ", cte)
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
                 WITH processed_table AS (
                     {cte}
                 )
@@ -370,8 +361,7 @@ class OracleDataSource(DataSource):
                     , {self.expr_count_all()} AS frequency
                 FROM processed_table
                 GROUP BY {column_name}
-            """
-        )
+            """)
         sql += f"FETCH FIRST {limit} ROWS ONLY" if limit else ""
         return dedent(sql)
 
@@ -384,13 +374,11 @@ class OracleDataSource(DataSource):
         where_condition: str,
         limit: int | None = None,
     ) -> str:
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             SELECT {columns}
                 FROM {table_name}  SOURCE
                 LEFT JOIN {target_table_name} TARGET on {join_condition}
-            WHERE {where_condition}"""
-        )
+            WHERE {where_condition}""")
         if limit:
             sql += f"\nFETCH FIRST {limit} ROWS ONLY"
 

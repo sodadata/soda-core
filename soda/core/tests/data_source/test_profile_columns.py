@@ -17,12 +17,10 @@ def test_profile_columns_numeric(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           profile columns:
             columns: [{table_name}.cst_size]
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     # remove the data source name because it's a pain to test
     scan_result = mock_soda_cloud.pop_scan_result()
@@ -102,12 +100,10 @@ def test_profile_columns_text_country(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           profile columns:
             columns: [{table_name}.country]
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     scan_results = mock_soda_cloud.pop_scan_result()
 
@@ -167,13 +163,11 @@ def test_profile_columns_all_tables_all_columns(data_source_fixture: DataSourceF
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        """
+    scan.add_sodacl_yaml_str("""
             profile columns:
                 columns:
                   - "%.%"
-        """
-    )
+        """)
     data_source_name = data_source_fixture.data_source_name
     data_source_scan = scan._get_or_create_data_source_scan(data_source_name)
     data_source = data_source_scan.data_source
@@ -395,14 +389,12 @@ def test_profile_columns_inclusions_exclusions(
 def test_profile_columns_quotes_error(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         profile columns:
             columns:
                 - include "%.%"
                 - exclude "something.else"
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     character_log_warnings = [
@@ -416,13 +408,11 @@ def test_profile_columns_quotes_error(data_source_fixture: DataSourceFixture):
 def test_profile_columns_invalid_format(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         profile columns:
             columns:
                 - "invalid%"
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]
@@ -437,12 +427,10 @@ def test_profile_columns_invalid_format(data_source_fixture: DataSourceFixture):
 def test_profile_columns_no_table_or_column(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         profile columns:
             columns:
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]
@@ -456,12 +444,10 @@ def test_profile_columns_capitalized(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_profiling_capitalized)
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           profile columns:
             columns: [{table_name}.%]
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     scan_results = mock_soda_cloud.pop_scan_result()
 

@@ -741,8 +741,7 @@ class DataSource:
     ) -> str | None:
         qualified_table_name = self.qualified_table_name(table_name)
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {self.expr_count_all()} AS frequency
                 FROM {qualified_table_name}
@@ -750,8 +749,7 @@ class DataSource:
                 GROUP BY {column_names})
             SELECT {self.expr_count_all()}
             FROM frequencies
-            WHERE frequency > 1"""
-        )
+            WHERE frequency > 1""")
 
         return sql
 
@@ -767,8 +765,7 @@ class DataSource:
         qualified_table_name = self.qualified_table_name(table_name)
         main_query_columns = f"{column_names}, frequency" if exclude_patterns else "*"
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {column_names}, {self.expr_count_all()} AS frequency
                 FROM {qualified_table_name}
@@ -777,8 +774,7 @@ class DataSource:
             SELECT {main_query_columns}
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
-            ORDER BY frequency DESC"""
-        )
+            ORDER BY frequency DESC""")
 
         if limit:
             sql += f"\nLIMIT {limit}"
@@ -800,8 +796,7 @@ class DataSource:
         qualified_main_query_columns = ", ".join([f"main.{c}" for c in main_query_columns])
         join = " AND ".join([f"main.{c} = frequencies.{c}" for c in columns])
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {column_names}
                 FROM {qualified_table_name}
@@ -811,8 +806,7 @@ class DataSource:
             SELECT {qualified_main_query_columns}
             FROM {qualified_table_name} main
             JOIN frequencies ON {join}
-            """
-        )
+            """)
 
         if limit:
             sql += f"\nLIMIT {limit}"
@@ -828,13 +822,11 @@ class DataSource:
         where_condition: str,
         limit: int | None = None,
     ) -> str:
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             SELECT {columns}
                 FROM {table_name}  SOURCE
                 LEFT JOIN {target_table_name} TARGET on {join_condition}
-            WHERE {where_condition}"""
-        )
+            WHERE {where_condition}""")
 
         if limit:
             sql += f"\nLIMIT {limit}"
@@ -866,16 +858,14 @@ class DataSource:
                         )"""
 
         if data_type_category == "text":
-            return dedent(
-                f"""
+            return dedent(f"""
                     WITH
                         {value_frequencies_cte},
                         {frequent_values_cte}
                     SELECT *
                     FROM frequent_values
                     ORDER BY metric_ ASC, index_ ASC
-                """
-            )
+                """)
 
         elif data_type_category == "numeric":
             mins_cte = f"""mins AS (
@@ -894,8 +884,7 @@ class DataSource:
                             LIMIT {limit_mins_maxs}
                         )"""
 
-            return dedent(
-                f"""
+            return dedent(f"""
                     WITH
                         {value_frequencies_cte},
                         {mins_cte},
@@ -911,8 +900,7 @@ class DataSource:
                     SELECT *
                     FROM results
                     ORDER BY metric_ ASC, index_ ASC
-                """
-            )
+                """)
 
         raise AssertionError("data_type_category must be either 'numeric' or 'text'")
 
@@ -932,8 +920,7 @@ class DataSource:
     def profiling_sql_aggregates_numeric(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
-        return dedent(
-            f"""
+        return dedent(f"""
             SELECT
                 avg({column_name}) as average
                 , sum({column_name}) as sum
@@ -942,14 +929,12 @@ class DataSource:
                 , {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             FROM {qualified_table_name}
-            """
-        )
+            """)
 
     def profiling_sql_aggregates_text(self, table_name: str, column_name: str) -> str:
         column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
-        return dedent(
-            f"""
+        return dedent(f"""
             SELECT
                 {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
@@ -957,8 +942,7 @@ class DataSource:
                 , min(length({column_name})) as min_length
                 , max(length({column_name})) as max_length
             FROM {qualified_table_name}
-            """
-        )
+            """)
 
     def histogram_sql_and_boundaries(
         self,
@@ -1005,13 +989,11 @@ class DataSource:
 
         value_frequencies_cte = self.profiling_sql_value_frequencies_cte(table_name, column_name)
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH
                 {value_frequencies_cte}
             SELECT {fields}
-            FROM value_frequencies"""
-        )
+            FROM value_frequencies""")
         return sql, bins_list
 
     def sql_test_connection(self) -> str:
@@ -1402,8 +1384,7 @@ class DataSource:
         cte = select_query.replace("\n", " ")
         # delete multiple spaces
         cte = re.sub(" +", " ", cte)
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
                 WITH processed_table AS (
                     {cte}
                 )
@@ -1412,8 +1393,7 @@ class DataSource:
                     , {self.expr_count_all()} AS frequency
                 FROM processed_table
                 GROUP BY {column_name}
-            """
-        )
+            """)
         sql += f"LIMIT {limit}" if limit else ""
         return dedent(sql)
 

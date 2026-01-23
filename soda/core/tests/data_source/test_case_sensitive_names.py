@@ -25,13 +25,11 @@ def test_row_count_thresholds_passing(data_source_fixture: DataSourceFixture):
     quoted_id = data_source_fixture.data_source.quote_column("Id")
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {quoted_table_name}:
         - row_count = 0
         - missing_count({quoted_id}) = 0
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()

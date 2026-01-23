@@ -10,11 +10,9 @@ def test_warn(data_source_fixture: DataSourceFixture, mock_file_system: MockFile
 
     mock_file_system.files = {
         f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
-        f"{user_home_dir}/checks.yml": dedent(
-            f"""
+        f"{user_home_dir}/checks.yml": dedent(f"""
 
-            """
-        ).strip(),
+            """).strip(),
     }
 
     result = run_cli(

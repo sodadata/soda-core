@@ -7,8 +7,7 @@ def test_change_over_time(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - change avg last 7 for row_count = 1
             - change for row_count between -10 and +50
@@ -20,8 +19,7 @@ def test_change_over_time(data_source_fixture: DataSourceFixture):
                 warn: when not between -10 and +20
                 fail: when not between -50 and +100
             - change min last 7 percent for duplicate_count(cst_size) < 50 %
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -42,12 +40,10 @@ def test_change_over_time_fail(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - change percent for row_count < 10%
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -63,12 +59,10 @@ def test_change_over_time_no_historical_data(data_source_fixture: DataSourceFixt
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - change percent for row_count < 10%
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",
@@ -87,12 +81,10 @@ def test_change_over_time_last_x(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - change same day last week for row_count = 0
-        """
-    )
+        """)
 
     scan.mock_historic_values(
         metric_identity=f"metric-{scan._scan_definition_name}-{scan._data_source_name}-{table_name}-row_count",

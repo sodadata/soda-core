@@ -69,8 +69,7 @@ def test_vars_in_configuration(data_source_fixture: DataSourceFixture):
             "DS_HOST": "host: localhost",
         }
     )
-    scan.add_configuration_yaml_str(
-        f"""
+    scan.add_configuration_yaml_str(f"""
         data_source another_source:
             type: ${{DS_TYPE}}
             ${{DS_HOST}}
@@ -78,8 +77,7 @@ def test_vars_in_configuration(data_source_fixture: DataSourceFixture):
             password: secret
             database: soda
             schema: public
-        """
-    )
+        """)
 
     data_sources = scan._data_source_manager.data_source_properties_by_name
     assert data_sources["another_source"]["type"] == "postgres"

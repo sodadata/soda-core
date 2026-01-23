@@ -18,8 +18,7 @@ def test_columns_types_pass(data_source_fixture: DataSourceFixture):
         )
         return f"{casified_column_name}: {casified_data_type}"
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
@@ -31,8 +30,7 @@ def test_columns_types_pass(data_source_fixture: DataSourceFixture):
                 {column_type_format('date_updated')}
                 {column_type_format('ts')}
                 {column_type_format('ts_with_tz')}
-    """
-    )
+    """)
     # This Also verifies type aliasing - check using "varchar", actual is "character varying"
     scan.execute()
 
@@ -48,15 +46,13 @@ def test_columns_types_fail(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
               when wrong column type:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     check = scan._checks[0]
@@ -84,15 +80,13 @@ def test_columns_types_warn(data_source_fixture: DataSourceFixture):
     table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             warn:
               when wrong column type:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     check = scan._checks[0]

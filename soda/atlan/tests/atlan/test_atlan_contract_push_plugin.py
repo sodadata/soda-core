@@ -33,8 +33,7 @@ contracts_atlan_contract_test_table = TestTable(
 def test_atlan_contract_push_plugin():
     load_dotenv(f"{project_root_dir}/.env", override=True)
 
-    data_source_yaml_str: str = dedent(
-        """
+    data_source_yaml_str: str = dedent("""
         name: postgres_ds
         type: postgres
         atlan_qualified_name: default/postgres/1718112025
@@ -43,11 +42,9 @@ def test_atlan_contract_push_plugin():
             database: ${CONTRACTS_POSTGRES_DATABASE}
             user: ${CONTRACTS_POSTGRES_USERNAME}
             password: ${CONTRACTS_POSTGRES_PASSWORD}
-    """
-    )
+    """)
 
-    contract_yaml_str: str = dedent(
-        f"""
+    contract_yaml_str: str = dedent(f"""
         data_source: postgres_ds
         database: ${{CONTRACTS_POSTGRES_DATABASE}}
         schema: contracts
@@ -59,23 +56,18 @@ def test_atlan_contract_push_plugin():
           data_type: varchar
         - name: age
           data_type: integer
-    """
-    )
+    """)
 
-    soda_cloud_yaml_str: str = dedent(
-        """
+    soda_cloud_yaml_str: str = dedent("""
         api_key_id: ${DEV_SODADATA_IO_API_KEY_ID}
         api_key_secret: ${DEV_SODADATA_IO_API_KEY_SECRET}
-    """
-    )
+    """)
 
-    atlan_yaml_str: str = dedent(
-        """
+    atlan_yaml_str: str = dedent("""
         plugin: atlan
         atlan_api_key: ${ATLAN_API_KEY}
         atlan_base_url: https://soda-partner.atlan.com
-    """
-    )
+    """)
 
     contract_verification_result: ContractVerificationResult = (
         ContractVerification.builder()

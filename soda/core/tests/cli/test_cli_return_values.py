@@ -55,12 +55,10 @@ def test_ok_with_variable(data_source_fixture: DataSourceFixture, mock_file_syst
 
     mock_file_system.files = {
         f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
-        f"{user_home_dir}/checks.yml": dedent(
-            f"""
+        f"{user_home_dir}/checks.yml": dedent(f"""
                 checks for {table_name}:
                   - freshness using ts with scan_execution_date < 1d
-            """
-        ).strip(),
+            """).strip(),
     }
 
     result = run_cli(
@@ -89,12 +87,10 @@ def test_fail(data_source_fixture: DataSourceFixture, mock_file_system: MockFile
 
     mock_file_system.files = {
         f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
-        f"{user_home_dir}/checks.yml": dedent(
-            f"""
+        f"{user_home_dir}/checks.yml": dedent(f"""
                 checks for {table_name}:
                   - row_count > 1000
-            """
-        ).strip(),
+            """).strip(),
     }
 
     result = run_cli(
@@ -121,13 +117,11 @@ def test_warn(data_source_fixture: DataSourceFixture, mock_file_system: MockFile
 
     mock_file_system.files = {
         f"{user_home_dir}/configuration.yml": data_source_fixture.create_test_configuration_yaml_str(),
-        f"{user_home_dir}/checks.yml": dedent(
-            f"""
+        f"{user_home_dir}/checks.yml": dedent(f"""
                 checks for {table_name}:
                     - row_count:
                         warn: when < 1000
-            """
-        ).strip(),
+            """).strip(),
     }
 
     result = run_cli(

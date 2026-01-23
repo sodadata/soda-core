@@ -5,49 +5,41 @@ from contracts.helpers.contract_test_tables import contracts_test_table
 
 
 def test_contract_without_dataset(data_source_test_helper: ContractDataSourceTestHelper):
-    contract_result = data_source_test_helper.assert_contract_error(
-        """
+    contract_result = data_source_test_helper.assert_contract_error("""
         columns:
           - name: id
           - name: size
           - name: distance
           - name: created
-    """
-    )
+    """)
     assert "'dataset' is a required property" in str(contract_result)
 
 
 def test_contract_without_columns(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_test_table)
-    contract_result = data_source_test_helper.assert_contract_error(
-        f"""
+    contract_result = data_source_test_helper.assert_contract_error(f"""
         dataset: {table_name}
-    """
-    )
+    """)
     assert "'columns' is a required property" in str(contract_result)
 
 
 def test_contract_invalid_column_type_dict(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_test_table)
-    contract_result = data_source_test_helper.assert_contract_error(
-        f"""
+    contract_result = data_source_test_helper.assert_contract_error(f"""
         dataset: {table_name}
         columns:
           - plainstringascheck
-    """
-    )
+    """)
     assert "'plainstringascheck' is not of type 'object'" in str(contract_result)
 
 
 def test_contract_invalid_column_no_name(data_source_test_helper: ContractDataSourceTestHelper):
     table_name: str = data_source_test_helper.ensure_test_table(contracts_test_table)
-    contract_result = data_source_test_helper.assert_contract_error(
-        f"""
+    contract_result = data_source_test_helper.assert_contract_error(f"""
         dataset: {table_name}
         columns:
           - noname: xyz
-    """
-    )
+    """)
     assert "'name' is required" in str(contract_result)
 
 

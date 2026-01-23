@@ -19,26 +19,22 @@ def test_distribution_check(data_source_fixture: DataSourceFixture, mock_file_sy
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute()
@@ -55,26 +51,22 @@ def test_distribution_check_only_null_column(
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: full_null
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(full_null) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute(allow_warnings_only=True)
@@ -101,26 +93,22 @@ def test_distribution_sql(data_source_fixture: DataSourceFixture, mock_file_syst
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             checks for {table_name}:
                 - distribution_difference(cst_size) >= 0.05:
                     distribution reference file:  {user_home_dir}/customers_cst_size_distribution_reference.yml
                     method: ks
-        """
-    )
+        """)
 
     scan.enable_mock_soda_cloud()
     scan.execute()
@@ -167,23 +155,19 @@ def test_distribution_missing_bins_weights(data_source_fixture: DataSourceFixtur
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
-    """
-    )
+    """)
 
     scan.execute(allow_error_warning=True)
 
@@ -206,8 +190,7 @@ def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             customers_dro1:
                 dataset: {table_name}
                 column: cst_size
@@ -223,18 +206,15 @@ def test_distribution_check_with_dro_name(data_source_fixture: DataSourceFixture
                 distribution_reference:
                     bins: [1, 2, 3]
                     weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size, customers_dro1) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute()
@@ -249,25 +229,21 @@ def test_distribution_check_without_method(data_source_fixture: DataSourceFixtur
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute()
@@ -286,26 +262,22 @@ def test_distribution_check_with_filter_no_data(
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 filter: cst_size > 1000000
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute(allow_error_warning=True)
@@ -331,16 +303,14 @@ def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, 
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
     sample_query = ""
     if data_source_name in ["postgres", "snowflake"]:
@@ -354,15 +324,13 @@ def test_distribution_check_with_sample(data_source_fixture: DataSourceFixture, 
     else:
         sample_query = ""
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
                 sample: {sample_query}
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute()
@@ -377,20 +345,17 @@ def test_distribution_check_with_filter_and_partition(data_source_fixture: DataS
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         filter {table_name} [filtered]:
             where: cst_size > 0
 
@@ -399,8 +364,7 @@ def test_distribution_check_with_filter_and_partition(data_source_fixture: DataS
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
                 filter: cst_size < 100
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     scan.execute()
@@ -416,26 +380,22 @@ def test_categoric_distribution_check_large_sample_size(data_source_fixture: Dat
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: categorical
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: chi_square
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     # Run it to build the checks
@@ -465,26 +425,22 @@ def test_continuous_distribution_check_large_sample_size(data_source_fixture: Da
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(
-            f"""
+        f"{user_home_dir}/customers_cst_size_distribution_reference.yml": dedent(f"""
             dataset: {table_name}
             column: cst_size
             distribution_type: continuous
             distribution_reference:
                 bins: [1, 2, 3]
                 weights: [0.5, 0.2, 0.3]
-        """
-        ).strip(),
+        """).strip(),
     }
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         checks for {table_name}:
             - distribution_difference(cst_size) >= 0.05:
                 distribution reference file: {user_home_dir}/customers_cst_size_distribution_reference.yml
                 method: ks
-    """
-    )
+    """)
 
     scan.enable_mock_soda_cloud()
     # Run it to build the checks

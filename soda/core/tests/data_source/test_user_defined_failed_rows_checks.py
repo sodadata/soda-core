@@ -10,15 +10,13 @@ def test_failed_rows_table_expression_with_limit(data_source_fixture: DataSource
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: failed rows with limit
                 samples limit: 1
                 fail condition: cat = 'HIGH' and cst_size > 0
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_fail()
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 1
@@ -30,14 +28,12 @@ def test_failed_rows_table_expression(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: High customers must have cst_size less than 3
                 fail condition: cat = 'HIGH' and cst_size < .7
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -53,8 +49,7 @@ def test_failed_rows_data_source_query_with_limit(data_source_fixture: DataSourc
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -63,8 +58,7 @@ def test_failed_rows_data_source_query_with_limit(data_source_fixture: DataSourc
                   SELECT *
                   FROM {qualified_table_name}
                   WHERE cst_size > 0
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -80,8 +74,7 @@ def test_failed_rows_data_source_query(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -89,8 +82,7 @@ def test_failed_rows_data_source_query(data_source_fixture: DataSourceFixture):
                   SELECT *
                   FROM {qualified_table_name}
                   WHERE cst_size < 0
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -108,8 +100,7 @@ def test_failed_rows_http_samples_present(
     scan = data_source_fixture.create_test_scan()
     scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler(MockHttpSampler)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -117,8 +108,7 @@ def test_failed_rows_http_samples_present(
                   SELECT *
                   FROM {qualified_table_name}
                   WHERE cst_size < 0
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -136,8 +126,7 @@ def test_failed_rows_http_samples_absent(
     scan = data_source_fixture.create_test_scan()
     scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler(MockHttpSampler)
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -145,8 +134,7 @@ def test_failed_rows_http_samples_absent(
                   SELECT *
                   FROM {qualified_table_name}
                   WHERE country IS NULL
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_pass()
@@ -160,8 +148,7 @@ def test_failed_rows_table_query(data_source_fixture: DataSourceFixture):
     qualified_table_name = data_source_fixture.data_source.qualified_table_name(table_name)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: Customers must have cst_size
@@ -169,8 +156,7 @@ def test_failed_rows_table_query(data_source_fixture: DataSourceFixture):
                   SELECT *
                   FROM {qualified_table_name}
                   WHERE cst_size < 0
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -183,8 +169,7 @@ def test_failed_rows_table_query_with_variables(data_source_fixture: DataSourceF
 
     scan = data_source_fixture.create_test_scan()
     scan.add_variables({"size_count": "0"})
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: Customers must have cst_size
@@ -192,8 +177,7 @@ def test_failed_rows_table_query_with_variables(data_source_fixture: DataSourceF
                   SELECT *
                   FROM {qualified_table_name}
                   WHERE cst_size < ${{size_count}}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -208,8 +192,7 @@ def test_failed_rows_table_query_with_limit(data_source_fixture: DataSourceFixtu
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: Customers must have cst_size
@@ -217,8 +200,7 @@ def test_failed_rows_table_query_with_limit(data_source_fixture: DataSourceFixtu
                 fail query: |
                   SELECT *
                   FROM {qualified_table_name}
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_check_fail()
@@ -229,15 +211,13 @@ def test_failed_rows_table_query_with_limit(data_source_fixture: DataSourceFixtu
 def test_bad_failed_rows_query(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Bad query
                 fail query: |
                   SELECT MAKE THIS BREAK !
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     assert len(scan.get_error_logs()) > 0
@@ -258,8 +238,7 @@ def test_failed_rows_query_warn_threshold(data_source_fixture: DataSourceFixture
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -269,8 +248,7 @@ def test_failed_rows_query_warn_threshold(data_source_fixture: DataSourceFixture
                   WHERE cst_size < 0
                 warn: when = 3
                 fail: when > 5
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_warn()
 
@@ -285,8 +263,7 @@ def test_failed_rows_query_fail_threshold(data_source_fixture: DataSourceFixture
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -296,8 +273,7 @@ def test_failed_rows_query_fail_threshold(data_source_fixture: DataSourceFixture
                   WHERE cst_size < 0
                 warn: when = 3
                 fail: when > 2
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_fail()
 
@@ -311,8 +287,7 @@ def test_failed_rows_query_fail_threshold_pass(data_source_fixture: DataSourceFi
 
     scan = data_source_fixture.create_test_scan()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -321,8 +296,7 @@ def test_failed_rows_query_fail_threshold_pass(data_source_fixture: DataSourceFi
                   FROM {qualified_table_name}
                   WHERE cst_size < 0
                 fail: when > 3
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_pass()
 
@@ -334,8 +308,7 @@ def test_failed_rows_query_warn_threshold_pass(data_source_fixture: DataSourceFi
 
     scan = data_source_fixture.create_test_scan()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must have cst_size
@@ -344,8 +317,7 @@ def test_failed_rows_query_warn_threshold_pass(data_source_fixture: DataSourceFi
                   FROM {qualified_table_name}
                   WHERE cst_size < 0
                 warn: when > 3
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_pass()
 
@@ -355,15 +327,13 @@ def test_failed_rows_condition_fail_threshold_pass(data_source_fixture: DataSour
 
     scan = data_source_fixture.create_test_scan()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: Customers must have cst_size
                 fail condition: cst_size < 0
                 fail: when > 3
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_pass()
 
@@ -373,15 +343,13 @@ def test_failed_rows_condition_warn_threshold_pass(data_source_fixture: DataSour
 
     scan = data_source_fixture.create_test_scan()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - failed rows:
                 name: Customers must have cst_size
                 fail condition: cst_size < 0
                 warn: when > 3
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_pass()
 
@@ -394,16 +362,14 @@ def test_failed_rows_over_100_failed(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks:
             - failed rows:
                 name: Customers must be empty
                 fail query: |
                   SELECT *
                   FROM {qualified_table_name}
-        """
-    )
+        """)
     scan.execute()
     scan.assert_check_fail()
     check_metric_name = mock_soda_cloud.find_check(0)["metrics"][0]

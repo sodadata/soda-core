@@ -16,8 +16,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
     _ = data_source_fixture.ensure_test_table(customers_dist_check_test_table)  # to test that it is not included
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           for each dataset D:
             datasets:
               - {customers_table_name}
@@ -28,8 +27,7 @@ def test_for_each_dataset(data_source_fixture: DataSourceFixture):
             checks:
               - row_count > 0
               - missing_count(id) = 1
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -45,8 +43,7 @@ def test_for_each_dataset_schema(data_source_fixture: DataSourceFixture):
     casify = data_source_fixture.data_source.default_casify_column_name
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           for each dataset D:
             datasets:
               - {customers_table_name}
@@ -58,8 +55,7 @@ def test_for_each_dataset_schema(data_source_fixture: DataSourceFixture):
                     when forbidden column present:
                       - ssn
                       - credit_card%
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -73,15 +69,13 @@ def test_for_each_table_backwards_compatibility(data_source_fixture: DataSourceF
     customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           for each table T:
             tables:
               - {customers_table_name}
             checks:
               - row_count >= 0
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     scan.assert_no_error_logs()
@@ -91,14 +85,12 @@ def test_for_each_table_backwards_compatibility(data_source_fixture: DataSourceF
 def test_for_each_dataset_with_quotes_warning(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        """
+    scan.add_sodacl_yaml_str("""
         for each dataset T:
             datasets:
                 - include "some_table"
                 - exclude "some_other_table"
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     character_log_warnings = [
@@ -115,8 +107,7 @@ def test_for_each_dataset_variables(data_source_fixture: DataSourceFixture):
     customers_table_name = data_source_fixture.ensure_test_table(customers_test_table)
 
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           for each dataset D:
             datasets:
               - {customers_table_name}
@@ -125,8 +116,7 @@ def test_for_each_dataset_variables(data_source_fixture: DataSourceFixture):
                   fail query: "SELECT * FROM ${{D}} WHERE {scan.casify_column_name('id')} = 'ID100'"
               - user_metric < 100:
                   user_metric query: "SELECT count(*) FROM ${{D}}"
-        """
-    )
+        """)
     scan.execute()
 
     scan.assert_all_checks_pass()

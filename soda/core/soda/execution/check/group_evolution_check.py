@@ -81,9 +81,9 @@ class GroupEvolutionCheck(Check):
                 return
 
         if group_evolution_check_cfg.fail_validations:
-            (self.failures, self.failure_results) = self.group_validations(group_evolution_check_cfg.fail_validations)
+            self.failures, self.failure_results = self.group_validations(group_evolution_check_cfg.fail_validations)
         if group_evolution_check_cfg.warn_validations:
-            (self.warnings, self.warning_results) = self.group_validations(group_evolution_check_cfg.warn_validations)
+            self.warnings, self.warning_results = self.group_validations(group_evolution_check_cfg.warn_validations)
 
         if self.failures > 0:
             self.outcome = CheckOutcome.FAIL

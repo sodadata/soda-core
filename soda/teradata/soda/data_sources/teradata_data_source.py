@@ -258,8 +258,7 @@ class TeradataDataSource(DataSource):
         if limit:
             limit_sql = f"TOP {limit}"
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {column_names}, {self.expr_count_all()} AS frequency
                 FROM {qualified_table_name}
@@ -268,8 +267,7 @@ class TeradataDataSource(DataSource):
             SELECT {limit_sql} {main_query_columns}
             FROM frequencies
             WHERE frequency {'<=' if invert_condition else '>'} 1
-            ORDER BY frequency DESC"""
-        )
+            ORDER BY frequency DESC""")
         return sql
 
     def sql_get_duplicates(
@@ -291,8 +289,7 @@ class TeradataDataSource(DataSource):
         if limit:
             limit_sql = f"TOP {limit}"
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             WITH frequencies AS (
                 SELECT {column_names}
                 FROM {qualified_table_name}
@@ -302,8 +299,7 @@ class TeradataDataSource(DataSource):
             SELECT {limit_sql} {qualified_main_query_columns}
             FROM {qualified_table_name} main
             JOIN frequencies ON {join}
-            """
-        )
+            """)
 
         return sql
 
@@ -320,13 +316,11 @@ class TeradataDataSource(DataSource):
         if limit:
             limit_sql = f"TOP {limit}"
 
-        sql = dedent(
-            f"""
+        sql = dedent(f"""
             SELECT {limit_sql} {columns}
                 FROM {table_name}  SOURCE
                 LEFT JOIN {target_table_name} TARGET on {join_condition}
-            WHERE {where_condition}"""
-        )
+            WHERE {where_condition}""")
 
         return sql
 
@@ -354,16 +348,14 @@ class TeradataDataSource(DataSource):
                         )"""
 
         if data_type_category == "text":
-            return dedent(
-                f"""
+            return dedent(f"""
                     WITH
                         {value_frequencies_cte},
                         {frequent_values_cte}
                     SELECT *
                     FROM frequent_values
                     ORDER BY metric_ ASC, index_ ASC
-                """
-            )
+                """)
 
         elif data_type_category == "numeric":
             mins_cte = f"""mins AS (
@@ -382,8 +374,7 @@ class TeradataDataSource(DataSource):
 
                         )"""
 
-            return dedent(
-                f"""
+            return dedent(f"""
                     WITH
                         {value_frequencies_cte},
                         {mins_cte},
@@ -399,8 +390,7 @@ class TeradataDataSource(DataSource):
                     SELECT *
                     FROM result_values
                     ORDER BY metric_ ASC, index_ ASC
-                """
-            )
+                """)
 
         raise AssertionError("data_type_category must be either 'numeric' or 'text'")
 
@@ -522,8 +512,7 @@ class TeradataDataSource(DataSource):
         column_name = self.quote_column(column_name)
         qualified_table_name = self.qualified_table_name(table_name)
         # average and sum are reserved words in Teradata
-        return dedent(
-            f"""
+        return dedent(f"""
             SELECT
                 avg({column_name}) as "average"
                 , sum({column_name}) as "sum"
@@ -532,8 +521,7 @@ class TeradataDataSource(DataSource):
                 , {self.expr_count(f'distinct({column_name})')} as distinct_values
                 , sum(case when {column_name} is null then 1 else 0 end) as missing_values
             FROM {qualified_table_name}
-            """
-        )
+            """)
 
     def sql_table_include_exclude_filter(
         self,

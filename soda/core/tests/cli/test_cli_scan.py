@@ -19,8 +19,7 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/configuration1.yml": dedent(
-            f"""
+        f"{user_home_dir}/configuration1.yml": dedent(f"""
                 data_source cli_ds:
                   type: postgres
                   host: localhost
@@ -28,21 +27,16 @@ def test_imports(data_source_fixture: DataSourceFixture, mock_file_system: MockF
                   database: sodasql
                   schema: {data_source_fixture.schema_name}
                   port: {int(os.getenv("POSTGRES_PORT", 5432))}
-            """
-        ).strip(),
+            """).strip(),
         f"{user_home_dir}/configuration2.yml": "",
-        f"{user_home_dir}/checks1.yml": dedent(
-            f"""
+        f"{user_home_dir}/checks1.yml": dedent(f"""
                 checks for {table_name}:
                   - row_count > 0
-            """
-        ).strip(),
-        f"{user_home_dir}/checks2.yml": dedent(
-            f"""
+            """).strip(),
+        f"{user_home_dir}/checks2.yml": dedent(f"""
                 checks for {table_name}:
                   - row_count > -1
-            """
-        ).strip(),
+            """).strip(),
     }
 
     result = run_cli(
@@ -78,29 +72,23 @@ def test_non_existing_configuration_file(data_source_fixture: DataSourceFixture,
     user_home_dir = mock_file_system.user_home_dir()
 
     mock_file_system.files = {
-        f"{user_home_dir}/.yml": dedent(
-            f"""
+        f"{user_home_dir}/.yml": dedent(f"""
                 data_source cli_ds:
                   type: postgres
                   host: localhost
                   username: sodasql
                   database: sodasql
                   schema: {data_source_fixture.schema_name}
-            """
-        ).strip(),
+            """).strip(),
         f"{user_home_dir}/configuration2.yml": "",
-        f"{user_home_dir}/checks1.yml": dedent(
-            f"""
+        f"{user_home_dir}/checks1.yml": dedent(f"""
                 checks for {table_name}:
                   - row_count > 0
-            """
-        ).strip(),
-        f"{user_home_dir}/checks2.yml": dedent(
-            f"""
+            """).strip(),
+        f"{user_home_dir}/checks2.yml": dedent(f"""
                 checks for {table_name}:
                   - row_count > -1
-            """
-        ).strip(),
+            """).strip(),
     }
 
     result = run_cli(

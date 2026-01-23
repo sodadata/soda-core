@@ -19,12 +19,10 @@ def test_missing_count_sample(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - missing_count(id) = 1
-        """
-    )
+        """)
     scan.execute()
 
     diagnostics = mock_soda_cloud.find_check_diagnostics(0)
@@ -39,12 +37,10 @@ def test_missing_count_sample_disabled(data_source_fixture: DataSourceFixture):
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     mock_soda_cloud.disable_collecting_warehouse_data = True
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - missing_count(id) = 1
-        """
-    )
+        """)
     scan.execute()
 
     diagnostics = mock_soda_cloud.find_check_diagnostics(0)
@@ -59,12 +55,10 @@ def test_missing_percent_sample(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - missing_percent(id) < 20 %
-        """
-    )
+        """)
     scan.execute()
 
     assert_missing_sample(mock_soda_cloud, 0)
@@ -94,8 +88,7 @@ def test_various_valid_invalid_sample_combinations(data_source_fixture: DataSour
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - missing_count(cat) > 0
             - missing_percent(cat) > 0
@@ -109,8 +102,7 @@ def test_various_valid_invalid_sample_combinations(data_source_fixture: DataSour
                 valid values: ['HIGH']
             - invalid_percent(cat) > 0:
                 valid values: ['HIGH']
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == 5
@@ -148,12 +140,10 @@ def test_duplicate_samples(check, expected, data_source_fixture: DataSourceFixtu
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             {check}
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == expected
@@ -169,12 +159,10 @@ def test_duplicate_percent_samples(check, expected, data_source_fixture: DataSou
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             {check}
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     assert mock_soda_cloud.find_failed_rows_line_count(0) == expected
@@ -186,12 +174,10 @@ def test_duplicate_without_rows_samples(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           checks for {table_name}:
             - duplicate_count(id) = 0
-        """
-    )
+        """)
     scan.execute_unchecked()
 
     assert len(mock_soda_cloud.files) == 0
@@ -281,15 +267,11 @@ def test_sample_limit_configuration(check: str, has_sample_query: bool, data_sou
         },
     )
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           checks for {table_name}:
             {check}
                 samples limit: {samples_limit}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_all_checks_fail()
@@ -339,15 +321,11 @@ def test_sample_limit_zero_configuration(check: str, has_sample_query: bool, dat
         },
     )
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           checks for {table_name}:
             {check}
                 samples limit: {samples_limit}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_all_checks_fail()
@@ -384,14 +362,10 @@ def test_sample_limit_default(check: str, has_sample_query: bool, data_source_fi
         },
     )
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           checks for {table_name}:
             {check}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_all_checks_fail()
@@ -431,14 +405,10 @@ def test_sample_limit_global_setting(check: str, has_sample_query: bool, data_so
         },
     )
 
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
           checks for {table_name}:
             {check}
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_all_checks_fail()
@@ -462,16 +432,12 @@ def test_sample_with_multiple_value_condition(data_source_fixture: DataSourceFix
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
         checks for {table_name}:
             - invalid_count(cst_size) = 0:
                 valid min: -2
                 valid max: 5
-        """
-        )
-    )
+        """))
     scan.execute()
 
     scan.assert_all_checks_fail()

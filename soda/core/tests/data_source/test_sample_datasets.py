@@ -10,13 +10,11 @@ def test_sample_tables(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
           sample datasets:
             datasets:
               - include {table_name}
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     # remove the data source name because it's a pain to test
     discover_tables_result = mock_soda_cloud.pop_scan_result()
@@ -60,13 +58,11 @@ def test_discover_tables_customer_wildcard_incl_only(data_source_fixture: DataSo
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         sample datasets:
           datasets:
             - include %{orders_test_table_name[:-2]}%
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     assert discover_tables_result is not None
@@ -82,15 +78,13 @@ def test_discover_tables_customer_wildcard_incl_excl(data_source_fixture: DataSo
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
     scan.enable_mock_sampler()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         sample datasets:
           datasets:
             - include %sodatest_%
             - exclude %orders%
             - exclude %profiling%
-        """
-    )
+        """)
     scan.execute(allow_warnings_only=True)
     discover_tables_result = mock_soda_cloud.pop_scan_result()
     profilings = discover_tables_result["profiling"]
@@ -103,12 +97,10 @@ def test_discover_tables_customer_wildcard_incl_excl(data_source_fixture: DataSo
 def test_sample_datasets_no_provided_table(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         sample datasets:
             datasets:
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]

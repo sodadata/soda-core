@@ -29,26 +29,22 @@ def test_automated_monitoring(data_source_fixture: DataSourceFixture):
         metric_values=[schema_metric_value_derived_from_test_table],
     )
 
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
             automated monitoring:
               datasets:
                 - include {table_name}
                 - exclude PROD%
-        """
-    )
+        """)
     scan.execute()
 
 
 def test_automated_monitoring_no_provided_table(data_source_fixture: DataSourceFixture):
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
         automated monitoring:
             datasets:
-        """
-    )
+        """)
     scan.execute(allow_error_warning=True)
     scan_results = mock_soda_cloud.pop_scan_result()
     assert scan_results["hasErrors"]

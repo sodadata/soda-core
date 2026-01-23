@@ -9,14 +9,12 @@ def test_required_columns_pass(data_source_fixture: DataSourceFixture):
 
     default_casify_column_name = data_source_fixture.data_source.default_casify_column_name
     scan = data_source_fixture.create_test_scan()
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
               when required column missing: [{default_casify_column_name('id')}, {default_casify_column_name('cst_size_txt')}, {default_casify_column_name('distance')}]
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_pass()
@@ -33,15 +31,13 @@ def test_required_columns_fail(data_source_fixture: DataSourceFixture):
         prefix="-",
         data_source=data_source_fixture.data_source,
     )
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             fail:
               when required column missing:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_fail()
@@ -62,15 +58,13 @@ def test_required_columns_warn(data_source_fixture: DataSourceFixture):
         prefix="-",
         data_source=data_source_fixture.data_source,
     )
-    scan.add_sodacl_yaml_str(
-        f"""
+    scan.add_sodacl_yaml_str(f"""
       checks for {table_name}:
         - schema:
             warn:
               when required column missing:
 {checks_str}
-    """
-    )
+    """)
     scan.execute()
 
     scan.assert_all_checks_warn()

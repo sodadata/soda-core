@@ -15,21 +15,17 @@ from soda.contracts.contract_verification import (
 def test_spark_session_api():
     spark_session = SparkSession.builder.master("local").appName("test").getOrCreate()
 
-    contract_yaml_str = dedent(
-        """
+    contract_yaml_str = dedent("""
       dataset: CUSTOMERS
       columns:
       - name: id
       - name: size
-    """
-    )
+    """)
 
-    soda_cloud_yaml_str: str = dedent(
-        """
+    soda_cloud_yaml_str: str = dedent("""
         api_key_id: ${DEV_SODADATA_IO_API_KEY_ID}
         api_key_secret: ${DEV_SODADATA_IO_API_KEY_SECRET}
-    """
-    )
+    """)
 
     try:
         contract_verification_result: ContractVerificationResult = (

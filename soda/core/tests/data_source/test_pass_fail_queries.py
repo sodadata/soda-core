@@ -57,14 +57,10 @@ def test_pass_fail_queries(
 
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
             checks for {table_name}:
                 - {check}
-            """
-        )
-    )
+            """))
     scan.execute_unchecked()
 
     scan.assert_all_checks_fail()
@@ -90,17 +86,13 @@ def test_with_multiple_aggregate_checks(data_source_fixture: DataSourceFixture):
 
     scan = data_source_fixture.create_test_scan()
     mock_soda_cloud = scan.enable_mock_soda_cloud()
-    scan.add_sodacl_yaml_str(
-        dedent(
-            f"""
+    scan.add_sodacl_yaml_str(dedent(f"""
             checks for {table_name}:
                 - missing_count(cat) = 0:
                     name: missing_count cat
                 - missing_count(id) = 0:
                     name: missing_count id
-            """
-        )
-    )
+            """))
     scan.execute_unchecked()
 
     scan.assert_all_checks_fail()
