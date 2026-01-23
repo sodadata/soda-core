@@ -4,7 +4,7 @@ import signal
 import sys
 import traceback
 from argparse import ArgumentParser, _SubParsersAction
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
@@ -223,6 +223,7 @@ def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]
         key, value = variable.split("=", 1)
         key = key.strip()
         value = value.strip()
+        value = _parse_variable_value(key=key, value=value)
         if not key or not value:
             soda_logger.error(
                 f"Incorrectly formatted variable '{variable}', key or value is empty. Please use the format KEY=VALUE"
@@ -230,6 +231,26 @@ def _parse_variables(variables: Optional[List[str]]) -> Optional[Dict[str, str]]
             return None
         result[key] = value
     return result
+
+
+def _parse_variable_value(key: str, value: str) -> Union[str, float, int]:
+    # Try to parse the value as an integer first
+    # Note: we don't use the .isnumeric() or isdigit() methods here, as they are not reliable for floats, negative numbers...
+    try:
+        value = int(value)
+        soda_logger.info(f"Variable {key} is a number, parsed as int: {value}")
+        return value
+    except ValueError:
+        pass
+    # Then try to parse it as a float
+    try:
+        value = float(value)
+        soda_logger.info(f"Variable {key} is a number, parsed as float: {value}")
+        return value
+    except ValueError:
+        pass
+    # If it's not a number, return the string
+    return value
 
 
 def _setup_contract_publish_command(contract_parsers) -> None:
