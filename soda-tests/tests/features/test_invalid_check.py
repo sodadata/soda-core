@@ -270,3 +270,35 @@ def test_valid_values_with_check_filter(data_source_test_helper: DataSourceTestH
         )
         == 0
     )
+
+
+def test_invalid_check_with_variables_typing(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str="""
+            variables:
+              my_int_variable:
+                default: 100
+              my_str_variable:
+                default: abcd
+            checks:
+              - schema: {}
+              - row_count:
+            columns:
+              - name: id
+                data_type: character varying
+                checks:
+                  - invalid:
+                      valid_max_length: ${var.my_int_variable}
+              - name: age
+                data_type: integer
+        """,
+    )
+    assert (
+        get_diagnostic_value(
+            check_result=contract_verification_result.check_results[2], diagnostic_name="invalid_count"
+        )
+        == 0
+    )
