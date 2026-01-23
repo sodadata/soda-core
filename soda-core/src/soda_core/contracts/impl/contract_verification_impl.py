@@ -136,7 +136,7 @@ class ContractVerificationSessionImpl:
             variables = {}
         else:
             assert isinstance(variables, dict)
-            assert all(isinstance(k, str) and isinstance(v, (str, float, int)) for k, v in variables.items())
+            assert all(isinstance(k, str) and isinstance(v, (str, Number)) for k, v in variables.items())
 
         # Validate input data_source_impls
         if data_source_impls is None:
