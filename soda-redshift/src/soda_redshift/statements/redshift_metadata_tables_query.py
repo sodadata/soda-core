@@ -34,7 +34,7 @@ class RedshiftMetadataTablesQuery(MetadataTablesQuery):
     ) -> list[FullyQualifiedObjectName]:
         if types_to_return is None:
             types_to_return = [TableType.TABLE]
-        select_statement: list = self.build_sql_statement(
+        select_statement: UNION_ALL = self.build_sql_statement(
             database_name=database_name,
             schema_name=schema_name,
             include_table_name_like_filters=include_table_name_like_filters,
@@ -50,7 +50,7 @@ class RedshiftMetadataTablesQuery(MetadataTablesQuery):
         schema_name: Optional[str] = None,
         include_table_name_like_filters: Optional[list[str]] = None,
         exclude_table_name_like_filters: Optional[list[str]] = None,
-    ) -> list:
+    ) -> UNION_ALL:
         """
         Builds the full SQL query statement to query table names from the data source metadata.
 
@@ -81,7 +81,7 @@ class RedshiftMetadataTablesQuery(MetadataTablesQuery):
             FROM("svv_mv_info"),
         ]
 
-        select = UNION_ALL([table_select, matview_select])
+        statement = UNION_ALL([table_select, matview_select])
 
         if database_name:
             database_name_lower: str = database_name.lower()
@@ -123,4 +123,4 @@ class RedshiftMetadataTablesQuery(MetadataTablesQuery):
                     WHERE(NOT_LIKE(LOWER(COLUMN("name")), LITERAL(exclude_table_name_like_filter.lower())))
                 )
 
-        return select
+        return statement
