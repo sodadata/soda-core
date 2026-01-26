@@ -663,11 +663,11 @@ class ContractImpl:
 
             contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
 
-            logger.info(
-                self.build_log_summary(
-                    soda_qualified_dataset_name=self.soda_qualified_dataset_name, check_results=check_results
-                )
+            log_lines = self.build_log_summary(
+                soda_qualified_dataset_name=self.soda_qualified_dataset_name, check_results=check_results
             )
+            for line in log_lines:
+                logger.info(line)
 
         log_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
 
@@ -751,7 +751,7 @@ class ContractImpl:
                     return datasets.get("id")
         return None
 
-    def build_log_summary(self, soda_qualified_dataset_name: str, check_results: list[CheckResult]) -> str:
+    def build_log_summary(self, soda_qualified_dataset_name: str, check_results: list[CheckResult]) -> list[str]:
         summary_lines: list[str] = []
 
         failed_count: int = 0
@@ -811,7 +811,7 @@ class ContractImpl:
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
         summary_lines.append(f"# Summary:\n{overview_table}\n")
 
-        return "\n".join(summary_lines)
+        return [line for joined_line in summary_lines for line in joined_line.split("\n")]
 
     def build_summary_table(self, check_results: list[CheckResult]) -> str:
         overview_table_data = [check_result.log_table_row() for check_result in check_results]
