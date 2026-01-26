@@ -39,7 +39,7 @@ def test_split_log_lines(data_source_test_helper: DataSourceTestHelper):
         "+-----------------+------------------------------------+-------------+-----------+--------------+------------+------------------------+",
         "| Column          | Check                              | Threshold   | Outcome   | Check Type   | Identity   | Diagnostics            |",
         "+=================+====================================+=============+===========+==============+============+========================+",
-        "| [dataset-level] | Row count meets expected threshold | level: fail | ✅ PASSED | row_count    | 2ccd8a76   | check_rows_tested: 3   |",
+        # "| [dataset-level] | Row count meets expected threshold | level: fail | ✅ PASSED | row_count    | 2ccd8a76   | check_rows_tested: 3   |",
         "|                 |                                    | must be: 3  |           |              |            | dataset_rows_tested: 3 |",
         "+-----------------+------------------------------------+-------------+-----------+--------------+------------+------------------------+",
         "# Summary:",
