@@ -4,7 +4,7 @@
 TODO re-add preamble
 
 
-## Installation
+## Setup
 
 This repository hosts the open source Soda Core packages which are installable using the **Public PyPI installation flow** described in [Soda's documentation](https://docs.soda.io/soda-v4/deployment-options/soda-python-libraries#public-pypi-installation-flow). 
 
@@ -17,16 +17,9 @@ To check your existing version, use the CLI command: `python --version` or `pyth
 * **Pip 21.0 or greater.**
 To check your existing version, use the CLI command: `pip --version`
 
-* Optionally, **a Soda Cloud account**; see [how to sign up](https://docs.soda.io/soda-v4/quickstart#sign-up).
+We recommend that you install Soda Core using a virtual environment. 
 
-Best practice dictates that you install the Soda CLI using a virtual environment. If you haven't yet, in your command-line interface tool, create a virtual environment in the `.venv` directory using the commands below. Depending on your version of Python, you may need to replace `python` with `python3` in the first command.
-
-```
-python -m venv .venv
-source .venv/bin/activate
-```
-
-## Get started
+### Installation
     To use the open source Soda Core python packages, you may install them from the public Soda PyPi registry: https://pypi.cloud.soda.io/simple .
 
 Install the Soda Core package for your data source. This gives you access to all the basic CLI functionality for working with contracts.
@@ -40,7 +33,7 @@ Replace `soda-postgres` with the appropriate package for your data source. See t
 
 ## Quickstart
 
-The examples show a minimal configuration of a data source and contract.  Please see the Soda Cloud documentation for more detailed examples as well as features available for Soda Cloud users.  (TODO link)
+The examples show a minimal configuration of a data source and contract.  Please see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more detailed examples as well as features available for Soda Cloud users.  
 
 ### Configure a data source
 These commands help you define a local configuration for your data source (used by Soda Core) and validate the connection.
@@ -58,7 +51,7 @@ Parameter | Required | Description
 
 By default, the YAML file generated as `ds_config.yml` is a template for PostgreSQL connections.
 
-To see how to modify it to connect to other data sources, head to [Data source reference for Soda Core](link todo).
+To see how to modify it to connect to other data sources, head to [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
 
 #### Test data source connection
 
@@ -72,7 +65,34 @@ Parameter | Required | Description
 
 ### Create a contract
 
-TODO this should be a barebones example without any Soda Cloud features
+Create a new file named `contract.yml`.  The following sample contract will run against a table accessible at `db.schema.dataset` within a data source named `postgres_ds`.  The data source name must match the name in the data source config file.
+
+```
+dataset: postgres_ds/db/schema/dataset
+
+checks: #dataset level checks
+  - schema:
+  - row_count: 
+
+columns: #columns block
+  - name: id
+    checks: # column level checks (optional)
+      - missing:
+  - name: name
+    checks:
+      - missing:
+          threshold:
+            metric: percent
+            must_be_less_than: 10
+  - name: size
+    checks:
+      - invalid:
+          valid_values: ['S', 'M', 'L'] 
+```
+
+For a full reference of contracts including available check definitions, please view the [Soda documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference).  
+
+
 
 ### Verify a contract
 
@@ -80,7 +100,7 @@ Executes a contract verification to check if the dataset complies with its expec
 
 
 ```
-soda contract verify --data-source ds_config.yml --contract contract.yaml
+soda contract verify --data-source ds_config.yml --contract contract.yml
 ```
 
 
