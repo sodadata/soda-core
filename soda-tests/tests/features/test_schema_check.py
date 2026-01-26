@@ -1,6 +1,8 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
+from soda_core.common.statements.table_types import TableType
 from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
@@ -14,8 +16,17 @@ test_table_specification = (
 )
 
 
-def test_schema(data_source_test_helper: DataSourceTestHelper):
+@pytest.mark.parametrize("table_type", [TableType.TABLE, TableType.MATERIALIZED_VIEW, TableType.VIEW])
+def test_schema(data_source_test_helper: DataSourceTestHelper, table_type: TableType):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    if table_type == TableType.MATERIALIZED_VIEW:
+        if not data_source_test_helper.data_source_impl.sql_dialect.supports_materialized_views():
+            pytest.skip("Materialized views not supported for this dialect")
+        test_table = data_source_test_helper.create_materialized_view_from_test_table(test_table)
+    elif table_type == TableType.VIEW:
+        if not data_source_test_helper.data_source_impl.sql_dialect.supports_views():
+            pytest.skip("Views not supported for this dialect")
+        test_table = data_source_test_helper.create_view_from_test_table(test_table)
 
     data_source_test_helper.enable_soda_cloud_mock(
         [

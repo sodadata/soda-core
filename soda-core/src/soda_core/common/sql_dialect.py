@@ -6,6 +6,7 @@ from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
 from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing_extensions import deprecated
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -89,6 +90,8 @@ from soda_core.common.sql_ast import (
     STRING_HASH,
     SUM,
     TUPLE,
+    UNION,
+    UNION_ALL,
     VALUES,
     VALUES_ROW,
     WHERE,
@@ -597,11 +600,18 @@ class SqlDialect:
     #########################################################
     # UNION
     #########################################################
-    # Commenting this out, as it's not ready for production yet. Just want to leave this here for future reference.
-    # def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: bool = True) -> str:
-    #     # TODO: add support for other datasources. Currently only tested/verified for Postgres.
-    #     union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION"
-    #     return f"\n{union_sql}\n".join([f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)" for select_element in union.select_elements]) + (";" if add_semicolon else "")
+    @deprecated(
+        "Not fully supported for all datasources yet. Only tested/verified for Postgres and Redshift. Use with caution."
+    )
+    def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: bool = True) -> str:
+        # TODO: add support for other datasources. Currently only tested/verified for Postgres.
+        union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION"
+        return f"\n{union_sql}\n".join(
+            [
+                f"(\n{self.build_select_sql(select_element, add_semicolon=False)}\n)"
+                for select_element in union.select_elements
+            ]
+        ) + (";" if add_semicolon else "")
 
     #########################################################
     # SELECT
@@ -1387,6 +1397,13 @@ class SqlDialect:
     # Metadata columns query
     ########################################################
 
+    def build_columns_metadata_from_clause(self, table_namespace: DataSourceNamespace) -> FROM:
+        """
+        Builds the FROM clause for querying column metadata.
+        Purpose of this method is to allow specific data source to override.
+        """
+        return FROM(self.table_columns()).IN(self.information_schema_namespace_elements(table_namespace))
+
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
@@ -1394,8 +1411,6 @@ class SqlDialect:
 
         database_name: str | None = table_namespace.get_database_for_metadata_query()
         schema_name: str = table_namespace.get_schema_for_metadata_query()
-
-        information_schema_namespace_elements = self.information_schema_namespace_elements(table_namespace)
 
         return self.build_select_sql(
             [
@@ -1426,7 +1441,7 @@ class SqlDialect:
                         ),
                     ]
                 ),
-                FROM(self.table_columns()).IN(information_schema_namespace_elements),
+                self.build_columns_metadata_from_clause(table_namespace),
                 WHERE(
                     AND(
                         [

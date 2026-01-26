@@ -4,23 +4,28 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
 from soda_core.common.sql_ast import (
     COLUMN,
     CONCAT,
     CONCAT_WS,
     COUNT,
     DISTINCT,
+    FROM,
     REGEX_LIKE,
     TUPLE,
     VALUES,
 )
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSource as RedshiftDataSourceModel,
 )
 from soda_redshift.common.data_sources.redshift_data_source_connection import (
     RedshiftDataSourceConnection,
+)
+from soda_redshift.statements.redshift_metadata_tables_query import (
+    RedshiftMetadataTablesQuery,
 )
 
 logger: logging.Logger = soda_logger
@@ -40,6 +45,11 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
     def _create_data_source_connection(self) -> DataSourceConnection:
         return RedshiftDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+        )
+
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        return RedshiftMetadataTablesQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
         )
 
 
@@ -175,3 +185,15 @@ class RedshiftSqlDialect(SqlDialect):
 
     def _build_concat_sql(self, concat: CONCAT) -> str:
         return f" || ".join(self.build_expression_sql(e) for e in concat.expressions)
+
+    def supports_materialized_views(self) -> bool:
+        return True
+
+    def table_columns(self) -> str:
+        return self.default_casify("svv_columns")
+
+    def build_columns_metadata_from_clause(self, table_namespace: DataSourceNamespace) -> FROM:
+        return FROM(self.table_columns()).IN(self._pg_catalog_schema())
+
+    def _pg_catalog_schema(self) -> str:
+        return "pg_catalog"
