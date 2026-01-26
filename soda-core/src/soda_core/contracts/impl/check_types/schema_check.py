@@ -78,6 +78,8 @@ class SchemaCheckImpl(CheckImpl):
             check_yaml=check_yaml,
         )
 
+        logger.info(f"Found {len(contract_impl.column_impls)} columns in contract.")
+
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
                 column_name=column_impl.column_yaml.name,
@@ -92,6 +94,7 @@ class SchemaCheckImpl(CheckImpl):
             )
             for column_impl in contract_impl.column_impls
         ]
+        logger.info(f"Built {len(self.expected_columns)} expected columns from contract.")
         self.allow_extra_columns: bool = bool(check_yaml.allow_extra_columns)
         self.allow_other_column_order: bool = bool(check_yaml.allow_other_column_order)
 
@@ -117,6 +120,7 @@ class SchemaCheckImpl(CheckImpl):
             self.queries.append(schema_query)
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+        logger.info("Evaluating schema check")
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
         expected_column_names_not_actual: list[str] = []
@@ -124,7 +128,22 @@ class SchemaCheckImpl(CheckImpl):
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
         are_columns_out_of_order: bool = False
 
-        actual_columns: list[ColumnMetadata] = measurement_values.get_value(self.schema_metric)
+        logger.info("Getting actual columns from measurement values.")
+        # The query to fetch the ColumnMetadata could have failed, in that case no measurement is returned -> actual_columns will be None.
+        actual_columns: Optional[list[ColumnMetadata]] = measurement_values.get_value(self.schema_metric)
+        if actual_columns is None:
+            logger.error("Actual columns are None.")
+            logger.error("Setting actual columns to empty list.")
+            actual_columns = []
+
+        for column in actual_columns:
+            if not isinstance(column, ColumnMetadata):
+                logger.error(f"Actual column is not a ColumnMetadata: {column}")
+                logger.error("Setting actual columns to empty list.")
+                actual_columns = []
+
+        logger.info(f"Found {len(actual_columns)} actual columns.")
+
         if actual_columns:
             actual_column_names: list[str] = [actual_column.column_name for actual_column in actual_columns]
             actual_column_metadata_by_name: dict[str, ColumnMetadata] = {
@@ -134,26 +153,39 @@ class SchemaCheckImpl(CheckImpl):
                 expected_column.column_name for expected_column in self.expected_columns
             ]
 
+            logger.info("Starting to check for missing columns.")
             for expected_column in expected_column_names:
                 if expected_column not in actual_column_names:
                     expected_column_names_not_actual.append(expected_column)
+            logger.info(f"Found {len(expected_column_names_not_actual)} missing columns.")
 
             if not self.allow_extra_columns:
+                logger.info("Starting to check for extra columns.")
                 for actual_column_name in actual_column_names:
                     if actual_column_name not in expected_column_names:
                         actual_column_names_not_expected.append(actual_column_name)
+                logger.info(f"Found {len(actual_column_names_not_expected)} extra columns.")
 
+            logger.info("Starting to check for data type mismatches.")
             for expected_column in self.expected_columns:
                 actual_column_metadata: ColumnMetadata = actual_column_metadata_by_name.get(expected_column.column_name)
-
-                if (
-                    actual_column_metadata
-                    and expected_column.sql_data_type
-                    and not self.contract_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
-                        expected=expected_column.sql_data_type,
-                        actual=actual_column_metadata.sql_data_type,
+                # Assume by default that the data types are the same
+                is_same_data_type: bool = True
+                try:
+                    if actual_column_metadata and expected_column.sql_data_type:
+                        is_same_data_type: bool = (
+                            self.contract_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
+                                expected=expected_column.sql_data_type,
+                                actual=actual_column_metadata.sql_data_type,
+                            )
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Error checking for data type mismatch between column {expected_column.column_name} and actual column {actual_column_metadata.column_name}: {e}"
                     )
-                ):
+                    logger.error(f"Skipping column {expected_column.column_name}.")
+                    continue
+                if not is_same_data_type:
                     column_data_type_mismatches.append(
                         # TODO add numeric_scale, numeric_precision & datetime_precision to the ColumnDataTypeMismatch
                         ColumnDataTypeMismatch(
@@ -164,15 +196,21 @@ class SchemaCheckImpl(CheckImpl):
                             actual_character_maximum_length=actual_column_metadata.sql_data_type.character_maximum_length,
                         )
                     )
+            logger.info(f"Found {len(column_data_type_mismatches)} data type mismatches.")
 
             if not self.allow_other_column_order:
-                previous_index: int = 0
-                for actual_column_name in actual_column_names:
-                    if actual_column_name in expected_column_names:
-                        index: int = expected_column_names.index(actual_column_name)
-                        if index < previous_index:
-                            are_columns_out_of_order = True
-                        previous_index = index
+                logger.info("Starting to check for columns out of order.")
+                try:
+                    previous_index: int = 0
+                    for actual_column_name in actual_column_names:
+                        if actual_column_name in expected_column_names:
+                            index: int = expected_column_names.index(actual_column_name)
+                            if index < previous_index:
+                                are_columns_out_of_order = True
+                            previous_index = index
+                except Exception as e:
+                    logger.error(f"Error checking for columns out of order: {e}")
+                logger.info(f"Found {are_columns_out_of_order} columns out of order.")
 
             outcome = (
                 CheckOutcome.PASSED
@@ -184,6 +222,8 @@ class SchemaCheckImpl(CheckImpl):
                 )
                 else CheckOutcome.FAILED
             )
+
+        logger.info(f"Schema check outcome: {outcome}")
 
         return SchemaCheckResult(
             check=self._build_check_info(),
@@ -228,9 +268,13 @@ class SchemaQuery(Query):
         except Exception as e:
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
-        metadata_columns: list[
-            ColumnMetadata
-        ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
+        try:
+            metadata_columns: list[
+                ColumnMetadata
+            ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
+        except Exception as e:
+            logger.error(f"Error building column metadata from query result: {e}")
+            return []
         schema_metric_impl: MetricImpl = self.metrics[0]
         return [
             Measurement(metric_id=schema_metric_impl.id, value=metadata_columns, metric_name=schema_metric_impl.type)
