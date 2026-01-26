@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from ruamel.yaml import YAML
-from tabulate import tabulate
-
 from abc import ABC
 from datetime import timezone
 from enum import Enum
 from io import StringIO
 from logging import LogRecord
+from typing import Protocol
+
+from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
@@ -51,7 +51,7 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
-from typing import Protocol
+from tabulate import tabulate
 
 logger: logging.Logger = soda_logger
 
@@ -662,8 +662,9 @@ class ContractImpl:
 
             contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
 
-            log_lines = self.build_log_summary(soda_qualified_dataset_name=self.soda_qualified_dataset_name,
-                                               check_results=check_results)
+            log_lines = self.build_log_summary(
+                soda_qualified_dataset_name=self.soda_qualified_dataset_name, check_results=check_results
+            )
             for line in log_lines:
                 logger.info(line)
 
@@ -809,7 +810,7 @@ class ContractImpl:
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
         summary_lines.append(f"# Summary:\n{overview_table}\n")
 
-        return [line for joined_line in summary_lines for line in joined_line.split('\n')]
+        return [line for joined_line in summary_lines for line in joined_line.split("\n")]
 
     def build_summary_table(self, check_results: list[CheckResult]) -> str:
         overview_table_data = [check_result.log_table_row() for check_result in check_results]
