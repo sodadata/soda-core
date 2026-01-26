@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_ast import (
     COLUMN,
     EQ,
@@ -18,7 +20,14 @@ from soda_core.common.sql_ast import (
     WHERE,
 )
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
-from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
+from soda_core.common.statements.table_types import (
+    FullyQualifiedMaterializedViewName,
+    FullyQualifiedObjectName,
+    FullyQualifiedViewName,
+    TableType,
+)
+
+logger: logging.Logger = soda_logger
 
 
 class RedshiftMetadataTablesQuery(MetadataTablesQuery):
@@ -124,3 +133,30 @@ class RedshiftMetadataTablesQuery(MetadataTablesQuery):
                 )
 
         return statement
+
+    def get_results(
+        self, query_result: QueryResult, types_to_return: list[TableType]
+    ) -> list[FullyQualifiedObjectName]:
+        result = super().get_results(query_result, types_to_return)
+        filtered = []
+        # Redshift represents materialized views as 'VIEW' in the table_type column in svv_tables,
+        # so we need to remove them from the result if corresponding materialized view is present.
+        # Populate the filtered list with materialized views first, then add the rest if not already present.
+        materialized_view_names = {
+            (obj.database_name, obj.schema_name, obj.get_object_name())
+            for obj in result
+            if isinstance(obj, FullyQualifiedMaterializedViewName)
+        }
+        for obj in result:
+            if isinstance(obj, FullyQualifiedMaterializedViewName):
+                filtered.append(obj)
+            elif isinstance(obj, FullyQualifiedViewName):
+                if (obj.database_name, obj.schema_name, obj.get_object_name()) not in materialized_view_names:
+                    filtered.append(obj)
+                else:
+                    logger.debug(
+                        f"Excluding view {obj.get_object_name()} in schema {obj.schema_name} from results as a materialized view with the same name exists."
+                    )
+            else:
+                filtered.append(obj)
+        return filtered
