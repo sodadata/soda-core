@@ -128,18 +128,18 @@ class SchemaCheckImpl(CheckImpl):
         column_data_type_mismatches: list[ColumnDataTypeMismatch] = []
         are_columns_out_of_order: bool = False
 
-        logger.info(f"Getting actual columns from measurement values.")
+        logger.info("Getting actual columns from measurement values.")
         # The query to fetch the ColumnMetadata could have failed, in that case no measurement is returned -> actual_columns will be None.
         actual_columns: Optional[list[ColumnMetadata]] = measurement_values.get_value(self.schema_metric)
         if actual_columns is None:
-            logger.error(f"Actual columns are None.")
-            logger.error(f"Setting actual columns to empty list.")
+            logger.error("Actual columns are None.")
+            logger.error("Setting actual columns to empty list.")
             actual_columns = []
 
         for column in actual_columns:
             if not isinstance(column, ColumnMetadata):
                 logger.error(f"Actual column is not a ColumnMetadata: {column}")
-                logger.error(f"Setting actual columns to empty list.")
+                logger.error("Setting actual columns to empty list.")
                 actual_columns = []
 
         logger.info(f"Found {len(actual_columns)} actual columns.")
