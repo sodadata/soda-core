@@ -9,6 +9,7 @@ from typing import Protocol
 
 from ruamel.yaml import YAML
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
+from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import (
     InvalidRegexException,
