@@ -809,16 +809,22 @@ class DROP_MATERIALIZED_VIEW_IF_EXISTS(DROP_MATERIALIZED_VIEW):
         super().__post_init__()
 
 
-# @dataclass
-# class UNION(BaseSqlExpression): # Union and Union all are not fully supported for all datasources yet. Only tested/verified for Postgres.
-#     select_elements: list[Any]
+@dataclass
+@deprecated(
+    "Not fully supported for all datasources yet. Only tested/verified for Postgres and Redshift. Use with caution."
+)
+class UNION(BaseSqlExpression):
+    select_elements: list[Any]
 
-#     def __post_init__(self):
-#         super().__post_init__()
-#         self.handle_parent_node_update(self.select_elements)
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.select_elements)
 
 
-# @dataclass
-# class UNION_ALL(UNION):
-#     def __post_init__(self):
-#         super().__post_init__()
+@dataclass
+@deprecated(
+    "Not fully supported for all datasources yet. Only tested/verified for Postgres and Redshift. Use with caution."
+)
+class UNION_ALL(UNION):
+    def __post_init__(self):
+        super().__post_init__()
