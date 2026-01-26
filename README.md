@@ -61,63 +61,33 @@ Consider migrating to **[Soda Library](https://docs.soda.io/soda/quick-start-sip
 
 ## Get started
 
-Soda Core currently supports connections to several data sources. See [Compatibility](/docs/installation.md#compatibility) for a complete list.
+This repository hosts the open source Soda Core packages which are installable using the **Public PyPI installation flow** described in [Soda's documentation](https://docs.soda.io/soda-v4/deployment-options/soda-python-libraries#public-pypi-installation-flow) 
 
-**Requirements**
-* Python 3.8 or greater
-* Pip 21.0 or greater
+### Requirements
+To use Soda, you must have installed the following on your system.
+
+* **Python 3.8, 3.9, 3.10 or 3.11.** <br>
+To check your existing version, use the CLI command: `python --version or python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.
+
+* **Pip 21.0 or greater.**
+To check your existing version, use the CLI command: pip --version
+
+* Optionally, **a Soda Cloud account**; see [how to sign up](https://docs.soda.io/soda-v4/quickstart#sign-up).
+
+Best practice dictates that you install the Soda CLI using a virtual environment. If you haven't yet, in your command-line interface tool, create a virtual environment in the .venv directory using the commands below. Depending on your version of Python, you may need to replace python with python3 in the first command.
 
 
-**Install and run**
-1. To get started, use the install command, replacing `soda-core-postgres` with the package that matches your data source.  See [Install Soda Core](/docs/installation.md) for a complete list.<br />
-    ```shell
-    pip install soda-core-postgres
-    ```
+Copy
+python -m venv .venv
+source .venv/bin/activate
 
-2. Prepare a `configuration.yml` file to connect to your data source. Then, write data quality checks in a `checks.yml` file. See [Configure Soda Core](/docs/configuration.md).
 
-3. Run a scan to review checks that passed, failed, or warned during a scan. See [Run a Soda Core scan](/docs/scan-core.md).
-    ```shell
-    soda scan -d your_datasource -c configuration.yml checks.yml
-    ```
+### Public PyPI installation flow
+    To use the open source Soda Core python packages, you must install them from the public Soda PyPi registry: https://pypi.cloud.soda.io/simple .
 
-#### Example checks
-```yaml
-# Checks for basic validations
-checks for dim_customer:
-  - row_count between 10 and 1000
-  - missing_count(birth_date) = 0
-  - invalid_percent(phone) < 1 %:
-      valid format: phone number
-  - invalid_count(number_cars_owned) = 0:
-      valid min: 1
-      valid max: 6
-  - duplicate_count(phone) = 0
+Install the Soda Core package for your data source. This gives you access to all the basic CLI functionality for working with contracts.
 
-# Checks for schema changes
-checks for dim_product:
-  - schema:
-      name: Find forbidden, missing, or wrong type
-      warn:
-        when required column missing: [dealer_price, list_price]
-        when forbidden column present: [credit_card]
-        when wrong column type:
-          standard_cost: money
-      fail:
-        when forbidden column present: [pii*]
-        when wrong column index:
-          model_name: 22
-# Check for freshness 
-  - freshness(start_date) < 1d
-
-# Check for referential integrity
-checks for dim_department_group:
-  - values in (department_group_name) must exist in dim_employee (department_name)
 ```
-<br />
-
-## Documentation
-
-* [Soda Core](/docs/overview-main.md)
-* [Soda Checks Language (SodaCL)](https://docs.soda.io/soda-cl/soda-cl-overview.html)
-
+pip install -i https://pypi.cloud.soda.io/simple --pre -U "soda-postgres>4"
+```
+Replace `soda-postgres` with the appropriate package for your data source. See the [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core) for supported packages and configurations.
