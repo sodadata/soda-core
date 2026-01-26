@@ -65,7 +65,7 @@ Parameter | Required | Description
 
 ### Create a contract
 
-Create a new file named `contract.yml`.  The following sample contract will run against a table accessible at `db.schema.dataset` within a data source named `postgres_ds`.  The data source name must match the name in the data source config file.
+Create a new file named `contract.yml`.  The following sample contract will run against a table with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  The data source name must match the name in the data source config file.
 
 ```
 dataset: postgres_ds/db/schema/dataset
@@ -107,5 +107,5 @@ soda contract verify --data-source ds_config.yml --contract contract.yml
 Parameter | Required | Description
 --- | --- | ---
 `--data-source`, `-ds` | Yes | Path to a data source YAML configuration file.
-`--contract`, `-c` | Yes | Path to a data source YAML configuration file.
+`--contract`, `-c` | Yes | Path to a data contract YAML configuration file.
 `--verbose`, `-v` | No | Display detailed logs during execution.
