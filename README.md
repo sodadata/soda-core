@@ -1,8 +1,16 @@
 
-<h1 align="center">Soda Core</h1>
+<h1 align="center">Soda Core — Data Contracts Engine</h1>
 
-TODO re-add preamble
+Soda Core is a data quality and data contract verification engine. It lets you define data quality contracts in YAML and automatically validate both schema and data across your data stack.
 
+Soda Core runs contracts as part of your pipelines and orchestration tools, making data quality enforcement scalable, automated, and easy to integrate.
+
+## Highlights
+
+- Define data contracts using a clean, human-readable YAML syntax
+- Run checks on PostgreSQL, Snowflake, BigQuery, Databricks, DuckDB, and more
+- Use 50+ built-in data quality checks for common and advanced validations
+- Integrate with [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) for centralized management and anomaly detection monitoring
 
 ## Setup
 
@@ -33,7 +41,7 @@ Replace `soda-postgres` with the appropriate package for your data source. See t
 
 ## Quickstart
 
-The examples show a minimal configuration of a data source and contract.  Please see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more detailed examples as well as features available for Soda Cloud users.  
+The examples show a minimal configuration of a data source and contract.  Please see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more detailed examples as well as features available for [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) users.  
 
 ### Configure a data source
 These commands help you define a local configuration for your data source (used by Soda Core) and validate the connection.
@@ -96,7 +104,7 @@ For a full reference of contracts including available check definitions, please 
 
 ### Verify a contract
 
-Executes a contract verification to check if the dataset complies with its expectations. You can verify a local contract file or a Soda Cloud contract either locally (in your Python environment) or remotely with a Soda Agent.
+Executes a contract verification to check if the dataset complies with its expectations. You can verify a local contract file or a [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) contract either locally (in your Python environment) or remotely with a Soda Agent.
 
 
 ```
