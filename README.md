@@ -46,7 +46,7 @@ Replace `soda-postgres` with the appropriate package for your data source. See [
 
 ### Working with legacy Soda Core v3
 
-Soda package names have changed with the release of version 4.  Version 3 open source packages have the form `soda-core-{data source}`.  For example, this example installs Soda Core v3 for Postgres, pinning the version at `3.5.x`:
+Soda package names have changed with the release of version 4.  Legacy version 3 open source packages have the form `soda-core-{data source}`.  For example, to install Soda Core v3 for Postgres, pinning the version at `3.5.x`:
 
 ```
 pip install soda-core-postgres~=3.5.0   # install legacy version 3 package
@@ -117,7 +117,7 @@ Please view the Soda documentation for a [full reference of contracts and check 
 
 ### Verify a contract locally
 
-You may run a contract verification scan to evaluate a dataset with respect to a contract, as follows:
+To evaluate a dataset with respect to its contract, run a contract verification scan:
 
 ```
 soda contract verify -ds ds_config.yml -c contract.yml
@@ -140,7 +140,7 @@ Sode Core also allows you to connect to [Soda Cloud](https://soda.io/?utm_source
 
 ### Connect to Soda Cloud
 
-Generate a Soda Cloud config file named `sc_config.yml`:
+To connect to Soda Cloudd, generate a Soda Cloud config file named `sc_config.yml`:
 
 ```
 soda cloud create -f sc_config.yml
@@ -149,7 +149,7 @@ Parameter | Required | Description
 --- | --- | ---
 `-sc`,`--soda-cloud`| Yes | Output file path for the Soda Cloud YAML configuration file.
 
-Follow these instructions to [generate API keys](https://docs.soda.io/soda-v4/reference/generate-api-keys), and then add them the Soda Cloud config file.  You can test the connection as follows:
+Follow these instructions to [generate API keys](https://docs.soda.io/soda-v4/reference/generate-api-keys), and then add the credentials the Soda Cloud config file.  To test the connection:
 
 ```
 soda cloud test -sc sc_config.yml
@@ -160,7 +160,7 @@ Parameter | Required | Description
 
 ### Publish to Soda Cloud
 
-You may publish a local contract to Soda Cloud, which makes it the source of truth for verification.
+To register a local contract as the source of truth in Soda Cloud, publish it:
 
 ```
 soda contract publish -c contract.yaml -sc sc_config.yml
@@ -171,7 +171,7 @@ Parameter | Required | Description
 `-c`,`--contract`| Yes | Path to a contract YAML file.
 `-sc`,`--soda-cloud`| Yes | Path to Soda Cloud YAML configuration file.
 
-You may also publish local contract verification results to Soda Cloud by adding a Soda Cloud YAML configuration file and enabling the `publish` flag:
+To publish local contract verification results to Soda Cloud, adda Soda Cloud YAML configuration file and enable the `publish` flag:
 
 
 ```
@@ -188,7 +188,7 @@ Parameter | Required | Description
 
 ### Verify a contract remotely using Soda Agent
 
-You may verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts).   Once you have configured a dataset and contract, and assuming your Soda Cloud dataset identifier is `postgres_ds/db/schema/dataset`, launch contract verification as follows:
+To verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts), first configure a dataset and contract in Soda Cloud.  Assuming your Soda Cloud dataset identifier is `postgres_ds/db/schema/dataset`, launch contract verification:
 
 ```
 soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a 
@@ -201,4 +201,4 @@ Parameter | Required | Description
 `-p`,`--publish`| No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
 
 
-Please see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more examples of interacting with Soda Cloud using Soda Core.
+To view more examples of interacting with Soda Cloud using Soda Core, please see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
