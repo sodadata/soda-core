@@ -37,6 +37,17 @@ CLOUD_CONFIG_PATH_HELP = "A Soda Cloud configuration file path."
 FILE_PATH_HELP = "The path to the file to be created. (directories will be created if needed)"
 REQUEST_NUMBER_HELP = "The Contract Request number"
 
+# Legacy v3 commands that are no longer supported in v4
+LEGACY_V3_COMMANDS = frozenset(
+    [
+        "scan",
+        "scan_status",
+        "ingest",
+        "test_connection",
+        "simulate_anomaly_detection",
+    ]
+)
+
 soda_telemetry = SodaTelemetry()
 
 
@@ -81,14 +92,7 @@ def _configure_logging(verbose: bool) -> None:
 
 
 def handle_legacy_commands():
-    legacy_cmds = [
-        "scan",
-        "scan_status",
-        "ingest",
-        "test_connection",
-        "simulate_anomaly_detection",
-    ]
-    if len(sys.argv) > 1 and sys.argv[1] in legacy_cmds:
+    if len(sys.argv) > 1 and sys.argv[1] in LEGACY_V3_COMMANDS:
         print("Soda v3 commands are no longer supported in Soda Core v4 CLI.")
         print("Please use the v3 version of Soda Core or upgrade to v4 Soda Contracts.")
         print("See https://docs.soda.io/soda-v4/reference/cli-reference for more information.")
