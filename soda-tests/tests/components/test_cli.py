@@ -2,7 +2,7 @@ import sys
 from unittest.mock import patch
 
 import pytest
-from soda_core.cli.cli import create_cli_parser
+from soda_core.cli.cli import create_cli_parser, execute
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logs import Logs
 
@@ -396,3 +396,30 @@ def test_cli_argument_mapping_for_soda_cloud_test_command(mock_handler):
     assert e.value.code == 0
 
     mock_handler.assert_called_once_with("sc.yaml")
+
+
+@pytest.mark.parametrize(
+    "legacy_command",
+    [
+        "scan",
+        "scan_status",
+        "ingest",
+        "test_connection",
+        "simulate_anomaly_detection",
+    ],
+)
+def test_cli_v3_legacy_commands(legacy_command):
+    sys.argv = [
+        "soda",
+        legacy_command,
+        "-d",
+        "ds",
+        "-c",
+        "sodacl_snowflake/configuration.yml",
+        "sodacl_pg/checks.yml",
+    ]
+
+    with pytest.raises(SystemExit) as e:
+        execute()
+
+    assert e.value.code == 3

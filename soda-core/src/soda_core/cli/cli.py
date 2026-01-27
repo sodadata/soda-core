@@ -37,6 +37,17 @@ CLOUD_CONFIG_PATH_HELP = "A Soda Cloud configuration file path."
 FILE_PATH_HELP = "The path to the file to be created. (directories will be created if needed)"
 REQUEST_NUMBER_HELP = "The Contract Request number"
 
+# Legacy v3 commands that are no longer supported in v4
+LEGACY_V3_COMMANDS = frozenset(
+    [
+        "scan",
+        "scan_status",
+        "ingest",
+        "test_connection",
+        "simulate_anomaly_detection",
+    ]
+)
+
 soda_telemetry = SodaTelemetry()
 
 
@@ -48,6 +59,8 @@ def execute() -> None:
         print(r"____/\___/___/_/  _\\ CLI v%s" % SODA_CORE_VERSION)
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
+
+        handle_legacy_commands()
 
         args = cli_parser.parse_args()
 
@@ -76,6 +89,15 @@ def _configure_logging(verbose: bool) -> None:
     Purpose of this method is to enable override in test environment
     """
     configure_logging(verbose=verbose)
+
+
+def handle_legacy_commands():
+    if len(sys.argv) > 1 and sys.argv[1] in LEGACY_V3_COMMANDS:
+        print("Soda v3 commands are not supported (Soda v4 was run)")
+        print("Please run Soda v3, or execute only Soda v4 commands.")
+        print("See https://docs.soda.io/soda-v4/reference/cli-reference for more information.")
+
+        exit_with_code(ExitCode.LOG_ERRORS)
 
 
 def create_cli_parser() -> ArgumentParser:
