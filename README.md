@@ -165,7 +165,7 @@ Parameter | Required | Description
 To publish a local contract to Soda Cloud as the source of truth:
 
 ```
-soda contract publish -c contract.yaml -sc sc_config.yml
+soda contract publish -c contract.yml -sc sc_config.yml
 ```
 
 Parameter | Required | Description
@@ -190,10 +190,10 @@ Parameter | Required | Description
 
 ### Verify a contract remotely using Soda Agent
 
-To verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts),  configure a dataset and contract in Soda Cloud.  To obtain the Soda Cloud dataset identifier, for example `postgres_ds/db/schema/dataset`, open the contract in Soda Cloud, enable the `Toggle Code` control, and copy the identifier from the first line of the contract.  To launch contract verification:
+To verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts),  configure a dataset and contract in Soda Cloud and configure an agent in your environment.  To obtain the Soda Cloud dataset identifier, for example `postgres_ds/db/schema/dataset`, open the contract in Soda Cloud, enable the `Toggle Code` control, and copy the identifier from the first line of the contract.  To launch contract verification:
 
 ```
-soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a 
+soda contract verify -sc sc_config.yml -d postgres_ds/db/schema/dataset -a 
 ```
 Parameter | Required | Description
 --- | --- | ---
