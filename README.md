@@ -88,7 +88,7 @@ Parameter | Required | Description
 
 ### Create a contract
 
-Create and populate new contract YAML file.  To understand how to write a contract, see the [online documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference), or the example below, which is configured to test a table or view with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This table is assumed to have columns named `id`, `name`, and `size`. The name `postgres_ds` must match the `name` property in the data source configuration file.  
+Create and populate new contract YAML file.  To understand how to write a contract, see the [online documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference), or the example below, which is configured to test a table or view with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This table is assumed to have columns named `id`, `name`, and `size`. The data source name `postgres_ds` must match the `name` property in the data source configuration file.  
 
 ```
 # contract.yml 
