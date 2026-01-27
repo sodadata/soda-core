@@ -28,9 +28,9 @@ To check your existing version, use the CLI command: `pip --version`
 We recommend that you install Soda Core using `uv` or a virtual environment. 
 
 ### Installation
-    To use the open source Soda Core python packages, you may install them from the public Soda PyPi registry: https://pypi.cloud.soda.io .
-
-Install the Soda Core package for your data source. This gives you access to all the basic CLI functionality for working with contracts.
+    
+    
+To use the open source Soda Core python packages, you may install them from the public Soda PyPi registry: https://pypi.cloud.soda.io.
 
 ```
 pip install -i https://pypi.cloud.soda.io --pre -U "soda-postgres>4"
