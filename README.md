@@ -48,7 +48,7 @@ The examples show a minimal configuration of a data source and contract.  Please
 Most commands can be run with `--verbose` or `-v` to display detailed logs during execution.
 
 ### Configure a data source
-These commands help you define a local configuration for your data source (used by Soda Core) and validate the connection.
+These commands help you define a local configuration for your data source and validate the connection.
 
 #### Create data source config
 
@@ -76,7 +76,7 @@ Parameter | Required | Description
 
 ### Create a contract
 
-Create a new file named `contract.yml`.  The following sample contract will run against a table with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  The data source name must match the name in the data source config file.  This table is assumed to have columns named `id`, `name`, and `size`.
+Create a new file named `contract.yml`.  The following sample contract will run against a table with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This data source name must match the name in the data source config file.  This table is assumed to have columns named `id`, `name`, and `size`.
 
 ```
 dataset: postgres_ds/db/schema/dataset
