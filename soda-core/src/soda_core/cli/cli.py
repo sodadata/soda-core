@@ -93,8 +93,8 @@ def _configure_logging(verbose: bool) -> None:
 
 def handle_legacy_commands():
     if len(sys.argv) > 1 and sys.argv[1] in LEGACY_V3_COMMANDS:
-        print("Soda v3 commands are no longer supported in Soda Core v4 CLI.")
-        print("Please use the v3 version of Soda Core or upgrade to v4 Soda Contracts.")
+        print("Soda v3 commands are not supported (Soda v4 was run)")
+        print("Please run Soda v3, or execute only Soda v4 commands.")
         print("See https://docs.soda.io/soda-v4/reference/cli-reference for more information.")
 
         exit_with_code(ExitCode.LOG_ERRORS)
