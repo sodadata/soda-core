@@ -49,6 +49,8 @@ def execute() -> None:
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
 
+        handle_legacy_commands()
+
         args = cli_parser.parse_args()
 
         soda_telemetry.ingest_cli_arguments(vars(args))
@@ -76,6 +78,21 @@ def _configure_logging(verbose: bool) -> None:
     Purpose of this method is to enable override in test environment
     """
     configure_logging(verbose=verbose)
+
+
+def handle_legacy_commands():
+    legacy_cmds = [
+        "scan",
+        "scan_status",
+        "ingest",
+        "test_connection",
+        "simulate_anomaly_detection",
+    ]
+    if len(sys.argv) > 1 and sys.argv[1] in legacy_cmds:
+        soda_logger.error("Soda v3 commands are no longer supported in Soda Core v4 CLI.")
+        soda_logger.error("Please use the v3 version of Soda Core or upgrade to v4 Soda Contracts.")
+        soda_logger.error("See https://docs.soda.io/soda-v4/ for more information.")
+        exit_with_code(ExitCode.LOG_ERRORS)
 
 
 def create_cli_parser() -> ArgumentParser:
