@@ -20,7 +20,7 @@ This repository hosts the open source Soda Core packages which are installable u
 To use Soda, you must have installed the following on your system.
 
 * **Python 3.9, 3.10, 3.11, or 3.12** <br>
-To check your existing version, use the CLI command: `python --version` or `python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.
+To check your existing version, use the CLI command: `python --version` or `python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.  **Note:** While Python 3.12 is the highest officially supported version, there are no known issues preventing use of Python 3.13+.
 
 * **Pip 21.0 or greater.**
 To check your existing version, use the CLI command: `pip --version`
@@ -117,3 +117,44 @@ Parameter | Required | Description
 `--data-source`, `-ds` | Yes | Path to a data source YAML configuration file.
 `--contract`, `-c` | Yes | Path to a data contract YAML configuration file.
 `--verbose`, `-v` | No | Display detailed logs during execution.
+
+
+## Interact with Soda Cloud
+
+Sode Core also allows you to connect to Soda Cloud and perform operations using the Soda Agent instead of locally. 
+
+
+### Connect to Soda Cloud
+
+Generate a Soda Cloud config file named `sc_config.yml`:
+
+```
+soda cloud create -f sc_config.yml
+```
+
+Follow these instructions to [generate API keys](https://docs.soda.io/soda-v4/reference/generate-api-keys), and then add them the Soda Cloud config file.  You can test the connection as follows:
+
+```
+soda cloud test -sc sc_config.yml
+```
+Parameter | Required | Description
+--- | --- | ---
+`--soda-cloud, -sc`, `-f`| Yes | Path to a Soda Cloud YAML configuration file.
+`--verbose`, `-v` | No | Display detailed logs during execution.
+
+
+### Verify a contract using Soda Agent
+
+Please see the documentation for information on [onboarding datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [configuring contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.   Once you have configured a dataset and contract, you can launch contract verification on the Soda Agent using Soda Core as follows:
+
+```
+soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a
+```
+Parameter | Required | Description
+--- | --- | ---
+`--use-agent`, `-a` | No | Use Soda Agent for execution
+--soda-cloud, -sc | with --use-agent | Path to a Soda Cloud YAML config file
+--dataset, -d | with --use-agent | Soda Cloud dataset identifier
+--verbose, -v | No | Display detailed logs during execution
+
+Please see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more examples of interacting with Soda Cloud using Soda Core.
