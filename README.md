@@ -121,7 +121,7 @@ Parameter | Required | Description
 
 ## Interact with Soda Cloud
 
-Sode Core also allows you to connect to Soda Cloud and perform operations remotely instead of locally.   Please the documentation for examples on [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.
+Sode Core also allows you to connect to Soda Cloud and perform operations remotely instead of locally.   Please see the documentation for examples on [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.
 
 
 ### Connect to Soda Cloud
@@ -140,7 +140,6 @@ soda cloud test -sc sc_config.yml
 Parameter | Required | Description
 --- | --- | ---
 `--soda-cloud, -sc`, `-f`| Yes | Path to a Soda Cloud YAML configuration file.
-`--verbose`, `-v` | No | Display detailed logs during execution.
 
 ### Publish to Soda Cloud
 
@@ -167,11 +166,6 @@ Parameter | Required | Description
 `--contract`, `-c` | Yes | Path to a data contract YAML configuration file.
 `--soda-cloud, -sc` | Yes | Path to a Soda Cloud YAML configuration file.
 `--publish`, `-p` | No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
-`--verbose`, `-v` | No | Display detailed logs during execution.
-
-
-
-
 
 
 ### Verify a contract remotely using Soda Agent
