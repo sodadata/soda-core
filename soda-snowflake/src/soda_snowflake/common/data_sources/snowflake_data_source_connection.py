@@ -73,12 +73,11 @@ class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
 
     def to_connection_kwargs(self) -> dict:
         connection_kwargs = super().to_connection_kwargs()
-        connection_kwargs.update(
-            {
-                "private_key_file": self.private_key_path,
-                "private_key_file_pwd": self.private_key_passphrase.get_secret_value(),
-            }
-        )
+        connection_kwargs["private_key_file"] = self.private_key_path
+        if self.private_key_passphrase is not None:
+            pwd = self.private_key_passphrase.get_secret_value()
+            if pwd:
+                connection_kwargs["private_key_file_pwd"] = pwd
         return connection_kwargs
 
 

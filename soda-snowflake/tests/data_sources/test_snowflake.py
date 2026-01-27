@@ -60,6 +60,20 @@ test_connections: list[TestConnection] = [
                     database: '{SNOWFLAKE_DATABASE}'
             """,
     ),
+    TestConnection(  # connect using private key file without password
+        test_name="private_key_file_connection_without_password",
+        connection_yaml_str=f"""
+                type: snowflake
+                name: SNOWFLAKE_TEST
+                connection:
+                    account: '{SNOWFLAKE_ACCOUNT}'
+                    user: '{SNOWFLAKE_USER}'
+                    private_key_path: '{PRIVATE_KEY_FILE_PATH}'
+                    database: '{SNOWFLAKE_DATABASE}'
+            """,
+        valid_connection_params=False,
+        expected_connection_error="Password was not given but private key is encrypted",
+    ),
     TestConnection(  # connect using token
         test_name="token_connection",
         connection_yaml_str=f"""
