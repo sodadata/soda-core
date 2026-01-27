@@ -36,7 +36,7 @@ Soda Core v4 open source packages are available on public PyPI and have the form
 pip install soda-postgres  # install latest version 4 package
 ```
 
-Replace `soda-postgres` with the appropriate package for your data source. See the [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core) for supported packages and configurations.
+Replace `soda-postgres` with the appropriate package for your data source. See [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core) for supported packages and configurations.
 
 ### Working with legacy Soda Core v3
 
@@ -46,7 +46,7 @@ Soda package names have changed with the release of version 4.  Version 3 open s
 pip install soda-core-postgres~=3.5.0   # install legacy version 3 package
 ```
 
-See the [v3 documentation in Github](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md) for more detailed installation instructions.   See also the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
+See the [v3 documentation in this repository](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md) for more detailed installation instructions.   See also the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
 
 ## Quickstart
 
@@ -68,9 +68,7 @@ Parameter | Required | Description
 `-f`, `--file`|  Yes | Output file path for the data source YAML configuration file.
 
 
-By default, the YAML file generated as `ds_config.yml` is a template for PostgreSQL connections.
-
-To see how to modify it to connect to other data sources, head to [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
+By default, the YAML file generated as `ds_config.yml` is a template for PostgreSQL connections.  To see how to modify it to connect to other data sources, see [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
 
 #### Test data source config
 
@@ -121,7 +119,7 @@ soda contract verify -ds ds_config.yml -c contract.yml
 
 Parameter | Required | Description
 --- | --- | ---
-`ds`,`--data-source`| Yes | Path to a data source YAML configuration file.
+`-ds`,`--data-source`| Yes | Path to a data source YAML configuration file.
 `-c`,`--contract`| Yes | Path to a data contract YAML configuration file.
 
 
@@ -141,6 +139,9 @@ Generate a Soda Cloud config file named `sc_config.yml`:
 ```
 soda cloud create -f sc_config.yml
 ```
+Parameter | Required | Description
+--- | --- | ---
+`-sc`,`--soda-cloud`| Yes | Output file path for the Soda Cloud YAML configuration file.
 
 Follow these instructions to [generate API keys](https://docs.soda.io/soda-v4/reference/generate-api-keys), and then add them the Soda Cloud config file.  You can test the connection as follows:
 
