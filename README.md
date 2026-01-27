@@ -166,7 +166,7 @@ Parameter | Required | Description
 `--data-source`, `-ds` | Yes | Path to a data source YAML configuration file.
 `--contract`, `-c` | Yes | Path to a data contract YAML configuration file.
 `--soda-cloud, -sc` | Yes | Path to a Soda Cloud YAML configuration file.
-`--publish`, `-p` | No | Publish results and contract to Soda Cloud. Required "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
+`--publish`, `-p` | No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
 `--verbose`, `-v` | No | Display detailed logs during execution.
 
 
@@ -176,16 +176,17 @@ Parameter | Required | Description
 
 ### Verify a contract remotely using Soda Agent
 
-You may verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts).   Once you have configured a dataset and contract, and assuming your Soda Cloud dataset identifier `postgres_ds/db/schema/dataset`, launch contract verification as follows:
+You may verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts).   Once you have configured a dataset and contract, and assuming your Soda Cloud dataset identifier is `postgres_ds/db/schema/dataset`, launch contract verification as follows:
 
 ```
 soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a 
 ```
 Parameter | Required | Description
 --- | --- | ---
-`--soda-cloud`, `-sc` | with --use-agent | Path to a Soda Cloud YAML configuration file
-`--dataset`, `-d` | with --use-agent | Soda Cloud dataset identifier
-`--publish`, `-p `| No | Publish results and contract to Soda Cloud. Required "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
+`--use-agent`, `-a` | Yes | Use Soda Agent for execution
+`--soda-cloud`, `-sc` | with `-a` | Path to a Soda Cloud YAML configuration file
+`--dataset`, `-d` | with `-a` | Soda Cloud dataset identifier
+`--publish`, `-p `| No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
 
 
 Please see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more examples of interacting with Soda Cloud using Soda Core.
