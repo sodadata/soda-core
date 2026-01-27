@@ -2,7 +2,7 @@
 <h1 align="center">Soda Core — Data Contracts Engine</h1>
 
 <p align="center">
-  <a href="https://join.slack.com/t/soda-community/shared_invite/zt-m77gajo1-nXJF7JtbbRht2zwaiLb9pg"><img alt="Slack" src="https://img.shields.io/badge/chat-slack-green.svg"></a>
+  <a href="https://soda-community.slack.com/join/shared_invite/zt-3epazj3kw-00z15nnW4KEt4j_vk8lbdQ"><img alt="Slack" src="https://img.shields.io/badge/chat-slack-green.svg"></a>
   <a href="#"><img src="https://static.pepy.tech/personalized-badge/soda-core?period=total&units=international_system&left_color=black&right_color=green&left_text=Downloads"></a>
 </p>
 
