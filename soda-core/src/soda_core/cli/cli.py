@@ -91,7 +91,8 @@ def handle_legacy_commands():
     if len(sys.argv) > 1 and sys.argv[1] in legacy_cmds:
         print("Soda v3 commands are no longer supported in Soda Core v4 CLI.")
         print("Please use the v3 version of Soda Core or upgrade to v4 Soda Contracts.")
-        print("See https://docs.soda.io/soda-v4/ for more information.")
+        print("See https://docs.soda.io/soda-v4/reference/cli-reference for more information.")
+
         exit_with_code(ExitCode.LOG_ERRORS)
 
 
