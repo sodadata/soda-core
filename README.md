@@ -56,12 +56,13 @@ See the [v3 documentation in this repository](https://github.com/sodadata/soda-c
 
 ## Quickstart
 
-The examples show a minimal configuration of a data source and contract.  Please see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more detailed examples as well as features available for [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) users.  
+The examples show a minimal configuration of a data source and contract.  To see more detailed examples as well as features available for [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud), see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
 
 Most commands can be run with `--verbose` or `-v` to display detailed logs during execution.
 
 ### Configure a data source
-These commands help you define a local configuration for your data source and validate the connection.
+
+To define a local configuration for your data source and validate the connection, run the following commands.
 
 #### Create data source config
 
@@ -87,7 +88,7 @@ Parameter | Required | Description
 
 ### Create a contract
 
-Create a new file named `contract.yml`.  The following sample contract will run against a table with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This data source name must match the name in the data source config file.  This table is assumed to have columns named `id`, `name`, and `size`.
+Create a new file named `contract.yml` and populate it with checks.  To understand how to write a contract, see the [online documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference), or the example below, which is configured to test a table or view with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This table is assumed to have columns named `id`, `name`, and `size`. The name `postgres_ds` must match the `name` property in the data source config file.  
 
 ```
 dataset: postgres_ds/db/schema/dataset
@@ -112,12 +113,9 @@ columns: # columns block
           valid_values: ['S', 'M', 'L'] 
 ```
 
-Please view the Soda documentation for a [full reference of contracts and check definitions](https://docs.soda.io/soda-v4/reference/contract-language-reference).  
-
-
 ### Verify a contract locally
 
-To evaluate a dataset with respect to its contract, run a contract verification scan:
+To evaluate a contract, run a contract verification scan:
 
 ```
 soda contract verify -ds ds_config.yml -c contract.yml
@@ -131,7 +129,7 @@ Parameter | Required | Description
 
 ## Interact with Soda Cloud
 
-Sode Core also allows you to connect to [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) and perform operations remotely instead of locally.   Please see the documentation for examples on [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.
+To execute commands remotely, connect Sore Core to [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud).  To learn how configure Soda Cloud, see the documentation about [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud).
 
 > **Request a free Soda Cloud account**
 > 
@@ -140,7 +138,7 @@ Sode Core also allows you to connect to [Soda Cloud](https://soda.io/?utm_source
 
 ### Connect to Soda Cloud
 
-To connect to Soda Cloudd, generate a Soda Cloud config file named `sc_config.yml`:
+To connect Soda Core to Soda Cloud, generate a Soda Cloud config file named `sc_config.yml`:
 
 ```
 soda cloud create -f sc_config.yml
@@ -149,7 +147,9 @@ Parameter | Required | Description
 --- | --- | ---
 `-sc`,`--soda-cloud`| Yes | Output file path for the Soda Cloud YAML configuration file.
 
-Follow these instructions to [generate API keys](https://docs.soda.io/soda-v4/reference/generate-api-keys), and then add the credentials the Soda Cloud config file.  To test the connection:
+Obtain Soda Cloud credentials and add them to the Soda Cloud config file.  To generate credentials, follow [this procedure](https://docs.soda.io/soda-v4/reference/generate-api-keys).
+
+To test the connection:
 
 ```
 soda cloud test -sc sc_config.yml
@@ -160,7 +160,7 @@ Parameter | Required | Description
 
 ### Publish to Soda Cloud
 
-To register a local contract as the source of truth in Soda Cloud, publish it:
+To publish a local contract as the source of truth in Soda Cloud:
 
 ```
 soda contract publish -c contract.yaml -sc sc_config.yml
@@ -171,7 +171,7 @@ Parameter | Required | Description
 `-c`,`--contract`| Yes | Path to a contract YAML file.
 `-sc`,`--soda-cloud`| Yes | Path to Soda Cloud YAML configuration file.
 
-To publish local contract verification results to Soda Cloud, adda Soda Cloud YAML configuration file and enable the `publish` flag:
+To publish local contract verification results to Soda Cloud, add a Soda Cloud YAML configuration file and enable the `publish` flag:
 
 
 ```
@@ -188,7 +188,7 @@ Parameter | Required | Description
 
 ### Verify a contract remotely using Soda Agent
 
-To verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts), first configure a dataset and contract in Soda Cloud.  Assuming your Soda Cloud dataset identifier is `postgres_ds/db/schema/dataset`, launch contract verification:
+To verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts),  configure a dataset and contract in Soda Cloud.  To obtain the Soda Cloud dataset identifier, for example `postgres_ds/db/schema/dataset`, open the contract in Soda Cloud, enable the `Toggle Code` control, and copy the identifier from the first line of the contract.  To launch contract verification:
 
 ```
 soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a 
@@ -201,4 +201,4 @@ Parameter | Required | Description
 `-p`,`--publish`| No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
 
 
-To view more examples of interacting with Soda Cloud using Soda Core, please see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
+To view more examples of interacting with Soda Cloud using Soda Core, see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
