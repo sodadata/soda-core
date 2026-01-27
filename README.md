@@ -42,7 +42,7 @@ Soda Core v4 open source packages are available on public PyPI and have the form
 pip install soda-postgres  # install latest version 4 package
 ```
 
-Replace `soda-postgres` with the appropriate package for your data source. See [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core) for supported packages and configurations.
+Replace `soda-postgres` with the appropriate package for your data source.  For a list of supported data sources, packages, and configurations, see the [data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
 
 ### Working with legacy Soda Core v3
 
@@ -52,13 +52,13 @@ Soda package names have changed with the release of version 4.  Legacy version 3
 pip install soda-core-postgres~=3.5.0   # install legacy version 3 package
 ```
 
-See the [v3 documentation in this repository](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md) for more detailed installation instructions.   See also the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
+For a list of supported data sources and other details, see the [v3 documentation within this repository](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md).  For information about Soda Core v3, see the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
 
 ## Quickstart
 
-The examples show a minimal configuration of a data source and contract.  To see more detailed examples as well as features available for [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud), see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
+The examples show minimal configurations.  For more detailed examples and explanations, see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
 
-Most commands can be run with `--verbose` or `-v` to display detailed logs during execution.
+To see detailed logs, add  `--verbose` or `-v` to any of these commands.
 
 ### Configure a data source
 
@@ -75,7 +75,7 @@ Parameter | Required | Description
 `-f`, `--file`|  Yes | Output file path for the data source YAML configuration file.
 
 
-By default, the YAML file generated as `ds_config.yml` is a template for PostgreSQL connections.  To see how to modify it to connect to other data sources, see [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
+By default, the YAML file generated as `ds_config.yml` is a template for PostgreSQL connections.  To learn how to populate a data source configuration file, see the [data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
 
 #### Test data source config
 
@@ -88,9 +88,11 @@ Parameter | Required | Description
 
 ### Create a contract
 
-Create a new file named `contract.yml` and populate it with checks.  To understand how to write a contract, see the [online documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference), or the example below, which is configured to test a table or view with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This table is assumed to have columns named `id`, `name`, and `size`. The name `postgres_ds` must match the `name` property in the data source config file.  
+Create and populate new contract YAML file.  To understand how to write a contract, see the [online documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference), or the example below, which is configured to test a table or view with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  This table is assumed to have columns named `id`, `name`, and `size`. The name `postgres_ds` must match the `name` property in the data source configuration file.  
 
 ```
+# contract.yml 
+
 dataset: postgres_ds/db/schema/dataset
 
 checks: # dataset level checks
@@ -99,7 +101,7 @@ checks: # dataset level checks
 
 columns: # columns block
   - name: id
-    checks: # column level checks (optional)
+    checks: # column level checks 
       - missing:
   - name: name
     checks:
@@ -138,7 +140,7 @@ To execute commands remotely, connect Sore Core to [Soda Cloud](https://soda.io/
 
 ### Connect to Soda Cloud
 
-To connect Soda Core to Soda Cloud, generate a Soda Cloud config file named `sc_config.yml`:
+To connect Soda Core to Soda Cloud, generate a Soda Cloud config file:
 
 ```
 soda cloud create -f sc_config.yml
@@ -160,7 +162,7 @@ Parameter | Required | Description
 
 ### Publish to Soda Cloud
 
-To publish a local contract as the source of truth in Soda Cloud:
+To publish a local contract to Soda Cloud as the source of truth:
 
 ```
 soda contract publish -c contract.yaml -sc sc_config.yml
