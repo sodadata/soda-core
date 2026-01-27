@@ -3,8 +3,6 @@
 
 Soda Core is a data quality and data contract verification engine. It lets you define data quality contracts in YAML and automatically validate both schema and data across your data stack.
 
-Soda Core runs contracts as part of your pipelines and orchestration tools, making data quality enforcement scalable, automated, and easy to integrate.
-
 Soda Core provides the Soda Command-Line Interface (CLI), which you can use to generate, test, publish, and verify contracts. These operations can be executed locally during development or remotely when connected to Soda Cloud.
 
 ## Highlights
@@ -121,7 +119,11 @@ Parameter | Required | Description
 
 ## Interact with Soda Cloud
 
-Sode Core also allows you to connect to Soda Cloud and perform operations remotely instead of locally.   Please see the documentation for examples on [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.
+Sode Core also allows you to connect to [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) and perform operations remotely instead of locally.   Please see the documentation for examples on [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.
+
+> **Request a free Soda Cloud account**
+> 
+> Request a [free account](https://soda.io/request-free/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=free-account) to evaluate Soda Cloud. You’ll get access for up to three datasets.
 
 
 ### Connect to Soda Cloud
