@@ -9,7 +9,7 @@
 
 Soda Core is a data quality and data contract verification engine. It lets you define data quality contracts in YAML and automatically validate both schema and data across your data stack.
 
-Soda Core provides the Soda Command-Line Interface (CLI), which you can use to generate, test, publish, and verify contracts. These operations can be executed locally during development or remotely when connected to Soda Cloud.
+Soda Core provides the Soda Command-Line Interface (CLI) and Python API, which you can use to generate, test, publish, and verify contracts. These operations can be executed locally during development, embedded programmatically within your data pipelines (Airflow, Dagster, Prefect, etc.), or executed remotely when connected to Soda Cloud.
 
 ## Highlights
 
