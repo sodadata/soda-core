@@ -19,21 +19,21 @@ This repository hosts the open source Soda Core packages which are installable u
 ### Requirements
 To use Soda, you must have installed the following on your system.
 
-* **Python 3.8, 3.9, 3.10 or 3.11.** <br>
+* **Python 3.9, 3.10, 3.11, or 3.12** <br>
 To check your existing version, use the CLI command: `python --version` or `python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.
 
 * **Pip 21.0 or greater.**
 To check your existing version, use the CLI command: `pip --version`
 
-We recommend that you install Soda Core using a virtual environment. 
+We recommend that you install Soda Core using `uv` or a virtual environment. 
 
 ### Installation
-    To use the open source Soda Core python packages, you may install them from the public Soda PyPi registry: https://pypi.cloud.soda.io/simple .
+    To use the open source Soda Core python packages, you may install them from the public Soda PyPi registry: https://pypi.cloud.soda.io .
 
 Install the Soda Core package for your data source. This gives you access to all the basic CLI functionality for working with contracts.
 
 ```
-pip install -i https://pypi.cloud.soda.io/simple --pre -U "soda-postgres>4"
+pip install -i https://pypi.cloud.soda.io --pre -U "soda-postgres>4"
 ```
 Replace `soda-postgres` with the appropriate package for your data source. See the [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core) for supported packages and configurations.
 
@@ -61,7 +61,7 @@ By default, the YAML file generated as `ds_config.yml` is a template for Postgre
 
 To see how to modify it to connect to other data sources, head to [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core).
 
-#### Test data source connection
+#### Test data source config
 
 ```
 soda data-source test -ds ds_config.yml
