@@ -38,13 +38,15 @@ FILE_PATH_HELP = "The path to the file to be created. (directories will be creat
 REQUEST_NUMBER_HELP = "The Contract Request number"
 
 # Legacy v3 commands that are no longer supported in v4
-LEGACY_V3_COMMANDS = frozenset([
-    "scan",
-    "scan_status",
-    "ingest",
-    "test_connection",
-    "simulate_anomaly_detection",
-])
+LEGACY_V3_COMMANDS = frozenset(
+    [
+        "scan",
+        "scan_status",
+        "ingest",
+        "test_connection",
+        "simulate_anomaly_detection",
+    ]
+)
 
 soda_telemetry = SodaTelemetry()
 
