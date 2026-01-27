@@ -30,14 +30,23 @@ We recommend that you install Soda Core using `uv` or a virtual environment.
 ### Installation
     
     
-To use the open source Soda Core python packages, you may install them from the public Soda PyPi registry: https://pypi.cloud.soda.io.
+Soda Core v4 open source packages are available on public PyPI and have the form `soda-{data source}`:
 
 ```
-pip install -i https://pypi.cloud.soda.io --pre -U "soda-postgres>4"
+pip install soda-postgres  # install latest version 4 package
 ```
+
 Replace `soda-postgres` with the appropriate package for your data source. See the [Data source reference for Soda Core](https://docs.soda.io/soda-v4/reference/data-source-reference-for-soda-core) for supported packages and configurations.
 
+### Working with legacy Soda Core v3
 
+Soda package names have changed with the release of version 4.  Version 3 open source packages have the form `soda-core-{data source}`.  For example, this example installs Soda Core v3 for Postgres, pinning the version at `3.5.x`:
+
+```
+pip install soda-core-postgres~=3.5.0   # install legacy version 3 package
+```
+
+See the [v3 documentation in Github](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md) for more detailed installation instructions.   See also the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
 
 ## Quickstart
 
