@@ -398,10 +398,20 @@ def test_cli_argument_mapping_for_soda_cloud_test_command(mock_handler):
     mock_handler.assert_called_once_with("sc.yaml")
 
 
-def test_cli_v3_scan():
+@pytest.mark.parametrize(
+    "legacy_command",
+    [
+        "scan",
+        "scan_status",
+        "ingest",
+        "test_connection",
+        "simulate_anomaly_detection",
+    ],
+)
+def test_cli_v3_legacy_commands(legacy_command):
     sys.argv = [
         "soda",
-        "scan",
+        legacy_command,
         "-d",
         "ds",
         "-c",
