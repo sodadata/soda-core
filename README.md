@@ -5,6 +5,8 @@ Soda Core is a data quality and data contract verification engine. It lets you d
 
 Soda Core runs contracts as part of your pipelines and orchestration tools, making data quality enforcement scalable, automated, and easy to integrate.
 
+Soda Core provides the Soda Command-Line Interface (CLI), which you can use to generate, test, publish, and verify contracts. These operations can be executed locally during development or remotely when connected to Soda Cloud.
+
 ## Highlights
 
 - Define data contracts using a clean, human-readable YAML syntax
@@ -43,6 +45,8 @@ Replace `soda-postgres` with the appropriate package for your data source. See t
 
 The examples show a minimal configuration of a data source and contract.  Please see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more detailed examples as well as features available for [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) users.  
 
+Most commands can be run with `--verbose` or `-v` to display detailed logs during execution.
+
 ### Configure a data source
 These commands help you define a local configuration for your data source (used by Soda Core) and validate the connection.
 
@@ -55,7 +59,7 @@ soda data-source create -f ds_config.yml
 Parameter | Required | Description
 --- | --- | ---
 `--file`, `-f` |  Yes | Output file path for the data source YAML configuration file.
-`--verbose`, `-v` | No | Display detailed logs during execution.
+
 
 By default, the YAML file generated as `ds_config.yml` is a template for PostgreSQL connections.
 
@@ -69,20 +73,19 @@ soda data-source test -ds ds_config.yml
 Parameter | Required | Description
 --- | --- | ---
 `--data-source`, `-ds` | Yes | Path to a data source YAML configuration file.
-`--verbose`, `-v` | No | Display detailed logs during execution.
 
 ### Create a contract
 
-Create a new file named `contract.yml`.  The following sample contract will run against a table with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  The data source name must match the name in the data source config file.
+Create a new file named `contract.yml`.  The following sample contract will run against a table with qualified name `db.schema.dataset` within a data source named `postgres_ds`.  The data source name must match the name in the data source config file.  This table is assumed to have columns named `id`, `name`, and `size`.
 
 ```
 dataset: postgres_ds/db/schema/dataset
 
-checks: #dataset level checks
+checks: # dataset level checks
   - schema:
   - row_count: 
 
-columns: #columns block
+columns: # columns block
   - name: id
     checks: # column level checks (optional)
       - missing:
@@ -98,30 +101,27 @@ columns: #columns block
           valid_values: ['S', 'M', 'L'] 
 ```
 
-For a full reference of contracts including available check definitions, please view the [Soda documentation](https://docs.soda.io/soda-v4/reference/contract-language-reference).  
+Please view the Soda documentation for a [full reference of contracts and check definitions](https://docs.soda.io/soda-v4/reference/contract-language-reference).  
 
 
+### Verify a contract locally
 
-### Verify a contract
-
-Executes a contract verification to check if the dataset complies with its expectations. You can verify a local contract file or a [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) contract either locally (in your Python environment) or remotely with a Soda Agent.
-
+You may run a contract verification scan to evaluate a dataset with respect to a contract, as follows:
 
 ```
-soda contract verify --data-source ds_config.yml --contract contract.yml
+soda contract verify -ds ds_config.yml -c contract.yml
 ```
-
 
 Parameter | Required | Description
 --- | --- | ---
 `--data-source`, `-ds` | Yes | Path to a data source YAML configuration file.
 `--contract`, `-c` | Yes | Path to a data contract YAML configuration file.
-`--verbose`, `-v` | No | Display detailed logs during execution.
+`--publish, -p` | No | Publish results and contract to Soda Cloud.
 
 
 ## Interact with Soda Cloud
 
-Sode Core also allows you to connect to Soda Cloud and perform operations using the Soda Agent instead of locally. 
+Sode Core also allows you to connect to Soda Cloud and perform operations remotely instead of locally.   Please the documentation for examples on [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.
 
 
 ### Connect to Soda Cloud
@@ -142,19 +142,50 @@ Parameter | Required | Description
 `--soda-cloud, -sc`, `-f`| Yes | Path to a Soda Cloud YAML configuration file.
 `--verbose`, `-v` | No | Display detailed logs during execution.
 
+### Publish to Soda Cloud
 
-### Verify a contract using Soda Agent
-
-Please see the documentation for information on [onboarding datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [configuring contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud) in Soda Cloud.   Once you have configured a dataset and contract, you can launch contract verification on the Soda Agent using Soda Core as follows:
+You may publish a local contract to Soda Cloud, which makes it the source of truth for verification.
 
 ```
-soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a
+soda contract publish -c contract.yaml -sc sc_config.yml
+```
+
+Parameter | Required | Description
+`--contract`, `-c`  | Yes | Path to a contract YAML file.
+`--soda-cloud`, `-sc` | Yes | Path to Soda Cloud YAML configuration file.
+
+You may also publish local contract verification results to Soda Cloud by adding a Soda Cloud YAML configuration file and enabling the `publish` flag:
+
+
+```
+soda contract verify -ds ds_config.yml -c contract.yml -sc sc_config.yml -p
+```
+
+Parameter | Required | Description
+--- | --- | ---
+`--data-source`, `-ds` | Yes | Path to a data source YAML configuration file.
+`--contract`, `-c` | Yes | Path to a data contract YAML configuration file.
+`--soda-cloud, -sc` | Yes | Path to a Soda Cloud YAML configuration file.
+`--publish`, `-p` | No | Publish results and contract to Soda Cloud. Required "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
+`--verbose`, `-v` | No | Display detailed logs during execution.
+
+
+
+
+
+
+### Verify a contract remotely using Soda Agent
+
+You may verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts).   Once you have configured a dataset and contract, and assuming your Soda Cloud dataset identifier `postgres_ds/db/schema/dataset`, launch contract verification as follows:
+
+```
+soda contract verify -sc soda_cloud.yml -d postgres_ds/db/schema/dataset -a 
 ```
 Parameter | Required | Description
 --- | --- | ---
-`--use-agent`, `-a` | No | Use Soda Agent for execution
---soda-cloud, -sc | with --use-agent | Path to a Soda Cloud YAML config file
---dataset, -d | with --use-agent | Soda Cloud dataset identifier
---verbose, -v | No | Display detailed logs during execution
+`--soda-cloud`, `-sc` | with --use-agent | Path to a Soda Cloud YAML configuration file
+`--dataset`, `-d` | with --use-agent | Soda Cloud dataset identifier
+`--publish`, `-p `| No | Publish results and contract to Soda Cloud. Required "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
+
 
 Please see the [Soda documentation](https://docs.soda.io/soda-v4/reference/cli-reference) for more examples of interacting with Soda Cloud using Soda Core.
