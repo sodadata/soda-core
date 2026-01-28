@@ -213,7 +213,7 @@ jobs:
           fi
 
   define-matrix:
-    if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
+    if: github.ref_name == 'main' || contains(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     needs: [test]
     outputs:
@@ -225,7 +225,7 @@ jobs:
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release-to-dev-pypi:
-    if: github.ref_name == 'v4' # Pushes to "main" branch
+    if: github.ref_name == 'main' # Pushes to "main" branch
     runs-on: ubuntu-24.04
     needs: [define-matrix]
     strategy:
@@ -264,7 +264,7 @@ jobs:
           user: ${{ secrets.DEV_PYPI_USERNAME }}
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}
-  release-to-cloud-pypi:
+  release-to-pypi:
     if: startsWith(github.ref, 'refs/tags/')  # When tagged
     runs-on: ubuntu-24.04
     needs: [define-matrix]
@@ -302,10 +302,16 @@ jobs:
 
           cd ${{ matrix.module }}
           python3 -m build
-      - name: Publish package to pypi
+      - name: Publish package to Soda PyPI
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
         with:
           packages-dir: ${{ matrix.module }}/dist
           user: ${{ env.PYPI_USERNAME }}
           password: ${{ env.PYPI_PASSWORD }}
           repository-url: ${{ vars.CLOUD_PYPI_REPOSITORY }}
+      - name: Publish package to public PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
+        with:
+          packages-dir: ${{ matrix.module }}/dist
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
