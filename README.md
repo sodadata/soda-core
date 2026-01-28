@@ -16,7 +16,7 @@ Soda Core provides the Soda Command-Line Interface (CLI) and Python API, which y
 - Define data contracts using a clean, human-readable YAML syntax
 - Run checks on PostgreSQL, Snowflake, BigQuery, Databricks, DuckDB, and more
 - Use 50+ built-in data quality checks for common and advanced validations
-- Integrate with [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud) for centralized management and anomaly detection monitoring
+- Integrate with [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=soda_cloud) for centralized management and anomaly detection monitoring
 
 ## Setup
 
@@ -131,11 +131,11 @@ Parameter | Required | Description
 
 ## Interact with Soda Cloud
 
-To execute commands remotely, connect Sore Core to [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=soda_cloud).  To learn how configure Soda Cloud, see the documentation about [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud).
+To execute commands remotely, connect Sore Core to [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=soda_cloud).  To learn how configure Soda Cloud, see the documentation about [configuring data sources and datasets](https://docs.soda.io/soda-v4/onboard-datasets-on-soda-cloud) and [working with contracts](https://docs.soda.io/soda-v4/data-testing/cloud-managed-data-contracts/author-a-contract-in-soda-cloud).
 
 > **Request a free Soda Cloud account**
 > 
-> Request a [free account](https://soda.io/request-free/?utm_source=github&utm_medium=readme&utm_campaign=soda-core&utm_content=free-account) to evaluate Soda Cloud. You’ll get access for up to three datasets.
+> Request a [free account](https://soda.io/request-free/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=free-account) to evaluate Soda Cloud. You’ll get access for up to three datasets.
 
 
 ### Connect to Soda Cloud
