@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "soda-athena"
-package_version = "4.0.5b2"
+package_version = "4.0.5"
 description = "Soda Athena V4"
 
 requires = [f"soda-core=={package_version}", "PyAthena>=2.2.0, <3.0"]
