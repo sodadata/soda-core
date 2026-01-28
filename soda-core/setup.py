@@ -37,7 +37,7 @@ setup(
     python_requires=">=3.9",
     classifiers=[
         "Development Status :: 3 - Alpha",
-        "License :: OSI Approved :: Apache Software License",
+        "License :: Other/Proprietary License",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX :: Linux",
