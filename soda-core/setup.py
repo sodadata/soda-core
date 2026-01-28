@@ -36,7 +36,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.9",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 5 - Production/Stable",
         "License :: Other/Proprietary License",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS :: MacOS X",
