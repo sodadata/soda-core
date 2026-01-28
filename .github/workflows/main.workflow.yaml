@@ -23,7 +23,7 @@ on:
           - sparkdf
   push:
     branches:
-      - 'v4'
+      - 'main'
     tags:
       - "*"
   pull_request:
