@@ -1,0 +1,70 @@
+from helpers.data_source_test_helper import DataSourceTestHelper
+from helpers.test_table import TestTableSpecification
+from soda_core.contracts.contract_verification import (
+    CheckResult,
+    ContractVerificationResult,
+)
+
+test_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("metric")
+    .column_integer("start")
+    .column_integer("end")
+    .rows(
+        rows=[
+            (0, 10),
+            (10, 20),
+            (5, 15),
+        ]
+    )
+    .build()
+)
+
+
+# Ensure this test is skipped on other data sources than
+def test_metric_expression(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  expression: |
+                    AVG({end_quoted} - {start_quoted})
+                  threshold:
+                    must_be_between:
+                      greater_than_or_equal: 9
+                      less_than_or_equal: 11
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.threshold_value == 10
+
+
+# Ensure this test is skipped on other data sources than
+def test_metric_query(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - metric:
+                  query: |
+                    SELECT AVG({end_quoted} - {start_quoted})
+                    FROM {test_table.qualified_name}
+                  threshold:
+                    must_be_between:
+                      greater_than_or_equal: 9
+                      less_than_or_equal: 11
+        """,
+    )
+    check_result: CheckResult = contract_verification_result.check_results[0]
+    assert check_result.threshold_value == 10

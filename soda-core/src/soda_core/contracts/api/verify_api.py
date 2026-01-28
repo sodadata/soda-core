@@ -1,0 +1,418 @@
+import logging
+from typing import Dict, Optional, Union
+
+from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.exceptions import (
+    InvalidArgumentException,
+    InvalidDataSourceConfigurationException,
+    SodaCloudException,
+)
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core.contracts.contract_verification import (
+    ContractVerificationSession,
+    ContractVerificationSessionResult,
+)
+from soda_core.telemetry.soda_telemetry import SodaTelemetry
+from typing_extensions import deprecated
+
+logger: logging.Logger = soda_logger
+
+soda_telemetry = SodaTelemetry()
+
+__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED = "At least one of -c/--contract or -d/--dataset arguments is required."
+
+
+@deprecated("Use verify_contract_locally instead")
+def verify_contracts_locally(
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
+    contract_file_paths: Optional[Union[str, list[str]]] = None,
+    dataset_identifiers: Optional[list[str]] = None,
+    soda_cloud_file_path: Optional[str] = None,
+    variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
+    publish: bool = False,
+    check_paths: Optional[list[str]] = None,
+    dwh_data_source_file_path: Optional[str] = None,
+) -> ContractVerificationSessionResult:
+    if not contract_file_paths and not dataset_identifiers:
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+
+    if (
+        contract_file_paths and len(contract_file_paths) > 1
+    ):  # We still need the "none" check, if there is no contract file path, we don't want to raise an error for the len()
+        raise InvalidArgumentException("Only one contract is allowed at a time")
+
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
+
+    if contract_file_paths and dataset_identifiers:
+        logger.info(
+            "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
+        )
+
+    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
+
+    contract_file_path = __attempt_pick_first_element(contract_file_paths)
+    dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
+
+    return verify_contract_locally(
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        data_sources=data_sources,
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        soda_cloud_file_path=soda_cloud_file_path,
+        variables=variables,
+        data_timestamp=data_timestamp,
+        publish=publish,
+        check_paths=check_paths,
+        dwh_data_source_file_path=dwh_data_source_file_path,
+    )
+
+
+def verify_contract_locally(
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
+    contract_file_path: Optional[str] = None,
+    dataset_identifier: Optional[str] = None,
+    soda_cloud_file_path: Optional[str] = None,
+    variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
+    publish: bool = False,
+    check_paths: Optional[list[str]] = None,
+    dwh_data_source_file_path: Optional[str] = None,
+) -> ContractVerificationSessionResult:
+    """
+    Verifies the contract locally.
+    """
+    if not isinstance(data_sources, list):
+        data_sources = [data_sources]
+
+    return verify_contract(
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        data_sources=data_sources,
+        soda_cloud_file_path=soda_cloud_file_path,
+        variables=variables,
+        data_timestamp=data_timestamp,
+        publish=publish,
+        use_agent=False,
+        check_paths=check_paths,
+        dwh_data_source_file_path=dwh_data_source_file_path,
+    )
+
+
+@deprecated("Use verify_contract_on_agent instead")
+def verify_contracts_on_agent(
+    soda_cloud_file_path: str,
+    contract_file_paths: Optional[Union[str, list[str]]] = None,
+    dataset_identifiers: Optional[list[str]] = None,
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    variables: Optional[Dict[str, str]] = None,
+    publish: bool = False,
+    verbose: bool = False,
+    blocking_timeout_in_minutes: int = 60,
+) -> ContractVerificationSessionResult:
+    if not contract_file_paths and not dataset_identifiers:
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+
+    if (
+        contract_file_paths and len(contract_file_paths) > 1
+    ):  # We still need the "none" check, if there is no contract file path, we don't want to raise an error for the len()
+        raise InvalidArgumentException("Only one contract is allowed at a time")
+
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
+
+    if contract_file_paths and dataset_identifiers:
+        logger.info(
+            "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
+        )
+
+    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
+
+    contract_file_path = __attempt_pick_first_element(contract_file_paths)
+    dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
+
+    return verify_contract_on_agent(
+        soda_cloud_file_path=soda_cloud_file_path,
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        variables=variables,
+        publish=publish,
+        verbose=verbose,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+    )
+
+
+def verify_contract_on_agent(
+    soda_cloud_file_path: str,
+    contract_file_path: Optional[str] = None,
+    dataset_identifier: Optional[str] = None,
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    variables: Optional[Dict[str, str]] = None,
+    publish: bool = False,
+    verbose: bool = False,
+    blocking_timeout_in_minutes: int = 60,
+) -> ContractVerificationSessionResult:
+    """
+    Verifies the contract on an agent.
+    """
+    return verify_contract(
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        soda_cloud_file_path=soda_cloud_file_path,
+        variables=variables,
+        publish=publish,
+        verbose=verbose,
+        use_agent=True,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+    )
+
+
+def verify_contract(
+    contract_file_path: Optional[str],
+    dataset_identifier: Optional[str],
+    data_source_file_path: Optional[str],
+    soda_cloud_file_path: Optional[str],
+    publish: bool,
+    use_agent: bool,
+    variables: Optional[Dict[str, str]] = None,
+    data_timestamp: Optional[str] = None,
+    verbose: bool = False,
+    blocking_timeout_in_minutes: int = 60,
+    data_sources: Optional[list[DataSourceImpl]] = None,
+    data_source_file_paths: Optional[list[str]] = None,
+    check_paths: Optional[list[str]] = None,
+    dwh_data_source_file_path: Optional[str] = None,
+) -> ContractVerificationSessionResult:
+    if not data_source_file_paths:
+        data_source_file_paths = []
+
+    # Backward compatibility for single data source file path - append to the list of data source file paths
+    if data_source_file_path and data_source_file_path not in data_source_file_paths:
+        data_source_file_paths.append(data_source_file_path)
+
+    # Backward compatibility for single dataset identifier - convert to list
+    if dataset_identifier is not None:
+        dataset_identifiers = [dataset_identifier]
+    else:
+        dataset_identifiers = None
+
+    # TODO: change this when we fully deprecate a list of contract file paths
+    # This is only here to make sure the rest of the code still works.
+    if isinstance(contract_file_path, str):
+        contract_file_paths = [contract_file_path]
+    else:
+        contract_file_paths = None
+
+    soda_cloud_client: Optional[SodaCloud] = None
+    try:
+        if soda_cloud_file_path:
+            soda_cloud_client = SodaCloud.from_config(soda_cloud_file_path, variables)
+
+        # TODO: verify the path where connection is provided
+        validate_verify_arguments(
+            contract_file_paths,
+            dataset_identifiers,
+            data_source_file_paths,
+            data_sources,
+            publish,
+            use_agent,
+            soda_cloud_client,
+        )
+
+        contract_yaml_sources = _create_contract_yamls(contract_file_paths, dataset_identifiers, soda_cloud_client)
+
+        if len(contract_yaml_sources) == 0:
+            soda_logger.debug("No contracts given. Exiting.")
+            return ContractVerificationSessionResult(contract_verification_results=[])
+
+        data_source_yaml_sources: list[DataSourceYamlSource] = []
+        if data_source_file_paths or dataset_identifiers:
+            data_source_yaml_sources.extend(
+                _create_datasource_yamls(
+                    data_source_file_paths,
+                    dataset_identifiers,
+                    soda_cloud_client,
+                    use_agent,
+                )
+            )
+
+        contract_verification_result = ContractVerificationSession.execute(
+            contract_yaml_sources=contract_yaml_sources,
+            data_source_yaml_sources=data_source_yaml_sources,
+            data_source_impls=data_sources,
+            soda_cloud_impl=soda_cloud_client,
+            variables=variables,
+            data_timestamp=data_timestamp,
+            only_validate_without_execute=False,
+            soda_cloud_publish_results=publish,
+            soda_cloud_use_agent=use_agent,
+            soda_cloud_verbose=verbose,
+            soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            check_paths=check_paths,
+            dwh_data_source_file_path=dwh_data_source_file_path,
+        )
+
+        soda_telemetry.ingest_contract_verification_session_result(
+            contract_verification_session_result=contract_verification_result
+        )
+
+        return contract_verification_result
+    except Exception as exc:
+        soda_logger.error(exc)
+        if soda_cloud_client:
+            soda_cloud_client.mark_scan_as_failed(exc=exc)
+        raise exc
+
+
+def validate_verify_arguments(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    data_source_file_paths: Optional[list[str]],
+    data_sources: Optional[list[DataSourceImpl]],
+    publish: bool,
+    use_agent: bool,
+    soda_cloud_client: Optional[SodaCloud],
+) -> None:
+    if publish and not soda_cloud_client:
+        raise InvalidArgumentException(
+            "A Soda Cloud configuration file is required to use the -p/--publish argument. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
+
+    if use_agent and not soda_cloud_client:
+        raise InvalidArgumentException(
+            "A Soda Cloud configuration file is required to use the -a/--agent argument. "
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
+
+    if all_none_or_empty(contract_file_paths, dataset_identifiers):
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+
+    if dataset_identifiers and not soda_cloud_client:
+        raise InvalidArgumentException(
+            "A Soda Cloud configuration file is required to use the -d/--dataset argument."
+            "Please provide the '--soda-cloud' argument with a valid configuration file path."
+        )
+
+    if all_none_or_empty(dataset_identifiers) and not data_source_file_paths and not use_agent and not data_sources:
+        raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
+
+
+def all_none_or_empty(*args: list | None) -> bool:
+    return all(x is None or len(x) == 0 for x in args)
+
+
+def is_using_remote_contract(
+    contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]
+) -> bool:
+    return (contract_file_paths is None or len(contract_file_paths) == 0) and dataset_identifiers is not None
+
+
+def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
+    return not data_source_file_path and not all_none_or_empty(dataset_identifiers)
+
+
+def contract_verification_is_not_sent_to_cloud(
+    contract_verification_session_result: ContractVerificationSessionResult,
+) -> bool:
+    return any(
+        cr.sending_results_to_soda_cloud_failed
+        for cr in contract_verification_session_result.contract_verification_results
+    )
+
+
+def _create_contract_yamls(
+    contract_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: SodaCloud,
+) -> list[ContractYamlSource]:
+    contract_yaml_sources = []
+
+    if contract_file_paths:
+        contract_yaml_sources += [ContractYamlSource.from_file_path(p) for p in contract_file_paths]
+
+    if is_using_remote_contract(contract_file_paths, dataset_identifiers) and soda_cloud_client:
+        for dataset_identifier in dataset_identifiers:
+            try:
+                contract = soda_cloud_client.fetch_contract_for_dataset(dataset_identifier)
+                contract_yaml_sources.append(ContractYamlSource.from_str(contract))
+            except SodaCloudException as exc:
+                soda_logger.error(f"Could not fetch contract for dataset '{dataset_identifier}': skipping verification")
+
+    if not contract_yaml_sources:
+        return []
+
+    return contract_yaml_sources
+
+
+def _create_datasource_yamls(
+    data_source_file_paths: Optional[list[str]],
+    dataset_identifiers: Optional[list[str]],
+    soda_cloud_client: SodaCloud,
+    use_agent: bool,
+) -> Optional[DataSourceYamlSource]:
+    data_source_yamls: list[DataSourceYamlSource] = []
+
+    if data_source_file_paths:
+        for data_source_file_path in data_source_file_paths:
+            soda_logger.debug(f"Using local data source config: {data_source_file_path}")
+            data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
+
+    if dataset_identifiers:
+        for dataset_identifier in dataset_identifiers:
+            soda_logger.debug(
+                f"No local data source config for '{dataset_identifier}', trying to fetch data source config from cloud"
+            )
+            data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
+
+            if not data_source_config:
+                soda_logger.error(
+                    f"Could not fetch data source configuration for dataset '{dataset_identifier}': skipping fetch."
+                )
+            else:
+                data_source_yamls.append(DataSourceYamlSource.from_str(data_source_config))
+
+    if data_source_yamls:
+        return data_source_yamls
+
+    # By this point, we can only progress if we are using an agent.
+    # Then the agent will provide the data source config.
+    if use_agent:
+        return None
+
+    raise InvalidDataSourceConfigurationException(
+        "No data source configuration provided and no dataset identifiers given. "
+        "Please provide a data source configuration file or a dataset identifier."
+    )
+
+
+def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:
+    if my_list is None:
+        return None
+    if isinstance(my_list, list) and len(my_list) >= 1:
+        return my_list[0]
+    raise InvalidArgumentException(
+        "Expected a list with at least one element, got an empty list or another type of object."
+    )

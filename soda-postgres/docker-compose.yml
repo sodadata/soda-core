@@ -1,0 +1,13 @@
+version: "3.7"
+services:
+  soda-sql-postgres:
+    # please keep the postgres version in sync with the one in CI/CD
+    image: postgres:15.10-alpine3.21
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.postgres/:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=soda_test
+      - POSTGRES_DB=soda_test
+      - POSTGRES_HOST_AUTH_METHOD=trust

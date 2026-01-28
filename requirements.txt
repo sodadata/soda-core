@@ -1,0 +1,13 @@
+soda-athena
+soda-bigquery
+soda-core
+soda-databricks
+soda-duckdb
+soda-fabric
+soda-postgres
+soda-redshift
+soda-snowflake
+soda-sqlserver
+soda-synapse
+soda-tests
+soda-sparkdf

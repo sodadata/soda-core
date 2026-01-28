@@ -1,0 +1,311 @@
+---
+name: CI pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataSource:
+        description: Run tests for this Soda data source
+        type: choice
+        default: all
+        options:
+          - all
+          - athena
+          - bigquery
+          - databricks
+          - duckdb
+          - fabric
+          - postgres
+          - redshift
+          - snowflake
+          - sqlserver
+          - synapse
+          - sparkdf
+  push:
+    branches:
+      - 'v4'
+    tags:
+      - "*"
+  pull_request:
+
+env:
+  PROJECT_NAME: soda-core
+
+jobs:
+  check:
+    name: pre-commit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+  define-test-matrix:
+    runs-on: ubuntu-24.04
+    needs: [check]
+    outputs:
+      modules: ${{ steps.modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set data source (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ -z "${{ inputs.dataSource }}" ] || [ "${{ inputs.dataSource }}" = "all" ]; then
+            echo "DATA_SOURCE=all" >> "${GITHUB_ENV}"
+          else
+            echo "DATA_SOURCE=${{ inputs.dataSource }}" >> "${GITHUB_ENV}"
+          fi
+      - name: Set data source (push)
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: |
+          echo "DATA_SOURCE=all" >> "${GITHUB_ENV}"
+      - name: Define modules
+        id: modules
+        run: |
+          echo "INFO: DATA_SOURCE is set to ${DATA_SOURCE}"
+          if [ "${DATA_SOURCE}" = "all" ]; then
+            echo modules=$(bash scripts/test_matrix.sh) >> "$GITHUB_OUTPUT"
+          else
+            echo 'modules=["__DATA_SOURCE__"]' | sed "s|__DATA_SOURCE__|${DATA_SOURCE}|g" >> "$GITHUB_OUTPUT"
+          fi
+  test:
+    runs-on: ubuntu-24.04
+    needs: [define-test-matrix]
+    services:
+      postgres:
+        # please keep the postgres version in sync with the one in docker-compose.yml for postgres
+        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
+        env:
+          POSTGRES_USER: soda_test
+          POSTGRES_DB: soda_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
+        ports:
+          - 5432:5432
+      sqlserver:
+        image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: Password1!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Password1! -Q 'select 1' -C -b -o /dev/null"
+          --health-interval 1s
+          --health-timeout 2s
+          --health-retries 10
+          --health-start-period 10s
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+        module: ${{ fromJSON(needs.define-test-matrix.outputs.modules) }}
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_CI_DATABASE }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_CI_HOST }}
+      DATABRICKS_HTTP_PATH: ${{ vars.DATABRICKS_CI_HTTP_PATH }}
+      DATABRICKS_CATALOG: ${{ vars.DATABRICKS_CI_CATALOG }}
+      REDSHIFT_HOST: ${{ vars.REDSHIFT_CI_HOST }}
+      REDSHIFT_USERNAME: ${{ vars.REDSHIFT_CI_USERNAME }}
+      REDSHIFT_DATABASE: "soda_test"
+      REDSHIFT_PORT: "5439"
+      ATHENA_S3_TEST_DIR: ${{ vars.ATHENA_CI_STAGING_DIR }}
+      ATHENA_SCHEMA: ${{ vars.ATHENA_CI_SCHEMA }}
+      ATHENA_WORKGROUP: ${{ vars.ATHENA_CI_WORKGROUP }}
+      SQLSERVER_USERNAME: sa
+      SQLSERVER_PASSWORD: Password1!
+      SQLSERVER_DATABASE: master
+      SQLSERVER_SCHEMA: dbo
+      SYNAPSE_HOST: ${{ vars.MICROSOFT_SYNAPSE_CI_HOST }}
+      SYNAPSE_DATABASE: sodacisynapse
+      SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
+      FABRIC_HOST: ${{ vars.MICROSOFT_FABRIC_CI_HOST }}
+      FABRIC_DATABASE: soda-ci-fabric-warehouse
+      FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
+      SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
+
+      - name: Get external secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            ,/soda/github/common/data-sources/envs
+          parse-json-secrets: true
+
+      - name: Get external secrets (special)
+        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
+
+      - name: Run tests
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r dev-requirements.txt
+          pip install -e soda-core
+          pip install -e soda-tests
+
+          if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
+            pip install -e soda-sqlserver
+          fi
+
+          if [ "${{ matrix.module }}" = "sparkdf" ]; then
+            pip install -e soda-databricks
+            # Install java jdk 17
+            sudo apt-get update
+            sudo apt-get install -y openjdk-17-jdk
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+            echo "PATH=$PATH" >> "$GITHUB_ENV"
+            echo "JAVA_HOME=$JAVA_HOME"
+            echo "PATH=$PATH"
+          fi
+
+          pip install -e soda-${{ matrix.module }}
+          export TEST_DATASOURCE=${{ matrix.module }}
+          python -m pytest -ra soda-tests/tests/features
+          if [ "${{ matrix.module }}" = "postgres" ]; then
+            python -m pytest -ra soda-tests/tests/components
+          fi
+          python -m pytest -ra soda-${{ matrix.module }}/tests
+
+          if [ "${{ matrix.module }}" = "databricks" ]; then
+            # Set the environment variables for DATABRICKS_CATALOG to hive_metastore
+            export DATABRICKS_CATALOG=hive_metastore
+            echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
+            python -m pytest -ra soda-tests/tests/features
+          fi
+
+  define-matrix:
+    if: github.ref_name == 'v4' || contains(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    needs: [test]
+    outputs:
+      modules: ${{ steps.modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Define modules
+        id: modules
+        run: |
+          echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
+  release-to-dev-pypi:
+    if: github.ref_name == 'v4' # Pushes to "main" branch
+    runs-on: ubuntu-24.04
+    needs: [define-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Debug GITHUB_REF
+        run: echo "GITHUB_REF=$GITHUB_REF"
+      - name: Release ${{ matrix.module }}
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install tbump build twine
+
+          if [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            echo "Using tag version: $VERSION"
+          else
+            VERSION="4.0.0.dev${GITHUB_RUN_NUMBER}"
+            echo "No tag found, bumping to dev version: $VERSION"
+            tbump --only-patch --non-interactive "$VERSION"
+          fi
+
+          cd ${{ matrix.module }}
+          python3 -m build
+      - name: Publish package to pypi
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
+        with:
+          packages-dir: ${{ matrix.module }}/dist
+          user: ${{ secrets.DEV_PYPI_USERNAME }}
+          password: ${{ secrets.DEV_PYPI_PASSWORD }}
+          repository-url: ${{ secrets.DEV_PYPI_URL }}
+  release-to-cloud-pypi:
+    if: startsWith(github.ref, 'refs/tags/')  # When tagged
+    runs-on: ubuntu-24.04
+    needs: [define-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Debug GITHUB_REF
+        run: echo "GITHUB_REF=$GITHUB_REF"
+      - name: Get external secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            PYPI_USERNAME,/soda/github/common/SODA_PYPI_CLOUD_WRITE_USERNAME
+            PYPI_PASSWORD,/soda/github/common/SODA_PYPI_CLOUD_WRITE_PASSWORD
+      - name: Release ${{ matrix.module }}
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install tbump build twine
+
+          RELEASE_VERSION="$(echo ${GITHUB_REF_NAME} | sed -E 's/v(.*)/\1/')"
+          tbump --only-patch --non-interactive ${RELEASE_VERSION}
+          echo "Using tag version: RELEASE_VERSION"
+
+          cd ${{ matrix.module }}
+          python3 -m build
+      - name: Publish package to pypi
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
+        with:
+          packages-dir: ${{ matrix.module }}/dist
+          user: ${{ env.PYPI_USERNAME }}
+          password: ${{ env.PYPI_PASSWORD }}
+          repository-url: ${{ vars.CLOUD_PYPI_REPOSITORY }}
