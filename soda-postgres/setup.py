@@ -8,7 +8,7 @@ description = "Soda Postgres V4"
 
 requires = [
     f"soda-core=={package_version}",
-    "psycopg2-binary>=2.8.5, <3.0",
+    "psycopg[binary]>=3.0",
 ]
 
 setup(

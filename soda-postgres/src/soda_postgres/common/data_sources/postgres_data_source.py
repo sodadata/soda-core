@@ -178,6 +178,16 @@ class PostgresSqlDialect(SqlDialect):
                     f"Text column {create_table_column.name} has a character maximum length, but text does not support parameters! Ignoring in postgres."
                 )
             return "text"
+        if create_table_column.type.name == "double precision":
+            if create_table_column.type.numeric_precision is not None:
+                logger.warning(
+                    f"Double precision column {create_table_column.name} has a numeric precision, but double precision does not support parameters! Ignoring in postgres."
+                )
+            if create_table_column.type.numeric_scale is not None:
+                logger.warning(
+                    f"Double precision column {create_table_column.name} has a numeric scale, but double precision does not support parameters! Ignoring in postgres."
+                )
+            return "double precision"
         return super()._build_create_table_column_type(create_table_column=create_table_column)
 
     @classmethod

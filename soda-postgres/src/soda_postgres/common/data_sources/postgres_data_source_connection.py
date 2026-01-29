@@ -5,7 +5,7 @@ from abc import ABC
 from pathlib import Path
 from typing import Callable, Literal, Optional, Union
 
-import psycopg2
+import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_results import QueryResult, UpdateResult
@@ -80,12 +80,15 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 config_dict = config.model_dump(exclude="password_file")
                 config_dict["password"] = f.read().strip()
                 config = PostgresConnectionPassword(**config_dict)
-        return psycopg2.connect(**config.to_connection_kwargs())
+        connection_kwargs = self.connection_properties.to_connection_kwargs()
+        connection_kwargs["dbname"] = connection_kwargs.pop("database")
+        connection = psycopg.connect(**connection_kwargs)
+        return connection
 
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         try:
             return super().execute_query(sql, log_query=log_query)
-        except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
+        except psycopg.errors.Error as e:  # Catch the error and roll back the transaction
             logger.warning(f"SQL query failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
@@ -94,7 +97,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
     def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
         try:
             return super().execute_update(sql, log_query=log_query)
-        except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
+        except psycopg.errors.Error as e:  # Catch the error and roll back the transaction
             logger.warning(f"SQL update failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
@@ -109,7 +112,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
     ) -> tuple[tuple]:
         try:
             return super().execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
-        except psycopg2.errors.Error as e:  # Catch the error and roll back the transaction
+        except psycopg.errors.Error as e:  # Catch the error and roll back the transaction
             logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
