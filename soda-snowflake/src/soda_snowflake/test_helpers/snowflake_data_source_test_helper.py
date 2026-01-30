@@ -24,5 +24,5 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
                 database: {self.dataset_prefix[0]}
         """
 
-    def _adjust_schema_name(self, schema_name: str) -> str:
+    def _adjust_schema_name(self, schema_name: str, schema_type: str = None) -> str:
         return schema_name.upper()

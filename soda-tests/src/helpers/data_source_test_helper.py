@@ -257,7 +257,7 @@ class DataSourceTestHelper:
         schema_name = re.sub("[^0-9a-zA-Z]+", "_", schema_name_raw).lower()
         return schema_name
 
-    def _adjust_schema_name(self, schema_name: str) -> str:
+    def _adjust_schema_name(self, schema_name: str, schema_type: str = None) -> str:
         return schema_name
 
     def start_test_session(self) -> None:
