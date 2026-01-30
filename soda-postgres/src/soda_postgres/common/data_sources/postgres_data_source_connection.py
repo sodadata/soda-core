@@ -81,6 +81,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 config_dict["password"] = f.read().strip()
                 config = PostgresConnectionPassword(**config_dict)
         connection_kwargs = self.connection_properties.to_connection_kwargs()
+        # Originally, for psycopg2, we had to use "database". Since the rest of the soda-product is using "database", it's easiest to rename this property here.
         connection_kwargs["dbname"] = connection_kwargs.pop("database")
         connection = psycopg.connect(**connection_kwargs)
         return connection
