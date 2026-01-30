@@ -140,11 +140,6 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect):
             if not row[0] and not row[1]:  # empty row
                 continue
 
-            # Trim data type details, e.g. decimal(10,0) -> decimal. Only decimal supports it anyway.
-            data_type = row[1]
-            if "(" in data_type:
-                data_type = data_type[: data_type.index("(")].strip()
-            row = (row[0], data_type)
             filtered_rows.append(row)
 
         return super().build_column_metadatas_from_query_result(
