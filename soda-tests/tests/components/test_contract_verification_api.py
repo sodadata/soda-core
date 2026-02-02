@@ -49,15 +49,11 @@ def test_contract_provided_and_configured():
     If there is no default data source configured and there is none provided in the contract, an error has to be logged
     """
     contract_verification_session_result: ContractVerificationSessionResult = ContractVerificationSession.execute(
-        contract_yaml_sources=[
-            ContractYamlSource.from_str(
-                f"""
+        contract_yaml_sources=[ContractYamlSource.from_str(f"""
               dataset: abc/CUSTOMERS
               columns:
                 - name: id
-            """
-            )
-        ],
+            """)],
     )
 
     assert "Data source 'abc' not found" in contract_verification_session_result.get_errors_str()

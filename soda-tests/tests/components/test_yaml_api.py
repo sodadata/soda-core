@@ -9,13 +9,9 @@ from soda_core.common.yaml import YamlList, YamlObject, YamlSource
 
 
 def test_yaml_api(logs: Logs):
-    yaml_source: YamlSource = YamlSource.from_str(
-        yaml_str=dedent_and_strip(
-            """
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip("""
         dataset: lskdjflks
-        """
-        )
-    )
+        """))
     yaml_object: YamlObject = yaml_source.parse()
     assert not logs.has_errors
     assert yaml_object.read_string("dataset") == "lskdjflks"
@@ -23,13 +19,9 @@ def test_yaml_api(logs: Logs):
 
 def test_yaml_resolve_env_vars(env_vars: dict, logs: Logs):
     env_vars["DS"] = "thedataset"
-    yaml_source: YamlSource = YamlSource.from_str(
-        yaml_str=dedent_and_strip(
-            """
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip("""
         dataset: ${env.DS}
-        """
-        )
-    )
+        """))
     yaml_source.resolve()
     yaml_object: YamlObject = yaml_source.parse()
     assert not logs.has_errors
@@ -53,12 +45,10 @@ def test_yaml_error_file_not_found(logs: Logs):
 
 def test_yaml_error_invalid_top_level_element(logs: Logs):
     yaml_source: YamlSource = YamlSource.from_str(
-        yaml_str=dedent_and_strip(
-            """
+        yaml_str=dedent_and_strip("""
         - one
         - two
-        """
-        ),
+        """),
         file_path="yaml_string.yml",
     )
 
@@ -73,16 +63,12 @@ def test_yaml_error_empty_yaml_str(logs: Logs):
 
 
 def test_yaml_nested_level(logs: Logs):
-    yaml_source: YamlSource = YamlSource.from_str(
-        yaml_str=dedent_and_strip(
-            """
+    yaml_source: YamlSource = YamlSource.from_str(yaml_str=dedent_and_strip("""
         level_one:
           level_two:
             - type: item
               name: entry
-        """
-        )
-    )
+        """))
     yaml_object: YamlObject = yaml_source.parse()
     assert not logs.has_errors
 
@@ -98,8 +84,7 @@ def test_yaml_nested_level(logs: Logs):
 
 
 def test_yaml_locations():
-    yaml_str: str = dedent_and_strip(
-        """
+    yaml_str: str = dedent_and_strip("""
         one:
           one_two:
             - type: item
@@ -107,8 +92,7 @@ def test_yaml_locations():
         two:
           two_one: a
           two_two: b
-        """
-    )
+        """)
     logging.debug(f"\n=== YAML string ============\n{yaml_str}\n============================")
     yaml_source: YamlSource = YamlSource.from_str(yaml_str=yaml_str)
     root_object: YamlObject = yaml_source.parse()
