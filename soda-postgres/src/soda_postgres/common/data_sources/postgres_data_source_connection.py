@@ -80,7 +80,9 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 config_dict = config.model_dump(exclude="password_file")
                 config_dict["password"] = f.read().strip()
                 config = PostgresConnectionPassword(**config_dict)
-        connection_kwargs = self.connection_properties.to_connection_kwargs()
+        connection_kwargs = (
+            config.to_connection_kwargs()
+        )  # Use config instead of self.connection_properties to avoid potential issues with password_file.
         # Originally, for psycopg2, we had to use "database". Since the rest of the soda-product is using "database", it's easiest to rename this property here.
         connection_kwargs["dbname"] = connection_kwargs.pop("database")
         connection = psycopg.connect(**connection_kwargs)
