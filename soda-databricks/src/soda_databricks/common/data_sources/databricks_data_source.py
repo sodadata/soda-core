@@ -193,6 +193,14 @@ class DatabricksSqlDialect(SqlDialect):
         if create_table_column.type.name == "double":
             create_table_column.type.numeric_precision = None
             create_table_column.type.numeric_scale = None
+        # Timestamp does not support parameters, so we need to strip them.
+        if create_table_column.type.name == "timestamp":
+            # We should clear all precisions (including datetime_precision, character_maximum_length, numeric_precision, numeric_scale).
+            # If we don't, this could lead to a scenario when mapping types from another data source to Databricks whereby we still create `timestamp(3)` instead of `timestamp`.
+            create_table_column.type.datetime_precision = None
+            create_table_column.type.character_maximum_length = None
+            create_table_column.type.numeric_precision = None
+            create_table_column.type.numeric_scale = None
         return super()._build_create_table_column_type(create_table_column=create_table_column)
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
