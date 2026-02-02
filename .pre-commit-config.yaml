@@ -4,7 +4,7 @@
 files: ^soda-[^/]+/
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: check-added-large-files
@@ -17,7 +17,7 @@ repos:
       - id: detect-private-key
       - id: end-of-file-fixer
   - repo: https://github.com/PyCQA/autoflake
-    rev: v2.2.1
+    rev: v2.3.1
     hooks:
       - id: autoflake
         args: ["--in-place", "--remove-all-unused-imports"]
@@ -29,13 +29,13 @@ repos:
   #        exclude: _models?\.py$
   #        args: [--py38-plus, --keep-runtime-typing]
   - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
+    rev: 7.0.0
     hooks:
       - id: isort
         additional_dependencies: [toml]
         name: Sort imports using isort
-  - repo: https://github.com/psf/black
-    rev: 23.3.0
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.1.0
     hooks:
       - id: black
         name: Run black formatter
