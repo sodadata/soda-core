@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
 from typing import Any, Protocol
 
@@ -59,16 +61,10 @@ class QueryResultIterator:
         self._cursor = cursor
         self._position = 0
 
-    def __enter__(self):
+    def __iter__(self) -> QueryResultIterator:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._cursor.close()
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
+    def __next__(self) -> Sequence[Any]:
         row = self._cursor.fetchone()
         if row is None:
             self._cursor.close()

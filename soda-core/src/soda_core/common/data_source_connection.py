@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from typing import Any, Callable, Optional
 
 from soda_core.common.data_source_results import (
@@ -181,16 +183,16 @@ class DataSourceConnection(ABC):
             cursor.close()
         return description
 
-    def execute_query_iterate(self, sql: str, log_query: bool = True) -> QueryResultIterator:
+    @contextlib.contextmanager
+    def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:
         cursor = self.connection.cursor()
         if log_query:
             logger.debug(f"SQL query iterate:\n{sql}")
         try:
             cursor.execute(sql)
-        except Exception:
+            yield QueryResultIterator(cursor)
+        finally:
             cursor.close()
-            raise
-        return QueryResultIterator(cursor)
 
     def commit(self) -> None:
         # noinspection PyUnresolvedReferences
