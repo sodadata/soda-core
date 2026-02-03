@@ -7,6 +7,7 @@ class Cursor(Protocol):
 
     This is a subset of the DB-API 2.0 Cursor protocol defined in PEP-0249.
     """
+
     @property
     def description(self) -> Sequence[tuple[str, str, Any, Any, Any, Any, Any]]:
         """Gets the description of the columns in the result set.
