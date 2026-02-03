@@ -5,7 +5,11 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional
 
-from soda_core.common.data_source_results import QueryResult, UpdateResult
+from soda_core.common.data_source_results import (
+    QueryResult,
+    QueryResultIterator,
+    UpdateResult,
+)
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -176,6 +180,17 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
         return description
+
+    def execute_query_iterate(self, sql: str, log_query: bool = True) -> QueryResultIterator:
+        cursor = self.connection.cursor()
+        if log_query:
+            logger.debug(f"SQL query iterate:\n{sql}")
+        try:
+            cursor.execute(sql)
+        except Exception:
+            cursor.close()
+            raise
+        return QueryResultIterator(cursor)
 
     def commit(self) -> None:
         # noinspection PyUnresolvedReferences
