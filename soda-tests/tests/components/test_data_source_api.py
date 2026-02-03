@@ -85,11 +85,9 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
             f"SELECT * FROM {test_table.qualified_name} ORDER BY {id_quoted}"
         ) as query_result_iterator:
             assert query_result_iterator.row_count == 3
-            assert query_result_iterator.position == 0
             assert query_result_iterator.columns.keys() == {"id", "country"}
 
             rows = list(query_result_iterator)
             assert rows[0][0] == "1"
             assert rows[1][0] == "2"
             assert rows[2][0] == "3"
-            assert query_result_iterator.position == 3

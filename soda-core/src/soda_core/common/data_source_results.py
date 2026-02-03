@@ -59,7 +59,6 @@ class QueryResult:
 class QueryResultIterator:
     def __init__(self, cursor: Cursor):
         self._cursor = cursor
-        self._position = 0
 
     def __iter__(self) -> QueryResultIterator:
         return self
@@ -69,7 +68,6 @@ class QueryResultIterator:
         if row is None:
             self._cursor.close()
             raise StopIteration
-        self._position += 1
         return row
 
     @property
@@ -78,12 +76,7 @@ class QueryResultIterator:
         return self._cursor.rowcount
 
     @property
-    def position(self) -> int:
-        """Returns the current position in the result set."""
-        return self._position
-
-    @property
-    def columns(self) -> dict[str, str]:
+    def columns(self) -> dict[str, Any]:
         """Returns the columns metadata as a dictionary mapping column names to type codes."""
         return {column[0]: column[1] for column in self._cursor.description}
 
