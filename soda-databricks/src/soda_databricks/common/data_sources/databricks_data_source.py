@@ -263,7 +263,7 @@ class DatabricksSqlDialect(SqlDialect):
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
             return None
-        return int(row[1].split("(")[1].split(",")[1].strip(")"))
+        return int(row[1].split(",")[1].strip(")"))
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
