@@ -18,8 +18,7 @@ from soda_core.model.data_source.data_source_connection_properties import (
 logger: logging.Logger = soda_logger
 
 
-class PostgresConnectionProperties(DataSourceConnectionProperties, ABC):
-    ...
+class PostgresConnectionProperties(DataSourceConnectionProperties, ABC): ...
 
 
 class PostgresConnectionString(PostgresConnectionProperties):
