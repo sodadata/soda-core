@@ -7,20 +7,23 @@ from numbers import Number
 from textwrap import indent
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
+from typing_extensions import deprecated
+
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
+from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     DataSourceNamespace,
+    SamplerType,
     SodaDataTypeName,
     SqlDataType,
 )
-from soda_core.common.soda_cloud_dto import SamplerType
 from soda_core.common.sql_ast import (
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
@@ -101,7 +104,6 @@ from soda_core.common.sql_ast import (
 )
 from soda_core.common.sql_utils import apply_sampling_to_sql
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
-from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from soda_core.common.data_source_impl import DataSourceImpl
@@ -863,7 +865,7 @@ class SqlDialect:
             )
         ]
 
-        if isinstance(from_part.sampler_type, str) and isinstance(from_part.sample_size, Number):
+        if from_part.sampler_type is not None and isinstance(from_part.sample_size, Number):
             from_parts.append(self._build_sample_sql(from_part.sampler_type, from_part.sample_size))
 
         if isinstance(from_part.alias, str):
@@ -1146,7 +1148,7 @@ class SqlDialect:
             string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
         return self.build_expression_sql(STRING_HASH(string_to_hash))
 
-    def _build_sample_sql(self, sampler_type: str, sample_size: Number) -> str:
+    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         raise NotImplementedError("Sampling not implemented for this dialect")
 
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:

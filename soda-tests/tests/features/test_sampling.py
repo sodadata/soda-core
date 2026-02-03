@@ -5,10 +5,12 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_fixtures import is_sampling_supported_data_source
 from helpers.test_table import TestTableSpecification
+from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_dto import (
     DatasetConfigurationDTO,
     TestRowSamplerConfigurationDTO,
 )
+from soda_core.common.soda_cloud_dto import SamplerType as SamplerTypeDTO
 from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
@@ -231,11 +233,10 @@ def test_sampling_custom_sql_pass(
 
     age_quoted = data_source_test_helper.quote_column("age")
     table_full_name = test_table.qualified_name
-    sampler_type = "absoluteLimit"
     sample_size = 3
 
     def add_sample(name: str) -> str:
-        return f"{name} {data_source_test_helper.data_source_impl.sql_dialect._build_sample_sql(sampler_type, sample_size)}"
+        return f"{name} {data_source_test_helper.data_source_impl.sql_dialect._build_sample_sql(SamplerType.ABSOLUTE_LIMIT, sample_size)}"
 
     def build_name_with_alias(name: str, alias: str) -> str:
         return f"{name} AS {alias}"
@@ -244,7 +245,7 @@ def test_sampling_custom_sql_pass(
         dataset_identifier=test_table.dataset_identifier,
         dataset_configuration_dto=DatasetConfigurationDTO(
             test_row_sampler_configuration=TestRowSamplerConfigurationDTO(
-                enabled=True, test_row_sampler={"type": sampler_type, "limit": sample_size}
+                enabled=True, test_row_sampler={"type": SamplerTypeDTO.ABSOLUTE_LIMIT, "limit": sample_size}
             )
         ),
     )

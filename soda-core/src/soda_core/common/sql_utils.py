@@ -3,8 +3,9 @@ from __future__ import annotations
 from numbers import Number
 
 import sqlglot
-from soda_core.common.soda_cloud_dto import SamplerType
 from sqlglot import exp
+
+from soda_core.common.sql_ast import SamplerType
 
 
 def build_sample_clause(sampler_limit: Number, sampler_type: SamplerType) -> exp.TableSample:

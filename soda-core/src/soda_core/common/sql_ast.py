@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import Any, Optional
 
-from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from typing_extensions import deprecated
+
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import SamplerType, SodaDataTypeName, SqlDataType
 
 logger: logging.Logger = soda_logger
 
@@ -72,7 +73,7 @@ class FROM(BaseSqlExpression):
     table_name: str
     table_prefix: Optional[list[str]] = None
     alias: Optional[str] = None
-    sampler_type: Optional[str] = None
+    sampler_type: Optional[SamplerType] = None
     sample_size: Optional[Number] = None
 
     def __post_init__(self):
@@ -86,7 +87,7 @@ class FROM(BaseSqlExpression):
         self.table_prefix = table_prefix if isinstance(table_prefix, list) else [table_prefix]
         return self
 
-    def SAMPLE(self, sampler_type: str, sample_size: Number) -> FROM:
+    def SAMPLE(self, sampler_type: SamplerType, sample_size: Number) -> FROM:
         self.sampler_type = sampler_type
         self.sample_size = sample_size
         return self
