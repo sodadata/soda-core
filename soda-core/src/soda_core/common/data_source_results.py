@@ -11,7 +11,7 @@ class Cursor(Protocol):
     """
 
     @property
-    def description(self) -> Sequence[tuple[str, str, Any, Any, Any, Any, Any]]:
+    def description(self) -> Sequence[tuple[str, Any, Any, Any, Any, Any, Any]]:
         """Gets the description of the columns in the result set.
 
         Each column is represented as a tuple containing:
