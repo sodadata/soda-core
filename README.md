@@ -28,15 +28,20 @@ To use Soda, you must have installed the following on your system.
 * **Python 3.9, 3.10, 3.11, or 3.12** <br>
 To check your existing version, use the CLI command: `python --version` or `python3 --version`. If you have not already installed Python, consider using `pyenv` to manage multiple versions of Python in your environment.  **Note:** While Python 3.12 is the highest officially supported version, there are no known issues preventing use of Python 3.13+.
 
-* **Pip 21.0 or greater.**
-To check your existing version, use the CLI command: `pip --version`
-
-We recommend that you install Soda Core using `uv` or a virtual environment. 
+* **UV (recommended) or Pip 21.0 or greater** <br>
+We recommend using [UV](https://docs.astral.sh/uv/) for faster and more reliable package management. To install UV, see the [UV installation guide](https://docs.astral.sh/uv/getting-started/installation/). Alternatively, you can use pip (version 21.0+). To check your pip version: `pip --version` 
 
 ### Installation
-    
-    
-Soda Core v4 open source packages are available on public PyPI and have the form `soda-{data source}`:
+
+Soda Core v4 open source packages are available on public PyPI and have the form `soda-{data source}`.
+
+#### Using UV (recommended)
+
+```
+uv pip install soda-postgres  # install latest version 4 package
+```
+
+#### Using pip
 
 ```
 pip install soda-postgres  # install latest version 4 package
@@ -49,7 +54,9 @@ Replace `soda-postgres` with the appropriate package for your data source.  For 
 Soda package names have changed with the release of version 4.  Legacy version 3 open source packages have the form `soda-core-{data source}`.  For example, to install Soda Core v3 for Postgres, pinning the version at `3.5.x`:
 
 ```
-pip install soda-core-postgres~=3.5.0   # install legacy version 3 package
+uv pip install soda-core-postgres~=3.5.0   # install legacy version 3 package (using UV)
+# or
+pip install soda-core-postgres~=3.5.0      # install legacy version 3 package (using pip)
 ```
 
 For a list of supported data sources and other details, see the [v3 documentation within this repository](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md).  For information about Soda Core v3, see the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
