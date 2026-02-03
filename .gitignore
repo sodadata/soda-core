@@ -151,4 +151,5 @@ reports/*
 *.DS_Store
 
 *.lock
+!uv.lock
 .local/

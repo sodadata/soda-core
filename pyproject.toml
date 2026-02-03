@@ -1,3 +1,59 @@
+[project]
+name = "soda-core-workspace"
+version = "4.0.5"
+description = "Soda Core monorepo - Data quality testing and contracts"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+
+# Workspace configuration for UV
+[tool.uv.workspace]
+members = [
+    "soda-core",
+    "soda-athena",
+    "soda-bigquery",
+    "soda-databricks",
+    "soda-duckdb",
+    "soda-fabric",
+    "soda-postgres",
+    "soda-redshift",
+    "soda-snowflake",
+    "soda-sparkdf",
+    "soda-sqlserver",
+    "soda-synapse",
+    "soda-tests",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.4",
+    "pre-commit>=4.1.0",
+    "tbump>=6.11.0",
+]
+
+# Workspace sources - tells UV where to find workspace packages
+[tool.uv.sources]
+soda-core = { workspace = true }
+soda-athena = { workspace = true }
+soda-bigquery = { workspace = true }
+soda-databricks = { workspace = true }
+soda-duckdb = { workspace = true }
+soda-fabric = { workspace = true }
+soda-postgres = { workspace = true }
+soda-redshift = { workspace = true }
+soda-snowflake = { workspace = true }
+soda-sparkdf = { workspace = true }
+soda-sqlserver = { workspace = true }
+soda-synapse = { workspace = true }
+soda-tests = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.isort]
 profile = "black"
 

@@ -1,0 +1,26 @@
+[project]
+name = "soda-databricks"
+version = "4.0.5"
+description = "Soda Databricks V4"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "databricks-sql-connector",
+]
+
+[project.entry-points."soda.plugins.data_source.databricks"]
+DatabricksDataSourceImpl = "soda_databricks.common.data_sources.databricks_data_source:DatabricksDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

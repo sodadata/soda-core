@@ -1,0 +1,26 @@
+[project]
+name = "soda-bigquery"
+version = "4.0.5"
+description = "Soda BigQuery V4"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "google-cloud-bigquery>=2.25.0",
+]
+
+[project.entry-points."soda.plugins.data_source.bigquery"]
+BigqueryDataSourceImpl = "soda_bigquery.common.data_sources.bigquery_data_source:BigQueryDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

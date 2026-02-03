@@ -1,0 +1,27 @@
+[project]
+name = "soda-duckdb"
+version = "4.0.5"
+description = "Soda DuckDB V4"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "duckdb>=1.2.0",
+    "pytz",
+]
+
+[project.entry-points."soda.plugins.data_source.duckdb"]
+DuckDBDataSourceImpl = "soda_duckdb.common.data_sources.duckdb_data_source:DuckDBDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

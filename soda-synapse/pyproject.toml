@@ -1,0 +1,27 @@
+[project]
+name = "soda-synapse"
+version = "4.0.5"
+description = "Soda Synapse V4"
+requires-python = ">=3.9"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "soda-sqlserver==4.0.5",
+]
+
+[project.entry-points."soda.plugins.data_source.synapse"]
+SynapseDataSourceImpl = "soda_synapse.common.data_sources.synapse_data_source:SynapseDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+soda-sqlserver = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
