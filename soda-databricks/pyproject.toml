@@ -2,7 +2,7 @@
 name = "soda-databricks"
 version = "4.0.5"
 description = "Soda Databricks V4"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "Proprietary"}
 authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
