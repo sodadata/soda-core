@@ -5,10 +5,9 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import Any, Optional
 
-from typing_extensions import deprecated
-
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName, SqlDataType
+from typing_extensions import deprecated
 
 logger: logging.Logger = soda_logger
 

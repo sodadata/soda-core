@@ -460,7 +460,9 @@ class ContractImpl:
                 and self.dataset_configuration.test_row_sampler_configuration.enabled
                 and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
             ):
-                self.sampler_type = map_sampler_type_from_dto(self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type)
+                self.sampler_type = map_sampler_type_from_dto(
+                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                )
                 self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
 
             if self.dataset_configuration.compute_warehouse_override:

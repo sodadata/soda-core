@@ -6,11 +6,9 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_fixtures import is_sampling_supported_data_source
 from helpers.test_table import TestTableSpecification
 from soda_core.common.metadata_types import SamplerType
-from soda_core.common.soda_cloud_dto import (
-    DatasetConfigurationDTO,
-    TestRowSamplerConfigurationDTO,
-)
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.soda_cloud_dto import SamplerType as SamplerTypeDTO
+from soda_core.common.soda_cloud_dto import TestRowSamplerConfigurationDTO
 from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (

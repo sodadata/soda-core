@@ -7,15 +7,12 @@ from numbers import Number
 from textwrap import indent
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
-from typing_extensions import deprecated
-
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
-from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
@@ -104,6 +101,7 @@ from soda_core.common.sql_ast import (
 )
 from soda_core.common.sql_utils import apply_sampling_to_sql
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from soda_core.common.data_source_impl import DataSourceImpl
