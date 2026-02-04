@@ -1,0 +1,35 @@
+[project]
+name = "soda-core"
+version = "4.0.5"
+description = "Soda core library & CLI"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "ruamel.yaml>=0.17.0,<0.18.0",
+    "requests>=2.32.3,<2.33.0",
+    "pydantic>=2.0,<3.0",
+    "opentelemetry-api>=1.16.0,<2.0.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.16.0,<2.0.0",
+    "tabulate[widechars]",
+    "python-dotenv~=1.0",
+    "sqlglot",
+]
+
+[project.scripts]
+soda = "soda_core.cli.cli:execute"
+
+[project.entry-points."soda.plugins.check_types.core"]
+CoreCheckTypes = "soda_core.contracts.impl.check_types.check_types:CoreCheckTypesPlugin"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"*" = ["**/*.json"]

@@ -1,0 +1,27 @@
+[project]
+name = "soda-redshift"
+version = "4.0.5"
+description = "Soda Redshift V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "psycopg2-binary>=2.8.5,<3.0",
+    "boto3",
+]
+
+[project.entry-points."soda.plugins.data_source.redshift"]
+RedshiftDataSourceImpl = "soda_redshift.common.data_sources.redshift_data_source:RedshiftDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
