@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import Optional
+from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -104,10 +104,10 @@ class DatabricksSqlDialect(SqlDialect):
         return False
 
     def supports_data_type_numeric_precision(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_numeric_scale(self) -> bool:
-        return False
+        return True
 
     def supports_data_type_datetime_precision(self) -> bool:
         return False
@@ -189,6 +189,18 @@ class DatabricksSqlDialect(SqlDialect):
             create_table_column.type.character_maximum_length = None
         if create_table_column.type.name in ["timestamp_ntz", "timestamp"]:
             create_table_column.type.datetime_precision = None
+        # Double does not support parameters, so we need to strip them.
+        if create_table_column.type.name == "double":
+            create_table_column.type.numeric_precision = None
+            create_table_column.type.numeric_scale = None
+        # Timestamp does not support parameters, so we need to strip them.
+        if create_table_column.type.name == "timestamp":
+            # We should clear all precisions (including datetime_precision, character_maximum_length, numeric_precision, numeric_scale).
+            # If we don't, this could lead to a scenario when mapping types from another data source to Databricks whereby we still create `timestamp(3)` instead of `timestamp`.
+            create_table_column.type.datetime_precision = None
+            create_table_column.type.character_maximum_length = None
+            create_table_column.type.numeric_precision = None
+            create_table_column.type.numeric_scale = None
         return super()._build_create_table_column_type(create_table_column=create_table_column)
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
@@ -226,16 +238,32 @@ class DatabricksSqlDialect(SqlDialect):
             if not row[0] and not row[1]:  # empty row
                 continue
 
-            # Trim data type details, e.g. decimal(10,0) -> decimal. Only decimal supports it anyway.
-            data_type = row[1]
-            if "(" in data_type:
-                data_type = data_type[: data_type.index("(")].strip()
-            row = (row[0], data_type) + row[2:]
             filtered_rows.append(row)
 
         return super().build_column_metadatas_from_query_result(
             QueryResult(rows=filtered_rows, columns=query_result.columns)
         )
+
+    def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
+        data_type_name: str = row[1]
+        # Some data types have parameters, like decimal(10,0). We need to strip the parameters.
+        if "(" in data_type_name:
+            data_type_name = data_type_name[: data_type_name.index("(")].strip()
+        return data_type_name
+
+    def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        # We just need the precision, and it's formatted like: decimal(10,0) -> 10
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        if not self.data_type_has_parameter_numeric_precision(data_type_name):
+            return None
+        return int(row[1].split("(")[1].split(",")[0])
+
+    def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+        # We just need the scale, and it's formatted like: decimal(10,0) -> 0
+        data_type_name: str = self.extract_data_type_name(row, columns)
+        if not self.data_type_has_parameter_numeric_scale(data_type_name):
+            return None
+        return int(row[1].split(",")[1].strip(")"))
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"

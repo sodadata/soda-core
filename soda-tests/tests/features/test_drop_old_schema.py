@@ -67,7 +67,6 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
         return True
 
 
-@pytest.mark.diagnostic_warehouse
 def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     if data_source_test_helper.data_source_impl.type_name not in DATASOURCES_TO_RUN:
         pytest.skip(
