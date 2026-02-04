@@ -1,0 +1,26 @@
+[project]
+name = "soda-athena"
+version = "4.0.5"
+description = "Soda Athena V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "PyAthena>=2.2.0,<3.0",
+]
+
+[project.entry-points."soda.plugins.data_source.athena"]
+AthenaDataSourceImpl = "soda_athena.common.data_sources.athena_data_source:AthenaDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

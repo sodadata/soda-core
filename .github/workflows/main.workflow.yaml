@@ -143,6 +143,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
 
       - name: Install dependencies
         run: |
@@ -174,18 +176,18 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m venv .venv
+          uv venv .venv
           source .venv/bin/activate
-          pip install -r dev-requirements.txt
-          pip install -e soda-core
-          pip install -e soda-tests
+          uv pip install -r dev-requirements.txt
+          uv pip install -e soda-core
+          uv pip install -e soda-tests
 
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
-            pip install -e soda-sqlserver
+            uv pip install -e soda-sqlserver
           fi
 
           if [ "${{ matrix.module }}" = "sparkdf" ]; then
-            pip install -e soda-databricks
+            uv pip install -e soda-databricks
             # Install java jdk 17
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jdk
@@ -197,7 +199,7 @@ jobs:
             echo "PATH=$PATH"
           fi
 
-          pip install -e soda-${{ matrix.module }}
+          uv pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
           python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
@@ -238,13 +240,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
       - name: Debug GITHUB_REF
         run: echo "GITHUB_REF=$GITHUB_REF"
       - name: Release ${{ matrix.module }}
         run: |
-          python -m venv .venv
+          uv venv .venv
           source .venv/bin/activate
-          pip install tbump build twine
+          uv pip install tbump build twine
 
           if [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
             VERSION="${GITHUB_REF#refs/tags/}"
@@ -257,6 +261,12 @@ jobs:
 
           cd ${{ matrix.module }}
           python3 -m build
+      # Stagger uploads so many packages don't hit PyPI at once (reduces 503s)
+      - name: Stagger uploads
+        run: |
+          DELAY=$(echo -n "${{ matrix.module }}" | cksum | awk '{print $1 % 91}')
+          echo "Staggering upload by ${DELAY}s..."
+          sleep $DELAY
       - name: Publish package to pypi
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
         with:
@@ -278,6 +288,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
       - name: Debug GITHUB_REF
         run: echo "GITHUB_REF=$GITHUB_REF"
       - name: Get external secrets
@@ -292,9 +304,9 @@ jobs:
             PYPI_PASSWORD,/soda/github/common/SODA_PYPI_CLOUD_WRITE_PASSWORD
       - name: Release ${{ matrix.module }}
         run: |
-          python -m venv .venv
+          uv venv .venv
           source .venv/bin/activate
-          pip install tbump build twine
+          uv pip install tbump build twine
 
           RELEASE_VERSION="$(echo ${GITHUB_REF_NAME} | sed -E 's/v(.*)/\1/')"
           tbump --only-patch --non-interactive ${RELEASE_VERSION}

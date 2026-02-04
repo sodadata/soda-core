@@ -1,0 +1,26 @@
+[project]
+name = "soda-sqlserver"
+version = "4.0.5"
+description = "Soda SQL Server V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "pyodbc",
+]
+
+[project.entry-points."soda.plugins.data_source.sqlserver"]
+SqlServerDataSourceImpl = "soda_sqlserver.common.data_sources.sqlserver_data_source:SqlServerDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

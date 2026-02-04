@@ -1,0 +1,27 @@
+[project]
+name = "soda-fabric"
+version = "4.0.5"
+description = "Soda Fabric V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.5",
+    "soda-sqlserver==4.0.5",
+]
+
+[project.entry-points."soda.plugins.data_source.fabric"]
+FabricDataSourceImpl = "soda_fabric.common.data_sources.fabric_data_source:FabricDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+soda-sqlserver = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

@@ -226,9 +226,7 @@ class SodaCloud:
             logger.error("Invalid Soda Cloud config file: No valid YAML object as file content")
             return None
 
-        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object_opt("soda_cloud")
-        if not soda_cloud_yaml_object:
-            logger.debug("key 'soda_cloud' is required in a Soda Cloud configuration file.")
+        soda_cloud_yaml_object: Optional[YamlObject] = soda_cloud_yaml_root_object.read_object("soda_cloud")
 
         if soda_cloud_token := os.environ.get("SODA_CLOUD_TOKEN"):
             logger.debug("Found an authentication token in environment variables, ignoring API key authentication.")
@@ -1295,10 +1293,16 @@ class SodaCloud:
 
         return datasets_json
 
-    def migration_fail_contract_generation(self, migration_id: str) -> None:
+    def migration_fail_contract_generation(self, migration_id: str, error: str = "") -> None:
         logger.info(f"Failing contract generation for migration '{migration_id}'")
 
-        request = {"type": "sodaCoreV3MigrationFailContractGeneration", "migrationId": migration_id}
+        request = {
+            "type": "sodaCoreV3MigrationFailContractGeneration",
+            "migrationId": migration_id,
+            "error": {
+                "message": error,
+            },
+        }
         response = self._execute_command(request, request_log_name="fail_contract_generation")
         response_dict = response.json()
 
