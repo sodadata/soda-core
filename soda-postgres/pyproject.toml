@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
     "soda-core==4.0.5",
-    "psycopg2-binary>=2.8.5,<3.0",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.entry-points."soda.plugins.data_source.postgres"]
