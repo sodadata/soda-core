@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.6rc0",
+    "soda-core==4.0.6rc0,",
     "duckdb>=1.2.0",
     "pytz",
 ]
