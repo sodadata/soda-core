@@ -15,56 +15,56 @@ search = 'SODA_CORE_VERSION = "{current_version}"'
 
 [[file]]
 src = "pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-core/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-postgres/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-snowflake/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-databricks/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-tests/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-duckdb/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-bigquery/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-sqlserver/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-synapse/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-fabric/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-athena/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-redshift/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
 src = "soda-sparkdf/pyproject.toml"
-search = 'version = "{current_version}"'
+search = 'version = "{current_version}"|soda-.*=={current_version}'
