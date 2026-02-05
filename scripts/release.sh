@@ -42,11 +42,11 @@ if [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)([0-9]+)$ ]]; then
   PRERELEASE_SUFFIX="${BASH_REMATCH[1]}$((BASH_REMATCH[2] + 1))"
   NEXT_PRERELEASE="${MAJOR}.${MINOR}.${PATCH}${PRERELEASE_SUFFIX}"
 # Matches: 1.2.3-alpha.1 / 1.2.3-beta.2 (SemVer)
-elif [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha.|-beta.)([0-9]+)$ ]]; then
+elif [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha|-beta)(\.[0-9]+)?$ ]]; then
   PRERELEASE_SUFFIX="${BASH_REMATCH[1]}$((BASH_REMATCH[2] + 1))"
   NEXT_PRERELEASE="${MAJOR}.${MINOR}.${PATCH}${PRERELEASE_SUFFIX}"
 else
-  echo "No or unknown prerelease schema"
+  echo "No or unknown prerelease schema; not bumping to next prerelease version."
   exit 1
 fi
 

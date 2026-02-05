@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import SodaDataTypeName
-from soda_core.common.soda_cloud_dto import SamplerType
+from soda_core.common.metadata_types import SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
@@ -193,8 +192,8 @@ class SnowflakeSqlDialect(SqlDialect):
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
 
-    def _build_sample_sql(self, sampler_type: str, sample_size: Number) -> str:
-        if sampler_type == SamplerType.ABSOLUTE_LIMIT:
+    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
+        if sampler_type is SamplerType.ABSOLUTE_LIMIT:
             return f"TABLESAMPLE ({int(sample_size)} ROWS)"
         else:
             raise ValueError(f"Unsupported sample type: {sampler_type}")

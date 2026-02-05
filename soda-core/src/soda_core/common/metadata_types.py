@@ -128,3 +128,9 @@ class SodaDataTypeName(str, enum.Enum):
 
     def __hash__(self) -> int:
         return hash(self.value)
+
+
+class SamplerType(enum.Enum):
+    """Sampler types for sampling rows from tables."""
+
+    ABSOLUTE_LIMIT = "absolute_limit"  # sample a fixed number of rows

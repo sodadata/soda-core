@@ -1,5 +1,5 @@
 [version]
-current = "4.0.5"
+current = "4.0.6rc0"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.)?((?P<prerelease>[a-z,0-9]+)(?P<build>\d+))?
@@ -14,53 +14,57 @@ src = "soda-core/src/soda_core/__version__.py"
 search = 'SODA_CORE_VERSION = "{current_version}"'
 
 [[file]]
-src = "soda-core/setup.py"
-search = 'package_version = "{current_version}"'
+src = "pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-postgres/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-core/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-snowflake/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-postgres/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-databricks/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-snowflake/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-tests/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-databricks/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-duckdb/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-tests/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-bigquery/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-duckdb/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-sqlserver/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-bigquery/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-synapse/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-sqlserver/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-fabric/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-synapse/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-athena/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-fabric/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-redshift/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-athena/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
 
 [[file]]
-src = "soda-sparkdf/setup.py"
-search = 'package_version = "{current_version}"'
+src = "soda-redshift/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
+
+[[file]]
+src = "soda-sparkdf/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
