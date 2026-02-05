@@ -8,10 +8,10 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.6rc0,",
+    "soda-core==4.0.6rc0",
     "freezegun",
     "pyspark>=3.5.0",
-    "soda-databricks==4.0.6rc0,",
+    "soda-databricks==4.0.6rc0",
 ]
 
 [project.entry-points."soda.plugins.data_source.sparkdf"]
