@@ -254,9 +254,9 @@ jobs:
             VERSION="${GITHUB_REF#refs/tags/}"
             echo "Using tag version: $VERSION"
           else
-            VERSION="$(tbump current-version | sed -E 's/((a|b|rc)[0-9]+|\.dev[0-9]+)$//')"
-            echo "No tag found, bumping to dev version: $VERSION"
-            tbump --only-patch --non-interactive "$VERSION"
+            CURRENT_VERSION_ROOT="$(tbump current-version | sed -E 's/((a|b|rc)[0-9]+|\.dev[0-9]+)$//')"
+            echo "No tag found, bumping to dev version: $CURRENT_VERSION_ROOT"
+            tbump --only-patch --non-interactive ${CURRENT_VERSION_ROOT}.dev${GITHUB_RUN_NUMBER}
           fi
 
           cd ${{ matrix.module }}
