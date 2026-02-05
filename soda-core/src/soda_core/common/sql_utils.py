@@ -3,7 +3,7 @@ from __future__ import annotations
 from numbers import Number
 
 import sqlglot
-from soda_core.common.soda_cloud_dto import SamplerType
+from soda_core.common.sql_ast import SamplerType
 from sqlglot import exp
 
 

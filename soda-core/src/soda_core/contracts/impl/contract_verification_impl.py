@@ -18,7 +18,9 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys
 from soda_core.common.logs import Location, Logs
+from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import (
@@ -445,7 +447,7 @@ class ContractImpl:
             ]
         )
         # Optional sampler configuration. Is there a better place or way to store this?
-        self.sampler_type: Optional[str] = None
+        self.sampler_type: Optional[SamplerType] = None
         self.sampler_limit: Optional[Number] = None
 
         self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
@@ -458,7 +460,9 @@ class ContractImpl:
                 and self.dataset_configuration.test_row_sampler_configuration.enabled
                 and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
             ):
-                self.sampler_type = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                self.sampler_type = map_sampler_type_from_dto(
+                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
+                )
                 self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
 
             if self.dataset_configuration.compute_warehouse_override:

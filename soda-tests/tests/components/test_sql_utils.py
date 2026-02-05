@@ -6,7 +6,7 @@
 
 import pytest
 import sqlglot
-from soda_core.common.soda_cloud_dto import SamplerType
+from soda_core.common.metadata_types import SamplerType
 from soda_core.common.sql_utils import apply_sampling_to_sql
 from sqlglot import exp
 
