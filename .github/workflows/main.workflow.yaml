@@ -254,7 +254,7 @@ jobs:
             VERSION="${GITHUB_REF#refs/tags/}"
             echo "Using tag version: $VERSION"
           else
-            VERSION="4.0.0.dev${GITHUB_RUN_NUMBER}"
+            VERSION="$(tbump current-version).dev${GITHUB_RUN_NUMBER}"
             echo "No tag found, bumping to dev version: $VERSION"
             tbump --only-patch --non-interactive "$VERSION"
           fi
