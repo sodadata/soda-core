@@ -1,6 +1,6 @@
 [project]
 name = "soda-redshift"
-version = "4.0.5"
+version = "4.0.6rc0"
 description = "Soda Redshift V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
