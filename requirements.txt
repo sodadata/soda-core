@@ -10,4 +10,5 @@ soda-snowflake
 soda-sqlserver
 soda-synapse
 soda-tests
+soda-trino
 soda-sparkdf

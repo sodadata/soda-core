@@ -68,3 +68,7 @@ search = 'version = "{current_version}"|soda-.*=={current_version}'
 [[file]]
 src = "soda-sparkdf/pyproject.toml"
 search = 'version = "{current_version}"|soda-.*=={current_version}'
+
+[[file]]
+src = "soda-trino/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'

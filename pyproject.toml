@@ -25,6 +25,7 @@ members = [
     "soda-sqlserver",
     "soda-synapse",
     "soda-tests",
+    "soda-trino"
 ]
 
 [dependency-groups]
