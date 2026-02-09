@@ -18,8 +18,6 @@ from soda_core.model.data_source.data_source_connection_properties import (
 )
 
 
-# schema = get("schema")
-
 class TrinoConnectionProperties(DataSourceConnectionProperties):
     host: str = Field(..., description="Database host")
     catalog: str = Field(..., description="Database catalog")
@@ -28,6 +26,7 @@ class TrinoConnectionProperties(DataSourceConnectionProperties):
     http_headers: Optional[dict[str, str]] = Field(None, description="HTTP headers")
     source: str = Field("soda-core", description="Source")
     client_tags: Optional[list[str]] = Field(None, description="Client tags")
+    verify: Optional[bool] = Field(True, description="Verify SSL certificate")
 
 class TrinoUserPasswordConnectionProperties(TrinoConnectionProperties):
     # Default if authType not specified 
@@ -39,7 +38,7 @@ class TrinoUserPasswordConnectionProperties(TrinoConnectionProperties):
 class TrinoJWTConnectionProperties(TrinoConnectionProperties):
     auth_type: Literal["JWTAuthentication"] = Field(description="Authentication type")
     access_token: str = Field(..., description="JWT access token")
-    user: Optional[str] = Field(None, description="Database username")
+    user: Optional[str] = Field(None, description="Database username")    
 
 
 class TrinoOauthPayload(BaseModel):
@@ -53,6 +52,7 @@ class TrinoOauthConnectionProperties(TrinoConnectionProperties):
     auth_type: Literal["OAuth2ClientCredentialsAuthentication"] = Field(description="Authentication type")
     oauth: TrinoOauthPayload = Field(..., description="OAuth configuration")
     user: Optional[str] = Field(None, description="Database username")
+    
 
 class TrinoNoAuthenticationConnectionProperties(TrinoConnectionProperties):
     auth_type: Literal["NoAuthentication"] = Field(description="Authentication type")
@@ -98,7 +98,8 @@ class TrinoDataSourceConnection(DataSourceConnection):
             "auth": self.auth,
             "http_headers": config.http_headers,
             "source": config.source,
-            "client_tags": config.client_tags,
+            "client_tags": config.client_tags,   
+            "verify": config.verify,
         }
 
         if getattr(config, "user"):    
