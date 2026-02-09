@@ -15,7 +15,8 @@ from soda_trino.common.data_sources.trino_data_source_connection import (
 logger: logging.Logger = soda_logger
 
 
-# placeholder file 
+# placeholder file
+
 
 class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
     def __init__(self, data_source_model: TrinoDataSourceModel, connection: Optional[DataSourceConnection] = None):
@@ -28,6 +29,7 @@ class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
         return TrinoDataSourceConnection(
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
-    
+
+
 class TrinoSqlDialect(SqlDialect):
     pass

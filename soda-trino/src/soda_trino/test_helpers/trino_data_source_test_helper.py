@@ -11,7 +11,6 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class TrinoDataSourceTestHelper(DataSourceTestHelper):
-
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
