@@ -6,7 +6,7 @@ TRINO_HOST = os.getenv("TRINO_HOST", "")
 TRINO_USERNAME = os.getenv("TRINO_USERNAME", "")
 TRINO_PASSWORD = os.getenv("TRINO_PASSWORD", "")
 TRINO_CATALOG = os.getenv("TRINO_CATALOG", "")
-
+TRINO_PORT = int(os.getenv("TRINO_PORT", ""))
 from helpers.data_source_test_helper import DataSourceTestHelper
 
 
@@ -27,4 +27,5 @@ class TrinoDataSourceTestHelper(DataSourceTestHelper):
                 username: {TRINO_USERNAME}
                 password: '{TRINO_PASSWORD}'
                 catalog: '{TRINO_CATALOG}'
+                port: {TRINO_PORT}
         """
