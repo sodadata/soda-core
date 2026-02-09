@@ -33,6 +33,11 @@ dev = [
     "pre-commit>=4.1.0",
     "tbump>=6.11.0",
     "pydantic>=2.11,<3.0",
+    "python-dotenv>=1.0",
+    "freezegun",
+    "polars",
+    "pandas",
+    "pyarrow",
 ]
 
 # Workspace sources - tells UV where to find workspace packages

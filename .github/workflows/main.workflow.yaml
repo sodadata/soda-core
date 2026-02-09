@@ -176,42 +176,33 @@ jobs:
 
       - name: Run tests
         run: |
-          uv venv .venv
-          source .venv/bin/activate
-          uv pip install -r dev-requirements.txt
-          uv pip install -e soda-core
-          uv pip install -e soda-tests
+          uv sync --group dev --package soda-core --package soda-tests --package soda-${{ matrix.module }}
 
           if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
-            uv pip install -e soda-sqlserver
+            uv sync --package soda-sqlserver
           fi
 
           if [ "${{ matrix.module }}" = "sparkdf" ]; then
-            uv pip install -e soda-databricks
-            # Install java jdk 17
+            uv sync --package soda-databricks
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jdk
             export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
             export PATH=$JAVA_HOME/bin:$PATH
             echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
             echo "PATH=$PATH" >> "$GITHUB_ENV"
-            echo "JAVA_HOME=$JAVA_HOME"
-            echo "PATH=$PATH"
           fi
 
-          uv pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
-          python -m pytest -ra soda-tests/tests/features
+          uv run python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
-            python -m pytest -ra soda-tests/tests/components
+            uv run python -m pytest -ra soda-tests/tests/components
           fi
-          python -m pytest -ra soda-${{ matrix.module }}/tests
+          uv run python -m pytest -ra soda-${{ matrix.module }}/tests
 
           if [ "${{ matrix.module }}" = "databricks" ]; then
-            # Set the environment variables for DATABRICKS_CATALOG to hive_metastore
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
-            python -m pytest -ra soda-tests/tests/features
+            uv run python -m pytest -ra soda-tests/tests/features
           fi
 
   define-matrix:
