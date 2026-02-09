@@ -141,20 +141,21 @@ test_connections: list[TestConnection] = [
     ),
     # uncomment the following to test JWT auth if you have a real token in TRINO_JWT_TOKEN
     # see soda-trino/local_instance/README.md to configure a local instance and generate a token you can use to run this test
-    TestConnection(  # real token, should work
-        test_name="real_jwt_token",
-        connection_yaml_str=f"""
-                type: trino
-                name: TRINO_TEST_DS
-                connection:
-                    host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
-                    catalog: '{TRINO_CATALOG}'
-                    auth_type: 'JWTAuthentication'
-                    access_token: '{TRINO_JWT_TOKEN}'
-                    verify: false
-            """,                
-    ),
+    # last successful test: 2026-02-09 
+    # TestConnection(  # real token, should work
+    #     test_name="real_jwt_token",
+    #     connection_yaml_str=f"""
+    #             type: trino
+    #             name: TRINO_TEST_DS
+    #             connection:
+    #                 host: '{TRINO_HOST}'
+    #                 port: '{TRINO_PORT}'
+    #                 catalog: '{TRINO_CATALOG}'
+    #                 auth_type: 'JWTAuthentication'
+    #                 access_token: '{TRINO_JWT_TOKEN}'
+    #                 verify: false
+    #         """,                
+    # ),
 ]
 
 
