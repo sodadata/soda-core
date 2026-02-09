@@ -15,11 +15,12 @@ TRINO_JWT_TOKEN = os.getenv("TRINO_JWT_TOKEN", "")
 FAKE_JWT_TOKEN = "eyJhbGciOiJub25lIn0.e30."
 
 from unittest.mock import Mock
-                                                                                                                    
+
+
 def mock_requests_post(token_url: str, data: dict) -> dict:
     response = Mock()
     response.status_code = 200
-    response.json.return_value = {"access_token": FAKE_JWT_TOKEN}    
+    response.json.return_value = {"access_token": FAKE_JWT_TOKEN}
     return response
 
 
@@ -51,7 +52,7 @@ test_connections: list[TestConnection] = [
                     catalog: '{TRINO_CATALOG}'
                     auth_type: 'BasicAuthentication'
             """,
-    ),    
+    ),
     TestConnection(  # bad connection params
         test_name="auth_type_username_password_missing",
         valid_yaml=False,
@@ -63,7 +64,7 @@ test_connections: list[TestConnection] = [
                     host: '{TRINO_HOST}'
                     port: '{TRINO_PORT}'
                     user: '{TRINO_USERNAME}'
-                    catalog: '{TRINO_CATALOG}'                    
+                    catalog: '{TRINO_CATALOG}'
             """,
     ),
     TestConnection(  # correct connection, should work
@@ -78,7 +79,7 @@ test_connections: list[TestConnection] = [
                     password: '{TRINO_PASSWORD}'
                     catalog: '{TRINO_CATALOG}'
                     http_scheme: 'https'
-                    http_headers:                        
+                    http_headers:
                     source: 'soda-core'
                     client_tags:
                         - 'soda-core'
@@ -97,7 +98,7 @@ test_connections: list[TestConnection] = [
                     access_token: '{FAKE_JWT_TOKEN}'
             """,
         query_should_succeed=False,
-        expected_query_error="disallowed",                
+        expected_query_error="disallowed",
     ),
     TestConnection(  # fake unsecured token, will connect but fail at query stage
         test_name="oauth",
@@ -109,13 +110,13 @@ test_connections: list[TestConnection] = [
                     port: '{TRINO_PORT}'
                     catalog: '{TRINO_CATALOG}'
                     auth_type: 'OAuth2ClientCredentialsAuthentication'
-                    oauth: 
+                    oauth:
                         token_url: 'https://example.com/token'
                         client_id: 'client_id'
                         client_secret: 'client_secret'
             """,
         query_should_succeed=False,
-        expected_query_error="disallowed",                
+        expected_query_error="disallowed",
         monkeypatches={"requests.post": mock_requests_post},
     ),
     TestConnection(  # fake unsecured token, will connect but fail at query stage
@@ -128,7 +129,7 @@ test_connections: list[TestConnection] = [
                     port: '{TRINO_PORT}'
                     catalog: '{TRINO_CATALOG}'
                     auth_type: 'OAuth2ClientCredentialsAuthentication'
-                    oauth: 
+                    oauth:
                         token_url: 'https://example.com/token'
                         client_id: 'client_id'
                         client_secret: 'client_secret'
@@ -136,12 +137,12 @@ test_connections: list[TestConnection] = [
                         grant_type: 'grant_type'
             """,
         query_should_succeed=False,
-        expected_query_error="disallowed",                
+        expected_query_error="disallowed",
         monkeypatches={"requests.post": mock_requests_post},
     ),
     # uncomment the following to test JWT auth if you have a real token in TRINO_JWT_TOKEN
     # see soda-trino/local_instance/README.md to configure a local instance and generate a token you can use to run this test
-    # last successful test: 2026-02-09 
+    # last successful test: 2026-02-09
     # TestConnection(  # real token, should work
     #     test_name="real_jwt_token",
     #     connection_yaml_str=f"""
@@ -154,7 +155,7 @@ test_connections: list[TestConnection] = [
     #                 auth_type: 'JWTAuthentication'
     #                 access_token: '{TRINO_JWT_TOKEN}'
     #                 verify: false
-    #         """,                
+    #         """,
     # ),
 ]
 
