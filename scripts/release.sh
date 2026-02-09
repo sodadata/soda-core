@@ -33,9 +33,6 @@ else
   tbump --non-interactive "$NEXT"
 fi
 
-PRERELEASE_SUFFIX="rc0"
-NEXT_PRERELEASE="${MAJOR}.${MINOR}.$((PATCH + 1))${PRERELEASE_SUFFIX}"
-
 # If NEXT is alpha/beta prerelease, skip setting next prerelease
 # Matches: 1.2.3a1 / 1.2.3b2  (PEP 440)
 if [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)([0-9]+)$ ]]; then
@@ -47,7 +44,8 @@ elif [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha|-beta)(\.[0-9]+)?$ ]]; then
   NEXT_PRERELEASE="${MAJOR}.${MINOR}.${PATCH}${PRERELEASE_SUFFIX}"
 # Matches: full version number: 1.2.3
 elif [[ "$NEXT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  NEXT_PRERELEASE="${MAJOR}.${MINOR}.$((PATCH + 1))"
+  PRERELEASE_SUFFIX="rc0"
+  NEXT_PRERELEASE="${MAJOR}.${MINOR}.$((PATCH + 1))${PRERELEASE_SUFFIX}"
 else
   echo "No or unknown prerelease schema; not bumping to next prerelease version."
   exit 1
