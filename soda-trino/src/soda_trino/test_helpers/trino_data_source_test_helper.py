@@ -11,8 +11,6 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class TrinoDataSourceTestHelper(DataSourceTestHelper):
-    def _create_database_name(self) -> str | None:
-        return os.getenv("REDSHIFT_DATABASE", "soda_test")
 
     def _create_data_source_yaml_str(self) -> str:
         """
