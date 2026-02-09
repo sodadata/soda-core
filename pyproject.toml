@@ -32,6 +32,7 @@ dev = [
     "pytest>=7.4.4",
     "pre-commit>=4.1.0",
     "tbump>=6.11.0",
+    "pydantic>=2.11,<3.0",
 ]
 
 # Workspace sources - tells UV where to find workspace packages
