@@ -158,3 +158,4 @@ reports/*
 code_system_prompt.txt
 v3_soda_checks.yml
 v4_soda_data_contract.yml
+data_contracts/

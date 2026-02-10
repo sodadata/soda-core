@@ -190,7 +190,7 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
 
     while True:
         try:
-            user_input = session.prompt(ANSI_Text(f"\n{BOLD}You:{RESET} ")).strip()
+            user_input = session.prompt(ANSI_Text(f"\n{CYAN}{BOLD}❯{RESET} ")).strip()
         except (EOFError, KeyboardInterrupt):
             print(f"\n{DIM}Goodbye!{RESET}")
             break
@@ -255,10 +255,16 @@ def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
                 status, done_msg = _tool_status(tool_name, tool_call.function.arguments)
 
                 spinner.update(status)
+
+                # Stop spinner before write so the confirmation prompt renders cleanly
+                if tool_name == "write_file":
+                    spinner.stop()
+
                 result = _execute_tool(tool_name, tool_call.function.arguments)
 
                 # Print a log line showing the completed action
-                spinner.stop()
+                if tool_name != "write_file":
+                    spinner.stop()
                 print(f"  {DIM}{done_msg}{RESET}")
                 spinner.start()
 
@@ -275,7 +281,7 @@ def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
         spinner.stop()
 
         text = choice.message.content or ""
-        print(f"\n{BOLD}Soda Code:{RESET} {text}")
+        print(f"\n{BOLD}⏺{RESET} {text}")
         return text
 
 
@@ -332,10 +338,21 @@ def _tool_read_file(file_path: str) -> str:
 
 
 def _tool_write_file(file_path: str, content: str) -> str:
-    """Write content to a file."""
+    """Write content to a file, after user confirmation."""
     path = Path(file_path)
     if not path.is_absolute():
         path = Path.cwd() / path
+
+    exists = path.exists()
+    action = "Overwrite" if exists else "Create"
+
+    try:
+        answer = input(f"  {YELLOW}{action} {file_path}? [Y/n]{RESET} ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return f"User cancelled saving to {file_path}"
+
+    if answer and answer not in ("y", "yes"):
+        return f"User declined saving to {file_path}"
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
