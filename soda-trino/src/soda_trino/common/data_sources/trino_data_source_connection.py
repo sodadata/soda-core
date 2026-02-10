@@ -5,7 +5,7 @@ from abc import ABC
 from typing import Literal, Optional, Union
 
 import trino
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, IPvAnyAddress
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -19,13 +19,13 @@ from soda_core.model.data_source.data_source_connection_properties import (
 
 
 class TrinoConnectionProperties(DataSourceConnectionProperties):
-    host: str = Field(..., description="Database host")
+    host: Union[str, IPvAnyAddress] = Field(..., description="Database host (hostname or IP address)")
     catalog: str = Field(..., description="Database catalog")
-    port: str = Field("443", description="Database port")
+    port: int = Field(5432, description="Database port (1-65535)", ge=1, le=65535)
     http_scheme: Literal["https", "http"] = Field("https", description="HTTP scheme")
     http_headers: Optional[dict[str, str]] = Field(None, description="HTTP headers")
-    source: str = Field("soda-core", description="Source")
-    client_tags: Optional[list[str]] = Field(None, description="Client tags")
+    source: str = Field("soda-core", description="Trino-internal label for this connection")
+    client_tags: Optional[list[str]] = Field(None, description="Trino-internal tags as list of strings.")
     verify: Optional[bool] = Field(True, description="Verify SSL certificate")
 
 

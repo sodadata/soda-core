@@ -33,7 +33,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     user: '{TRINO_USERNAME}'
                     password: '{TRINO_PASSWORD}'
                     catalog: '{TRINO_CATALOG}'
@@ -46,7 +46,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     user: '{TRINO_USERNAME}'
                     password: '{TRINO_PASSWORD}'
                     catalog: '{TRINO_CATALOG}'
@@ -62,7 +62,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     user: '{TRINO_USERNAME}'
                     catalog: '{TRINO_CATALOG}'
             """,
@@ -74,7 +74,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     user: '{TRINO_USERNAME}'
                     password: '{TRINO_PASSWORD}'
                     catalog: '{TRINO_CATALOG}'
@@ -92,7 +92,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     catalog: '{TRINO_CATALOG}'
                     auth_type: 'JWTAuthentication'
                     access_token: '{FAKE_JWT_TOKEN}'
@@ -107,7 +107,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     catalog: '{TRINO_CATALOG}'
                     auth_type: 'OAuth2ClientCredentialsAuthentication'
                     oauth:
@@ -126,7 +126,7 @@ test_connections: list[TestConnection] = [
                 name: TRINO_TEST_DS
                 connection:
                     host: '{TRINO_HOST}'
-                    port: '{TRINO_PORT}'
+                    port: {TRINO_PORT}
                     catalog: '{TRINO_CATALOG}'
                     auth_type: 'OAuth2ClientCredentialsAuthentication'
                     oauth:
