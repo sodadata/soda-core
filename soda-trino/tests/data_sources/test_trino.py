@@ -6,7 +6,7 @@ from helpers.test_fixtures import test_datasource
 
 # define environment variables used in test cases
 TRINO_HOST = os.getenv("TRINO_HOST", "")
-TRINO_PORT = os.getenv("TRINO_PORT", "")
+TRINO_PORT = os.getenv("TRINO_PORT", 443)
 TRINO_USERNAME = os.getenv("TRINO_USERNAME", "")
 TRINO_PASSWORD = os.getenv("TRINO_PASSWORD", "")
 TRINO_CATALOG = os.getenv("TRINO_CATALOG", "")

@@ -6,7 +6,7 @@ from typing import Literal, Optional, Union
 
 import requests
 import trino
-from pydantic import BaseModel, Field, IPvAnyAddress
+from pydantic import BaseModel, Field, IPvAnyAddress, SecretStr
 from soda_core.common.logging_constants import soda_logger
 
 logger: logging.Logger = soda_logger
@@ -36,19 +36,19 @@ class TrinoUserPasswordConnectionProperties(TrinoConnectionProperties):
         "BasicAuthentication", description="Authentication type"
     )
     user: str = Field(..., description="Database username")
-    password: str = Field(..., description="Database password")
+    password: SecretStr = Field(..., description="Database password")
 
 
 class TrinoJWTConnectionProperties(TrinoConnectionProperties):
     auth_type: Literal["JWTAuthentication"] = Field(description="Authentication type")
-    access_token: str = Field(..., description="JWT access token")
+    access_token: SecretStr = Field(..., description="JWT access token")
     user: Optional[str] = Field(None, description="Database username")
 
 
 class TrinoOauthPayload(BaseModel):
     token_url: str = Field(..., description="Token URL")
     client_id: str = Field(..., description="Client ID")
-    client_secret: str = Field(..., description="Client secret")
+    client_secret: SecretStr = Field(..., description="Client secret")
     scope: Optional[str] = Field(None, description="Scope")
     grant_type: Optional[str] = Field("client_credentials", description="Grant type")
 
@@ -83,9 +83,9 @@ class TrinoDataSourceConnection(DataSourceConnection):
         config: TrinoConnectionProperties,
     ):
         if isinstance(config, TrinoUserPasswordConnectionProperties):
-            self.auth = trino.auth.BasicAuthentication(config.user, config.password)
+            self.auth = trino.auth.BasicAuthentication(config.user, config.password.get_secret_value())
         elif isinstance(config, TrinoJWTConnectionProperties):
-            self.auth = trino.auth.JWTAuthentication(token=config.access_token)
+            self.auth = trino.auth.JWTAuthentication(token=config.access_token.get_secret_value())
         elif isinstance(config, TrinoOauthConnectionProperties):
             # Use OAuth to get a JWT access token
             # Note, this is a JWTAuthentication flow, not to be confused with OAuth2Authentication which launches a web browser
@@ -118,7 +118,7 @@ class TrinoDataSourceConnection(DataSourceConnection):
 
         token_url = oauth.token_url
         client_id = oauth.client_id
-        client_secret = oauth.client_secret
+        client_secret = oauth.client_secret.get_secret_value()
         scope = oauth.scope
         grant_type = oauth.grant_type
 
