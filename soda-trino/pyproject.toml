@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.entry-points."soda.plugins.data_source.trino"]
-trinoDataSourceImpl = "soda_trino.common.data_sources.trino_data_source:trinoDataSourceImpl"
+TrinoDataSourceImpl = "soda_trino.common.data_sources.trino_data_source:TrinoDataSourceImpl"
 
 [tool.uv.sources]
 soda-core = { workspace = true }
