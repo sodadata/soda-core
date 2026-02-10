@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import requests
 from abc import ABC
 from typing import Literal, Optional, Union
 
@@ -107,7 +108,7 @@ class TrinoDataSourceConnection(DataSourceConnection):
             "verify": config.verify,
         }
 
-        if getattr(config, "user"):
+        if getattr(config, "user", None):
             connect_kwargs["user"] = config.user
         return trino.dbapi.connect(**connect_kwargs)
 
@@ -121,26 +122,25 @@ class TrinoDataSourceConnection(DataSourceConnection):
         scope = oauth.scope
         grant_type = oauth.grant_type
 
-        import requests
-
         # OAuth credentials
         payload = {"client_id": client_id, "client_secret": client_secret, "grant_type": grant_type}
         if scope:
             payload["scope"] = scope
         response = requests.post(token_url, data=payload)
-        if response.status_code == 200:
-            response_json = response.json()
-            expires_in = response_json.get("expires_in", 0)
-            scope = response_json.get("scope", "")
-            access_token = response_json["access_token"]
-            if access_token:
-                logger.info(
-                    f"Obtained OAuth access token, expires in '{expires_in}' seconds, granted scopes: '{scope}'"
-                )
-                return access_token
-            else:
-                raise ValueError(
-                    f"OAuth request did not return an access token: {response.status_code} {response.text}"
-                )
-        else:
+        if response.status_code != 200:
             raise ValueError(f"OAuth request failed: {response.status_code} {response.text}")
+        
+        response_json = response.json()
+        expires_in = response_json.get("expires_in", 0)
+        scope = response_json.get("scope", "")
+        access_token = response_json["access_token"]
+        if access_token:
+            logger.info(
+                f"Obtained OAuth access token, expires in '{expires_in}' seconds, granted scopes: '{scope}'"
+            )
+            return access_token
+        else:
+            raise ValueError(
+                f"OAuth request did not return an access token: {response.status_code} {response.text}"
+            )
+        
