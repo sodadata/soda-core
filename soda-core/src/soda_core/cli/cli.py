@@ -27,6 +27,7 @@ from soda_core.cli.handlers.soda_cloud import (
     handle_create_soda_cloud,
     handle_test_soda_cloud,
 )
+from soda_core.cli.handlers.code import handle_code_chat
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_request import RequestStatus
@@ -36,17 +37,6 @@ from soda_core.telemetry.soda_tracer import soda_trace
 CLOUD_CONFIG_PATH_HELP = "A Soda Cloud configuration file path."
 FILE_PATH_HELP = "The path to the file to be created. (directories will be created if needed)"
 REQUEST_NUMBER_HELP = "The Contract Request number"
-
-# Legacy v3 commands that are no longer supported in v4
-LEGACY_V3_COMMANDS = frozenset(
-    [
-        "scan",
-        "scan_status",
-        "ingest",
-        "test_connection",
-        "simulate_anomaly_detection",
-    ]
-)
 
 soda_telemetry = SodaTelemetry()
 
@@ -59,8 +49,6 @@ def execute() -> None:
         print(r"____/\___/___/_/  _\\ CLI v%s" % SODA_CORE_VERSION)
 
         signal.signal(signal.SIGINT, handle_ctrl_c)
-
-        handle_legacy_commands()
 
         args = cli_parser.parse_args()
 
@@ -91,15 +79,6 @@ def _configure_logging(verbose: bool) -> None:
     configure_logging(verbose=verbose)
 
 
-def handle_legacy_commands():
-    if len(sys.argv) > 1 and sys.argv[1] in LEGACY_V3_COMMANDS:
-        print("Soda v3 commands are not supported (Soda v4 was run)")
-        print("Please run Soda v3, or execute only Soda v4 commands.")
-        print("See https://docs.soda.io/soda-v4/reference/cli-reference for more information.")
-
-        exit_with_code(ExitCode.LOG_ERRORS)
-
-
 def create_cli_parser() -> ArgumentParser:
     parser = ArgumentParser(
         prog="soda",
@@ -111,6 +90,7 @@ def create_cli_parser() -> ArgumentParser:
     _setup_data_source_resource(resource_parsers)
     _setup_soda_cloud_resource(resource_parsers)
     _setup_contract_request_resource(resource_parsers)
+    _setup_code_resource(resource_parsers)
 
     return parser
 
@@ -647,6 +627,26 @@ def _setup_contract_request_transition_command(contract_request_parsers: Argumen
         exit_with_code(exit_code)
 
     transition_request_parser.set_defaults(handler_func=handle)
+
+
+def _setup_code_resource(resource_parsers) -> None:
+    code_parser = resource_parsers.add_parser("code", help="Soda Code AI assistant for data contracts")
+
+    code_parser.add_argument(
+        "-v",
+        "--verbose",
+        const=True,
+        action="store_const",
+        default=False,
+        help="Show more detailed logs on the console.",
+    )
+
+    def handle(args):
+        verbose = args.verbose
+        exit_code = handle_code_chat(verbose)
+        exit_with_code(exit_code)
+
+    code_parser.set_defaults(handler_func=handle, command="chat")
 
 
 def exit_with_code(exit_code: int):

@@ -153,3 +153,8 @@ reports/*
 *.lock
 !uv.lock
 .local/
+
+# from Code experimental chat feature
+code_system_prompt.txt
+v3_soda_checks.yml
+v4_soda_data_contract.yml
