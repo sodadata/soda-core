@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
+import threading
+import time
 from pathlib import Path
 from typing import Optional, List
+
+# Suppress noisy logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import soda_logger
@@ -58,6 +67,51 @@ TOOLS = [
     },
 ]
 
+# --- ANSI colors ---
+DIM = "\033[2m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+CYAN = "\033[36m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+RED = "\033[31m"
+
+
+class Spinner:
+    """A simple terminal spinner that runs in a background thread."""
+
+    FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    def __init__(self, message: str = "Thinking"):
+        self._message = message
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self) -> None:
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join()
+        # Clear the spinner line
+        sys.stdout.write("\r\033[K")
+        sys.stdout.flush()
+
+    def update(self, message: str) -> None:
+        self._message = message
+
+    def _spin(self) -> None:
+        i = 0
+        while not self._stop_event.is_set():
+            frame = self.FRAMES[i % len(self.FRAMES)]
+            sys.stdout.write(f"\r{DIM}{frame} {self._message}...{RESET}")
+            sys.stdout.flush()
+            i += 1
+            time.sleep(0.08)
+
 
 def handle_code_chat(verbose: bool = False) -> ExitCode:
     """Handle the soda code chat command."""
@@ -72,6 +126,7 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
 
     try:
         from prompt_toolkit import PromptSession
+        from prompt_toolkit.formatted_text import ANSI as ANSI_Text
         from prompt_toolkit.key_binding import KeyBindings
         from prompt_toolkit.keys import Keys
     except ImportError:
@@ -93,30 +148,26 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
     if email is None:
         return ExitCode.LOG_ERRORS
 
-    print("\n" + "=" * 60)
-    print("Welcome to Soda Code!")
-    print("=" * 60)
-    print("\nI can help you with:")
-    print("  - Translating ODCS contracts to Soda Contract Language")
-    print("  - Translating Soda v3 checks to v4 data contracts")
-    print("  - Writing and understanding data contracts")
-    print("\nSuggested prompts:")
+    print(f"\n{CYAN}{'=' * 60}{RESET}")
+    print(f"{BOLD}Welcome to Soda Code!{RESET}")
+    print(f"{CYAN}{'=' * 60}{RESET}")
+    print(f"\nI can help you with:")
+    print(f"  {DIM}-{RESET} Translating ODCS contracts to Soda Contract Language")
+    print(f"  {DIM}-{RESET} Translating Soda v3 checks to v4 data contracts")
+    print(f"  {DIM}-{RESET} Writing and understanding data contracts")
+    print(f"\n{BOLD}Suggested prompts:{RESET}")
     for num, title, _ in SUGGESTED_PROMPTS:
-        print(f"  [{num}] {title}")
-    print("\nTips:")
-    print("  - Just mention files naturally (e.g., 'translate my_checks.yml to v4')")
-    print("  - Files are read and results are saved automatically")
-    print("  - Press Enter to submit")
-    print("  - Shift+Enter or Alt/Option+Enter for new line")
-    print("  - Type 'exit' or 'quit' to end the session")
-    print("=" * 60 + "\n")
+        print(f"  {CYAN}[{num}]{RESET} {title}")
+    print(f"\n{DIM}Just mention files naturally (e.g., 'translate my_checks.yml to v4'){RESET}")
+    print(f"{DIM}Files are read and results are saved automatically{RESET}")
+    print(f"{DIM}Enter to submit | Shift+Enter or Alt+Enter for new line | 'exit' to quit{RESET}")
+    print(f"{CYAN}{'=' * 60}{RESET}\n")
 
     # Set up key bindings for multi-line input
     from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
 
-    # Map Shift+Enter terminal escape sequences to Keys.F24 (unused key)
-    ANSI_SEQUENCES['\x1b[13;2u'] = Keys.F24       # CSI u / Kitty protocol
-    ANSI_SEQUENCES['\x1b[27;2;13~'] = Keys.F24    # xterm modifyOtherKeys
+    ANSI_SEQUENCES['\x1b[13;2u'] = Keys.F24
+    ANSI_SEQUENCES['\x1b[27;2;13~'] = Keys.F24
 
     bindings = KeyBindings()
 
@@ -139,22 +190,22 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
 
     while True:
         try:
-            user_input = session.prompt("\nYou: ").strip()
+            user_input = session.prompt(ANSI_Text(f"\n{BOLD}You:{RESET} ")).strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n\nGoodbye!")
+            print(f"\n{DIM}Goodbye!{RESET}")
             break
 
         if not user_input:
             continue
 
         if user_input.lower() in ("exit", "quit", "q"):
-            print("\nGoodbye!")
+            print(f"\n{DIM}Goodbye!{RESET}")
             break
 
         # Check if user selected a suggested prompt
         for num, title, prompt_template in SUGGESTED_PROMPTS:
             if user_input == num:
-                print(f"\n[Using suggested prompt: {title}]")
+                print(f"\n{CYAN}[Using suggested prompt: {title}]{RESET}")
                 print("Enter your content (Enter to submit):")
                 try:
                     additional_input = session.prompt("").strip()
@@ -174,7 +225,7 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
                 messages.append({"role": "assistant", "content": response_text})
         except APIError as e:
             soda_logger.error(f"API error: {e}")
-            messages.pop()  # Remove the failed user message
+            messages.pop()
             continue
 
     return ExitCode.OK
@@ -182,7 +233,9 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
 
 def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
     """Run the agent loop: call the LLM, execute tool calls, repeat until done."""
-    print("\nSoda Code: ", end="", flush=True)
+    spinner = Spinner("Thinking")
+    spinner.start()
+    did_tool_call = False
 
     while True:
         response = client.chat.completions.create(
@@ -194,25 +247,56 @@ def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
 
         choice = response.choices[0]
 
-        # If the LLM wants to call tools, execute them and loop back
         if choice.finish_reason == "tool_calls":
-            # Add the assistant message with tool calls to the conversation
             messages.append(choice.message.to_dict())
 
             for tool_call in choice.message.tool_calls:
-                result = _execute_tool(tool_call.function.name, tool_call.function.arguments)
+                tool_name = tool_call.function.name
+                status, done_msg = _tool_status(tool_name, tool_call.function.arguments)
+
+                spinner.update(status)
+                result = _execute_tool(tool_name, tool_call.function.arguments)
+
+                # Print a log line showing the completed action
+                spinner.stop()
+                print(f"  {DIM}{done_msg}{RESET}")
+                spinner.start()
+
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "content": result,
                 })
-            # Continue the loop so the LLM can process tool results
+                did_tool_call = True
+
+            spinner.update("Generating" if did_tool_call else "Thinking")
             continue
 
-        # No more tool calls — print the final text response
+        spinner.stop()
+
         text = choice.message.content or ""
-        print(text)
+        print(f"\n{BOLD}Soda Code:{RESET} {text}")
         return text
+
+
+def _tool_status(name: str, arguments: str) -> tuple:
+    """Build spinner text and a done-log message for a tool call.
+
+    Returns:
+        (spinner_text, done_message)
+    """
+    try:
+        args = json.loads(arguments)
+    except json.JSONDecodeError:
+        return name, name
+
+    if name == "read_file":
+        fp = args.get("file_path", "file")
+        return f"Reading {fp}", f"Read {fp}"
+    elif name == "write_file":
+        fp = args.get("file_path", "file")
+        return f"Saving {fp}", f"Saved {fp}"
+    return name, name
 
 
 def _execute_tool(name: str, arguments: str) -> str:
@@ -237,22 +321,14 @@ def _tool_read_file(file_path: str) -> str:
         path = Path.cwd() / path
 
     if not path.exists():
-        msg = f"File not found: {file_path}"
-        print(f"  [{msg}]")
-        return msg
+        return f"File not found: {file_path}"
     if not path.is_file():
-        msg = f"Not a file: {file_path}"
-        print(f"  [{msg}]")
-        return msg
+        return f"Not a file: {file_path}"
 
     try:
-        content = path.read_text(encoding="utf-8")
-        print(f"  [Read: {file_path}]")
-        return content
+        return path.read_text(encoding="utf-8")
     except Exception as e:
-        msg = f"Error reading {file_path}: {e}"
-        print(f"  [{msg}]")
-        return msg
+        return f"Error reading {file_path}: {e}"
 
 
 def _tool_write_file(file_path: str, content: str) -> str:
@@ -264,23 +340,20 @@ def _tool_write_file(file_path: str, content: str) -> str:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-        print(f"  [Saved: {file_path}]")
         return f"Successfully saved to {file_path}"
     except Exception as e:
-        msg = f"Error writing {file_path}: {e}"
-        print(f"  [{msg}]")
-        return msg
+        return f"Error writing {file_path}: {e}"
 
 
 def _prompt_for_email() -> Optional[str]:
     """Prompt the user for their work email."""
-    print("\n" + "=" * 60)
-    print("Soda Code - AI Assistant for Data Contracts")
-    print("=" * 60)
-    print("\nPlease enter your work email to continue:")
+    print(f"\n{CYAN}{'=' * 60}{RESET}")
+    print(f"{BOLD}Soda Code{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
+    print(f"{CYAN}{'=' * 60}{RESET}")
+    print(f"\nPlease enter your work email to continue:")
 
     try:
-        email = input("Email: ").strip()
+        email = input(f"{BOLD}Email:{RESET} ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\n")
         return None
@@ -296,5 +369,5 @@ def _prompt_for_email() -> Optional[str]:
     # TODO: Add validation for personal email domains (gmail, outlook, hotmail, etc.)
     # TODO: Save email to database
 
-    print(f"\nWelcome, {email}!")
+    print(f"\n{GREEN}Welcome, {email}!{RESET}")
     return email

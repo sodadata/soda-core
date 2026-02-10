@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 import signal
 import sys
 import traceback
 from argparse import ArgumentParser, _SubParsersAction
 from typing import Dict, List, Optional, Union
+
+# Suppress plugin loading warnings (e.g., missing optional drivers like pyodbc)
+logging.getLogger("soda_core.plugins").setLevel(logging.ERROR)
 
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.cli.exit_codes import ExitCode
