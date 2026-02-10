@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-import requests
 from abc import ABC
 from typing import Literal, Optional, Union
 
+import requests
 import trino
 from pydantic import BaseModel, Field, IPvAnyAddress
 from soda_core.common.logging_constants import soda_logger
@@ -129,18 +129,13 @@ class TrinoDataSourceConnection(DataSourceConnection):
         response = requests.post(token_url, data=payload)
         if response.status_code != 200:
             raise ValueError(f"OAuth request failed: {response.status_code} {response.text}")
-        
+
         response_json = response.json()
         expires_in = response_json.get("expires_in", 0)
         scope = response_json.get("scope", "")
         access_token = response_json["access_token"]
         if access_token:
-            logger.info(
-                f"Obtained OAuth access token, expires in '{expires_in}' seconds, granted scopes: '{scope}'"
-            )
+            logger.info(f"Obtained OAuth access token, expires in '{expires_in}' seconds, granted scopes: '{scope}'")
             return access_token
         else:
-            raise ValueError(
-                f"OAuth request did not return an access token: {response.status_code} {response.text}"
-            )
-        
+            raise ValueError(f"OAuth request did not return an access token: {response.status_code} {response.text}")
