@@ -176,7 +176,7 @@ jobs:
 
       - name: Run tests
         run: |
-          uv sync --all-packages --group dev
+          uv sync --locked --all-packages --group dev
 
           if [ "${{ matrix.module }}" = "sparkdf" ]; then
             sudo apt-get update
