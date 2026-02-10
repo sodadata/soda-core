@@ -24,8 +24,7 @@ members = [
     "soda-sparkdf",
     "soda-sqlserver",
     "soda-synapse",
-    "soda-tests",
-    "soda-trino"
+    "soda-tests", 
 ]
 
 [dependency-groups]
