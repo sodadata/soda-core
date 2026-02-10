@@ -227,7 +227,12 @@ class DatabricksSqlDialect(SqlDialect):
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         database_name: str | None = table_namespace.get_database_for_metadata_query()
         schema_name: str = table_namespace.get_schema_for_metadata_query()
-        return f"DESCRIBE {database_name}.{schema_name}.{table_name}"
+
+        fully_qualified_name = self.qualify_dataset_name(
+            dataset_prefix=[database_name, schema_name], dataset_name=table_name
+        )
+
+        return f"DESCRIBE {fully_qualified_name}"
 
     def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
