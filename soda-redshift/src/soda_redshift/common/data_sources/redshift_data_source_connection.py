@@ -136,4 +136,7 @@ class RedshiftDataSourceConnection(DataSourceConnection):
             **self.keepalives_params,
         )
         conn.autocommit = True
+        # Disable prepared statements by default. This could cause issues when dropping tables/views.
+        # Otherwise an `DEALLOCATE ALL` will be triggered, which is not supported.
+        conn.prepare_threshold = None
         return conn
