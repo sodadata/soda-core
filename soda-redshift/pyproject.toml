@@ -1,6 +1,6 @@
 [project]
 name = "soda-redshift"
-version = "4.0.7"
+version = "4.0.8rc0"
 description = "Soda Redshift V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.7",
+    "soda-core==4.0.8rc0",
     "psycopg2-binary>=2.8.5,<3.0",
     "boto3",
 ]

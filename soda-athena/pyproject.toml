@@ -1,6 +1,6 @@
 [project]
 name = "soda-athena"
-version = "4.0.7"
+version = "4.0.8rc0"
 description = "Soda Athena V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.7",
+    "soda-core==4.0.8rc0",
     "PyAthena>=2.2.0,<3.0",
 ]
 
