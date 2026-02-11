@@ -10,6 +10,7 @@ authors = [
 dependencies = [
     "soda-core==4.0.8rc0",
     "PyAthena>=2.2.0,<3.0",
+    "setuptools>=60",
 ]
 
 [project.entry-points."soda.plugins.data_source.athena"]
