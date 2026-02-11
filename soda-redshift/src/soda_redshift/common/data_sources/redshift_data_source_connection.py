@@ -5,7 +5,7 @@ from ipaddress import IPv4Address, IPv6Address
 from typing import Literal, Optional, Union
 
 import boto3
-import psycopg2
+import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr
 from soda_core.common.aws_credentials import AwsCredentials
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -122,14 +122,16 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         # It's possible customers may have enabled case-sensitivity in their databases, therefore we enable that in
         # to support databases configured that way.
         options = "-c enable_case_sensitive_identifier=on"
+        # Redshift uses UTF-8 by default; Note, this is only required on psycopg3 as it defaults to UNICODE. But this is not supported by Redshift.
+        options += " -c client_encoding=utf-8"
 
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             user=self.user,
             password=self.password,
             host=self.host,
             port=self.port,
             connect_timeout=self.connect_timeout,
-            database=self.database,
+            dbname=self.database,
             options=options,
             **self.keepalives_params,
         )
