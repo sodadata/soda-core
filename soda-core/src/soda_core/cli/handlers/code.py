@@ -17,7 +17,18 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import soda_logger
 
-SYSTEM_PROMPT_FILE = Path(__file__).parent / "code_system_prompt.txt"
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+INTENT_PROMPT_FILES = {
+    "v3_to_v4": PROMPTS_DIR / "v3_to_v4.txt",
+    "odcs_to_soda": PROMPTS_DIR / "odcs_to_soda.txt",
+    "general": PROMPTS_DIR / "general.txt",
+}
+
+ROUTER_PROMPT_FILE = PROMPTS_DIR / "router.txt"
+
+# Cache for loaded prompt texts (populated on first access)
+_prompt_cache: dict[str, str] = {}
 
 SUGGESTED_PROMPTS = [
     ("1", "Translate ODCS contract to Soda Contract", "I have an ODCS contract that I'd like to translate to Soda Contract Language. Here's my ODCS contract:\n\n```yaml\n# Paste your ODCS contract here\n```"),
@@ -113,6 +124,64 @@ class Spinner:
             time.sleep(0.08)
 
 
+def _load_prompt(intent: str) -> str:
+    """Load and cache a prompt file for the given intent."""
+    if intent not in _prompt_cache:
+        path = INTENT_PROMPT_FILES.get(intent, INTENT_PROMPT_FILES["general"])
+        _prompt_cache[intent] = path.read_text(encoding="utf-8")
+    return _prompt_cache[intent]
+
+
+def _get_conversation_summary(messages: List[dict]) -> str:
+    """Extract a short summary of recent conversation for the router.
+
+    Returns the last ~4 user/assistant messages, truncated to keep the
+    router call small and fast.
+    """
+    recent = []
+    for msg in reversed(messages):
+        if msg["role"] in ("user", "assistant") and msg.get("content"):
+            text = msg["content"][:200]
+            recent.append(f"{msg['role']}: {text}")
+            if len(recent) >= 4:
+                break
+    recent.reverse()
+    return "\n".join(recent)
+
+
+def _classify_intent(client, user_message: str, messages: List[dict]) -> str:
+    """Classify user intent using a fast gpt-4o-mini call.
+
+    Returns one of: 'v3_to_v4', 'odcs_to_soda', 'general'.
+    Falls back to 'general' on any error.
+    """
+    try:
+        router_prompt = _prompt_cache.get("_router")
+        if not router_prompt:
+            router_prompt = ROUTER_PROMPT_FILE.read_text(encoding="utf-8")
+            _prompt_cache["_router"] = router_prompt
+
+        conversation_context = _get_conversation_summary(messages)
+        user_content = f"Conversation context:\n{conversation_context}\n\nNew message to classify:\n{user_message}"
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=20,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": router_prompt},
+                {"role": "user", "content": user_content},
+            ],
+        )
+
+        intent = response.choices[0].message.content.strip().lower()
+        if intent in INTENT_PROMPT_FILES:
+            return intent
+        return "general"
+    except Exception:
+        return "general"
+
+
 def handle_code_chat(verbose: bool = False) -> ExitCode:
     """Handle the soda code chat command."""
     try:
@@ -185,8 +254,8 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
 
     session = PromptSession(key_bindings=bindings, multiline=True)
     client = OpenAI(api_key=api_key)
-    system_prompt = SYSTEM_PROMPT_FILE.read_text(encoding="utf-8")
-    messages = [{"role": "system", "content": system_prompt}]
+    current_intent = "general"
+    messages = [{"role": "system", "content": _load_prompt(current_intent)}]
 
     while True:
         try:
@@ -218,6 +287,12 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
                 break
 
         messages.append({"role": "user", "content": user_input})
+
+        # Route intent and swap system prompt if needed
+        intent = _classify_intent(client, user_input, messages)
+        if intent != current_intent:
+            current_intent = intent
+            messages[0] = {"role": "system", "content": _load_prompt(current_intent)}
 
         try:
             response_text = _run_agent_loop(client, messages)
