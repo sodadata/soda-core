@@ -22,9 +22,11 @@ from soda_core.model.data_source.data_source_connection_properties import (
 class TrinoConnectionProperties(DataSourceConnectionProperties):
     host: Union[str, IPvAnyAddress] = Field(..., description="Database host (hostname or IP address)")
     catalog: str = Field(..., description="Database catalog")
-    port: int = Field(5432, description="Database port (1-65535)", ge=1, le=65535)
+    port: int = Field(443, description="Database port (1-65535)", ge=1, le=65535)
     http_scheme: Literal["https", "http"] = Field("https", description="HTTP scheme")
     http_headers: Optional[dict[str, str]] = Field(None, description="HTTP headers")
+    # v3 default source was 'trino-python-client', in v4 we changed to 'soda-core'
+    # this is a label that goes in Trino logs
     source: str = Field("soda-core", description="Trino-internal label for this connection")
     client_tags: Optional[list[str]] = Field(None, description="Trino-internal tags as list of strings.")
     verify: Optional[bool] = Field(True, description="Verify SSL certificate")
