@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 
 if [ $# -eq 1 ]; then
-    . .venv/bin/activate
-    pre-commit run --all-files
+    uv run --group dev pre-commit run --all-files
     PRE_COMMIT_RESULT=$?
     set -e
     if [ $PRE_COMMIT_RESULT -ne 0 ]; then
         echo pre-commit failed.  Trying once more.
-        pre-commit run --all-files
+        uv run --group dev pre-commit run --all-files
     else
         echo First time ok
     fi
-    pytest soda-tests/
+    uv run --group dev pytest soda-tests/
     git add .
     git status
     git commit -m "$1"

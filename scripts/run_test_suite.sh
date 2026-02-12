@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 
-. .venv/bin/activate
-pytest soda-tests/
+uv run --group dev pytest soda-tests/
