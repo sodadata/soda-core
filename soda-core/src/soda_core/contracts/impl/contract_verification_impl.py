@@ -918,7 +918,7 @@ class MeasurementValues:
 
 class ColumnImpl:
     def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
-        self.column_yaml = column_yaml
+        self.column_yaml: ColumnYaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=column_yaml)
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
@@ -930,6 +930,13 @@ class ColumnImpl:
                         check_yaml=check_yaml,
                     )
                     self.check_impls.append(check)
+
+    @property
+    def column_expression(self) -> SqlExpressionStr | COLUMN:
+        if self.column_yaml.column_expression:
+            return SqlExpressionStr(self.column_yaml.column_expression)
+
+        return COLUMN(self.column_yaml.name)
 
 
 class ValidReferenceData:
@@ -967,13 +974,13 @@ class MissingAndValidity:
             missing_and_validity_yaml.valid_reference_data
         )
 
-    def is_missing_expr(self, column_name: str | COLUMN) -> SqlExpression:
-        is_missing_clauses: list[SqlExpression] = [IS_NULL(column_name)]
+    def is_missing_expr(self, column_expression: COLUMN | SqlExpressionStr) -> SqlExpression:
+        is_missing_clauses: list[SqlExpression] = [IS_NULL(column_expression)]
         if isinstance(self.missing_values, list):
             literal_values = [LITERAL(value) for value in self.missing_values]
-            is_missing_clauses.append(IN(column_name, literal_values))
+            is_missing_clauses.append(IN(column_expression, literal_values))
         if isinstance(self.missing_format, RegexFormat) and isinstance(self.missing_format.regex, str):
-            is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_format.regex))
+            is_missing_clauses.append(REGEX_LIKE(column_expression, self.missing_format.regex))
         return OR.optional(is_missing_clauses)
 
     def is_invalid_expr(self, column_name: str | COLUMN) -> Optional[SqlExpression]:
@@ -1361,6 +1368,15 @@ class CheckImpl:
         # Merge check attributes with contract attributes
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
 
+    @property
+    def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
+        # Use check level column expression if exists, fall-back to column level check expression if possible.
+        if self.check_yaml.column_expression:
+            return SqlExpressionStr(self.check_yaml.column_expression)
+        else:
+            if self.column_impl:
+                return self.column_impl.column_expression
+
     __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
         "schema": "Schema matches expected structure",
         "row_count": "Row count meets expected threshold",
@@ -1521,6 +1537,8 @@ class MetricImpl:
         data_source_impl: Optional[DataSourceImpl] = None,
         # Associate metric with a non-contract dataset if needed. Build queries accordingly.
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        # Support user-provided column expression for type casting and structured data support.
+        column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1534,6 +1552,8 @@ class MetricImpl:
             self.data_source_impl = self.contract_impl.data_source_impl
         if data_source_impl:
             self.data_source_impl = data_source_impl
+
+        self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
 
         self.id: str = self._build_id()
 
@@ -1596,6 +1616,7 @@ class AggregationMetricImpl(MetricImpl):
         missing_and_validity: Optional[MissingAndValidity] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1605,6 +1626,7 @@ class AggregationMetricImpl(MetricImpl):
             missing_and_validity=missing_and_validity,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
+            column_expression=column_expression,
         )
 
     @abstractmethod
