@@ -68,6 +68,7 @@ class TrinoDataSource(DataSource):
         self.username = data_source_properties.get("username")
         self.authType = data_source_properties.get("auth_type", "BasicAuthentication")
         self.password = data_source_properties.get("password")
+        self.access_token = data_source_properties.get("access_token")
         self.source = data_source_properties.get("source", trino.constants.DEFAULT_SOURCE)
         self.http_headers = data_source_properties.get("http_headers", None)
         self.client_tags = data_source_properties.get("client_tags", None)
@@ -76,6 +77,12 @@ class TrinoDataSource(DataSource):
         # Default to BasicAuthentication so we don't break current users.
         if self.authType == "BasicAuthentication":
             self.auth = trino.auth.BasicAuthentication(self.username, self.password)
+        elif self.authType == "JWTAuthentication":
+            if not self.access_token or self.access_token == "":
+                logger.error("Trino JWT authentication requires an access token.")
+                self.connection = None
+                return
+            self.auth = trino.auth.JWTAuthentication(self.access_token)
         elif self.authType == "NoAuthentication":
             # No auth typically should use http. If your connection fails, try 'http_scheme: http' in your data source confguration.
             self.auth = None
