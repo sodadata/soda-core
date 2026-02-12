@@ -1,9 +1,0 @@
-pip-tools~=7.3
-pytest~=7.0
-python-dotenv~=1.0
-tbump~=6.11
-pre-commit~=4.1.0
-freezegun
-polars # Used in duckdb tests
-pandas # Used in duckdb tests
-pyarrow # For in-memory stuff, like polars tests in duckdb

@@ -33,7 +33,7 @@ env:
 
 jobs:
   check:
-    name: pre-commit
+    name: pre-commit & lockfile
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +41,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+      - name: Check lockfile is up-to-date
+        run: uv lock --check
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
   define-test-matrix:
@@ -176,42 +180,28 @@ jobs:
 
       - name: Run tests
         run: |
-          uv venv .venv
-          source .venv/bin/activate
-          uv pip install -r dev-requirements.txt
-          uv pip install -e soda-core
-          uv pip install -e soda-tests
-
-          if [ "${{ matrix.module }}" = "synapse" ] || [ "${{ matrix.module }}" = "fabric" ]; then
-            uv pip install -e soda-sqlserver
-          fi
+          uv sync --locked --all-packages --group dev
 
           if [ "${{ matrix.module }}" = "sparkdf" ]; then
-            uv pip install -e soda-databricks
-            # Install java jdk 17
             sudo apt-get update
             sudo apt-get install -y openjdk-17-jdk
             export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
             export PATH=$JAVA_HOME/bin:$PATH
             echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
             echo "PATH=$PATH" >> "$GITHUB_ENV"
-            echo "JAVA_HOME=$JAVA_HOME"
-            echo "PATH=$PATH"
           fi
 
-          uv pip install -e soda-${{ matrix.module }}
           export TEST_DATASOURCE=${{ matrix.module }}
-          python -m pytest -ra soda-tests/tests/features
+          uv run python -m pytest -ra soda-tests/tests/features
           if [ "${{ matrix.module }}" = "postgres" ]; then
-            python -m pytest -ra soda-tests/tests/components
+            uv run python -m pytest -ra soda-tests/tests/components
           fi
-          python -m pytest -ra soda-${{ matrix.module }}/tests
+          uv run python -m pytest -ra soda-${{ matrix.module }}/tests
 
           if [ "${{ matrix.module }}" = "databricks" ]; then
-            # Set the environment variables for DATABRICKS_CATALOG to hive_metastore
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
-            python -m pytest -ra soda-tests/tests/features
+            uv run python -m pytest -ra soda-tests/tests/features
           fi
 
   define-matrix:

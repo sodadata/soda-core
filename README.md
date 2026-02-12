@@ -61,6 +61,41 @@ pip install soda-core-postgres~=3.5.0      # install legacy version 3 package (u
 
 For a list of supported data sources and other details, see the [v3 documentation within this repository](https://github.com/sodadata/soda-core/blob/v3/docs/installation.md).  For information about Soda Core v3, see the [v3 README file](https://github.com/sodadata/soda-core/blob/v3/README.md) and the [Soda v3 online documentation](https://docs.soda.io/soda-v3).  
 
+## Development
+
+### Prerequisites
+- Python 3.10+
+- [UV](https://docs.astral.sh/uv/getting-started/installation/) (recommended) or pip 21.0+
+
+### Setup (UV — recommended)
+Clone the repo and install all workspace packages with dev dependencies:
+```
+uv sync --all-packages --group dev
+```
+
+### Setup (pip — alternative)
+If you don't have UV, you can still set up a dev environment with pip:
+```
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -e soda-core -e soda-tests -e soda-postgres  # add other packages as needed
+pip install pytest pre-commit pydantic python-dotenv freezegun
+```
+
+### Running tests
+```
+uv run pytest soda-tests/
+# or, if using pip:
+pytest soda-tests/
+```
+
+### Pre-commit checks
+```
+uv run pre-commit run --all-files
+# or, if using pip:
+pre-commit run --all-files
+```
+
 ## Quickstart
 
 The examples show minimal configurations.  For more detailed examples and explanations, see the [Soda Cloud documentation](https://docs.soda.io/soda-v4/reference/cli-reference).
