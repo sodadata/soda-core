@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
+from soda.__version__ import SODA_CORE_VERSION
 from soda.common.exceptions import DataSourceConnectionError
 from soda.common.logs import Logs
 from soda.execution.data_source import DataSource
@@ -105,7 +106,11 @@ class DuckDBDataSource(DataSource):
         self.path = data_source_properties.get("path")
         self.read_only = data_source_properties.get("read_only", False)
         self.duckdb_connection = data_source_properties.get("duckdb_connection")
-        self.configuration = data_source_properties.get("configuration", dict())
+        self.configuration = {
+            "python_scan_all_frames": True,
+            "custom_user_agent": f"soda-core/{SODA_CORE_VERSION}",
+            **data_source_properties.get("configuration", {}),
+        }
 
     def connect(self):
         import duckdb
@@ -114,7 +119,9 @@ class DuckDBDataSource(DataSource):
             if self.duckdb_connection:
                 self.connection = DuckDBDataSourceConnectionWrapper(self.duckdb_connection)
             elif (read_function := self.REGISTERED_FORMAT_MAP.get(self.extract_format())) is not None:
-                self.connection = DuckDBDataSourceConnectionWrapper(duckdb.connect(":default:"))
+                self.connection = DuckDBDataSourceConnectionWrapper(
+                    duckdb.connect(":memory:", config=self.configuration)
+                )
                 self.connection.sql(
                     f"CREATE TABLE {self.extract_dataset_name()} AS SELECT * FROM {read_function}('{self.path}')"
                 )
