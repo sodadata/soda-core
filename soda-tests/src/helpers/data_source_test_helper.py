@@ -136,6 +136,12 @@ class DataSourceTestHelper:
             )
 
             return DremioDataSourceTestHelper(name)
+        elif test_datasource == "trino":    
+            from soda_trino.test_helpers.trino_data_source_test_helper import (
+                TrinoDataSourceTestHelper,
+            )
+
+            return TrinoDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

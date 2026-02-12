@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Optional
 import os
 
 TRINO_HOST = os.getenv("TRINO_HOST", "")
@@ -11,6 +12,12 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class TrinoDataSourceTestHelper(DataSourceTestHelper):
+
+    def _create_database_name(self) -> Optional[str]:
+        if TRINO_CATALOG is None or TRINO_CATALOG == "":
+            raise ValueError("TRINO_CATALOG is not set, check .env file")
+        return TRINO_CATALOG
+
     def _create_data_source_yaml_str(self) -> str:
         """
         Called in _create_data_source_impl to initialized self.data_source_impl
@@ -21,7 +28,7 @@ class TrinoDataSourceTestHelper(DataSourceTestHelper):
             name: {self.name}
             connection:
                 host: '{TRINO_HOST}'
-                username: {TRINO_USERNAME}
+                user: {TRINO_USERNAME}
                 password: '{TRINO_PASSWORD}'
                 catalog: '{TRINO_CATALOG}'
                 port: {TRINO_PORT}

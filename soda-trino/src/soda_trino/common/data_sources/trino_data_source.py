@@ -17,6 +17,10 @@ from soda_trino.common.data_sources.trino_data_source_connection import (
     TrinoDataSourceConnection,
 )
 
+from soda_core.common.sql_ast import (
+    CREATE_TABLE,
+    CREATE_TABLE_IF_NOT_EXISTS,
+)
 logger: logging.Logger = soda_logger
 
 
@@ -35,22 +39,55 @@ class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
         )
 
 
-class TrinoSqlDialect(SqlDialect):
-    
-    SODA_DATA_TYPE_SYNONYMS = ()
+class TrinoSqlDialect(SqlDialect):    
+    USES_SEMICOLONS_BY_DEFAULT: bool = False
+    SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
     def supports_materialized_views(self) -> bool:
         return True
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
-        return []
+        return [["INTEGER", "INT"]]
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
-        return {            
+        
+        return {
+            SodaDataTypeName.CHAR: "CHAR",
+            SodaDataTypeName.VARCHAR: "VARCHAR",
+            SodaDataTypeName.TEXT: "VARCHAR",
+            SodaDataTypeName.SMALLINT: "SMALLINT",
+            SodaDataTypeName.INTEGER: "INTEGER",
+            SodaDataTypeName.DECIMAL: "DECIMAL",
+            SodaDataTypeName.BIGINT: "BIGINT",
+            SodaDataTypeName.NUMERIC: "NUMERIC",
+            SodaDataTypeName.DECIMAL: "NUMERIC",
+            SodaDataTypeName.FLOAT: "REAL",
+            SodaDataTypeName.DOUBLE: "DOUBLE",
+            SodaDataTypeName.TIMESTAMP: "TIMESTAMP",
+            SodaDataTypeName.TIMESTAMP_TZ: "TIMESTAMP WITH TIME ZONE",
+            SodaDataTypeName.DATE: "DATE",
+            SodaDataTypeName.TIME: "TIME",
+            SodaDataTypeName.BOOLEAN: "BOOLEAN",
         }
 
     def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
-        return {}
+        return {
+            "BOOLEAN": SodaDataTypeName.BOOLEAN,
+            "TINYINT": SodaDataTypeName.SMALLINT,
+            "SMALLINT": SodaDataTypeName.SMALLINT,
+            "INTEGER": SodaDataTypeName.INTEGER,
+            "BIGINT": SodaDataTypeName.BIGINT,
+            "REAL": SodaDataTypeName.FLOAT,
+            "DOUBLE": SodaDataTypeName.DOUBLE,
+            "DECIMAL": SodaDataTypeName.DECIMAL,
+            "VARCHAR": SodaDataTypeName.VARCHAR,
+            "CHAR": SodaDataTypeName.CHAR,
+            "TEXT": SodaDataTypeName.VARCHAR,
+            "DATE": SodaDataTypeName.DATE,
+            "TIME": SodaDataTypeName.TIME,
+            "TIMESTAMP": SodaDataTypeName.TIMESTAMP,
+            "TIMESTAMP WITH TIME ZONE": SodaDataTypeName.TIMESTAMP_TZ,
+        }
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return False
@@ -64,6 +101,13 @@ class TrinoSqlDialect(SqlDialect):
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
         return False
 
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = False) -> str:
+        # default False for T
+        return super().create_schema_if_not_exists_sql(prefixes, add_semicolon=add_semicolon)
+
+
+
+    #def cast_to_float(self, expr: str) -> str:
     # def literal_datetime(self, datetime: datetime):
     #     if datetime.tzinfo is None:
     #         return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S')}'"
