@@ -202,13 +202,7 @@ class SqlDialect:
         if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
             return False
         return True
-
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        # This function can be overloaded if required.
-        # It could be that the datasource has synonyms for the data types, and we want to handle that in the mappings.
-        # For an example: see the postgres implementation. We basically create a list of lists. Whereby each sublist contains the synonyms for a given SodaDataTypeName.
-        return []
-
+    
     @classmethod
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         if expected == actual:
