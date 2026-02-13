@@ -56,6 +56,7 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
 class RedshiftSqlDialect(SqlDialect):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.CHAR, SodaDataTypeName.VARCHAR),  # Char is mapped to varchar in the cursor description.
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
 
@@ -63,7 +64,7 @@ class RedshiftSqlDialect(SqlDialect):
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
-            SodaDataTypeName.TEXT: "varchar",  # Redshift treats text as varchar(max)
+            SodaDataTypeName.TEXT: "varchar",  # Redshift treats text as varchar(256)
             SodaDataTypeName.SMALLINT: "smallint",
             SodaDataTypeName.INTEGER: "integer",
             SodaDataTypeName.BIGINT: "bigint",
@@ -87,7 +88,7 @@ class RedshiftSqlDialect(SqlDialect):
             "varchar": SodaDataTypeName.VARCHAR,
             REDSHIFT_CHARACTER_VARYING: SodaDataTypeName.VARCHAR,
             "nvarchar": SodaDataTypeName.VARCHAR,
-            "text": SodaDataTypeName.TEXT,  # synonym, stored as varchar(max)
+            "text": SodaDataTypeName.TEXT,  # synonym, stored as varchar(256)
             # Integer types
             "smallint": SodaDataTypeName.SMALLINT,
             "int2": SodaDataTypeName.SMALLINT,
