@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
     "soda-core==4.0.8rc0",
-    "psycopg[binary]>=3.2",
+    "psycopg[binary]>=3.2,<4",
     "boto3",
 ]
 

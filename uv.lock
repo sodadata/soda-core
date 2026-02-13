@@ -2098,7 +2098,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "boto3" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "soda-core", editable = "soda-core" },
 ]
 
