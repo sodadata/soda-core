@@ -11,6 +11,10 @@ from soda_core.common.metadata_types import (
     SodaDataTypeName,
     SqlDataType
 )
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 
 from soda_core.common.sql_dialect import SqlDialect
 
@@ -223,7 +227,26 @@ class TrinoSqlDialect(SqlDialect):
     def literal_datetime_with_tz(self, datetime: datetime):
         return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S.%f%z')}'"
 
+    def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
+        return f"TIMESTAMP '{datetime_in_iso8601.replace("T", " ")}'"
+
+    def convert_str_to_datetime(self, datetime_str: str) -> datetime:
+        datetime_iso_str = datetime.strptime(
+            datetime_str, "%Y-%m-%d %H:%M:%S.%f%z"
+        ).isoformat()
+        return convert_str_to_datetime(datetime_iso_str)
+
+    def convert_datetime_to_str(self, datetime: datetime) -> str:
+        datetime_iso_str: str = convert_datetime_to_str(datetime)
+        return datetime_iso_str.replace("T", " ")
+
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:        
+        return f"DATE_ADD('day', 1, {timestamp_literal})"
+
+
+
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
+        # all Trino hash methods operate on binary data - TO_UTF8 converts string to binary
         return f"TO_HEX(MD5(TO_UTF8({self.build_expression_sql(string_hash.expression)})))"
 
 
