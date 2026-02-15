@@ -1,4 +1,5 @@
 import logging
+from datetime import time
 from typing import Optional, Tuple, Any 
 import re
 from datetime import datetime
@@ -60,6 +61,11 @@ class TrinoSqlDataType(SqlDataType):
 class TrinoSqlDialect(SqlDialect):
     USES_SEMICOLONS_BY_DEFAULT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
+
+    SODA_DATA_TYPE_SYNONYMS = (
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),        
+    )
 
     def supports_materialized_views(self) -> bool:
         # TODO  this should inherit from the connection
@@ -226,6 +232,9 @@ class TrinoSqlDialect(SqlDialect):
 
     def literal_datetime_with_tz(self, datetime: datetime):
         return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S.%f%z')}'"
+
+    def literal_time(self, time: time):        
+        return f"TIME '{time.strftime("%H:%M:%S.%f")}'"
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"TIMESTAMP '{datetime_in_iso8601.replace("T", " ")}'"
