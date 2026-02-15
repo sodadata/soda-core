@@ -71,9 +71,13 @@ class TrinoSqlDialect(SqlDialect):
         # TODO  this should inherit from the connection
         return False
 
-
     def supports_views(self) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
         # TODO  this should inherit from the connection
+        return False
+
+    def supports_case_sensitive_column_names(self) -> bool:
+        # TODO -- it's possible that some connectors do support case sensitive names, investigate
+        # This open issue seems to suggest that support is still pending https://github.com/trinodb/trino/issues/17 
         return False
 
     def get_sql_data_type_class(self) -> type:
