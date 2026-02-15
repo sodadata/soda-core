@@ -339,7 +339,7 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
         .column_varchar("id", 100)
         .column_varchar("id2", 100)
         .column_integer("my_value")
-        .column_timestamp("my_timestamp")
+        .column_timestamp("my_timestamp", datetime_precision=6)
         .rows(
             rows=[
                 (f"my_id_{i}", f"my_id2_{i}", 10, datetime.datetime(2021, 1, 1, i, 0, 0, microsecond=123))
