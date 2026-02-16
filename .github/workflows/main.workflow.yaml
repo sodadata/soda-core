@@ -21,6 +21,7 @@ on:
           - sqlserver
           - synapse
           - sparkdf
+          - trino
   push:
     branches:
       - 'main'
@@ -140,14 +141,18 @@ jobs:
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
-      TRINO_HOST: ${{ secrets.TRINO_HOST }}
-      TRINO_PORT: ${{ secrets.TRINO_PORT }}
-      TRINO_USERNAME: ${{ secrets.TRINO_USERNAME }}
+      TRINO_HOST: $TRINO_CI_HOST
+      # TRINO_PORT: $secrets.TRINO_PORT }}
+      TRINO_USERNAME: $TRINO_CI_USERNAME
       # TRINO_PASSWORD: ${{ secrets.TRINO_PASSWORD }}
       TRINO_CATALOG: ${{ secrets.TRINO_CATALOG }}
       TRINO_CATALOG_S3: ${{ secrets.TRINO_CATALOG_S3 }}
 
     steps:
+      - uses: twingate/github-action@v1
+        if: ${{ contains(matrix.module, 'trino') }}
+        with:
+          service-key: ${{ secrets.TWINGATE_SERVICE_KEY }}
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
