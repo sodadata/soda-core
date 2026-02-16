@@ -864,9 +864,11 @@ class SqlDialect:
         if from_part.sampler_type is not None and from_part.sample_size is not None:
             from_parts.append(self._build_sample_sql(from_part))
         else:
-            from_parts.append(self._build_qualified_quoted_dataset_name(
-                dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
-            ))
+            from_parts.append(
+                self._build_qualified_quoted_dataset_name(
+                    dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
+                )
+            )
 
         if isinstance(from_part.alias, str):
             from_parts.append(self._alias_format(from_part.alias))
@@ -1155,7 +1157,7 @@ class SqlDialect:
                     SELECT(STAR()),
                     FROM(from_.table_name, from_.table_prefix),
                     ORDER_BY_ASC(RANDOM()),
-                    LIMIT(from_.sample_size)
+                    LIMIT(from_.sample_size),
                 ],
                 add_semicolon=False,
             )

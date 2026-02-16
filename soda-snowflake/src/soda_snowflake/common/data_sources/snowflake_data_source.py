@@ -1,5 +1,4 @@
 from logging import Logger
-from numbers import Number
 from typing import TYPE_CHECKING, Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -195,9 +194,11 @@ class SnowflakeSqlDialect(SqlDialect):
     def _build_from_part(self, from_part: FROM) -> str:
         # Snowflake places the sampling clause after the alias, so we need to override the method
         from_parts: list[str] = []
-        from_parts.append(self._build_qualified_quoted_dataset_name(
-            dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
-        ))
+        from_parts.append(
+            self._build_qualified_quoted_dataset_name(
+                dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
+            )
+        )
         if from_part.alias is not None:
             from_parts.append(self._alias_format(from_part.alias))
         if from_part.sampler_type is not None and from_part.sample_size is not None:

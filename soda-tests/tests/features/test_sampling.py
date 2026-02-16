@@ -6,11 +6,9 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_fixtures import is_sampling_supported_data_source
 from helpers.test_table import TestTableSpecification
 from soda_core.common.metadata_types import SamplerType
-from soda_core.common.soda_cloud_dto import (
-    DatasetConfigurationDTO,
-    TestRowSamplerConfigurationDTO,
-)
+from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.soda_cloud_dto import SamplerType as SamplerTypeDTO
+from soda_core.common.soda_cloud_dto import TestRowSamplerConfigurationDTO
 from soda_core.common.sql_ast import FROM
 from soda_core.contracts.contract_verification import ContractVerificationResult
 
@@ -237,13 +235,15 @@ def test_sampling_custom_sql_pass(
     sample_size = 3
 
     def from_with_sampling(alias: str) -> str:
-        return data_source_test_helper.data_source_impl.sql_dialect._build_from_part(FROM(
-            test_table.unique_name,
-            test_table.dataset_prefix,
-            alias=alias,
-            sampler_type=SamplerType.ABSOLUTE_LIMIT,
-            sample_size=sample_size
-        ))
+        return data_source_test_helper.data_source_impl.sql_dialect._build_from_part(
+            FROM(
+                test_table.unique_name,
+                test_table.dataset_prefix,
+                alias=alias,
+                sampler_type=SamplerType.ABSOLUTE_LIMIT,
+                sample_size=sample_size,
+            )
+        )
 
     def table_with_alias(alias: str) -> str:
         return f"{table_full_name} AS {alias}"
@@ -288,6 +288,5 @@ def test_sampling_custom_sql_pass(
         f"from {table_with_alias('fr_query')} where {age_quoted} > 100".lower() not in logs
     ), "Original failed_rows query should not be in logs"
     assert (
-        f"from {from_with_sampling('fr_query')}\n  where\n    {age_quoted} > 100".lower()
-        in logs
+        f"from {from_with_sampling('fr_query')}\n  where\n    {age_quoted} > 100".lower() in logs
     ), "Sampled failed_rows query should be in logs"
