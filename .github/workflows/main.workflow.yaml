@@ -192,16 +192,17 @@ jobs:
           fi
 
           export TEST_DATASOURCE=${{ matrix.module }}
-          uv run python -m pytest -ra soda-tests/tests/features
+          uv run python -m pytest -ra soda-tests/tests/integration
           if [ "${{ matrix.module }}" = "postgres" ]; then
-            uv run python -m pytest -ra soda-tests/tests/components
+            uv run python -m pytest -ra soda-tests/tests/unit
+            uv run python -m pytest -ra soda-tests/tests/feature
           fi
           uv run python -m pytest -ra soda-${{ matrix.module }}/tests
 
           if [ "${{ matrix.module }}" = "databricks" ]; then
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
-            uv run python -m pytest -ra soda-tests/tests/features
+            uv run python -m pytest -ra soda-tests/tests/integration
           fi
 
   define-matrix:

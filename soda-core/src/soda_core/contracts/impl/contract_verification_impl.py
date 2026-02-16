@@ -983,42 +983,46 @@ class MissingAndValidity:
             is_missing_clauses.append(REGEX_LIKE(column_expression, self.missing_format.regex))
         return OR.optional(is_missing_clauses)
 
-    def is_invalid_expr(self, column_name: str | COLUMN) -> Optional[SqlExpression]:
+    def is_invalid_expr(self, column_expression: COLUMN | SqlExpressionStr) -> Optional[SqlExpression]:
         invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
             if None in self.valid_values:
-                invalid_clauses.append(AND([NOT(IN(column_name, literal_values)), IS_NOT_NULL(column_name)]))
+                invalid_clauses.append(
+                    AND([NOT(IN(column_expression, literal_values)), IS_NOT_NULL(column_expression)])
+                )
             elif not self.valid_values:
                 invalid_clauses.append(AND([LITERAL(True)]))
             else:
-                invalid_clauses.append(NOT(IN(column_name, literal_values)))
+                invalid_clauses.append(NOT(IN(column_expression, literal_values)))
         if isinstance(self.invalid_values, list):
             literal_values = [LITERAL(value) for value in self.invalid_values if value is not None]
             if None in self.invalid_values:
-                invalid_clauses.append(AND([IN(column_name, literal_values), IS_NULL(column_name)]))
+                invalid_clauses.append(AND([IN(column_expression, literal_values), IS_NULL(column_expression)]))
             elif not self.invalid_values:
                 invalid_clauses.append(AND([LITERAL(False)]))
             else:
-                invalid_clauses.append(IN(column_name, literal_values))
+                invalid_clauses.append(IN(column_expression, literal_values))
         if isinstance(self.valid_format, RegexFormat) and isinstance(self.valid_format.regex, str):
-            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_format.regex)))
+            invalid_clauses.append(NOT(REGEX_LIKE(column_expression, self.valid_format.regex)))
         if isinstance(self.valid_min, Number) or isinstance(self.valid_min, str):
-            invalid_clauses.append(LT(column_name, LITERAL(self.valid_min)))
+            invalid_clauses.append(LT(column_expression, LITERAL(self.valid_min)))
         if isinstance(self.valid_max, Number) or isinstance(self.valid_max, str):
-            invalid_clauses.append(GT(column_name, LITERAL(self.valid_max)))
+            invalid_clauses.append(GT(column_expression, LITERAL(self.valid_max)))
         if isinstance(self.invalid_format, RegexFormat) and isinstance(self.invalid_format.regex, str):
-            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_format.regex))
+            invalid_clauses.append(REGEX_LIKE(column_expression, self.invalid_format.regex))
         if isinstance(self.valid_length, int):
-            invalid_clauses.append(NEQ(LENGTH(column_name), LITERAL(self.valid_length)))
+            invalid_clauses.append(NEQ(LENGTH(column_expression), LITERAL(self.valid_length)))
         if isinstance(self.valid_min_length, int):
-            invalid_clauses.append(LT(LENGTH(column_name), LITERAL(self.valid_min_length)))
+            invalid_clauses.append(LT(LENGTH(column_expression), LITERAL(self.valid_min_length)))
         if isinstance(self.valid_max_length, int):
-            invalid_clauses.append(GT(LENGTH(column_name), LITERAL(self.valid_max_length)))
+            invalid_clauses.append(GT(LENGTH(column_expression), LITERAL(self.valid_max_length)))
         return OR.optional(invalid_clauses)
 
-    def is_valid_expr(self, column_name: str | COLUMN) -> SqlExpression:
-        return NOT.optional(OR.optional([self.is_missing_expr(column_name), self.is_invalid_expr(column_name)]))
+    def is_valid_expr(self, column_expression: str | COLUMN | SqlExpression) -> SqlExpression:
+        return NOT.optional(
+            OR.optional([self.is_missing_expr(column_expression), self.is_invalid_expr(column_expression)])
+        )
 
     @classmethod
     def __apply_default(cls, self_value, default_value) -> any:
