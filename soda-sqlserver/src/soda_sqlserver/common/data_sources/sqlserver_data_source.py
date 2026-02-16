@@ -29,6 +29,7 @@ from soda_core.common.sql_ast import (
     LIMIT,
     OFFSET,
     ORDER_BY_ASC,
+    RANDOM,
     REGEX_LIKE,
     SELECT,
     STAR,
@@ -425,3 +426,6 @@ class SqlServerSqlDialect(SqlDialect):
         # Drop the first prefix (database name) from the fully qualified view name
         create_view_copy.fully_qualified_view_name = ".".join(create_view_copy.fully_qualified_view_name.split(".")[1:])
         return super().build_create_view_sql(create_view_copy, add_semicolon, add_parenthesis=False)
+
+    def _build_random_sql(self, random: RANDOM) -> str:
+        return "RAND()"

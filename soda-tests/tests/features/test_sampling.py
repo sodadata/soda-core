@@ -9,6 +9,7 @@ from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.soda_cloud_dto import SamplerType as SamplerTypeDTO
 from soda_core.common.soda_cloud_dto import TestRowSamplerConfigurationDTO
+from soda_core.common.sql_ast import FROM
 from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
@@ -233,11 +234,19 @@ def test_sampling_custom_sql_pass(
     table_full_name = test_table.qualified_name
     sample_size = 3
 
-    def add_sample(name: str) -> str:
-        return f"{name} {data_source_test_helper.data_source_impl.sql_dialect._build_sample_sql(SamplerType.ABSOLUTE_LIMIT, sample_size)}"
+    def from_with_sampling(alias: str) -> str:
+        return data_source_test_helper.data_source_impl.sql_dialect._build_from_part(
+            FROM(
+                test_table.unique_name,
+                test_table.dataset_prefix,
+                alias=alias,
+                sampler_type=SamplerType.ABSOLUTE_LIMIT,
+                sample_size=sample_size,
+            )
+        )
 
-    def build_name_with_alias(name: str, alias: str) -> str:
-        return f"{name} AS {alias}"
+    def table_with_alias(alias: str) -> str:
+        return f"{table_full_name} AS {alias}"
 
     data_source_test_helper.soda_cloud.set_dataset_configuration_response(
         dataset_identifier=test_table.dataset_identifier,
@@ -254,12 +263,12 @@ def test_sampling_custom_sql_pass(
             checks:
                 - metric:
                     query: |
-                        select avg({age_quoted}) from {build_name_with_alias(table_full_name, "metric_query")} where 1 = 1
+                        select avg({age_quoted}) from {table_with_alias("metric_query")} where 1 = 1
                     threshold:
                         must_be_greater_than: 0
                 - failed_rows:
                     query: |
-                        select * from {build_name_with_alias(table_full_name, "fr_query")} where {age_quoted} > 100
+                        select * from {table_with_alias("fr_query")} where {age_quoted} > 100
         """,
     )
 
@@ -269,16 +278,15 @@ def test_sampling_custom_sql_pass(
     logs = contract_verification_result.get_logs_str().lower()
 
     assert (
-        f"from {build_name_with_alias(table_full_name, 'metric_query')} where 1 = 1".lower() not in logs
+        f"from {table_with_alias('metric_query')} where 1 = 1".lower() not in logs
     ), "Original metric query should not be in logs"
     assert (
-        f"from {add_sample(build_name_with_alias(table_full_name, 'metric_query'))}\nwhere\n  1 = 1".lower() in logs
+        f"from {from_with_sampling('metric_query')}\nwhere\n  1 = 1".lower() in logs
     ), "Sampled metric query should be in logs"
 
     assert (
-        f"from {build_name_with_alias(table_full_name, 'fr_query')} where {age_quoted} > 100".lower() not in logs
+        f"from {table_with_alias('fr_query')} where {age_quoted} > 100".lower() not in logs
     ), "Original failed_rows query should not be in logs"
     assert (
-        f"from {add_sample(build_name_with_alias(table_full_name, 'fr_query'))}\n  where\n    {age_quoted} > 100".lower()
-        in logs
+        f"from {from_with_sampling('fr_query')}\n  where\n    {age_quoted} > 100".lower() in logs
     ), "Sampled failed_rows query should be in logs"
