@@ -143,7 +143,7 @@ jobs:
       TRINO_HOST: ${{ secrets.TRINO_HOST }}
       TRINO_PORT: ${{ secrets.TRINO_PORT }}
       TRINO_USERNAME: ${{ secrets.TRINO_USERNAME }}
-      TRINO_PASSWORD: ${{ secrets.TRINO_PASSWORD }}
+      # TRINO_PASSWORD: ${{ secrets.TRINO_PASSWORD }}
       TRINO_CATALOG: ${{ secrets.TRINO_CATALOG }}
       TRINO_CATALOG_S3: ${{ secrets.TRINO_CATALOG_S3 }}
 
