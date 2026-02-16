@@ -14,6 +14,7 @@ from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
     CREATE_TABLE_COLUMN,
+    RANDOM,
 )
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
@@ -320,6 +321,9 @@ class DatabricksSqlDialect(SqlDialect):
 
     def metadata_casify(self, identifier: str) -> str:
         return identifier.lower()
+
+    def _build_random_sql(self, random: RANDOM) -> str:
+        return "RAND()"
 
 
 class DatabricksHiveSqlDialect(DatabricksSqlDialect):
