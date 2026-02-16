@@ -32,9 +32,9 @@ def test_logging_debug_prints(data_source_test_helper):
         select 86 union all select 87 union all select 88 union all select 89 union all select 90 union all
         select 91 union all select 92 union all select 93 union all select 94 union all select 95 union all
         select 96 union all select 97 union all select 98 union all select 99 union all select 100
-        ) 
+        )
         select * from t0 order by 1
-        """  #  some databases don't preserve order UNION ALLs (Trino), hence order by 
+        """  #  some databases don't preserve order UNION ALLs (Trino), hence order by
 
     logs = Logs()
     data_source_test_helper.data_source_impl.execute_query(multi_row_sql)

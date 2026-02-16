@@ -203,7 +203,7 @@ class SqlDialect:
         if isinstance(expected.datetime_precision, int) and expected.datetime_precision != actual.datetime_precision:
             return False
         return True
-    
+
     @classmethod
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         if expected == actual:
@@ -359,11 +359,9 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
-    
-    def apply_default_add_semicolon(self, add_semicolon: Optional[bool]) -> bool:        
+    def apply_default_add_semicolon(self, add_semicolon: Optional[bool]) -> bool:
         return add_semicolon if add_semicolon is not None else self.USES_SEMICOLONS_BY_DEFAULT
 
-    
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: Optional[bool] = None) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
@@ -458,7 +456,10 @@ class SqlDialect:
         return True
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: Optional[bool] = None, add_parenthesis: bool = True
+        self,
+        create_table_as_select: CREATE_TABLE_AS_SELECT,
+        add_semicolon: Optional[bool] = None,
+        add_parenthesis: bool = True,
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
@@ -517,10 +518,14 @@ class SqlDialect:
     #########################################################
     # DROP TABLE
     #########################################################
-    def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: Optional[bool] = None) -> str:
+    def build_drop_table_sql(
+        self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_table, DROP_TABLE_IF_EXISTS) else ""
-        cascade_sql: str = " CASCADE" if getattr(drop_table, "cascade", False) and self.SUPPORTS_DROP_TABLE_CASCADE else ""
+        cascade_sql: str = (
+            " CASCADE" if getattr(drop_table, "cascade", False) and self.SUPPORTS_DROP_TABLE_CASCADE else ""
+        )
         return f"DROP TABLE {if_exists_sql}{drop_table.fully_qualified_table_name}{cascade_sql}" + (
             ";" if add_semicolon else ""
         )
@@ -580,7 +585,9 @@ class SqlDialect:
             + (";" if add_semicolon else "")
         )
 
-    def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: Optional[bool] = None) -> str:
+    def build_drop_view_sql(
+        self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_VIEW_IF_EXISTS) else ""
         return f"DROP VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")

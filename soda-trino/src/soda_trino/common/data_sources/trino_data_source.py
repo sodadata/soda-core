@@ -1,24 +1,18 @@
 import logging
-from datetime import time
-from typing import Optional, Tuple, Any 
 import re
-from datetime import datetime
+from datetime import datetime, time
+from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.logging_constants import soda_logger
-
-from soda_core.common.metadata_types import (
-    SodaDataTypeName,
-    SqlDataType
-)
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
-
+from soda_core.common.logging_constants import soda_logger
+from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.sql_ast import STRING_HASH
 from soda_core.common.sql_dialect import SqlDialect
-
 from soda_trino.common.data_sources.trino_data_source_connection import (
     TrinoDataSource as TrinoDataSourceModel,
 )
@@ -26,11 +20,6 @@ from soda_trino.common.data_sources.trino_data_source_connection import (
     TrinoDataSourceConnection,
 )
 
-from soda_core.common.sql_ast import (
-    CREATE_TABLE,
-    CREATE_TABLE_IF_NOT_EXISTS,
-    STRING_HASH,
-)
 logger: logging.Logger = soda_logger
 
 
@@ -64,7 +53,7 @@ class TrinoSqlDialect(SqlDialect):
 
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
-        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),        
+        (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
 
     def supports_materialized_views(self) -> bool:
@@ -77,7 +66,7 @@ class TrinoSqlDialect(SqlDialect):
 
     def supports_case_sensitive_column_names(self) -> bool:
         # TODO -- it's possible that some connectors do support case sensitive names, investigate
-        # This open issue seems to suggest that support is still pending https://github.com/trinodb/trino/issues/17 
+        # This open issue seems to suggest that support is still pending https://github.com/trinodb/trino/issues/17
         return False
 
     def get_sql_data_type_class(self) -> type:
@@ -112,7 +101,7 @@ class TrinoSqlDialect(SqlDialect):
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
             return None
-        
+
         formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
         data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
         return int(data_type_tuple[1])
@@ -127,7 +116,7 @@ class TrinoSqlDialect(SqlDialect):
         return [["INTEGER", "INT"]]
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
-        
+
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
@@ -157,23 +146,23 @@ class TrinoSqlDialect(SqlDialect):
             "double": SodaDataTypeName.DOUBLE,
             "decimal": SodaDataTypeName.DECIMAL,
             "varchar": SodaDataTypeName.VARCHAR,
-            "char": SodaDataTypeName.CHAR,            
+            "char": SodaDataTypeName.CHAR,
             "date": SodaDataTypeName.DATE,
-            "time": SodaDataTypeName.TIME,            
+            "time": SodaDataTypeName.TIME,
             "timestamp": SodaDataTypeName.TIMESTAMP,
             "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
         }
 
-    
+
     def column_data_type_max_length(self) -> Optional[str]:
-        return None 
-    
+        return None
+
     def supports_data_type_character_maximum_length(self) -> bool:
         return True
 
     def column_data_type_numeric_precision(self) -> Optional[str]:
         return None
-    
+
     def supports_data_type_numeric_precision(self) -> bool:
         return True
 
@@ -186,21 +175,21 @@ class TrinoSqlDialect(SqlDialect):
     def default_numeric_scale(self) -> Optional[int]:
         return 0
 
-    
+
     def supports_data_type_numeric_scale(self) -> bool:
         return True
 
     def column_data_type_datetime_precision(self) -> Optional[str]:
         return None
-    
+
     def supports_data_type_datetime_precision(self) -> bool:
         return True
 
     def supports_datetime_microseconds(self) -> bool:
         return True
- 
+
     def metadata_casify(self, identifier: str) -> str:
-        # trino lower-cases metadata identifiers 
+        # trino lower-cases metadata identifiers
         return identifier.lower()
 
     def format_metadata_data_type(self, data_type: str) -> str:
@@ -226,7 +215,7 @@ class TrinoSqlDialect(SqlDialect):
 
     def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
         return self.format_metadata_data_type(data_type_name).lower() in [
-            "timestamp",            
+            "timestamp",
             "timestamp with time zone",
             "time",
             "time with time zone" # unsupported in Soda for now
@@ -237,7 +226,7 @@ class TrinoSqlDialect(SqlDialect):
     def literal_datetime_with_tz(self, datetime: datetime):
         return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S.%f%z')}'"
 
-    def literal_time(self, time: time):        
+    def literal_time(self, time: time):
         return f"TIME '{time.strftime("%H:%M:%S.%f")}'"
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
@@ -253,7 +242,7 @@ class TrinoSqlDialect(SqlDialect):
         datetime_iso_str: str = convert_datetime_to_str(datetime)
         return datetime_iso_str.replace("T", " ")
 
-    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:        
+    def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"DATE_ADD('day', 1, {timestamp_literal})"
 
 

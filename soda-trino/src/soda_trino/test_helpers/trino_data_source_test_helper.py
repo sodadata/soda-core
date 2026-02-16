@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
 import os
+from typing import Optional
 
 TRINO_HOST = os.getenv("TRINO_HOST", "")
 TRINO_USERNAME = os.getenv("TRINO_USERNAME", "")
@@ -12,7 +12,6 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 
 
 class TrinoDataSourceTestHelper(DataSourceTestHelper):
-
     def _create_database_name(self) -> Optional[str]:
         if TRINO_CATALOG is None or TRINO_CATALOG == "":
             raise ValueError("TRINO_CATALOG is not set, check .env file")
