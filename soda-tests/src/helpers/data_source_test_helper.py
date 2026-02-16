@@ -136,7 +136,7 @@ class DataSourceTestHelper:
             )
 
             return DremioDataSourceTestHelper(name)
-        elif test_datasource == "trino":    
+        elif test_datasource == "trino":
             from soda_trino.test_helpers.trino_data_source_test_helper import (
                 TrinoDataSourceTestHelper,
             )
