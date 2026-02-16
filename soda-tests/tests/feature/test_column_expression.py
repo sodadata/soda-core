@@ -160,4 +160,4 @@ def test_column_expression_clashing_metric(data_source_test_helper: DataSourceTe
 
     # Make sure that unique metric is generated for the both missing checks due to different column expressions.
     # 3 metrics - 1 for each missing, 1 for default row count.
-    assert len(result.measurements) == 33
+    assert len(result.measurements) == 3
