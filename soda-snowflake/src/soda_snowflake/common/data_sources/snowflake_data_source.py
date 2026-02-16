@@ -6,7 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName
-from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
+from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, FROM, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -192,8 +192,20 @@ class SnowflakeSqlDialect(SqlDialect):
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
 
-    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
-        if sampler_type is SamplerType.ABSOLUTE_LIMIT:
-            return f"TABLESAMPLE ({int(sample_size)} ROWS)"
+    def _build_from_part(self, from_part: FROM) -> str:
+        # Snowflake places the sampling clause after the alias, so we need to override the method
+        from_parts: list[str] = []
+        from_parts.append(self._build_qualified_quoted_dataset_name(
+            dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
+        ))
+        if from_part.alias is not None:
+            from_parts.append(self._alias_format(from_part.alias))
+        if from_part.sampler_type is not None and from_part.sample_size is not None:
+            from_parts.append(self._build_sample_sql(from_part))
+        return " ".join(from_parts)
+
+    def _build_sample_sql(self, from_: FROM) -> str:
+        if from_.sampler_type is SamplerType.ABSOLUTE_LIMIT:
+            return f"TABLESAMPLE ({int(from_.sample_size)} ROWS)"
         else:
-            raise ValueError(f"Unsupported sample type: {sampler_type}")
+            raise ValueError(f"Unsupported sample type: {from_.sampler_type}")

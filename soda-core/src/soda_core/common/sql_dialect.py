@@ -860,14 +860,13 @@ class SqlDialect:
     def _build_from_part(self, from_part: FROM) -> str:
         # "fully".qualified"."tablename" [AS "table_alias"]
 
-        from_parts: list[str] = [
-            self._build_qualified_quoted_dataset_name(
+        from_parts: list[str] = []
+        if from_part.sampler_type is not None and from_part.sample_size is not None:
+            from_parts.append(self._build_sample_sql(from_part))
+        else:
+            from_parts.append(self._build_qualified_quoted_dataset_name(
                 dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
-            )
-        ]
-
-        if from_part.sampler_type is not None and isinstance(from_part.sample_size, Number):
-            from_parts.append(self._build_sample_sql(from_part.sampler_type, from_part.sample_size))
+            ))
 
         if isinstance(from_part.alias, str):
             from_parts.append(self._alias_format(from_part.alias))
@@ -1149,8 +1148,20 @@ class SqlDialect:
             string_to_hash = CONCAT_WS(separator="'||'", expressions=formatted_expressions)
         return self.build_expression_sql(STRING_HASH(string_to_hash))
 
-    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
-        raise NotImplementedError("Sampling not implemented for this dialect")
+    def _build_sample_sql(self, from_: FROM) -> str:
+        if from_.sampler_type is SamplerType.ABSOLUTE_LIMIT:
+            sql = self.build_select_sql(
+                [
+                    SELECT(STAR()),
+                    FROM(from_.table_name, from_.table_prefix),
+                    ORDER_BY_ASC(RANDOM()),
+                    LIMIT(from_.sample_size)
+                ],
+                add_semicolon=False,
+            )
+            return f"({sql})"
+        else:
+            raise InvalidArgumentException(f"Unsupported sampler type for this dialect: {from_.sampler_type}")
 
     def _build_random_sql(self, random: RANDOM) -> str:
         return "RANDOM()"
