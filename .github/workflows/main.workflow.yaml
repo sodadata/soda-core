@@ -144,7 +144,7 @@ jobs:
       # TRINO_PORT: ${{ TRINO_PORT }}
       # TRINO_USERNAME: ${{ TRINO_USERNAME }}
       # TRINO_PASSWORD: ${{ TRINO_PASSWORD }}
-      TRINO_CATALOG: ${{ vars.TRINO_CATALOG }}
+      TRINO_CATALOG: ${{ vars.TRINO_CATALOG2 }}
       # TRINO_CATALOG_S3: ${{ TRINO_CATALOG_S3 }}
 
     steps:
