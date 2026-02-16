@@ -49,8 +49,6 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                         function: min
                         threshold:
                             must_be: 20
-
-
         """,
     )
 
@@ -107,8 +105,6 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
                         function: min
                         threshold:
                             must_be: 20
-
-
         """,
     )
 
@@ -134,3 +130,34 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
         "datasetRowsTested": 5,
         "checkRowsTested": 5,
     }
+
+
+def test_column_expression_clashing_metric(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    result = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: id
+                checks:
+                  - missing:
+                  - missing:
+                        qualifier: expr
+                        column_expression: '"id"::varchar'
+
+        """,
+    )
+
+    for check in result.check_results:
+        assert check.outcome == CheckOutcome.FAILED
+
+    # Make sure that unique metric is generated for the both missing checks due to different column expressions.
+    # 3 metrics - 1 for each missing, 1 for default row count.
+    assert len(result.measurements) == 33

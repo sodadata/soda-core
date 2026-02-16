@@ -418,6 +418,8 @@ class ColumnYaml(MissingAndValidityYaml):
         self.data_type: Optional[str] = column_yaml_object.read_string_opt("data_type")
         self.character_maximum_length: Optional[int] = column_yaml_object.read_number_opt("character_maximum_length")
         self.column_expression: Optional[str] = column_yaml_object.read_string_opt("column_expression")
+        if self.column_expression:
+            self.column_expression = self.column_expression.strip()
 
         super().__init__(column_yaml_object)
         self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
@@ -529,6 +531,8 @@ class CheckYaml(ABC):
         self.column_expression: Optional[str] = (
             check_yaml_object.read_string_opt("column_expression") if check_yaml_object else None
         )
+        if self.column_expression:
+            self.column_expression = self.column_expression.strip()
 
 
 class ThresholdCheckYaml(CheckYaml):

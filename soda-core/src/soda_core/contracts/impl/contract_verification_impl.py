@@ -983,7 +983,7 @@ class MissingAndValidity:
             is_missing_clauses.append(REGEX_LIKE(column_expression, self.missing_format.regex))
         return OR.optional(is_missing_clauses)
 
-    def is_invalid_expr(self, column_expression: COLUMN | SqlExpressionStr) -> Optional[SqlExpression]:
+    def is_invalid_expr(self, column_expression: str | COLUMN | SqlExpressionStr) -> Optional[SqlExpression]:
         invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
@@ -1377,9 +1377,8 @@ class CheckImpl:
         # Use check level column expression if exists, fall-back to column level check expression if possible.
         if self.check_yaml.column_expression:
             return SqlExpressionStr(self.check_yaml.column_expression)
-        else:
-            if self.column_impl:
-                return self.column_impl.column_expression
+        elif self.column_impl:
+            return self.column_impl.column_expression
 
     __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
         "schema": "Schema matches expected structure",
@@ -1597,6 +1596,8 @@ class MetricImpl:
                 id_properties["ref_prefix"] = self.missing_and_validity.valid_reference_data.dataset_prefix
                 id_properties["ref_name"] = self.missing_and_validity.valid_reference_data.dataset_name
                 id_properties["ref_column"] = self.missing_and_validity.valid_reference_data.column
+        if self.column_expression:
+            id_properties["column_expression"] = str(self.column_expression)
 
         return id_properties
 
