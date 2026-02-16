@@ -18,6 +18,7 @@ from soda_core.common.sql_ast import (
     COUNT,
     DISTINCT,
     LITERAL,
+    RANDOM,
     REGEX_LIKE,
     STRING_HASH,
     TUPLE,
@@ -236,3 +237,6 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         return f"to_hex({super()._build_string_hash_sql(string_hash)})"
+
+    def _build_random_sql(self, random: RANDOM) -> str:
+        return "RANDOM()"

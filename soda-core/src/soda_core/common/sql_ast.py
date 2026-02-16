@@ -219,6 +219,11 @@ class SUM(SqlExpression):
 
 
 @dataclass
+class RANDOM(SqlExpression):
+    """Generates a random number in the range [0.0, 1.0)."""
+
+
+@dataclass
 class SqlExpressionStr(SqlExpression):
     expression_str: str
 

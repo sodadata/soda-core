@@ -82,6 +82,7 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     ORDINAL_POSITION,
+    RANDOM,
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
@@ -827,6 +828,8 @@ class SqlDialect:
             return self._build_star_sql(expression)
         elif isinstance(expression, EXISTS):
             return self._build_exists_sql(expression)
+        elif isinstance(expression, RANDOM):
+            return self._build_random_sql(expression)
         raise Exception(f"Invalid expression type {expression.__class__.__name__}")
 
     def _build_column_sql(self, column: COLUMN) -> str:
@@ -1201,6 +1204,9 @@ class SqlDialect:
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         """Checks if the given sampler type is supported by this data source."""
         return False
+
+    def _build_random_sql(self, random: RANDOM) -> str:
+        return "RANDOM()"
 
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """
