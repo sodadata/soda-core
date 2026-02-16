@@ -238,7 +238,8 @@ class TrinoSqlDialect(SqlDialect):
         return f"TIMESTAMP '{datetime.strftime('%Y-%m-%d %H:%M:%S.%f%z')}'"
 
     def literal_time(self, time: time):        
-        return f"TIME '{time.strftime("%H:%M:%S.%f")}'"
+        formatted_time = time.strftime("%H:%M:%S.%f")
+        return f"TIME '{formatted_time}'"
 
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"TIMESTAMP '{datetime_in_iso8601.replace("T", " ")}'"
