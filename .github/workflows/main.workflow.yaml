@@ -140,12 +140,12 @@ jobs:
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
-      # TRINO_HOST: ${{ secrets.TRINO_HOST }}
-      # TRINO_PORT: ${{ secrets.TRINO_PORT }}
-      # TRINO_USERNAME: ${{ secrets.TRINO_USERNAME }}
-      # TRINO_PASSWORD: ${{ secrets.TRINO_PASSWORD }}
+      TRINO_HOST: ${{ secrets.TRINO_HOST }}
+      TRINO_PORT: ${{ secrets.TRINO_PORT }}
+      TRINO_USERNAME: ${{ secrets.TRINO_USERNAME }}
+      TRINO_PASSWORD: ${{ secrets.TRINO_PASSWORD }}
       TRINO_CATALOG: ${{ secrets.TRINO_CATALOG }}
-      # TRINO_CATALOG_S3: ${{ secrets.TRINO_CATALOG_S3 }}
+      TRINO_CATALOG_S3: ${{ secrets.TRINO_CATALOG_S3 }}
 
     steps:
       - uses: actions/checkout@v4
