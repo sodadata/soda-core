@@ -227,10 +227,31 @@ jobs:
             trinodb/trino:latest
 
           echo "Waiting for Trino to be ready..."
-          until curl -k -s https://localhost:8443/v1/info > /dev/null 2>&1; do
+          for i in $(seq 1 24); do
+            if curl -k -s https://localhost:8443/v1/info > /dev/null 2>&1; then
+              echo "Trino is ready"
+              break
+            fi
+            if [ "$i" -eq 24 ]; then
+              echo "ERROR: Trino failed to start within 2 minutes"
+              docker logs trino-ci
+              exit 1
+            fi
             sleep 5
           done
-          echo "Trino is ready"
+
+          # Verify a catalog query works end-to-end
+          echo "Verifying Trino catalogs..."
+          if ! curl -k -s -f -u soda-test:soda-test \
+            -X POST https://localhost:8443/v1/statement \
+            -H 'X-Trino-User: soda-test' \
+            -d 'SHOW CATALOGS' > /dev/null 2>&1; then
+            echo "WARNING: Trino catalog verification failed"
+            docker logs trino-ci
+          fi
+      - name: Dump Trino logs
+        if: failure() && matrix.module == 'trino'
+        run: docker logs trino-ci
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
