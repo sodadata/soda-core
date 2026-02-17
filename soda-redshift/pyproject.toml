@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
     "soda-core==4.0.8rc0",
-    "psycopg2-binary>=2.8.5,<3.0",
+    "psycopg[binary]>=3.2,<4",
     "boto3",
 ]
 
@@ -25,3 +25,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 120

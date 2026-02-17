@@ -118,14 +118,14 @@ class MissingCountMetricImpl(AggregationMetricImpl):
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
+            column_expression=check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
         return SUM(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
 
     def sql_condition_expression(self) -> SqlExpression:
-        column_name: str = self.column_impl.column_yaml.name
-        not_missing_and_invalid_expr = self.missing_and_validity.is_missing_expr(column_name)
+        not_missing_and_invalid_expr = self.missing_and_validity.is_missing_expr(self.column_expression)
         return (
             not_missing_and_invalid_expr
             if not self.check_filter

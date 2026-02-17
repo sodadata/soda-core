@@ -33,3 +33,6 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
         to customize the get_schema_check_sql_type behavior
         """
         return self._get_create_table_sql_type_dict()
+
+    def _cascade_drop_table(self) -> bool:
+        return False

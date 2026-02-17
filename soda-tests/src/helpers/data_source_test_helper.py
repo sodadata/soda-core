@@ -487,9 +487,14 @@ class DataSourceTestHelper:
             dataset_prefix=self.dataset_prefix,
             dataset_name=table_name,
         )
-        my_drop_table = DROP_TABLE(fully_qualified_table_name=fully_qualified_table_name, cascade=True)
+        my_drop_table = DROP_TABLE(
+            fully_qualified_table_name=fully_qualified_table_name, cascade=self._cascade_drop_table()
+        )
         sql: str = self.data_source_impl.sql_dialect.build_drop_table_sql(my_drop_table)
         self.data_source_impl.execute_update(sql)
+
+    def _cascade_drop_table(self) -> bool:
+        return True
 
     def query_existing_test_views(self) -> list[FullyQualifiedViewName]:
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
