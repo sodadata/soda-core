@@ -108,5 +108,5 @@ def test_check_paths_qualifier(data_source_test_helper: DataSourceTestHelper):
     assert len(contract_verification_result.check_results) == 2
     assert contract_verification_result.number_of_checks_excluded == 1
 
-    # There should be only 2 measurements: one for the invalid check on id, and one for the row count we collect for all contract verifications.
-    assert len(contract_verification_result.measurements) == 2
+    # There should be only 3 measurements: one for the invalid check on id, one for the row count we collect for all contract verifications and one for missing count.
+    assert len(contract_verification_result.measurements) == 3

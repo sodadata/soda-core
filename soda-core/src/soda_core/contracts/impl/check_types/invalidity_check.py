@@ -13,6 +13,7 @@ from soda_core.contracts.contract_verification import (
     Measurement,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
+from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
@@ -79,6 +80,10 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def setup_metrics(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_yaml: InvalidCheckYaml):
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
 
+        self.missing_count_metric_impl = self._resolve_metric(
+            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+        )
+
         self.invalid_count_metric_impl: Optional[MetricImpl] = None
         if self.missing_and_validity.has_reference_data():
             # noinspection PyTypeChecker
@@ -127,6 +132,10 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             "check_rows_tested": row_count,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
+
+        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
+        if isinstance(missing_count, Number):
+            diagnostic_metric_values["missing_count"] = missing_count
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 
