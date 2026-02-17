@@ -95,10 +95,10 @@ jobs:
           --health-start-period 10s
         ports:
           - 5432:5432
-      trino:
-        image: ${{ ( matrix.module == 'trino' ) && 'trinodb/trino:latest' || '' }}
-        ports:
-          - 8443:8443
+      # trino:
+      #   image: ${{ ( matrix.module == 'trino' ) && 'trinodb/trino:latest' || '' }}
+      #   ports:
+      #     - 8443:8443
       sqlserver:
         image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
         env:
@@ -197,7 +197,7 @@ jobs:
           echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
           echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
           echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
-          echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
+          echo "TRINO_CATALOG=iceberg" >> "$GITHUB_ENV"
           echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
 
           cd soda-trino/local_instance
