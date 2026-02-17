@@ -141,12 +141,7 @@ jobs:
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
-      TRINO_HOST: localhost
-      TRINO_PORT: 8443
-      TRINO_USERNAME: soda-test
-      TRINO_PASSWORD: soda-test
-      TRINO_CATALOG: db
-      TRINO_VERIFY: false
+      
 
     steps:
       - uses: actions/checkout@v4
@@ -158,7 +153,14 @@ jobs:
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
       - name: Start Trino                                                                             
         if: matrix.module == 'trino'                                                                  
-        run: bash scripts/start_trino.sh   
+        run: |
+        echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
+        echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
+        echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
+        echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
+        echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
+        echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
+        bash scripts/start_trino.sh   
       - name: Install dependencies
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
