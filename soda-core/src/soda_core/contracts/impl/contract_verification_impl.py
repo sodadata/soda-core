@@ -918,7 +918,7 @@ class MeasurementValues:
 
 class ColumnImpl:
     def __init__(self, contract_impl: ContractImpl, column_yaml: ColumnYaml):
-        self.column_yaml = column_yaml
+        self.column_yaml: ColumnYaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=column_yaml)
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
@@ -930,6 +930,13 @@ class ColumnImpl:
                         check_yaml=check_yaml,
                     )
                     self.check_impls.append(check)
+
+    @property
+    def column_expression(self) -> SqlExpressionStr | COLUMN:
+        if self.column_yaml.column_expression:
+            return SqlExpressionStr(self.column_yaml.column_expression)
+
+        return COLUMN(self.column_yaml.name)
 
 
 class ValidReferenceData:
@@ -967,51 +974,55 @@ class MissingAndValidity:
             missing_and_validity_yaml.valid_reference_data
         )
 
-    def is_missing_expr(self, column_name: str | COLUMN) -> SqlExpression:
-        is_missing_clauses: list[SqlExpression] = [IS_NULL(column_name)]
+    def is_missing_expr(self, column_expression: COLUMN | SqlExpressionStr) -> SqlExpression:
+        is_missing_clauses: list[SqlExpression] = [IS_NULL(column_expression)]
         if isinstance(self.missing_values, list):
             literal_values = [LITERAL(value) for value in self.missing_values]
-            is_missing_clauses.append(IN(column_name, literal_values))
+            is_missing_clauses.append(IN(column_expression, literal_values))
         if isinstance(self.missing_format, RegexFormat) and isinstance(self.missing_format.regex, str):
-            is_missing_clauses.append(REGEX_LIKE(column_name, self.missing_format.regex))
+            is_missing_clauses.append(REGEX_LIKE(column_expression, self.missing_format.regex))
         return OR.optional(is_missing_clauses)
 
-    def is_invalid_expr(self, column_name: str | COLUMN) -> Optional[SqlExpression]:
+    def is_invalid_expr(self, column_expression: str | COLUMN | SqlExpressionStr) -> Optional[SqlExpression]:
         invalid_clauses: list[SqlExpression] = []
         if isinstance(self.valid_values, list):
             literal_values = [LITERAL(value) for value in self.valid_values if value is not None]
             if None in self.valid_values:
-                invalid_clauses.append(AND([NOT(IN(column_name, literal_values)), IS_NOT_NULL(column_name)]))
+                invalid_clauses.append(
+                    AND([NOT(IN(column_expression, literal_values)), IS_NOT_NULL(column_expression)])
+                )
             elif not self.valid_values:
                 invalid_clauses.append(AND([LITERAL(True)]))
             else:
-                invalid_clauses.append(NOT(IN(column_name, literal_values)))
+                invalid_clauses.append(NOT(IN(column_expression, literal_values)))
         if isinstance(self.invalid_values, list):
             literal_values = [LITERAL(value) for value in self.invalid_values if value is not None]
             if None in self.invalid_values:
-                invalid_clauses.append(AND([IN(column_name, literal_values), IS_NULL(column_name)]))
+                invalid_clauses.append(AND([IN(column_expression, literal_values), IS_NULL(column_expression)]))
             elif not self.invalid_values:
                 invalid_clauses.append(AND([LITERAL(False)]))
             else:
-                invalid_clauses.append(IN(column_name, literal_values))
+                invalid_clauses.append(IN(column_expression, literal_values))
         if isinstance(self.valid_format, RegexFormat) and isinstance(self.valid_format.regex, str):
-            invalid_clauses.append(NOT(REGEX_LIKE(column_name, self.valid_format.regex)))
+            invalid_clauses.append(NOT(REGEX_LIKE(column_expression, self.valid_format.regex)))
         if isinstance(self.valid_min, Number) or isinstance(self.valid_min, str):
-            invalid_clauses.append(LT(column_name, LITERAL(self.valid_min)))
+            invalid_clauses.append(LT(column_expression, LITERAL(self.valid_min)))
         if isinstance(self.valid_max, Number) or isinstance(self.valid_max, str):
-            invalid_clauses.append(GT(column_name, LITERAL(self.valid_max)))
+            invalid_clauses.append(GT(column_expression, LITERAL(self.valid_max)))
         if isinstance(self.invalid_format, RegexFormat) and isinstance(self.invalid_format.regex, str):
-            invalid_clauses.append(REGEX_LIKE(column_name, self.invalid_format.regex))
+            invalid_clauses.append(REGEX_LIKE(column_expression, self.invalid_format.regex))
         if isinstance(self.valid_length, int):
-            invalid_clauses.append(NEQ(LENGTH(column_name), LITERAL(self.valid_length)))
+            invalid_clauses.append(NEQ(LENGTH(column_expression), LITERAL(self.valid_length)))
         if isinstance(self.valid_min_length, int):
-            invalid_clauses.append(LT(LENGTH(column_name), LITERAL(self.valid_min_length)))
+            invalid_clauses.append(LT(LENGTH(column_expression), LITERAL(self.valid_min_length)))
         if isinstance(self.valid_max_length, int):
-            invalid_clauses.append(GT(LENGTH(column_name), LITERAL(self.valid_max_length)))
+            invalid_clauses.append(GT(LENGTH(column_expression), LITERAL(self.valid_max_length)))
         return OR.optional(invalid_clauses)
 
-    def is_valid_expr(self, column_name: str | COLUMN) -> SqlExpression:
-        return NOT.optional(OR.optional([self.is_missing_expr(column_name), self.is_invalid_expr(column_name)]))
+    def is_valid_expr(self, column_expression: str | COLUMN | SqlExpression) -> SqlExpression:
+        return NOT.optional(
+            OR.optional([self.is_missing_expr(column_expression), self.is_invalid_expr(column_expression)])
+        )
 
     @classmethod
     def __apply_default(cls, self_value, default_value) -> any:
@@ -1361,6 +1372,14 @@ class CheckImpl:
         # Merge check attributes with contract attributes
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
 
+    @property
+    def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
+        # Use check level column expression if exists, fall-back to column level check expression if possible.
+        if self.check_yaml.column_expression:
+            return SqlExpressionStr(self.check_yaml.column_expression)
+        elif self.column_impl:
+            return self.column_impl.column_expression
+
     __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
         "schema": "Schema matches expected structure",
         "row_count": "Row count meets expected threshold",
@@ -1521,6 +1540,8 @@ class MetricImpl:
         data_source_impl: Optional[DataSourceImpl] = None,
         # Associate metric with a non-contract dataset if needed. Build queries accordingly.
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        # Support user-provided column expression for type casting and structured data support.
+        column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
         self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1534,6 +1555,8 @@ class MetricImpl:
             self.data_source_impl = self.contract_impl.data_source_impl
         if data_source_impl:
             self.data_source_impl = data_source_impl
+
+        self.column_expression: Optional[SqlExpressionStr | COLUMN] = column_expression
 
         self.id: str = self._build_id()
 
@@ -1573,6 +1596,8 @@ class MetricImpl:
                 id_properties["ref_prefix"] = self.missing_and_validity.valid_reference_data.dataset_prefix
                 id_properties["ref_name"] = self.missing_and_validity.valid_reference_data.dataset_name
                 id_properties["ref_column"] = self.missing_and_validity.valid_reference_data.column
+        if self.column_expression:
+            id_properties["column_expression"] = str(self.column_expression)
 
         return id_properties
 
@@ -1596,6 +1621,7 @@ class AggregationMetricImpl(MetricImpl):
         missing_and_validity: Optional[MissingAndValidity] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
+        column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -1605,6 +1631,7 @@ class AggregationMetricImpl(MetricImpl):
             missing_and_validity=missing_and_validity,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
+            column_expression=column_expression,
         )
 
     @abstractmethod

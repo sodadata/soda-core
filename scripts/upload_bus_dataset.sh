@@ -6,4 +6,4 @@
 
 # Also make sure you have run `uv sync --all-packages --group dev` before running this script.
 
-uv run pytest soda-tests/tests/features/test_sql_upload_bus_breakdown.py::test_insert_bus_breakdown_dataset -o log_cli=true -o log_cli_level=DEBUG
+uv run pytest soda-tests/tests/integration/test_sql_upload_bus_breakdown.py::test_insert_bus_breakdown_dataset -o log_cli=true -o log_cli_level=DEBUG
