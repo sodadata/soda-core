@@ -2,5 +2,6 @@
 
 cd soda-trino/local_instance
 ./generate_keys.sh
-docker compose up --remove-orphans
+# for now this is called in CI hence we need -d
+docker compose up --remove-orphans -d 
 cd ../../
