@@ -82,7 +82,7 @@ jobs:
     services:
       postgres:
         # please keep the postgres version in sync with the one in docker-compose.yml for postgres
-        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
+        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || ( matrix.module == 'trino' ) && 'postgres:16' || '' }}
         env:
           POSTGRES_USER: soda_test
           POSTGRES_DB: soda_test
@@ -95,6 +95,10 @@ jobs:
           --health-start-period 10s
         ports:
           - 5432:5432
+      trino:
+        image: ${{ ( matrix.module == 'trino' ) && 'trinodb/trino:latest' || '' }}
+        ports:
+          - 8443:8443
       sqlserver:
         image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
         env:
@@ -179,24 +183,30 @@ jobs:
         with:
           secret-ids: |
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
-      - name: Start Trino                                                                             
-        if: matrix.module == 'trino'                                                                  
+      - name: Configure Trino
+        if: matrix.module == 'trino'
         run: |
-          # There are already some env vars in the environment related to our remote Trino instance
-          # That instance is only accessible via twingate which is not available in this repo 
-          # Therefore we run a local instance and override env vars           
+          # Override env vars for the local Trino instance (remote instance requires twingate)
           echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
           echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
           echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
           echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
           echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
           echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
-          bash scripts/start_trino.sh
+
+          cd soda-trino/local_instance
+          ./generate_keys.sh
+
+          # The trino service starts with default config; inject our config and restart
+          docker cp trino-config/. ${{ job.services.trino.id }}:/etc/trino/
+          docker cp trino-catalog/. ${{ job.services.trino.id }}:/etc/trino/catalog/
+          docker restart ${{ job.services.trino.id }}
+
           echo "Waiting for Trino to be ready..."
           until curl -k -s https://localhost:8443/v1/info > /dev/null 2>&1; do
-            sleep 2
+            sleep 5
           done
-          echo "Trino is ready"   
+          echo "Trino is ready"
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
