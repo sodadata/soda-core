@@ -6,6 +6,8 @@ import os
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Optional, List
 
@@ -17,18 +19,9 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import soda_logger
 
-PROMPTS_DIR = Path(__file__).parent / "prompts"
-
-INTENT_PROMPT_FILES = {
-    "v3_to_v4": PROMPTS_DIR / "v3_to_v4.txt",
-    "odcs_to_soda": PROMPTS_DIR / "odcs_to_soda.txt",
-    "general": PROMPTS_DIR / "general.txt",
-}
-
-ROUTER_PROMPT_FILE = PROMPTS_DIR / "router.txt"
-
-# Cache for loaded prompt texts (populated on first access)
-_prompt_cache: dict[str, str] = {}
+# --- API config (these keys are safe to share) ---
+SODA_CODE_API_URL = os.environ.get("SODA_CODE_API_URL", "https://erwdqljpuadskekmwysc.supabase.co/functions/v1")
+SODA_CODE_API_KEY = os.environ.get("SODA_CODE_API_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyd2RxbGpwdWFkc2tla213eXNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDM2OTcsImV4cCI6MjA4NjkxOTY5N30.RdaARyIIy3xpKN7ecA9Zev3Es5ESffsW82NMd9IoonQ")
 
 SUGGESTED_PROMPTS = [
     ("1", "Translate ODCS contract to Soda Data Contract", "I have an ODCS contract that I'd like to translate to Soda Contract Language. Here's my ODCS contract:\n\n```yaml\n# Paste your ODCS contract here\n```"),
@@ -36,7 +29,7 @@ SUGGESTED_PROMPTS = [
     ("3", "Create a new data contract", "Help me create a new Soda data contract for a table with the following columns: ..."),
 ]
 
-# OpenAI function calling tool definitions
+# OpenAI function calling tool definitions (sent to server, executed locally)
 TOOLS = [
     {
         "type": "function",
@@ -105,13 +98,6 @@ YELLOW = "\033[33m"
 RED = "\033[31m"
 
 # --- Email config ---
-PERSONAL_EMAIL_DOMAINS = {
-    "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
-    "yahoo.com", "yahoo.co.uk", "icloud.com", "me.com", "mac.com",
-    "protonmail.com", "proton.me", "aol.com", "mail.com", "zoho.com",
-    "yandex.com", "gmx.com", "gmx.net",
-}
-
 SODA_CONFIG_DIR = Path.home() / ".soda"
 SODA_CODE_CONFIG = SODA_CONFIG_DIR / "code_config.json"
 
@@ -164,62 +150,87 @@ class Spinner:
             time.sleep(0.08)
 
 
-def _load_prompt(intent: str) -> str:
-    """Load and cache a prompt file for the given intent."""
-    if intent not in _prompt_cache:
-        path = INTENT_PROMPT_FILES.get(intent, INTENT_PROMPT_FILES["general"])
-        _prompt_cache[intent] = path.read_text(encoding="utf-8")
-    return _prompt_cache[intent]
+# --- API helpers ---
 
 
-def _get_conversation_summary(messages: List[dict]) -> str:
-    """Extract a short summary of recent conversation for the router.
+def _call_register_api(api_url: str, api_key: str, email: str) -> dict:
+    """POST to /register Edge Function. Returns parsed JSON response.
 
-    Returns the last ~4 user/assistant messages, truncated to keep the
-    router call small and fast.
+    Raises RuntimeError on network/HTTP errors with a user-friendly message.
     """
-    recent = []
-    for msg in reversed(messages):
-        if msg["role"] in ("user", "assistant") and msg.get("content"):
-            text = msg["content"][:200]
-            recent.append(f"{msg['role']}: {text}")
-            if len(recent) >= 4:
-                break
-    recent.reverse()
-    return "\n".join(recent)
+    url = f"{api_url}/register"
+    payload = json.dumps({"email": email}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "apikey": api_key,
+        },
+        method="POST",
+    )
 
-
-def _classify_intent(client, user_message: str, messages: List[dict]) -> str:
-    """Classify user intent using a fast gpt-4o-mini call.
-
-    Returns one of: 'v3_to_v4', 'odcs_to_soda', 'general'.
-    Falls back to 'general' on any error.
-    """
     try:
-        router_prompt = _prompt_cache.get("_router")
-        if not router_prompt:
-            router_prompt = ROUTER_PROMPT_FILE.read_text(encoding="utf-8")
-            _prompt_cache["_router"] = router_prompt
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        try:
+            data = json.loads(body)
+            raise RuntimeError(data.get("message", body))
+        except (json.JSONDecodeError, RuntimeError):
+            if isinstance(e.__context__, json.JSONDecodeError):
+                raise RuntimeError(body)
+            raise
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Could not reach Soda Code API: {e.reason}")
 
-        conversation_context = _get_conversation_summary(messages)
-        user_content = f"Conversation context:\n{conversation_context}\n\nNew message to classify:\n{user_message}"
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=20,
-            temperature=0,
-            messages=[
-                {"role": "system", "content": router_prompt},
-                {"role": "user", "content": user_content},
-            ],
-        )
+def _call_chat_api(
+    api_url: str,
+    api_key: str,
+    email: str,
+    messages: List[dict],
+    current_intent: str,
+    tools: List[dict],
+) -> dict:
+    """POST to /chat Edge Function. Returns parsed JSON response.
 
-        intent = response.choices[0].message.content.strip().lower()
-        if intent in INTENT_PROMPT_FILES:
-            return intent
-        return "general"
-    except Exception:
-        return "general"
+    Raises RuntimeError on network/HTTP errors.
+    """
+    url = f"{api_url}/chat"
+    payload = json.dumps({
+        "email": email,
+        "messages": messages,
+        "current_intent": current_intent,
+        "tools": tools,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "apikey": api_key,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        try:
+            data = json.loads(body)
+            raise RuntimeError(data.get("error", body))
+        except (json.JSONDecodeError, RuntimeError):
+            if isinstance(e.__context__, json.JSONDecodeError):
+                raise RuntimeError(body)
+            raise
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Could not reach Soda Code API: {e.reason}")
 
 
 # --- Email gate ---
@@ -253,7 +264,10 @@ def _save_email_to_config(email: str) -> None:
 
 
 def _load_or_prompt_email() -> tuple[Optional[str], bool]:
-    """Load email from config or prompt user. Returns (email, is_new_user)."""
+    """Load email from config or prompt user with API-based verification.
+
+    Returns (email, is_new_user).
+    """
     saved = _load_email_from_config()
     if saved:
         return saved, False
@@ -276,13 +290,20 @@ def _load_or_prompt_email() -> tuple[Optional[str], bool]:
             print(f"{RED}Please enter a valid email address.{RESET}")
             continue
 
-        domain = email.split("@")[-1].lower()
-        if domain in PERSONAL_EMAIL_DOMAINS:
-            print(f"{RED}Please use a work email address (not {domain}).{RESET}")
+        # Call the /register API for server-side validation
+        try:
+            result = _call_register_api(SODA_CODE_API_URL, SODA_CODE_API_KEY, email)
+        except RuntimeError as e:
+            print(f"{RED}{e}{RESET}")
             continue
 
+        if result.get("status") != "ok":
+            print(f"{RED}{result.get('message', 'Registration failed.')}{RESET}")
+            continue
+
+        is_new = result.get("is_new", True)
         _save_email_to_config(email)
-        return email, True
+        return email, is_new
 
 
 # --- File discovery ---
@@ -315,7 +336,7 @@ def _cmd_help() -> None:
 
 def _cmd_clear(messages: List[dict]) -> bool:
     """Clear conversation history. Returns True if confirmed."""
-    if len(messages) <= 1:
+    if not messages:
         print(f"{DIM}Nothing to clear.{RESET}")
         return False
     try:
@@ -324,7 +345,6 @@ def _cmd_clear(messages: List[dict]) -> bool:
         return False
     if answer in ("y", "yes"):
         messages.clear()
-        messages.append({"role": "system", "content": _load_prompt("general")})
         print(f"{GREEN}Conversation cleared.{RESET}")
         return True
     return False
@@ -368,11 +388,9 @@ def _cmd_files() -> None:
 def _cmd_model(current_intent: str) -> None:
     """Show current model and routing info."""
     print(f"\n{BOLD}Model info:{RESET}")
-    print(f"  {DIM}Chat model:{RESET}   gpt-4o")
-    print(f"  {DIM}Router model:{RESET} gpt-4o-mini")
+    print(f"  {DIM}Chat model:{RESET}   server-managed")
+    print(f"  {DIM}Router:{RESET}       server-managed")
     print(f"  {DIM}Active intent:{RESET} {current_intent}")
-    prompt_file = INTENT_PROMPT_FILES.get(current_intent, INTENT_PROMPT_FILES["general"])
-    print(f"  {DIM}Prompt file:{RESET}  {prompt_file.name}")
 
 
 def _handle_slash_command(command: str, messages: List[dict], current_intent: str) -> str:
@@ -404,15 +422,6 @@ def _handle_slash_command(command: str, messages: List[dict], current_intent: st
 def handle_code_chat(verbose: bool = False) -> ExitCode:
     """Handle the soda code chat command."""
     try:
-        from openai import OpenAI, APIError
-    except ImportError:
-        soda_logger.error(
-            "The 'openai' package is required for soda code. "
-            "Install it with: pip install openai"
-        )
-        return ExitCode.LOG_ERRORS
-
-    try:
         from prompt_toolkit import PromptSession
         from prompt_toolkit.formatted_text import ANSI as ANSI_Text
         from prompt_toolkit.key_binding import KeyBindings
@@ -423,14 +432,6 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
         soda_logger.error(
             "The 'prompt_toolkit' package is required for soda code. "
             "Install it with: pip install prompt_toolkit"
-        )
-        return ExitCode.LOG_ERRORS
-
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        soda_logger.error(
-            "OPENAI_API_KEY environment variable is not set. "
-            "Please set it with your OpenAI API key."
         )
         return ExitCode.LOG_ERRORS
 
@@ -539,9 +540,8 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
         completer=SodaCompleter(),
         complete_while_typing=False,
     )
-    client = OpenAI(api_key=api_key)
     current_intent = "general"
-    messages = [{"role": "system", "content": _load_prompt(current_intent)}]
+    messages: List[dict] = []
 
     while True:
         try:
@@ -584,54 +584,70 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
 
         messages.append({"role": "user", "content": user_input})
 
-        # Route intent and swap system prompt if needed
-        intent = _classify_intent(client, user_input, messages)
-        if intent != current_intent:
-            current_intent = intent
-            messages[0] = {"role": "system", "content": _load_prompt(current_intent)}
-
         try:
-            response_text = _run_agent_loop(client, messages)
+            response_text, intent = _run_agent_loop(email, messages, current_intent)
+            current_intent = intent
             if response_text:
                 messages.append({"role": "assistant", "content": response_text})
-        except APIError as e:
-            soda_logger.error(f"API error: {e}")
+        except RuntimeError as e:
+            print(f"\n{RED}Error: {e}{RESET}")
             messages.pop()
             continue
 
     return ExitCode.OK
 
 
-def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
-    """Run the agent loop: call the LLM, execute tool calls, repeat until done."""
+def _run_agent_loop(
+    email: str,
+    messages: List[dict],
+    current_intent: str,
+) -> tuple[Optional[str], str]:
+    """Run the agent loop: call the API, execute tool calls locally, repeat.
+
+    Returns (response_text, intent).
+    """
     spinner = Spinner("Thinking")
     spinner.start()
     did_tool_call = False
 
     while True:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            max_tokens=4096,
-            messages=messages,
-            tools=TOOLS,
-        )
+        try:
+            data = _call_chat_api(
+                SODA_CODE_API_URL,
+                SODA_CODE_API_KEY,
+                email,
+                messages,
+                current_intent,
+                TOOLS,
+            )
+        except RuntimeError:
+            spinner.stop()
+            raise
 
-        choice = response.choices[0]
+        intent = data.get("intent", current_intent)
+        choice = data.get("choice", {})
+        finish_reason = choice.get("finish_reason")
+        message = choice.get("message", {})
 
-        if choice.finish_reason == "tool_calls":
-            messages.append(choice.message.to_dict())
+        if finish_reason == "tool_calls":
+            # Append the assistant message (with tool_calls) to history
+            messages.append(message)
 
-            for tool_call in choice.message.tool_calls:
-                tool_name = tool_call.function.name
-                status, done_msg = _tool_status(tool_name, tool_call.function.arguments)
+            tool_calls = message.get("tool_calls", [])
+            for tool_call in tool_calls:
+                func = tool_call.get("function", {})
+                tool_name = func.get("name", "")
+                tool_args = func.get("arguments", "{}")
+                tool_call_id = tool_call.get("id", "")
 
+                status, done_msg = _tool_status(tool_name, tool_args)
                 spinner.update(status)
 
                 # Stop spinner before write so the confirmation prompt renders cleanly
                 if tool_name == "write_file":
                     spinner.stop()
 
-                result = _execute_tool(tool_name, tool_call.function.arguments)
+                result = _execute_tool(tool_name, tool_args)
 
                 # Print a log line showing the completed action
                 if tool_name != "write_file":
@@ -641,7 +657,7 @@ def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
 
                 messages.append({
                     "role": "tool",
-                    "tool_call_id": tool_call.id,
+                    "tool_call_id": tool_call_id,
                     "content": result,
                 })
                 did_tool_call = True
@@ -651,9 +667,9 @@ def _run_agent_loop(client, messages: List[dict]) -> Optional[str]:
 
         spinner.stop()
 
-        text = choice.message.content or ""
+        text = message.get("content") or ""
         print(f"\n{BOLD}⏺{RESET} {text}")
-        return text
+        return text, intent
 
 
 def _tool_status(name: str, arguments: str) -> tuple:
