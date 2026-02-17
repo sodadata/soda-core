@@ -15,8 +15,8 @@ docker compose up
 ```
 If the following runs without error, your instance is up
 ```
-curl -k https://localhost:8443/v1/statement -u soda-test:soda-test -d 
-"SELECT 1" 
+curl -k https://localhost:8443/v1/statement -u soda-test:soda-test -d
+"SELECT 1"
 ```
 
 
