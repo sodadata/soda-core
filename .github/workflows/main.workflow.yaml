@@ -82,7 +82,7 @@ jobs:
     services:
       postgres:
         # please keep the postgres version in sync with the one in docker-compose.yml for postgres
-        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || ( matrix.module == 'trino' ) && 'postgres:16' || '' }}
+        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || ( matrix.module == 'trino' ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
           POSTGRES_USER: soda_test
           POSTGRES_DB: soda_test
