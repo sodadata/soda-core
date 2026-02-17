@@ -1,7 +1,20 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: soda_test
+      POSTGRES_DB: soda_test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+
   trino:
     image: trinodb/trino:latest
+    depends_on:
+      - postgres
     ports:
       - "8443:8443"
     volumes:
       - ./trino-config:/etc/trino
+      - ./trino-catalog:/etc/trino/catalog
+

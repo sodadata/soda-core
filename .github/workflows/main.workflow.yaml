@@ -141,18 +141,14 @@ jobs:
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
-      TRINO_HOST: $TRINO_CI_HOST
-      # TRINO_PORT: $secrets.TRINO_PORT }}
-      TRINO_USERNAME: $TRINO_CI_USERNAME
-      # TRINO_PASSWORD: ${{ secrets.TRINO_PASSWORD }}
-      TRINO_CATALOG: ${{ secrets.TRINO_CATALOG }}
-      TRINO_CATALOG_S3: ${{ secrets.TRINO_CATALOG_S3 }}
+      TRINO_HOST: localhost
+      TRINO_PORT: 8443
+      TRINO_USERNAME: soda-test
+      TRINO_PASSWORD: soda-test
+      TRINO_CATALOG: db
+      TRINO_VERIFY: false
 
     steps:
-      - uses: twingate/github-action@v1
-        if: ${{ contains(matrix.module, 'trino') }}
-        with:
-          service-key: ${{ secrets.TWINGATE_SERVICE_KEY }}
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -160,7 +156,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Set up UV
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
-
+      - name: Start Trino                                                                             
+        if: matrix.module == 'trino'                                                                  
+        run: bash scripts/start_trino.sh   
       - name: Install dependencies
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
