@@ -31,7 +31,7 @@ from soda_core.cli.handlers.soda_cloud import (
     handle_create_soda_cloud,
     handle_test_soda_cloud,
 )
-from soda_core.cli.handlers.code import handle_code_chat
+from soda_core.cli.handlers.ai import handle_ai_chat
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_request import RequestStatus
@@ -94,7 +94,7 @@ def create_cli_parser() -> ArgumentParser:
     _setup_data_source_resource(resource_parsers)
     _setup_soda_cloud_resource(resource_parsers)
     _setup_contract_request_resource(resource_parsers)
-    _setup_code_resource(resource_parsers)
+    _setup_ai_resource(resource_parsers)
 
     return parser
 
@@ -633,10 +633,10 @@ def _setup_contract_request_transition_command(contract_request_parsers: Argumen
     transition_request_parser.set_defaults(handler_func=handle)
 
 
-def _setup_code_resource(resource_parsers) -> None:
-    code_parser = resource_parsers.add_parser("code", help="Soda Code AI assistant for data contracts")
+def _setup_ai_resource(resource_parsers) -> None:
+    ai_parser = resource_parsers.add_parser("ai", help="Soda AI assistant for data contracts")
 
-    code_parser.add_argument(
+    ai_parser.add_argument(
         "-v",
         "--verbose",
         const=True,
@@ -647,10 +647,10 @@ def _setup_code_resource(resource_parsers) -> None:
 
     def handle(args):
         verbose = args.verbose
-        exit_code = handle_code_chat(verbose)
+        exit_code = handle_ai_chat(verbose)
         exit_with_code(exit_code)
 
-    code_parser.set_defaults(handler_func=handle, command="chat")
+    ai_parser.set_defaults(handler_func=handle, command="chat")
 
 
 def exit_with_code(exit_code: int):

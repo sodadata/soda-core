@@ -99,7 +99,7 @@ RED = "\033[31m"
 
 # --- Email config ---
 SODA_CONFIG_DIR = Path.home() / ".soda"
-SODA_CODE_CONFIG = SODA_CONFIG_DIR / "code_config.json"
+SODA_AI_CONFIG = SODA_CONFIG_DIR / "ai_config.json"
 
 # --- Slash commands ---
 SLASH_COMMANDS = {
@@ -184,7 +184,7 @@ def _call_register_api(api_url: str, api_key: str, email: str) -> dict:
                 raise RuntimeError(body)
             raise
     except urllib.error.URLError as e:
-        raise RuntimeError(f"Could not reach Soda Code API: {e.reason}")
+        raise RuntimeError(f"Could not reach Soda AI API: {e.reason}")
 
 
 def _call_chat_api(
@@ -230,17 +230,17 @@ def _call_chat_api(
                 raise RuntimeError(body)
             raise
     except urllib.error.URLError as e:
-        raise RuntimeError(f"Could not reach Soda Code API: {e.reason}")
+        raise RuntimeError(f"Could not reach Soda AI API: {e.reason}")
 
 
 # --- Email gate ---
 
 
 def _load_email_from_config() -> Optional[str]:
-    """Load email from ~/.soda/code_config.json."""
+    """Load email from ~/.soda/ai_config.json."""
     try:
-        if SODA_CODE_CONFIG.exists():
-            config = json.loads(SODA_CODE_CONFIG.read_text(encoding="utf-8"))
+        if SODA_AI_CONFIG.exists():
+            config = json.loads(SODA_AI_CONFIG.read_text(encoding="utf-8"))
             return config.get("email")
     except (json.JSONDecodeError, OSError):
         pass
@@ -248,17 +248,17 @@ def _load_email_from_config() -> Optional[str]:
 
 
 def _save_email_to_config(email: str) -> None:
-    """Save email to ~/.soda/code_config.json, preserving existing keys."""
+    """Save email to ~/.soda/ai_config.json, preserving existing keys."""
     try:
         SODA_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         config = {}
-        if SODA_CODE_CONFIG.exists():
+        if SODA_AI_CONFIG.exists():
             try:
-                config = json.loads(SODA_CODE_CONFIG.read_text(encoding="utf-8"))
+                config = json.loads(SODA_AI_CONFIG.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
         config["email"] = email
-        SODA_CODE_CONFIG.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        SODA_AI_CONFIG.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     except OSError:
         pass
 
@@ -272,7 +272,7 @@ def _load_or_prompt_email() -> tuple[Optional[str], bool]:
     if saved:
         return saved, False
 
-    print(f"\n{BOLD}Soda Code{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
+    print(f"\n{BOLD}Soda AI{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
     print(f"\nPlease enter your work email to continue:")
 
     while True:
@@ -283,7 +283,7 @@ def _load_or_prompt_email() -> tuple[Optional[str], bool]:
             return None, False
 
         if not email:
-            print(f"{RED}Email is required to use Soda Code.{RESET}")
+            print(f"{RED}Email is required to use Soda AI.{RESET}")
             continue
 
         if "@" not in email or "." not in email.split("@")[-1]:
@@ -419,8 +419,8 @@ def _handle_slash_command(command: str, messages: List[dict], current_intent: st
         return "handled"
 
 
-def handle_code_chat(verbose: bool = False) -> ExitCode:
-    """Handle the soda code chat command."""
+def handle_ai_chat(verbose: bool = False) -> ExitCode:
+    """Handle the soda ai chat command."""
     try:
         from prompt_toolkit import PromptSession
         from prompt_toolkit.formatted_text import ANSI as ANSI_Text
@@ -430,7 +430,7 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
         from prompt_toolkit.document import Document
     except ImportError:
         soda_logger.error(
-            "The 'prompt_toolkit' package is required for soda code. "
+            "The 'prompt_toolkit' package is required for soda ai. "
             "Install it with: pip install prompt_toolkit"
         )
         return ExitCode.LOG_ERRORS
@@ -482,7 +482,7 @@ def handle_code_chat(verbose: bool = False) -> ExitCode:
     found_files = _find_relevant_files()
 
     print(f"\n{CYAN}{'=' * 60}{RESET}")
-    print(f"{BOLD}Soda Code{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
+    print(f"{BOLD}Soda AI{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
     print(f"{CYAN}{'=' * 60}{RESET}")
 
     if is_new_user:
