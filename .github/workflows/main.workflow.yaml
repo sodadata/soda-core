@@ -189,7 +189,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
-          TRINO_CI_ASSUME_ROLE_ARN: ${{ vars.TRINO_CI_ASSUME_ROLE_ARN }}
+          TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
         run: |
           set -e
           # Override env vars for the local Trino instance (remote instance requires twingate)
