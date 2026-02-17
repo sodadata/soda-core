@@ -151,24 +151,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Set up UV
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
-      - name: Start Trino                                                                             
-        if: matrix.module == 'trino'                                                                  
-        run: |
-          # There are already some env vars in the environment related to our remote Trino instance
-          # That instance is only accessible via twingate which is not available in this repo 
-          # Therefore we run a local instance and override env vars           
-          echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
-          echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
-          echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
-          echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
-          echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
-          echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
-          bash scripts/start_trino.sh
-          echo "Waiting for Trino to be ready..."
-          until curl -k -s https://localhost:8443/v1/info > /dev/null 2>&1; do
-            sleep 2
-          done
-          echo "Trino is ready"   
+      
       - name: Install dependencies
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -196,7 +179,24 @@ jobs:
         with:
           secret-ids: |
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
-
+      - name: Start Trino                                                                             
+        if: matrix.module == 'trino'                                                                  
+        run: |
+          # There are already some env vars in the environment related to our remote Trino instance
+          # That instance is only accessible via twingate which is not available in this repo 
+          # Therefore we run a local instance and override env vars           
+          echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
+          echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
+          echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
+          echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
+          echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
+          echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
+          bash scripts/start_trino.sh
+          echo "Waiting for Trino to be ready..."
+          until curl -k -s https://localhost:8443/v1/info > /dev/null 2>&1; do
+            sleep 2
+          done
+          echo "Trino is ready"   
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
