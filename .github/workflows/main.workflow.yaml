@@ -154,12 +154,12 @@ jobs:
       - name: Start Trino                                                                             
         if: matrix.module == 'trino'                                                                  
         run: |
-        echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
-        echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
-        echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
-        echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
-        echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
-        echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
+          echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
+          echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
+          echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
+          echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
+          echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
+          echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
         bash scripts/start_trino.sh   
       - name: Install dependencies
         run: |
