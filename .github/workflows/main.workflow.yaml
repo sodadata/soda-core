@@ -160,7 +160,7 @@ jobs:
           echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
           echo "TRINO_CATALOG=db" >> "$GITHUB_ENV"
           echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
-        bash scripts/start_trino.sh   
+          bash scripts/start_trino.sh   
       - name: Install dependencies
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
