@@ -17,4 +17,3 @@ services:
     volumes:
       - ./trino-config:/etc/trino
       - ./trino-catalog:/etc/trino/catalog
-
