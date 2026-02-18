@@ -59,14 +59,10 @@ class DataSourceConnection(ABC):
         """
         if self.connection is None:
             try:
-                logger.debug(
-                    f"'{self.name}' connection properties: {self.connection_properties}"
-                )
+                logger.debug(f"'{self.name}' connection properties: {self.connection_properties}")
                 self.connection = self._create_connection(self.connection_properties)
             except Exception as e:
-                logger.error(
-                    msg=f"Could not connect to '{self.name}': {e}", exc_info=True
-                )
+                logger.error(msg=f"Could not connect to '{self.name}': {e}", exc_info=True)
 
     def close_connection(self) -> None:
         """
@@ -78,9 +74,7 @@ class DataSourceConnection(ABC):
                 # noinspection PyUnresolvedReferences
                 self.connection.close()
             except Exception as e:
-                logger.warning(
-                    msg=f"Could not close the DBAPI connection", exc_info=True
-                )
+                logger.warning(msg=f"Could not close the DBAPI connection", exc_info=True)
             finally:
                 self.connection = None
 
@@ -100,10 +94,7 @@ class DataSourceConnection(ABC):
             rows = cursor.fetchall()
             formatted_rows = self.format_rows(rows)
             truncated_rows = self.truncate_rows(formatted_rows)
-            headers = [
-                self._execute_query_get_result_row_column_name(c)
-                for c in cursor.description
-            ]
+            headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
             # The tabulate can crash if the rows contain non-ASCII characters.
             # This is purely for debugging/logging purposes, so we can try/catch this.
             try:
@@ -113,12 +104,8 @@ class DataSourceConnection(ABC):
                     tablefmt="github",
                 )
             except UnicodeDecodeError as e:
-                logger.debug(
-                    f"Error formatting rows. These may contain non-ASCII characters. {e}"
-                )
-                table_text = (
-                    "Error formatting rows. These may contain non-ASCII characters."
-                )
+                logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
+                table_text = "Error formatting rows. These may contain non-ASCII characters."
             except TypeError as e:
                 logger.debug(f"Error formatting rows. {e}")
                 table_text = "Error formatting rows. This may be due to the rows containing non-ASCII characters."
@@ -161,9 +148,7 @@ class DataSourceConnection(ABC):
         cursor = self.connection.cursor()
         try:
             if log_query:
-                logger.debug(
-                    f"SQL update (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
-                )
+                logger.debug(f"SQL update (first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}")
             return self._cursor_execute_update_and_commit(cursor, sql)
 
         finally:
@@ -207,9 +192,7 @@ class DataSourceConnection(ABC):
         return description
 
     @contextlib.contextmanager
-    def execute_query_iterate(
-        self, sql: str, log_query: bool = True
-    ) -> Iterator[QueryResultIterator]:
+    def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:
         cursor = self.connection.cursor()
         if log_query:
             logger.debug(f"SQL query iterate:\n{sql}")
