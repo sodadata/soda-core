@@ -263,15 +263,15 @@ jobs:
 
       - name: Publish to Soda PyPI
         id: soda_pypi
+        env:
+          TWINE_REPOSITORY_URL: ${{ vars.CLOUD_PYPI_REPOSITORY }}
+          TWINE_USERNAME: ${{ env.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ env.PYPI_PASSWORD }}
         run: |
           source .venv/bin/activate
           SODA_RESULT="failure"
           for attempt in 1 2 3; do
-            if twine upload \
-              --repository-url "${{ vars.CLOUD_PYPI_REPOSITORY }}" \
-              --username "${{ env.PYPI_USERNAME }}" \
-              --password "${{ env.PYPI_PASSWORD }}" \
-              ${{ matrix.module }}/dist/*; then
+            if twine upload ${{ matrix.module }}/dist/*; then
               SODA_RESULT="success"
               echo "Soda PyPI upload succeeded on attempt $attempt"
               break
@@ -288,14 +288,14 @@ jobs:
 
       - name: Publish to public PyPI
         id: public_pypi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           source .venv/bin/activate
           PUBLIC_RESULT="failure"
           for attempt in 1 2 3; do
-            if twine upload \
-              --username __token__ \
-              --password "${{ secrets.PYPI_API_TOKEN }}" \
-              ${{ matrix.module }}/dist/*; then
+            if twine upload ${{ matrix.module }}/dist/*; then
               PUBLIC_RESULT="success"
               echo "Public PyPI upload succeeded on attempt $attempt"
               break

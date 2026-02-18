@@ -31,7 +31,7 @@ CATEGORIES = [
 CATEGORY_MAP = dict(CATEGORIES)
 
 # Pattern: "type: description" or "type(scope): description"
-CONVENTIONAL_RE = re.compile(r"^(\w+)(?:\([^)]+\))?:\s*(.+)$")
+CONVENTIONAL_RE = re.compile(r"^(\w+)(?:\([^)]+\))?:\s*(\S.*)$")
 
 
 def git(*args: str) -> str:
