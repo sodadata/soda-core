@@ -28,10 +28,10 @@ CATEGORIES = [
     ("chore", "Chores"),
 ]
 
-CATEGORY_MAP = {prefix: label for prefix, label in CATEGORIES}
+CATEGORY_MAP = dict(CATEGORIES)
 
 # Pattern: "type: description" or "type(scope): description"
-CONVENTIONAL_RE = re.compile(r"^(\w+)(?:\(.+?\))?:\s*(.+)$")
+CONVENTIONAL_RE = re.compile(r"^(\w+)(?:\([^)]+\))?:\s*(.+)$")
 
 
 def git(*args: str) -> str:

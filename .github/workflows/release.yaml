@@ -39,9 +39,9 @@ jobs:
 
       - name: Resolve version
         id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          INPUT_VERSION="${{ inputs.version }}"
-
           if [ -z "$INPUT_VERSION" ]; then
             CURRENT=$(python3 scripts/validate_version.py --current)
             echo "Current version: $CURRENT"
