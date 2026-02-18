@@ -69,6 +69,5 @@ search = 'version = "{current_version}"|soda-.*=={current_version}'
 src = "soda-sparkdf/pyproject.toml"
 search = 'version = "{current_version}"|soda-.*=={current_version}'
 
-[[after_push]]
-name = "Create Github Release"
-cmd = "if ! [ -x \"$(command -v gh)\" ]; then echo 'GH CLI not installed, please create a Github Release manually!'; else gh release create v{new_version} --generate-notes --verify-tag; fi"
+# NOTE: The [[after_push]] hook for creating GitHub Releases has been removed.
+# GitHub Release creation is now handled by .github/workflows/release.yaml.
