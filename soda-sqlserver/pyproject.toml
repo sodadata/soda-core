@@ -1,6 +1,6 @@
 [project]
 name = "soda-sqlserver"
-version = "4.0.8"
+version = "4.0.9rc0"
 description = "Soda SQL Server V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.8",
+    "soda-core==4.0.9rc0",
     "pyodbc",
 ]
 
