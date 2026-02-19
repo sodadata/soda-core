@@ -153,3 +153,7 @@ reports/*
 *.lock
 !uv.lock
 .local/
+
+# keys
+*.pem
+*.jks
