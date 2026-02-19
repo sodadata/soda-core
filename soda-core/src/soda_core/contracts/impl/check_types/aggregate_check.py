@@ -117,12 +117,11 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         column_impl: Optional[ColumnImpl],
         check_impl: MissingAndValidityCheckImpl,
         function: Optional[str],
-        column_name: Optional[str] = None,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.function: Optional[str] = function
-        self.column_name = column_impl.column_yaml.name if column_impl else column_name
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -131,7 +130,7 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
             missing_and_validity=check_impl.missing_and_validity,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
-            column_expression=check_impl.column_expression,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
