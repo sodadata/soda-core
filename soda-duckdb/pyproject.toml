@@ -1,6 +1,6 @@
 [project]
 name = "soda-duckdb"
-version = "4.0.8rc0"
+version = "4.0.8"
 description = "Soda DuckDB V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.8rc0",
+    "soda-core==4.0.8",
     "duckdb>=1.2.0",
     "pytz",
 ]

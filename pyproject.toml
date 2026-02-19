@@ -1,6 +1,6 @@
 [project]
 name = "soda-core-workspace"
-version = "4.0.8rc0"
+version = "4.0.8"
 description = "Soda Core monorepo - Data quality testing and contracts"
 readme = "README.md"
 requires-python = ">=3.10"
