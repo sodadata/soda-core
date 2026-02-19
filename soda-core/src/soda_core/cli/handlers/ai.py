@@ -294,8 +294,9 @@ def _load_or_prompt_email() -> tuple[Optional[str], bool]:
     if saved:
         return saved, False
 
-    print(f"\n{BOLD}Soda AI{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
-    print(f"\nPlease enter your work email to continue:")
+    print(f"\n{BOLD}Soda AI{RESET} {DIM}- AI Assistant for Data Contracts (experimental){RESET}")
+    print(f"\nPlease enter your work email to continue.")
+    print(f"{DIM}We require email to manage fair use and token limits — one account per person.{RESET}")
 
     while True:
         try:
