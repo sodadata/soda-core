@@ -45,15 +45,11 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
     multicolumn_duplicate_diagnostics: dict = check_json["diagnostics"]["v4"]
-    assert 66.6 < multicolumn_duplicate_diagnostics["failedRowsPercent"] < 66.7
-    del multicolumn_duplicate_diagnostics["failedRowsPercent"]
 
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
-        # "failedRowsPercent": 66.66666666666667, # float value tested and removed above
         "datasetRowsTested": 3,
-        "checkRowsTested": 3,
     }
 
 
