@@ -1,6 +1,6 @@
 [project]
 name = "soda-core"
-version = "4.0.9rc1"
+version = "4.0.9rc2"
 description = "Soda core library & CLI"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
