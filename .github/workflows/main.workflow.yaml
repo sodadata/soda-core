@@ -24,8 +24,8 @@ on:
   push:
     branches:
       - 'main'
-    tags:
-      - "*"
+    # NOTE: Tag-triggered production releases are handled by release.yaml.
+    # This workflow only runs CI + dev-pypi publishes for main branch pushes.
   pull_request:
 
 env:
@@ -206,7 +206,7 @@ jobs:
           fi
 
   define-matrix:
-    if: github.ref_name == 'main' || contains(github.ref, 'refs/tags/')
+    if: github.ref_name == 'main'
     runs-on: ubuntu-24.04
     needs: [test]
     outputs:
@@ -265,62 +265,6 @@ jobs:
           user: ${{ secrets.DEV_PYPI_USERNAME }}
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}
-  release-to-pypi:
-    if: startsWith(github.ref, 'refs/tags/')  # When tagged
-    runs-on: ubuntu-24.04
-    needs: [define-matrix]
-    strategy:
-      fail-fast: false
-      matrix:
-        module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      - name: Set up UV
-        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
-      - name: Debug GITHUB_REF
-        run: echo "GITHUB_REF=$GITHUB_REF"
-      - name: Get external secrets
-        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
-        with:
-          secret-ids: |
-            PYPI_USERNAME,/soda/github/common/SODA_PYPI_CLOUD_WRITE_USERNAME
-            PYPI_PASSWORD,/soda/github/common/SODA_PYPI_CLOUD_WRITE_PASSWORD
-      - name: Release ${{ matrix.module }}
-        run: |
-          uv venv .venv
-          source .venv/bin/activate
-          uv pip install tbump build twine
-
-          RELEASE_VERSION="$(echo ${GITHUB_REF_NAME} | sed -E 's/v(.*)/\1/')"
-          tbump --only-patch --non-interactive ${RELEASE_VERSION}
-          echo "Using tag version: ${RELEASE_VERSION}"
-
-          cd ${{ matrix.module }}
-          python3 -m build
-      # Stagger uploads so many packages don't hit PyPI at once (reduces 503s)
-      - name: Stagger uploads
-        run: |
-          DELAY=$(echo -n "${{ matrix.module }}" | cksum | awk '{print $1 % 91}')
-          echo "Staggering upload by ${DELAY}s..."
-          sleep $DELAY
-      - name: Publish package to Soda PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
-        with:
-          packages-dir: ${{ matrix.module }}/dist
-          user: ${{ env.PYPI_USERNAME }}
-          password: ${{ env.PYPI_PASSWORD }}
-          repository-url: ${{ vars.CLOUD_PYPI_REPOSITORY }}
-      - name: Publish package to public PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
-        with:
-          packages-dir: ${{ matrix.module }}/dist
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+  # NOTE: The release-to-pypi job has been removed.
+  # Production releases are now handled by .github/workflows/release.yaml
+  # which provides validation, approval gates, and test-before-tag safety.

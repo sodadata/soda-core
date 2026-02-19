@@ -3,6 +3,27 @@
 set -euo pipefail
 shopt -s nullglob globstar
 
+# =============================================================================
+# DEPRECATION NOTICE
+# =============================================================================
+# This script is DEPRECATED in favour of the GitHub Actions release workflow.
+#
+# To perform a release, go to:
+#   GitHub → Actions → "Release" → Run workflow → enter version → click Run
+#
+# The new workflow provides:
+#   - Pre-flight validation (tag/PyPI collision checks, CI status verification)
+#   - Test-before-tag safety (tests must pass before anything is published)
+#   - Approval gates via GitHub Environments
+#   - Dry run mode
+#   - Automated summary with per-package status
+#
+# This script is kept as an EMERGENCY FALLBACK only.
+# =============================================================================
+echo "WARNING: This script is deprecated. Use the GitHub Actions 'Release' workflow instead." >&2
+echo "         See: https://github.com/sodadata/soda-core/actions/workflows/release.yaml" >&2
+echo "" >&2
+
 if [[ $# -lt 1 ]] || [[ $# -gt 2 ]]; then
   echo "Usage: $0 <version> [--dry-run]" >&2
   exit 1
