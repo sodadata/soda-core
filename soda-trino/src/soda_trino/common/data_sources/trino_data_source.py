@@ -13,18 +13,24 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import STRING_HASH
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_trino.common.data_sources.trino_data_source_connection import (
     TrinoDataSource as TrinoDataSourceModel,
 )
 from soda_trino.common.data_sources.trino_data_source_connection import (
     TrinoDataSourceConnection,
 )
+from soda_trino.statements.trino_metadata_tables_query import TrinoMetadataTablesQuery
 
 logger: logging.Logger = soda_logger
 
 
 class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
-    def __init__(self, data_source_model: TrinoDataSourceModel, connection: Optional[DataSourceConnection] = None):
+    def __init__(
+        self,
+        data_source_model: TrinoDataSourceModel,
+        connection: Optional[DataSourceConnection] = None,
+    ):
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
@@ -32,15 +38,28 @@ class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return TrinoDataSourceConnection(
-            name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+            name=self.data_source_model.name,
+            connection_properties=self.data_source_model.connection_properties,
+        )
+
+    def create_metadata_tables_query(self) -> MetadataTablesQuery:
+        return TrinoMetadataTablesQuery(
+            sql_dialect=self.sql_dialect,
+            data_source_connection=self.data_source_connection,
         )
 
 
 class TrinoSqlDataType(SqlDataType):
     def get_sql_data_type_str_with_parameters(self) -> str:
-        if isinstance(self.datetime_precision, int) and self.name == "timestamp without time zone":
+        if (
+            isinstance(self.datetime_precision, int)
+            and self.name == "timestamp without time zone"
+        ):
             return f"timestamp({self.datetime_precision}) without time zone"
-        if isinstance(self.datetime_precision, int) and self.name == "timestamp with time zone":
+        if (
+            isinstance(self.datetime_precision, int)
+            and self.name == "timestamp with time zone"
+        ):
             return f"timestamp({self.datetime_precision}) with time zone"
         return super().get_sql_data_type_str_with_parameters()
 
@@ -56,13 +75,11 @@ class TrinoSqlDialect(SqlDialect):
 
     def supports_materialized_views(self) -> bool:
         # TODO  this should inherit from the connection
-        return False
+        return True
 
-    def supports_views(
-        self,
-    ) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
+    def supports_views(self) -> bool:
         # TODO  this should inherit from the connection
-        return False
+        return True
 
     def supports_case_sensitive_column_names(self) -> bool:
         # TODO -- it's possible that some connectors do support case sensitive names, investigate
@@ -78,35 +95,49 @@ class TrinoSqlDialect(SqlDialect):
         match = re.search(r"\((\d+)\)", raw)
         return int(match.group(1)) if match else None
 
-    def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
+    def extract_data_type_name(
+        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
+    ) -> str:
         raw = row[1]
         # "timestamp(3) with time zone" → "timestamp with time zone"
         return re.sub(r"\(\d+\)", "", raw).replace("  ", " ").strip()
 
-    def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+    def extract_character_maximum_length(
+        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
+    ) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
             return None
         return self._extract_type_parameter(row[1])
 
-    def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+    def extract_numeric_precision(
+        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
+    ) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_precision(data_type_name):
             return None
         formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
-        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(
+            ","
+        )
         return int(data_type_tuple[0])
 
-    def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+    def extract_numeric_scale(
+        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
+    ) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
             return None
 
         formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
-        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(
+            ","
+        )
         return int(data_type_tuple[1])
 
-    def extract_datetime_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
+    def extract_datetime_precision(
+        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
+    ) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_datetime_precision(data_type_name):
             return None
@@ -115,7 +146,9 @@ class TrinoSqlDialect(SqlDialect):
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [["INTEGER", "INT"]]
 
-    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
+    def get_data_source_data_type_name_by_soda_data_type_names(
+        self,
+    ) -> dict[SodaDataTypeName, str]:
         return {
             SodaDataTypeName.CHAR: "char",
             SodaDataTypeName.VARCHAR: "varchar",
@@ -134,7 +167,9 @@ class TrinoSqlDialect(SqlDialect):
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
-    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+    def get_soda_data_type_name_by_data_source_data_type_names(
+        self,
+    ) -> dict[str, SodaDataTypeName]:
         return {
             "boolean": SodaDataTypeName.BOOLEAN,
             "tinyint": SodaDataTypeName.SMALLINT,
@@ -197,7 +232,10 @@ class TrinoSqlDialect(SqlDialect):
         return data_type
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
-        return self.format_metadata_data_type(data_type_name).lower() in ["varchar", "char"]
+        return self.format_metadata_data_type(data_type_name).lower() in [
+            "varchar",
+            "char",
+        ]
 
     def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
         return self.format_metadata_data_type(data_type_name).lower() == "decimal"
@@ -228,7 +266,9 @@ class TrinoSqlDialect(SqlDialect):
         return f"TIMESTAMP '{formatted_datetime}'"
 
     def convert_str_to_datetime(self, datetime_str: str) -> datetime:
-        datetime_iso_str = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S.%f%z").isoformat()
+        datetime_iso_str = datetime.strptime(
+            datetime_str, "%Y-%m-%d %H:%M:%S.%f%z"
+        ).isoformat()
         return convert_str_to_datetime(datetime_iso_str)
 
     def convert_datetime_to_str(self, datetime: datetime) -> str:
@@ -240,58 +280,6 @@ class TrinoSqlDialect(SqlDialect):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         # all Trino hash methods operate on binary data - TO_UTF8 converts string to binary
-        return f"TO_HEX(MD5(TO_UTF8({self.build_expression_sql(string_hash.expression)})))"
-
-    # def default_casify_table_name(self, identifier: str) -> str:
-    #     """Formats table identifier to e.g. a default case for a given data source."""
-    #     return identifier.lower()
-
-    # def default_casify_column_name(self, identifier: str) -> str:
-    #     return identifier.lower()
-
-    # def default_casify_type_name(self, identifier: str) -> str:
-    #     return identifier.lower()
-
-    # def expr_percentile(self, expr: str, percentile: float):
-    #     return f"approx_percentile({expr}, {percentile})"
-
-    # def get_metric_sql_aggregation_expression(self, metric_name: str, metric_args: Optional[List[object]], expr: str):
-    #     # TODO add all of these postgres specific statistical aggregate functions: https://www.postgresql.org/docs/9.6/functions-aggregate.html
-    #     if metric_name in [
-    #         "stddev",
-    #         "stddev_pop",
-    #         "stddev_samp",
-    #         "variance",
-    #         "var_pop",
-    #         "var_samp",
-    #     ]:
-    #         return f"{metric_name.upper()}({expr})"
-    #     return super().get_metric_sql_aggregation_expression(metric_name, metric_args, expr)
-
-    # @classmethod
-    # def get_time_unit_sql(cls, time_unit: TimeUnit) -> str:
-    #     return time_unit.name
-
-    # @classmethod
-    # def get_time_delta_sql(cls, start: str, end: str, time_unit: TimeUnit, time_count: int = 1) -> str:
-    #     secs_per_interval = convert_to_timedelta(time_unit, time_count).total_seconds()
-    #     return f"cast(floor(date_diff('second', {start}, {end}) / {secs_per_interval}) as int)"
-
-    # @classmethod
-    # def get_interval_sql(cls, interval_unit: TimeUnit, interval_count: int | str) -> str:
-    #     """Get the SQL syntax for an interval"""
-    #     # Opting to multiply the interval in case `interval_count` refers to a column
-    #     return f"INTERVAL '1' {cls.get_time_unit_sql(interval_unit)} * ({interval_count})"
-
-    # @classmethod
-    # def get_add_interval_sql(cls, timestamp: str, interval_unit: TimeUnit, interval_count: int | str) -> str:
-    #     return f"date_add('{cls.get_time_unit_sql(interval_unit)}', {interval_count}, {timestamp})"
-
-    # def sql_paginate_query(self, query: str, offset: int, page_size: int) -> str:
-    #     return f"{query} \n OFFSET {offset} LIMIT {page_size}"
-
-    # def expr_char_length(self, expr):
-    #     return f"LENGTH({expr})"
-
-    # def cast_to_float(self, expr: str) -> str:
-    #     return f"CAST({expr} AS DOUBLE)"
+        return (
+            f"TO_HEX(MD5(TO_UTF8({self.build_expression_sql(string_hash.expression)})))"
+        )
