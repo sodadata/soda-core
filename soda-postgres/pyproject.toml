@@ -1,6 +1,6 @@
 [project]
 name = "soda-postgres"
-version = "4.0.9"
+version = "4.0.10rc0"
 description = "Soda Postgres V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.9",
+    "soda-core==4.0.10rc0",
     "psycopg[binary]>=3.2",
 ]
 
