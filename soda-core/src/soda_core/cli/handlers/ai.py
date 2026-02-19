@@ -520,7 +520,7 @@ def handle_ai_chat(verbose: bool = False) -> ExitCode:
     found_files = _find_relevant_files()
 
     print(f"\n{CYAN}{'=' * 60}{RESET}")
-    print(f"{BOLD}Soda AI{RESET} {DIM}- AI Assistant for Data Contracts{RESET}")
+    print(f"{BOLD}Soda AI{RESET} {DIM}- AI Assistant for Data Contracts (experimental){RESET}")
     print(f"{CYAN}{'=' * 60}{RESET}")
 
     if is_new_user:

@@ -634,7 +634,7 @@ def _setup_contract_request_transition_command(contract_request_parsers: Argumen
 
 
 def _setup_ai_resource(resource_parsers) -> None:
-    ai_parser = resource_parsers.add_parser("ai", help="Soda AI assistant for data contracts")
+    ai_parser = resource_parsers.add_parser("ai", help="Soda AI assistant for data contracts (experimental)")
 
     ai_parser.add_argument(
         "-v",
