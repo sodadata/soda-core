@@ -153,6 +153,28 @@ class Spinner:
 # --- API helpers ---
 
 
+def _call_config_api(api_url: str, api_key: str) -> dict:
+    """POST to /config Edge Function. Returns a flat {key: value} dict or empty dict on failure."""
+    url = f"{api_url}/config"
+    req = urllib.request.Request(
+        url,
+        data=b"{}",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "apikey": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data if isinstance(data, dict) else {}
+    except Exception as e:
+        soda_logger.debug(f"Config API call failed: {e}")
+        return {}
+
+
 def _call_register_api(api_url: str, api_key: str, email: str) -> dict:
     """POST to /register Edge Function. Returns parsed JSON response.
 
@@ -322,6 +344,15 @@ def _find_relevant_files() -> List[Path]:
 # --- Slash commands ---
 
 
+def _print_banner(title: str, text: str) -> None:
+    """Print a server-controlled announcement banner."""
+    separator = "─" * 58
+    print(f"\n{YELLOW}  ── {title} {separator[:max(0, 58 - len(title))]}{RESET}")
+    for line in text.strip().splitlines():
+        print(f"  {line}")
+    print(f"{YELLOW}  {separator}{RESET}")
+
+
 def _cmd_help() -> None:
     """Show available commands and usage tips."""
     print(f"\n{BOLD}Available commands:{RESET}")
@@ -440,6 +471,13 @@ def handle_ai_chat(verbose: bool = False) -> ExitCode:
     if email is None:
         return ExitCode.LOG_ERRORS
 
+    # --- Server config (announcement banner, non-fatal) ---
+    # key column = banner title, value column = banner content
+    config = _call_config_api(SODA_CODE_API_URL, SODA_CODE_API_KEY)
+    announcement_title, announcement = next(
+        ((k, v) for k, v in config.items() if v), (None, None)
+    )
+
     # --- File autocomplete ---
     class SodaCompleter(Completer):
         def __init__(self):
@@ -510,6 +548,9 @@ def handle_ai_chat(verbose: bool = False) -> ExitCode:
     print(f"\n{BOLD}Suggested prompts:{RESET}")
     for num, title, _ in SUGGESTED_PROMPTS:
         print(f"  {CYAN}[{num}]{RESET} {title}")
+
+    if announcement:
+        _print_banner(announcement_title, announcement)
 
     print(f"\n{DIM}Enter to submit | Shift+Enter for new line | /help for commands{RESET}")
     print(f"{CYAN}{'=' * 60}{RESET}\n")
