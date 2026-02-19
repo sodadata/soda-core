@@ -1554,6 +1554,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsPercent": check_result.diagnostic_metric_values.get("invalid_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            "missingCount": check_result.diagnostic_metric_values.get("missing_count"),
         }
     elif check_result.check.type == "duplicate":
         return {
@@ -1562,6 +1563,7 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
             "failedRowsPercent": check_result.diagnostic_metric_values.get("duplicate_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
             "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
+            "missingCount": check_result.diagnostic_metric_values.get("missing_count"),
         }
     elif check_result.check.type == "failed_rows":
         return {

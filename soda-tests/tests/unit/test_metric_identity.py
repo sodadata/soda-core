@@ -58,5 +58,5 @@ def test_metric_identity_invalid_count(data_source_test_helper: DataSourceTestHe
                         name: "This custom name should not affect metric identity"
         """,
     )
-    # row_count and invalid_count
-    assert len(contract_verification_result.measurements) == 2
+    # row_count, invalid_count, and missing_count
+    assert len(contract_verification_result.measurements) == 3
