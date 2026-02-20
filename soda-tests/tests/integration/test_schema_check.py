@@ -17,19 +17,13 @@ test_table_specification = (
 )
 
 
-@pytest.mark.parametrize(
-    "table_type", [TableType.TABLE, TableType.MATERIALIZED_VIEW, TableType.VIEW]
-)
+@pytest.mark.parametrize("table_type", [TableType.TABLE, TableType.MATERIALIZED_VIEW, TableType.VIEW])
 def test_schema(data_source_test_helper: DataSourceTestHelper, table_type: TableType):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     if table_type == TableType.MATERIALIZED_VIEW:
-        if (
-            not data_source_test_helper.data_source_impl.sql_dialect.supports_materialized_views()
-        ):
+        if not data_source_test_helper.data_source_impl.sql_dialect.supports_materialized_views():
             pytest.skip("Materialized views not supported for this dialect")
-        test_table = data_source_test_helper.create_materialized_view_from_test_table(
-            test_table
-        )
+        test_table = data_source_test_helper.create_materialized_view_from_test_table(test_table)
     elif table_type == TableType.VIEW:
         if not data_source_test_helper.data_source_impl.sql_dialect.supports_views():
             pytest.skip("Views not supported for this dialect")
@@ -58,9 +52,7 @@ def test_schema(data_source_test_helper: DataSourceTestHelper, table_type: Table
         """,
     )
 
-    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[
-        1
-    ].json
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
     schema_diagnostics: dict = check_json["diagnostics"]["v4"]
     assert schema_diagnostics["type"] == "schema"
@@ -101,9 +93,7 @@ def test_schema_warn_not_supported(data_source_test_helper: DataSourceTestHelper
         """,
     )
 
-    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[
-        1
-    ].json
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
     schema_diagnostics: dict = check_json["diagnostics"]["v4"]
     assert schema_diagnostics["type"] == "schema"
@@ -148,9 +138,7 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
         """,
     )
 
-    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[
-        0
-    ]
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert len(schema_check_result.column_data_type_mismatches) == n_failures
 
 
@@ -169,9 +157,7 @@ def test_schema_default_order(data_source_test_helper: DataSourceTestHelper):
         """,
     )
 
-    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[
-        0
-    ]
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert schema_check_result.are_columns_out_of_order
 
 
@@ -191,9 +177,7 @@ def test_schema_allow_out_of_order(data_source_test_helper: DataSourceTestHelper
         """,
     )
 
-    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[
-        0
-    ]
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert schema_check_result.are_columns_out_of_order == False
 
 
@@ -211,9 +195,7 @@ def test_schema_extra_columns_default(data_source_test_helper: DataSourceTestHel
         """,
     )
 
-    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[
-        0
-    ]
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert schema_check_result.actual_column_names_not_expected == ["created"]
 
 
@@ -232,9 +214,7 @@ def test_schema_allow_extra_columns(data_source_test_helper: DataSourceTestHelpe
         """,
     )
 
-    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[
-        0
-    ]
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert schema_check_result.actual_column_names_not_expected == []
 
 
@@ -247,9 +227,7 @@ def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHel
     )
     assert schema_exists == True
 
-    schema_should_not_exist: bool = (
-        data_source_test_helper.data_source_impl.test_schema_exists(
-            prefixes=data_source_test_helper.dataset_prefix[:-1] + ["not_a_schema"]
-        )
+    schema_should_not_exist: bool = data_source_test_helper.data_source_impl.test_schema_exists(
+        prefixes=data_source_test_helper.dataset_prefix[:-1] + ["not_a_schema"]
     )
     assert schema_should_not_exist == False
