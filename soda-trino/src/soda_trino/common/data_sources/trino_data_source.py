@@ -68,9 +68,12 @@ class TrinoSqlDialect(SqlDialect):
     USES_SEMICOLONS_BY_DEFAULT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
+    # Trino connectors may promote types (e.g. Iceberg: char→varchar, smallint→integer).
+    # These synonyms prevent false schema check failures across all connectors.
     SODA_DATA_TYPE_SYNONYMS = (
-        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
+        (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
+        (SodaDataTypeName.SMALLINT, SodaDataTypeName.INTEGER),
     )
 
     def supports_materialized_views(self) -> bool:
@@ -85,6 +88,38 @@ class TrinoSqlDialect(SqlDialect):
         # TODO -- it's possible that some connectors do support case sensitive names, investigate
         # This open issue seems to suggest that support is still pending https://github.com/trinodb/trino/issues/17
         return False
+
+    def is_same_data_type_for_schema_check(
+        self, expected: SqlDataType, actual: SqlDataType
+    ):
+        # Trino connectors vary in type parameter fidelity — e.g. Iceberg drops varchar
+        # lengths and normalizes timestamp precision to 6. Only compare parameters when
+        # both sides report a value (a None on the actual side means the connector doesn't
+        # track that parameter), and skip datetime precision entirely since connectors
+        # normalize it to connector-specific defaults (postgres→3, iceberg→6).
+        if not self.data_type_names_are_same_or_synonym(expected.name, actual.name):
+            return False
+        if (
+            isinstance(expected.character_maximum_length, int)
+            and isinstance(actual.character_maximum_length, int)
+            and expected.character_maximum_length != actual.character_maximum_length
+        ):
+            return False
+        if (
+            isinstance(expected.numeric_precision, int)
+            and isinstance(actual.numeric_precision, int)
+            and expected.numeric_precision != actual.numeric_precision
+        ):
+            return False
+        if (
+            isinstance(expected.numeric_scale, int)
+            and isinstance(actual.numeric_scale, int)
+            and expected.numeric_scale != actual.numeric_scale
+        ):
+            return False
+        # datetime_precision intentionally not compared — Trino connectors normalize
+        # it to connector-specific defaults (postgres→3, iceberg→6).
+        return True
 
     def get_sql_data_type_class(self) -> type:
         return TrinoSqlDataType
@@ -144,7 +179,12 @@ class TrinoSqlDialect(SqlDialect):
         return self._extract_type_parameter(row[1])
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
-        return [["INTEGER", "INT"]]
+        # Trino connectors may promote types (e.g. Iceberg: char→varchar, smallint→integer).
+        # These synonyms prevent false schema check failures across all connectors.
+        return [
+            ["SMALLINT", "INTEGER", "INT"],
+            ["CHAR", "VARCHAR"],
+        ]
 
     def get_data_source_data_type_name_by_soda_data_type_names(
         self,
