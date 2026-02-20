@@ -17,7 +17,7 @@ Soda Core provides the Soda Command-Line Interface (CLI) and Python API, which y
 - Run checks on PostgreSQL, Snowflake, BigQuery, Databricks, DuckDB, and more
 - Use 50+ built-in data quality checks for common and advanced validations
 - Integrate with [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=soda_cloud) for centralized management and anomaly detection monitoring
-- Use **Soda AI** to write, translate, and understand data contracts with an AI agent built into the CLI
+- Use `soda ai` command to write, translate, and understand data contracts with an AI agent built into the CLI
 
 ## Setup
 
@@ -144,7 +144,7 @@ Soda AI is an AI assistant for data contracts, built into the CLI. It can help y
 ### What it can do
 
 - **Translate ODCS contracts** to Soda Contract Language
-- **Migrate Soda v3 checks** files to v4 data contracts
+- **Migrate Soda v3 checks** files to data contracts
 - **Write new contracts** from scratch based on your table structure, dbt models, or pipeline definitions
 - **Answer questions** about Soda syntax, checks, and best practices
 
