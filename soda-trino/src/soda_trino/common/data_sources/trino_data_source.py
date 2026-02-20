@@ -51,15 +51,9 @@ class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
 
 class TrinoSqlDataType(SqlDataType):
     def get_sql_data_type_str_with_parameters(self) -> str:
-        if (
-            isinstance(self.datetime_precision, int)
-            and self.name == "timestamp without time zone"
-        ):
+        if isinstance(self.datetime_precision, int) and self.name == "timestamp without time zone":
             return f"timestamp({self.datetime_precision}) without time zone"
-        if (
-            isinstance(self.datetime_precision, int)
-            and self.name == "timestamp with time zone"
-        ):
+        if isinstance(self.datetime_precision, int) and self.name == "timestamp with time zone":
             return f"timestamp({self.datetime_precision}) with time zone"
         return super().get_sql_data_type_str_with_parameters()
 
@@ -130,49 +124,35 @@ class TrinoSqlDialect(SqlDialect):
         match = re.search(r"\((\d+)\)", raw)
         return int(match.group(1)) if match else None
 
-    def extract_data_type_name(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> str:
+    def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
         raw = row[1]
         # "timestamp(3) with time zone" → "timestamp with time zone"
         return re.sub(r"\(\d+\)", "", raw).replace("  ", " ").strip()
 
-    def extract_character_maximum_length(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> Optional[int]:
+    def extract_character_maximum_length(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_character_maximum_length(data_type_name):
             return None
         return self._extract_type_parameter(row[1])
 
-    def extract_numeric_precision(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> Optional[int]:
+    def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_precision(data_type_name):
             return None
         formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
-        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(
-            ","
-        )
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
         return int(data_type_tuple[0])
 
-    def extract_numeric_scale(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> Optional[int]:
+    def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
             return None
 
         formatted_data_type_name: str = self.format_metadata_data_type(data_type_name)
-        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(
-            ","
-        )
+        data_type_tuple = data_type_name[len(formatted_data_type_name) + 1 : -1].split(",")
         return int(data_type_tuple[1])
 
-    def extract_datetime_precision(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> Optional[int]:
+    def extract_datetime_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         data_type_name = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_datetime_precision(data_type_name):
             return None
@@ -306,9 +286,7 @@ class TrinoSqlDialect(SqlDialect):
         return f"TIMESTAMP '{formatted_datetime}'"
 
     def convert_str_to_datetime(self, datetime_str: str) -> datetime:
-        datetime_iso_str = datetime.strptime(
-            datetime_str, "%Y-%m-%d %H:%M:%S.%f%z"
-        ).isoformat()
+        datetime_iso_str = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S.%f%z").isoformat()
         return convert_str_to_datetime(datetime_iso_str)
 
     def convert_datetime_to_str(self, datetime: datetime) -> str:
@@ -320,6 +298,4 @@ class TrinoSqlDialect(SqlDialect):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         # all Trino hash methods operate on binary data - TO_UTF8 converts string to binary
-        return (
-            f"TO_HEX(MD5(TO_UTF8({self.build_expression_sql(string_hash.expression)})))"
-        )
+        return f"TO_HEX(MD5(TO_UTF8({self.build_expression_sql(string_hash.expression)})))"

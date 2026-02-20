@@ -81,24 +81,13 @@ class TrinoMetadataTablesQuery(MetadataTablesQuery):
         ]
 
         if database_name:
-            select.append(
-                WHERE(EQ(LOWER("catalog_name"), LITERAL(database_name.lower())))
-            )
+            select.append(WHERE(EQ(LOWER("catalog_name"), LITERAL(database_name.lower()))))
 
         if schema_name:
             select.append(WHERE(EQ(LOWER("schema_name"), LITERAL(schema_name.lower()))))
 
         if include_table_name_like_filters:
-            select.append(
-                WHERE(
-                    OR(
-                        [
-                            LIKE(LOWER("name"), LITERAL(f.lower()))
-                            for f in include_table_name_like_filters
-                        ]
-                    )
-                )
-            )
+            select.append(WHERE(OR([LIKE(LOWER("name"), LITERAL(f.lower())) for f in include_table_name_like_filters])))
 
         if exclude_table_name_like_filters:
             for f in exclude_table_name_like_filters:
