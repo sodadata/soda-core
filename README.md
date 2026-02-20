@@ -17,6 +17,7 @@ Soda Core provides the Soda Command-Line Interface (CLI) and Python API, which y
 - Run checks on PostgreSQL, Snowflake, BigQuery, Databricks, DuckDB, and more
 - Use 50+ built-in data quality checks for common and advanced validations
 - Integrate with [Soda Cloud](https://soda.io/?utm_source=github&utm_medium=readme&utm_campaign=soda_v4_release&utm_content=soda_cloud) for centralized management and anomaly detection monitoring
+- Use **Soda AI** to write, translate, and understand data contracts with an AI agent built into the CLI
 
 ## Setup
 
@@ -135,6 +136,62 @@ Parameter | Required | Description
 `-ds`,`--data-source`| Yes | Path to a data source YAML configuration file.
 `-c`,`--contract`| Yes | Path to a data contract YAML configuration file.
 
+
+## Soda AI _(experimental)_
+
+Soda AI is an AI assistant for data contracts, built into the CLI. It can help you write contracts, translate between formats, and answer questions about Soda Contract Language — all from your terminal.
+
+### What it can do
+
+- **Translate ODCS contracts** to Soda Contract Language
+- **Migrate Soda v3 checks** files to v4 data contracts
+- **Write new contracts** from scratch based on your table structure, dbt models, or pipeline definitions
+- **Answer questions** about Soda syntax, checks, and best practices
+
+### Usage
+
+```
+soda ai
+```
+
+No additional installation or API keys required — Soda AI is included with `soda-core`. A work email is required to access the tool; this is used to manage fair use and token limits.
+
+### Example session
+
+```
+❯ soda ai
+
+============================================================
+Soda AI - AI Assistant for Data Contracts (experimental)
+============================================================
+
+Welcome back, you@company.com!
+
+Suggested prompts:
+  [1] Translate ODCS contract to Soda Data Contract
+  [2] Translate Soda v3 checks file to a Soda Data Contract (v4)
+  [3] Create a new data contract
+
+Enter to submit | Shift+Enter for new line | /help for commands
+============================================================
+
+❯ translate my_contract.yml to v4
+
+⏺ Here is your contract translated to Soda v4 format: ...
+```
+
+You can reference local files by name and Soda AI will read them automatically. Translated contracts can be saved directly to disk with your confirmation.
+
+### Slash commands
+
+| Command | Description |
+|---|---|
+| `/help` | Show available commands and tips |
+| `/clear` | Clear conversation history and start fresh |
+| `/history` | Show recent conversation messages |
+| `/files` | List relevant files in the current directory |
+| `/model` | Show current model and routing info |
+| `/exit` | Exit the chat |
 
 ## Interact with Soda Cloud
 
