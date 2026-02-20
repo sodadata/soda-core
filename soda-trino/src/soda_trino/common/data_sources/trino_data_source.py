@@ -83,9 +83,7 @@ class TrinoSqlDialect(SqlDialect):
         # This open issue seems to suggest that support is still pending https://github.com/trinodb/trino/issues/17
         return False
 
-    def is_same_data_type_for_schema_check(
-        self, expected: SqlDataType, actual: SqlDataType
-    ):
+    def is_same_data_type_for_schema_check(self, expected: SqlDataType, actual: SqlDataType):
         # Trino connectors vary in type parameter fidelity — e.g. Iceberg drops varchar
         # lengths and normalizes timestamp precision to 6. Only compare parameters when
         # both sides report a value (a None on the actual side means the connector doesn't
