@@ -21,6 +21,7 @@ on:
           - sqlserver
           - synapse
           - sparkdf
+          - trino
   push:
     branches:
       - 'main'
@@ -81,7 +82,7 @@ jobs:
     services:
       postgres:
         # please keep the postgres version in sync with the one in docker-compose.yml for postgres
-        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
+        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || ( matrix.module == 'trino' ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
           POSTGRES_USER: soda_test
           POSTGRES_DB: soda_test
@@ -94,6 +95,10 @@ jobs:
           --health-start-period 10s
         ports:
           - 5432:5432
+      # trino:
+      #   image: ${{ ( matrix.module == 'trino' ) && 'trinodb/trino:latest' || '' }}
+      #   ports:
+      #     - 8443:8443
       sqlserver:
         image: ${{ ( matrix.module == 'sqlserver' ) && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
         env:
@@ -140,6 +145,7 @@ jobs:
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
+      
 
     steps:
       - uses: actions/checkout@v4
@@ -149,7 +155,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Set up UV
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
-
+      
       - name: Install dependencies
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -177,7 +183,75 @@ jobs:
         with:
           secret-ids: |
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
+      - name: Configure Trino
+        if: matrix.module == 'trino'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+          TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
+        run: |
+          set -e
+          # Override env vars for the local Trino instance (remote instance requires twingate)
+          echo "TRINO_HOST=localhost" >> "$GITHUB_ENV"
+          echo "TRINO_PORT=8443" >> "$GITHUB_ENV"
+          echo "TRINO_USERNAME=soda-test" >> "$GITHUB_ENV"
+          echo "TRINO_PASSWORD=soda-test" >> "$GITHUB_ENV"
+          echo "TRINO_CATALOG=iceberg" >> "$GITHUB_ENV"
+          echo "TRINO_VERIFY=false" >> "$GITHUB_ENV"
 
+          cd soda-trino/local_instance
+          ./generate_keys.sh
+
+          # Assume role in dev account for Glue + S3 (Iceberg); use temp creds for Trino process
+          if [ -n "${TRINO_CI_ASSUME_ROLE_ARN}" ]; then
+            CREDS=$(aws sts assume-role --role-arn "${TRINO_CI_ASSUME_ROLE_ARN}" --role-session-name github-actions-trino-ci --output json)
+            export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
+            export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
+            export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
+
+            # Create Glue database for CI (idempotent)
+            aws glue create-database --database-input '{"Name":"soda_ci_trino","Description":"Trino Iceberg CI"}' 2>/dev/null || true
+          else
+            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+          fi
+
+          # Start Trino with our config (and AWS_* env when assumed role); no service container
+          DOCKER_ENV=""
+          if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+            DOCKER_ENV="-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} -e AWS_REGION=${AWS_REGION:-eu-west-1}"
+          fi
+          docker run -d --name trino-ci -p 8443:8443 $DOCKER_ENV \
+            -v "$(pwd)/trino-config:/etc/trino" \
+            -v "$(pwd)/trino-catalog:/etc/trino/catalog" \
+            trinodb/trino:latest
+
+          echo "Waiting for Trino to be ready..."
+          for i in $(seq 1 24); do
+            if curl -k -s https://localhost:8443/v1/info > /dev/null 2>&1; then
+              echo "Trino is ready"
+              break
+            fi
+            if [ "$i" -eq 24 ]; then
+              echo "ERROR: Trino failed to start within 2 minutes"
+              docker logs trino-ci
+              exit 1
+            fi
+            sleep 5
+          done
+
+          # Verify a catalog query works end-to-end
+          echo "Verifying Trino catalogs..."
+          if ! curl -k -s -f -u soda-test:soda-test \
+            -X POST https://localhost:8443/v1/statement \
+            -H 'X-Trino-User: soda-test' \
+            -d 'SHOW CATALOGS' > /dev/null 2>&1; then
+            echo "WARNING: Trino catalog verification failed"
+            docker logs trino-ci
+          fi
+      - name: Dump Trino logs
+        if: failure() && matrix.module == 'trino'
+        run: docker logs trino-ci
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev

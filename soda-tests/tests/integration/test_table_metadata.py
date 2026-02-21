@@ -11,7 +11,10 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedViewName,
     TableType,
 )
-from soda_core.common.statements.table_types import FullyQualifiedMaterializedViewName
+from soda_core.common.statements.table_types import (
+    FullyQualifiedMaterializedViewName,
+    FullyQualifiedTableName,
+)
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -149,7 +152,9 @@ def test_view_metadata(data_source_test_helper: DataSourceTestHelper):
     __verify_table_metadata(actual_columns, sql_dialect)
 
 
-def test_view_not_detected_by_table_metadata(data_source_test_helper: DataSourceTestHelper):
+def test_view_not_detected_by_table_metadata(
+    data_source_test_helper: DataSourceTestHelper,
+):
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_views():
         pytest.skip("This data source does not support views")
     # This test verifies the "default behavior" of the metadata tables query, which is to return only tables.
@@ -194,7 +199,9 @@ def test_view_detected_by_table_metadata(data_source_test_helper: DataSourceTest
     assert view_name_found
 
 
-def test_materialized_view_detected_by_table_metadata(data_source_test_helper: DataSourceTestHelper):
+def test_materialized_view_detected_by_table_metadata(
+    data_source_test_helper: DataSourceTestHelper,
+):
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_materialized_views():
         pytest.skip("This data source does not support materialized views")
     # This test verifies that the metadata tables query is able to return only materialized views.
@@ -217,3 +224,55 @@ def test_materialized_view_detected_by_table_metadata(data_source_test_helper: D
         if element.materialized_view_name == view_name:
             view_name_found = True
     assert view_name_found, f"Materialized view {view_name} not found in metadata query results"
+
+
+def test_materialized_view_not_detected_by_table_metadata(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_materialized_views():
+        pytest.skip("This data source does not support materialized views")
+    # This test verifies that materialized views do not appear when querying for tables only.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    _ = data_source_test_helper.create_materialized_view_from_test_table(test_table)
+
+    table_metadata_query = data_source_test_helper.data_source_impl.create_metadata_tables_query()
+    table_metadata = table_metadata_query.execute(
+        database_name=data_source_test_helper.extract_database_from_prefix(),
+        schema_name=data_source_test_helper.extract_schema_from_prefix(),
+        include_table_name_like_filters=["SODATEST_%"],
+    )
+
+    # No element of the results can be a FullyQualifiedMaterializedViewName
+    for element in table_metadata:
+        assert not isinstance(element, FullyQualifiedMaterializedViewName)
+
+
+def test_mixed_types_detected_by_table_metadata(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_materialized_views():
+        pytest.skip("This data source does not support materialized views")
+    # This test verifies that querying for both tables and materialized views returns both types.
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    mv_name = data_source_test_helper.create_materialized_view_from_test_table(test_table).unique_name
+
+    table_metadata_query = data_source_test_helper.data_source_impl.create_metadata_tables_query()
+    table_metadata = table_metadata_query.execute(
+        database_name=data_source_test_helper.extract_database_from_prefix(),
+        schema_name=data_source_test_helper.extract_schema_from_prefix(),
+        include_table_name_like_filters=["SODATEST_%"],
+        types_to_return=[TableType.TABLE, TableType.MATERIALIZED_VIEW],
+    )
+
+    found_table = False
+    found_mv = False
+    for element in table_metadata:
+        assert isinstance(element, (FullyQualifiedTableName, FullyQualifiedMaterializedViewName))
+        if isinstance(element, FullyQualifiedTableName):
+            found_table = True
+        if isinstance(element, FullyQualifiedMaterializedViewName) and element.materialized_view_name == mv_name:
+            found_mv = True
+    assert found_table, "No tables found in mixed-type metadata query results"
+    assert found_mv, f"Materialized view {mv_name} not found in mixed-type metadata query results"
