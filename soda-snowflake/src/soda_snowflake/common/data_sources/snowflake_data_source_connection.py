@@ -21,8 +21,7 @@ logger: logging.Logger = soda_logger
 USER_DESCRIPTION = "Username for authentication"
 
 
-class SnowflakeConnectionProperties(DataSourceConnectionProperties, ABC):
-    ...
+class SnowflakeConnectionProperties(DataSourceConnectionProperties, ABC): ...
 
 
 class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):

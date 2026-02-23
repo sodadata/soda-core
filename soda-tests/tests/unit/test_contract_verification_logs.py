@@ -22,14 +22,12 @@ def test_split_log_lines(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_pass(
         test_table=test_table,
-        contract_yaml_str=dedent_and_strip(
-            """
+        contract_yaml_str=dedent_and_strip("""
     checks:
       - row_count:
           threshold:
             must_be: 3
-    """
-        ),
+    """),
     )
     log_lines = contract_verification_result.get_logs()
 
