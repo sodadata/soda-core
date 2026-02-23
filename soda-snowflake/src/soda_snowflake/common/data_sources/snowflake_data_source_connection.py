@@ -30,7 +30,9 @@ class SnowflakeSharedConnectionProperties(SnowflakeConnectionProperties, ABC):
     warehouse: Optional[str] = Field(None, description="Name of the warehouse to use")
     database: Optional[str] = Field(None, description="Name of the database to use")
     role: Optional[str] = Field(None, description="Role to assume after connecting")
-    session_parameters: Optional[Dict[str, str]] = Field(None, description="Session-level parameters")
+    session_parameters: Optional[Dict[str, str]] = Field(
+        None, description="Session-level parameters"
+    )
     host: Optional[str] = Field(None, description="Host name of the Snowflake account")
 
 
@@ -42,21 +44,33 @@ class SnowflakePasswordAuth(SnowflakeSharedConnectionProperties):
 class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
     user: str = Field(..., description=USER_DESCRIPTION)
     private_key: SecretStr = Field(..., description="Private key for authentication")
-    private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
+    private_key_passphrase: Optional[SecretStr] = Field(
+        None, description="Passphrase if private key is encrypted"
+    )
 
     def to_connection_kwargs(self) -> dict:
         connection_kwargs = super().to_connection_kwargs()
-        connection_kwargs["private_key"] = self._decrypt(self.private_key, self.private_key_passphrase)
+        connection_kwargs["private_key"] = self._decrypt(
+            self.private_key, self.private_key_passphrase
+        )
+        # Remove the passphrase from the connection kwargs, it's already included in the `private_key` field.
+        connection_kwargs.pop("private_key_passphrase", None)
         return connection_kwargs
 
-    def _decrypt(self, private_key: str, private_key_passphrase: Optional[SecretStr]) -> bytes:
+    def _decrypt(
+        self, private_key: str, private_key_passphrase: Optional[SecretStr]
+    ) -> bytes:
         private_key_bytes = private_key.get_secret_value().encode()
         private_key_passphrase_bytes = (
-            private_key_passphrase.get_secret_value().encode() if private_key_passphrase else None
+            private_key_passphrase.get_secret_value().encode()
+            if private_key_passphrase
+            else None
         )
 
         p_key = serialization.load_pem_private_key(
-            private_key_bytes, password=private_key_passphrase_bytes, backend=default_backend()
+            private_key_bytes,
+            password=private_key_passphrase_bytes,
+            backend=default_backend(),
         )
 
         return p_key.private_bytes(
@@ -69,15 +83,20 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
 class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
     user: str = Field(..., description=USER_DESCRIPTION)
     private_key_path: Path = Field(..., description="Path to private key file")
-    private_key_passphrase: Optional[SecretStr] = Field(None, description="Passphrase if private key is encrypted")
+    private_key_passphrase: Optional[SecretStr] = Field(
+        None, description="Passphrase if private key is encrypted"
+    )
 
     def to_connection_kwargs(self) -> dict:
         connection_kwargs = super().to_connection_kwargs()
+        # Snowflake does not need this extra info. It will read the private key file directly.
+        connection_kwargs.pop("private_key_path", None)
+        connection_kwargs.pop("private_key_passphrase", None)
         connection_kwargs["private_key_file"] = self.private_key_path
         if self.private_key_passphrase is not None:
             pwd = self.private_key_passphrase.get_secret_value()
             if pwd:
-                connection_kwargs["private_key_file_pwd"] = pwd
+                connection_kwargs["private_key_file_pwd"] = pwd.encode()
         return connection_kwargs
 
 
@@ -91,15 +110,25 @@ class SnowflakeClientCredentialsOAuthAuth(SnowflakeSharedConnectionProperties):
     authenticator: Literal["OAUTH_CLIENT_CREDENTIALS"] = Field(
         ..., description="Authenticator to use for OAuth Client Credentials Flow."
     )
-    oauth_client_id: SecretStr = Field(..., description="Client ID for OAuth Client Credentials Flow.")
-    oauth_client_secret: SecretStr = Field(..., description="Client secret for OAuth Client Credentials Flow.")
-    oauth_token_request_url: SecretStr = Field(..., description="Token request URL for OAuth Client Credentials Flow.")
-    oauth_scope: Optional[SecretStr] = Field(None, description="Scope for OAuth Client Credentials Flow if required.")
+    oauth_client_id: SecretStr = Field(
+        ..., description="Client ID for OAuth Client Credentials Flow."
+    )
+    oauth_client_secret: SecretStr = Field(
+        ..., description="Client secret for OAuth Client Credentials Flow."
+    )
+    oauth_token_request_url: SecretStr = Field(
+        ..., description="Token request URL for OAuth Client Credentials Flow."
+    )
+    oauth_scope: Optional[SecretStr] = Field(
+        None, description="Scope for OAuth Client Credentials Flow if required."
+    )
 
 
 class SnowflakeSSOAuth(SnowflakeSharedConnectionProperties):
     # User is not required for SSO Flow.
-    authenticator: Literal["externalbrowser"] = Field("externalbrowser", description="Use external browser SSO login")
+    authenticator: Literal["externalbrowser"] = Field(
+        "externalbrowser", description="Use external browser SSO login"
+    )
 
 
 class SnowflakeDataSource(DataSourceBase, ABC):
@@ -127,7 +156,9 @@ class SnowflakeDataSource(DataSourceBase, ABC):
 
 
 class SnowflakeDataSourceConnection(DataSourceConnection):
-    def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
+    def __init__(
+        self, name: str, connection_properties: DataSourceConnectionProperties
+    ):
         super().__init__(name, connection_properties)
 
     def _create_connection(
