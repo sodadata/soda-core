@@ -236,9 +236,7 @@ class TrinoSqlDialect(SqlDialect):
         return True
 
     def supports_datetime_microseconds(self) -> bool:
-        # Trino's db (postgres) connector uses timestamp(3) (millisecond precision) by default,
-        # and other connectors may not preserve sub-millisecond precision consistently.
-        return False
+        return True
 
     def get_max_sql_statement_length(self) -> int:
         # Trino is typically accessed via HTTP through a reverse proxy (e.g. nginx).
