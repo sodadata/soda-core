@@ -90,6 +90,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         expression: str = self.build_expression_sql(matches.expression)
         return f"{expression} ~ '{matches.regex_pattern}'"
 
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        return sampler_type is SamplerType.PERCENTAGE
+
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.PERCENTAGE:
             if sample_size < 0 or sample_size > 100:

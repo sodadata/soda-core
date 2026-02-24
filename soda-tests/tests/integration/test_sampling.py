@@ -51,12 +51,14 @@ country_test_table_specification = (
     "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
     new_callable=mock.PropertyMock(return_value=True),
 )
-@pytest.mark.skipif(not is_sampling_supported_data_source(), reason="Sampling not supported for this data source")
 def test_sampling_simple_pass(
     mocked_is_running_on_agent,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_sampler(SamplerType.ABSOLUTE_LIMIT):
+        pytest.skip("Sampling not supported for this data source")
+
     # Simple test to verify that sampling is applied to all checks when enabled. Sample of 3 rows should be used, dataset has 5 rows.
     # Verifying diagnostics value verifies that. All tests in one test to save time.
     # TODO: Testing the query generated would be more efficient and more strict but is more complex to implement.
@@ -218,12 +220,14 @@ def test_sampling_not_applied_simple_pass(
     "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
     new_callable=mock.PropertyMock(return_value=True),
 )
-@pytest.mark.skipif(not is_sampling_supported_data_source(), reason="Sampling not supported for this data source")
 def test_sampling_custom_sql_pass(
     mocked_is_running_on_agent,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
+    if not data_source_test_helper.data_source_impl.sql_dialect.supports_sampler(SamplerType.ABSOLUTE_LIMIT):
+        pytest.skip("Sampling not supported for this data source")
+
     # Checking the actual sql in logs, even though just in logs as result does not have them.
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

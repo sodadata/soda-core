@@ -192,6 +192,9 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
 
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        return sampler_type is SamplerType.ABSOLUTE_LIMIT
+
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.ABSOLUTE_LIMIT:
             return f"TABLESAMPLE ({int(sample_size)} ROWS)"
