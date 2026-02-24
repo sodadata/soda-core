@@ -203,25 +203,49 @@ jobs:
           cd soda-trino/local_instance
           ./generate_keys.sh
 
+          # ── Early-fail checks ──────────────────────────────────────────
+          if [ -z "${TRINO_CI_ASSUME_ROLE_ARN}" ]; then
+            echo "::error::TRINO_CI_ASSUME_ROLE_ARN secret is not set — Trino Iceberg tests require AWS credentials for S3/Glue access"
+            exit 1
+          fi
+          echo "TRINO_CI_ASSUME_ROLE_ARN is set (length=${#TRINO_CI_ASSUME_ROLE_ARN})"
+
+          if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
+            echo "::error::AWS_BUILD credentials are not set — cannot assume role"
+            exit 1
+          fi
+          echo "AWS build credentials present, assuming role..."
+
           # Assume role in dev account for Glue + S3 (Iceberg); use temp creds for Trino process
-          if [ -n "${TRINO_CI_ASSUME_ROLE_ARN}" ]; then
-            CREDS=$(aws sts assume-role --role-arn "${TRINO_CI_ASSUME_ROLE_ARN}" --role-session-name github-actions-trino-ci --output json)
-            export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
-            export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
-            export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
+          CREDS=$(aws sts assume-role --role-arn "${TRINO_CI_ASSUME_ROLE_ARN}" --role-session-name github-actions-trino-ci --output json)
+          export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
+          export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
+          export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
 
-            # Create Glue database for CI (idempotent)
-            aws glue create-database --database-input '{"Name":"soda_ci_trino","Description":"Trino Iceberg CI"}' 2>/dev/null || true
-          else
-            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+          if [ -z "${AWS_SESSION_TOKEN}" ] || [ "${AWS_SESSION_TOKEN}" = "null" ]; then
+            echo "::error::aws sts assume-role succeeded but returned empty/null session token"
+            exit 1
           fi
+          echo "Role assumed successfully (AccessKeyId starts with ${AWS_ACCESS_KEY_ID:0:4}...)"
 
-          # Start Trino with our config (and AWS_* env when assumed role); no service container
-          DOCKER_ENV=""
-          if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
-            DOCKER_ENV="-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} -e AWS_REGION=${AWS_REGION:-eu-west-1}"
+          # Verify the assumed role can access S3
+          echo "Verifying S3 access from host..."
+          if ! aws s3 ls s3://soda-dev-trino/ci-warehouse/ --region eu-west-1 > /dev/null 2>&1; then
+            echo "::error::Assumed role cannot list s3://soda-dev-trino/ci-warehouse/ — check IAM permissions"
+            aws s3 ls s3://soda-dev-trino/ci-warehouse/ --region eu-west-1 || true
+            exit 1
           fi
-          docker run -d --name trino-ci -p 8443:8443 $DOCKER_ENV \
+          echo "S3 access verified from host"
+
+          # Create Glue database for CI (idempotent)
+          aws glue create-database --database-input '{"Name":"soda_ci_trino","Description":"Trino Iceberg CI"}' 2>/dev/null || true
+
+          # Start Trino with our config and AWS credentials
+          docker run -d --name trino-ci -p 8443:8443 \
+            -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+            -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+            -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
+            -e AWS_REGION="${AWS_REGION:-eu-west-1}" \
             -v "$(pwd)/trino-config:/etc/trino" \
             -v "$(pwd)/trino-catalog:/etc/trino/catalog" \
             trinodb/trino:latest
@@ -233,25 +257,54 @@ jobs:
               break
             fi
             if [ "$i" -eq 24 ]; then
-              echo "ERROR: Trino failed to start within 2 minutes"
+              echo "::error::Trino failed to start within 2 minutes"
               docker logs trino-ci
               exit 1
             fi
             sleep 5
           done
 
-          # Verify a catalog query works end-to-end
+          # Verify S3 connectivity from inside the Docker container
+          echo "Verifying S3 access from inside Trino container..."
+          docker exec trino-ci bash -c '
+            if command -v curl > /dev/null 2>&1; then
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://s3.eu-west-1.amazonaws.com 2>/dev/null || echo "000")
+              if [ "$HTTP_CODE" = "000" ]; then
+                echo "::error::Trino container cannot reach S3 endpoint (https://s3.eu-west-1.amazonaws.com) — network issue"
+                exit 1
+              fi
+              echo "S3 endpoint reachable from container (HTTP $HTTP_CODE)"
+            else
+              echo "WARNING: curl not available in container, skipping S3 connectivity check"
+            fi
+          ' || echo "WARNING: Could not verify S3 connectivity from container (non-fatal)"
+
+          # Verify Trino catalogs
           echo "Verifying Trino catalogs..."
           if ! curl -k -s -f -u soda-test:soda-test \
             -X POST https://localhost:8443/v1/statement \
             -H 'X-Trino-User: soda-test' \
             -d 'SHOW CATALOGS' > /dev/null 2>&1; then
-            echo "WARNING: Trino catalog verification failed"
+            echo "::error::Trino catalog verification failed"
             docker logs trino-ci
+            exit 1
           fi
+          echo "Trino catalogs verified"
+
+          # Verify Trino can actually query Iceberg/Glue (catches credential passthrough issues)
+          echo "Verifying Trino can reach Glue via Iceberg catalog..."
+          RESULT=$(curl -k -s -f -u soda-test:soda-test \
+            -X POST https://localhost:8443/v1/statement \
+            -H 'X-Trino-User: soda-test' \
+            -d 'SHOW SCHEMAS FROM iceberg' 2>&1) || true
+          echo "Iceberg schema query response: ${RESULT:0:500}"
       - name: Dump Trino logs
-        if: failure() && matrix.module == 'trino'
-        run: docker logs trino-ci
+        if: always() && matrix.module == 'trino'
+        run: |
+          echo "=== Trino container logs ==="
+          docker logs trino-ci 2>&1 | tail -100
+          echo "=== Trino container env (redacted) ==="
+          docker exec trino-ci env 2>/dev/null | grep -E '^AWS_' | sed 's/=.*/=***/' || true
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
