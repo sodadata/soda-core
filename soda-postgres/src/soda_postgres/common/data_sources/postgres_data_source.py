@@ -92,9 +92,11 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.PERCENTAGE:
+            if sample_size < 0 or sample_size > 100:
+                raise ValueError(f"Sample size for percentage sampler type must be between 0 and 100, but got {sample_size}")
             return f"TABLESAMPLE BERNOULLI({sample_size})"
         else:
-            raise ValueError(f"Unsupported sampler type: {sampler_type}")
+            raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         return (
