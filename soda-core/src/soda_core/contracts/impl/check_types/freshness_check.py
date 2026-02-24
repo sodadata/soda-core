@@ -249,6 +249,7 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
+            column_expression=check_impl.column_expression,
         )
 
     def _get_id_properties(self) -> dict[str, any]:
@@ -259,10 +260,10 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         return id_properties
 
     def sql_expression(self) -> SqlExpression:
-        max_expression = self.column
+        max_expression = self.column_expression
 
         if self.check_filter:
-            max_expression = CASE_WHEN(SqlExpressionStr(self.check_filter), self.column)
+            max_expression = CASE_WHEN(SqlExpressionStr(self.check_filter), self.column_expression)
 
         return MAX(max_expression)
 

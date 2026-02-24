@@ -169,26 +169,27 @@ class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
+            column_expression=check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
-        column_name: str = self.column_impl.column_yaml.name
+        column_expression: COLUMN | SqlExpressionStr = self.column_expression
         filters: list[SqlExpression] = [SqlExpressionStr.optional(self.check_filter)]
         if self.missing_and_validity:
             filters.append(
                 NOT(
                     OR.optional(
                         [
-                            self.missing_and_validity.is_missing_expr(column_name),
+                            self.missing_and_validity.is_missing_expr(column_expression),
                         ]
                     )
                 )
             )
         filter_expr: Optional[SqlExpression] = AND.optional(filters)
         if filter_expr:
-            return COUNT(DISTINCT(CASE_WHEN(filter_expr, column_name)))
+            return COUNT(DISTINCT(CASE_WHEN(filter_expr, column_expression)))
         else:
-            return COUNT(DISTINCT(column_name))
+            return COUNT(DISTINCT(column_expression))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

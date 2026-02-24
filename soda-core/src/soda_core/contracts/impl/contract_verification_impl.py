@@ -1379,6 +1379,9 @@ class CheckImpl:
             return SqlExpressionStr(self.check_yaml.column_expression)
         elif self.column_impl:
             return self.column_impl.column_expression
+        # Handle checks not associated with a column but having a column specified at check level (eg. freshness check with column specified at check level instead of column level)
+        elif hasattr(self.check_yaml, "column") and self.check_yaml.column:
+            return COLUMN(self.check_yaml.column)
 
     __DEFAULT_CHECK_NAMES_BY_TYPE: dict[str, str] = {
         "schema": "Schema matches expected structure",

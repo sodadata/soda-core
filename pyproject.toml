@@ -38,6 +38,7 @@ dev = [
     "polars",
     "pandas",
     "pyarrow",
+    "black>=26.1.0",
 ]
 
 # Workspace sources - tells UV where to find workspace packages
