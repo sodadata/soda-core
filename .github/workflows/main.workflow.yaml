@@ -229,7 +229,11 @@ jobs:
           if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
             DOCKER_ENV="-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} -e AWS_REGION=${AWS_REGION:-eu-west-1}"
           fi
+          # Find the GitHub Actions job network so Trino can reach the postgres service container
+          GH_NETWORK=$(docker network ls --format '{{.Name}}' | grep -E '^github_network_' | head -1)
+
           docker run -d --name trino-ci -p 8443:8443 $DOCKER_ENV \
+            ${GH_NETWORK:+--network "$GH_NETWORK"} \
             -v "$(pwd)/trino-config:/etc/trino" \
             -v "$(pwd)/trino-catalog:/etc/trino/catalog" \
             trinodb/trino:latest
