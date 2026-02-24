@@ -1,0 +1,7 @@
+services:
+  trino:
+    image: trinodb/trino:latest
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./trino-config:/etc/trino
