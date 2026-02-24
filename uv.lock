@@ -2267,7 +2267,7 @@ requires-dist = [
 
 [[package]]
 name = "soda-trino"
-version = "4.0.8rc0"
+version = "4.0.10rc0"
 source = { editable = "soda-trino" }
 dependencies = [
     { name = "soda-core" },
