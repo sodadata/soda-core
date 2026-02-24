@@ -40,3 +40,4 @@ repos:
       - id: black
         name: Run black formatter
         language_version: python3
+        args: [--config, "pyproject.toml"]
