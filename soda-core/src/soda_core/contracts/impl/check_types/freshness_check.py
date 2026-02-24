@@ -159,6 +159,10 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             threshold_yaml=check_yaml.threshold,
         )
 
+    @property
+    def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
+        return COLUMN(self.check_yaml.column)
+
     def setup_metrics(
         self,
         contract_impl: ContractImpl,
@@ -169,7 +173,6 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             MaxTimestampMetricImpl(
                 contract_impl=contract_impl,
                 check_impl=self,
-                column=self.column,
                 now_variable=self.now_variable,
                 unit=self.unit,
             )
@@ -234,13 +237,12 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         self,
         contract_impl: ContractImpl,
         check_impl: FreshnessCheckImpl,
-        column: str,
         now_variable: Optional[str],
         unit: Optional[str],
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
-        self.column: str = column
         self.now_variable: Optional[str] = now_variable
         self.unit: Optional[str] = unit
         super().__init__(
@@ -249,12 +251,12 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
-            column_expression=check_impl.column_expression,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, str] = super()._get_id_properties()
-        id_properties["column"] = self.column
+        id_properties["column"] = str(self.column_expression)
         id_properties["now_variable"] = self.now_variable
         id_properties["unit"] = self.unit
         return id_properties
