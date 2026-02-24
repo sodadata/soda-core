@@ -306,17 +306,23 @@ jobs:
             fi
           ' || echo "WARNING: Could not verify S3 connectivity from container (non-fatal)"
 
-          # Verify Trino catalogs
-          echo "Verifying Trino catalogs..."
-          if ! curl -k -s -f -u soda-test:soda-test \
-            -X POST https://localhost:8443/v1/statement \
-            -H 'X-Trino-User: soda-test' \
-            -d 'SHOW CATALOGS' > /dev/null 2>&1; then
-            echo "::error::Trino catalog verification failed"
-            docker logs trino-ci
-            exit 1
-          fi
-          echo "Trino catalogs verified"
+          # Wait for Trino query engine to be fully ready (not just /v1/info)
+          echo "Waiting for Trino query engine to accept queries..."
+          for i in $(seq 1 30); do
+            if curl -k -s -f -u soda-test:soda-test \
+              -X POST https://localhost:8443/v1/statement \
+              -H 'X-Trino-User: soda-test' \
+              -d 'SHOW CATALOGS' > /dev/null 2>&1; then
+              echo "Trino query engine ready (attempt $i)"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Trino query engine not ready after 60s"
+              docker logs trino-ci 2>&1 | tail -50
+              exit 1
+            fi
+            sleep 2
+          done
 
           # Verify Trino can actually query Iceberg/Glue (catches credential passthrough issues)
           echo "Verifying Trino can reach Glue via Iceberg catalog..."
