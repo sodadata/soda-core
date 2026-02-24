@@ -37,8 +37,8 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
 
     def _create_sql_dialect(self) -> SqlDialect:
         if self.__is_hive_catalog():
-            return DatabricksHiveSqlDialect(data_source_impl=self)
-        return DatabricksSqlDialect(data_source_impl=self)
+            return DatabricksHiveSqlDialect()
+        return DatabricksSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DatabricksDataSourceConnection(
@@ -83,7 +83,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         return False
 
 
-class DatabricksSqlDialect(SqlDialect):
+class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     DEFAULT_QUOTE_CHAR = "`"
 
     SODA_DATA_TYPE_SYNONYMS = (
@@ -322,7 +322,7 @@ class DatabricksSqlDialect(SqlDialect):
         return identifier.lower()
 
 
-class DatabricksHiveSqlDialect(DatabricksSqlDialect):
+class DatabricksHiveSqlDialect(DatabricksSqlDialect, sqlglot_dialect="databricks"):
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])

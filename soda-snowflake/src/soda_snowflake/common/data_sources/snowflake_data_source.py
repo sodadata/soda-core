@@ -31,7 +31,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SnowflakeSqlDialect(data_source_impl=self)
+        return SnowflakeSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SnowflakeDataSourceConnection(
@@ -67,7 +67,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         return row[0] if row and row[0] else None
 
 
-class SnowflakeSqlDialect(SqlDialect):
+class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (

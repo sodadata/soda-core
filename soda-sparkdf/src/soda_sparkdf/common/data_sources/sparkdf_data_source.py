@@ -110,7 +110,7 @@ class SparkDataFrameDataSourceConnectionWrapper:
         return SparkDataFrameCursor(self._session)
 
 
-class SparkDataFrameSqlDialect(DatabricksSqlDialect):
+class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
@@ -189,7 +189,7 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
-        return SparkDataFrameSqlDialect(data_source_impl=self)
+        return SparkDataFrameSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SparkDataFrameDataSourceConnection(

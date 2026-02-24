@@ -25,7 +25,7 @@ class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSour
         super().__init__(data_source_model=data_source_model)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SynapseSqlDialect(data_source_impl=self)
+        return SynapseSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SynapseDataSourceConnection(
@@ -33,7 +33,7 @@ class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSour
         )
 
 
-class SynapseSqlDialect(SqlServerSqlDialect):
+class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 

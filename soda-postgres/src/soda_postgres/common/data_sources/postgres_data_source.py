@@ -53,7 +53,7 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return PostgresSqlDialect(data_source_impl=self)
+        return PostgresSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return PostgresDataSourceConnection(
@@ -75,7 +75,7 @@ class PostgresSqlDataType(SqlDataType):
         return super().get_sql_data_type_str_with_parameters()
 
 
-class PostgresSqlDialect(SqlDialect):
+class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),

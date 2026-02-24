@@ -25,7 +25,7 @@ class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSource
         super().__init__(data_source_model=data_source_model)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return FabricSqlDialect(data_source_impl=self)
+        return FabricSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return FabricDataSourceConnection(
@@ -33,7 +33,7 @@ class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSource
         )
 
 
-class FabricSqlDialect(SqlServerSqlDialect):
+class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
     SODA_DATA_TYPE_SYNONYMS = (
         *SqlServerSqlDialect.SODA_DATA_TYPE_SYNONYMS,
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
