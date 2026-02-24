@@ -243,7 +243,6 @@ jobs:
             aws s3 ls s3://soda-dev-trino/ci-warehouse/ --region eu-west-1 || true
             exit 1
           fi
-<<<<<<< HEAD
           echo "S3 access verified from host"
 
           # Create Glue database for CI (idempotent)
@@ -254,7 +253,7 @@ jobs:
           # Find the GitHub Actions job network so Trino can reach the postgres service container
           GH_NETWORK=$(docker network ls --format '{{.Name}}' | grep -E '^github_network_' | head -1)
 
-          docker run -d --name trino-ci -p 8443:8443 $DOCKER_ENV \
+          docker run -d --name trino-ci -p 8443:8443 \
             ${GH_NETWORK:+--network "$GH_NETWORK"} \
             -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
             -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
@@ -313,17 +312,12 @@ jobs:
             -d 'SHOW SCHEMAS FROM iceberg' 2>&1) || true
           echo "Iceberg schema query response: ${RESULT:0:500}"
       - name: Dump Trino logs
-<<<<<<< HEAD
-        if: always() && matrix.module == 'trino'
+        if: always() && startsWith(matrix.module, 'trino')
         run: |
           echo "=== Trino container logs ==="
           docker logs trino-ci 2>&1 | tail -100
           echo "=== Trino container env (redacted) ==="
           docker exec trino-ci env 2>/dev/null | grep -E '^AWS_' | sed 's/=.*/=***/' || true
-=======
-        if: failure() && startsWith(matrix.module, 'trino')
-        run: docker logs trino-ci
->>>>>>> 45cf6d25057421728689ccb702b1be48c9000eca
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
