@@ -9,10 +9,7 @@ from soda_core.common.statements.metadata_tables_query import (
     FullyQualifiedTableName,
     MetadataTablesQuery,
 )
-from soda_core.common.statements.table_types import (
-    FullyQualifiedViewName,
-    TableType,
-)
+from soda_core.common.statements.table_types import FullyQualifiedViewName, TableType
 from soda_sqlserver.test_helpers.sqlserver_data_source_test_helper import (
     SqlServerDataSourceTestHelper,
 )
