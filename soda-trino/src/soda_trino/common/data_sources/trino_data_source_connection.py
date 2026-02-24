@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from decimal import Decimal
 from typing import Literal, Optional, Union
 
 import requests
@@ -79,6 +80,9 @@ class TrinoDataSource(DataSourceBase, ABC):
 class TrinoDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
+
+    def format_rows(self, rows: list[tuple]) -> list[tuple]:
+        return [tuple(float(v) if isinstance(v, Decimal) else v for v in row) for row in rows]
 
     def _create_connection(
         self,

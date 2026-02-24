@@ -1,5 +1,5 @@
 [version]
-current = "4.0.8rc0"
+current = "4.0.10rc0"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.)?((?P<prerelease>[a-z,0-9]+)(?P<build>\d+))?
@@ -76,3 +76,7 @@ search = 'version = "{current_version}"|soda-.*=={current_version}'
 [[after_push]]
 name = "Create Github Release"
 cmd = "if ! [ -x \"$(command -v gh)\" ]; then echo 'GH CLI not installed, please create a Github Release manually!'; else gh release create v{new_version} --generate-notes --verify-tag; fi"
+
+[[before_commit]]
+name = "Update uv lock file"
+cmd = "uv lock"
