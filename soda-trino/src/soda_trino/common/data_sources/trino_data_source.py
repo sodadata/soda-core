@@ -51,8 +51,8 @@ class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
 
 class TrinoSqlDataType(SqlDataType):
     def get_sql_data_type_str_with_parameters(self) -> str:
-        if isinstance(self.datetime_precision, int) and self.name == "timestamp without time zone":
-            return f"timestamp({self.datetime_precision}) without time zone"
+        if isinstance(self.datetime_precision, int) and self.name == "timestamp":
+            return f"timestamp({self.datetime_precision})"
         if isinstance(self.datetime_precision, int) and self.name == "timestamp with time zone":
             return f"timestamp({self.datetime_precision}) with time zone"
         return super().get_sql_data_type_str_with_parameters()
@@ -64,6 +64,10 @@ class TrinoSqlDialect(SqlDialect):
 
     # Trino connectors may promote types (e.g. Iceberg: char→varchar, smallint→integer).
     # These synonyms prevent false schema check failures across all connectors.
+    # NOTE: These are bidirectional — a contract specifying INTEGER will also pass when the
+    # actual column is SMALLINT (and vice versa). Ideally promotion would be directional
+    # (smallint→integer OK, integer→smallint fail), but the synonym system doesn't support
+    # that yet. Acceptable for now since the reverse mismatch is rare in practice.
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
@@ -249,9 +253,9 @@ class TrinoSqlDialect(SqlDialect):
 
     def format_metadata_data_type(self, data_type: str) -> str:
         """Strip modifiers"""
-        paranthesis_index = data_type.find("(")
-        if paranthesis_index != -1:
-            return data_type[:paranthesis_index]
+        parenthesis_index = data_type.find("(")
+        if parenthesis_index != -1:
+            return data_type[:parenthesis_index]
         return data_type
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:

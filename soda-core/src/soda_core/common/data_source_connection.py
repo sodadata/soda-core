@@ -108,7 +108,7 @@ class DataSourceConnection(ABC):
                 table_text = "Error formatting rows. These may contain non-ASCII characters."
             except Exception as e:
                 logger.debug(f"Error formatting rows. {e}")
-                table_text = "Error formatting rows. This may be due to the rows containing non-ASCII characters.\n{e}"
+                table_text = f"Error formatting rows. This may be due to the rows containing non-ASCII characters.\n{e}"
 
             logger.debug(
                 f"SQL query result (max {self.MAX_ROWS} rows, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"

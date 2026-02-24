@@ -1,23 +1,20 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC
 from decimal import Decimal
 from typing import Literal, Optional, Union
 
 import requests
 import trino
 from pydantic import BaseModel, Field, IPvAnyAddress, SecretStr
-from soda_core.common.logging_constants import soda_logger
-
-logger: logging.Logger = soda_logger
-
-
 from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
 )
+
+logger: logging.Logger = soda_logger
 
 
 class TrinoConnectionProperties(DataSourceConnectionProperties):
@@ -34,7 +31,7 @@ class TrinoConnectionProperties(DataSourceConnectionProperties):
 
 
 class TrinoUserPasswordConnectionProperties(TrinoConnectionProperties):
-    # Default if authType not specified
+    # Default if auth_type not specified
     auth_type: Optional[Literal["BasicAuthentication"]] = Field(
         "BasicAuthentication", description="Authentication type"
     )
@@ -66,7 +63,7 @@ class TrinoNoAuthenticationConnectionProperties(TrinoConnectionProperties):
     auth_type: Literal["NoAuthentication"] = Field(description="Authentication type")
 
 
-class TrinoDataSource(DataSourceBase, ABC):
+class TrinoDataSource(DataSourceBase):
     type: Literal["trino"] = Field("trino")
 
     connection_properties: Union[
@@ -100,10 +97,10 @@ class TrinoDataSourceConnection(DataSourceConnection):
         elif isinstance(config, TrinoNoAuthenticationConnectionProperties):
             self.auth = None
         else:
-            raise ValueError(f"Unrecognized Trino authentication type: {config.authType}")
+            raise ValueError(f"Unrecognized Trino authentication type: {config.auth_type}")
 
         connect_kwargs = {
-            "host": config.host,
+            "host": str(config.host),
             "port": config.port,
             "catalog": config.catalog,
             "http_scheme": config.http_scheme,
@@ -128,7 +125,6 @@ class TrinoDataSourceConnection(DataSourceConnection):
         scope = oauth.scope
         grant_type = oauth.grant_type
 
-        # OAuth credentials
         payload = {"client_id": client_id, "client_secret": client_secret, "grant_type": grant_type}
         if scope:
             payload["scope"] = scope
@@ -139,7 +135,7 @@ class TrinoDataSourceConnection(DataSourceConnection):
         response_json = response.json()
         expires_in = response_json.get("expires_in", 0)
         scope = response_json.get("scope", "")
-        access_token = response_json["access_token"]
+        access_token = response_json.get("access_token")
         if access_token:
             logger.info(f"Obtained OAuth access token, expires in '{expires_in}' seconds, granted scopes: '{scope}'")
             return access_token
