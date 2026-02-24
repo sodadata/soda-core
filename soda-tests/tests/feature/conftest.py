@@ -9,6 +9,8 @@ _datasource = os.environ.get("TEST_DATASOURCE", "postgres")
 
 def pytest_collection_modifyitems(config, items):
     if _datasource != "postgres":
+        feature_dir = os.path.dirname(__file__)
         skip = pytest.mark.skip(reason=f"Feature tests only run against postgres (TEST_DATASOURCE={_datasource})")
         for item in items:
-            item.add_marker(skip)
+            if str(item.fspath).startswith(feature_dir):
+                item.add_marker(skip)

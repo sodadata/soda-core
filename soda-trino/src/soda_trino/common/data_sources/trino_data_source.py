@@ -236,7 +236,14 @@ class TrinoSqlDialect(SqlDialect):
         return True
 
     def supports_datetime_microseconds(self) -> bool:
-        return True
+        # Trino's db (postgres) connector uses timestamp(3) (millisecond precision) by default,
+        # and other connectors may not preserve sub-millisecond precision consistently.
+        return False
+
+    def get_max_sql_statement_length(self) -> int:
+        # Trino is typically accessed via HTTP through a reverse proxy (e.g. nginx).
+        # Default proxy limits are around 1MB, so we need smaller statements to avoid 413 errors.
+        return 1 * 1024 * 1024
 
     def metadata_casify(self, identifier: str) -> str:
         # trino lower-cases metadata identifiers
