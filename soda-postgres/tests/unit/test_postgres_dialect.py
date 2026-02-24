@@ -1,5 +1,4 @@
 import pytest
-
 from soda_core.common.sql_dialect import FROM, SELECT, STAR, SamplerType
 from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 

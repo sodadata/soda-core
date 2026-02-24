@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
-from helpers.test_fixtures import is_sampling_supported_data_source
 from helpers.test_table import TestTableSpecification
 from soda_core.common.metadata_types import SamplerType
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
