@@ -1,4 +1,5 @@
 from logging import Logger
+from numbers import Number
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -6,6 +7,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     DataSourceNamespace,
+    SamplerType,
     SodaDataTypeName,
     SqlDataType,
 )
@@ -87,6 +89,12 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"{expression} ~ '{matches.regex_pattern}'"
+
+    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
+        if sampler_type is SamplerType.PERCENTAGE:
+            return f"TABLESAMPLE BERNOULLI({sample_size})"
+        else:
+            raise ValueError(f"Unsupported sampler type: {sampler_type}")
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         return (
