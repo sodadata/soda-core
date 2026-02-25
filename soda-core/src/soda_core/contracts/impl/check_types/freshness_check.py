@@ -172,6 +172,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
         self.max_timestamp_metric = self._resolve_metric(
             MaxTimestampMetricImpl(
                 contract_impl=contract_impl,
+                column_expression=self.column_expression,
                 check_impl=self,
                 now_variable=self.now_variable,
                 unit=self.unit,
@@ -256,7 +257,6 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
 
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, str] = super()._get_id_properties()
-        id_properties["column"] = str(self.column_expression)
         id_properties["now_variable"] = self.now_variable
         id_properties["unit"] = self.unit
         return id_properties

@@ -24,7 +24,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     DerivedPercentageMetricImpl,
     MeasurementValues,
     MetricImpl,
-    MissingAndValidity,
     MissingAndValidityCheckImpl,
     Query,
     ThresholdImpl,
@@ -89,7 +88,9 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # noinspection PyTypeChecker
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidReferenceCountMetricImpl(
-                    contract_impl=contract_impl, column_impl=column_impl, missing_and_validity=self.missing_and_validity
+                    contract_impl=contract_impl,
+                    column_impl=column_impl,
+                    check_impl=self,
                 )
             )
             # this is used in the check extension to extract failed keys and rows
@@ -189,13 +190,13 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 
 
 class InvalidReferenceCountMetricImpl(MetricImpl):
-    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, missing_and_validity: MissingAndValidity):
+    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_impl: InvalidCheckImpl):
         super().__init__(
             contract_impl=contract_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
-            missing_and_validity=missing_and_validity,
-            column_expression=CheckImpl.column_expression,
+            missing_and_validity=check_impl.missing_and_validity,
+            column_expression=check_impl.column_expression,
         )
 
 
@@ -264,8 +265,24 @@ class InvalidReferenceCountQuery(Query):
 
     def query_join(self) -> SqlExpression:
         valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
+        column_name: str = self.metric_impl.column_impl.column_yaml.name
 
-        referencing_column_name: str = self.metric_impl.column_impl.column_yaml.name
+        referencing_column_expression: COLUMN | SqlExpressionStr = self.metric_impl.column_expression
+
+        if isinstance(referencing_column_expression, SqlExpressionStr):
+            # find and replace the column name in the column expression with the aliased version
+            # e.g. if the column expression is split_part(country, '_', 2)
+            # we want to replace it with split_part("C".country, '_', 2)
+            referencing_column_expression = SqlExpressionStr(
+                referencing_column_expression.expression_str.replace(
+                    column_name, f'"{self.referencing_alias}".{column_name}'
+                )
+            )
+
+        full_referencing_column_expression = referencing_column_expression
+
+        if isinstance(referencing_column_expression, COLUMN):
+            full_referencing_column_expression = referencing_column_expression.IN(self.referencing_alias)
 
         referenced_dataset_name: str = self._referenced_cte_name
         referenced_column: str = valid_reference_data.column
@@ -275,10 +292,10 @@ class InvalidReferenceCountQuery(Query):
         # which should translate to SELECT C.*
 
         is_referencing_column_missing: SqlExpression = self.metric_impl.missing_and_validity.is_missing_expr(
-            COLUMN(referencing_column_name).IN(self.referencing_alias)
+            full_referencing_column_expression
         )
         is_referencing_column_invalid: SqlExpression = self.metric_impl.missing_and_validity.is_invalid_expr(
-            COLUMN(referencing_column_name).IN(self.referencing_alias)
+            full_referencing_column_expression
         )
         is_referenced_column_null: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(self.referenced_alias))
         is_referencing_column_invalid: SqlExpression = OR.optional(
@@ -289,7 +306,7 @@ class InvalidReferenceCountQuery(Query):
             LEFT_INNER_JOIN(referenced_dataset_name)
             .ON(
                 EQ(
-                    COLUMN(referencing_column_name).IN(self.referencing_alias),
+                    full_referencing_column_expression,
                     COLUMN(referenced_column).IN(self.referenced_alias),
                 )
             )
