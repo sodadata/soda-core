@@ -24,6 +24,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     DerivedPercentageMetricImpl,
     MeasurementValues,
     MetricImpl,
+    MissingAndValidity,
     MissingAndValidityCheckImpl,
     Query,
     ThresholdImpl,
@@ -90,7 +91,8 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 InvalidReferenceCountMetricImpl(
                     contract_impl=contract_impl,
                     column_impl=column_impl,
-                    check_impl=self,
+                    missing_and_validity=self.missing_and_validity,
+                    column_expression=self.column_expression,
                 )
             )
             # this is used in the check extension to extract failed keys and rows
@@ -190,13 +192,19 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 
 
 class InvalidReferenceCountMetricImpl(MetricImpl):
-    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_impl: InvalidCheckImpl):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        missing_and_validity: MissingAndValidity,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
+    ):
         super().__init__(
             contract_impl=contract_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
-            missing_and_validity=check_impl.missing_and_validity,
-            column_expression=check_impl.column_expression,
+            missing_and_validity=missing_and_validity,
+            column_expression=column_expression,
         )
 
 
