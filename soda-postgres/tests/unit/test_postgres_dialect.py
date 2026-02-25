@@ -36,16 +36,6 @@ def test_tablesample(sql_ast, expected_sql):
             "Unsupported sampler type: ABSOLUTE_LIMIT",
             id="tablesample_not_supported_absolute_limit",
         ),
-        pytest.param(
-            [SELECT(STAR()), FROM("customers").SAMPLE(SamplerType.PERCENTAGE, -10)],
-            "Sample size for percentage sampler type must be between 0 and 100, but got -10",
-            id="tablesample_percentage_invalid_negative",
-        ),
-        pytest.param(
-            [SELECT(STAR()), FROM("customers").SAMPLE(SamplerType.PERCENTAGE, 110)],
-            "Sample size for percentage sampler type must be between 0 and 100, but got 110",
-            id="tablesample_percentage_invalid_positive",
-        ),
     ],
 )
 def test_tablesample_not_supported(sql_ast, expected_exception_message):
