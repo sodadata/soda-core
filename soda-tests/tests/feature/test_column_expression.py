@@ -39,9 +39,18 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
         result = data_source_test_helper.assert_contract_fail(
             test_table=test_table,
             contract_yaml_str=f"""
+                variables:
+                  id_col_expr:
+                    default: '"id"::varchar'
+                  age_str_col_expr:
+                    default: '"age_str"::integer'
+                  json_col_expr:
+                    default: "json_col::json->>'unique_id'"
+                  born_date_col_expr:
+                    default: '"born_date_str"::DATE'
                 columns:
                   - name: id
-                    column_expression: '"id"::varchar'
+                    column_expression: '${{var.id_col_expr}}'
                     checks:
                       - missing:
                             missing_format:
@@ -52,7 +61,7 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                             regex: '^-\\d+$'
                             name: positive integers only
                   - name: age_str
-                    column_expression: '"age_str"::integer'
+                    column_expression: '${{var.age_str_col_expr}}'
                     checks:
                       - aggregate:
                             function: min
@@ -61,11 +70,11 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                   - name: json_col
                     checks:
                       - duplicate:
-                          column_expression: 'json_col::json->>''unique_id'''
+                          column_expression: '${{var.json_col_expr}}'
                 checks:
                     - freshness:
                         column: born_date_str
-                        column_expression: '"born_date_str"::DATE'
+                        column_expression: '${{var.born_date_col_expr}}'
                         threshold:
                             must_be_less_than: 1
                             unit: day
@@ -143,12 +152,17 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
     result = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
+            variables:
+              id_col_expr:
+                default: '"id"::varchar'
+              age_str_col_expr:
+                default: '"age_str"::integer'
             columns:
               - name: id
                 column_expression: "CRASH_IF_USED"
                 checks:
                   - missing:
-                        column_expression: '"id"::varchar'
+                        column_expression: '${{var.id_col_expr}}'
                         missing_format:
                             regex: '^-\\d+$'
                             name: positive integers only
@@ -156,7 +170,7 @@ def test_check_level_column_expression_metric_checks_fail(data_source_test_helpe
                 column_expression: "CRASH_IF_USED"
                 checks:
                   - aggregate:
-                        column_expression: '"age_str"::integer'
+                        column_expression: '${{var.age_str_col_expr}}'
                         function: min
                         threshold:
                             must_be: 20
@@ -199,13 +213,16 @@ def test_column_expression_clashing_metric(data_source_test_helper: DataSourceTe
     result = data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
+            variables:
+              id_col_expr:
+                default: '"id"::varchar'
             columns:
               - name: id
                 checks:
                   - missing:
                   - missing:
                         qualifier: expr
-                        column_expression: '"id"::varchar'
+                        column_expression: '${{var.id_col_expr}}'
 
         """,
     )
