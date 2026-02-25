@@ -82,6 +82,7 @@ jobs:
     needs: [define-test-matrix]
     services:
       postgres:
+        # please keep the postgres version in sync with the one in docker-compose.yml for postgres
         # Also used by trino-postgres (Trino's PostgreSQL catalog connector targets this instance)
         image: ${{ ( matrix.module == 'postgres' || startsWith(matrix.module, 'trino') ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
