@@ -110,10 +110,6 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.PERCENTAGE:
-            if sample_size < 0 or sample_size > 100:
-                raise ValueError(
-                    f"Sample size for percentage sampler type must be between 0 and 100, but got {sample_size}"
-                )
             return f"TABLESAMPLE ({sample_size} PERCENT)"
         else:
             raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
