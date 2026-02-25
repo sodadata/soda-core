@@ -5,7 +5,7 @@ from abc import abstractmethod
 from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import Any, ClassVar, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
@@ -103,9 +103,6 @@ from soda_core.common.sql_utils import apply_sampling_to_sql
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from typing_extensions import deprecated
 
-if TYPE_CHECKING:
-    from soda_core.common.data_source_impl import DataSourceImpl
-
 logger: logging.Logger = soda_logger
 
 
@@ -117,18 +114,17 @@ class SqlDialect:
     """
 
     DEFAULT_QUOTE_CHAR = '"'
-
+    SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
 
-    def __init__(
-        self,
-        data_source_impl: DataSourceImpl,
-    ):
-        self.data_source_impl: DataSourceImpl = data_source_impl
-
+    def __init__(self):
         self._data_type_name_synonym_mappings: dict[str, str] = self._build_data_type_name_synonym_mappings(
             self._get_data_type_name_synonyms()
         )
+
+    def __init_subclass__(cls, sqlglot_dialect: str, **kwargs: Any):
+        super().__init_subclass__(**kwargs)
+        cls.SQLGLOT_DIALECT = sqlglot_dialect
 
     # Data type handling
 
@@ -1389,8 +1385,8 @@ class SqlDialect:
             sql=sql,
             sampler_limit=sampler_limit,
             sampler_type=sampler_type,
-            read_dialect=self.data_source_impl.type_name,
-            write_dialect=self.data_source_impl.type_name,
+            read_dialect=self.SQLGLOT_DIALECT,
+            write_dialect=self.SQLGLOT_DIALECT,
         )
 
     ########################################################

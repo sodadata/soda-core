@@ -1,5 +1,6 @@
 import logging
 import re
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Optional, Tuple
 
@@ -34,7 +35,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return AthenaSqlDialect(data_source_impl=self)
+        return AthenaSqlDialect(get_table_storage_location=self.table_s3_location)
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return AthenaDataSourceConnection(
@@ -157,13 +158,17 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         )
 
 
-class AthenaSqlDialect(SqlDialect):
+class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
         (SodaDataTypeName.TIME, SodaDataTypeName.VARCHAR),
     )
+
+    def __init__(self, get_table_storage_location: Optional[Callable[[str], str]] = None):
+        super().__init__()
+        self.get_table_storage_location = get_table_storage_location
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
@@ -274,6 +279,8 @@ class AthenaSqlDialect(SqlDialect):
     def build_create_table_sql(
         self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
     ) -> str:
+        if self.get_table_storage_location is None:
+            raise ValueError("get_table_storage_location function must be provided to build create table SQL")
         create_table_sql = self._build_create_table_statement_sql(create_table)
 
         create_table_sql = (
@@ -282,7 +289,7 @@ class AthenaSqlDialect(SqlDialect):
             + ",\n".join([self._build_create_table_column(column) for column in create_table.columns])
             + "\n)"
         )
-        location = self.data_source_impl.table_s3_location(create_table.fully_qualified_table_name)
+        location = self.get_table_storage_location(create_table.fully_qualified_table_name)
         create_table_sql = create_table_sql + "\nSTORED AS PARQUET"
         create_table_sql = create_table_sql + f"\nLOCATION '{location}'"
         return create_table_sql + (";" if add_semicolon else "")

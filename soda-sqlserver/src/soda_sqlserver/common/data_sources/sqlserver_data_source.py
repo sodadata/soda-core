@@ -55,7 +55,7 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SqlServerSqlDialect(data_source_impl=self)
+        return SqlServerSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SqlServerDataSourceConnection(
@@ -63,7 +63,7 @@ class SqlServerDataSourceImpl(DataSourceImpl, model_class=SqlServerDataSourceMod
         )
 
 
-class SqlServerSqlDialect(SqlDialect):
+class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     DEFAULT_QUOTE_CHAR = "["  # Do not use this! Always use quote_default()
     SODA_DATA_TYPE_SYNONYMS = ((SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),)
 

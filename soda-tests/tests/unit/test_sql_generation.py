@@ -3,19 +3,18 @@ from __future__ import annotations
 from unittest import mock
 
 from soda_core.common.sql_dialect import *
-from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
 mock_data_source_impl = mock.MagicMock()
 
 
 def test_sql_ast_select_star():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     assert sql_dialect.build_select_sql([SELECT(STAR()), FROM("customers")]) == ("SELECT *\n" 'FROM "customers";')
 
 
 def test_sql_ast_modeling_query2():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     assert sql_dialect.build_select_sql(
         [
@@ -33,7 +32,7 @@ def test_sql_ast_modeling_query2():
 
 
 def test_sql_ast_modeling_query3():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     assert sql_dialect.build_select_sql(
         [
@@ -53,7 +52,7 @@ def test_sql_ast_modeling_query3():
 
 
 def test_sql_ast_modeling_cte():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     assert sql_dialect.build_select_sql(
         [
@@ -74,7 +73,7 @@ def test_sql_ast_modeling_cte():
 
 
 def test_sql_ast_modeling_cte_with_multi_line_text_field():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     assert sql_dialect.build_select_sql(
         [
@@ -103,7 +102,7 @@ def test_sql_ast_modeling_cte_with_multi_line_text_field():
 
 
 def test_sql_ast_create_table_if_not_exists():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_create_table_statement = sql_dialect.build_create_table_sql(
         CREATE_TABLE_IF_NOT_EXISTS(
@@ -141,7 +140,7 @@ def test_sql_ast_create_table_if_not_exists():
 
 
 def test_sql_ast_insert_into_with_columns():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_insert_into_statement = sql_dialect.build_insert_into_sql(
         INSERT_INTO(
@@ -161,7 +160,7 @@ def test_sql_ast_insert_into_with_columns():
 
 
 def test_sql_ast_insert_into_with_datetimes():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     now = datetime.now()
 
@@ -183,7 +182,7 @@ def test_sql_ast_insert_into_with_datetimes():
 
 
 def test_sql_ast_insert_into_via_select():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
     my_insert_into_statement = sql_dialect.build_insert_into_via_select_sql(
         INSERT_INTO_VIA_SELECT(
             fully_qualified_table_name='"customers"',
@@ -212,14 +211,14 @@ def test_sql_ast_insert_into_via_select():
 
 
 def test_sql_ast_drop_table():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_drop_table_statement = sql_dialect.build_drop_table_sql(DROP_TABLE(fully_qualified_table_name='"customers"'))
     assert my_drop_table_statement == 'DROP TABLE "customers";'
 
 
 def test_sql_ast_drop_table_if_exists():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_drop_table_statement = sql_dialect.build_drop_table_sql(
         DROP_TABLE_IF_EXISTS(fully_qualified_table_name='"customers"')
@@ -228,7 +227,7 @@ def test_sql_ast_drop_table_if_exists():
 
 
 def test_sql_ast_alter_table_add_column():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_alter_table_statement = sql_dialect.build_alter_table_sql(
         ALTER_TABLE_ADD_COLUMN(
@@ -242,7 +241,7 @@ def test_sql_ast_alter_table_add_column():
 
 
 def test_sql_ast_alter_table_drop_column():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_alter_table_statement = sql_dialect.build_alter_table_sql(
         ALTER_TABLE_DROP_COLUMN(fully_qualified_table_name='"customers"', column_name="age")
@@ -251,9 +250,7 @@ def test_sql_ast_alter_table_drop_column():
 
 
 def test_sql_ast_create_table_as_select():
-    sql_dialect: SqlDialect = PostgresSqlDialect(
-        mock_data_source_impl
-    )  # Temporarily use the postgres method specifically. It's not implemented in the base class yet.
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_create_table_as_select_statement = sql_dialect.build_create_table_as_select_sql(
         CREATE_TABLE_AS_SELECT(
@@ -265,7 +262,7 @@ def test_sql_ast_create_table_as_select():
 
 
 def test_sql_ast_union():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_union_statement = sql_dialect.build_union_sql(
         UNION(select_elements=[[SELECT(COLUMN("name")), FROM("customers")], [SELECT(COLUMN("age")), FROM("customers")]])
@@ -274,7 +271,7 @@ def test_sql_ast_union():
 
 
 def test_sql_ast_union_all():
-    sql_dialect: SqlDialect = SqlDialect(mock_data_source_impl)
+    sql_dialect: SqlDialect = SqlDialect()
 
     my_union_statement = sql_dialect.build_union_sql(
         UNION_ALL(

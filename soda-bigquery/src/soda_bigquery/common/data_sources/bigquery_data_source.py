@@ -55,7 +55,7 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         self.cached_location = None
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return BigQuerySqlDialect(data_source_impl=self)
+        return BigQuerySqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return BigQueryDataSourceConnection(
@@ -104,7 +104,7 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         return table_namespace, schema_name
 
 
-class BigQuerySqlDialect(SqlDialect):
+class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     DEFAULT_QUOTE_CHAR = "`"
 
     SODA_DATA_TYPE_SYNONYMS = (
