@@ -12,14 +12,14 @@ test_table_specification = (
     .column_integer("age_str")
     .column_varchar("born_date_str")
     .column_varchar("json_col")
-    .column_varchar("country_data")
+    .column_varchar("country")
     .rows(
         rows=[
-            (1, 10, "10", "2000-01-01", '{"unique_id": 1}', '{"country": "NL"}'),
-            (2, 20, "20", "2000-01-02", '{"unique_id": 1}', '{"country": "BE"}'),
-            (3, None, None, None, '{"unique_id": 3}', '{"country": "123"}'),
-            (None, 2, "20", "2000-01-04", '{"unique_id": 4}', '{"country": "0"}'),
-            (-1, 30, "30", "2000-01-05", '{"unique_id": null}', '{"country": "SK"}'),
+            (1, 10, "10", "2000-01-01", '{"unique_id": 1}', '{"country_code": "NL"}'),
+            (2, 20, "20", "2000-01-02", '{"unique_id": 1}', '{"country_code": "BE"}'),
+            (3, None, None, None, '{"unique_id": 3}', '{"country_code": "123"}'),
+            (None, 2, "20", "2000-01-04", '{"unique_id": 4}', '{"country_code": "0"}'),
+            (-1, 30, "30", "2000-01-05", '{"unique_id": null}', '{"country_code": "SK"}'),
         ]
     )
     .build()
@@ -61,7 +61,7 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                   json_col_expr:
                     default: "json_col::json->>'unique_id'"
                   country_col_expr:
-                    default: "country_data::json->>'country'"
+                    default: "country::json->>'country_code'"
                   born_date_col_expr:
                     default: '"born_date_str"::DATE'
                 columns:
@@ -87,7 +87,7 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                     checks:
                       - duplicate:
                           column_expression: '${{var.json_col_expr}}'
-                  - name: country_data
+                  - name: country
                     valid_reference_data:
                         dataset: {data_source_test_helper.build_dqn(reference_table)}
                         column: country_code

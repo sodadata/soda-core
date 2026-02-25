@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from enum import Enum
 
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -278,13 +279,15 @@ class InvalidReferenceCountQuery(Query):
         referencing_column_expression: COLUMN | SqlExpressionStr = self.metric_impl.column_expression
 
         if isinstance(referencing_column_expression, SqlExpressionStr):
-            # find and replace the column name in the column expression with the aliased version
-            # e.g. if the column expression is split_part(country, '_', 2)
-            # we want to replace it with split_part("C".country, '_', 2)
+            # Replace the column name in the column expression with the aliased version.
+            # Uses word-boundary regex to avoid replacing substrings of other identifiers.
+            # e.g. if column_name is "country" and the expression is country::json->>'country_code',
+            # we only replace the standalone "country" to get "C".country::json->>'country_code',
+            # without corrupting "country_code" inside the string literal.
+            aliased_column_name = f'"{self.referencing_alias}".{column_name}'
+            pattern = r"\b" + re.escape(column_name) + r"\b"
             referencing_column_expression = SqlExpressionStr(
-                referencing_column_expression.expression_str.replace(
-                    column_name, f'"{self.referencing_alias}".{column_name}'
-                )
+                re.sub(pattern, aliased_column_name, referencing_column_expression.expression_str, count=1)
             )
 
         full_referencing_column_expression = referencing_column_expression
