@@ -158,6 +158,7 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -165,18 +166,19 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
             metric_type="invalid_count",
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
         return SUM(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
 
     def sql_condition_expression(self) -> SqlExpression:
-        column_name: str = self.column_impl.column_yaml.name
+        column_expression: COLUMN | SqlExpressionStr = self.column_expression
         return AND.optional(
             [
                 SqlExpressionStr.optional(self.check_filter),
-                NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
-                self.missing_and_validity.is_invalid_expr(column_name),
+                NOT.optional(self.missing_and_validity.is_missing_expr(column_expression)),
+                self.missing_and_validity.is_invalid_expr(column_expression),
             ]
         )
 
@@ -193,6 +195,7 @@ class InvalidReferenceCountMetricImpl(MetricImpl):
             metric_type="invalid_count",
             column_impl=column_impl,
             missing_and_validity=missing_and_validity,
+            column_expression=CheckImpl.column_expression,
         )
 
 

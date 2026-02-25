@@ -111,6 +111,7 @@ class MissingCountMetricImpl(AggregationMetricImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -118,7 +119,7 @@ class MissingCountMetricImpl(AggregationMetricImpl):
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
-            column_expression=check_impl.column_expression,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
