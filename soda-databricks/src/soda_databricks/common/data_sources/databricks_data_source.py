@@ -69,15 +69,11 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         # All other catalogs should be treated as "unity catalogs"
         return False
 
-    def get_columns_metadata(
-        self, dataset_prefixes: list[str], dataset_name: str
-    ) -> list[ColumnMetadata]:
+    def get_columns_metadata(self, dataset_prefixes: list[str], dataset_name: str) -> list[ColumnMetadata]:
         try:
             return super().get_columns_metadata(dataset_prefixes, dataset_name)
         except Exception as e:
-            logger.warning(
-                f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list."
-            )
+            logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
             return []
 
     def test_schema_exists(self, prefixes: list[str]) -> bool:
@@ -210,9 +206,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     def column_data_type_datetime_precision(self) -> str:
         return self.default_casify("datetime_precision")
 
-    def _build_create_table_column_type(
-        self, create_table_column: CREATE_TABLE_COLUMN
-    ) -> str:
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         # Databricks will complain if string lengths or datetime precisions are passed in, so strip if they are provided
         if create_table_column.type.name == "string":
             create_table_column.type.character_maximum_length = None
@@ -230,9 +224,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
             create_table_column.type.character_maximum_length = None
             create_table_column.type.numeric_precision = None
             create_table_column.type.numeric_scale = None
-        return super()._build_create_table_column_type(
-            create_table_column=create_table_column
-        )
+        return super()._build_create_table_column_type(create_table_column=create_table_column)
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         return [
@@ -255,9 +247,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     # return super().build_columns_metadata_query_str(table_namespace, table_name_lower)
 
     # We move to DESCRIBE TABLE, that is a more up-to-date way to get the columns metadata. (information_schema is lagging behind sometimes, and does not always return the correct columns)
-    def build_columns_metadata_query_str(
-        self, table_namespace: DataSourceNamespace, table_name: str
-    ) -> str:
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         database_name: str | None = table_namespace.get_database_for_metadata_query()
         schema_name: str = table_namespace.get_schema_for_metadata_query()
 
@@ -267,9 +257,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
 
         return f"DESCRIBE {fully_qualified_name}"
 
-    def build_column_metadatas_from_query_result(
-        self, query_result: QueryResult
-    ) -> list[ColumnMetadata]:
+    def build_column_metadatas_from_query_result(self, query_result: QueryResult) -> list[ColumnMetadata]:
         # Filter out dataset description rows (first such line starts with #, ignore the rest) or empty
         filtered_rows = []
         for row in query_result.rows:
@@ -284,27 +272,21 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
             QueryResult(rows=filtered_rows, columns=query_result.columns)
         )
 
-    def extract_data_type_name(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> str:
+    def extract_data_type_name(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> str:
         data_type_name: str = row[1]
         # Some data types have parameters, like decimal(10,0). We need to strip the parameters.
         if "(" in data_type_name:
             data_type_name = data_type_name[: data_type_name.index("(")].strip()
         return data_type_name
 
-    def extract_numeric_precision(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> Optional[int]:
+    def extract_numeric_precision(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         # We just need the precision, and it's formatted like: decimal(10,0) -> 10
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_precision(data_type_name):
             return None
         return int(row[1].split("(")[1].split(",")[0])
 
-    def extract_numeric_scale(
-        self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]
-    ) -> Optional[int]:
+    def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         # We just need the scale, and it's formatted like: decimal(10,0) -> 0
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
@@ -315,15 +297,11 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])
         schema_name: str = self.quote_default(prefixes[1])
-        return [
-            f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"
-        ]
+        return [f"GRANT SELECT, USAGE, CREATE, MANAGE ON SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
         #      f"GRANT SELECT ON FUTURE TABLES IN SCHEMA {catalog_name}.{schema_name} TO `account users`;"]
 
     @classmethod
-    def is_same_soda_data_type_with_synonyms(
-        cls, expected: SodaDataTypeName, actual: SodaDataTypeName
-    ) -> bool:
+    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         # Special case of a 1-way synonym: TEXT is allowed where TIME is expected
         if expected == SodaDataTypeName.TIME and actual == SodaDataTypeName.TEXT:
             logger.debug(
@@ -338,9 +316,7 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         add_semicolon: bool = True,
         add_parenthesis: bool = False,
     ) -> str:
-        return super()._build_alter_table_add_column_sql(
-            alter_table, add_semicolon=add_semicolon, add_parenthesis=True
-        )
+        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=add_semicolon, add_parenthesis=True)
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD COLUMNS"
@@ -348,12 +324,9 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     def _build_alter_table_drop_column_sql(
         self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
     ) -> str:
-        column_name_quoted: str = self._quote_column_for_create_table(
-            alter_table.column_name
-        )
-        return (
-            f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMNS ({column_name_quoted})"
-            + (";" if add_semicolon else "")
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
+        return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMNS ({column_name_quoted})" + (
+            ";" if add_semicolon else ""
         )
 
     def drop_column_supported(self) -> bool:
@@ -381,6 +354,4 @@ class DatabricksHiveSqlDialect(DatabricksSqlDialect, sqlglot_dialect="databricks
         catalog_name: str = self.quote_default(prefixes[0])
         schema_name: str = self.quote_default(prefixes[1])
 
-        return [
-            f"GRANT SELECT, USAGE, CREATE ON SCHEMA {catalog_name}.{schema_name} TO `users`;"
-        ]
+        return [f"GRANT SELECT, USAGE, CREATE ON SCHEMA {catalog_name}.{schema_name} TO `users`;"]
