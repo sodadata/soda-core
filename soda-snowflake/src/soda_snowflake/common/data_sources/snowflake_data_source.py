@@ -193,10 +193,12 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
         ]
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
-        return sampler_type is SamplerType.ABSOLUTE_LIMIT
+        return sampler_type in (SamplerType.ABSOLUTE_LIMIT, SamplerType.PERCENTAGE)
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.ABSOLUTE_LIMIT:
             return f"TABLESAMPLE ({int(sample_size)} ROWS)"
+        elif sampler_type is SamplerType.PERCENTAGE:
+            return f"TABLESAMPLE ({sample_size})"
         else:
-            raise ValueError(f"Unsupported sample type: {sampler_type}")
+            raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
