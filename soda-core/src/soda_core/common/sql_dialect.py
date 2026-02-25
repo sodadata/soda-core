@@ -1145,6 +1145,10 @@ class SqlDialect:
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         raise NotImplementedError("Sampling not implemented for this dialect")
 
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        """Checks if the given sampler type is supported by this data source."""
+        return False
+
     def information_schema_namespace_elements(self, data_source_namespace: DataSourceNamespace) -> list[str]:
         """
         The prefixes / namespace of the information schema for a given dataset prefix / namespace

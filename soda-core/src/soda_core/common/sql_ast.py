@@ -87,6 +87,14 @@ class FROM(BaseSqlExpression):
         return self
 
     def SAMPLE(self, sampler_type: SamplerType, sample_size: Number) -> FROM:
+        if sampler_type is SamplerType.PERCENTAGE and (sample_size < 0 or sample_size > 100):
+            raise ValueError(
+                f"Sample size for percentage sampler type must be between 0 and 100, but got {sample_size}"
+            )
+        if sampler_type is SamplerType.ABSOLUTE_LIMIT and (sample_size < 0 or not isinstance(sample_size, int)):
+            raise ValueError(
+                f"Sample size for absolute limit sampler type must be a non-negative integer, but got {sample_size}"
+            )
         self.sampler_type = sampler_type
         self.sample_size = sample_size
         return self
