@@ -110,10 +110,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - "3.10"
-          - "3.11"
-          - "3.12"
+        python-version: ${{ github.event_name == 'pull_request' && fromJSON('["3.10"]') || fromJSON('["3.10", "3.11", "3.12"]') }}
         module: ${{ fromJSON(needs.define-test-matrix.outputs.modules) }}
     env:
       SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
