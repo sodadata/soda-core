@@ -3,7 +3,6 @@ from __future__ import annotations
 from unittest import mock
 
 from soda_core.common.sql_dialect import *
-from soda_postgres.common.data_sources.postgres_data_source import PostgresSqlDialect
 
 mock_data_source_impl = mock.MagicMock()
 

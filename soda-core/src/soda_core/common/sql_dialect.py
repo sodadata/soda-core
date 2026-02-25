@@ -5,7 +5,7 @@ from abc import abstractmethod
 from datetime import date, datetime, time
 from numbers import Number
 from textwrap import indent
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Tuple
+from typing import Any, ClassVar, Optional, Tuple
 
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.dataset_identifier import DatasetIdentifier
