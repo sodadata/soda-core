@@ -12,14 +12,27 @@ test_table_specification = (
     .column_integer("age_str")
     .column_varchar("born_date_str")
     .column_varchar("json_col")
-    .column_varchar("country", 2)
+    .column_varchar("country")
     .rows(
         rows=[
-            (1, 10, "10", "2000-01-01", '{"unique_id": 1}', "NL"),
-            (2, 20, "20", "2000-01-02", '{"unique_id": 1}', "BE"),
-            (3, None, None, None, '{"unique_id": 3}', None),
-            (None, 2, "20", "2000-01-04", '{"unique_id": 4}', None),
-            (-1, 30, "30", "2000-01-05", '{"unique_id": null}', "SK"),
+            (1, 10, "10", "2000-01-01", '{"unique_id": 1}', '{"country_code": "NL"}'),
+            (2, 20, "20", "2000-01-02", '{"unique_id": 1}', '{"country_code": "BE"}'),
+            (3, None, None, None, '{"unique_id": 3}', '{"country_code": "123"}'),
+            (None, 2, "20", "2000-01-04", '{"unique_id": 4}', '{"country_code": "0"}'),
+            (-1, 30, "30", "2000-01-05", '{"unique_id": null}', '{"country_code": "SK"}'),
+        ]
+    )
+    .build()
+)
+
+reference_table_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("reference_for_column_expression")
+    .column_varchar("country_code")
+    .rows(
+        rows=[
+            ("NL",),
+            ("BE",),
         ]
     )
     .build()
@@ -28,6 +41,7 @@ test_table_specification = (
 
 def test_column_level_column_expression_metric_checks_fail(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    reference_table = data_source_test_helper.ensure_test_table(reference_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
         [
@@ -46,6 +60,8 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                     default: '"age_str"::integer'
                   json_col_expr:
                     default: "json_col::json->>'unique_id'"
+                  country_col_expr:
+                    default: "country::json->>'country_code'"
                   born_date_col_expr:
                     default: '"born_date_str"::DATE'
                 columns:
@@ -71,6 +87,15 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                     checks:
                       - duplicate:
                           column_expression: '${{var.json_col_expr}}'
+                  - name: country
+                    valid_reference_data:
+                        dataset: {data_source_test_helper.build_dqn(reference_table)}
+                        column: country_code
+                    missing_values: ["0"]
+                    invalid_values: ["123"]
+                    checks:
+                        - invalid:
+                            column_expression: '${{var.country_col_expr}}'
                 checks:
                     - freshness:
                         column: born_date_str
@@ -127,8 +152,19 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
             "missingCount": 1,
         }
 
-        # Freshness check
+        # Invalid reference check
         check_json: dict = soda_core_insert_scan_results_command["checks"][4]
+        assert check_json["diagnostics"]["v4"] == {
+            "type": "invalid",
+            "datasetRowsTested": 5,
+            "checkRowsTested": 5,
+            "failedRowsCount": 2,
+            "failedRowsPercent": 40.0,
+            "missingCount": 1,
+        }
+
+        # Freshness check
+        check_json: dict = soda_core_insert_scan_results_command["checks"][5]
         assert check_json["diagnostics"]["v4"] == {
             "type": "freshness",
             "datasetRowsTested": 5,
