@@ -11,7 +11,7 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import STRING_HASH
+from soda_core.common.sql_ast import INSERT_INTO_VIA_SELECT, STRING_HASH
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_trino.common.data_sources.trino_data_source_connection import (
@@ -302,6 +302,20 @@ class TrinoSqlDialect(SqlDialect):
 
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"DATE_ADD('day', 1, {timestamp_literal})"
+
+    def build_insert_into_via_select_sql(
+        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: Optional[bool] = None
+    ) -> str:
+        # Trino's grammar does not allow a WITH clause inside parentheses in INSERT INTO context.
+        # The base implementation wraps the SELECT (including WITH) in parens:
+        #   INSERT INTO t (cols) (WITH cte AS (...) SELECT ...)  -- INVALID in Trino
+        # We emit it without parens:
+        #   INSERT INTO t (cols) WITH cte AS (...) SELECT ...    -- VALID in Trino
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
+        insert_into_sql += self._build_insert_into_columns_sql(insert_into_via_select) + "\n"
+        insert_into_sql += self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False)
+        return insert_into_sql + (";" if add_semicolon else "")
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         # all Trino hash methods operate on binary data - TO_UTF8 converts string to binary

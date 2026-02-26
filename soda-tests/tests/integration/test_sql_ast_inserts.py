@@ -22,6 +22,7 @@ from soda_core.common.sql_ast import (
     DROP_VIEW_IF_EXISTS,
     FROM,
     INSERT_INTO,
+    INSERT_INTO_VIA_SELECT,
     LITERAL,
     ORDER_BY_ASC,
     SELECT,
@@ -434,3 +435,115 @@ def test_hashing_output_text(data_source_test_helper: DataSourceTestHelper):
     for i in range(NUMBER_OF_ROWS):
         assert result.rows[i][0] is not None
         assert isinstance(result.rows[i][0], str)
+
+
+def test_insert_into_via_select_with_cte_into_existing_table(data_source_test_helper: DataSourceTestHelper):
+    """Test INSERT INTO ... SELECT with a CTE (WITH clause) when the destination table already exists.
+
+    This reproduces a bug in the Trino diagnostic warehouse flow: when the DWH uses in-source
+    transfer and the destination table already exists (second scan), the code generates:
+
+        INSERT INTO table (cols)
+        (
+        WITH cte AS (...) SELECT * FROM cte
+        )
+
+    The parentheses around the WITH clause are invalid in Trino's SQL grammar — WITH can
+    only appear at the top-level query production, not inside a parenthesized subquery.
+    The first scan succeeds because it uses CREATE TABLE AS SELECT (no parentheses), but
+    the second scan fails with a syntax error.
+    """
+    data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
+    sql_dialect: SqlDialect = data_source_impl.sql_dialect
+    dataset_prefixes = data_source_test_helper.dataset_prefix
+
+    source_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "test_insert_via_select_cte_source")
+    dest_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "test_insert_via_select_cte_dest")
+
+    # Clean up any leftover tables from previous runs
+    for table_name in [source_table_name, dest_table_name]:
+        drop_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=table_name))
+        data_source_impl.execute_update(drop_sql)
+
+    def col_type(name: str) -> str:
+        return sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[name]
+
+    try:
+        # Create and populate a source table
+        create_source_sql = sql_dialect.build_create_table_sql(
+            CREATE_TABLE_IF_NOT_EXISTS(
+                fully_qualified_table_name=source_table_name,
+                columns=[
+                    CREATE_TABLE_COLUMN(
+                        name="id",
+                        type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)),
+                    ),
+                    CREATE_TABLE_COLUMN(
+                        name="name",
+                        type=SqlDataType(
+                            name=col_type(SodaDataTypeName.VARCHAR),
+                            character_maximum_length=255,
+                        ),
+                    ),
+                ],
+            )
+        )
+        data_source_impl.execute_update(create_source_sql)
+
+        source_columns = [COLUMN("id"), COLUMN("name")]
+        insert_source_sql = sql_dialect.build_insert_into_sql(
+            INSERT_INTO(
+                fully_qualified_table_name=source_table_name,
+                columns=source_columns,
+                values=[
+                    VALUES_ROW([LITERAL(1), LITERAL("Alice")]),
+                    VALUES_ROW([LITERAL(2), LITERAL("Bob")]),
+                    VALUES_ROW([LITERAL(3), LITERAL("Charlie")]),
+                ],
+            )
+        )
+        data_source_impl.execute_update(insert_source_sql)
+
+        # Create the destination table via CTAS using a CTE — this mimics the first DWH scan
+        source_from_name = sql_dialect.get_from_name_from_qualified_name(source_table_name)
+        ctas_query = [
+            WITH([CTE(alias="src", cte_query=[SELECT(STAR()), FROM(source_from_name)])]),
+            SELECT([COLUMN("id"), COLUMN("name")]),
+            FROM("src"),
+        ]
+        ctas = CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name=dest_table_name,
+            select_elements=ctas_query,
+        )
+        data_source_impl.execute_update(sql_dialect.build_create_table_as_select_sql(ctas))
+
+        # Verify the CTAS worked
+        verify_sql = sql_dialect.build_select_sql(
+            [SELECT([COUNT(STAR())]), FROM(sql_dialect.get_from_name_from_qualified_name(dest_table_name))]
+        )
+        result: QueryResult = data_source_impl.execute_query(verify_sql)
+        assert result.rows[0][0] == 3, f"CTAS should have inserted 3 rows, got {result.rows[0][0]}"
+
+        # Now do INSERT INTO ... SELECT with a CTE into the EXISTING table.
+        # This mimics the second DWH scan's in-source transfer path.
+        insert_via_select_query = [
+            WITH([CTE(alias="src", cte_query=[SELECT(STAR()), FROM(source_from_name)])]),
+            SELECT([COLUMN("id"), COLUMN("name")]),
+            FROM("src"),
+        ]
+        insert_via_select = INSERT_INTO_VIA_SELECT(
+            fully_qualified_table_name=dest_table_name,
+            columns=[COLUMN("id"), COLUMN("name")],
+            select_elements=insert_via_select_query,
+        )
+        insert_sql = sql_dialect.build_insert_into_via_select_sql(insert_via_select)
+        data_source_impl.execute_update(insert_sql)
+
+        # Verify the INSERT worked — should now have 6 rows (3 from CTAS + 3 from INSERT)
+        result: QueryResult = data_source_impl.execute_query(verify_sql)
+        assert result.rows[0][0] == 6, f"Should have 6 rows after INSERT INTO ... SELECT, got {result.rows[0][0]}"
+
+    finally:
+        for table_name in [dest_table_name, source_table_name]:
+            drop_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=table_name))
+            data_source_impl.execute_update(drop_sql)
