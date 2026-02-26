@@ -1649,8 +1649,10 @@ def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
 def _map_remote_scan_status_to_contract_verification_status(
     scan_status: RemoteScanStatus,
 ) -> ContractVerificationStatus:
-    if scan_status in (RemoteScanStatus.COMPLETED, RemoteScanStatus.COMPLETED_WITH_WARNINGS):
+    if scan_status == RemoteScanStatus.COMPLETED:
         return ContractVerificationStatus.PASSED
+    elif scan_status == RemoteScanStatus.COMPLETED_WITH_WARNINGS:
+        return ContractVerificationStatus.WARNED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
         return ContractVerificationStatus.FAILED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_ERRORS,):

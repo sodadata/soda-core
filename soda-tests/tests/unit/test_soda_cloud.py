@@ -414,6 +414,84 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
     )
 
 
+def test_execute_over_agent_completed_with_warnings(data_source_test_helper: DataSourceTestHelper):
+    """When agent returns completedWithWarnings, is_warned must be True and is_passed must be False."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(
+                status_code=200,
+                json_object={
+                    "allowed": True,
+                },
+            ),
+            MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"fileId": "fffileid"}),
+            MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={"scanId": "ssscanid"}),
+            MockResponse(
+                method=MockHttpMethod.GET,
+                status_code=200,
+                headers={"X-Soda-Next-Poll-Time": convert_datetime_to_str(datetime.now(timezone.utc))},
+                json_object={
+                    "scanId": "ssscanid",
+                    "state": "executing",
+                },
+            ),
+            MockResponse(
+                method=MockHttpMethod.GET,
+                status_code=200,
+                json_object={
+                    "scanId": "ssscanid",
+                    "state": "completedWithWarnings",
+                    "cloudUrl": "https://the-scan-url",
+                    "contractDatasetCloudUrl": "https://the-contract-dataset-url",
+                },
+            ),
+            MockResponse(
+                method=MockHttpMethod.GET,
+                status_code=200,
+                json_object={
+                    "content": [
+                        {
+                            "level": "debug",
+                            "message": "m1",
+                            "timestamp": "2025-02-21T06:16:58+00:00",
+                            "index": 0,
+                        },
+                        {
+                            "level": "info",
+                            "message": "m2",
+                            "timestamp": "2025-02-21T06:16:59+00:00",
+                            "index": 1,
+                        },
+                    ],
+                    "totalElements": 2,
+                    "totalPages": 1,
+                    "number": 0,
+                    "size": 2,
+                    "last": True,
+                    "first": True,
+                },
+            ),
+        ]
+    )
+
+    data_source_test_helper.use_agent = True
+
+    data_source_test_helper.assert_contract_warn(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            columns:
+              - name: age
+                missing_values: [-1, -2]
+                checks:
+                  - missing:
+                      threshold:
+                        must_be_less_than_or_equal: 2
+        """,
+    )
+
+
 def test_publish_contract():
     responses = [
         MockResponse(
