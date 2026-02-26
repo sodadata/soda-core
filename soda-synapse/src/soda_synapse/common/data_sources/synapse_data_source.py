@@ -4,7 +4,14 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_ast import COLUMN, INSERT_INTO, VALUES, VALUES_ROW
+from soda_core.common.sql_ast import (
+    COLUMN,
+    CREATE_TABLE,
+    CREATE_TABLE_IF_NOT_EXISTS,
+    INSERT_INTO,
+    VALUES,
+    VALUES_ROW,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_sqlserver.common.data_sources.sqlserver_data_source import (
     SqlServerDataSourceImpl,
@@ -21,8 +28,8 @@ logger: logging.Logger = soda_logger
 
 
 class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSourceModel):
-    def __init__(self, data_source_model: SynapseDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: SynapseDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return SynapseSqlDialect()
@@ -34,6 +41,21 @@ class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSour
 
 
 class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
+    def build_create_table_sql(
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
+    ) -> str:
+        create_table_sql = self._build_create_table_statement_sql(create_table)
+        create_table_sql = (
+            create_table_sql
+            + "(\n"
+            + ",\n".join([self._build_create_table_column(column) for column in create_table.columns])
+            + "\n)"
+        )
+        # Synapse uses clustered columnstore indexes by default, which don't support varchar(MAX).
+        # Use HEAP to create a heap table instead.
+        create_table_sql = create_table_sql + "\nWITH (HEAP)"
+        return create_table_sql + (";" if add_semicolon else "")
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 
@@ -45,7 +67,6 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "SELECT " + ", ".join([self.literal(value) for value in values.values])
-        values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
