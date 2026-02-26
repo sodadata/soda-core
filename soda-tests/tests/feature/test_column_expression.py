@@ -10,16 +10,16 @@ test_table_specification = (
     .column_integer("id")
     .column_integer("age")
     .column_integer("age_str")
-    .column_varchar("born_date_str")
+    .column_varchar("metadata")
     .column_varchar("json_col")
     .column_varchar("country")
     .rows(
         rows=[
-            (1, 10, "10", "2000-01-01", '{"unique_id": 1}', '{"country_code": "NL"}'),
-            (2, 20, "20", "2000-01-02", '{"unique_id": 1}', '{"country_code": "BE"}'),
+            (1, 10, "10", '{"created": "2000-01-01"}', '{"unique_id": 1}', '{"country_code": "NL"}'),
+            (2, 20, "20", '{"created": "2000-01-02"}', '{"unique_id": 1}', '{"country_code": "BE"}'),
             (3, None, None, None, '{"unique_id": 3}', '{"country_code": "123"}'),
-            (None, 2, "20", "2000-01-04", '{"unique_id": 4}', '{"country_code": "0"}'),
-            (-1, 30, "30", "2000-01-05", '{"unique_id": null}', '{"country_code": "SK"}'),
+            (None, 2, "20", '{"created": "2000-01-04"}', '{"unique_id": 4}', '{"country_code": "0"}'),
+            (-1, 30, "30", '{"created": "2000-01-05"}', '{"unique_id": null}', '{"country_code": "SK"}'),
         ]
     )
     .build()
@@ -62,8 +62,8 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                     default: "json_col::json->>'unique_id'"
                   country_col_expr:
                     default: "country::json->>'country_code'"
-                  born_date_col_expr:
-                    default: '"born_date_str"::DATE'
+                  metadata_col_expr:
+                    default: "metadata::json->>'created'"
                 columns:
                   - name: id
                     column_expression: '${{var.id_col_expr}}'
@@ -98,8 +98,8 @@ def test_column_level_column_expression_metric_checks_fail(data_source_test_help
                             column_expression: '${{var.country_col_expr}}'
                 checks:
                     - freshness:
-                        column: born_date_str
-                        column_expression: '${{var.born_date_col_expr}}'
+                        column: metadata
+                        column_expression: '${{var.metadata_col_expr}}'
                         threshold:
                             must_be_less_than: 1
                             unit: day
