@@ -248,12 +248,10 @@ def verify_contract(
             return ContractVerificationSessionResult(contract_verification_results=[])
 
         data_source_yaml_sources: list[DataSourceYamlSource] = []
-        if data_source_file_paths or dataset_identifiers:
+        if data_source_file_paths:
             data_source_yaml_sources.extend(
                 _create_datasource_yamls(
                     data_source_file_paths,
-                    dataset_identifiers,
-                    soda_cloud_client,
                     use_agent,
                 )
             )
@@ -365,8 +363,6 @@ def _create_contract_yamls(
 
 def _create_datasource_yamls(
     data_source_file_paths: Optional[list[str]],
-    dataset_identifiers: Optional[list[str]],
-    soda_cloud_client: SodaCloud,
     use_agent: bool,
 ) -> Optional[DataSourceYamlSource]:
     data_source_yamls: list[DataSourceYamlSource] = []

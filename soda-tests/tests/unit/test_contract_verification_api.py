@@ -227,20 +227,11 @@ def test_local_flow_does_not_fetch_datasource_config_from_cloud():
     When no local data source files are provided in local flow, it should
     raise an error instead of fetching from Cloud.
     """
-    mock_cloud = MagicMock(spec=SodaCloud)
-    mock_cloud.fetch_data_source_configuration_for_dataset.return_value = (
-        "type: postgres\nhost: secret-host.internal\nport: 5432"
-    )
-
     with pytest.raises(InvalidDataSourceConfigurationException):
         _create_datasource_yamls(
             data_source_file_paths=[],
-            dataset_identifiers=["my_ds/my_schema/my_table"],
-            soda_cloud_client=mock_cloud,
             use_agent=False,
         )
-
-    mock_cloud.fetch_data_source_configuration_for_dataset.assert_not_called()
 
 
 def test_local_flow_with_dataset_identifier_uses_local_datasource_config(tmp_path):
@@ -251,16 +242,11 @@ def test_local_flow_with_dataset_identifier_uses_local_datasource_config(tmp_pat
     ds_file = tmp_path / "ds.yml"
     ds_file.write_text("type: duckdb\npath: test.db")
 
-    mock_cloud = MagicMock(spec=SodaCloud)
-
     result = _create_datasource_yamls(
         data_source_file_paths=[str(ds_file)],
-        dataset_identifiers=["my_ds/my_schema/my_table"],
-        soda_cloud_client=mock_cloud,
         use_agent=False,
     )
 
-    mock_cloud.fetch_data_source_configuration_for_dataset.assert_not_called()
     assert len(result) == 1
 
 
@@ -270,16 +256,11 @@ def test_agent_flow_without_local_datasource_returns_none():
     are provided, return None (agent provides its own config). Should NOT
     fetch from Cloud.
     """
-    mock_cloud = MagicMock(spec=SodaCloud)
-
     result = _create_datasource_yamls(
         data_source_file_paths=[],
-        dataset_identifiers=["my_ds/my_schema/my_table"],
-        soda_cloud_client=mock_cloud,
         use_agent=True,
     )
 
-    mock_cloud.fetch_data_source_configuration_for_dataset.assert_not_called()
     assert result is None
 
 
