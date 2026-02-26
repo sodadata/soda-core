@@ -287,7 +287,7 @@ class InvalidReferenceCountQuery(Query):
             aliased_column_name = f'"{self.referencing_alias}".{column_name}'
             pattern = r"\b" + re.escape(column_name) + r"\b"
             referencing_column_expression = SqlExpressionStr(
-                re.sub(pattern, aliased_column_name, referencing_column_expression.expression_str, count=1)
+                re.sub(pattern, aliased_column_name, referencing_column_expression.expression_str)
             )
 
         full_referencing_column_expression = referencing_column_expression
