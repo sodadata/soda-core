@@ -243,9 +243,9 @@ class TrinoSqlDialect(SqlDialect):
         return True
 
     def get_max_sql_statement_length(self) -> int:
-        # Trino is typically accessed via HTTP through a reverse proxy (e.g. nginx).
-        # Default proxy limits are around 1MB, so we need smaller statements to avoid 413 errors.
-        return 1 * 1024 * 1024
+        # Trino's default query.max-length is 1,000,000 bytes (not 1 MiB).
+        # Use a conservative limit to stay safely under the server default.
+        return 1_000_000
 
     def metadata_casify(self, identifier: str) -> str:
         # trino lower-cases metadata identifiers
