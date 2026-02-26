@@ -161,7 +161,10 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
 
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
-        return COLUMN(self.check_yaml.column)
+        expression = super().column_expression
+        if not expression:
+            expression = COLUMN(self.check_yaml.column)
+        return expression
 
     def setup_metrics(
         self,
