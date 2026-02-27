@@ -1,6 +1,6 @@
 [project]
 name = "soda-sparkdf"
-version = "4.0.10rc0"
+version = "4.1.0"
 description = "Soda SparkDF V4"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,10 +8,10 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.10rc0",
+    "soda-core==4.1.0",
     "freezegun",
     "pyspark>=3.5.0",
-    "soda-databricks==4.0.10rc0",
+    "soda-databricks==4.1.0",
 ]
 
 [project.entry-points."soda.plugins.data_source.sparkdf"]
