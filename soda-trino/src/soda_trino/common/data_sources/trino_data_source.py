@@ -58,7 +58,7 @@ class TrinoSqlDataType(SqlDataType):
         return super().get_sql_data_type_str_with_parameters()
 
 
-class TrinoSqlDialect(SqlDialect):
+class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
     USES_SEMICOLONS_BY_DEFAULT: bool = False
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
