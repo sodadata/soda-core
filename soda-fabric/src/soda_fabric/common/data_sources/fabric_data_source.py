@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
@@ -21,8 +22,8 @@ logger: logging.Logger = soda_logger
 
 
 class FabricDataSourceImpl(SqlServerDataSourceImpl, model_class=FabricDataSourceModel):
-    def __init__(self, data_source_model: FabricDataSourceModel):
-        super().__init__(data_source_model=data_source_model)
+    def __init__(self, data_source_model: FabricDataSourceModel, connection: Optional[DataSourceConnection] = None):
+        super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         return FabricSqlDialect()
@@ -39,6 +40,15 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
 
+    @classmethod
+    def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
+        if expected == SodaDataTypeName.TIMESTAMP and actual == SodaDataTypeName.VARCHAR:
+            logger.debug(
+                f"In is_same_soda_data_type_with_synonyms, expected {expected} and actual {actual} are treated as the same because of Fabric cursor not distinguishing between varchar and datetime2"
+            )
+            return True
+        return super().is_same_soda_data_type_with_synonyms(expected, actual)
+
     def sql_expr_timestamp_truncate_day(self, timestamp_literal: str) -> str:
         return f"DATETIMEFROMPARTS((datepart(YEAR, {timestamp_literal})), (datepart(MONTH, {timestamp_literal})), (datepart(DAY, {timestamp_literal})), 0, 0, 0, 0)"
 
@@ -50,7 +60,6 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
 
     def _build_insert_into_values_row_sql(self, values: VALUES_ROW) -> str:
         values_sql: str = "SELECT " + ", ".join([self.literal(value) for value in values.values])
-        values_sql = self.encode_string_for_sql(values_sql)
         return values_sql
 
     def default_casify(self, identifier: str) -> str:
