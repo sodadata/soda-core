@@ -147,6 +147,51 @@ test_connections: list[TestConnection] = [
         expected_query_error="disallowed",
         monkeypatches={"requests.post": mock_requests_post},
     ),
+    TestConnection(  # invalid auth_type should produce clear error
+        test_name="invalid_auth_type",
+        valid_yaml=False,
+        expected_yaml_error="Unknown Trino auth_type: 'InvalidAuth'",
+        connection_yaml_str=f"""
+                type: trino
+                name: TRINO_TEST_DS
+                connection:
+                    host: '{TRINO_HOST}'
+                    port: {TRINO_PORT}
+                    catalog: '{TRINO_CATALOG}'
+                    auth_type: 'InvalidAuth'
+                    verify: {TRINO_VERIFY}
+            """,
+    ),
+    TestConnection(  # JWT without access_token should show single clear error
+        test_name="jwt_missing_access_token",
+        valid_yaml=False,
+        expected_yaml_error="access_token",
+        connection_yaml_str=f"""
+                type: trino
+                name: TRINO_TEST_DS
+                connection:
+                    host: '{TRINO_HOST}'
+                    port: {TRINO_PORT}
+                    catalog: '{TRINO_CATALOG}'
+                    auth_type: 'JWTAuthentication'
+                    verify: {TRINO_VERIFY}
+            """,
+    ),
+    TestConnection(  # OAuth without oauth block should show single clear error
+        test_name="oauth_missing_payload",
+        valid_yaml=False,
+        expected_yaml_error="oauth",
+        connection_yaml_str=f"""
+                type: trino
+                name: TRINO_TEST_DS
+                connection:
+                    host: '{TRINO_HOST}'
+                    port: {TRINO_PORT}
+                    catalog: '{TRINO_CATALOG}'
+                    auth_type: 'OAuth2ClientCredentialsAuthentication'
+                    verify: {TRINO_VERIFY}
+            """,
+    ),
     # uncomment the following to test JWT auth if you have a real token in TRINO_JWT_TOKEN
     # see soda-trino/local_instance/README.md to configure a local instance and generate a token you can use to run this test
     # last successful test: 2026-02-09
