@@ -303,6 +303,29 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
     def sql_expr_timestamp_add_day(self, timestamp_literal: str) -> str:
         return f"DATE_ADD('day', 1, {timestamp_literal})"
 
+    def build_select_sql(self, select_elements: list, add_semicolon: Optional[bool] = None) -> str:
+        # Trino requires OFFSET before LIMIT (standard SQL order).
+        # The base implementation emits LIMIT before OFFSET, which is invalid in Trino.
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
+        statement_lines: list[str] = []
+        statement_lines.extend(self._build_cte_sql_lines(select_elements))
+        statement_lines.extend(self._build_select_sql_lines(select_elements))
+        statement_lines.extend(self._build_into_sql_lines(select_elements))
+        statement_lines.extend(self._build_from_sql_lines(select_elements))
+        statement_lines.extend(self._build_where_sql_lines(select_elements))
+        statement_lines.extend(self._build_group_by_sql_lines(select_elements))
+        statement_lines.extend(self._build_order_by_lines(select_elements))
+
+        offset_line = self._build_offset_line(select_elements)
+        if offset_line:
+            statement_lines.append(offset_line)
+
+        limit_line = self._build_limit_line(select_elements)
+        if limit_line:
+            statement_lines.append(limit_line)
+
+        return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
     def build_insert_into_via_select_sql(
         self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: Optional[bool] = None
     ) -> str:
