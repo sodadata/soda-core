@@ -194,13 +194,6 @@ jobs:
           TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
           CI_MODULE: ${{ matrix.module }}
         run: bash scripts/start_trino_ci.sh
-      - name: Dump Trino logs
-        if: always() && startsWith(matrix.module, 'trino')
-        run: |
-          echo "=== Trino container logs ==="
-          docker logs trino-ci 2>&1 | tail -100
-          echo "=== Trino container env (redacted) ==="
-          docker exec trino-ci env 2>/dev/null | grep -E '^AWS_' | sed 's/=.*/=***/' || true
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
@@ -227,6 +220,14 @@ jobs:
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
             uv run python -m pytest -ra soda-tests/tests/integration
           fi
+      - name: Dump Trino logs
+        if: always() && startsWith(matrix.module, 'trino')
+        run: |
+          echo "=== Trino container logs ==="
+          docker logs trino-ci 2>&1 | tail -100
+      - name: Stop Trino container
+        if: always() && startsWith(matrix.module, 'trino')
+        run: docker rm -f trino-ci 2>/dev/null || true
 
   define-matrix:
     if: github.ref_name == 'main' || contains(github.ref, 'refs/tags/')

@@ -54,14 +54,7 @@ if [ -z "${AWS_SESSION_TOKEN}" ] || [ "${AWS_SESSION_TOKEN}" = "null" ]; then
 fi
 echo "Role assumed successfully (AccessKeyId starts with ${AWS_ACCESS_KEY_ID:0:4}...)"
 
-# ── Verify S3 access from host (warning only) ────────────────────────
-echo "Verifying S3 access from host..."
-if ! aws s3 ls s3://soda-dev-trino/ci-warehouse/ --region eu-west-1 > /dev/null 2>&1; then
-  echo "::warning::Assumed role cannot list s3://soda-dev-trino/ci-warehouse/ (s3:ListBucket may not be granted — this may be OK if Trino has the permissions it needs)"
-  aws s3 ls s3://soda-dev-trino/ci-warehouse/ --region eu-west-1 2>&1 || true
-else
-  echo "S3 ListBucket access verified from host"
-fi
+# ── Verify assumed role identity ──────────────────────────────────────
 aws sts get-caller-identity || true
 
 # ── Create Glue database (idempotent) ────────────────────────────────
