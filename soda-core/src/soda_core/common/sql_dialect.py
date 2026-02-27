@@ -1614,5 +1614,6 @@ class SqlDialect:
 
     def supports_materialized_views(self) -> bool:
         """Default False — new data sources must explicitly opt in (e.g. Postgres, Redshift, Trino).
-        Even when True, DataSourceImpl.try_create_materialized_view() will catch runtime failures and cache the result."""
+        Even when True, DataSourceImpl.try_create_materialized_view() will catch runtime failures and cache the result.
+        """
         return False

@@ -6,7 +6,7 @@ from typing import Literal, Optional, Union
 
 import requests
 import trino
-from pydantic import BaseModel, Field, IPvAnyAddress, SecretStr, field_validator
+from pydantic import BaseModel, Field, IPvAnyAddress, SecretStr
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -66,32 +66,12 @@ class TrinoNoAuthenticationConnectionProperties(TrinoConnectionProperties):
 class TrinoDataSource(DataSourceBase):
     type: Literal["trino"] = Field("trino")
 
-    connection_properties: TrinoConnectionProperties = Field(
-        ..., alias="connection", description="Trino connection configuration"
-    )
-
-    @field_validator("connection_properties", mode="before")
-    @classmethod
-    def infer_connection_type(cls, value):
-        if isinstance(value, TrinoConnectionProperties):
-            return value
-
-        auth_type = value.get("auth_type")
-
-        if auth_type is None or auth_type == "BasicAuthentication":
-            return TrinoUserPasswordConnectionProperties(**value)
-        elif auth_type == "JWTAuthentication":
-            return TrinoJWTConnectionProperties(**value)
-        elif auth_type == "OAuth2ClientCredentialsAuthentication":
-            return TrinoOauthConnectionProperties(**value)
-        elif auth_type == "NoAuthentication":
-            return TrinoNoAuthenticationConnectionProperties(**value)
-
-        raise ValueError(
-            f"Unknown Trino auth_type: '{auth_type}'. "
-            f"Supported values: 'BasicAuthentication', 'JWTAuthentication', "
-            f"'OAuth2ClientCredentialsAuthentication', 'NoAuthentication'"
-        )
+    connection_properties: Union[
+        TrinoUserPasswordConnectionProperties,
+        TrinoJWTConnectionProperties,
+        TrinoOauthConnectionProperties,
+        TrinoNoAuthenticationConnectionProperties,
+    ] = Field(..., alias="connection", description="Trino connection configuration")
 
 
 class TrinoDataSourceConnection(DataSourceConnection):
