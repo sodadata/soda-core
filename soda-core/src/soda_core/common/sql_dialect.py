@@ -1607,12 +1607,12 @@ class SqlDialect:
     def convert_datetime_to_str(self, datetime: datetime) -> str:
         return convert_datetime_to_str(datetime)
 
-    def supports_views(
-        self,
-    ) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
+    def supports_views(self) -> bool:
+        """Default True. Override to False for data sources that don't support views (e.g. Dremio).
+        Even when True, DataSourceImpl.try_create_view() will catch runtime failures and cache the result."""
         return True
 
-    def supports_materialized_views(
-        self,
-    ) -> bool:  # Default to False, so that we roll out support for materialized views explicitly
+    def supports_materialized_views(self) -> bool:
+        """Default False — new data sources must explicitly opt in (e.g. Postgres, Redshift, Trino).
+        Even when True, DataSourceImpl.try_create_materialized_view() will catch runtime failures and cache the result."""
         return False

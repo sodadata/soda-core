@@ -78,6 +78,10 @@ class DataSourceImpl(ABC):
         self.type_name: str = data_source_model.get_class_type()
         self.sql_dialect: SqlDialect = self._create_sql_dialect()
         self.data_source_connection: Optional[DataSourceConnection] = connection
+        # View/materialized view support uses a two-tier check:
+        # 1. sql_dialect.supports_views/materialized_views() provides the default (views: True, mat views: False)
+        # 2. try_create_view/materialized_view() attempts the actual DDL — on failure, caches False here
+        #    so subsequent calls skip without retrying
         self._can_create_view: Optional[bool] = None
         self._can_create_materialized_view: Optional[bool] = None
 

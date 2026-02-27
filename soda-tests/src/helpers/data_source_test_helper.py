@@ -534,6 +534,7 @@ class DataSourceTestHelper:
         ]
 
     def create_view_from_test_table(self, test_table: TestTable) -> TestTable:
+        # First gate: skip early if the dialect declares no view support (e.g. Dremio)
         if not self.data_source_impl.can_create_view:
             pytest.skip("View creation is not supported by this data source")
 
@@ -553,6 +554,8 @@ class DataSourceTestHelper:
             ],
         )
         sql: str = self.data_source_impl.sql_dialect.build_create_view_sql(my_create_view)
+        # Second gate: actually attempt the DDL — if it fails, the result is cached so
+        # future tests skip immediately without retrying (see DataSourceImpl.try_create_view)
         if not self.data_source_impl.try_create_view(sql):
             pytest.skip("View creation is not supported by this data source")
 
@@ -577,6 +580,9 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def create_materialized_view_from_test_table(self, test_table: TestTable) -> TestTable:
+        # Same two-gate pattern as create_view_from_test_table above.
+        # Most data sources default to supports_materialized_views()=False (see SqlDialect);
+        # only those that explicitly opt in (Postgres, Redshift, Trino) reach the DDL attempt.
         if not self.data_source_impl.can_create_materialized_view:
             pytest.skip("Materialized view creation is not supported by this data source")
 
