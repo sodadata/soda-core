@@ -21,6 +21,8 @@ on:
           - sqlserver
           - synapse
           - sparkdf
+          - trino-postgres
+          - trino-s3
   push:
     branches:
       - 'main'
@@ -81,7 +83,8 @@ jobs:
     services:
       postgres:
         # please keep the postgres version in sync with the one in docker-compose.yml for postgres
-        image: ${{ ( matrix.module == 'postgres' ) && 'postgres:15.10-alpine3.21' || '' }}
+        # Also used by trino-postgres (Trino's PostgreSQL catalog connector targets this instance)
+        image: ${{ ( matrix.module == 'postgres' || startsWith(matrix.module, 'trino') ) && 'postgres:15.10-alpine3.21' || '' }}
         env:
           POSTGRES_USER: soda_test
           POSTGRES_DB: soda_test
@@ -140,6 +143,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve module
+        run: |
+          MODULE="${{ matrix.module }}"
+          case "$MODULE" in
+            trino-postgres) echo "TEST_MODULE=trino" >> "$GITHUB_ENV"; echo "TRINO_CATALOG=db" >> "$GITHUB_ENV" ;;
+            trino-s3)       echo "TEST_MODULE=trino" >> "$GITHUB_ENV"; echo "TRINO_CATALOG=iceberg" >> "$GITHUB_ENV" ;;
+            *)              echo "TEST_MODULE=$MODULE" >> "$GITHUB_ENV" ;;
+          esac
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -174,7 +185,15 @@ jobs:
         with:
           secret-ids: |
             BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
-
+      - name: Configure Trino
+        if: startsWith(matrix.module, 'trino')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+          TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
+          CI_MODULE: ${{ matrix.module }}
+        run: bash scripts/start_trino_ci.sh
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
@@ -188,19 +207,27 @@ jobs:
             echo "PATH=$PATH" >> "$GITHUB_ENV"
           fi
 
-          export TEST_DATASOURCE=${{ matrix.module }}
+          export TEST_DATASOURCE=${{ env.TEST_MODULE }}
           uv run python -m pytest -ra soda-tests/tests/integration
-          if [ "${{ matrix.module }}" = "postgres" ]; then
+          if [ "${{ env.TEST_MODULE }}" = "postgres" ]; then
             uv run python -m pytest -ra soda-tests/tests/unit
             uv run python -m pytest -ra soda-tests/tests/feature
           fi
-          uv run python -m pytest -ra soda-${{ matrix.module }}/tests
+          uv run python -m pytest -ra soda-${{ env.TEST_MODULE }}/tests
 
-          if [ "${{ matrix.module }}" = "databricks" ]; then
+          if [ "${{ env.TEST_MODULE }}" = "databricks" ]; then
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
             uv run python -m pytest -ra soda-tests/tests/integration
           fi
+      - name: Dump Trino logs
+        if: always() && startsWith(matrix.module, 'trino')
+        run: |
+          echo "=== Trino container logs ==="
+          docker logs trino-ci 2>&1 | tail -100
+      - name: Stop Trino container
+        if: always() && startsWith(matrix.module, 'trino')
+        run: docker rm -f trino-ci 2>/dev/null || true
 
   define-matrix:
     if: github.ref_name == 'main' || contains(github.ref, 'refs/tags/')

@@ -1,5 +1,4 @@
 import datetime
-from logging import Logger
 
 import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -7,7 +6,6 @@ from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.datetime_conversions import interpret_datetime_as_utc
-from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.sql_ast import (
     ALTER_TABLE_ADD_COLUMN,
@@ -24,6 +22,7 @@ from soda_core.common.sql_ast import (
     DROP_VIEW_IF_EXISTS,
     FROM,
     INSERT_INTO,
+    INSERT_INTO_VIA_SELECT,
     LITERAL,
     ORDER_BY_ASC,
     SELECT,
@@ -32,8 +31,6 @@ from soda_core.common.sql_ast import (
     WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
-
-logger: Logger = soda_logger
 
 
 def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelper):
@@ -62,10 +59,17 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
 
     try:
         create_table_columns = [
-            CREATE_TABLE_COLUMN(name="id", type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)), nullable=False),
+            CREATE_TABLE_COLUMN(
+                name="id",
+                type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)),
+                nullable=False,
+            ),
             CREATE_TABLE_COLUMN(
                 name="name",
-                type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=255),
+                type=SqlDataType(
+                    name=col_type(SodaDataTypeName.VARCHAR),
+                    character_maximum_length=255,
+                ),
                 nullable=True,
             ),
             CREATE_TABLE_COLUMN(
@@ -73,12 +77,20 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                 type=SqlDataType(name=col_type(SodaDataTypeName.VARCHAR), character_maximum_length=3),
                 nullable=True,
             ),
-            CREATE_TABLE_COLUMN(name="my_date", type=SqlDataType(name=col_type(SodaDataTypeName.DATE)), nullable=True),
             CREATE_TABLE_COLUMN(
-                name="my_timestamp", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)), nullable=True
+                name="my_date",
+                type=SqlDataType(name=col_type(SodaDataTypeName.DATE)),
+                nullable=True,
             ),
             CREATE_TABLE_COLUMN(
-                name="my_timestamp_tz", type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP_TZ)), nullable=True
+                name="my_timestamp",
+                type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP)),
+                nullable=True,
+            ),
+            CREATE_TABLE_COLUMN(
+                name="my_timestamp_tz",
+                type=SqlDataType(name=col_type(SodaDataTypeName.TIMESTAMP_TZ)),
+                nullable=True,
             ),
         ]
 
@@ -95,7 +107,9 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
 
         # Then add another column, just because we can
         extra_column: CREATE_TABLE_COLUMN = CREATE_TABLE_COLUMN(
-            name="some_number", type=SqlDataType(name=SodaDataTypeName.INTEGER), nullable=True
+            name="some_number",
+            type=SqlDataType(name=SodaDataTypeName.INTEGER),
+            nullable=True,
         )
         alter_table_add_column_sql = sql_dialect.build_alter_table_sql(
             ALTER_TABLE_ADD_COLUMN(fully_qualified_table_name=my_table_name, column=extra_column)
@@ -195,8 +209,14 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[2][2] is None
 
         # some db engines (e.g. oracle) store dates with a time of 00:00:00
-        assert result.rows[0][3] in [datetime.date(2021, 1, 1), datetime.datetime(2021, 1, 1, 0, 0, 0)]
-        assert result.rows[1][3] in [datetime.date(2021, 1, 2), datetime.datetime(2021, 1, 2, 0, 0, 0)]
+        assert result.rows[0][3] in [
+            datetime.date(2021, 1, 1),
+            datetime.datetime(2021, 1, 1, 0, 0, 0),
+        ]
+        assert result.rows[1][3] in [
+            datetime.date(2021, 1, 2),
+            datetime.datetime(2021, 1, 2, 0, 0, 0),
+        ]
         assert result.rows[2][3] is None
 
         assert result.rows[0][4] in [
@@ -260,7 +280,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         result: QueryResult = data_source_impl.execute_query(select_sql)
         assert result.rows[0][0] == 3
 
-        if sql_dialect.supports_views():
+        if data_source_impl.can_create_view:
             # Then create a view
             create_view_sql = sql_dialect.build_create_view_sql(
                 CREATE_VIEW(
@@ -271,25 +291,24 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
                     ],
                 )
             )
-            data_source_impl.execute_update(create_view_sql)
-
-            # Then query the view
-            select_view_sql = sql_dialect.build_select_sql(
-                [
-                    SELECT(STAR()),
-                    FROM(sql_dialect.get_from_name_from_qualified_name(my_view_name)),
-                    ORDER_BY_ASC(
-                        COLUMN("id")
-                    ),  # To make it deterministic (some datasources don't guarantee order of rows)
-                ]
-            )
-            result: QueryResult = data_source_impl.execute_query(select_view_sql)
-            assert result.rows[0][0] == 1
-            assert result.rows[1][0] == 2
-            assert result.rows[2][0] == 3
+            if data_source_impl.try_create_view(create_view_sql):
+                # Then query the view
+                select_view_sql = sql_dialect.build_select_sql(
+                    [
+                        SELECT(STAR()),
+                        FROM(sql_dialect.get_from_name_from_qualified_name(my_view_name)),
+                        ORDER_BY_ASC(
+                            COLUMN("id")
+                        ),  # To make it deterministic (some datasources don't guarantee order of rows)
+                    ]
+                )
+                result: QueryResult = data_source_impl.execute_query(select_view_sql)
+                assert result.rows[0][0] == 1
+                assert result.rows[1][0] == 2
+                assert result.rows[2][0] == 3
     finally:
         # Drop the view first, otherwise the table drop will fail because we should "cascade" the drop
-        if sql_dialect.supports_views():
+        if data_source_impl.can_create_view:
             drop_view_sql = sql_dialect.build_drop_view_sql(DROP_VIEW_IF_EXISTS(fully_qualified_view_name=my_view_name))
             data_source_impl.execute_update(drop_view_sql)
         # Then drop the table to clean up
@@ -331,7 +350,9 @@ def test_large_insert_test_table(data_source_test_helper: DataSourceTestHelper):
     assert len(result.rows) == NUMBER_OF_ROWS
 
 
-def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSourceTestHelper):
+def test_datetime_microsecond_precision_insert(
+    data_source_test_helper: DataSourceTestHelper,
+):
     NUMBER_OF_ROWS = 20
     microsecond_test_table_specification = (
         TestTableSpecification.builder()
@@ -339,10 +360,15 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
         .column_varchar("id", 100)
         .column_varchar("id2", 100)
         .column_integer("my_value")
-        .column_timestamp("my_timestamp")
+        .column_timestamp("my_timestamp", datetime_precision=6)
         .rows(
             rows=[
-                (f"my_id_{i}", f"my_id2_{i}", 10, datetime.datetime(2021, 1, 1, i, 0, 0, microsecond=123))
+                (
+                    f"my_id_{i}",
+                    f"my_id2_{i}",
+                    10,
+                    datetime.datetime(2021, 1, 1, i, 0, 0, microsecond=123),
+                )
                 for i in range(NUMBER_OF_ROWS)
             ]
         )
@@ -356,7 +382,14 @@ def test_datetime_microsecond_precision_insert(data_source_test_helper: DataSour
 
     select_sql = sql_dialect.build_select_sql(
         [
-            SELECT([COLUMN("id"), COLUMN("id2"), COLUMN("my_value"), COLUMN("my_timestamp")]),
+            SELECT(
+                [
+                    COLUMN("id"),
+                    COLUMN("id2"),
+                    COLUMN("my_value"),
+                    COLUMN("my_timestamp"),
+                ]
+            ),
             FROM(my_table_name[1:-1] if sql_dialect.is_quoted(my_table_name) else my_table_name),
             ORDER_BY_ASC(COLUMN("my_timestamp")),
         ]
@@ -402,3 +435,115 @@ def test_hashing_output_text(data_source_test_helper: DataSourceTestHelper):
     for i in range(NUMBER_OF_ROWS):
         assert result.rows[i][0] is not None
         assert isinstance(result.rows[i][0], str)
+
+
+def test_insert_into_via_select_with_cte_into_existing_table(data_source_test_helper: DataSourceTestHelper):
+    """Test INSERT INTO ... SELECT with a CTE (WITH clause) when the destination table already exists.
+
+    This reproduces a bug in the Trino diagnostic warehouse flow: when the DWH uses in-source
+    transfer and the destination table already exists (second scan), the code generates:
+
+        INSERT INTO table (cols)
+        (
+        WITH cte AS (...) SELECT * FROM cte
+        )
+
+    The parentheses around the WITH clause are invalid in Trino's SQL grammar — WITH can
+    only appear at the top-level query production, not inside a parenthesized subquery.
+    The first scan succeeds because it uses CREATE TABLE AS SELECT (no parentheses), but
+    the second scan fails with a syntax error.
+    """
+    data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
+    sql_dialect: SqlDialect = data_source_impl.sql_dialect
+    dataset_prefixes = data_source_test_helper.dataset_prefix
+
+    source_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "test_insert_via_select_cte_source")
+    dest_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "test_insert_via_select_cte_dest")
+
+    # Clean up any leftover tables from previous runs
+    for table_name in [source_table_name, dest_table_name]:
+        drop_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=table_name))
+        data_source_impl.execute_update(drop_sql)
+
+    def col_type(name: str) -> str:
+        return sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()[name]
+
+    try:
+        # Create and populate a source table
+        create_source_sql = sql_dialect.build_create_table_sql(
+            CREATE_TABLE_IF_NOT_EXISTS(
+                fully_qualified_table_name=source_table_name,
+                columns=[
+                    CREATE_TABLE_COLUMN(
+                        name="id",
+                        type=SqlDataType(name=col_type(SodaDataTypeName.INTEGER)),
+                    ),
+                    CREATE_TABLE_COLUMN(
+                        name="name",
+                        type=SqlDataType(
+                            name=col_type(SodaDataTypeName.VARCHAR),
+                            character_maximum_length=255,
+                        ),
+                    ),
+                ],
+            )
+        )
+        data_source_impl.execute_update(create_source_sql)
+
+        source_columns = [COLUMN("id"), COLUMN("name")]
+        insert_source_sql = sql_dialect.build_insert_into_sql(
+            INSERT_INTO(
+                fully_qualified_table_name=source_table_name,
+                columns=source_columns,
+                values=[
+                    VALUES_ROW([LITERAL(1), LITERAL("Alice")]),
+                    VALUES_ROW([LITERAL(2), LITERAL("Bob")]),
+                    VALUES_ROW([LITERAL(3), LITERAL("Charlie")]),
+                ],
+            )
+        )
+        data_source_impl.execute_update(insert_source_sql)
+
+        # Create the destination table via CTAS using a CTE — this mimics the first DWH scan
+        source_from_name = sql_dialect.get_from_name_from_qualified_name(source_table_name)
+        ctas_query = [
+            WITH([CTE(alias="src", cte_query=[SELECT(STAR()), FROM(source_from_name)])]),
+            SELECT([COLUMN("id"), COLUMN("name")]),
+            FROM("src"),
+        ]
+        ctas = CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name=dest_table_name,
+            select_elements=ctas_query,
+        )
+        data_source_impl.execute_update(sql_dialect.build_create_table_as_select_sql(ctas))
+
+        # Verify the CTAS worked
+        verify_sql = sql_dialect.build_select_sql(
+            [SELECT([COUNT(STAR())]), FROM(sql_dialect.get_from_name_from_qualified_name(dest_table_name))]
+        )
+        result: QueryResult = data_source_impl.execute_query(verify_sql)
+        assert result.rows[0][0] == 3, f"CTAS should have inserted 3 rows, got {result.rows[0][0]}"
+
+        # Now do INSERT INTO ... SELECT with a CTE into the EXISTING table.
+        # This mimics the second DWH scan's in-source transfer path.
+        insert_via_select_query = [
+            WITH([CTE(alias="src", cte_query=[SELECT(STAR()), FROM(source_from_name)])]),
+            SELECT([COLUMN("id"), COLUMN("name")]),
+            FROM("src"),
+        ]
+        insert_via_select = INSERT_INTO_VIA_SELECT(
+            fully_qualified_table_name=dest_table_name,
+            columns=[COLUMN("id"), COLUMN("name")],
+            select_elements=insert_via_select_query,
+        )
+        insert_sql = sql_dialect.build_insert_into_via_select_sql(insert_via_select)
+        data_source_impl.execute_update(insert_sql)
+
+        # Verify the INSERT worked — should now have 6 rows (3 from CTAS + 3 from INSERT)
+        result: QueryResult = data_source_impl.execute_query(verify_sql)
+        assert result.rows[0][0] == 6, f"Should have 6 rows after INSERT INTO ... SELECT, got {result.rows[0][0]}"
+
+    finally:
+        for table_name in [dest_table_name, source_table_name]:
+            drop_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=table_name))
+            data_source_impl.execute_update(drop_sql)

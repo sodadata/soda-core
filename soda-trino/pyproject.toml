@@ -1,0 +1,26 @@
+[project]
+name = "soda-trino"
+version = "4.0.10rc0"
+description = "Soda Trino V4"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Soda Data N.V.", email = "info@soda.io"}
+]
+dependencies = [
+    "soda-core==4.0.10rc0",
+    "trino>=0.336.0"
+]
+
+[project.entry-points."soda.plugins.data_source.trino"]
+TrinoDataSourceImpl = "soda_trino.common.data_sources.trino_data_source:TrinoDataSourceImpl"
+
+[tool.uv.sources]
+soda-core = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

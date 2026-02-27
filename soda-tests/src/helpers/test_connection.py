@@ -14,6 +14,18 @@ class TestConnection:
 
     You can provide invalid connection parameters and test that an expected error is raised.  See
     example implementation in soda-bigquery/tests/data_sources/test_bigquery.py
+
+    If the connection is expected to fail prior to the creation of the connection object,
+    then valid_yaml should be False, and expected_yaml_error must be set to include a substring
+    contained within the error message.
+
+    If the connection is expected to fail after the creation of the connection object but
+    prior to successful connecting, then valid_connection_params should be False, and expected_connection_error must be set to include a substring
+    contained within the error message.
+
+    If executing a test query (normally `SELECT 1`) is expected to fail,
+    then query_should_succeed should be False, and expected_query_error must be set to include a substring
+    contained within the error message.
     """
 
     test_name: str

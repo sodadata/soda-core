@@ -114,6 +114,8 @@ class SqlDialect:
     """
 
     DEFAULT_QUOTE_CHAR = '"'
+    USES_SEMICOLONS_BY_DEFAULT: bool = True
+    SUPPORTS_DROP_TABLE_CASCADE: bool = True
     SQLGLOT_DIALECT: ClassVar[str]
     SODA_DATA_TYPE_SYNONYMS: tuple[tuple[SodaDataTypeName, ...]] = ()
 
@@ -199,12 +201,6 @@ class SqlDialect:
             return False
         return True
 
-    def get_synonyms_for_soda_data_type(self) -> list[list[SodaDataTypeName]]:
-        # This function can be overloaded if required.
-        # It could be that the datasource has synonyms for the data types, and we want to handle that in the mappings.
-        # For an example: see the postgres implementation. We basically create a list of lists. Whereby each sublist contains the synonyms for a given SodaDataTypeName.
-        return []
-
     @classmethod
     def is_same_soda_data_type_with_synonyms(cls, expected: SodaDataTypeName, actual: SodaDataTypeName) -> bool:
         if expected == actual:
@@ -222,6 +218,8 @@ class SqlDialect:
     def map_test_sql_data_type_to_data_source(self, source_data_type: SqlDataType) -> SqlDataType:
         test_data_type: str = source_data_type.name
         data_type_name: str = self.get_data_source_data_type_name_by_soda_data_type_names().get(test_data_type)
+        if not data_type_name:
+            raise ValueError(f"Unmapped data type: {test_data_type}")
         character_maximum_length: Optional[int] = (
             source_data_type.character_maximum_length if self.supports_data_type_character_maximum_length() else None
         )
@@ -358,7 +356,11 @@ class SqlDialect:
     def escape_regex(self, value: str):
         return value
 
-    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
+    def apply_default_add_semicolon(self, add_semicolon: Optional[bool]) -> bool:
+        return add_semicolon if add_semicolon is not None else self.USES_SEMICOLONS_BY_DEFAULT
+
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: Optional[bool] = None) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         schema_name: str = prefixes[1]
         quoted_schema_name: str = self.quote_default(schema_name)
@@ -397,8 +399,9 @@ class SqlDialect:
     # CREATE TABLE
     #########################################################
     def build_create_table_sql(
-        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: bool = True
+        self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS, add_semicolon: Optional[bool] = None
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         create_table_sql = self._build_create_table_statement_sql(create_table)
 
         create_table_sql = (
@@ -450,8 +453,12 @@ class SqlDialect:
         return True
 
     def build_create_table_as_select_sql(
-        self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_parenthesis: bool = True
+        self,
+        create_table_as_select: CREATE_TABLE_AS_SELECT,
+        add_semicolon: Optional[bool] = None,
+        add_parenthesis: bool = True,
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
@@ -464,7 +471,8 @@ class SqlDialect:
     #########################################################
     # ALTER TABLE
     #########################################################
-    def build_alter_table_sql(self, alter_table: ALTER_TABLE, add_semicolon: bool = True) -> str:
+    def build_alter_table_sql(self, alter_table: ALTER_TABLE, add_semicolon: Optional[bool] = None) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if isinstance(alter_table, ALTER_TABLE_ADD_COLUMN):
             return self._build_alter_table_add_column_sql(alter_table, add_semicolon)
         elif isinstance(alter_table, ALTER_TABLE_DROP_COLUMN):
@@ -473,8 +481,9 @@ class SqlDialect:
             raise ValueError(f"Unexpected alter table type: {alter_table.__class__.__name__}")
 
     def _build_alter_table_add_column_sql(
-        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
+        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: Optional[bool] = None, add_parenthesis: bool = False
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
         column_type_sql: str = self._build_create_table_column_type(alter_table.column)
         is_nullable_sql: str = (
@@ -492,8 +501,9 @@ class SqlDialect:
         return "ADD COLUMN"
 
     def _build_alter_table_drop_column_sql(
-        self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: bool = True
+        self, alter_table: ALTER_TABLE_DROP_COLUMN, add_semicolon: Optional[bool] = None
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
         return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMN {column_name_quoted}" + (
             ";" if add_semicolon else ""
@@ -505,9 +515,14 @@ class SqlDialect:
     #########################################################
     # DROP TABLE
     #########################################################
-    def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = True) -> str:
+    def build_drop_table_sql(
+        self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_table, DROP_TABLE_IF_EXISTS) else ""
-        cascade_sql: str = " CASCADE" if getattr(drop_table, "cascade", False) else ""
+        cascade_sql: str = (
+            " CASCADE" if getattr(drop_table, "cascade", False) and self.SUPPORTS_DROP_TABLE_CASCADE else ""
+        )
         return f"DROP TABLE {if_exists_sql}{drop_table.fully_qualified_table_name}{cascade_sql}" + (
             ";" if add_semicolon else ""
         )
@@ -515,7 +530,8 @@ class SqlDialect:
     #########################################################
     # INSERT INTO
     #########################################################
-    def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: bool = True) -> str:
+    def build_insert_into_sql(self, insert_into: INSERT_INTO, add_semicolon: Optional[bool] = None) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         insert_into_sql: str = f"INSERT INTO {insert_into.fully_qualified_table_name}"
         insert_into_sql += self._build_insert_into_columns_sql(insert_into)
         insert_into_sql += self._build_insert_into_values_sql(insert_into)
@@ -526,8 +542,9 @@ class SqlDialect:
         return columns_sql
 
     def build_insert_into_via_select_sql(
-        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: bool = True
+        self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: Optional[bool] = None
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         insert_into_sql: str = f"INSERT INTO {insert_into_via_select.fully_qualified_table_name}\n"
         insert_into_sql += self._build_insert_into_columns_sql(insert_into_via_select) + "\n"
         insert_into_sql += (
@@ -554,8 +571,9 @@ class SqlDialect:
     # CREATE VIEW
     #########################################################
     def build_create_view_sql(
-        self, create_view: CREATE_VIEW, add_semicolon: bool = True, add_parenthesis: bool = True
+        self, create_view: CREATE_VIEW, add_semicolon: Optional[bool] = None, add_parenthesis: bool = True
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_view.select_elements, add_semicolon=False)
@@ -564,7 +582,10 @@ class SqlDialect:
             + (";" if add_semicolon else "")
         )
 
-    def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: bool = True) -> str:
+    def build_drop_view_sql(
+        self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_VIEW_IF_EXISTS) else ""
         return f"DROP VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
 
@@ -574,9 +595,10 @@ class SqlDialect:
     def build_create_materialized_view_sql(
         self,
         create_materialized_view: CREATE_MATERIALIZED_VIEW,
-        add_semicolon: bool = True,
+        add_semicolon: Optional[bool] = None,
         add_parenthesis: bool = True,
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_materialized_view.select_elements, add_semicolon=False)
@@ -586,8 +608,9 @@ class SqlDialect:
         )
 
     def build_drop_materialized_view_sql(
-        self, drop_view: DROP_MATERIALIZED_VIEW | DROP_MATERIALIZED_VIEW_IF_EXISTS, add_semicolon: bool = True
+        self, drop_view: DROP_MATERIALIZED_VIEW | DROP_MATERIALIZED_VIEW_IF_EXISTS, add_semicolon: Optional[bool] = None
     ) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_MATERIALIZED_VIEW_IF_EXISTS) else ""
         return f"DROP MATERIALIZED VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (
             ";" if add_semicolon else ""
@@ -599,7 +622,8 @@ class SqlDialect:
     @deprecated(
         "Not fully supported for all datasources yet. Only tested/verified for Postgres and Redshift. Use with caution."
     )
-    def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: bool = True) -> str:
+    def build_union_sql(self, union: UNION | UNION_ALL, add_semicolon: Optional[bool] = None) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         # TODO: add support for other datasources. Currently only tested/verified for Postgres.
         union_sql: str = "UNION ALL" if isinstance(union, UNION_ALL) else "UNION"
         return f"\n{union_sql}\n".join(
@@ -614,7 +638,8 @@ class SqlDialect:
     #########################################################
 
     # TODO: refactor this to use AST (`SELECT`) instead of a list of `select_elements`. See inherited overriden methods as well.
-    def build_select_sql(self, select_elements: list, add_semicolon: bool = True) -> str:
+    def build_select_sql(self, select_elements: list, add_semicolon: Optional[bool] = None) -> str:
+        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         statement_lines: list[str] = []
         statement_lines.extend(self._build_cte_sql_lines(select_elements))
         statement_lines.extend(self._build_select_sql_lines(select_elements))
@@ -1583,12 +1608,13 @@ class SqlDialect:
     def convert_datetime_to_str(self, datetime: datetime) -> str:
         return convert_datetime_to_str(datetime)
 
-    def supports_views(
-        self,
-    ) -> bool:  # Default to True, but can be overridden by specific data sources if they don't support views (Dremio)
+    def supports_views(self) -> bool:
+        """Default True. Override to False for data sources that don't support views (e.g. Dremio).
+        Even when True, DataSourceImpl.try_create_view() will catch runtime failures and cache the result."""
         return True
 
-    def supports_materialized_views(
-        self,
-    ) -> bool:  # Default to False, so that we roll out support for materialized views explicitly
+    def supports_materialized_views(self) -> bool:
+        """Default False — new data sources must explicitly opt in (e.g. Postgres, Redshift, Trino).
+        Even when True, DataSourceImpl.try_create_materialized_view() will catch runtime failures and cache the result.
+        """
         return False

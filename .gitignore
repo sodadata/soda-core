@@ -1,6 +1,6 @@
 scripts/antlr*.jar
 .antlr
-
+agents/
 .idea/
 .postgres/
 .db2/
@@ -153,3 +153,7 @@ reports/*
 *.lock
 !uv.lock
 .local/
+
+# keys
+*.pem
+*.jks

@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from helpers.data_source_test_helper import DataSourceTestHelper
 from soda_core.common.logs import Logs
 
-project_root_dir = __file__[: -len("/soda-core/tests/helpers/test_fixtures.py")]
-load_dotenv(f"{project_root_dir}/.env", override=True)
+project_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+load_dotenv(os.path.join(project_root_dir, ".env"), override=True)
 
 
 # In global scope because it is used in pytest annotations, it would not work as a fixture.
