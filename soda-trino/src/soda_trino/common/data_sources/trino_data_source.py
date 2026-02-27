@@ -34,7 +34,7 @@ class TrinoDataSourceImpl(DataSourceImpl, model_class=TrinoDataSourceModel):
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return TrinoSqlDialect(data_source_impl=self)
+        return TrinoSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return TrinoDataSourceConnection(
