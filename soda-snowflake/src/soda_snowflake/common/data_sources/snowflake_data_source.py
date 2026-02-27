@@ -31,7 +31,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SnowflakeSqlDialect(data_source_impl=self)
+        return SnowflakeSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SnowflakeDataSourceConnection(
@@ -67,7 +67,7 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
         return row[0] if row and row[0] else None
 
 
-class SnowflakeSqlDialect(SqlDialect):
+class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (
@@ -192,8 +192,13 @@ class SnowflakeSqlDialect(SqlDialect):
             TIMESTAMP_WITH_LOCAL_TIME_ZONE,
         ]
 
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        return sampler_type in (SamplerType.ABSOLUTE_LIMIT, SamplerType.PERCENTAGE)
+
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.ABSOLUTE_LIMIT:
             return f"TABLESAMPLE ({int(sample_size)} ROWS)"
+        elif sampler_type is SamplerType.PERCENTAGE:
+            return f"TABLESAMPLE ({sample_size})"
         else:
-            raise ValueError(f"Unsupported sample type: {sampler_type}")
+            raise ValueError(f"Unsupported sampler type: {sampler_type.name}")

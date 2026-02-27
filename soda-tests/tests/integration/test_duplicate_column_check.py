@@ -58,6 +58,7 @@ def test_duplicate_str_pass(data_source_test_helper: DataSourceTestHelper):
         "failedRowsPercent": 0.0,
         "datasetRowsTested": 10,
         "checkRowsTested": 10,
+        "missingCount": 1,
     }
 
 

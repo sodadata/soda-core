@@ -159,6 +159,13 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             threshold_yaml=check_yaml.threshold,
         )
 
+    @property
+    def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
+        expression = super().column_expression
+        if not expression:
+            expression = COLUMN(self.check_yaml.column)
+        return expression
+
     def setup_metrics(
         self,
         contract_impl: ContractImpl,
@@ -168,8 +175,8 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
         self.max_timestamp_metric = self._resolve_metric(
             MaxTimestampMetricImpl(
                 contract_impl=contract_impl,
+                column_expression=self.column_expression,
                 check_impl=self,
-                column=self.column,
                 now_variable=self.now_variable,
                 unit=self.unit,
             )
@@ -234,13 +241,12 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         self,
         contract_impl: ContractImpl,
         check_impl: FreshnessCheckImpl,
-        column: str,
         now_variable: Optional[str],
         unit: Optional[str],
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
-        self.column: str = column
         self.now_variable: Optional[str] = now_variable
         self.unit: Optional[str] = unit
         super().__init__(
@@ -249,20 +255,20 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, str] = super()._get_id_properties()
-        id_properties["column"] = self.column
         id_properties["now_variable"] = self.now_variable
         id_properties["unit"] = self.unit
         return id_properties
 
     def sql_expression(self) -> SqlExpression:
-        max_expression = self.column
+        max_expression = self.column_expression
 
         if self.check_filter:
-            max_expression = CASE_WHEN(SqlExpressionStr(self.check_filter), self.column)
+            max_expression = CASE_WHEN(SqlExpressionStr(self.check_filter), self.column_expression)
 
         return MAX(max_expression)
 

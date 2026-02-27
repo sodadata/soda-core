@@ -47,6 +47,8 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
     def to_connection_kwargs(self) -> dict:
         connection_kwargs = super().to_connection_kwargs()
         connection_kwargs["private_key"] = self._decrypt(self.private_key, self.private_key_passphrase)
+        # Remove the passphrase from the connection kwargs, it's already included in the `private_key` field.
+        connection_kwargs.pop("private_key_passphrase", None)
         return connection_kwargs
 
     def _decrypt(self, private_key: str, private_key_passphrase: Optional[SecretStr]) -> bytes:
@@ -56,7 +58,9 @@ class SnowflakeKeyPairAuth(SnowflakeSharedConnectionProperties):
         )
 
         p_key = serialization.load_pem_private_key(
-            private_key_bytes, password=private_key_passphrase_bytes, backend=default_backend()
+            private_key_bytes,
+            password=private_key_passphrase_bytes,
+            backend=default_backend(),
         )
 
         return p_key.private_bytes(
@@ -73,11 +77,14 @@ class SnowflakeKeyPairFileAuth(SnowflakeSharedConnectionProperties):
 
     def to_connection_kwargs(self) -> dict:
         connection_kwargs = super().to_connection_kwargs()
+        # Snowflake does not need this extra info. It will read the private key file directly.
+        connection_kwargs.pop("private_key_path", None)
+        connection_kwargs.pop("private_key_passphrase", None)
         connection_kwargs["private_key_file"] = self.private_key_path
         if self.private_key_passphrase is not None:
             pwd = self.private_key_passphrase.get_secret_value()
             if pwd:
-                connection_kwargs["private_key_file_pwd"] = pwd
+                connection_kwargs["private_key_file_pwd"] = pwd.encode()
         return connection_kwargs
 
 

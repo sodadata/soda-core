@@ -1,4 +1,5 @@
 from logging import Logger
+from numbers import Number
 from typing import Any, Optional, Tuple
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -8,6 +9,7 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     ColumnMetadata,
     DataSourceNamespace,
+    SamplerType,
     SodaDataTypeName,
 )
 from soda_core.common.sql_ast import (
@@ -32,23 +34,29 @@ logger: Logger = soda_logger
 
 
 class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceModel):
-    def __init__(self, data_source_model: DatabricksDataSourceModel, connection: Optional[DataSourceConnection] = None):
+    def __init__(
+        self,
+        data_source_model: DatabricksDataSourceModel,
+        connection: Optional[DataSourceConnection] = None,
+    ):
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
         if self.__is_hive_catalog():
-            return DatabricksHiveSqlDialect(data_source_impl=self)
-        return DatabricksSqlDialect(data_source_impl=self)
+            return DatabricksHiveSqlDialect()
+        return DatabricksSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DatabricksDataSourceConnection(
-            name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
+            name=self.data_source_model.name,
+            connection_properties=self.data_source_model.connection_properties,
         )
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
         if self.__is_hive_catalog():
             return HiveMetadataTablesQuery(
-                sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+                sql_dialect=self.sql_dialect,
+                data_source_connection=self.data_source_connection,
             )
         else:
             return super().create_metadata_tables_query()
@@ -83,7 +91,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         return False
 
 
-class DatabricksSqlDialect(SqlDialect):
+class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
     DEFAULT_QUOTE_CHAR = "`"
 
     SODA_DATA_TYPE_SYNONYMS = (
@@ -96,6 +104,15 @@ class DatabricksSqlDialect(SqlDialect):
         return [
             ["int", "integer"],
         ]
+
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        return sampler_type is SamplerType.PERCENTAGE
+
+    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
+        if sampler_type is SamplerType.PERCENTAGE:
+            return f"TABLESAMPLE ({sample_size} PERCENT)"
+        else:
+            raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
 
     def column_data_type(self) -> str:
         return self.default_casify("data_type")
@@ -131,7 +148,9 @@ class DatabricksSqlDialect(SqlDialect):
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
-    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+    def get_soda_data_type_name_by_data_source_data_type_names(
+        self,
+    ) -> dict[str, SodaDataTypeName]:
         return {
             "string": SodaDataTypeName.TEXT,
             "varchar": SodaDataTypeName.VARCHAR,
@@ -288,7 +307,10 @@ class DatabricksSqlDialect(SqlDialect):
         return super().is_same_soda_data_type_with_synonyms(expected, actual)
 
     def _build_alter_table_add_column_sql(
-        self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
+        self,
+        alter_table: ALTER_TABLE_ADD_COLUMN,
+        add_semicolon: bool = True,
+        add_parenthesis: bool = False,
     ) -> str:
         return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=add_semicolon, add_parenthesis=True)
 
@@ -322,7 +344,7 @@ class DatabricksSqlDialect(SqlDialect):
         return identifier.lower()
 
 
-class DatabricksHiveSqlDialect(DatabricksSqlDialect):
+class DatabricksHiveSqlDialect(DatabricksSqlDialect, sqlglot_dialect="databricks"):
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         catalog_name: str = self.quote_default(prefixes[0])

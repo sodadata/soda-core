@@ -57,6 +57,8 @@ if [[ "$DRY_RUN" = true ]]; then
   tbump --no-tag --dry-run $NEXT_PRERELEASE
 else
   tbump --non-interactive --only-patch "$NEXT_PRERELEASE"
+  # Run uv lock to update the lock file to include the new prerelease version
+  uv lock
   git commit -a -m "[skip ci] Bump to next prerelease version $NEXT_PRERELEASE"
   git push
 fi

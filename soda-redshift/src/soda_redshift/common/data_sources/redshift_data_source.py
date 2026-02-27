@@ -40,7 +40,7 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return RedshiftSqlDialect(data_source_impl=self)
+        return RedshiftSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return RedshiftDataSourceConnection(
@@ -53,7 +53,7 @@ class RedshiftDataSourceImpl(DataSourceImpl, model_class=RedshiftDataSourceModel
         )
 
 
-class RedshiftSqlDialect(SqlDialect):
+class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.CHAR, SodaDataTypeName.VARCHAR),  # Char is mapped to varchar in the cursor description.

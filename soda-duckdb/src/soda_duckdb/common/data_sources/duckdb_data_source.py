@@ -62,7 +62,7 @@ class DuckDBDataSourceConnectionWrapper:
         return DuckDBCursor(self._delegate)
 
 
-class DuckDBSqlDialect(SqlDialect):
+class DuckDBSqlDialect(SqlDialect, sqlglot_dialect="duckdb"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR, SodaDataTypeName.CHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
@@ -262,7 +262,7 @@ class DuckDBDataSourceConnection(DataSourceConnection):
 
 class DuckDBDataSourceImpl(DataSourceImpl, model_class=DuckDBDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
-        return DuckDBSqlDialect(data_source_impl=self)
+        return DuckDBSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return DuckDBDataSourceConnection(
