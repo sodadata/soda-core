@@ -248,12 +248,10 @@ def verify_contract(
             return ContractVerificationSessionResult(contract_verification_results=[])
 
         data_source_yaml_sources: list[DataSourceYamlSource] = []
-        if data_source_file_paths or dataset_identifiers:
+        if data_source_file_paths:
             data_source_yaml_sources.extend(
                 _create_datasource_yamls(
                     data_source_file_paths,
-                    dataset_identifiers,
-                    soda_cloud_client,
                     use_agent,
                 )
             )
@@ -316,7 +314,7 @@ def validate_verify_arguments(
             "Please provide the '--soda-cloud' argument with a valid configuration file path."
         )
 
-    if all_none_or_empty(dataset_identifiers) and not data_source_file_paths and not use_agent and not data_sources:
+    if not data_source_file_paths and not use_agent and not data_sources:
         raise InvalidArgumentException("At least one of -ds/--data-source or -d/--dataset value is required.")
 
 
@@ -328,10 +326,6 @@ def is_using_remote_contract(
     contract_file_paths: Optional[list[str]], dataset_identifiers: Optional[list[str]]
 ) -> bool:
     return (contract_file_paths is None or len(contract_file_paths) == 0) and dataset_identifiers is not None
-
-
-def is_using_remote_datasource(dataset_identifiers: Optional[list[str]], data_source_file_path: Optional[str]) -> bool:
-    return not data_source_file_path and not all_none_or_empty(dataset_identifiers)
 
 
 def contract_verification_is_not_sent_to_cloud(
@@ -369,8 +363,6 @@ def _create_contract_yamls(
 
 def _create_datasource_yamls(
     data_source_file_paths: Optional[list[str]],
-    dataset_identifiers: Optional[list[str]],
-    soda_cloud_client: SodaCloud,
     use_agent: bool,
 ) -> Optional[DataSourceYamlSource]:
     data_source_yamls: list[DataSourceYamlSource] = []
@@ -379,20 +371,6 @@ def _create_datasource_yamls(
         for data_source_file_path in data_source_file_paths:
             soda_logger.debug(f"Using local data source config: {data_source_file_path}")
             data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
-
-    if dataset_identifiers:
-        for dataset_identifier in dataset_identifiers:
-            soda_logger.debug(
-                f"No local data source config for '{dataset_identifier}', trying to fetch data source config from cloud"
-            )
-            data_source_config = soda_cloud_client.fetch_data_source_configuration_for_dataset(dataset_identifier)
-
-            if not data_source_config:
-                soda_logger.error(
-                    f"Could not fetch data source configuration for dataset '{dataset_identifier}': skipping fetch."
-                )
-            else:
-                data_source_yamls.append(DataSourceYamlSource.from_str(data_source_config))
 
     if data_source_yamls:
         return data_source_yamls
@@ -403,8 +381,8 @@ def _create_datasource_yamls(
         return None
 
     raise InvalidDataSourceConfigurationException(
-        "No data source configuration provided and no dataset identifiers given. "
-        "Please provide a data source configuration file or a dataset identifier."
+        "No data source configuration provided. "
+        "Please provide a data source configuration file using the -ds/--data-source argument."
     )
 
 
