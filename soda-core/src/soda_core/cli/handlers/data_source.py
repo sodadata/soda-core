@@ -23,9 +23,7 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
     try:
         Path(dir_name).mkdir(parents=True, exist_ok=True)
         with open(data_source_file_path, "w") as text_file:
-            text_file.write(
-                dedent(
-                    """
+            text_file.write(dedent("""
                 type: postgres
                 name: postgres_ds
                 connection:
@@ -33,9 +31,7 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
                     user: ${POSTGRES_USERNAME}
                     password: ${POSTGRES_PASSWORD}
                     database: your_postgres_db
-                """
-                ).strip()
-            )
+                """).strip())
         soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'")
         return ExitCode.OK
     except Exception as exc:

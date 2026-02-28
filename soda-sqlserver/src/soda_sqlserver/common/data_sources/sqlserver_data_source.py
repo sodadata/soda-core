@@ -137,9 +137,7 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
                         FROM    sys.schemas
                         WHERE   name = N'{schema_name}' )
         EXEC('CREATE SCHEMA [{schema_name}]')
-        """ + (
-            ";" if add_semicolon else ""
-        )
+        """ + (";" if add_semicolon else "")
 
     def build_drop_table_sql(self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: bool = True) -> str:
         if_exists_sql: str = (

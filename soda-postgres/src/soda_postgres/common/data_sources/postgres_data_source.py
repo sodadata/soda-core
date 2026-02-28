@@ -260,8 +260,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                 [
                     COLUMN("attname", table_alias="a", field_alias="column_name"),
                     # Normalize data type into information_schema.columns style. Consider doing this in python instead, but this is lightweight and simple enough.
-                    RAW_SQL(
-                        """CASE
+                    RAW_SQL("""CASE
                             -- arrays
                             WHEN t.typcategory = 'A' OR t.typelem <> 0 THEN 'ARRAY'
 
@@ -284,13 +283,11 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                             ELSE COALESCE(bt.typname, t.typname)
                             END
                         END AS  \"data_type\"
-                    """
-                    ),
+                    """),
                     # Extract type parameters. No abstract level api for this, we have to replicate Postgres logic here.
                     # All a.atttypmod are offset by 4 in Postgres
                     #  varchar/char length (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
+                    RAW_SQL("""CASE
                             WHEN t.typname IN ('varchar','bpchar') THEN
                                 CASE
                                     WHEN a.atttypmod > 4 THEN a.atttypmod - 4
@@ -298,11 +295,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                                 END
                             ELSE NULL
                         END AS "character_maximum_length"
-                    """
-                    ),
+                    """),
                     # numeric precision (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
+                    RAW_SQL("""CASE
                             WHEN t.typname = 'numeric' THEN
                                 CASE
                                     WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) >> 16)
@@ -310,11 +305,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                                 END
                             ELSE NULL
                         END AS "numeric_precision"
-                    """
-                    ),
+                    """),
                     # numeric scale (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
+                    RAW_SQL("""CASE
                             WHEN t.typname = 'numeric' THEN
                                 CASE
                                     WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) & 65535)
@@ -322,11 +315,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                                 END
                             ELSE NULL
                         END AS "numeric_scale"
-                    """
-                    ),
+                    """),
                     # datetime precision (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
+                    RAW_SQL("""CASE
                             WHEN t.typname IN ('time','timetz','timestamp','timestamptz') THEN
                                 CASE
                                     WHEN a.atttypmod >= 0 THEN a.atttypmod
@@ -334,8 +325,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                                 END
                             ELSE NULL
                         END AS "datetime_precision"
-                    """
-                    ),
+                    """),
                     COLUMN(current_database_expression, field_alias="table_catalog"),
                     COLUMN("nspname", table_alias="n", field_alias="table_schema"),
                     COLUMN("relname", table_alias="c", field_alias="table_name"),

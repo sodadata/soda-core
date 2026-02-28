@@ -14,8 +14,7 @@ def main():
     project_root_dir = __file__[: -len("/soda-core/tests/soda_core/tests/components/manual_test_agent_flow.py")]
     load_dotenv(f"{project_root_dir}/.env", override=True)
 
-    contract_yaml_str: str = dedent(
-        """
+    contract_yaml_str: str = dedent("""
         data_source: bus_nienu
         dataset_prefix: [nyc, public]
         dataset: bus_breakdown_and_delays
@@ -26,16 +25,13 @@ def main():
                   valid_values: [ 'Heavy Traffic', 'Other', 'Mechanical Problem', 'Won`t Start', 'Problem Run' ]
         checks:
           - schema:
-    """
-    ).strip()
+    """).strip()
 
-    soda_cloud_yaml_str = dedent(
-        """
+    soda_cloud_yaml_str = dedent("""
         soda_cloud:
           api_key_id: ${SODA_CLOUD_API_KEY_ID}
           api_key_secret: ${SODA_CLOUD_API_KEY_SECRET}
-    """
-    ).strip()
+    """).strip()
 
     soda_cloud: SodaCloud = SodaCloud.from_yaml_source(
         SodaCloudYamlSource.from_str(soda_cloud_yaml_str), provided_variable_values={}

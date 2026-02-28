@@ -30,8 +30,7 @@ from typing import Protocol
 
 class ContractYamlExtension(Protocol):
     # Extend the contract YAML object. Can modify the state of the contract YAML.
-    def extend(self, contract_yaml: "ContractYaml") -> None:
-        ...
+    def extend(self, contract_yaml: "ContractYaml") -> None: ...
 
 
 class ContractYaml:

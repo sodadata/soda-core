@@ -51,14 +51,12 @@ test_table_specification = (
     .build()
 )
 
-YAML_SOURCE: SodaCloudYamlSource = SodaCloudYamlSource.from_str(
-    """
+YAML_SOURCE: SodaCloudYamlSource = SodaCloudYamlSource.from_str("""
 soda_cloud:
   host: dev.sodadata.io
   api_key_id: some_key_id
   api_key_secret: some_key_secret
-"""
-)
+""")
 
 
 def test_soda_cloud_from_yaml_source_with_api_key_auth():
@@ -73,12 +71,10 @@ def test_soda_cloud_from_yaml_source_with_api_key_auth():
 
 def test_soda_cloud_from_yaml_source_with_token_auth():
     os.environ.update({"SODA_CLOUD_TOKEN": "some_token"})
-    yaml_source = SodaCloudYamlSource.from_str(
-        """
+    yaml_source = SodaCloudYamlSource.from_str("""
         soda_cloud:
           host: dev.sodadata.io
-        """
-    )
+        """)
     try:
         soda_cloud = SodaCloud.from_yaml_source(yaml_source, provided_variable_values={})
         assert not soda_cloud.api_key_id
@@ -514,17 +510,11 @@ def test_publish_contract():
     ]
     mock_cloud = MockSodaCloud(responses)
 
-    res = mock_cloud.publish_contract(
-        ContractYaml.parse(
-            ContractYamlSource.from_str(
-                f"""
+    res = mock_cloud.publish_contract(ContractYaml.parse(ContractYamlSource.from_str(f"""
             dataset: test/some/schema/CUSTOMERS
             columns:
             - name: id
-        """
-            )
-        )
-    )
+        """)))
 
     assert isinstance(res, ContractPublicationResult)
 
@@ -547,15 +537,11 @@ def test_verify_contract_on_agent_permission_check():
     mock_cloud = MockSodaCloud(responses)
 
     res = mock_cloud.verify_contract_on_agent(
-        ContractYaml.parse(
-            ContractYamlSource.from_str(
-                f"""
+        ContractYaml.parse(ContractYamlSource.from_str(f"""
             dataset: test/some/schema/CUSTOMERS
             columns:
             - name: id
-        """
-            )
-        ),
+        """)),
         variables={},
         blocking_timeout_in_minutes=60,
         publish_results=False,

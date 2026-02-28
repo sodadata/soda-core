@@ -5,9 +5,7 @@ from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, Contra
 
 
 def test_parse_relative_complete_contract():
-    contract_yaml_source: ContractYamlSource = ContractYamlSource.from_str(
-        yaml_str=dedent_and_strip(
-            """
+    contract_yaml_source: ContractYamlSource = ContractYamlSource.from_str(yaml_str=dedent_and_strip("""
         dataset: sdf/soda_test/dev_xxx/SODATEST_test_schema_31761d69
         columns:
           - name: id
@@ -16,9 +14,7 @@ def test_parse_relative_complete_contract():
               - missing:
         checks:
           - schema:
-        """
-        )
-    )
+        """))
 
     contract_yaml: ContractYaml = ContractYaml.parse(
         contract_yaml_source=contract_yaml_source, provided_variable_values={}
@@ -35,29 +31,21 @@ def test_parse_relative_complete_contract():
 
 
 def test_legacy_dataset_specification(logs: Logs):
-    ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(
-            """
+    ContractYaml.parse(contract_yaml_source=ContractYamlSource.from_str("""
             data_source: abc
             dataset_prefix: [a, b]
             dataset: dsname
             columns: []
-        """
-        )
-    )
+        """))
     assert "Invalid dataset qualified name in 'dataset'" in logs.get_errors_str()
 
 
 def test_minimal_contract():
     logs: Logs = Logs()
-    ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(
-            """
+    ContractYaml.parse(contract_yaml_source=ContractYamlSource.from_str("""
             dataset: a/b/c/d
             columns: []
-        """
-        )
-    )
+        """))
     logs.remove_from_root_logger()
 
     assert not logs.get_errors_str()

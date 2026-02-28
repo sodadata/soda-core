@@ -269,9 +269,9 @@ class SchemaQuery(Query):
             logger.error(msg=f"Could not execute schema query {self.sql}: {e}", exc_info=True)
             return []
         try:
-            metadata_columns: list[
-                ColumnMetadata
-            ] = self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
+            metadata_columns: list[ColumnMetadata] = (
+                self.data_source_impl.sql_dialect.build_column_metadatas_from_query_result(query_result)
+            )
         except Exception as e:
             logger.error(f"Error building column metadata from query result: {e}")
             return []
