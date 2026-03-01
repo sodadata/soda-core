@@ -265,6 +265,3 @@ jobs:
           user: ${{ secrets.DEV_PYPI_USERNAME }}
           password: ${{ secrets.DEV_PYPI_PASSWORD }}
           repository-url: ${{ secrets.DEV_PYPI_URL }}
-  # NOTE: The release-to-pypi job has been removed.
-  # Production releases are now handled by .github/workflows/release.yaml
-  # which provides validation, approval gates, and test-before-tag safety.
