@@ -97,8 +97,11 @@ jobs:
             --json headSha,conclusion,createdAt \
             --jq '.[0]')
 
+          CI_STATUS="green"
+
           if [ -z "$LATEST_RUN" ] || [ "$LATEST_RUN" = "null" ]; then
             echo "::warning::Could not find a successful CI run on main. Proceeding with caution."
+            CI_STATUS="unknown"
           else
             echo "Latest successful CI run: $LATEST_RUN"
           fi
@@ -109,6 +112,18 @@ jobs:
 
           if [ -n "$LATEST_SUCCESS_SHA" ] && [ "$MAIN_SHA" != "$LATEST_SUCCESS_SHA" ]; then
             echo "::warning::Latest successful CI ($LATEST_SUCCESS_SHA) does not match HEAD of main ($MAIN_SHA). New commits may be untested."
+            CI_STATUS="stale"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CI_STATUS" = "green" ]; then
+            echo "### CI Status: passed" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$CI_STATUS" = "unknown" ]; then
+            echo "### CI Status: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Warning:** No successful CI run found on main. Verify CI manually before approving." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### CI Status: STALE" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Warning:** Latest successful CI (\`$LATEST_SUCCESS_SHA\`) does not match HEAD (\`$MAIN_SHA\`). New commits may be untested." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Define release matrix
