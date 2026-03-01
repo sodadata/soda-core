@@ -432,8 +432,6 @@ jobs:
           source .venv/bin/activate
           uv pip install tbump
 
-          git pull origin main
-
           tbump --only-patch --non-interactive "$NEXT_VERSION"
           uv lock
 
