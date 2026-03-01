@@ -196,6 +196,7 @@ jobs:
           uv pip install tbump
 
           tbump --only-patch --non-interactive "$VERSION"
+          uv lock
 
           git add -A
           git commit -m "Bump to $VERSION"
@@ -419,6 +420,8 @@ jobs:
           git pull origin main
 
           tbump --only-patch --non-interactive "$NEXT_VERSION"
+          uv lock
+
           git add -A
           git commit -m "[skip ci] Bump to next prerelease version $NEXT_VERSION"
           git push origin main
