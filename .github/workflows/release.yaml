@@ -144,11 +144,26 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
+  # Manual approval gate (skipped on dry run)
+  # ---------------------------------------------------------------------------
+  approve:
+    name: Approve release
+    needs: [validate]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    environment: release-approval
+    steps:
+      - name: Approval granted
+        run: |
+          echo "### Release v${{ needs.validate.outputs.version }} approved" >> "$GITHUB_STEP_SUMMARY"
+          echo "Proceeding with tag, build, and publish." >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
   # Tag & create GitHub Release (skipped on dry run)
   # ---------------------------------------------------------------------------
   tag:
     name: Tag & GitHub Release
-    needs: [validate]
+    needs: [validate, approve]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-24.04
     permissions:
@@ -413,7 +428,7 @@ jobs:
   # ---------------------------------------------------------------------------
   summary:
     name: Release summary
-    needs: [validate, tag, build-and-publish, bump-next]
+    needs: [validate, approve, tag, build-and-publish, bump-next]
     if: always() && !inputs.dry_run
     runs-on: ubuntu-24.04
     steps:
