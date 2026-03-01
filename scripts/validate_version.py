@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -50,13 +51,50 @@ def validate_version(version: str) -> None:
         sys.exit(1)
 
 
+def get_bump_level_from_commits() -> str:
+    """Inspect conventional commits since the last tag to determine the bump level.
+
+    Returns "minor" if any feat: commits are found, otherwise "patch".
+    """
+    try:
+        last_tag = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0", "HEAD"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        log_range = f"{last_tag}..HEAD"
+    except subprocess.CalledProcessError:
+        log_range = "HEAD"
+
+    try:
+        log_output = subprocess.run(
+            ["git", "log", log_range, "--pretty=format:%s", "--no-merges"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return "patch"
+
+    for line in log_output.splitlines():
+        if re.match(r"^feat(?:\([^)]*\))?:", line):
+            return "minor"
+
+    return "patch"
+
+
 def next_prerelease(version: str) -> str:
     m = VERSION_PATTERN.match(version)
     if not m:
         print(f"::error::Cannot compute next prerelease from '{version}'", file=sys.stderr)
         sys.exit(1)
     major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
-    return f"{major}.{minor}.{patch + 1}rc0"
+
+    bump = get_bump_level_from_commits()
+    if bump == "minor":
+        minor += 1
+        patch = 0
+    else:
+        patch += 1
+
+    return f"{major}.{minor}.{patch}rc0"
 
 
 def main() -> None:

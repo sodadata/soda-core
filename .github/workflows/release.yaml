@@ -9,6 +9,11 @@ on:
         required: false
         type: string
         default: ""
+      next_version:
+        description: "Next prerelease version after release (e.g. 5.1.0rc0). Leave blank to auto-detect from commits."
+        required: false
+        type: string
+        default: ""
       dry_run:
         description: "Dry run — validate and build but do not tag or publish"
         required: false
@@ -41,6 +46,7 @@ jobs:
         id: resolve
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          INPUT_NEXT_VERSION: ${{ inputs.next_version }}
         run: |
           if [ -z "$INPUT_VERSION" ]; then
             CURRENT=$(python3 scripts/validate_version.py --current)
@@ -55,8 +61,13 @@ jobs:
           # Validate format
           python3 scripts/validate_version.py --validate "$VERSION"
 
-          # Calculate next prerelease
-          NEXT_VERSION=$(python3 scripts/validate_version.py --next "$VERSION")
+          # Calculate next prerelease (use override if provided)
+          if [ -n "$INPUT_NEXT_VERSION" ]; then
+            NEXT_VERSION="$INPUT_NEXT_VERSION"
+            echo "Using manually provided next version: $NEXT_VERSION"
+          else
+            NEXT_VERSION=$(python3 scripts/validate_version.py --next "$VERSION")
+          fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
@@ -218,13 +229,6 @@ jobs:
           git tag "v$VERSION"
           git push origin main --tags
 
-      - name: Generate release notes
-        run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          python3 scripts/generate_release_notes.py --version "$VERSION" > /tmp/release-notes.md
-          echo "--- Generated release notes ---"
-          cat /tmp/release-notes.md
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -232,8 +236,7 @@ jobs:
           VERSION="${{ needs.validate.outputs.version }}"
           gh release create "v$VERSION" \
             --verify-tag \
-            --generate-notes \
-            --notes-file /tmp/release-notes.md
+            --generate-notes
 
   # ---------------------------------------------------------------------------
   # Build & publish all packages (skipped on dry run)
