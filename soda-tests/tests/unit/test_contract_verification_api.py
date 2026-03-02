@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from soda_core.common.exceptions import (
     InvalidArgumentException,
+    InvalidDataSourceConfigurationException,
     SodaCloudException,
     YamlParserException,
 )
@@ -10,6 +11,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api.verify_api import (
     ContractVerificationSession,
+    _create_datasource_yamls,
     all_none_or_empty,
     verify_contract,
 )
@@ -212,3 +214,71 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
     )
 
     assert "No contracts given. Exiting." in caplog.messages
+
+
+def test_local_flow_does_not_fetch_datasource_config_from_cloud():
+    """
+    In the local flow (use_agent=False), _create_datasource_yamls
+    should NOT call fetch_data_source_configuration_for_dataset on the
+    SodaCloud client. Fetching datasource configs from Cloud in the local
+    flow is a security risk — it can expose host/connection info to users
+    who only have contract execution permissions.
+
+    When no local data source files are provided in local flow, it should
+    raise an error instead of fetching from Cloud.
+    """
+    with pytest.raises(InvalidDataSourceConfigurationException):
+        _create_datasource_yamls(
+            data_source_file_paths=[],
+            use_agent=False,
+        )
+
+
+def test_local_flow_with_dataset_identifier_uses_local_datasource_config(tmp_path):
+    """
+    When both --dataset and --data-source are provided in local flow,
+    only the local data source config should be used (no Cloud fetch).
+    """
+    ds_file = tmp_path / "ds.yml"
+    ds_file.write_text("type: duckdb\npath: test.db")
+
+    result = _create_datasource_yamls(
+        data_source_file_paths=[str(ds_file)],
+        use_agent=False,
+    )
+
+    assert len(result) == 1
+
+
+def test_agent_flow_without_local_datasource_returns_none():
+    """
+    In agent flow (use_agent=True), when no local data source files
+    are provided, return None (agent provides its own config). Should NOT
+    fetch from Cloud.
+    """
+    result = _create_datasource_yamls(
+        data_source_file_paths=[],
+        use_agent=True,
+    )
+
+    assert result is None
+
+
+@patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
+def test_local_flow_with_dataset_but_no_datasource_raises_error(mock_cloud_client):
+    """
+    Using --dataset without --data-source in local flow should raise
+    an error at validation, requiring the user to provide a local data source config.
+    """
+    with pytest.raises(InvalidArgumentException, match="At least one of -ds/--data-source"):
+        _ = verify_contract(
+            contract_file_path=None,
+            dataset_identifier="my_ds/my_schema/my_table",
+            data_source_file_path=None,
+            soda_cloud_file_path="sc.yaml",
+            variables={},
+            publish=False,
+            use_agent=False,
+            verbose=False,
+            blocking_timeout_in_minutes=10,
+        )
