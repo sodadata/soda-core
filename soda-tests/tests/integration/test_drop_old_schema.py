@@ -82,6 +82,13 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
         pytest.skip(
             f"Skipping test for {data_source_test_helper.data_source_impl.type_name} because it is not in {DATASOURCES_TO_RUN}"
         )
+    if data_source_test_helper.data_source_impl.type_name == "databricks":
+        # Skip if we're running a hive catalog
+        if data_source_test_helper.data_source_impl._is_hive_catalog():
+            pytest.skip(
+                f"Skipping test for {data_source_test_helper.data_source_impl.type_name} because it is a hive catalog"
+            )
+
     dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
     # First get the list of all the schema's in the database.
     table_namespace, schema_name = data_source_test_helper.data_source_impl._build_table_namespace_for_schema_query(
