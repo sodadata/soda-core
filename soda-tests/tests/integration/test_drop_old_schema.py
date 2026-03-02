@@ -16,10 +16,13 @@ logger: logging.Logger = soda_logger
 DATASOURCES_TO_RUN = [
     "postgres",  # Postgres is not required, but just to verify that the test works (also for local clean up)
     "snowflake",
-    "athena",
     "bigquery",
-    "redshift",
+    "fabric",
     "synapse",
+    "athena",
+    "redshift",
+    "oracle",
+    "databricks",
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
