@@ -234,6 +234,50 @@ class DataSourceImpl(ABC):
             table_namespace=table_namespace, table_name=dataset_name
         )
 
+    def get_all_columns_metadata_for_schema(self, prefixes: list[str]) -> dict[str, list[ColumnMetadata]]:
+        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
+        database_name: Optional[str] = self.extract_database_from_prefix(prefixes)
+
+        table_namespace: DataSourceNamespace = (
+            SchemaDataSourceNamespace(schema=schema_name)
+            if database_name is None
+            else DbSchemaDataSourceNamespace(database=database_name, schema=schema_name)
+        )
+
+        sql: str = self.sql_dialect.build_all_columns_metadata_query_str(table_namespace=table_namespace)
+        query_result: QueryResult = self.execute_query(sql)
+
+        # Group rows by table_name (first column), then parse remaining columns as ColumnMetadata.
+        # Rows have table_name as column 0, then the same columns as build_columns_metadata_query_str.
+        columns_by_table: dict[str, list[ColumnMetadata]] = {}
+        for row in query_result.rows:
+            table_name: str = row[0]
+            # Create a sub-row and sub-columns list without the table_name column
+            sub_row = row[1:]
+            sub_columns = query_result.columns[1:]
+            column_name: str = sub_row[0]
+            data_type_name: str = self.sql_dialect.format_metadata_data_type(
+                self.sql_dialect.extract_data_type_name(sub_row, sub_columns)
+            )
+            character_maximum_length = self.sql_dialect.extract_character_maximum_length(sub_row, sub_columns)
+            numeric_precision = self.sql_dialect.extract_numeric_precision(sub_row, sub_columns)
+            numeric_scale = self.sql_dialect.extract_numeric_scale(sub_row, sub_columns)
+            datetime_precision = self.sql_dialect.extract_datetime_precision(sub_row, sub_columns)
+
+            column_metadata = ColumnMetadata(
+                column_name=column_name,
+                sql_data_type=self.sql_dialect.get_sql_data_type_class()(
+                    name=data_type_name,
+                    character_maximum_length=character_maximum_length,
+                    numeric_precision=numeric_precision,
+                    numeric_scale=numeric_scale,
+                    datetime_precision=datetime_precision,
+                ),
+            )
+            columns_by_table.setdefault(table_name, []).append(column_metadata)
+
+        return columns_by_table
+
     def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         schema_index: int | None = self.sql_dialect.get_schema_prefix_index()
         if schema_index is None:

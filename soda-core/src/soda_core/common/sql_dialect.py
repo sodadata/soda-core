@@ -1429,6 +1429,33 @@ class SqlDialect:
         """
         return FROM(self.table_columns()).IN(self.information_schema_namespace_elements(table_namespace))
 
+    def _build_columns_metadata_select_columns(self) -> list:
+        return [
+            self.column_column_name(),
+            self.column_data_type(),
+            *(
+                [self.column_data_type_max_length()]
+                if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length()
+                else []
+            ),
+            *(
+                [self.column_data_type_numeric_precision()]
+                if self.supports_data_type_numeric_precision() and self.column_data_type_numeric_precision()
+                else []
+            ),
+            *(
+                [self.column_data_type_numeric_scale()]
+                if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale()
+                else []
+            ),
+            *(
+                [self.column_data_type_datetime_precision()]
+                if self.supports_data_type_datetime_precision()
+                and self.column_data_type_datetime_precision()
+                else []
+            ),
+        ]
+
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         """
         Builds the full SQL query to query table names from the data source metadata.
@@ -1439,33 +1466,7 @@ class SqlDialect:
 
         return self.build_select_sql(
             [
-                SELECT(
-                    [
-                        self.column_column_name(),
-                        self.column_data_type(),
-                        *(
-                            [self.column_data_type_max_length()]
-                            if self.supports_data_type_character_maximum_length() and self.column_data_type_max_length()
-                            else []
-                        ),
-                        *(
-                            [self.column_data_type_numeric_precision()]
-                            if self.supports_data_type_numeric_precision() and self.column_data_type_numeric_precision()
-                            else []
-                        ),
-                        *(
-                            [self.column_data_type_numeric_scale()]
-                            if self.supports_data_type_numeric_scale() and self.column_data_type_numeric_scale()
-                            else []
-                        ),
-                        *(
-                            [self.column_data_type_datetime_precision()]
-                            if self.supports_data_type_datetime_precision()
-                            and self.column_data_type_datetime_precision()
-                            else []
-                        ),
-                    ]
-                ),
+                SELECT(self._build_columns_metadata_select_columns()),
                 self.build_columns_metadata_from_clause(table_namespace),
                 WHERE(
                     AND(
@@ -1477,6 +1478,36 @@ class SqlDialect:
                             ),
                             EQ(self.column_table_schema(), LITERAL(self.metadata_casify(schema_name))),
                             EQ(self.column_table_name(), LITERAL(self.metadata_casify(table_name))),
+                        ]
+                    )
+                ),
+                ORDER_BY_ASC(ORDINAL_POSITION()),
+            ]
+        )
+
+    def build_all_columns_metadata_query_str(self, table_namespace: DataSourceNamespace) -> str:
+        """
+        Builds a SQL query to fetch column metadata for ALL tables in a schema.
+        Same as build_columns_metadata_query_str but without filtering on table_name,
+        and with table_name included in the SELECT columns.
+        """
+
+        database_name: str | None = table_namespace.get_database_for_metadata_query()
+        schema_name: str = table_namespace.get_schema_for_metadata_query()
+
+        return self.build_select_sql(
+            [
+                SELECT([self.column_table_name()] + self._build_columns_metadata_select_columns()),
+                self.build_columns_metadata_from_clause(table_namespace),
+                WHERE(
+                    AND(
+                        [
+                            *(
+                                [EQ(self.column_table_catalog(), LITERAL(self.metadata_casify(database_name)))]
+                                if database_name
+                                else []
+                            ),
+                            EQ(self.column_table_schema(), LITERAL(self.metadata_casify(schema_name))),
                         ]
                     )
                 ),
