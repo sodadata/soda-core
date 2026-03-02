@@ -68,6 +68,7 @@ def test_valid_count(data_source_test_helper: DataSourceTestHelper, contract_yam
         "failedRowsPercent": 25.0,
         "datasetRowsTested": 4,
         "checkRowsTested": 4,
+        "missingCount": 1,
     }
 
 

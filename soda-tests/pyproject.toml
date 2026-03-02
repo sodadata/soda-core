@@ -1,6 +1,6 @@
 [project]
 name = "soda-tests"
-version = "4.0.8rc0"
+version = "4.1.0"
 description = "Soda Core V4 Tests"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
@@ -8,7 +8,7 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
-    "soda-core==4.0.8rc0",
+    "soda-core==4.1.0",
     "pytz",
     "python-dateutil",
 ]

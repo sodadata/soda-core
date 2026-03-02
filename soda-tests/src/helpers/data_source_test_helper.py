@@ -10,6 +10,7 @@ from copy import deepcopy
 from textwrap import dedent
 from typing import Optional
 
+import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -136,6 +137,12 @@ class DataSourceTestHelper:
             )
 
             return DremioDataSourceTestHelper(name)
+        elif test_datasource == "trino":
+            from soda_trino.test_helpers.trino_data_source_test_helper import (
+                TrinoDataSourceTestHelper,
+            )
+
+            return TrinoDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
@@ -527,6 +534,10 @@ class DataSourceTestHelper:
         ]
 
     def create_view_from_test_table(self, test_table: TestTable) -> TestTable:
+        # First gate: skip early if the dialect declares no view support (e.g. Dremio)
+        if not self.data_source_impl.can_create_view:
+            pytest.skip("View creation is not supported by this data source")
+
         view_name = f"{test_table.unique_name}_view"
         view_name = self.data_source_impl.sql_dialect.metadata_casify(view_name)
         existing_view_names = self.query_existing_test_view_names()
@@ -543,7 +554,10 @@ class DataSourceTestHelper:
             ],
         )
         sql: str = self.data_source_impl.sql_dialect.build_create_view_sql(my_create_view)
-        self.data_source_impl.execute_update(sql)
+        # Second gate: actually attempt the DDL — if it fails, the result is cached so
+        # future tests skip immediately without retrying (see DataSourceImpl.try_create_view)
+        if not self.data_source_impl.try_create_view(sql):
+            pytest.skip("View creation is not supported by this data source")
 
         view_object = deepcopy(test_table)
         view_object.unique_name = view_name
@@ -566,6 +580,12 @@ class DataSourceTestHelper:
         self.data_source_impl.execute_update(sql)
 
     def create_materialized_view_from_test_table(self, test_table: TestTable) -> TestTable:
+        # Same two-gate pattern as create_view_from_test_table above.
+        # Most data sources default to supports_materialized_views()=False (see SqlDialect);
+        # only those that explicitly opt in (Postgres, Redshift, Trino) reach the DDL attempt.
+        if not self.data_source_impl.can_create_materialized_view:
+            pytest.skip("Materialized view creation is not supported by this data source")
+
         view_name = f"{test_table.unique_name}_mv"
         view_name = self.data_source_impl.sql_dialect.metadata_casify(view_name)
         existing_view_names = self.query_existing_test_materialized_view_names()
@@ -582,7 +602,8 @@ class DataSourceTestHelper:
             ],
         )
         sql: str = self.data_source_impl.sql_dialect.build_create_materialized_view_sql(my_create_view)
-        self.data_source_impl.execute_update(sql)
+        if not self.data_source_impl.try_create_materialized_view(sql):
+            pytest.skip("Materialized view creation is not supported by this data source")
 
         view_object = deepcopy(test_table)
         view_object.unique_name = view_name

@@ -24,7 +24,12 @@ class DataSourceConnection(ABC):
     MAX_ROWS = int(os.environ.get("SODA_DEBUG_PRINT_RESULT_MAX_ROWS", 20))
     MAX_CHARS_PER_SQL = int(os.environ.get("SODA_DEBUG_PRINT_SQL_MAX_CHARS", 1024))
 
-    def __init__(self, name: str, connection_properties: dict, connection: Optional[object] = None):
+    def __init__(
+        self,
+        name: str,
+        connection_properties: dict,
+        connection: Optional[object] = None,
+    ):
         self.name: str = name
         self.connection_properties: dict = connection_properties
         self.connection: Optional[object] = connection
@@ -101,6 +106,9 @@ class DataSourceConnection(ABC):
             except UnicodeDecodeError as e:
                 logger.debug(f"Error formatting rows. These may contain non-ASCII characters. {e}")
                 table_text = "Error formatting rows. These may contain non-ASCII characters."
+            except Exception as e:
+                logger.debug(f"Error formatting rows. {e}")
+                table_text = f"Error formatting rows. This may be due to the rows containing non-ASCII characters.\n{e}"
 
             logger.debug(
                 f"SQL query result (max {self.MAX_ROWS} rows, {self.MAX_CHARS_PER_STRING} chars per string):\n{table_text}"

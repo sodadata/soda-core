@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from enum import Enum
 
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -13,6 +14,7 @@ from soda_core.contracts.contract_verification import (
     Measurement,
 )
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
+from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
@@ -79,12 +81,19 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def setup_metrics(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_yaml: InvalidCheckYaml):
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
 
+        self.missing_count_metric_impl = self._resolve_metric(
+            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+        )
+
         self.invalid_count_metric_impl: Optional[MetricImpl] = None
         if self.missing_and_validity.has_reference_data():
             # noinspection PyTypeChecker
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidReferenceCountMetricImpl(
-                    contract_impl=contract_impl, column_impl=column_impl, missing_and_validity=self.missing_and_validity
+                    contract_impl=contract_impl,
+                    column_impl=column_impl,
+                    missing_and_validity=self.missing_and_validity,
+                    column_expression=self.column_expression,
                 )
             )
             # this is used in the check extension to extract failed keys and rows
@@ -128,6 +137,10 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
 
+        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
+        if isinstance(missing_count, Number):
+            diagnostic_metric_values["missing_count"] = missing_count
+
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
 
         outcome = self.evaluate_threshold(threshold_value)
@@ -149,6 +162,7 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
@@ -156,18 +170,19 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
             metric_type="invalid_count",
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
         return SUM(CASE_WHEN(self.sql_condition_expression(), LITERAL(1)))
 
     def sql_condition_expression(self) -> SqlExpression:
-        column_name: str = self.column_impl.column_yaml.name
+        column_expression: COLUMN | SqlExpressionStr = self.column_expression
         return AND.optional(
             [
                 SqlExpressionStr.optional(self.check_filter),
-                NOT.optional(self.missing_and_validity.is_missing_expr(column_name)),
-                self.missing_and_validity.is_invalid_expr(column_name),
+                NOT.optional(self.missing_and_validity.is_missing_expr(column_expression)),
+                self.missing_and_validity.is_invalid_expr(column_expression),
             ]
         )
 
@@ -178,12 +193,19 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 
 
 class InvalidReferenceCountMetricImpl(MetricImpl):
-    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, missing_and_validity: MissingAndValidity):
+    def __init__(
+        self,
+        contract_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        missing_and_validity: MissingAndValidity,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
+    ):
         super().__init__(
             contract_impl=contract_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
             missing_and_validity=missing_and_validity,
+            column_expression=column_expression,
         )
 
 
@@ -252,8 +274,26 @@ class InvalidReferenceCountQuery(Query):
 
     def query_join(self) -> SqlExpression:
         valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
+        column_name: str = self.metric_impl.column_impl.column_yaml.name
 
-        referencing_column_name: str = self.metric_impl.column_impl.column_yaml.name
+        referencing_column_expression: COLUMN | SqlExpressionStr = self.metric_impl.column_expression
+
+        if isinstance(referencing_column_expression, SqlExpressionStr):
+            # Replace the column name in the column expression with the aliased version.
+            # Uses word-boundary regex to avoid replacing substrings of other identifiers.
+            # e.g. if column_name is "country" and the expression is country::json->>'country_code',
+            # we only replace the standalone "country" to get "C".country::json->>'country_code',
+            # without corrupting "country_code" inside the string literal.
+            aliased_column_name = f'"{self.referencing_alias}".{column_name}'
+            pattern = r"\b" + re.escape(column_name) + r"\b"
+            referencing_column_expression = SqlExpressionStr(
+                re.sub(pattern, aliased_column_name, referencing_column_expression.expression_str)
+            )
+
+        full_referencing_column_expression = referencing_column_expression
+
+        if isinstance(referencing_column_expression, COLUMN):
+            full_referencing_column_expression = referencing_column_expression.IN(self.referencing_alias)
 
         referenced_dataset_name: str = self._referenced_cte_name
         referenced_column: str = valid_reference_data.column
@@ -263,10 +303,10 @@ class InvalidReferenceCountQuery(Query):
         # which should translate to SELECT C.*
 
         is_referencing_column_missing: SqlExpression = self.metric_impl.missing_and_validity.is_missing_expr(
-            COLUMN(referencing_column_name).IN(self.referencing_alias)
+            full_referencing_column_expression
         )
         is_referencing_column_invalid: SqlExpression = self.metric_impl.missing_and_validity.is_invalid_expr(
-            COLUMN(referencing_column_name).IN(self.referencing_alias)
+            full_referencing_column_expression
         )
         is_referenced_column_null: SqlExpression = IS_NULL(COLUMN(referenced_column).IN(self.referenced_alias))
         is_referencing_column_invalid: SqlExpression = OR.optional(
@@ -277,7 +317,7 @@ class InvalidReferenceCountQuery(Query):
             LEFT_INNER_JOIN(referenced_dataset_name)
             .ON(
                 EQ(
-                    COLUMN(referencing_column_name).IN(self.referencing_alias),
+                    full_referencing_column_expression,
                     COLUMN(referenced_column).IN(self.referenced_alias),
                 )
             )

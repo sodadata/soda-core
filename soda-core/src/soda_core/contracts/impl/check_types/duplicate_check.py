@@ -169,26 +169,27 @@ class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
             missing_and_validity=check_impl.missing_and_validity,
+            column_expression=check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
-        column_name: str = self.column_impl.column_yaml.name
+        column_expression: COLUMN | SqlExpressionStr = self.column_expression
         filters: list[SqlExpression] = [SqlExpressionStr.optional(self.check_filter)]
         if self.missing_and_validity:
             filters.append(
                 NOT(
                     OR.optional(
                         [
-                            self.missing_and_validity.is_missing_expr(column_name),
+                            self.missing_and_validity.is_missing_expr(column_expression),
                         ]
                     )
                 )
             )
         filter_expr: Optional[SqlExpression] = AND.optional(filters)
         if filter_expr:
-            return COUNT(DISTINCT(CASE_WHEN(filter_expr, column_name)))
+            return COUNT(DISTINCT(CASE_WHEN(filter_expr, column_expression)))
         else:
-            return COUNT(DISTINCT(column_name))
+            return COUNT(DISTINCT(column_expression))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
@@ -251,7 +252,9 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
         self.multi_column_distinct_count_metric_impl: MetricImpl = self._resolve_metric(
             MultiColumnDistinctCountMetricImpl(
-                contract_impl=contract_impl, check_impl=self, column_names=check_yaml.columns
+                contract_impl=contract_impl,
+                check_impl=self,
+                column_expressions=[COLUMN(column) for column in check_yaml.columns],
             )
         )
 
@@ -318,11 +321,11 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
         self,
         contract_impl: ContractImpl,
         check_impl: MultiColumnDuplicateCheckImpl,
-        column_names: list[str],
+        column_expressions: list[COLUMN | SqlExpressionStr],
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
-        self.column_names: list[str] = column_names
+        self.column_expressions: list[COLUMN | SqlExpressionStr] = column_expressions
         super().__init__(
             contract_impl=contract_impl,
             metric_type="distinct_count",
@@ -333,17 +336,17 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
 
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, str] = super()._get_id_properties()
-        if isinstance(self.column_names, list):
-            for index, column_name in enumerate(self.column_names):
-                id_properties[f"column[{index}]"] = column_name
+        if isinstance(self.column_expressions, list):
+            for index, column_expression in enumerate(self.column_expressions):
+                id_properties[f"column[{index}]"] = str(column_expression)
         return id_properties
 
     def sql_expression(self) -> SqlExpression:
         filter_expr: SqlExpression = SqlExpressionStr.optional(self.check_filter)
         if filter_expr:
-            return COUNT(DISTINCT(CASE_WHEN(filter_expr, COMBINED_HASH(self.column_names))))
+            return COUNT(DISTINCT(CASE_WHEN(filter_expr, COMBINED_HASH(self.column_expressions))))
         else:
-            return COUNT(DISTINCT(COMBINED_HASH(self.column_names)))
+            return COUNT(DISTINCT(COMBINED_HASH(self.column_expressions)))
 
     def convert_db_value(self, value) -> int:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if

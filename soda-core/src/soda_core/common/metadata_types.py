@@ -134,3 +134,4 @@ class SamplerType(enum.Enum):
     """Sampler types for sampling rows from tables."""
 
     ABSOLUTE_LIMIT = "absolute_limit"  # sample a fixed number of rows
+    PERCENTAGE = "percentage"  # sample a percentage of rows

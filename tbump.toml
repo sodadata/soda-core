@@ -1,5 +1,5 @@
 [version]
-current = "4.0.8rc0"
+current = "4.1.0"
 
 regex = '''
   (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.)?((?P<prerelease>[a-z,0-9]+)(?P<build>\d+))?
@@ -69,5 +69,10 @@ search = 'version = "{current_version}"|soda-.*=={current_version}'
 src = "soda-sparkdf/pyproject.toml"
 search = 'version = "{current_version}"|soda-.*=={current_version}'
 
-# NOTE: The [[after_push]] hook for creating GitHub Releases has been removed.
-# GitHub Release creation is now handled by .github/workflows/release.yaml.
+[[file]]
+src = "soda-trino/pyproject.toml"
+search = 'version = "{current_version}"|soda-.*=={current_version}'
+
+[[before_commit]]
+name = "Update uv lock file"
+cmd = "uv lock"

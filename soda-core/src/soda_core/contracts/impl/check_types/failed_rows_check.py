@@ -109,7 +109,6 @@ class FailedRowsCheckImpl(CheckImpl):
 
         diagnostic_metric_values: dict[str, float] = {}
         threshold_value: Optional[float] = None
-        threshold_metric_name = "failed_rows_count"
 
         if self.failed_rows_check_yaml.expression:
             check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
@@ -123,7 +122,6 @@ class FailedRowsCheckImpl(CheckImpl):
 
             if self.failed_rows_check_yaml.metric == "percent":
                 threshold_value = failed_rows_percent
-                threshold_metric_name = "failed_rows_percent"
             else:
                 threshold_value = failed_rows_count
 
@@ -139,12 +137,7 @@ class FailedRowsCheckImpl(CheckImpl):
 
             diagnostic_metric_values = {
                 "failed_rows_count": failed_rows_count,
-                # TODO remove these 3 after
-                # https://linear.app/sodadata/issue/DTL-922/fix-backend-diagnostics-mismatches-from-core
-                # is done
-                "failed_rows_percent": 0,
-                "dataset_rows_tested": 0,
-                "check_rows_tested": 0,
+                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
             }
 
         outcome = self.evaluate_threshold(threshold_value)

@@ -1,4 +1,5 @@
 from logging import Logger
+from numbers import Number
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -6,6 +7,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
     DataSourceNamespace,
+    SamplerType,
     SodaDataTypeName,
     SqlDataType,
 )
@@ -53,7 +55,7 @@ class PostgresDataSourceImpl(DataSourceImpl, model_class=PostgresDataSourceModel
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return PostgresSqlDialect(data_source_impl=self)
+        return PostgresSqlDialect()
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return PostgresDataSourceConnection(
@@ -75,7 +77,7 @@ class PostgresSqlDataType(SqlDataType):
         return super().get_sql_data_type_str_with_parameters()
 
 
-class PostgresSqlDialect(SqlDialect):
+class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.DOUBLE, SodaDataTypeName.FLOAT),
@@ -87,6 +89,15 @@ class PostgresSqlDialect(SqlDialect):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"{expression} ~ '{matches.regex_pattern}'"
+
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        return sampler_type is SamplerType.PERCENTAGE
+
+    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
+        if sampler_type is SamplerType.PERCENTAGE:
+            return f"TABLESAMPLE BERNOULLI({sample_size})"
+        else:
+            raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         return (
