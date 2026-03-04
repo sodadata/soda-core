@@ -42,7 +42,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        if self.__is_hive_catalog():
+        if self._is_hive_catalog():
             return DatabricksHiveSqlDialect()
         return DatabricksSqlDialect()
 
@@ -53,7 +53,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         )
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
-        if self.__is_hive_catalog():
+        if self._is_hive_catalog():
             return HiveMetadataTablesQuery(
                 sql_dialect=self.sql_dialect,
                 data_source_connection=self.data_source_connection,
@@ -61,7 +61,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
         else:
             return super().create_metadata_tables_query()
 
-    def __is_hive_catalog(self):
+    def _is_hive_catalog(self):
         # Check the connection "catalog"
         catalog: Optional[str] = self.data_source_model.connection_properties.catalog
         if catalog and catalog.lower() == "hive_metastore":
@@ -77,7 +77,7 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             return []
 
     def test_schema_exists(self, prefixes: list[str]) -> bool:
-        if not self.__is_hive_catalog():
+        if not self._is_hive_catalog():
             return super().test_schema_exists(prefixes)
 
         schema_name: str = prefixes[1]
