@@ -1450,8 +1450,7 @@ class SqlDialect:
             ),
             *(
                 [self.column_data_type_datetime_precision()]
-                if self.supports_data_type_datetime_precision()
-                and self.column_data_type_datetime_precision()
+                if self.supports_data_type_datetime_precision() and self.column_data_type_datetime_precision()
                 else []
             ),
         ]
