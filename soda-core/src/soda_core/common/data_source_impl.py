@@ -235,14 +235,7 @@ class DataSourceImpl(ABC):
         )
 
     def get_all_columns_metadata_for_schema(self, prefixes: list[str]) -> dict[str, list[ColumnMetadata]]:
-        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
-        database_name: Optional[str] = self.extract_database_from_prefix(prefixes)
-
-        table_namespace: DataSourceNamespace = (
-            SchemaDataSourceNamespace(schema=schema_name)
-            if database_name is None
-            else DbSchemaDataSourceNamespace(database=database_name, schema=schema_name)
-        )
+        table_namespace, _ = self._build_table_namespace_for_schema_query(prefixes=prefixes)
 
         sql: str = self.sql_dialect.build_all_columns_metadata_query_str(table_namespace=table_namespace)
         query_result: QueryResult = self.execute_query(sql)
