@@ -280,14 +280,22 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_precision(data_type_name):
             return None
-        return int(row[1].split("(")[1].split(",")[0])
+        # DESCRIBE TABLE embeds precision in data_type like "decimal(10,0)".
+        # INFORMATION_SCHEMA returns it in a separate numeric_precision column.
+        if "(" in row[1]:
+            return int(row[1].split("(")[1].split(",")[0])
+        return super().extract_numeric_precision(row, columns)
 
     def extract_numeric_scale(self, row: Tuple[Any, ...], columns: list[Tuple[Any, ...]]) -> Optional[int]:
         # We just need the scale, and it's formatted like: decimal(10,0) -> 0
         data_type_name: str = self.extract_data_type_name(row, columns)
         if not self.data_type_has_parameter_numeric_scale(data_type_name):
             return None
-        return int(row[1].split(",")[1].strip(")"))
+        # DESCRIBE TABLE embeds scale in data_type like "decimal(10,0)".
+        # INFORMATION_SCHEMA returns it in a separate numeric_scale column.
+        if "," in row[1]:
+            return int(row[1].split(",")[1].strip(")"))
+        return super().extract_numeric_scale(row, columns)
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
