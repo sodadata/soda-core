@@ -234,8 +234,12 @@ class DataSourceImpl(ABC):
             table_namespace=table_namespace, table_name=dataset_name
         )
 
-    def get_all_columns_metadata_for_schema(self, prefixes: list[str]) -> dict[str, list[ColumnMetadata]]:
+    def _build_table_namespace_for_columns_query(self, prefixes: list[str]) -> DataSourceNamespace:
         table_namespace, _ = self._build_table_namespace_for_schema_query(prefixes=prefixes)
+        return table_namespace
+
+    def get_all_columns_metadata_for_schema(self, prefixes: list[str]) -> dict[str, list[ColumnMetadata]]:
+        table_namespace = self._build_table_namespace_for_columns_query(prefixes=prefixes)
 
         sql: str = self.sql_dialect.build_all_columns_metadata_query_str(table_namespace=table_namespace)
         query_result: QueryResult = self.execute_query(sql)

@@ -95,13 +95,20 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
             project_id=prefixes[0],
-            dataset=None,  # We only need the project id to query the schemas, as it's always in the `INFORMATION_SCHEMA`
+            dataset=None,  # Schema existence queries need project-level INFORMATION_SCHEMA
         )
         schema_name = self.extract_schema_from_prefix(prefixes)
         if schema_name is None:
             raise ValueError(f"Cannot determine schema name from prefixes: {prefixes}")
 
         return table_namespace, schema_name
+
+    def _build_table_namespace_for_columns_query(self, prefixes: list[str]) -> DataSourceNamespace:
+        # BigQuery needs dataset set in the namespace for column queries (unlike schema existence queries).
+        return BigQueryDataSourceNamespace(
+            project_id=prefixes[0],
+            dataset=prefixes[1],
+        )
 
 
 class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
