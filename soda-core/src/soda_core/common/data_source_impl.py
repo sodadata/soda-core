@@ -248,11 +248,15 @@ class DataSourceImpl(ABC):
         force_fetch_all: bool = False,
         table_names: Optional[list[str]] = None,
     ) -> dict[str, list[ColumnMetadata]]:
-        """Fetches column metadata for all tables in a schema with a single bulk query if it's available
-        (e.g. via INFORMATION_SCHEMA).
-        When bulk_columns_metadata_available is False (e.g. DESCRIBE TABLE), returns an empty dict unless force=True,
-        in which case it falls back to per-table iteration.
-        When table_names is provided, only fetches columns for those specific tables (only used with force=True)."""
+        """Fetches column metadata for tables in a schema.
+
+        When bulk_columns_metadata_available is True, uses a single bulk query (e.g. INFORMATION_SCHEMA).
+        When bulk_columns_metadata_available is False (e.g. DESCRIBE TABLE), returns an empty dict
+        unless force_fetch_all=True, in which case it falls back to per-table iteration.
+
+        When table_names is provided, only returns columns for those specific tables.
+        For bulk queries this filters the result after fetching; for per-table iteration
+        it only queries the specified tables."""
         if not self.bulk_columns_metadata_available and not force_fetch_all:
             return {}
         if not self.bulk_columns_metadata_available and force_fetch_all:
@@ -263,9 +267,12 @@ class DataSourceImpl(ABC):
 
         # Group rows by table_name (first column), then parse each group using
         # build_column_metadatas_from_query_result (same parsing as get_columns_metadata).
+        table_names_lower: set[str] | None = {n.lower() for n in table_names} if table_names else None
         sub_columns = query_result.columns[1:]
         rows_by_table: dict[str, list] = {}
         for row in query_result.rows:
+            if table_names_lower is not None and row[0].lower() not in table_names_lower:
+                continue
             rows_by_table.setdefault(row[0], []).append(row[1:])
 
         columns_by_table: dict[str, list[ColumnMetadata]] = {}
