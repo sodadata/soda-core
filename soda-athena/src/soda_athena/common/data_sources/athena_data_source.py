@@ -159,6 +159,8 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 
 
 class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
+    DEFAULT_QUOTE_CHAR = "`"
+
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
@@ -241,9 +243,6 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
     def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
         raise NotImplementedError()
-
-    def quote_default(self, identifier: Optional[str]) -> Optional[str]:
-        return identifier
 
     def quote_column(self, column_name: str) -> str:
         return f'"{column_name}"'
