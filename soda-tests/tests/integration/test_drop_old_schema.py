@@ -23,6 +23,7 @@ DATASOURCES_TO_RUN = [
     "redshift",
     "oracle",
     "databricks",
+    "dremio"
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
@@ -34,6 +35,8 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
     # We determine if the schema needs to be dropped by checking if the schema name contains a date that we can parse. If it's older than 2 days, we drop it.
     try:
         schema_name = schema_name.lower()
+        if schema_name.startswith("$"):  # edge case for Dremio $scratch schema which breaks date parsing
+            return False 
         must_have_date: bool = False
         if schema_name.lower().startswith("soda_diagnostics_"):
             potential_date_string: str = schema_name[
@@ -99,9 +102,10 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     schema_names: list[str] = [row[0] for row in query_result.rows]
     num_deleted_schemas: int = 0
     for schema_name in schema_names:
-        if any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
-            if not any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
-                if determine_if_schema_needs_to_be_dropped(schema_name):
+        schema_name_suffix = data_source_test_helper.extract_schema_suffix(schema_name).lower() # Dremio needs this, convert foo.bar.schema -> schema                 
+        if any(schema_name_suffix.startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
+            if not any(schema_name_suffix.startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
+                if determine_if_schema_needs_to_be_dropped(schema_name_suffix):        
                     logger.info(f"Dropping schema name: {schema_name}")
                     try:
                         data_source_test_helper.drop_schema_if_exists(schema_name)

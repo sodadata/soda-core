@@ -916,3 +916,8 @@ class DataSourceTestHelper:
             TableType.MATERIALIZED_VIEW: "mv",
             TableType.VIEW: "v",
         }[table_type]
+
+    def extract_schema_suffix(schema_name: str) -> str:
+        return schema_name
+
+        
