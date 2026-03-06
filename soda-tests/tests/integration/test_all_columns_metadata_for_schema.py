@@ -33,11 +33,11 @@ def test_get_all_columns_metadata_for_schema(data_source_test_helper: DataSource
     data_source_impl = data_source_test_helper.data_source_impl
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
 
-    # Use force=True so this test works for all data sources (including those without bulk support)
+    # Use force_fetch_all=True so this test works for all data sources (including those without bulk support)
     # Pass table_names to only fetch columns for the test tables (faster for per-table fallback)
     all_columns: dict[str, list[ColumnMetadata]] = data_source_impl.get_all_columns_metadata_for_schema(
         prefixes=test_table_a.dataset_prefix,
-        force=True,
+        force_fetch_all=True,
         table_names=[test_table_a.unique_name, test_table_b.unique_name],
     )
 
@@ -59,7 +59,7 @@ def test_bulk_columns_metadata_returns_empty_when_not_available(data_source_test
 
 
 def test_force_fetches_columns_when_bulk_not_available(data_source_test_helper: DataSourceTestHelper):
-    """When bulk_columns_metadata_available is False, force=True falls back to per-table iteration."""
+    """When bulk_columns_metadata_available is False, force_fetch_all=True falls back to per-table iteration."""
     test_table_a = data_source_test_helper.ensure_test_table(table_a_specification)
     test_table_b = data_source_test_helper.ensure_test_table(table_b_specification)
     data_source_impl = data_source_test_helper.data_source_impl
@@ -70,7 +70,7 @@ def test_force_fetches_columns_when_bulk_not_available(data_source_test_helper: 
 
     all_columns = data_source_impl.get_all_columns_metadata_for_schema(
         prefixes=test_table_a.dataset_prefix,
-        force=True,
+        force_fetch_all=True,
         table_names=[test_table_a.unique_name, test_table_b.unique_name],
     )
 
