@@ -59,7 +59,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         return result
 
     def table_s3_location(self, qualified_table_name: str, lowercase: bool = True) -> str:
-        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "")
+        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "").replace("`", "")
         if lowercase:  # Athena table names are always lowercase, so the location should be lowercase as well.
             table_part_for_location = table_part_for_location.lower()
         location = f"{self.connection.athena_staging_dir}/{table_part_for_location}/"
