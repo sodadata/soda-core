@@ -917,7 +917,7 @@ class DataSourceTestHelper:
             TableType.VIEW: "v",
         }[table_type]
 
-    def extract_schema_suffix(schema_name: str) -> str:
+    def extract_schema_suffix(self, schema_name: str) -> str:
         return schema_name
 
         
