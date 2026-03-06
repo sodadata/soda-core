@@ -420,6 +420,4 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         return self._build_pg_columns_metadata_query(table_namespace, table_name=table_name)
 
     def build_all_columns_metadata_query_str(self, table_namespace: DataSourceNamespace) -> str:
-        return self._build_pg_columns_metadata_query(
-            table_namespace, include_table_name_column=True
-        )
+        return self._build_pg_columns_metadata_query(table_namespace, include_table_name_column=True)
