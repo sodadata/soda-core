@@ -333,13 +333,26 @@ def _load_or_prompt_email() -> tuple[Optional[str], bool]:
 
 
 def _find_relevant_files() -> List[Path]:
-    """Find .yml, .yaml, .sql, .json files in CWD recursively."""
+    """Find .yml, .yaml, .sql files in CWD recursively."""
     cwd = Path.cwd()
-    return sorted(
-        [p for p in cwd.rglob("*")
-         if p.is_file() and p.suffix in FILE_EXTENSIONS and not p.name.startswith(".")],
-        key=lambda p: p.name,
-    )
+    results = []
+    try:
+        it = cwd.rglob("*")
+    except OSError:
+        return results
+    while True:
+        try:
+            p = next(it)
+        except StopIteration:
+            break
+        except OSError:
+            continue
+        try:
+            if p.is_file() and p.suffix in FILE_EXTENSIONS and not p.name.startswith("."):
+                results.append(p)
+        except OSError:
+            continue
+    return sorted(results, key=lambda p: p.name)
 
 
 # --- Slash commands ---
@@ -761,12 +774,17 @@ def _tool_read_file(file_path: str) -> str:
         path = Path.cwd() / path
 
     if not path.exists():
-        return f"File not found: {file_path}. Try using find_file to search for it."
+        return f"File not found: {file_path} (working directory: {Path.cwd()}). Try using find_file to search for it."
     if not path.is_file():
         return f"Not a file: {file_path}"
 
     try:
         return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        try:
+            return path.read_text(encoding="latin-1")
+        except Exception as e:
+            return f"Error reading {file_path}: {e}"
     except Exception as e:
         return f"Error reading {file_path}: {e}"
 
@@ -808,15 +826,29 @@ def _tool_find_file(filename: str) -> str:
     exact = []
     partial = []
 
-    for p in cwd.rglob("*"):
-        # Skip noisy directories
+    try:
+        rglob_iter = cwd.rglob("*")
+    except Exception as e:
+        return f"Error scanning directory {cwd}: {e}"
+
+    while True:
+        try:
+            p = next(rglob_iter)
+        except StopIteration:
+            break
+        except OSError:
+            continue  # skip unreadable directories (common on Windows)
+        # Skip noisy directories and handle permission errors on Windows
         try:
             rel = p.relative_to(cwd)
         except ValueError:
             continue
         if any(part in skip_dirs for part in rel.parts):
             continue
-        if not p.is_file():
+        try:
+            if not p.is_file():
+                continue
+        except OSError:
             continue
 
         if p.name == filename:
@@ -830,7 +862,7 @@ def _tool_find_file(filename: str) -> str:
 
     matches = exact or partial
     if not matches:
-        return f"No files matching '{filename}' found."
+        return f"No files matching '{filename}' found in {cwd}."
 
     label = "exact" if exact else "partial"
     lines = [f"Found {len(matches)} {label} match{'es' if len(matches) != 1 else ''}:"]
