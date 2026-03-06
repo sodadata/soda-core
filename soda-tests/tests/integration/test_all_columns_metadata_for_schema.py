@@ -34,9 +34,11 @@ def test_get_all_columns_metadata_for_schema(data_source_test_helper: DataSource
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
 
     # Use force=True so this test works for all data sources (including those without bulk support)
+    # Pass table_names to only fetch columns for the test tables (faster for per-table fallback)
     all_columns: dict[str, list[ColumnMetadata]] = data_source_impl.get_all_columns_metadata_for_schema(
         prefixes=test_table_a.dataset_prefix,
         force=True,
+        table_names=[test_table_a.unique_name, test_table_b.unique_name],
     )
 
     _assert_schema_columns(all_columns, test_table_a, test_table_b, data_source_impl, sql_dialect)
@@ -69,6 +71,7 @@ def test_force_fetches_columns_when_bulk_not_available(data_source_test_helper: 
     all_columns = data_source_impl.get_all_columns_metadata_for_schema(
         prefixes=test_table_a.dataset_prefix,
         force=True,
+        table_names=[test_table_a.unique_name, test_table_b.unique_name],
     )
 
     _assert_schema_columns(all_columns, test_table_a, test_table_b, data_source_impl, sql_dialect)

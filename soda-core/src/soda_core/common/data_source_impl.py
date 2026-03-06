@@ -243,16 +243,20 @@ class DataSourceImpl(ABC):
         return True
 
     def get_all_columns_metadata_for_schema(
-        self, prefixes: list[str], force: bool = False
+        self,
+        prefixes: list[str],
+        force_fetch_all: bool = False,
+        table_names: Optional[list[str]] = None,
     ) -> dict[str, list[ColumnMetadata]]:
         """Fetches column metadata for all tables in a schema with a single bulk query if it's available
         (e.g. via INFORMATION_SCHEMA).
         When bulk_columns_metadata_available is False (e.g. DESCRIBE TABLE), returns an empty dict unless force=True,
-        in which case it falls back to per-table iteration."""
-        if not self.bulk_columns_metadata_available and not force:
+        in which case it falls back to per-table iteration.
+        When table_names is provided, only fetches columns for those specific tables (only used with force=True)."""
+        if not self.bulk_columns_metadata_available and not force_fetch_all:
             return {}
-        if not self.bulk_columns_metadata_available and force:
-            return self._get_all_columns_metadata_per_table(prefixes)
+        if not self.bulk_columns_metadata_available and force_fetch_all:
+            return self._get_all_columns_metadata_per_table(prefixes, table_names=table_names)
         table_namespace = self._build_columns_metadata_namespace(prefixes)
         sql: str = self.sql_dialect.build_all_columns_metadata_query_str(table_namespace=table_namespace)
         query_result: QueryResult = self.execute_query(sql)
@@ -271,12 +275,16 @@ class DataSourceImpl(ABC):
 
         return columns_by_table
 
-    def _get_all_columns_metadata_per_table(self, prefixes: list[str]) -> dict[str, list[ColumnMetadata]]:
-        """Fallback: iterate per table using get_columns_metadata."""
-        objects = self.discover_qualified_objects(prefixes=prefixes)
+    def _get_all_columns_metadata_per_table(
+        self, prefixes: list[str], table_names: Optional[list[str]] = None
+    ) -> dict[str, list[ColumnMetadata]]:
+        """Fallback: iterate per table using get_columns_metadata.
+        When table_names is provided, only fetches columns for those specific tables."""
+        if table_names is None:
+            objects = self.discover_qualified_objects(prefixes=prefixes)
+            table_names = [obj.get_object_name() for obj in objects]
         columns_by_table: dict[str, list[ColumnMetadata]] = {}
-        for obj in objects:
-            table_name = obj.get_object_name()
+        for table_name in table_names:
             columns_by_table[table_name] = self.get_columns_metadata(dataset_prefixes=prefixes, dataset_name=table_name)
         return columns_by_table
 
