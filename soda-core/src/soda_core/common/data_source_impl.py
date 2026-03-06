@@ -255,24 +255,23 @@ class DataSourceImpl(ABC):
         unless force_fetch_all=True, in which case it falls back to per-table iteration.
 
         When table_names is provided, only returns columns for those specific tables.
-        For bulk queries this filters the result after fetching; for per-table iteration
+        For bulk queries this adds an IN filter to the SQL query; for per-table iteration
         it only queries the specified tables."""
         if not self.bulk_columns_metadata_available and not force_fetch_all:
             return {}
         if not self.bulk_columns_metadata_available and force_fetch_all:
             return self._get_all_columns_metadata_per_table(prefixes, table_names=table_names)
         table_namespace = self._build_columns_metadata_namespace(prefixes)
-        sql: str = self.sql_dialect.build_all_columns_metadata_query_str(table_namespace=table_namespace)
+        sql: str = self.sql_dialect.build_all_columns_metadata_query_str(
+            table_namespace=table_namespace, table_names=table_names
+        )
         query_result: QueryResult = self.execute_query(sql)
 
         # Group rows by table_name (first column), then parse each group using
         # build_column_metadatas_from_query_result (same parsing as get_columns_metadata).
-        table_names_lower: set[str] | None = {n.lower() for n in table_names} if table_names else None
         sub_columns = query_result.columns[1:]
         rows_by_table: dict[str, list] = {}
         for row in query_result.rows:
-            if table_names_lower is not None and row[0].lower() not in table_names_lower:
-                continue
             rows_by_table.setdefault(row[0], []).append(row[1:])
 
         columns_by_table: dict[str, list[ColumnMetadata]] = {}

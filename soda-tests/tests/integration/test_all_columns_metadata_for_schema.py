@@ -77,6 +77,37 @@ def test_force_fetches_columns_when_bulk_not_available(data_source_test_helper: 
     _assert_schema_columns(all_columns, test_table_a, test_table_b, data_source_impl, sql_dialect)
 
 
+def test_table_names_filter(data_source_test_helper: DataSourceTestHelper):
+    """When table_names is provided, only those tables should appear in the result."""
+    test_table_a = data_source_test_helper.ensure_test_table(table_a_specification)
+    test_table_b = data_source_test_helper.ensure_test_table(table_b_specification)
+    data_source_impl = data_source_test_helper.data_source_impl
+    sql_dialect: SqlDialect = data_source_impl.sql_dialect
+
+    # Request only table A
+    result = data_source_impl.get_all_columns_metadata_for_schema(
+        prefixes=test_table_a.dataset_prefix,
+        force_fetch_all=True,
+        table_names=[test_table_a.unique_name],
+    )
+
+    # Table A should be present with correct columns
+    table_a_key = _find_table_key(result, test_table_a.unique_name)
+    assert table_a_key is not None, f"Table {test_table_a.unique_name} not found. Available: {list(result.keys())}"
+    cols_a = result[table_a_key]
+    assert len(cols_a) == 3
+    _assert_column(cols_a[0], "name", SodaDataTypeName.VARCHAR, sql_dialect)
+    _assert_column(cols_a[1], "age", SodaDataTypeName.INTEGER, sql_dialect)
+    _assert_column(cols_a[2], "score", SodaDataTypeName.NUMERIC, sql_dialect, numeric_precision=10, numeric_scale=2)
+
+    # Table B should NOT be present
+    table_b_key = _find_table_key(result, test_table_b.unique_name)
+    assert table_b_key is None, (
+        f"Table {test_table_b.unique_name} should not be in result when not in table_names filter. "
+        f"Available: {list(result.keys())}"
+    )
+
+
 def test_get_columns_metadata_for_single_table(data_source_test_helper: DataSourceTestHelper):
     test_table_a = data_source_test_helper.ensure_test_table(table_a_specification)
     test_table_b = data_source_test_helper.ensure_test_table(table_b_specification)

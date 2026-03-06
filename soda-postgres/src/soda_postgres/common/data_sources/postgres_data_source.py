@@ -249,10 +249,12 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         self,
         table_namespace: DataSourceNamespace,
         table_name: str | None = None,
+        table_names: list[str] | None = None,
         include_table_name_column: bool = False,
     ) -> str:
         """Shared pg_catalog-based column metadata query.
         When table_name is provided, filters to that single table.
+        When table_names is provided, filters to those tables via IN clause.
         When include_table_name_column is True, prepends relname to the SELECT columns."""
 
         database_name: str | None = table_namespace.get_database_for_metadata_query()
@@ -359,6 +361,8 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
         ]
         if table_name:
             where_conditions.append(EQ(COLUMN("relname", "c"), LITERAL(self.metadata_casify(table_name))))
+        elif table_names:
+            where_conditions.append(IN(COLUMN("relname", "c"), [LITERAL(self.metadata_casify(n)) for n in table_names]))
 
         select: list = [
             SELECT(select_columns),
@@ -419,5 +423,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
     def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
         return self._build_pg_columns_metadata_query(table_namespace, table_name=table_name)
 
-    def build_all_columns_metadata_query_str(self, table_namespace: DataSourceNamespace) -> str:
-        return self._build_pg_columns_metadata_query(table_namespace, include_table_name_column=True)
+    def build_all_columns_metadata_query_str(
+        self, table_namespace: DataSourceNamespace, table_names: list[str] | None = None
+    ) -> str:
+        return self._build_pg_columns_metadata_query(
+            table_namespace, table_names=table_names, include_table_name_column=True
+        )
