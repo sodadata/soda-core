@@ -245,103 +245,123 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
             WHEN 'I' THEN 'PARTITIONED INDEX'
             END as {column_alias}"""
 
-    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
-        """
-        Builds the full SQL query to query table names from the data source metadata.
-        """
+    def _build_pg_columns_metadata_query(
+        self,
+        table_namespace: DataSourceNamespace,
+        table_name: str | None = None,
+        include_table_name_column: bool = False,
+    ) -> str:
+        """Shared pg_catalog-based column metadata query.
+        When table_name is provided, filters to that single table.
+        When include_table_name_column is True, prepends relname to the SELECT columns."""
 
         database_name: str | None = table_namespace.get_database_for_metadata_query()
         schema_name: str = table_namespace.get_schema_for_metadata_query()
 
-        ######
         current_database_expression = RAW_SQL(self._current_database())
-        select: list = [
-            SELECT(
-                [
-                    COLUMN("attname", table_alias="a", field_alias="column_name"),
-                    # Normalize data type into information_schema.columns style. Consider doing this in python instead, but this is lightweight and simple enough.
-                    RAW_SQL(
-                        """CASE
-                            -- arrays
-                            WHEN t.typcategory = 'A' OR t.typelem <> 0 THEN 'ARRAY'
 
-                            -- choose base type for domains, otherwise the type itself
-                            ELSE CASE COALESCE(bt.typname, t.typname)
-                            WHEN 'varchar'     THEN 'character varying'
-                            WHEN 'bpchar'      THEN 'character'
-                            WHEN 'bool'        THEN 'boolean'
-                            WHEN 'int2'        THEN 'smallint'
-                            WHEN 'int4'        THEN 'integer'
-                            WHEN 'int8'        THEN 'bigint'
-                            WHEN 'float4'      THEN 'real'
-                            WHEN 'float8'      THEN 'double precision'
-                            WHEN 'timestamptz' THEN 'timestamp with time zone'
-                            WHEN 'timestamp'   THEN 'timestamp without time zone'
-                            WHEN 'timetz'      THEN 'time with time zone'
-                            WHEN 'time'        THEN 'time without time zone'
-                            WHEN 'bit'         THEN 'bit'
-                            WHEN 'varbit'      THEN 'bit varying'
-                            ELSE COALESCE(bt.typname, t.typname)
+        select_columns = []
+        if include_table_name_column:
+            select_columns.append(COLUMN("relname", table_alias="c", field_alias="table_name"))
+
+        select_columns.extend(
+            [
+                COLUMN("attname", table_alias="a", field_alias="column_name"),
+                # Normalize data type into information_schema.columns style.
+                RAW_SQL(
+                    """CASE
+                        -- arrays
+                        WHEN t.typcategory = 'A' OR t.typelem <> 0 THEN 'ARRAY'
+
+                        -- choose base type for domains, otherwise the type itself
+                        ELSE CASE COALESCE(bt.typname, t.typname)
+                        WHEN 'varchar'     THEN 'character varying'
+                        WHEN 'bpchar'      THEN 'character'
+                        WHEN 'bool'        THEN 'boolean'
+                        WHEN 'int2'        THEN 'smallint'
+                        WHEN 'int4'        THEN 'integer'
+                        WHEN 'int8'        THEN 'bigint'
+                        WHEN 'float4'      THEN 'real'
+                        WHEN 'float8'      THEN 'double precision'
+                        WHEN 'timestamptz' THEN 'timestamp with time zone'
+                        WHEN 'timestamp'   THEN 'timestamp without time zone'
+                        WHEN 'timetz'      THEN 'time with time zone'
+                        WHEN 'time'        THEN 'time without time zone'
+                        WHEN 'bit'         THEN 'bit'
+                        WHEN 'varbit'      THEN 'bit varying'
+                        ELSE COALESCE(bt.typname, t.typname)
+                        END
+                    END AS  \"data_type\"
+                """
+                ),
+                # Extract type parameters. All a.atttypmod are offset by 4 in Postgres
+                #  varchar/char length (NULL otherwise)
+                RAW_SQL(
+                    """CASE
+                        WHEN t.typname IN ('varchar','bpchar') THEN
+                            CASE
+                                WHEN a.atttypmod > 4 THEN a.atttypmod - 4
+                                ELSE NULL
                             END
-                        END AS  \"data_type\"
-                    """
-                    ),
-                    # Extract type parameters. No abstract level api for this, we have to replicate Postgres logic here.
-                    # All a.atttypmod are offset by 4 in Postgres
-                    #  varchar/char length (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
-                            WHEN t.typname IN ('varchar','bpchar') THEN
-                                CASE
-                                    WHEN a.atttypmod > 4 THEN a.atttypmod - 4
-                                    ELSE NULL
-                                END
-                            ELSE NULL
-                        END AS "character_maximum_length"
-                    """
-                    ),
-                    # numeric precision (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
-                            WHEN t.typname = 'numeric' THEN
-                                CASE
-                                    WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) >> 16)
-                                    ELSE NULL
-                                END
-                            ELSE NULL
-                        END AS "numeric_precision"
-                    """
-                    ),
-                    # numeric scale (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
-                            WHEN t.typname = 'numeric' THEN
-                                CASE
-                                    WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) & 65535)
-                                    ELSE NULL
-                                END
-                            ELSE NULL
-                        END AS "numeric_scale"
-                    """
-                    ),
-                    # datetime precision (NULL otherwise)
-                    RAW_SQL(
-                        """CASE
-                            WHEN t.typname IN ('time','timetz','timestamp','timestamptz') THEN
-                                CASE
-                                    WHEN a.atttypmod >= 0 THEN a.atttypmod
-                                    ELSE NULL
-                                END
-                            ELSE NULL
-                        END AS "datetime_precision"
-                    """
-                    ),
-                    COLUMN(current_database_expression, field_alias="table_catalog"),
-                    COLUMN("nspname", table_alias="n", field_alias="table_schema"),
-                    COLUMN("relname", table_alias="c", field_alias="table_name"),
-                    RAW_SQL(self.relkind_table_type_sql_expression()),
-                ]
+                        ELSE NULL
+                    END AS "character_maximum_length"
+                """
+                ),
+                # numeric precision (NULL otherwise)
+                RAW_SQL(
+                    """CASE
+                        WHEN t.typname = 'numeric' THEN
+                            CASE
+                                WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) >> 16)
+                                ELSE NULL
+                            END
+                        ELSE NULL
+                    END AS "numeric_precision"
+                """
+                ),
+                # numeric scale (NULL otherwise)
+                RAW_SQL(
+                    """CASE
+                        WHEN t.typname = 'numeric' THEN
+                            CASE
+                                WHEN a.atttypmod > 4 THEN ((a.atttypmod - 4) & 65535)
+                                ELSE NULL
+                            END
+                        ELSE NULL
+                    END AS "numeric_scale"
+                """
+                ),
+                # datetime precision (NULL otherwise)
+                RAW_SQL(
+                    """CASE
+                        WHEN t.typname IN ('time','timetz','timestamp','timestamptz') THEN
+                            CASE
+                                WHEN a.atttypmod >= 0 THEN a.atttypmod
+                                ELSE NULL
+                            END
+                        ELSE NULL
+                    END AS "datetime_precision"
+                """
+                ),
+                COLUMN(current_database_expression, field_alias="table_catalog"),
+                COLUMN("nspname", table_alias="n", field_alias="table_schema"),
+                COLUMN("relname", table_alias="c", field_alias="table_name"),
+                RAW_SQL(self.relkind_table_type_sql_expression()),
+            ]
+        )
+
+        where_conditions = [
+            IN(
+                COLUMN("relkind", "c"),
+                [LITERAL("r"), LITERAL("p"), LITERAL("v"), LITERAL("m"), LITERAL("f")],
             ),
+            GT(COLUMN("attnum", "a"), LITERAL(0)),
+        ]
+        if table_name:
+            where_conditions.append(EQ(COLUMN("relname", "c"), LITERAL(self.metadata_casify(table_name))))
+
+        select: list = [
+            SELECT(select_columns),
             FROM(
                 self._pg_class(),
                 table_prefix=[self._pg_catalog()],
@@ -383,20 +403,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                     RAW_SQL("NULLIF(t.typbasetype, 0)"),
                 ),
             ),
-            WHERE(
-                AND(
-                    [
-                        # Only get object types that correspond to tables/views in information_schema.tables
-                        IN(
-                            COLUMN("relkind", "c"),
-                            [LITERAL("r"), LITERAL("p"), LITERAL("v"), LITERAL("m"), LITERAL("f")],
-                        ),
-                        # Only get columns that are not dropped
-                        GT(COLUMN("attnum", "a"), LITERAL(0)),
-                        EQ(COLUMN("relname", "c"), LITERAL(self.metadata_casify(table_name))),
-                    ]
-                )
-            ),
+            WHERE(AND(where_conditions)),
             ORDER_BY_ASC(COLUMN("attnum", "a")),
         ]
 
@@ -408,3 +415,11 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
             select.append(WHERE(EQ(LOWER(COLUMN("nspname", "n")), LITERAL(schema_name.lower()))))
 
         return self.build_select_sql(select)
+
+    def build_columns_metadata_query_str(self, table_namespace: DataSourceNamespace, table_name: str) -> str:
+        return self._build_pg_columns_metadata_query(table_namespace, table_name=table_name)
+
+    def build_all_columns_metadata_query_str(self, table_namespace: DataSourceNamespace) -> str:
+        return self._build_pg_columns_metadata_query(
+            table_namespace, include_table_name_column=True
+        )

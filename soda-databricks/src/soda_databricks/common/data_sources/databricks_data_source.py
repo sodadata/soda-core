@@ -76,6 +76,10 @@ class DatabricksDataSourceImpl(DataSourceImpl, model_class=DatabricksDataSourceM
             logger.warning(f"Error getting columns metadata for {dataset_name}: {e}\n\nReturning empty list.")
             return []
 
+    @property
+    def bulk_columns_metadata_available(self) -> bool:
+        return False
+
     def test_schema_exists(self, prefixes: list[str]) -> bool:
         if not self._is_hive_catalog():
             return super().test_schema_exists(prefixes)
