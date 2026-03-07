@@ -199,6 +199,9 @@
                                                                             "type": "string"
                                                                         }
                                                                     }
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
                                                                 }
                                                             }
                                                         },
@@ -340,6 +343,9 @@
                                                                             "type": "string"
                                                                         }
                                                                     }
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
                                                                 }
                                                             }
                                                         },
@@ -383,6 +389,9 @@
                                                                         "maxLength",
                                                                         "avgLength"
                                                                     ]
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
                                                                 }
                                                             },
                                                             "required": [
@@ -415,6 +424,9 @@
                                                                 "filter": {
                                                                     "description": "Specifies a sql expression filter that should be applied on the metric",
                                                                     "type": "string"
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
                                                                 }
                                                             }
                                                         },
@@ -447,6 +459,9 @@
                                                                 },
                                                                 "threshold": {
                                                                     "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
                                                                 }
                                                             },
                                                             "oneOf": [
@@ -498,6 +513,9 @@
                                                                 },
                                                                 "threshold": {
                                                                     "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
                                                                 }
                                                             },
                                                             "oneOf": [
@@ -522,6 +540,61 @@
                                                                     }
                                                                 }
                                                             ]
+                                                        }
+                                                    ]
+                                                },
+                                                "llm": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "required": [
+                                                                "prompt"
+                                                            ],
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "attributes": {
+                                                                    "$ref": "#/$defs/attributes"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "filter": {
+                                                                    "description": "Specifies a SQL expression filter",
+                                                                    "type": "string"
+                                                                },
+                                                                "prompt": {
+                                                                    "description": "The prompt template for LLM evaluation. Use {value} as placeholder for the column value.",
+                                                                    "type": "string"
+                                                                },
+                                                                "model": {
+                                                                    "description": "The LLM model to use (LiteLLM model string). Overrides config file.",
+                                                                    "type": "string"
+                                                                },
+                                                                "batch_size": {
+                                                                    "description": "Number of values to send per LLM call.",
+                                                                    "type": "integer",
+                                                                    "minimum": 1
+                                                                },
+                                                                "max_rows": {
+                                                                    "description": "Maximum number of rows to fetch from the database.",
+                                                                    "type": "integer",
+                                                                    "minimum": 1
+                                                                },
+                                                                "remediation": {
+                                                                    "$ref": "#/$defs/remediation"
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "null"
                                                         }
                                                     ]
                                                 }
@@ -569,6 +642,9 @@
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
                                                 "type": "string"
+                                            },
+                                            "remediation": {
+                                                "$ref": "#/$defs/remediation"
                                             }
                                         }
                                     },
@@ -615,6 +691,9 @@
                                             "allow_other_column_order": {
                                                 "description": "Allow columns to be in a different order than the schema",
                                                 "type": "boolean"
+                                            },
+                                            "remediation": {
+                                                "$ref": "#/$defs/remediation"
                                             }
                                         }
                                     },
@@ -656,6 +735,9 @@
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
                                                 "type": "string"
+                                            },
+                                            "remediation": {
+                                                "$ref": "#/$defs/remediation"
                                             }
                                         },
                                         "required": [
@@ -704,6 +786,9 @@
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
                                                 "type": "string"
+                                            },
+                                            "remediation": {
+                                                "$ref": "#/$defs/remediation"
                                             }
                                         },
                                         "required": [
@@ -742,6 +827,9 @@
                                             },
                                             "threshold": {
                                                 "$ref": "#/$defs/threshold"
+                                            },
+                                            "remediation": {
+                                                "$ref": "#/$defs/remediation"
                                             }
                                         },
                                         "oneOf": [
@@ -799,6 +887,9 @@
                                             },
                                             "threshold": {
                                                 "$ref": "#/$defs/threshold"
+                                            },
+                                            "remediation": {
+                                                "$ref": "#/$defs/remediation"
                                             }
                                         },
                                         "oneOf": [
@@ -1162,6 +1253,100 @@
                     "type": "object",
                     "maxProperties": 2
                 }
+            ]
+        },
+        "remediation": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Remediation action to execute when the check fails",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Human-readable description of the remediation action"
+                },
+                "strategy": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "type": {
+                                    "const": "sql"
+                                },
+                                "query": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "type",
+                                "query"
+                            ]
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "type": {
+                                    "const": "llm"
+                                },
+                                "prompt": {
+                                    "type": "string"
+                                },
+                                "references": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "type": {
+                                                "enum": [
+                                                    "table",
+                                                    "column"
+                                                ]
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "description": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "type",
+                                            "name"
+                                        ]
+                                    }
+                                },
+                                "tools": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "description": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "name"
+                                        ]
+                                    }
+                                }
+                            },
+                            "required": [
+                                "type",
+                                "prompt"
+                            ]
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "description",
+                "strategy"
             ]
         }
     }
