@@ -22,6 +22,8 @@ from soda_core.common.sql_ast import (
     CREATE_TABLE,
     CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
+    DROP_TABLE,
+    DROP_TABLE_IF_EXISTS,
     INSERT_INTO_VIA_SELECT,
     STRING_HASH,
 )
@@ -59,7 +61,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         return result
 
     def table_s3_location(self, qualified_table_name: str, lowercase: bool = True) -> str:
-        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "")
+        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "").replace("`", "")
         if lowercase:  # Athena table names are always lowercase, so the location should be lowercase as well.
             table_part_for_location = table_part_for_location.lower()
         location = f"{self.connection.athena_staging_dir}/{table_part_for_location}/"
@@ -170,6 +172,10 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         super().__init__()
         self.get_table_storage_location = get_table_storage_location
 
+    def _requote_for_ddl(self, quoted_name: str) -> str:
+        """Athena DDL uses Hive parser (backticks) while DML uses Trino parser (double quotes)."""
+        return quoted_name.replace('"', "`")
+
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
 
@@ -242,6 +248,10 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
         raise NotImplementedError()
 
+    def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: Optional[bool] = None) -> str:
+        sql = super().create_schema_if_not_exists_sql(prefixes, add_semicolon)
+        return self._requote_for_ddl(sql)
+
     def quote_column(self, column_name: str) -> str:
         return f'"{column_name}"'
 
@@ -293,7 +303,8 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
     def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
         if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
-        create_table_sql: str = f"CREATE EXTERNAL TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        table_name = self._requote_for_ddl(create_table.fully_qualified_table_name)
+        create_table_sql: str = f"CREATE EXTERNAL TABLE {if_not_exists_sql} {table_name} "
         return create_table_sql
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
@@ -424,10 +435,17 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def _build_alter_table_add_column_sql(
         self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
     ) -> str:
-        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=True, add_parenthesis=True)
+        sql = super()._build_alter_table_add_column_sql(alter_table, add_semicolon=True, add_parenthesis=True)
+        return self._requote_for_ddl(sql)
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD COLUMNS"
+
+    def build_drop_table_sql(
+        self, drop_table: DROP_TABLE | DROP_TABLE_IF_EXISTS, add_semicolon: Optional[bool] = None
+    ) -> str:
+        sql = super().build_drop_table_sql(drop_table, add_semicolon)
+        return self._requote_for_ddl(sql)
 
     def drop_column_supported(self) -> bool:
         return (
