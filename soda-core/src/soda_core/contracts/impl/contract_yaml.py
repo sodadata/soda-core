@@ -533,7 +533,9 @@ class CheckYaml(ABC):
         )
         if self.column_expression:
             self.column_expression = self.column_expression.strip()
-        remediation_obj: Optional[YamlObject] = check_yaml_object.read_object_opt("remediation") if check_yaml_object else None
+        remediation_obj: Optional[YamlObject] = (
+            check_yaml_object.read_object_opt("remediation") if check_yaml_object else None
+        )
         self.remediation: Optional[dict] = remediation_obj.to_dict() if remediation_obj else None
 
 
