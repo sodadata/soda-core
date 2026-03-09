@@ -25,8 +25,7 @@ def test_data_source_env_var_resolving(env_vars: dict):
     env_vars["TEST_POSTGRES_PASSWORD"] = "***"
     env_vars["TEST_POSTGRES_DATABASE"] = "soda_test"
 
-    data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_str(
-        yaml_str=f"""
+    data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_str(yaml_str=f"""
             type: postgres
             name: postgres_test_ds
             connection:
@@ -34,8 +33,7 @@ def test_data_source_env_var_resolving(env_vars: dict):
                 user: ${{env.TEST_POSTGRES_USERNAME}}
                 password: '${{env.TEST_POSTGRES_PASSWORD}}'
                 database: ${{env.TEST_POSTGRES_DATABASE}}
-        """
-    )
+        """)
     data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
 
     connection_properties = data_source_impl.data_source_model.connection_properties

@@ -49,8 +49,9 @@ def test_test_soda_cloud_connection_failure(mock_soda_cloud_cls):
     mock_soda_cloud.test_connection.return_value = None
     mock_soda_cloud_cls.from_file.return_value = mock_soda_cloud
 
-    with patch("soda_core.cli.handlers.soda_cloud.Logs.has_errors", return_value=True), patch(
-        "soda_core.cli.handlers.soda_cloud.Logs.get_errors_str", return_value="boom"
+    with (
+        patch("soda_core.cli.handlers.soda_cloud.Logs.has_errors", return_value=True),
+        patch("soda_core.cli.handlers.soda_cloud.Logs.get_errors_str", return_value="boom"),
     ):
         exit_code = handle_test_soda_cloud("sc.yaml")
 
