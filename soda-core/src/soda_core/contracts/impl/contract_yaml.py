@@ -427,6 +427,36 @@ class ColumnYaml(MissingAndValidityYaml):
         )
 
 
+@dataclass
+class RemediationReferenceYaml:
+    type: str  # "table" or "column"
+    name: str
+    description: Optional[str] = None
+
+
+@dataclass
+class RemediationToolYaml:
+    name: str
+    description: Optional[str] = None
+
+
+@dataclass
+class RemediationStrategyYaml:
+    type: str  # "sql" or "llm"
+    # SQL fields
+    query: Optional[str] = None
+    # LLM fields
+    prompt: Optional[str] = None
+    references: Optional[list[RemediationReferenceYaml]] = None
+    tools: Optional[list[RemediationToolYaml]] = None
+
+
+@dataclass
+class RemediationYaml:
+    description: str
+    strategy: RemediationStrategyYaml
+
+
 class RangeYaml:
     def __init__(self, range_yaml_object: YamlObject):
         self.greater_than: Optional[Number] = range_yaml_object.read_number_opt("greater_than")
@@ -533,10 +563,58 @@ class CheckYaml(ABC):
         )
         if self.column_expression:
             self.column_expression = self.column_expression.strip()
-        remediation_obj: Optional[YamlObject] = (
-            check_yaml_object.read_object_opt("remediation") if check_yaml_object else None
-        )
-        self.remediation: Optional[dict] = remediation_obj.to_dict() if remediation_obj else None
+        self.remediation: Optional[RemediationYaml] = self._parse_remediation(check_yaml_object)
+
+    @staticmethod
+    def _parse_remediation(check_yaml_object: YamlObject) -> Optional[RemediationYaml]:
+        if not check_yaml_object:
+            return None
+        remediation_obj: Optional[YamlObject] = check_yaml_object.read_object_opt("remediation")
+        if not remediation_obj:
+            return None
+
+        description: Optional[str] = remediation_obj.read_string_opt("description")
+        strategy_obj: Optional[YamlObject] = remediation_obj.read_object_opt("strategy")
+        if not strategy_obj or not description:
+            return None
+
+        strategy_type: Optional[str] = strategy_obj.read_string("type")
+        if strategy_type == "sql":
+            strategy = RemediationStrategyYaml(type="sql", query=strategy_obj.read_string("query"))
+        elif strategy_type == "llm":
+            prompt: Optional[str] = strategy_obj.read_string("prompt")
+            refs_list: Optional[YamlList] = strategy_obj.read_list_of_objects_opt("references")
+            tools_list: Optional[YamlList] = strategy_obj.read_list_of_objects_opt("tools")
+            references: Optional[list[RemediationReferenceYaml]] = None
+            if refs_list:
+                references = [
+                    RemediationReferenceYaml(
+                        type=r.read_string("type"),
+                        name=r.read_string("name"),
+                        description=r.read_string_opt("description"),
+                    )
+                    for r in refs_list
+                ]
+            tools: Optional[list[RemediationToolYaml]] = None
+            if tools_list:
+                tools = [
+                    RemediationToolYaml(
+                        name=t.read_string("name"),
+                        description=t.read_string_opt("description"),
+                    )
+                    for t in tools_list
+                ]
+            strategy = RemediationStrategyYaml(
+                type="llm", prompt=prompt, references=references or None, tools=tools or None
+            )
+        else:
+            logger.error(
+                msg=f"Unknown remediation strategy type: '{strategy_type}'. Must be 'sql' or 'llm'",
+                extra={ExtraKeys.LOCATION: strategy_obj.create_location_from_yaml_dict_key("type")},
+            )
+            return None
+
+        return RemediationYaml(description=description, strategy=strategy)
 
 
 class ThresholdCheckYaml(CheckYaml):
