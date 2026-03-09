@@ -1402,14 +1402,14 @@
         "metric": {
           "description": "Metric unit to evaluate (count or percent).",
           "enum": [
-            "count", 
+            "count",
             "percent"
           ]
         },
         "must_be": {
           "description": "Check passes if the metric equals this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
@@ -1423,14 +1423,14 @@
         "must_be_greater_than": {
           "description": "Check passes if the metric is greater than this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
         "must_be_greater_than_or_equal": {
           "description": "Check passes if the metric is greater than or equal to this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
@@ -1444,7 +1444,7 @@
         "must_be_less_than_or_equal": {
           "description": "Check passes if the metric is less than or equal to this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
@@ -1565,50 +1565,50 @@
         "unit": {
           "description": "Time unit for freshness (minute, hour, day).",
           "enum": [
-            "minute", 
-            "hour", 
+            "minute",
+            "hour",
             "day"
           ]
         },
         "must_be": {
           "description": "Check passes if the metric equals this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
         "must_not_be": {
           "description": "Check passes if the metric does not equal this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
         "must_be_greater_than": {
           "description": "Check passes if the metric is greater than this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
         "must_be_greater_than_or_equal": {
           "description": "Check passes if the metric is greater than or equal to this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
         "must_be_less_than": {
           "description": "Check passes if the metric is less than this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
         "must_be_less_than_or_equal": {
           "description": "Check passes if the metric is less than or equal to this value.",
           "type": [
-            "number", 
+            "number",
             "string"
           ]
         },
