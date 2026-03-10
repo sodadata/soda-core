@@ -1484,32 +1484,6 @@ def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
         "source": "soda-contract",
         "diagnostics": _build_diagnostics_json_dict(check_result),
-        "remediation": _build_remediation_cloud_dict(check_result.check.remediation),
-    }
-
-
-def _build_remediation_cloud_dict(remediation) -> Optional[dict]:
-    if not remediation:
-        return None
-    strategy = remediation.strategy
-    strategy_dict = {"type": strategy.type}
-    if strategy.query is not None:
-        strategy_dict["query"] = strategy.query
-    if strategy.prompt is not None:
-        strategy_dict["prompt"] = strategy.prompt
-    if strategy.references:
-        strategy_dict["references"] = [
-            {k: v for k, v in {"type": r.type, "name": r.name, "description": r.description}.items() if v is not None}
-            for r in strategy.references
-        ]
-    if strategy.tools:
-        strategy_dict["tools"] = [
-            {k: v for k, v in {"name": t.name, "description": t.description}.items() if v is not None}
-            for t in strategy.tools
-        ]
-    return {
-        "description": remediation.description,
-        "strategy": strategy_dict,
     }
 
 

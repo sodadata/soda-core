@@ -271,34 +271,6 @@ class Threshold:
 
 
 @dataclass
-class RemediationReference:
-    type: str  # "table" or "column"
-    name: str
-    description: Optional[str] = None
-
-
-@dataclass
-class RemediationTool:
-    name: str
-    description: Optional[str] = None
-
-
-@dataclass
-class RemediationStrategy:
-    type: str  # "sql" or "llm"
-    query: Optional[str] = None
-    prompt: Optional[str] = None
-    references: Optional[list[RemediationReference]] = None
-    tools: Optional[list[RemediationTool]] = None
-
-
-@dataclass
-class Remediation:
-    description: str
-    strategy: RemediationStrategy
-
-
-@dataclass
 class Check:
     """Represents the state / essence of a check after it has been executed.
 
@@ -316,7 +288,6 @@ class Check:
     contract_file_line: int
     contract_file_column: int
     threshold: Optional[Threshold]
-    remediation: Optional[Remediation]
     attributes: Optional[dict[str, Any]]
     location: Optional[Location]
 

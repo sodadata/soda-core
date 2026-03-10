@@ -40,10 +40,6 @@ from soda_core.contracts.contract_verification import (
     Measurement,
     PostProcessingStage,
     PostProcessingStageState,
-    Remediation,
-    RemediationReference,
-    RemediationStrategy,
-    RemediationTool,
     SodaException,
     Threshold,
     YamlFileContentInfo,
@@ -1453,7 +1449,6 @@ class CheckImpl:
             contract_file_line=self.check_yaml.check_yaml_object.location.line,
             contract_file_column=self.check_yaml.check_yaml_object.location.column,
             threshold=self._build_threshold(),
-            remediation=self._build_remediation(),
             attributes=self.attributes,
             location=self.check_yaml.check_yaml_object.location,
         )
@@ -1503,29 +1498,6 @@ class CheckImpl:
 
     def _build_threshold(self) -> Optional[Threshold]:
         return self.threshold.to_threshold_info() if self.threshold else None
-
-    def _build_remediation(self) -> Optional[Remediation]:
-        remediation_yaml = self.check_yaml.remediation
-        if not remediation_yaml:
-            return None
-        strategy_yaml = remediation_yaml.strategy
-        references = None
-        tools = None
-        if strategy_yaml.references:
-            references = [
-                RemediationReference(type=r.type, name=r.name, description=r.description)
-                for r in strategy_yaml.references
-            ]
-        if strategy_yaml.tools:
-            tools = [RemediationTool(name=t.name, description=t.description) for t in strategy_yaml.tools]
-        strategy = RemediationStrategy(
-            type=strategy_yaml.type,
-            query=strategy_yaml.query,
-            prompt=strategy_yaml.prompt,
-            references=references,
-            tools=tools,
-        )
-        return Remediation(description=remediation_yaml.description, strategy=strategy)
 
     def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
         """
