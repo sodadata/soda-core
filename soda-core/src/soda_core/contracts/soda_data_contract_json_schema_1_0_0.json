@@ -1,1609 +1,1234 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://soda.io/soda_data_contract_json_schema_1_0_0.json",
-  "title": "Soda Data Contract JSON Schema",
-  "description": "Soda Data Contract",
-  "type": "object",
-  "additionalProperties": true,
-  "properties": {
-    "dataset": {
-      "description": "The dataset fully qualified name of the dataset. Format is [datasource]/[database]/[schema]/[table]. The exact format may vary by data source type. https://docs.soda.io/soda-v4/reference/contract-language-reference#dataset-fully-qualified-name",
-      "type": "string"
-    },
-    "description": {
-      "description": "Description of the dataset. https://docs.soda.io/soda-v4/reference/contract-language-reference#description",
-      "type": "string"
-    },
-    "filter": {
-      "description": "The SQL filter clause to be applied to the dataset (without the WHERE keyword). https://docs.soda.io/soda-v4/reference/contract-language-reference#configure-a-filter-for-all-check",
-      "type": "string"
-    },
-    "variables": {
-      "description": "The variables to be used within the contract file for parameterization. Default values are optional. https://docs.soda.io/soda-v4/reference/contract-language-reference#make-contracts-dynamic-with-variables",
-      "type": "object",
-      "additionalProperties": {
-        "type": [
-          "object",
-          "null"
-        ],
-        "properties": {
-          "default": {
-            "type": [
-              "string",
-              "number"
-            ]
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    "diagnostics": {
-      "description": "Configuration for storing check results.",
-      "type": "string",
-      "enum": ["store_check_results"]
-    },
-    "failed_rows": {
-      "description": "Configuration for storing failed rows.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "strategy": {
-          "description": "Strategy for handling failed rows.",
-          "type": "string",
-          "enum": ["store_keys"]
-        },
-        "keys": {
-          "description": "Array of column names to use as keys for failed rows.",
-          "type": "array",
-          "items": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://soda.io/soda_data_contract_json_schema_1_0_0.json",
+    "title": "Soda Data Contract JSON Schema",
+    "description": "Soda Data Contract",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "dataset": {
+            "description": "The qualified name of the dataset, which is the combination dataset name, datasource name and database information. Format is [datasource]/[dataset_prefix_1]/.../[dataset_prefix_N]/[dataset]",
             "type": "string"
-          },
-          "minItems": 1
-        }
-      },
-      "required": ["strategy", "keys"]
-    },
-    "soda_agent": {
-      "description": "The agent configuration for remote execution via Soda Agent.",
-      "type": "object",
-      "properties": {
-        "checks_schedule": {
-          "type": "object",
-          "description": "A schedule that defines when contract's checks should be verified. https://docs.soda.io/soda-v4/reference/contract-language-reference#schedule-a-contract-verification",
-          "properties": {
-            "cron": {
-              "type": "string",
-              "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes."
-            },
-            "timezone": {
-              "type": "string",
-              "description": "The timezone to be used for scheduled contract verification."
-            },
-            "variables": {
-              "type": "object",
-              "description": "The variables to be used for scheduled contract verification.",
-              "additionalProperties": {
+        },
+        "description": {
+            "description": "The description of the dataset",
+            "type": "string"
+        },
+        "filter": {
+            "description": "The filter where clause to be applied to the dataset",
+            "type": "string"
+        },
+        "variables": {
+            "description": "The variables to be used within the contract file",
+            "type": "object",
+            "additionalProperties": {
                 "type": [
-                  "string",
-                  "number"
+                    "object",
+                    "null"
                 ],
+                "properties": {
+                    "default": {
+                        "type": [
+                            "string",
+                            "number"
+                        ]
+                    }
+                },
                 "additionalProperties": false
-              }
             }
-          }
-        }
-      }
-    },
-    "check_attributes": {
-      "description": "Default attributes used for all checks. https://docs.soda.io/soda-v4/reference/contract-language-reference#check-attributes",
-      "type": "object",
-      "additionalProperties": true
-    },
-    "reconciliation": {
-      "description": "Configuration for reconciliation between source and target datasets.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "source": {
-          "description": "Source dataset configuration for reconciliation. The source dataset is compared with the main dataset.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["dataset"],
-          "properties": {
-            "dataset": {
-              "description": "The dataset fully qualified name of the source dataset. Format is [datasource]/[database]/[schema]/[table]. The exact format may vary by data source type. https://docs.soda.io/soda-v4/reference/contract-language-reference#dataset-fully-qualified-name",
-              "type": "string"
-            },
-            "filter": {
-              "description": "The SQL where filter clause to be applied to the source dataset (without the WHERE keyword).",
-              "type": "string"
+        },
+        "soda_agent": {
+            "description": "The agent configuration to be used within the contract file",
+            "type": "object",
+            "properties": {
+                "checks_schedule": {
+                    "type": "object",
+                    "properties": {
+                        "cron": {
+                            "type": "string",
+                            "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes."
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "The timezone to be used within the contract file"
+                        },
+                        "variables": {
+                            "type": "object",
+                            "description": "The variables to be used within the contract file",
+                            "additionalProperties": {
+                                "type": [
+                                    "string",
+                                    "number"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                }
             }
-          }
+        },
+        "columns": {
+            "description": "The list of columns, also known as 'the schema' of the dataset.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "allOf": [
+                    {
+                        "type": "object",
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": {
+                                "description": "The name of the column as in the SQL data_source",
+                                "type": "string"
+                            },
+                            "description": {
+                                "description": "The description to be used anywhere this column is shown to users",
+                                "type": "string"
+                            },
+                            "data_type": {
+                                "description": "The SQL data type as in the data_source",
+                                "anyOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "string",
+                                        "enum": [
+                                            "VARCHAR",
+                                            "CHAR",
+                                            "TEXT",
+                                            "STRING",
+                                            "INT",
+                                            "SMALLINT",
+                                            "TINYINT",
+                                            "BIGINT",
+                                            "INTEGER",
+                                            "DECIMAL",
+                                            "NUMERIC",
+                                            "DOUBLE",
+                                            "PRECISION",
+                                            "DOUBLE PRECISION",
+                                            "FLOAT",
+                                            "FLOAT4",
+                                            "FLOAT8",
+                                            "REAL",
+                                            "CLOB",
+                                            "BLOB",
+                                            "BINARY",
+                                            "VARBINARY",
+                                            "JSON",
+                                            "JSONB",
+                                            "XML",
+                                            "BOOLEAN",
+                                            "DATE",
+                                            "TIME",
+                                            "TIMESTAMP",
+                                            "TIMESTAMP_TZ"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "character_maximum_length": {
+                                "description": "Length is only checked by the schema check if character_maximum_length is specified in the column and supported by the data source.",
+                                "type": "number"
+                            },
+                            "optional": {
+                                "description": "When set to true, the schema check will not fail if the column is not present. Default is required.",
+                                "type": "boolean"
+                            },
+                            "checks": {
+                                "description": "Checks for this column",
+                                "type": "array",
+                                "additionalItems": false,
+                                "minItems": 1,
+                                "items": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "missing": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "attributes": {
+                                                                    "$ref": "#/$defs/attributes"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "filter": {
+                                                                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                                    "type": "string"
+                                                                },
+                                                                "missing_values": {
+                                                                    "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead.",
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": [
+                                                                            "integer",
+                                                                            "string"
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                "missing_format": {
+                                                                    "type": "object",
+                                                                    "additionalProperties": false,
+                                                                    "required": [
+                                                                        "regex",
+                                                                        "name"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "regex": {
+                                                                            "description": "Customized regex to identify missing values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
+                                                                            "type": "string"
+                                                                        },
+                                                                        "name": {
+                                                                            "description": "Name that describes the regex pattern.",
+                                                                            "type": "string"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                },
+                                                "invalid": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "attributes": {
+                                                                    "$ref": "#/$defs/attributes"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "filter": {
+                                                                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                                    "type": "string"
+                                                                },
+                                                                "valid_values": {
+                                                                    "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "string"
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                "valid_format": {
+                                                                    "type": "object",
+                                                                    "additionalProperties": false,
+                                                                    "required": [
+                                                                        "regex",
+                                                                        "name"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "regex": {
+                                                                            "description": "Customized regex to identify valid values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
+                                                                            "type": "string"
+                                                                        },
+                                                                        "name": {
+                                                                            "description": "Name that describes the regex pattern.",
+                                                                            "type": "string"
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "invalid_values": {
+                                                                    "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "string"
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                "invalid_format": {
+                                                                    "type": "object",
+                                                                    "additionalProperties": false,
+                                                                    "required": [
+                                                                        "regex",
+                                                                        "name"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "regex": {
+                                                                            "description": "Customized regex to identify invalid values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
+                                                                            "type": "string"
+                                                                        },
+                                                                        "name": {
+                                                                            "description": "Name that describes the regex pattern.",
+                                                                            "type": "string"
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "valid_length": {
+                                                                    "description": "The length of the valid values",
+                                                                    "type": [
+                                                                        "number",
+                                                                        "string"
+                                                                    ]
+                                                                },
+                                                                "valid_min_length": {
+                                                                    "description": "The minimum length of the valid values",
+                                                                    "type": [
+                                                                        "number",
+                                                                        "string"
+                                                                    ]
+                                                                },
+                                                                "valid_max_length": {
+                                                                    "description": "The maximum length of the valid values",
+                                                                    "type": [
+                                                                        "number",
+                                                                        "string"
+                                                                    ]
+                                                                },
+                                                                "valid_min": {
+                                                                    "description": "The minimum value of the valid values",
+                                                                    "type": [
+                                                                        "number",
+                                                                        "string"
+                                                                    ]
+                                                                },
+                                                                "valid_max": {
+                                                                    "description": "The maximum value of the valid values",
+                                                                    "type": [
+                                                                        "number",
+                                                                        "string"
+                                                                    ]
+                                                                },
+                                                                "valid_reference_data": {
+                                                                    "type": "object",
+                                                                    "description": "Verify valid values occur in a reference dataset",
+                                                                    "additionalProperties": false,
+                                                                    "required": [
+                                                                        "dataset",
+                                                                        "column"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "dataset": {
+                                                                            "description": "The dataset to be used for the reference data check. Dataset qualified name is required.",
+                                                                            "type": "string"
+                                                                        },
+                                                                        "column": {
+                                                                            "description": "The column to be used for the reference data check",
+                                                                            "type": "string"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                },
+                                                "aggregate": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "attributes": {
+                                                                    "$ref": "#/$defs/attributes"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "filter": {
+                                                                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                                    "type": "string"
+                                                                },
+                                                                "function": {
+                                                                    "description": "The function to be used for the aggregate check",
+                                                                    "enum": [
+                                                                        "avg",
+                                                                        "sum",
+                                                                        "min",
+                                                                        "max",
+                                                                        "minLength",
+                                                                        "maxLength",
+                                                                        "avgLength"
+                                                                    ]
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "threshold",
+                                                                "function"
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "duplicate": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "attributes": {
+                                                                    "$ref": "#/$defs/attributes"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "filter": {
+                                                                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                                    "type": "string"
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                },
+                                                "failed_rows": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "expression": {
+                                                                    "description": "The expression to be used for the failed rows check",
+                                                                    "type": "string"
+                                                                },
+                                                                "query": {
+                                                                    "description": "The query to be used for the failed rows check",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                }
+                                                            },
+                                                            "oneOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "expression"
+                                                                    ],
+                                                                    "not": {
+                                                                        "required": [
+                                                                            "query"
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "required": [
+                                                                        "query"
+                                                                    ],
+                                                                    "not": {
+                                                                        "required": [
+                                                                            "expression"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "metric": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "expression": {
+                                                                    "description": "The expression to be used for the failed rows check",
+                                                                    "type": "string"
+                                                                },
+                                                                "query": {
+                                                                    "description": "The query to be used for the failed rows check",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                }
+                                                            },
+                                                            "oneOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "expression"
+                                                                    ],
+                                                                    "not": {
+                                                                        "required": [
+                                                                            "query"
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "required": [
+                                                                        "query"
+                                                                    ],
+                                                                    "not": {
+                                                                        "required": [
+                                                                            "expression"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "llm": {
+                                                    "oneOf": [
+                                                        {
+                                                            "type": "object",
+                                                            "description": "Validates column values using a Large Language Model (LLM) prompt.",
+                                                            "additionalProperties": true,
+                                                            "properties": {
+                                                                "name": {
+                                                                    "description": "The display name for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "qualifier": {
+                                                                    "description": "The qualifier for the check used in Soda Cloud",
+                                                                    "type": "string"
+                                                                },
+                                                                "filter": {
+                                                                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                                    "type": "string"
+                                                                },
+                                                                "attributes": {
+                                                                    "$ref": "#/$defs/attributes"
+                                                                },
+                                                                "prompt": {
+                                                                    "description": "The prompt template to evaluate each value. Use {value} as placeholder.",
+                                                                    "type": "string"
+                                                                },
+                                                                "threshold": {
+                                                                    "$ref": "#/$defs/threshold"
+                                                                },
+                                                                "references": {
+                                                                    "description": "Reference datasets available for the LLM to look up canonical values during validation.",
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "dataset": {
+                                                                                "type": "string",
+                                                                                "description": "Fully qualified name of the reference table (e.g. schema.table)"
+                                                                            },
+                                                                            "description": {
+                                                                                "type": "string",
+                                                                                "description": "Human-readable description of the reference dataset"
+                                                                            },
+                                                                            "max_rows": {
+                                                                                "type": "integer",
+                                                                                "minimum": 1,
+                                                                                "default": 1000,
+                                                                                "description": "Maximum number of rows to load from the reference table"
+                                                                            }
+                                                                        },
+                                                                        "required": [
+                                                                            "dataset"
+                                                                        ],
+                                                                        "additionalProperties": false
+                                                                    }
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "prompt"
+                                                            ]
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
         },
         "checks": {
-          "description": "A list of reconciliation checks to compare source and target datasets.",
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "row_count_diff": {
-                    "description": "Compare row count differences between source and target datasets.",
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                          "name": {
-                            "$ref": "#/$defs/check_name"
-                          },
-                          "qualifier": {
-                            "$ref": "#/$defs/check_qualifier"
-                          },
-                          "filter": {
-                            "$ref": "#/$defs/check_filter"
-                          },
-                          "attributes": {
-                            "$ref": "#/$defs/attributes"
-                          },
-                          "threshold": {
-                            "$ref": "#/$defs/threshold"
-                          }
-                        }
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "freshness_diff": {
-                    "description": "Compare freshness differences between source and target datasets.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["source_column", "target_column"],
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "source_column": {
-                        "description": "The column in the source dataset to be used for freshness comparison (typically a timestamp column).",
-                        "type": "string"
-                      },
-                      "target_column": {
-                        "description": "The column in the target dataset to be used for freshness comparison (typically a timestamp column).",
-                        "type": "string"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/thresholdFreshness"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      }
-                    }
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "aggregate_diff": {
-                    "description": "Compare aggregate function results between source and target datasets.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["function", "source_column", "target_column"],
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "function": {
-                        "description": "The aggregate function to be used.",
-                        "enum": [
-                          "avg",
-                          "sum",
-                          "min",
-                          "max",
-                          "min_length",
-                          "max_length",
-                          "avg_length"
-                        ]
-                      },
-                      "source_column": {
-                        "description": "The column in the source dataset to apply the aggregate function to.",
-                        "type": "string"
-                      },
-                      "target_column": {
-                        "description": "The column in the target dataset to apply the aggregate function to.",
-                        "type": "string"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      }
-                    }
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "duplicate_diff": {
-                    "description": "Compare duplicate metrics between source and target datasets.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["source_columns", "target_columns"],
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "min": {
-                        "description": "Minimum number of duplicates allowed.",
-                        "type": "number"
-                      },
-                      "source_columns": {
-                        "description": "The columns in the source dataset to check for duplicates.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
-                        "minItems": 1
-                      },
-                      "target_columns": {
-                        "description": "The columns in the target dataset to check for duplicates.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
-                        "minItems": 1
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      }
-                    }
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "metric_diff": {
-                    "description": "Compare custom metric expressions or queries between source and target datasets.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "source_expression": {
-                        "description": "The SQL expression to be used for the source dataset.",
-                        "type": "string"
-                      },
-                      "target_expression": {
-                        "description": "The SQL expression to be used for the target dataset.",
-                        "type": "string"
-                      },
-                      "source_query": {
-                        "description": "The SQL query to be used for the source dataset.",
-                        "type": "string"
-                      },
-                      "target_query": {
-                        "description": "The SQL query to be used for the target dataset.",
-                        "type": "string"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      }
-                    },
-                    "oneOf": [
-                      {
-                        "required": ["source_expression", "target_expression"],
-                        "not": {
-                          "required": ["source_query", "target_query"]
-                        }
-                      },
-                      {
-                        "required": ["source_query", "target_query"],
-                        "not": {
-                          "required": ["source_expression", "target_expression"]
-                        }
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "rows_diff": {
-                    "description": "Compare individual rows between source and target datasets based on key columns. Note: source_key_columns and target_key_columns must have the same length, and source_columns and target_columns must have the same length.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["source_key_columns", "target_key_columns"],
-                    "$comment": "Validation: source_key_columns and target_key_columns must have matching lengths. source_columns and target_columns must have matching lengths.",
-                    "dependencies": {
-                      "source_key_columns": ["target_key_columns"],
-                      "target_key_columns": ["source_key_columns"],
-                      "source_columns": ["target_columns"],
-                      "target_columns": ["source_columns"]
-                    },
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "source_key_columns": {
-                        "description": "The key columns in the source dataset for row matching. Must have the same length as target_key_columns.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
-                        "minItems": 1
-                      },
-                      "target_key_columns": {
-                        "description": "The key columns in the target dataset for row matching. Must have the same length as source_key_columns.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
-                        "minItems": 1
-                      },
-                      "source_columns": {
-                        "description": "The columns to compare in the source dataset. Must have the same length as target_columns.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
-                        "minItems": 1
-                      },
-                      "target_columns": {
-                        "description": "The columns to compare in the target dataset. Must have the same length as source_columns.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
-                        "minItems": 1
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      }
-                    }
-                  }
-                },
-                "additionalProperties": false
-              }
-            ]
-          }
-        }
-      },
-      "required": ["source", "checks"]
-    },
-    "columns": {
-      "description": "The list of columns defining the schema of the dataset. https://docs.soda.io/soda-v4/reference/contract-language-reference#columns",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "allOf": [
-          {
-            "type": "object",
-            "required": [
-              "name"
-            ],
-            "additionalProperties": true,
-            "properties": {
-              "name": {
-                "description": "The name of the column as it appears in the SQL data source",
-                "type": "string"
-              },
-              "description": {
-                "description": "The description displayed to users wherever this column is shown",
-                "type": "string"
-              },
-              "data_type": {
-                "description": "The SQL data type as defined in the data source.",
+            "description": "A list of checks for this dataset executed by a Soda",
+            "type": "array",
+            "minItems": 1,
+            "additionalItems": false,
+            "items": {
                 "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string",
-                    "enum": [
-                      "VARCHAR",
-                      "CHAR",
-                      "TEXT",
-                      "STRING",
-                      "INT",
-                      "SMALLINT",
-                      "TINYINT",
-                      "BIGINT",
-                      "INTEGER",
-                      "DECIMAL",
-                      "NUMERIC",
-                      "DOUBLE",
-                      "PRECISION",
-                      "DOUBLE PRECISION",
-                      "FLOAT",
-                      "FLOAT4",
-                      "FLOAT8",
-                      "REAL",
-                      "CLOB",
-                      "BLOB",
-                      "BINARY",
-                      "VARBINARY",
-                      "JSON",
-                      "JSONB",
-                      "XML",
-                      "BOOLEAN",
-                      "DATE",
-                      "TIME",
-                      "TIMESTAMP",
-                      "TIMESTAMP_TZ"
-                    ]
-                  }
-                    ]
-              },
-              "column_expression": {
-                "description": "SQL expression applied to the column before executing any checks on it. It may transform the value (e.g., applying a function) or extract a subfield (e.g., accessing nested data). When a check-level expression is defined, it overrides this column-level expression.",
-                "type": "string"
-              },
-              "character_maximum_length": {
-                "description": "Maximum character length for the column. Only checked by schema validation if specified and supported by the data source.",
-                "type": "number"
-              },
-              "optional": {
-                "description": "When set to true, the schema check will not fail if the column is missing. Default is false (column is required).",
-                "type": "boolean"
-              },
-              "checks": {
-                "description": "Data quality checks for this specific column. https://docs.soda.io/soda-v4/reference/contract-language-reference#columns",
-                "type": "array",
-                "additionalItems": false,
-                "minItems": 1,
-                "items": {
-                  "anyOf": [
                     {
-                      "type": "object",
-                      "properties": {
-                        "missing": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "description": "It verifies that a specific column does not contain null or empty values beyond an acceptable threshold. https://docs.soda.io/soda-v4/reference/contract-language-reference#missing-check",
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "filter": {
-                                  "$ref": "#/$defs/check_filter"
-                                },
-                                "column_expression": {
-                                  "$ref": "#/$defs/column_expression"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                },
-                                "missing_values": {
-                                  "description": "Custom list of values to be considered missing. NULL is always considered missing.",
-                                  "type": "array",
-                                  "items": {
-                                    "type": [
-                                      "integer",
-                                      "string"
-                                    ]
-                                  }
-                                },
-                                "missing_format": {
-                                  "type": "object",
-                                  "additionalProperties": false,
-                                  "required": [
-                                    "regex",
-                                    "name"
-                                  ],
-                                  "properties": {
-                                    "regex": {
-                                      "description": "Regular expression to identify missing values. The regex flavor depends on the SQL engine/data source. NULL is always considered missing.",
-                                      "type": "string"
+                        "type": "object",
+                        "properties": {
+                            "row_count": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "description": "The display name for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "qualifier": {
+                                                "description": "The qualifier for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "attributes": {
+                                                "$ref": "#/$defs/attributes"
+                                            },
+                                            "threshold": {
+                                                "$ref": "#/$defs/threshold"
+                                            },
+                                            "filter": {
+                                                "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                "type": "string"
+                                            }
+                                        }
                                     },
-                                    "name": {
-                                      "description": "Descriptive name for the regex pattern.",
-                                      "type": "string"
+                                    {
+                                        "type": "null"
                                     }
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "type": "null"
+                                ]
                             }
-                          ]
                         },
-                        "invalid": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "description": "It verifies that the values in a column conform to a set of allowed formats, values, or constraints. https://docs.soda.io/soda-v4/reference/contract-language-reference#invalid-check",
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "filter": {
-                                  "$ref": "#/$defs/check_filter"
-                                },
-                                "column_expression": {
-                                  "$ref": "#/$defs/column_expression"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                },
-                                "valid_values": {
-                                  "description": "List of valid values. Supports all strings or numbers.",
-                                  "type": "array",
-                                  "items": {
-                                    "type": [
-                                      "number",
-                                      "string"
-                                    ]
-                                  }
-                                },
-                                "valid_format": {
-                                  "type": "object",
-                                  "additionalProperties": false,
-                                  "required": [
-                                    "regex",
-                                    "name"
-                                  ],
-                                  "properties": {
-                                    "regex": {
-                                      "description": "Regular expression to identify valid values. The regex flavor depends on the SQL engine/data source.",
-                                      "type": "string"
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "description": "Use a schema check to validate the presence, absence or position of columns in a dataset, or to validate the type of data column contains. See documentation for more details: https://docs.soda.io/soda-cl/schema.html",
+                                        "properties": {
+                                            "name": {
+                                                "description": "The display name for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "qualifier": {
+                                                "description": "The qualifier for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "attributes": {
+                                                "$ref": "#/$defs/attributes"
+                                            },
+                                            "threshold": {
+                                                "$ref": "#/$defs/threshold"
+                                            },
+                                            "filter": {
+                                                "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                "type": "string"
+                                            },
+                                            "allow_extra_columns": {
+                                                "description": "Allow columns that are not in the schema",
+                                                "type": "boolean"
+                                            },
+                                            "allow_other_column_order": {
+                                                "description": "Allow columns to be in a different order than the schema",
+                                                "type": "boolean"
+                                            }
+                                        }
                                     },
-                                    "name": {
-                                      "description": "Descriptive name for the regex pattern.",
-                                      "type": "string"
+                                    {
+                                        "type": "null"
                                     }
-                                  }
-                                },
-                                "invalid_values": {
-                                  "description": "List of invalid values. Supports all strings or all numbers.",
-                                  "type": "array",
-                                  "items": {
-                                    "type": [
-                                      "number",
-                                      "string"
-                                    ]
-                                  }
-                                },
-                                "invalid_format": {
-                                  "type": "object",
-                                  "additionalProperties": false,
-                                  "required": [
-                                    "regex",
-                                    "name"
-                                  ],
-                                  "properties": {
-                                    "regex": {
-                                      "description": "Regular expression to identify invalid values. The regex flavor depends on the SQL engine/data source.",
-                                      "type": "string"
+                                ]
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "freshness": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "description": "The display name for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "column": {
+                                                "description": "The column to be used for the freshness check",
+                                                "type": "string"
+                                            },
+                                            "qualifier": {
+                                                "description": "The qualifier for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "attributes": {
+                                                "$ref": "#/$defs/attributes"
+                                            },
+                                            "threshold": {
+                                                "$ref": "#/$defs/thresholdFreshness"
+                                            },
+                                            "filter": {
+                                                "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "threshold",
+                                            "column"
+                                        ]
                                     },
-                                    "name": {
-                                      "description": "Descriptive name for the regex pattern.",
-                                      "type": "string"
+                                    {
+                                        "type": "null"
                                     }
-                                  }
-                                },
-                                "valid_length": {
-                                  "description": "The exact length for valid values.",
-                                  "type": [
-                                    "number",
-                                    "string"
-                                  ]
-                                },
-                                "valid_min_length": {
-                                  "description": "The minimum length for valid values.",
-                                  "type": [
-                                    "number",
-                                    "string"
-                                  ]
-                                },
-                                "valid_max_length": {
-                                  "description": "The maximum length for valid values.",
-                                  "type": [
-                                    "number",
-                                    "string"
-                                  ]
-                                },
-                                "valid_min": {
-                                  "description": "The minimum value for valid values.",
-                                  "type": [
-                                    "number",
-                                    "string"
-                                  ]
-                                },
-                                "valid_max": {
-                                  "description": "The maximum value for valid values.",
-                                  "type": [
-                                    "number",
-                                    "string"
-                                  ]
-                                },
-                                "valid_reference_data": {
-                                  "type": "object",
-                                  "description": "Verify that valid values exist in a reference dataset. https://docs.soda.io/soda-v4/reference/contract-language-reference#invalid-check",
-                                  "additionalProperties": false,
-                                  "required": [
-                                    "dataset",
-                                    "column"
-                                  ],
-                                  "properties": {
-                                    "dataset": {
-                                      "description": "The dataset fully qualified name of the reference dataset to compare against. Format is [datasource]/[database]/[schema]/[table]. The reference dataset must be in the same data source as the dataset.",
-                                      "type": "string"
-                                    },
-                                    "column": {
-                                      "description": "The column name in the reference dataset to compare against.",
-                                      "type": "string"
+                                ]
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "duplicate": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "description": "The display name for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "columns": {
+                                                "description": "The columns to be used for the duplicate check",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "qualifier": {
+                                                "description": "The qualifier for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "attributes": {
+                                                "$ref": "#/$defs/attributes"
+                                            },
+                                            "threshold": {
+                                                "$ref": "#/$defs/threshold"
+                                            },
+                                            "filter": {
+                                                "description": "Specifies a sql expression filter that should be applied on the metric",
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "columns"
+                                        ]
                                     }
-                                  }
-                                }
-                              },
-                              "anyOf": [
-                                {
-                                  "required": ["valid_values"]
-                                },
-                                {
-                                  "required": ["valid_format"]
-                                },
-                                {
-                                  "required": ["invalid_values"]
-                                },
-                                {
-                                  "required": ["invalid_format"]
-                                },
-                                {
-                                  "required": ["valid_length"]
-                                },
-                                {
-                                  "required": ["valid_min_length"]
-                                },
-                                {
-                                  "required": ["valid_max_length"]
-                                },
-                                {
-                                  "required": ["valid_min"]
-                                },
-                                {
-                                  "required": ["valid_max"]
-                                },
-                                {
-                                  "required": ["valid_reference_data"]
-                                }
-                              ]
+                                ]
                             }
-                          ]
                         },
-                        "aggregate": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "description": "An Aggregate check verifies that the result of an aggregate function—such as avg, sum, min, max, or count—meets the expected thresholds. https://docs.soda.io/soda-v4/reference/contract-language-reference#aggregate-check",
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "filter": {
-                                  "$ref": "#/$defs/check_filter"
-                                },
-                                "column_expression": {
-                                  "$ref": "#/$defs/column_expression"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                },
-                                "function": {
-                                  "description": "The aggregate function to be used.",
-                                  "enum": [
-                                    "avg",
-                                    "sum",
-                                    "min",
-                                    "max",
-                                    "min_length",
-                                    "max_length",
-                                    "avg_length"
-                                  ]
-                                }
-                              },
-                              "required": [
-                                "threshold",
-                                "function"
-                              ]
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "failed_rows": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "description": "The display name for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "expression": {
+                                                "description": "The expression to be used for the failed rows check",
+                                                "type": "string"
+                                            },
+                                            "query": {
+                                                "description": "The query to be used for the failed rows check",
+                                                "type": "string"
+                                            },
+                                            "qualifier": {
+                                                "description": "The qualifier for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "threshold": {
+                                                "$ref": "#/$defs/threshold"
+                                            }
+                                        },
+                                        "oneOf": [
+                                            {
+                                                "required": [
+                                                    "expression"
+                                                ],
+                                                "not": {
+                                                    "required": [
+                                                        "query"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "required": [
+                                                    "query"
+                                                ],
+                                                "not": {
+                                                    "required": [
+                                                        "expression"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
                             }
-                          ]
                         },
-                        "duplicate": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "description": "It ensures that values in a column or combination of columns are unique, helping prevent data integrity issues. https://docs.soda.io/soda-v4/reference/contract-language-reference#single-column-duplicate-check",
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "filter": {
-                                  "$ref": "#/$defs/check_filter"
-                                },
-                                "column_expression": {
-                                  "$ref": "#/$defs/column_expression"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                }
-                              }
-                            },
-                            {
-                              "type": "null"
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "metric": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "description": "The display name for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "expression": {
+                                                "description": "The expression to be used for the failed rows check",
+                                                "type": "string"
+                                            },
+                                            "query": {
+                                                "description": "The query to be used for the failed rows check",
+                                                "type": "string"
+                                            },
+                                            "qualifier": {
+                                                "description": "The qualifier for the check used in Soda Cloud",
+                                                "type": "string"
+                                            },
+                                            "threshold": {
+                                                "$ref": "#/$defs/threshold"
+                                            }
+                                        },
+                                        "oneOf": [
+                                            {
+                                                "required": [
+                                                    "expression"
+                                                ],
+                                                "not": {
+                                                    "required": [
+                                                        "query"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "required": [
+                                                    "query"
+                                                ],
+                                                "not": {
+                                                    "required": [
+                                                        "expression"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
                             }
-                          ]
                         },
-                        "failed_rows": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "additionalProperties": false,
-                              "description": "Identify rows that violate a specific condition, such as a filter or SQL expression. https://docs.soda.io/soda-v4/reference/contract-language-reference#failed-rows-check",
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "expression": {
-                                  "description": "SQL expression used to identify failed rows. It is a SQL filter clause to be applied to the dataset (without the WHERE keyword).",
-                                  "type": "string"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "query": {
-                                  "description": "The SQL query to be used to identify failed rows.",
-                                  "type": "string"
-                                },
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                }
-                              },
-                              "oneOf": [
-                                {
-                                  "required": [
-                                    "expression"
-                                  ],
-                                  "not": {
-                                    "required": [
-                                      "query"
-                                    ]
-                                  }
-                                },
-                                {
-                                  "required": [
-                                    "query"
-                                  ],
-                                  "not": {
-                                    "required": [
-                                      "expression"
-                                    ]
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "metric": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "description": "Validate the result of a custom SQL expression or query against a threshold. https://docs.soda.io/soda-v4/reference/contract-language-reference#failed-rows-check).",
-                              "additionalProperties": false,
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "expression": {
-                                  "description": "The SQL expression to be used.",
-                                  "type": "string"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "query": {
-                                  "description": "The SQL query to be used.",
-                                  "type": "string"
-                                },
-
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                }
-                              },
-                              "oneOf": [
-                                {
-                                  "required": [
-                                    "expression"
-                                  ],
-                                  "not": {
-                                    "required": [
-                                      "query"
-                                    ]
-                                  }
-                                },
-                                {
-                                  "required": [
-                                    "query"
-                                  ],
-                                  "not": {
-                                    "required": [
-                                      "expression"
-                                    ]
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "llm": {
-                          "oneOf": [
-                            {
-                              "type": "object",
-                              "description": "Validates column values using a Large Language Model (LLM) prompt.",
-                              "additionalProperties": true,
-                              "properties": {
-                                "name": {
-                                  "$ref": "#/$defs/check_name"
-                                },
-                                "qualifier": {
-                                  "$ref": "#/$defs/check_qualifier"
-                                },
-                                "filter": {
-                                  "$ref": "#/$defs/check_filter"
-                                },
-                                "attributes": {
-                                  "$ref": "#/$defs/attributes"
-                                },
-                                "prompt": {
-                                  "description": "The prompt template to evaluate each value. Use {value} as placeholder.",
-                                  "type": "string"
-                                },
-                                "threshold": {
-                                  "$ref": "#/$defs/threshold"
-                                },
-                                "references": {
-                                  "description": "Reference datasets available for the LLM to look up canonical values during validation.",
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "dataset": {
-                                        "type": "string",
-                                        "description": "Fully qualified name of the reference table (e.g. schema.table)"
-                                      },
-                                      "description": {
-                                        "type": "string",
-                                        "description": "Human-readable description of the reference dataset"
-                                      },
-                                      "max_rows": {
-                                        "type": "integer",
-                                        "minimum": 1,
-                                        "default": 1000,
-                                        "description": "Maximum number of rows to load from the reference table"
-                                      }
-                                    },
-                                    "required": ["dataset"],
-                                    "additionalProperties": false
-                                  }
-                                }
-                              },
-                              "required": [
-                                "prompt"
-                              ]
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        }
-                      },
-                      "additionalProperties": false
+                        "additionalProperties": false
                     }
-                  ]
+                ]
+            }
+        }
+    },
+    "required": [
+        "dataset",
+        "columns"
+    ],
+    "$defs": {
+        "generic_check_properties": {
+            "description": "NOT USED YET, problem with inheritance and additionalProperties",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The display name for the check used in Soda Cloud",
+                    "type": "string"
+                },
+                "qualifier": {
+                    "description": "The qualifier for the check used in Soda Cloud",
+                    "type": "string"
+                },
+                "attributes": {
+                    "$ref": "#/$defs/attributes"
+                },
+                "threshold": {
+                    "$ref": "#/$defs/threshold"
+                },
+                "filter": {
+                    "description": "Specifies a sql expression filter that should be applied on the metric",
+                    "type": "string"
                 }
-              }
             }
-          }
-        ]
-      }
-    },
-    "checks": {
-      "description": "A list of dataset-level checks executed by Soda for contract verification. https://docs.soda.io/soda-v4/reference/contract-language-reference#dataset-check",
-      "type": "array",
-      "minItems": 1,
-      "additionalItems": false,
-      "items": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "row_count": {
-                "description": "Verify that the dataset contains the expected number of rows.. https://docs.soda.io/soda-v4/reference/contract-language-reference#row-count-check",
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      }
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "schema": {
-                "description": "Validate the presence, absence, or position of columns in a dataset, or validates the data type of columns. https://docs.soda.io/soda-v4/reference/contract-language-reference#schema-check",
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      },
-
-                      "allow_extra_columns": {
-                        "description": "Allow columns that are not defined in the contract schema.",
-                        "type": "boolean"
-                      },
-                      "allow_other_column_order": {
-                        "description": "Allow columns to be in a different order than defined in the contract schema.",
-                        "type": "boolean"
-                      }
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "freshness": {
-                "description": "Verify if data is not too old by measuring the period between the current time and the most recent timestamp present in a given column. https://docs.soda.io/soda-v4/reference/contract-language-reference#freshness-check",
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "description": "Verify if data is not too old by measuring the period between the current time and the most recent timestamp present in a given column. https://docs.soda.io/soda-v4/reference/contract-language-reference#freshness-check",
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "column": {
-                        "description": "The column to be used (typically a timestamp column).",
-                        "type": "string"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "column_expression": {
-                        "$ref": "#/$defs/column_expression"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/thresholdFreshness"
-                      }
+        },
+        "numeric_range": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
                     },
-                    "required": [
-                      "threshold",
-                      "column"
+                    "minItems": 2,
+                    "maxItems": 2
+                }
+            ]
+        },
+        "format": {
+            "type": "string",
+            "enum": [
+                "integer",
+                "positive integer",
+                "negative integer",
+                "decimal",
+                "positive decimal",
+                "negative decimal",
+                "decimal point",
+                "positive decimal point",
+                "negative decimal point",
+                "decimal comma",
+                "positive decimal comma",
+                "negative decimal comma",
+                "percentage",
+                "positive percentage",
+                "negative percentage",
+                "percentage point",
+                "positive percentage point",
+                "negative percentage point",
+                "percentage comma",
+                "positive percentage comma",
+                "negative percentage comma",
+                "money",
+                "money point",
+                "money comma",
+                "date us",
+                "date eu",
+                "date inverse",
+                "date iso 8601",
+                "time 24h",
+                "time 24h nosec",
+                "time 12h",
+                "time 12h nosec",
+                "timestamp 24h",
+                "timestamp 12h",
+                "uuid",
+                "ip address",
+                "ipv4 address",
+                "ipv6 address",
+                "email",
+                "phone number",
+                "credit card number"
+            ]
+        },
+        "attributes": {
+            "type": "object"
+        },
+        "threshold": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/#thresholds",
+            "properties": {
+                "metric": {
+                    "description": "The type of the metric value to check",
+                    "enum": [
+                        "count",
+                        "percent"
                     ]
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "duplicate": {
-                "description": "Ensure that values in a column or combination of columns are unique, helping prevent data integrity issues. https://docs.soda.io/soda-v4/reference/contract-language-reference#duplicate-check",
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "filter": {
-                        "$ref": "#/$defs/check_filter"
-                      },
-                      "columns": {
-                        "description": "The columns to be used.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      }
-                    },
-                    "required": [
-                      "columns"
+                },
+                "must_be": {
+                    "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
+                    "type": [
+                        "number",
+                        "string"
                     ]
-                  }
-                ]
-              }
+                },
+                "must_not_be": {
+                    "description": "The value that the check metric (as specified in the type) may not have. The check passes if the metric doesn't have this value and fails otherwise.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is greater than the specified threshold value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_greater_than_or_equal": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is greater than or equal to the specified threshold value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is less than the specified threshold value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_less_than_or_equal": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is less than or equal to the specified threshold value.",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "must_be_between": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is not between the specified threshold values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "must_be_not_between": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
+                    "$ref": "#/$defs/threshold_between"
+                }
             },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "failed_rows": {
-                "oneOf": [
-                  {
+            "if": {
+                "type": "object",
+                "minProperties": 2
+            },
+            "then": {
+                "type": "object",
+                "properties": {
+                    "metric": true
+                },
+                "required": [
+                    "metric"
+                ]
+            },
+            "allOf": [
+                {
                     "type": "object",
-                    "description": "Identify rows that violate a specific condition, such as a filter or SQL expression. https://docs.soda.io/soda-v4/reference/contract-language-reference#failed-rows-check",
-                    "additionalProperties": false,
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "expression": {
-                        "description": "The SQL expression to be used.",
-                        "type": "string"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "query": {
-                        "description": "The SQL query to be used.",
-                        "type": "string"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      }
-                    },
+                    "maxProperties": 2
+                }
+            ]
+        },
+        "threshold_between": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "greater_than": {
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "greater_than_or_equal": {
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "less_than": {
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "less_than_or_equal": {
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                }
+            },
+            "allOf": [
+                {
                     "oneOf": [
-                      {
-                        "required": [
-                          "expression"
-                        ],
-                        "not": {
-                          "required": [
-                            "query"
-                          ]
-                        }
-                      },
-                      {
-                        "required": [
-                          "query"
-                        ],
-                        "not": {
-                          "required": [
-                            "expression"
-                          ]
-                        }
-                      }
-                    ]
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "metric": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "description": "Validate the result of a custom SQL expression or query against a threshold. https://docs.soda.io/soda-v4/reference/contract-language-reference#failed-rows-check",
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "expression": {
-                        "description": "The SQL expression to be used.",
-                        "type": "string"
-                      },
-                      "query": {
-                        "description": "The SQL query to be used.",
-                        "type": "string"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      }
-                    },
-                    "oneOf": [
-                      {
-                        "required": [
-                          "expression"
-                        ],
-                        "not": {
-                          "required": [
-                            "query"
-                          ]
-                        }
-                      },
-                      {
-                        "required": [
-                          "query"
-                        ],
-                        "not": {
-                          "required": [
-                            "expression"
-                          ]
-                        }
-                      }
-                    ]
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "group_by": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "description": "Validate aggregated metrics from grouped data against thresholds. https://docs.soda.io/soda-v4/reference/contract-language-reference#group-by-check",
-                    "properties": {
-                      "name": {
-                        "$ref": "#/$defs/check_name"
-                      },
-                      "qualifier": {
-                        "$ref": "#/$defs/check_qualifier"
-                      },
-                      "query": {
-                        "description": "The SQL query that performs the grouping and aggregation.",
-                        "type": "string"
-                      },
-                      "fields": {
-                        "description": "Array of field names that are used for grouping in the query.",
-                        "type": "array",
-                        "items": {
-                          "type": "string"
+                        {
+                            "required": [
+                                "greater_than"
+                            ]
                         },
-                        "minItems": 1
-                      },
-                      "metric_name": {
-                        "description": "The name of the aggregated metric column in the query result to validate against the threshold.",
-                        "type": "string"
-                      },
-                      "attributes": {
-                        "$ref": "#/$defs/attributes"
-                      },
-                      "threshold": {
-                        "$ref": "#/$defs/threshold"
-                      }
-                    },
-                    "required": [
-                      "query",
-                      "fields",
-                      "metric_name"
+                        {
+                            "required": [
+                                "greater_than_or_equal"
+                            ]
+                        },
+                        {
+                            "not": {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "greater_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "greater_than_or_equal"
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
                     ]
-                  }
-                ]
-              }
+                },
+                {
+                    "oneOf": [
+                        {
+                            "required": [
+                                "less_than"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "less_than_or_equal"
+                            ]
+                        },
+                        {
+                            "not": {
+                                "anyOf": [
+                                    {
+                                        "required": [
+                                            "less_than"
+                                        ]
+                                    },
+                                    {
+                                        "required": [
+                                            "less_than_or_equal"
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "thresholdFreshness": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/#thresholds",
+            "properties": {
+                "unit": {
+                    "description": "The type of the metric value to check",
+                    "enum": [
+                        "minute",
+                        "hour",
+                        "day"
+                    ]
+                },
+                "must_be": {
+                    "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
+                    "type": "number"
+                },
+                "must_not_be": {
+                    "description": "The value that the check metric (as specified in the type) may not have. The check passes if the metric doesn't have this value and fails otherwise.",
+                    "type": "number"
+                },
+                "must_be_greater_than": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is greater than the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_greater_than_or_equal": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is greater than or equal to the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_less_than": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is less than the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_less_than_or_equal": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is less than or equal to the specified threshold value.",
+                    "type": "number"
+                },
+                "must_be_between": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is not between the specified threshold values.",
+                    "$ref": "#/$defs/threshold_between"
+                },
+                "must_be_not_between": {
+                    "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
+                    "$ref": "#/$defs/threshold_between"
+                }
             },
-            "additionalProperties": false
-          }
-        ]
-      }
+            "if": {
+                "type": "object",
+                "minProperties": 2
+            },
+            "then": {
+                "type": "object",
+                "properties": {
+                    "unit": true
+                },
+                "required": [
+                    "unit"
+                ]
+            },
+            "allOf": [
+                {
+                    "type": "object",
+                    "maxProperties": 2
+                }
+            ]
+        }
     }
-  },
-  "required": [
-    "dataset",
-    "columns"
-  ],
-  "$defs": {
-    "check_name": {
-      "description": "Display name for the check. https://docs.soda.io/soda-v4/reference/contract-language-reference#check-names",
-      "type": "string"
-    },
-    "check_qualifier": {
-      "description": "Required if multiple checks of the same type exist on the same object. Must be unique. https://docs.soda.io/soda-v4/reference/contract-language-reference#check-qualifiers",
-      "type": ["string", "integer"]
-    },
-    "check_filter": {
-      "description": "SQL expression filter applied on the metric. It is a SQL filter clause without the WHERE keyword. https://docs.soda.io/soda-v4/reference/contract-language-reference#configure-a-check-filter",
-      "type": "string"
-    },
-    "column_expression": {
-      "description": "SQL expression applied to the column before executing this check. It may transform the value (e.g., applying a function) or extract a subfield (e.g., accessing JSON data). When both column and check-level expressions are defined, the check-level expression takes precedence.",
-      "type": "string"
-    },
-    "attributes": {
-      "description": "Optional metadata for tagging or categorizing checks. https://beta.docs.soda.io/manage-issues/check-and-dataset-attributes#attributes-in-checks",
-      "type": "object"
-    },
-    "threshold": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Threshold configuration that defines when a check passes or fails. https://docs.soda.io/soda-v4/reference/contract-language-reference#thresholds",
-      "properties": {
-        "level": {
-          "description": "Threshold level that determines the severity when the check fails.",
-          "enum": [
-            "warn",
-            "fail"
-          ]
-        },
-        "metric": {
-          "description": "Metric unit to evaluate (count or percent).",
-          "enum": [
-            "count",
-            "percent"
-          ]
-        },
-        "must_be": {
-          "description": "Check passes if the metric equals this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_not_be": {
-          "description": "Check passes if the metric does not equal this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_greater_than": {
-          "description": "Check passes if the metric is greater than this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_greater_than_or_equal": {
-          "description": "Check passes if the metric is greater than or equal to this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_less_than": {
-          "description": "Check passes if the metric is less than this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_less_than_or_equal": {
-          "description": "Check passes if the metric is less than or equal to this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_between": {
-          "description": "Check passes if the metric is between the specified values.",
-          "$ref": "#/$defs/threshold_between"
-        },
-        "must_be_not_between": {
-          "description": "Check passes if the metric is outside the specified values.",
-          "$ref": "#/$defs/threshold_between"
-        }
-      }
-    },
-    "threshold_between": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "greater_than": {
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "greater_than_or_equal": {
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "less_than": {
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "less_than_or_equal": {
-          "type": [
-            "number",
-            "string"
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "oneOf": [
-            {
-              "required": [
-                "greater_than"
-              ]
-            },
-            {
-              "required": [
-                "greater_than_or_equal"
-              ]
-            },
-            {
-              "not": {
-                "anyOf": [
-                  {
-                    "required": [
-                      "greater_than"
-                    ]
-                  },
-                  {
-                    "required": [
-                      "greater_than_or_equal"
-                    ]
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "oneOf": [
-            {
-              "required": [
-                "less_than"
-              ]
-            },
-            {
-              "required": [
-                "less_than_or_equal"
-              ]
-            },
-            {
-              "not": {
-                "anyOf": [
-                  {
-                    "required": [
-                      "less_than"
-                    ]
-                  },
-                  {
-                    "required": [
-                      "less_than_or_equal"
-                    ]
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "thresholdFreshness": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Threshold configuration for freshness checks. https://docs.soda.io/soda-v4/reference/contract-language-reference#freshness-check",
-      "properties": {
-        "level": {
-          "description": "Threshold level that determines the severity when the check fails.",
-          "enum": [
-            "warn",
-            "fail"
-          ]
-        },
-        "unit": {
-          "description": "Time unit for freshness (minute, hour, day).",
-          "enum": [
-            "minute",
-            "hour",
-            "day"
-          ]
-        },
-        "must_be": {
-          "description": "Check passes if the metric equals this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_not_be": {
-          "description": "Check passes if the metric does not equal this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_greater_than": {
-          "description": "Check passes if the metric is greater than this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_greater_than_or_equal": {
-          "description": "Check passes if the metric is greater than or equal to this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_less_than": {
-          "description": "Check passes if the metric is less than this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_less_than_or_equal": {
-          "description": "Check passes if the metric is less than or equal to this value.",
-          "type": [
-            "number",
-            "string"
-          ]
-        },
-        "must_be_between": {
-          "description": "Check passes if the metric is between the specified values.",
-          "$ref": "#/$defs/threshold_between"
-        },
-        "must_be_not_between": {
-          "description": "Check passes if the metric is outside the specified values.",
-          "$ref": "#/$defs/threshold_between"
-        }
-      }
-    }
-  }
 }
