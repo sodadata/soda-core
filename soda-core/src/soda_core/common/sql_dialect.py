@@ -1501,7 +1501,7 @@ class SqlDialect:
             *([EQ(self.column_table_catalog(), LITERAL(self.metadata_casify(database_name)))] if database_name else []),
             EQ(self.column_table_schema(), LITERAL(self.metadata_casify(schema_name))),
         ]
-        if table_names is not None:
+        if table_names is not None and len(table_names) > 0:  # Table names must be provided to use the IN clause
             where_conditions.append(
                 IN(
                     self.column_table_name(),

@@ -257,6 +257,10 @@ class DataSourceImpl(ABC):
         When table_names is provided, only returns columns for those specific tables.
         For bulk queries this adds an IN filter to the SQL query; for per-table iteration
         it only queries the specified tables."""
+
+        if table_names is not None and len(table_names) == 0:
+            return {}
+
         if not self.bulk_columns_metadata_available and not force_fetch_all:
             return {}
         if not self.bulk_columns_metadata_available and force_fetch_all:
