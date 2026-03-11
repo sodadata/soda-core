@@ -191,7 +191,7 @@ def _assert_schema_columns(
 def _assert_column(
     actual: ColumnMetadata,
     expected_name: str,
-    expected_soda_type: str,
+    expected_soda_type: SodaDataTypeName,
     sql_dialect: SqlDialect,
     numeric_precision: int | None = None,
     numeric_scale: int | None = None,
