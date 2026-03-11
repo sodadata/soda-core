@@ -147,6 +147,6 @@ def test_parse_invalid_dataset_logs_error(logs: Logs):
           - name: id
             data_type: integer
     """
-    contract_yaml = parse_contract(yaml_str)
+    parse_contract(yaml_str)
 
     assert "Invalid dataset qualified name" in logs.get_errors_str()

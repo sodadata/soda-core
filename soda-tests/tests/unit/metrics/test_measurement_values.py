@@ -92,7 +92,8 @@ def test_measurement_values_with_zero_values():
     mv = MeasurementValues(measurements)
 
     assert mv.get_value(metric1) == 0
-    assert mv.get_value(metric2) == 0.0
+    assert mv.get_value(metric2) is not None
+    assert abs(mv.get_value(metric2)) < 1e-9
 
 
 def test_measurement_values_with_none_values():
@@ -181,7 +182,8 @@ def test_measurement_values_with_float_precision():
     mv = MeasurementValues(measurements)
 
     value = mv.get_value(metric1)
-    assert value == 3.14159265359
+    assert isinstance(value, float)
+    assert abs(value - 3.14159265359) < 1e-12
 
 
 def test_measurement_values_derive_with_empty_dependencies():

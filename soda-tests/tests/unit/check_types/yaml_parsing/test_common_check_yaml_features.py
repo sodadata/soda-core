@@ -281,7 +281,7 @@ class TestThresholdMustBeParsing:
                     must_be: 3.14
         """
         check = parse_check_from_contract(yaml_str)
-        assert check.threshold.must_be == 3.14
+        assert check.threshold.must_be == pytest.approx(3.14)
 
 
 class TestThresholdMustBeGreaterThanParsing:

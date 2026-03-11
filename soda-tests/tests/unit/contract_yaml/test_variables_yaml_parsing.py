@@ -103,7 +103,7 @@ def test_required_variable_without_value_logs_error():
                 data_type: integer
         """
         # Don't provide required_var
-        contract_yaml = parse_contract(yaml_str, variables={})
+        parse_contract(yaml_str, variables={})
 
         # Verify error was logged
         error_str = logs.get_errors_str()

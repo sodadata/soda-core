@@ -37,8 +37,8 @@ def test_threshold_with_float_values():
     assert check.threshold is not None
     assert isinstance(check.threshold, ThresholdYaml)
     assert check.threshold.must_be_between is not None
-    assert check.threshold.must_be_between.greater_than == 75.5
-    assert check.threshold.must_be_between.less_than == 99.99
+    assert check.threshold.must_be_between.greater_than == pytest.approx(75.5)
+    assert check.threshold.must_be_between.less_than == pytest.approx(99.99)
 
 
 def test_threshold_passes_method_with_none():
@@ -70,7 +70,7 @@ def test_threshold_with_zero_boundary():
     check = parse_column_check(contract_yaml)
 
     assert check.threshold is not None
-    assert check.threshold.must_be_greater_than_or_equal == 0.0
+    assert check.threshold.must_be_greater_than_or_equal == pytest.approx(0.0)
 
 
 def test_threshold_get_metric_name_without_column():
@@ -169,7 +169,7 @@ def test_threshold_with_negative_values():
     check = parse_column_check(contract_yaml)
 
     assert check.threshold is not None
-    assert check.threshold.must_be_greater_than == -273.15
+    assert check.threshold.must_be_greater_than == pytest.approx(-273.15)
 
 
 def test_threshold_range_with_negative_boundaries():
