@@ -1391,6 +1391,7 @@ class CheckImpl:
         "metric": "Metric meets threshold",
         "failed_rows": "No rows violating the condition",
         "llm": "LLM validation passes",
+        "hierarchy": "Hierarchy structure is valid",
     }
 
     @property
