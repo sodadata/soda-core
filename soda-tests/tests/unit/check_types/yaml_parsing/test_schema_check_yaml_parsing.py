@@ -23,7 +23,7 @@ class TestSchemaCheckYamlParsing:
               - name: name
                 data_type: VARCHAR
             checks:
-              - schema
+              - schema:
         """
         check = parse_check_from_contract(yaml_str)
         assert check.type_name == "schema"

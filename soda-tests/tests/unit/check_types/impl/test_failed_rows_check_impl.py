@@ -12,42 +12,31 @@ def test_failed_rows_check_with_limit_validates():
     """Test that failed_rows check with limit validates."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
-    columns:
-      - name: status
-        data_type: character varying
-        checks:
-          - invalid:
-              name: valid status
-              valid_values:
-                - active
-                - inactive
-          - failed_rows:
-              check_name: valid status
-              limit: 100
+    columns: []
+    checks:
+      - failed_rows:
+          expression: "status NOT IN ('active', 'inactive')"
+          threshold:
+            must_be_less_than_or_equal: 100
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_failed_rows_check_with_check_reference_validates():
-    """Test that failed_rows check with check reference validates."""
+    """Test that failed_rows check with query validates."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
-    columns:
-      - name: user_id
-        data_type: integer
-        checks:
-          - missing:
-              name: no missing user ids
-      - name: email
-        data_type: character varying
-        checks:
-          - failed_rows:
-              check_name: no missing user ids
+    columns: []
+    checks:
+      - failed_rows:
+          query: |
+            SELECT * FROM {dataset}
+            WHERE user_id IS NULL
+          threshold:
+            must_be_less_than_or_equal: 0
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"

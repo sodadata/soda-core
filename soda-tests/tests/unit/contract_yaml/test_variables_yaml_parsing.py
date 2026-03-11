@@ -41,6 +41,8 @@ def test_variables_in_column_checks():
     """
     contract_yaml = parse_contract(yaml_str, variables={"max_missing": "10"})
 
+    # Verify the variable was resolved
+    assert contract_yaml.resolved_variable_values.get("max_missing") == "10"
     # Verify the threshold is parsed correctly
     check_yaml = contract_yaml.columns[0].check_yamls[0]
     assert check_yaml.threshold is not None
@@ -105,7 +107,7 @@ def test_variables_undefined_no_crash():
 
         # Verify error was logged
         error_str = logs.get_errors_str()
-        assert "required_var" in error_str or "Variable" in error_str
+        assert "required_var" in error_str, f"Expected 'required_var' in error message: {error_str}"
     finally:
         logs.remove_from_root_logger()
 
@@ -124,4 +126,4 @@ def test_variables_env_resolution(env_vars: dict):
     contract_yaml = parse_contract(yaml_str)
 
     # Environment variables are resolved when parsing the contract
-    assert "test_value" in contract_yaml.filter
+    assert contract_yaml.filter == "status = 'test_value'"

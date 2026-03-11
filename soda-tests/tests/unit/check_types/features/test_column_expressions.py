@@ -81,7 +81,7 @@ def test_fallback_to_column_level_when_check_not_specified():
     columns:
       - name: temperature
         data_type: numeric
-        column_expression: temperature * 1.8 + 32
+        column_expression: UPPER(name)
         checks:
           - aggregate:
               function: max
@@ -93,9 +93,9 @@ def test_fallback_to_column_level_when_check_not_specified():
     check = col.check_yamls[0]
 
     # Column has expression
-    assert col.column_expression == "temperature * 1.8 + 32"
-    # Check doesn't specify its own, but it should be able to use column's
-    # (This behavior is implementation-dependent in the check impl layer)
+    assert col.column_expression == "UPPER(name)"
+    # Check doesn't specify its own - verify it has None
+    assert check.column_expression is None
 
 
 def test_column_expression_with_multiple_checks():
@@ -177,5 +177,5 @@ def test_no_column_expression_when_not_specified():
     contract = parse_contract(contract_yaml)
 
     col = contract.columns[0]
-    # column_expression should be None or not set when not specified
-    assert col.column_expression is None or col.column_expression == "simple_column"
+    # column_expression should be None when not specified
+    assert col.column_expression is None

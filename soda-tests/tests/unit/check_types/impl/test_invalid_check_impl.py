@@ -27,8 +27,7 @@ def test_invalid_check_with_valid_values_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_invalid_check_with_valid_reference_data_validates():
@@ -48,9 +47,7 @@ def test_invalid_check_with_valid_reference_data_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    # This was the original bug - should not crash with sql_dialect error
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_invalid_check_with_filter_validates():
@@ -70,5 +67,4 @@ def test_invalid_check_with_filter_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"

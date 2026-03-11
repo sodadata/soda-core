@@ -22,8 +22,7 @@ def test_schema_check_validates_without_execute():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_schema_check_with_allow_extra_columns_validates():
@@ -41,8 +40,7 @@ def test_schema_check_with_allow_extra_columns_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_schema_check_with_allow_other_column_order_validates():
@@ -62,8 +60,7 @@ def test_schema_check_with_allow_other_column_order_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_schema_check_with_both_allow_flags_validates():
@@ -82,8 +79,7 @@ def test_schema_check_with_both_allow_flags_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_schema_check_with_character_length_validates():
@@ -102,5 +98,4 @@ def test_schema_check_with_character_length_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"

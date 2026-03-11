@@ -20,8 +20,7 @@ def test_duplicate_check_validates_without_execute():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_duplicate_check_with_count_metric_validates():
@@ -38,8 +37,7 @@ def test_duplicate_check_with_count_metric_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_duplicate_check_with_percent_metric_validates():
@@ -56,8 +54,7 @@ def test_duplicate_check_with_percent_metric_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"
 
 
 def test_multi_column_duplicate_check_validates():
@@ -78,5 +75,4 @@ def test_multi_column_duplicate_check_validates():
     """
     result = validate_contract(contract_yaml)
     assert result is not None
-    errors = result.get_errors_str()
-    assert errors is None or "sql_dialect" not in errors
+    assert not result.has_errors, f"Unexpected errors: {result.get_errors_str()}"

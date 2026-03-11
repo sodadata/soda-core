@@ -185,3 +185,5 @@ def test_check_identity_with_variables():
     assert check.type_name == "invalid"
     # Variables should be resolved in the parsed YAML
     assert contract.resolved_variable_values.get("valid_status") == "active"
+    # Verify the resolved variable made it into the check's valid_values
+    assert "active" in check.valid_values
