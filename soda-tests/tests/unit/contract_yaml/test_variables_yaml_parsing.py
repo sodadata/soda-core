@@ -24,29 +24,29 @@ def test_variables_in_dataset_name():
 
 
 def test_variables_in_column_checks():
-    """Test that variables in check thresholds are resolved (as strings in YAML)."""
+    """Test that variables in check filters are resolved (as strings in YAML)."""
     yaml_str = """
         dataset: ds/db/schema/table
         variables:
-          max_missing:
-            type: number
-            default: 10
+          status_filter:
+            type: string
+            default: draft
         columns:
-          - name: status
-            data_type: string
+          - name: amount
+            data_type: numeric
             checks:
-              - missing:
-                  threshold:
-                    must_be_less_than: 5
+              - aggregate:
+                  function: sum
+                  filter: status = '${var.status_filter}'
+                  must_be_greater_than: 0
     """
-    contract_yaml = parse_contract(yaml_str, variables={"max_missing": "10"})
+    contract_yaml = parse_contract(yaml_str, variables={"status_filter": "active"})
 
-    # Verify the variable was resolved
-    assert contract_yaml.resolved_variable_values.get("max_missing") == "10"
-    # Verify the threshold is parsed correctly
+    # Verify the variable was resolved to the runtime value, not the default
+    assert contract_yaml.resolved_variable_values.get("status_filter") == "active"
+    # Verify the variable is actually substituted in the check's filter field
     check_yaml = contract_yaml.columns[0].check_yamls[0]
-    assert check_yaml.threshold is not None
-    assert check_yaml.threshold.must_be_less_than == 5
+    assert check_yaml.filter == "status = 'active'"
 
 
 def test_variables_in_filter():
@@ -88,8 +88,8 @@ def test_variables_type_coercion():
     assert isinstance(float(resolved_value), float)
 
 
-def test_variables_undefined_no_crash():
-    """Test that undefined variables are left as literal ${var.UNKNOWN}."""
+def test_required_variable_without_value_logs_error():
+    """Test that a declared required variable with no runtime value logs an error."""
     logs = Logs()
     try:
         yaml_str = """

@@ -74,8 +74,10 @@ def test_check_level_expression_overrides_column_level():
     assert check.column_expression == "ROUND(price, 2)"
 
 
-def test_fallback_to_column_level_when_check_not_specified():
-    """Test that checks fall back to column-level expression when not specified."""
+def test_check_without_expression_has_none_while_column_has_expression():
+    """Test that when a check doesn't specify column_expression, the check's
+    column_expression is None even though the parent column has one.
+    Fallback to the column-level expression happens at the impl layer, not at YAML parsing."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -94,7 +96,7 @@ def test_fallback_to_column_level_when_check_not_specified():
 
     # Column has expression
     assert col.column_expression == "UPPER(name)"
-    # Check doesn't specify its own - verify it has None
+    # Check doesn't specify its own — at YAML level it's None (impl handles fallback)
     assert check.column_expression is None
 
 

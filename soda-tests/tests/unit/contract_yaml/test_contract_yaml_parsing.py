@@ -125,6 +125,8 @@ def test_parse_variables():
 
 def test_parse_empty_checks_raises_exception():
     """Test that empty checks list raises ContractParserException."""
+    import pytest
+
     yaml_str = """
         dataset: ds/db/schema/table
         columns:
@@ -133,11 +135,8 @@ def test_parse_empty_checks_raises_exception():
         checks: []
     """
 
-    try:
+    with pytest.raises(ContractParserException, match="must not be an empty list"):
         parse_contract(yaml_str)
-        assert False, "Expected ContractParserException"
-    except ContractParserException as e:
-        assert "must not be an empty list" in str(e)
 
 
 def test_parse_invalid_dataset_logs_error(logs: Logs):

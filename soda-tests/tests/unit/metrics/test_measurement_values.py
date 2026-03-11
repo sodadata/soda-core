@@ -20,6 +20,9 @@ class SimpleMockMetric(MetricImpl):
         self.id = metric_id
         self.type = metric_type
 
+    def sql_condition_expression(self):
+        return None
+
 
 class SimpleMockDerivedMetric(DerivedMetricImpl):
     """Simple mock derived metric for testing."""
@@ -28,6 +31,9 @@ class SimpleMockDerivedMetric(DerivedMetricImpl):
         self.id = metric_id
         self.type = "derived_mock"
         self._dependencies = dependencies
+
+    def sql_condition_expression(self):
+        return None
 
     def get_metric_dependencies(self) -> list[MetricImpl]:
         return self._dependencies

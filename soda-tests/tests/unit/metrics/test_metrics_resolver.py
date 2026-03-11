@@ -12,7 +12,13 @@ from soda_core.contracts.impl.contract_verification_impl import (
 
 
 class MockMetricImpl(MetricImpl):
-    """Mock metric implementation for testing."""
+    """Mock metric implementation for testing.
+
+    Mirrors production MetricImpl equality semantics:
+    - __eq__ uses exact type match (type(other) != type(self)) and compares self.id
+    - id is a string built from metric_type and identifier, simulating the hash-based
+      ID that production MetricImpl builds via ConsistentHashBuilder._build_id()
+    """
 
     def __init__(self, metric_type: str, identifier: str):
         # Note: This is a simplified mock. Real MetricImpl requires contract_impl
@@ -22,13 +28,13 @@ class MockMetricImpl(MetricImpl):
         self.type = metric_type
 
     def __eq__(self, other):
-        """Simple equality based on type and identifier."""
-        if not isinstance(other, MockMetricImpl):
+        """Mirrors production MetricImpl: exact type check + id comparison."""
+        if type(other) != type(self):
             return False
-        return self.metric_type == other.metric_type and self.identifier == other.identifier
+        return self.id == other.id
 
     def __hash__(self):
-        return hash((self.metric_type, self.identifier))
+        return hash(self.id)
 
 
 def test_metrics_resolver_resolves_new_metric():
