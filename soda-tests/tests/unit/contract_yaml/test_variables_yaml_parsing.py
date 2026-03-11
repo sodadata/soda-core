@@ -67,8 +67,12 @@ def test_variables_in_filter():
     assert contract_yaml.filter == "environment = 'prod'"
 
 
-def test_variables_type_coercion():
-    """Test that numeric variables are coerced to correct type."""
+def test_variables_resolved_as_strings():
+    """Test that runtime variable values are stored as strings regardless of declared type.
+
+    Variable resolution at parse time is purely string-based; type coercion
+    to number happens downstream when the value is used in a threshold or expression.
+    """
     yaml_str = """
         dataset: ds/db/schema/table
         variables:
@@ -81,11 +85,10 @@ def test_variables_type_coercion():
     """
     contract_yaml = parse_contract(yaml_str, variables={"count": "250"})
 
-    # Verify the variable was resolved and can be used as a number
+    # Runtime values are stored as-is (strings), not coerced at parse time
     resolved_value = contract_yaml.resolved_variable_values.get("count")
     assert resolved_value == "250"
-    # When used in check thresholds, it will be coerced to number
-    assert isinstance(float(resolved_value), float)
+    assert isinstance(resolved_value, str)
 
 
 def test_required_variable_without_value_logs_error():

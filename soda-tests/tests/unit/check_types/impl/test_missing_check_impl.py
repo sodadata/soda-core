@@ -33,7 +33,8 @@ def test_missing_check_with_count_metric_validates():
         checks:
           - missing:
               metric: count
-              must_be: 0
+              threshold:
+                must_be: 0
     """
     result = validate_contract(contract_yaml)
     assert result is not None
@@ -50,7 +51,8 @@ def test_missing_check_with_percent_metric_validates():
         checks:
           - missing:
               metric: percent
-              must_be_less_than: 5.0
+              threshold:
+                must_be_less_than: 5.0
     """
     result = validate_contract(contract_yaml)
     assert result is not None
@@ -67,7 +69,8 @@ def test_missing_check_with_filter_validates():
         checks:
           - missing:
               filter: country = 'USA'
-              must_be_less_than_or_equal: 10
+              threshold:
+                must_be_less_than_or_equal: 10
     """
     result = validate_contract(contract_yaml)
     assert result is not None

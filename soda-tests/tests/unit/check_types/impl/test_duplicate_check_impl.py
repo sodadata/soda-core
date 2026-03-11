@@ -33,7 +33,8 @@ def test_duplicate_check_with_count_metric_validates():
         checks:
           - duplicate:
               metric: count
-              must_be: 0
+              threshold:
+                must_be: 0
     """
     result = validate_contract(contract_yaml)
     assert result is not None
@@ -50,7 +51,8 @@ def test_duplicate_check_with_percent_metric_validates():
         checks:
           - duplicate:
               metric: percent
-              must_be_less_than: 2.0
+              threshold:
+                must_be_less_than: 2.0
     """
     result = validate_contract(contract_yaml)
     assert result is not None
@@ -71,7 +73,8 @@ def test_multi_column_duplicate_check_validates():
           columns:
             - user_id
             - date
-          must_be: 0
+          threshold:
+            must_be: 0
     """
     result = validate_contract(contract_yaml)
     assert result is not None

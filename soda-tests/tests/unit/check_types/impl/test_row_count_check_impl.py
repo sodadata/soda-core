@@ -32,7 +32,8 @@ def test_row_count_check_with_explicit_threshold_validates():
         data_type: integer
     checks:
       - row_count:
-          must_be_greater_than: 100
+          threshold:
+            must_be_greater_than: 100
     """
     result = validate_contract(contract_yaml)
     assert result is not None
@@ -49,7 +50,8 @@ def test_row_count_check_with_filter_validates():
     checks:
       - row_count:
           filter: status = 'active'
-          must_be_greater_than_or_equal: 50
+          threshold:
+            must_be_greater_than_or_equal: 50
     """
     result = validate_contract(contract_yaml)
     assert result is not None
