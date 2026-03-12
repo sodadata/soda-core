@@ -34,7 +34,7 @@ class EnvConfigHelper:
 
     def _initialize(self):
         logger.debug("Loading environment variables from .env file.")
-        load_dotenv(override=True)
+        load_dotenv(override=False)
 
     @property
     def soda_core_telemetry_enabled(self) -> bool:
