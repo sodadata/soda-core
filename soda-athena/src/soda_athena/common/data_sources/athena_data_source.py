@@ -159,6 +159,8 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 
 
 class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
+    SUPPORTS_DROP_TABLE_CASCADE = False
+
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),

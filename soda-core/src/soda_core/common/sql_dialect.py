@@ -527,9 +527,7 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
         table_name: str = self._convert_fqn_for_ddl(alter_table.fully_qualified_table_name)
-        return f"ALTER TABLE {table_name} DROP COLUMN {column_name_quoted}" + (
-            ";" if add_semicolon else ""
-        )
+        return f"ALTER TABLE {table_name} DROP COLUMN {column_name_quoted}" + (";" if add_semicolon else "")
 
     def drop_column_supported(self) -> bool:
         return True
@@ -546,9 +544,7 @@ class SqlDialect:
             " CASCADE" if getattr(drop_table, "cascade", False) and self.SUPPORTS_DROP_TABLE_CASCADE else ""
         )
         table_name: str = self._convert_fqn_for_ddl(drop_table.fully_qualified_table_name)
-        return f"DROP TABLE {if_exists_sql}{table_name}{cascade_sql}" + (
-            ";" if add_semicolon else ""
-        )
+        return f"DROP TABLE {if_exists_sql}{table_name}{cascade_sql}" + (";" if add_semicolon else "")
 
     #########################################################
     # INSERT INTO
