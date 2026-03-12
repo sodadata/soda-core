@@ -219,20 +219,86 @@ class DataSourceImpl(ABC):
         query_result: QueryResult = self.execute_query(sql)
         return self.sql_dialect.build_column_metadatas_from_query_result(query_result)
 
-    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
-        schema_name: Optional[str] = self.extract_schema_from_prefix(dataset_prefixes)
-        database_name: Optional[str] = self.extract_database_from_prefix(dataset_prefixes)
-
-        table_namespace: DataSourceNamespace = (
+    def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
+        """Builds the table namespace for column metadata queries. Override for custom namespace logic."""
+        schema_name: Optional[str] = self.extract_schema_from_prefix(prefixes)
+        database_name: Optional[str] = self.extract_database_from_prefix(prefixes)
+        return (
             SchemaDataSourceNamespace(schema=schema_name)
             if database_name is None
             else DbSchemaDataSourceNamespace(database=database_name, schema=schema_name)
         )
 
-        # BigQuery must be able to override to get the location
+    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
+        table_namespace = self._build_columns_metadata_namespace(dataset_prefixes)
         return self.sql_dialect.build_columns_metadata_query_str(
             table_namespace=table_namespace, table_name=dataset_name
         )
+
+    @property
+    def bulk_columns_metadata_available(self) -> bool:
+        """Whether this data source supports fetching column metadata for all tables in a schema
+        with a single bulk query (e.g. via INFORMATION_SCHEMA). Data sources that require per-table
+        queries (e.g. DESCRIBE TABLE) should override this to return False."""
+        return True
+
+    def get_all_columns_metadata_for_schema(
+        self,
+        prefixes: list[str],
+        force_fetch_all: bool = False,
+        table_names: Optional[list[str]] = None,
+    ) -> dict[str, list[ColumnMetadata]]:
+        """Fetches column metadata for tables in a schema.
+
+        When bulk_columns_metadata_available is True, uses a single bulk query (e.g. INFORMATION_SCHEMA).
+        When bulk_columns_metadata_available is False (e.g. DESCRIBE TABLE), returns an empty dict
+        unless force_fetch_all=True, in which case it falls back to per-table iteration.
+
+        When table_names is provided, only returns columns for those specific tables.
+        For bulk queries this adds an IN filter to the SQL query; for per-table iteration
+        it only queries the specified tables."""
+
+        if table_names is not None and len(table_names) == 0:
+            return {}
+
+        if not self.bulk_columns_metadata_available and not force_fetch_all:
+            return {}
+        if not self.bulk_columns_metadata_available and force_fetch_all:
+            return self._get_all_columns_metadata_per_table(prefixes, table_names=table_names)
+        table_namespace = self._build_columns_metadata_namespace(prefixes)
+        sql: str = self.sql_dialect.build_all_columns_metadata_query_str(
+            table_namespace=table_namespace, table_names=table_names
+        )
+        query_result: QueryResult = self.execute_query(sql)
+
+        # Group rows by table_name (first column), then parse each group using
+        # build_column_metadatas_from_query_result (same parsing as get_columns_metadata).
+        # There is an implicit assumption here that the first column is the table name.
+        # This is also assumed in other parts of the code (such as the dialect) when parsing the results.
+        sub_columns = query_result.columns[1:]
+        rows_by_table: dict[str, list] = {}
+        for table_name, *row in query_result.rows:
+            rows_by_table.setdefault(table_name, []).append(row)
+
+        columns_by_table: dict[str, list[ColumnMetadata]] = {}
+        for table_name, rows in rows_by_table.items():
+            sub_result = QueryResult(columns=sub_columns, rows=rows)
+            columns_by_table[table_name] = self.sql_dialect.build_column_metadatas_from_query_result(sub_result)
+
+        return columns_by_table
+
+    def _get_all_columns_metadata_per_table(
+        self, prefixes: list[str], table_names: Optional[list[str]] = None
+    ) -> dict[str, list[ColumnMetadata]]:
+        """Fallback: iterate per table using get_columns_metadata.
+        When table_names is provided, only fetches columns for those specific tables."""
+        if table_names is None:
+            objects = self.discover_qualified_objects(prefixes=prefixes)
+            table_names = [obj.get_object_name() for obj in objects]
+        columns_by_table: dict[str, list[ColumnMetadata]] = {}
+        for table_name in table_names:
+            columns_by_table[table_name] = self.get_columns_metadata(dataset_prefixes=prefixes, dataset_name=table_name)
+        return columns_by_table
 
     def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
         schema_index: int | None = self.sql_dialect.get_schema_prefix_index()

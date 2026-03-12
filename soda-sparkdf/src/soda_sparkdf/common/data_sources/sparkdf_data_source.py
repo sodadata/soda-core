@@ -226,6 +226,10 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         else:
             raise ValueError(f"Invalid number of dataset prefixes: {len(dataset_prefixes)}")
 
+    @property
+    def bulk_columns_metadata_available(self) -> bool:
+        return False
+
     def test_schema_exists(self, prefixes: list[str]) -> bool:
         result = self.connection.session.sql(f"SHOW SCHEMAS LIKE '{prefixes[0]}'").collect()
         for row in result:

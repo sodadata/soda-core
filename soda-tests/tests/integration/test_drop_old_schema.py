@@ -19,7 +19,7 @@ DATASOURCES_TO_RUN = [
     "bigquery",
     "fabric",
     "synapse",
-    "athena",
+    # "athena", # Skipping for now, there is a bug whereby we can't delete the schemas on Athena currently.
     "redshift",
     "oracle",
     "databricks",
