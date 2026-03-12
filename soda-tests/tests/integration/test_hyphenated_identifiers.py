@@ -17,6 +17,6 @@ def test_hyphenated_table_name_in_select(data_source_test_helper: DataSourceTest
     sql = sql_dialect.build_select_sql([SELECT(STAR()), FROM("my-table")])
     assert "my-table" in sql, f"Hyphenated name missing from generated SQL: {sql}"
     # The bare token "my-table" without surrounding quotes would be parsed as "my" minus "table"
-    assert " my-table;" not in sql and " my-table\n" not in sql, (
-        f"{sql_dialect.__class__.__name__} produced unquoted hyphenated identifier in SELECT: {sql}"
-    )
+    assert (
+        " my-table;" not in sql and " my-table\n" not in sql
+    ), f"{sql_dialect.__class__.__name__} produced unquoted hyphenated identifier in SELECT: {sql}"

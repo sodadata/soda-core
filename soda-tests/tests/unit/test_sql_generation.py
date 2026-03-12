@@ -281,5 +281,3 @@ def test_sql_ast_union_all():
     assert (
         my_union_statement == '(\nSELECT "name"\nFROM "customers"\n)\nUNION ALL\n(\nSELECT "age"\nFROM "customers"\n);'
     )
-
-
