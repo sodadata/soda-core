@@ -481,7 +481,7 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
-        result_sql: str = f"CREATE TABLE {self._convert_fqn_for_ddl(create_table_as_select.fully_qualified_table_name)} AS "
+        result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
         result_sql += (
             f"{pre_parenthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
@@ -600,9 +600,8 @@ class SqlDialect:
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_view.select_elements, add_semicolon=False)
-        view_name: str = self._convert_fqn_for_ddl(create_view.fully_qualified_view_name)
         return (
-            f"CREATE VIEW {view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
+            f"CREATE VIEW {create_view.fully_qualified_view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
             + (";" if add_semicolon else "")
         )
 
@@ -611,8 +610,7 @@ class SqlDialect:
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_VIEW_IF_EXISTS) else ""
-        view_name: str = self._convert_fqn_for_ddl(drop_view.fully_qualified_view_name)
-        return f"DROP VIEW {if_exists_sql}{view_name}" + (";" if add_semicolon else "")
+        return f"DROP VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
 
     #########################################################
     # CREATE MATERIALIZED VIEW
@@ -627,9 +625,8 @@ class SqlDialect:
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_materialized_view.select_elements, add_semicolon=False)
-        view_name: str = self._convert_fqn_for_ddl(create_materialized_view.fully_qualified_view_name)
         return (
-            f"CREATE MATERIALIZED VIEW {view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
+            f"CREATE MATERIALIZED VIEW {create_materialized_view.fully_qualified_view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
             + (";" if add_semicolon else "")
         )
 
@@ -638,8 +635,7 @@ class SqlDialect:
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_MATERIALIZED_VIEW_IF_EXISTS) else ""
-        view_name: str = self._convert_fqn_for_ddl(drop_view.fully_qualified_view_name)
-        return f"DROP MATERIALIZED VIEW {if_exists_sql}{view_name}" + (
+        return f"DROP MATERIALIZED VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (
             ";" if add_semicolon else ""
         )
 
