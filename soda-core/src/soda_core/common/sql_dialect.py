@@ -481,7 +481,9 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
-        result_sql: str = f"CREATE TABLE {self._convert_fqn_for_ddl(create_table_as_select.fully_qualified_table_name)} AS "
+        result_sql: str = (
+            f"CREATE TABLE {self._convert_fqn_for_ddl(create_table_as_select.fully_qualified_table_name)} AS "
+        )
         result_sql += (
             f"{pre_parenthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
@@ -527,9 +529,7 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
         table_name: str = self._convert_fqn_for_ddl(alter_table.fully_qualified_table_name)
-        return f"ALTER TABLE {table_name} DROP COLUMN {column_name_quoted}" + (
-            ";" if add_semicolon else ""
-        )
+        return f"ALTER TABLE {table_name} DROP COLUMN {column_name_quoted}" + (";" if add_semicolon else "")
 
     def drop_column_supported(self) -> bool:
         return True
@@ -546,9 +546,7 @@ class SqlDialect:
             " CASCADE" if getattr(drop_table, "cascade", False) and self.SUPPORTS_DROP_TABLE_CASCADE else ""
         )
         table_name: str = self._convert_fqn_for_ddl(drop_table.fully_qualified_table_name)
-        return f"DROP TABLE {if_exists_sql}{table_name}{cascade_sql}" + (
-            ";" if add_semicolon else ""
-        )
+        return f"DROP TABLE {if_exists_sql}{table_name}{cascade_sql}" + (";" if add_semicolon else "")
 
     #########################################################
     # INSERT INTO
@@ -601,9 +599,8 @@ class SqlDialect:
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         select_sql: str = self.build_select_sql(create_view.select_elements, add_semicolon=False)
         view_name: str = self._convert_fqn_for_ddl(create_view.fully_qualified_view_name)
-        return (
-            f"CREATE VIEW {view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n"
-            + (";" if add_semicolon else "")
+        return f"CREATE VIEW {view_name} AS {pre_parenthesis_sql}\n{select_sql}{post_parenthesis_sql}\n" + (
+            ";" if add_semicolon else ""
         )
 
     def build_drop_view_sql(
@@ -639,9 +636,7 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_MATERIALIZED_VIEW_IF_EXISTS) else ""
         view_name: str = self._convert_fqn_for_ddl(drop_view.fully_qualified_view_name)
-        return f"DROP MATERIALIZED VIEW {if_exists_sql}{view_name}" + (
-            ";" if add_semicolon else ""
-        )
+        return f"DROP MATERIALIZED VIEW {if_exists_sql}{view_name}" + (";" if add_semicolon else "")
 
     #########################################################
     # UNION
