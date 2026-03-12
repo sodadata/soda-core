@@ -56,12 +56,12 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
 
     def drop_schema_if_exists_sql(self, schema: str) -> str:
         dialect = self.data_source_impl.sql_dialect
-        quoted_catalog = dialect._requote_for_ddl(dialect.quote_default(ATHENA_CATALOG))
-        quoted_schema = dialect._requote_for_ddl(dialect.quote_default(schema))
+        quoted_catalog = dialect.quote_for_ddl(ATHENA_CATALOG)
+        quoted_schema = dialect.quote_for_ddl(schema)
         return f"DROP SCHEMA IF EXISTS {quoted_catalog}.{quoted_schema} CASCADE;"
 
     def drop_schema_sql(self, schema: str) -> str:
         dialect = self.data_source_impl.sql_dialect
-        quoted_catalog = dialect._requote_for_ddl(dialect.quote_default(ATHENA_CATALOG))
-        quoted_schema = dialect._requote_for_ddl(dialect.quote_default(schema))
+        quoted_catalog = dialect.quote_for_ddl(ATHENA_CATALOG)
+        quoted_schema = dialect.quote_for_ddl(schema)
         return f"DROP SCHEMA {quoted_catalog}.{quoted_schema} CASCADE;"
