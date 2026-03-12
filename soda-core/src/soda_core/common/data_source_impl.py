@@ -273,10 +273,12 @@ class DataSourceImpl(ABC):
 
         # Group rows by table_name (first column), then parse each group using
         # build_column_metadatas_from_query_result (same parsing as get_columns_metadata).
+        # There is an implicit assumption here that the first column is the table name.
+        # This is also assumed in other parts of the code (such as the dialect) when parsing the results.
         sub_columns = query_result.columns[1:]
         rows_by_table: dict[str, list] = {}
-        for row in query_result.rows:
-            rows_by_table.setdefault(row[0], []).append(row[1:])
+        for table_name, *row in query_result.rows:
+            rows_by_table.setdefault(table_name, []).append(row)
 
         columns_by_table: dict[str, list[ColumnMetadata]] = {}
         for table_name, rows in rows_by_table.items():
