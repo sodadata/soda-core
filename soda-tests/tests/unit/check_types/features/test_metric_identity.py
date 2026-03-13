@@ -22,6 +22,7 @@ def test_missing_count_vs_percent_are_distinct():
                 metric: count
                 must_be: 0
           - missing:
+              qualifier: percent
               threshold:
                 metric: percent
                 must_be: 0
@@ -44,6 +45,7 @@ def test_duplicate_count_vs_percent_are_distinct():
               threshold:
                 metric: count
           - duplicate:
+              qualifier: percent
               threshold:
                 metric: percent
     """
@@ -65,6 +67,7 @@ def test_aggregate_different_functions_are_distinct():
               function: sum
               must_be_greater_than: 1000
           - aggregate:
+              qualifier: avg
               function: avg
               must_be_greater_than: 100
     """
@@ -89,6 +92,7 @@ def test_metric_different_expressions_are_distinct():
             must_be_greater_than: 10000
       - metric:
           name: revenue_average
+          qualifier: average
           expression: avg(amount)
           threshold:
             must_be_greater_than: 100
@@ -114,6 +118,7 @@ def test_metric_expression_vs_query_are_distinct():
             must_be_greater_than: 0
       - metric:
           name: using_query
+          qualifier: query
           query: SELECT COUNT(*) FROM {dataset}
           threshold:
             must_be_greater_than: 0
@@ -140,6 +145,7 @@ def test_freshness_different_units_are_distinct():
             unit: hour
             must_be_less_than: 24
       - freshness:
+          qualifier: daily
           column: created_at
           threshold:
             unit: day
@@ -165,6 +171,7 @@ def test_invalid_values_vs_format_are_distinct():
                 - inactive
           - invalid:
               name: valid status format
+              qualifier: format
               valid_format:
                 regex: '^[a-z]+$'
                 name: status_regex
@@ -188,6 +195,7 @@ def test_column_expression_differences_are_distinct():
               column_expression: CAST(price AS INTEGER)
               must_be_greater_than: 0
           - aggregate:
+              qualifier: float
               function: sum
               column_expression: CAST(price AS FLOAT)
               must_be_greater_than: 0
