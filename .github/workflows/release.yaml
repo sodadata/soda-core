@@ -1,0 +1,510 @@
+---
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 4.0.8). Leave blank to auto-detect from current RC."
+        required: false
+        type: string
+        default: ""
+      next_version:
+        description: "Next prerelease version after release (e.g. 5.1.0rc0). Leave blank to auto-detect from commits."
+        required: false
+        type: string
+        default: ""
+      dry_run:
+        description: "Dry run — validate and build but do not tag or publish"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate & pre-flight
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      next_version: ${{ steps.resolve.outputs.next_version }}
+      modules: ${{ steps.modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Resolve version
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_NEXT_VERSION: ${{ inputs.next_version }}
+        run: |
+          if [ -z "$INPUT_VERSION" ]; then
+            CURRENT=$(python3 scripts/validate_version.py --current)
+            echo "Current version: $CURRENT"
+
+            VERSION=$(python3 scripts/validate_version.py --resolve)
+            echo "Auto-detected release version: $VERSION (from $CURRENT)"
+          else
+            VERSION="$INPUT_VERSION"
+          fi
+
+          # Validate format
+          python3 scripts/validate_version.py --validate "$VERSION"
+
+          # Calculate next prerelease (use override if provided)
+          if [ -n "$INPUT_NEXT_VERSION" ]; then
+            NEXT_VERSION="$INPUT_NEXT_VERSION"
+            echo "Using manually provided next version: $NEXT_VERSION"
+          else
+            NEXT_VERSION=$(python3 scripts/validate_version.py --next "$VERSION")
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "### Version Resolution" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Release version:** \`$VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Next prerelease:** \`$NEXT_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check tag does not exist
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
+            echo "::error::Tag v$VERSION already exists!"
+            exit 1
+          fi
+          echo "Tag v$VERSION does not exist — OK"
+
+      - name: Check PyPI availability
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/soda-core/$VERSION/json")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "::error::Version $VERSION already exists on PyPI!"
+            exit 1
+          fi
+          echo "Version $VERSION not found on PyPI (HTTP $HTTP_CODE) — OK"
+
+      - name: Verify main CI is green
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking latest CI run on main..."
+          LATEST_RUN=$(gh run list \
+            --branch main \
+            --workflow "CI pipeline" \
+            --status success \
+            --limit 1 \
+            --json headSha,conclusion,createdAt \
+            --jq '.[0]')
+
+          CI_STATUS="green"
+
+          if [ -z "$LATEST_RUN" ] || [ "$LATEST_RUN" = "null" ]; then
+            echo "::warning::Could not find a successful CI run on main. Proceeding with caution."
+            CI_STATUS="unknown"
+          else
+            echo "Latest successful CI run: $LATEST_RUN"
+          fi
+
+          MAIN_SHA=$(git rev-parse HEAD)
+          LATEST_SUCCESS_SHA=$(echo "$LATEST_RUN" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('headSha',''))" 2>/dev/null || echo "")
+
+          if [ -n "$LATEST_SUCCESS_SHA" ] && [ "$MAIN_SHA" != "$LATEST_SUCCESS_SHA" ]; then
+            echo "::warning::Latest successful CI ($LATEST_SUCCESS_SHA) does not match HEAD of main ($MAIN_SHA). New commits may be untested."
+            CI_STATUS="stale"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CI_STATUS" = "green" ]; then
+            echo "### CI Status: passed" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$CI_STATUS" = "unknown" ]; then
+            echo "### CI Status: UNKNOWN" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Warning:** No successful CI run found on main. Verify CI manually before approving." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### CI Status: STALE" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Warning:** Latest successful CI (\`$LATEST_SUCCESS_SHA\`) does not match HEAD (\`$MAIN_SHA\`). New commits may be untested." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Define release matrix
+        id: modules
+        run: |
+          echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
+
+      - name: Pre-flight summary
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          NEXT="${{ steps.resolve.outputs.next_version }}"
+          MODULES="${{ steps.modules.outputs.modules }}"
+          DRY_RUN="${{ inputs.dry_run }}"
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          PACKAGE_COUNT=$(echo "$MODULES" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+
+          echo "### Release Pre-flight Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Parameter | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release version | \`$VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Next prerelease | \`$NEXT\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Previous tag | \`$LAST_TAG\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dry run | $DRY_RUN |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Packages | $PACKAGE_COUNT |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$LAST_TAG" != "none" ]; then
+            echo "### Changes since $LAST_TAG" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            git log --oneline "$LAST_TAG"..HEAD | head -50 >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Manual approval gate (skipped on dry run)
+  # ---------------------------------------------------------------------------
+  approve:
+    name: Approve release
+    needs: [validate]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    environment: release-approval
+    steps:
+      - name: Approval granted
+        run: |
+          echo "### Release v${{ needs.validate.outputs.version }} approved" >> "$GITHUB_STEP_SUMMARY"
+          echo "Proceeding with tag, build, and publish." >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Tag & create GitHub Release (skipped on dry run)
+  # ---------------------------------------------------------------------------
+  tag:
+    name: Tag & GitHub Release
+    needs: [validate, approve]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and create tag
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install tbump
+
+          tbump --only-patch --non-interactive "$VERSION"
+          uv lock
+
+          git add -A
+          git commit -m "Bump to $VERSION"
+          git tag "v$VERSION"
+          git push origin main --tags
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          gh release create "v$VERSION" \
+            --verify-tag \
+            --generate-notes
+
+  # ---------------------------------------------------------------------------
+  # Build & publish all packages (skipped on dry run)
+  # ---------------------------------------------------------------------------
+  build-and-publish:
+    name: Publish ${{ matrix.module }}
+    needs: [validate, tag]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    environment: production-release
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.validate.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "v${{ needs.validate.outputs.version }}"
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+
+      - name: Get external secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
+        with:
+          secret-ids: |
+            PYPI_USERNAME,/soda/github/common/SODA_PYPI_CLOUD_WRITE_USERNAME
+            PYPI_PASSWORD,/soda/github/common/SODA_PYPI_CLOUD_WRITE_PASSWORD
+
+      - name: Build ${{ matrix.module }}
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install tbump build twine
+
+          # Safety: ensure version files match the release version
+          tbump --only-patch --non-interactive "$VERSION"
+
+          cd ${{ matrix.module }}
+          python3 -m build
+
+      - name: Stagger uploads
+        run: |
+          DELAY=$(echo -n "${{ matrix.module }}" | cksum | awk '{print $1 % 91}')
+          echo "Staggering upload by ${DELAY}s..."
+          sleep $DELAY
+
+      - name: Publish to Soda PyPI
+        id: soda_pypi
+        env:
+          TWINE_REPOSITORY_URL: ${{ vars.CLOUD_PYPI_REPOSITORY }}
+          TWINE_USERNAME: ${{ env.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ env.PYPI_PASSWORD }}
+        run: |
+          source .venv/bin/activate
+          SODA_RESULT="failure"
+          for attempt in 1 2 3; do
+            if twine upload ${{ matrix.module }}/dist/*; then
+              SODA_RESULT="success"
+              echo "Soda PyPI upload succeeded on attempt $attempt"
+              break
+            fi
+            if [ $attempt -lt 3 ]; then
+              DELAY=$((attempt * 15))
+              echo "::warning::Soda PyPI upload failed (attempt $attempt/3), retrying in ${DELAY}s..."
+              sleep $DELAY
+            else
+              echo "::error::Soda PyPI upload failed after 3 attempts"
+            fi
+          done
+          echo "result=$SODA_RESULT" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to public PyPI
+        id: public_pypi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          source .venv/bin/activate
+          PUBLIC_RESULT="failure"
+          for attempt in 1 2 3; do
+            if twine upload ${{ matrix.module }}/dist/*; then
+              PUBLIC_RESULT="success"
+              echo "Public PyPI upload succeeded on attempt $attempt"
+              break
+            fi
+            if [ $attempt -lt 3 ]; then
+              DELAY=$((attempt * 15))
+              echo "::warning::Public PyPI upload failed (attempt $attempt/3), retrying in ${DELAY}s..."
+              sleep $DELAY
+            else
+              echo "::error::Public PyPI upload failed after 3 attempts"
+            fi
+          done
+          echo "result=$PUBLIC_RESULT" >> "$GITHUB_OUTPUT"
+
+      - name: Report status
+        if: always()
+        run: |
+          echo "### ${{ matrix.module }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Soda PyPI: ${{ steps.soda_pypi.outputs.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Public PyPI: ${{ steps.public_pypi.outputs.result }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.soda_pypi.outputs.result }}" != "success" ] || [ "${{ steps.public_pypi.outputs.result }}" != "success" ]; then
+            echo ""
+            echo "**Recovery:** re-run this job from the Actions UI, or manually upload with:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "twine upload ${{ matrix.module }}/dist/*" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Dry run: build only — no tag, no publish
+  # ---------------------------------------------------------------------------
+  dry-run-build:
+    name: "[Dry Run] Build ${{ matrix.module }}"
+    needs: [validate]
+    if: ${{ inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.validate.outputs.modules) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+
+      - name: Build ${{ matrix.module }}
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install tbump build
+
+          tbump --only-patch --non-interactive "$VERSION"
+
+          cd ${{ matrix.module }}
+          python3 -m build
+
+          echo "### [Dry Run] ${{ matrix.module }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build successful. Would publish version $VERSION." >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Bump to next prerelease version
+  # ---------------------------------------------------------------------------
+  bump-next:
+    name: Bump to next prerelease
+    needs: [validate, build-and-publish]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump to next prerelease
+        run: |
+          NEXT_VERSION="${{ needs.validate.outputs.next_version }}"
+
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install tbump
+
+          tbump --only-patch --non-interactive "$NEXT_VERSION"
+          uv lock
+
+          git add -A
+          git commit -m "[skip ci] Bump to next prerelease version $NEXT_VERSION"
+          git push origin main
+
+  # ---------------------------------------------------------------------------
+  # Final summary
+  # ---------------------------------------------------------------------------
+  summary:
+    name: Release summary
+    needs: [validate, approve, tag, build-and-publish, bump-next]
+    if: always() && !inputs.dry_run
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Generate summary
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          NEXT="${{ needs.validate.outputs.next_version }}"
+
+          echo "## Release Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ needs.build-and-publish.result }}" = "success" ]; then
+            echo "### Release $VERSION published successfully" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ needs.validate.result }}" != "success" ]; then
+            echo "### Release $VERSION failed during validation" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ needs.tag.result }}" != "success" ]; then
+            echo "### Release $VERSION failed during tagging" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Release $VERSION completed with issues" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Step | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Validation | ${{ needs.validate.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag & GitHub Release | ${{ needs.tag.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Build & Publish | ${{ needs.build-and-publish.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Bump next prerelease | ${{ needs.bump-next.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Links:**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v$VERSION)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [PyPI soda-core](https://pypi.org/project/soda-core/$VERSION/)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Next prerelease: \`$NEXT\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Dry run summary
+  # ---------------------------------------------------------------------------
+  dry-run-summary:
+    name: "[Dry Run] Summary"
+    needs: [validate, dry-run-build]
+    if: always() && inputs.dry_run
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Generate dry-run summary
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          NEXT="${{ needs.validate.outputs.next_version }}"
+
+          echo "## Dry Run Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "This was a **dry run** — no tags, releases, or packages were published." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Parameter | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Would release | \`$VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Would bump to | \`$NEXT\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Validation | ${{ needs.validate.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Build | ${{ needs.dry-run-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "To perform the actual release, re-run this workflow with **dry_run** unchecked." >> "$GITHUB_STEP_SUMMARY"
