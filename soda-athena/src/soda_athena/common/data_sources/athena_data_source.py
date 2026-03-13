@@ -432,9 +432,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         # so we must NOT convert the table name to DDL quoting. Column names still use backticks.
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
         column_type_sql: str = self._build_create_table_column_type(alter_table.column)
-        return (
-            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} ({column_name_quoted} {column_type_sql});"
-        )
+        return f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} ({column_name_quoted} {column_type_sql});"
 
     def _get_add_column_sql_expr(self) -> str:
         return "ADD COLUMNS"
