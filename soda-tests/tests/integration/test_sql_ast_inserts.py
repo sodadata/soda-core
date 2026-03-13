@@ -38,9 +38,9 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
     dataset_prefixes = data_source_test_helper.dataset_prefix
 
-    my_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test-test_table")
-    my_table_name_as_select = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test-test_table_as_select")
-    my_view_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test-test_view")
+    my_table_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table")
+    my_table_name_as_select = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_table_as_select")
+    my_view_name = sql_dialect.qualify_dataset_name(dataset_prefixes, "my_test_test_view")
 
     # Drop the view if it exists (do this first, otherwise the table drop will fail because we should "cascade" the drop)
     drop_view_sql = sql_dialect.build_drop_view_sql(DROP_VIEW_IF_EXISTS(fully_qualified_view_name=my_view_name))
@@ -121,7 +121,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         # Check the metadata, we want the columns to be in the correct order
         metadata_columns_query_sql = data_source_impl.build_columns_metadata_query_str(
             dataset_prefixes=dataset_prefixes,
-            dataset_name="my_test-test_table",
+            dataset_name="my_test_test_table",
         )
         metadata_result: QueryResult = data_source_impl.execute_query(metadata_columns_query_sql)
         assert metadata_result.rows[0][0] == "id"
