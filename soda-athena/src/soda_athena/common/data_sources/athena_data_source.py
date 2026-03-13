@@ -432,7 +432,9 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         # singular "ADD COLUMN" (not Hive's backticks / "ADD COLUMNS" / parentheses).
         column_name_quoted: str = self.quote_default(alter_table.column.name)
         column_type_sql: str = self._build_create_table_column_type(alter_table.column)
-        return f"ALTER TABLE {alter_table.fully_qualified_table_name} ADD COLUMN {column_name_quoted} {column_type_sql};"
+        return (
+            f"ALTER TABLE {alter_table.fully_qualified_table_name} ADD COLUMN {column_name_quoted} {column_type_sql};"
+        )
 
     def drop_column_supported(self) -> bool:
         return (
