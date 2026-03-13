@@ -52,6 +52,8 @@ from soda_core.contracts.contract_verification import (
 
 logger = logging.getLogger(__name__)
 
+SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
+
 
 class DataSourceTestHelper:
     @classmethod
@@ -243,14 +245,6 @@ class DataSourceTestHelper:
         """
         Called in constructor to initialized self.schema_name
         """
-        # When snapshot mode is active, use a deterministic schema name so that
-        # SQL is identical across record and replay runs.
-        if self._snapshot_mode != "off":
-            if os.getenv("GITHUB_ACTIONS"):
-                return "soda_snapshot_ci"
-            user = os.getenv("USER", "anonymous")
-            return f"soda_snapshot_{user}"
-
         schema_name_parts = []
 
         github_ref_name = os.getenv("GITHUB_REF_NAME")
@@ -296,15 +290,14 @@ class DataSourceTestHelper:
             # fallback is actually triggered (lazy initialization).
             from helpers.snapshot_connection import SnapshotDataSourceConnection
 
+            real_schema_name = self.dataset_prefix[1]
+
             def connection_factory():
                 """Lazily open connection and create schema on first fallback."""
-                # Temporarily swap out the snapshot wrapper so that
-                # open_connection() creates a real DataSourceConnection.
                 snap_conn = self.data_source_impl.data_source_connection
                 self.start_test_session_open_connection()
                 self.start_test_session_ensure_schema()
                 real_conn = self.data_source_impl.data_source_connection
-                # Restore the snapshot wrapper as the public interface
                 self.data_source_impl.data_source_connection = snap_conn
                 return real_conn
 
@@ -313,6 +306,8 @@ class DataSourceTestHelper:
                 snapshot_manager=self._snapshot_manager,
                 mode="replay",
                 fallback_connection_factory=connection_factory,
+                schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
+                real_schema_name=real_schema_name,
             )
         else:
             # Record mode or snapshot off: always open connection and create schema.
@@ -327,6 +322,8 @@ class DataSourceTestHelper:
                     real_connection=real_connection,
                     snapshot_manager=self._snapshot_manager,
                     mode="record",
+                    schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
+                    real_schema_name=self.dataset_prefix[1],
                 )
 
     def start_test_session_open_connection(self) -> None:
