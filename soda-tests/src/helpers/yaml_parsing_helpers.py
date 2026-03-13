@@ -13,7 +13,7 @@ from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.impl.contract_yaml import CheckYaml, ColumnYaml, ContractYaml
 
 
-def parse_contract(yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractYaml:
+def parse_contract(yaml_str: str, variables: Optional[dict[str, str | int | float]] = None) -> ContractYaml:
     """Parse a contract YAML string into a ContractYaml domain model."""
     contract_yaml_source = ContractYamlSource.from_str(yaml_str=dedent_and_strip(yaml_str))
     return ContractYaml.parse(

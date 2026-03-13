@@ -39,7 +39,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
 
 
 def build_contract_impl(
-    yaml_str: str, variables: Optional[dict[str, str]] = None, logs: Optional[Logs] = None
+    yaml_str: str, variables: Optional[dict[str, str | int | float]] = None, logs: Optional[Logs] = None
 ) -> ContractImpl:
     """
     Build a *real* ContractImpl from a contract YAML string.
@@ -79,7 +79,7 @@ def build_contract_impl(
             logs.remove_from_root_logger()
 
 
-def get_check_impl(yaml_str: str, check_index: int = 0, variables: Optional[dict[str, str]] = None) -> CheckImpl:
+def get_check_impl(yaml_str: str, check_index: int = 0, variables: Optional[dict[str, str | int | float]] = None) -> CheckImpl:
     """
     Build a ContractImpl and return a specific CheckImpl by index.
 
@@ -125,7 +125,7 @@ def build_measurement_values(
 # ---------------------------------------------------------------------------
 
 
-def validate_contract(yaml_str: str, variables: Optional[dict[str, str]] = None):
+def validate_contract(yaml_str: str, variables: Optional[dict[str, str | int | float]] = None):
     """
     Run contract validation (without execution) and return the session result.
     This builds ContractImpl objects but does not run any SQL queries.

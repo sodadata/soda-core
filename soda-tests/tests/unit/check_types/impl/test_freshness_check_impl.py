@@ -4,7 +4,7 @@ Unit tests for FreshnessCheckImpl — unique logic only.
 Freshness has domain-specific behaviour that differs from generic threshold
 checks:
 - Computes timedelta between max_timestamp and data_timestamp
-- Converts to a configurable unit (second, minute, hour, day)
+- Converts to a configurable unit (minute, hour, day); "second" is not a valid unit and falls back to "hour"
 - Returns FAILED (not NOT_EVALUATED) when max_timestamp is None
 - Returns a FreshnessCheckResult with freshness-specific fields
 

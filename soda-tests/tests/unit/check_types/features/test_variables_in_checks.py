@@ -123,12 +123,13 @@ def test_default_variable_overridden_by_runtime():
 
 
 def test_variable_in_threshold():
-    """Test that runtime variables are resolved inside threshold values.
+    """Test that a numeric runtime variable is resolved in a threshold value.
 
-    Variable resolution is string-based: the runtime value ``"1000"`` replaces
-    ``${var.min_rows}`` in the YAML before parsing.  We verify resolution via
-    the public ``resolved_variable_values`` dict rather than reaching into
-    parser internals.
+    When the entire YAML scalar is ``${var.min_rows}``, ``VariableResolver``
+    returns the variable value as-is (no string cast).  Passing an ``int``
+    therefore lets ``ThresholdYaml.read_number_opt`` accept the value and
+    populate ``must_be_greater_than``.  Passing a string would cause the
+    threshold field to be ignored (``read_number_opt`` rejects non-numbers).
     """
     contract_yaml = """
     variables:
@@ -141,10 +142,11 @@ def test_variable_in_threshold():
           threshold:
             must_be_greater_than: ${var.min_rows}
     """
-    contract = parse_contract(contract_yaml, variables={"min_rows": "1000"})
+    contract = parse_contract(contract_yaml, variables={"min_rows": 1000})
 
-    # The runtime value overrode the default
-    assert contract.resolved_variable_values["min_rows"] == "1000"
+    # The runtime value overrode the default and was substituted into the threshold
+    assert contract.resolved_variable_values["min_rows"] == 1000
+    assert contract.checks[0].threshold.must_be_greater_than == 1000
 
 
 def test_variable_in_dataset_name():
