@@ -174,6 +174,8 @@ class DataSourceTestHelper:
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
 
+        # Log the snapshot mode
+        logger.info(f"Snapshot mode: {self._snapshot_mode}")
         # Snapshot manager (only initialized when snapshot mode is active)
         self._snapshot_manager = None
         if self._snapshot_mode != "off":
