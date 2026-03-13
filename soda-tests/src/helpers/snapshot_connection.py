@@ -219,6 +219,22 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._current_test_id is not None and self._recording:
             normalized = [self._normalize_for_snapshot(e) for e in self._recording]
             self._snapshot_manager.save(self._current_test_id, normalized)
+
+        # Verify all snapshot entries were consumed during replay
+        if (
+            self._mode == "replay"
+            and not self._fallback_active
+            and self._replay_data is not None
+            and self._replay_index < len(self._replay_data)
+        ):
+            remaining = len(self._replay_data) - self._replay_index
+            next_entry = self._replay_data[self._replay_index]
+            raise SnapshotMismatchError(
+                f"Snapshot has {remaining} unconsumed operation(s) for test {self._current_test_id}.\n"
+                f"  Next unconsumed ({next_entry.op_type}): {next_entry.sql[:200]}\n"
+                f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
+            )
+
         self._recording = []
         self._replay_data = None
         self._replay_index = 0
