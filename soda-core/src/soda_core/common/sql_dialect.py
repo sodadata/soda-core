@@ -640,7 +640,9 @@ class SqlDialect:
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         if_exists_sql: str = "IF EXISTS " if isinstance(drop_view, DROP_MATERIALIZED_VIEW_IF_EXISTS) else ""
-        return f"DROP MATERIALIZED VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (";" if add_semicolon else "")
+        return f"DROP MATERIALIZED VIEW {if_exists_sql}{drop_view.fully_qualified_view_name}" + (
+            ";" if add_semicolon else ""
+        )
 
     #########################################################
     # UNION
