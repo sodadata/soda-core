@@ -69,10 +69,14 @@ def test_variables_in_filter():
 
 
 def test_variables_resolved_as_strings():
-    """Test that runtime variable values are stored as strings regardless of declared type.
+    """Test that string runtime variable values are stored as strings.
 
-    Variable resolution at parse time is purely string-based; type coercion
-    to number happens downstream when the value is used in a threshold or expression.
+    When the provided value is a string, ``resolved_variable_values`` holds
+    that string.  Note: string values cannot be used in YAML threshold fields
+    because ``ThresholdYaml.read_number_opt`` only accepts YAML numbers.
+    To substitute a variable into a numeric threshold, pass an ``int`` or
+    ``float`` as the variable value (``VariableResolver`` returns it as-is
+    when the whole YAML scalar is exactly ``${var.x}``).
     """
     yaml_str = """
         dataset: ds/db/schema/table
