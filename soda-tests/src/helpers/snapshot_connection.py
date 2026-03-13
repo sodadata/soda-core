@@ -94,6 +94,27 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_index: int = 0
         self._fallback_active: bool = False
 
+    def __getattr__(self, name: str) -> Any:
+        """Proxy unknown attributes to the real connection.
+
+        Some data sources (e.g. Athena) store custom attributes on their connection
+        objects (like athena_staging_dir). This ensures they remain accessible
+        through the snapshot wrapper.
+
+        If the real connection hasn't been created yet (lazy replay mode), the
+        fallback factory is triggered to create it.
+        """
+        real = self.__dict__.get("_real")
+        if real is None:
+            factory = self.__dict__.get("_fallback_connection_factory")
+            if factory is not None:
+                real = factory()
+                self._real = real
+                self.connection = real.connection
+        if real is not None and hasattr(real, name):
+            return getattr(real, name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
     def _create_connection(self, connection_properties: dict) -> object:
         # Never called because we always pass a non-None connection to __init__.
         return None
@@ -278,6 +299,21 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     # -------------------------------------------------------------------------
 
     @staticmethod
+    def _safe_pickle_value(value: Any) -> Any:
+        """Convert a value to a pickle-safe form.
+
+        Some DB drivers use C-extension types (e.g. DuckDB's DuckDBPyType) that
+        can't be pickled. Convert them to strings as a fallback.
+        """
+        import pickle
+
+        try:
+            pickle.dumps(value)
+            return value
+        except (TypeError, pickle.PicklingError):
+            return str(value)
+
+    @staticmethod
     def _normalize_description(description: Any) -> Optional[tuple[PicklableColumn, ...]]:
         """Convert cursor.description to picklable namedtuples.
 
@@ -290,7 +326,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         return tuple(
             PicklableColumn(
                 name=col[0],
-                type_code=col[1],
+                type_code=SnapshotDataSourceConnection._safe_pickle_value(col[1]),
                 display_size=col[2] if len(col) > 2 else None,
                 internal_size=col[3] if len(col) > 3 else None,
                 precision=col[4] if len(col) > 4 else None,
