@@ -273,6 +273,36 @@ class SqlDialect:
             else None
         )
 
+    def quote_for_ddl(self, identifier: Optional[str]) -> Optional[str]:
+        """Quote an identifier for use in DDL statements (CREATE, DROP, ALTER).
+
+        Most databases use the same quoting for DDL and DML. Override this method
+        for databases that use different quoting (e.g., Athena uses backticks for
+        DDL/Hive parser but double quotes for DML/Trino parser).
+        """
+        return self.quote_default(identifier)
+
+    def _convert_fqn_for_ddl(self, pre_quoted_name: str) -> str:
+        """Convert a fully qualified name already quoted with quote_default to DDL quoting.
+
+        This is a no-op when quote_default and quote_for_ddl use the same quote character.
+        Override quote_for_ddl to change DDL quoting behavior.
+
+        The conversion splits on dots (the FQN separator), strips the DML quote character
+        from each part, and re-quotes with quote_for_ddl. This avoids a blind string replace
+        that could corrupt identifiers containing the quote character as a literal.
+        """
+        dml_quote = self.quote_default("x")[0] if self.quote_default("x") else '"'
+        ddl_quote = self.quote_for_ddl("x")[0] if self.quote_for_ddl("x") else '"'
+        if dml_quote == ddl_quote:
+            return pre_quoted_name
+        parts = pre_quoted_name.split(".")
+        converted = []
+        for part in parts:
+            stripped = part.strip(dml_quote)
+            converted.append(self.quote_for_ddl(stripped) if stripped else part)
+        return ".".join(converted)
+
     def build_fully_qualified_sql_name(self, dataset_identifier: DatasetIdentifier) -> str:
         return self.qualify_dataset_name(
             dataset_prefix=dataset_identifier.prefixes, dataset_name=dataset_identifier.dataset_name
@@ -363,7 +393,7 @@ class SqlDialect:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         assert len(prefixes) == 2, f"Expected 2 prefixes, got {len(prefixes)}"
         schema_name: str = prefixes[1]
-        quoted_schema_name: str = self.quote_default(schema_name)
+        quoted_schema_name: str = self.quote_for_ddl(schema_name)
         return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
@@ -414,7 +444,8 @@ class SqlDialect:
 
     def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
         if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
-        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        table_name: str = self._convert_fqn_for_ddl(create_table.fully_qualified_table_name)
+        create_table_sql: str = f"CREATE TABLE {if_not_exists_sql} {table_name} "
         return create_table_sql
 
     def _build_create_table_column(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
@@ -445,9 +476,7 @@ class SqlDialect:
         return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     def _quote_column_for_create_table(self, column_name: str) -> str:
-        return self.quote_default(
-            column_name
-        )  # Some datasources (Athena) require a different quoting when creating a table.
+        return self.quote_for_ddl(column_name)
 
     def _is_not_null_ddl_supported(self) -> bool:
         return True
@@ -492,8 +521,9 @@ class SqlDialect:
         default_sql: str = f" DEFAULT {self.literal(alter_table.column.default)}" if alter_table.column.default else ""
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
+        table_name: str = self._convert_fqn_for_ddl(alter_table.fully_qualified_table_name)
         return (
-            f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} {pre_parenthesis_sql}{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}{post_parenthesis_sql}"
+            f"ALTER TABLE {table_name} {self._get_add_column_sql_expr()} {pre_parenthesis_sql}{column_name_quoted} {column_type_sql}{is_nullable_sql}{default_sql}{post_parenthesis_sql}"
             + (";" if add_semicolon else "")
         )
 
@@ -505,9 +535,8 @@ class SqlDialect:
     ) -> str:
         add_semicolon = self.apply_default_add_semicolon(add_semicolon)
         column_name_quoted: str = self._quote_column_for_create_table(alter_table.column_name)
-        return f"ALTER TABLE {alter_table.fully_qualified_table_name} DROP COLUMN {column_name_quoted}" + (
-            ";" if add_semicolon else ""
-        )
+        table_name: str = self._convert_fqn_for_ddl(alter_table.fully_qualified_table_name)
+        return f"ALTER TABLE {table_name} DROP COLUMN {column_name_quoted}" + (";" if add_semicolon else "")
 
     def drop_column_supported(self) -> bool:
         return True
@@ -523,9 +552,8 @@ class SqlDialect:
         cascade_sql: str = (
             " CASCADE" if getattr(drop_table, "cascade", False) and self.SUPPORTS_DROP_TABLE_CASCADE else ""
         )
-        return f"DROP TABLE {if_exists_sql}{drop_table.fully_qualified_table_name}{cascade_sql}" + (
-            ";" if add_semicolon else ""
-        )
+        table_name: str = self._convert_fqn_for_ddl(drop_table.fully_qualified_table_name)
+        return f"DROP TABLE {if_exists_sql}{table_name}{cascade_sql}" + (";" if add_semicolon else "")
 
     #########################################################
     # INSERT INTO
