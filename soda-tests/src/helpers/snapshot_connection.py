@@ -72,6 +72,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         snapshot_manager: SnapshotManager,
         mode: str,
         fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = None,
+        schema_placeholder: Optional[str] = None,
+        real_schema_name: Optional[str] = None,
     ):
         # Pass the real DBAPI connection (or sentinel) so that open_connection() in
         # DataSourceConnection.__init__ is a no-op (it skips when self.connection is not None).
@@ -82,6 +84,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._snapshot_manager: SnapshotManager = snapshot_manager
         self._mode: str = mode  # "record" or "replay"
         self._fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = fallback_connection_factory
+        self._schema_placeholder: Optional[str] = schema_placeholder
+        self._real_schema_name: Optional[str] = real_schema_name
 
         # Per-test state
         self._current_test_id: Optional[str] = None
@@ -93,6 +97,42 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     def _create_connection(self, connection_properties: dict) -> object:
         # Never called because we always pass a non-None connection to __init__.
         return None
+
+    def _replace_schema(self, value: Any, old: str, new: str) -> Any:
+        """Recursively replace schema name strings in snapshot data.
+
+        Handles both the original case and the lowercased form (for LOWER()
+        comparisons in metadata queries).
+        """
+        if isinstance(value, str):
+            value = value.replace(old, new)
+            return value.replace(old.lower(), new.lower())
+        if isinstance(value, tuple):
+            return tuple(self._replace_schema(v, old, new) for v in value)
+        if isinstance(value, list):
+            return [self._replace_schema(v, old, new) for v in value]
+        if isinstance(value, QueryResult):
+            return QueryResult(
+                rows=self._replace_schema(value.rows, old, new),
+                columns=value.columns,
+            )
+        return value
+
+    def _normalize_for_snapshot(self, entry: SnapshotEntry) -> SnapshotEntry:
+        """Replace real schema name with placeholder for portable snapshot storage."""
+        if not self._schema_placeholder or not self._real_schema_name:
+            return entry
+        sql = self._replace_schema(entry.sql, self._real_schema_name, self._schema_placeholder)
+        result = self._replace_schema(entry.result, self._real_schema_name, self._schema_placeholder) if entry.result is not None else None
+        return SnapshotEntry(entry.op_type, sql, result)
+
+    def _denormalize_from_snapshot(self, entry: SnapshotEntry) -> SnapshotEntry:
+        """Replace placeholder with real schema name when loading from snapshot."""
+        if not self._schema_placeholder or not self._real_schema_name:
+            return entry
+        sql = self._replace_schema(entry.sql, self._schema_placeholder, self._real_schema_name)
+        result = self._replace_schema(entry.result, self._schema_placeholder, self._real_schema_name) if entry.result is not None else None
+        return SnapshotEntry(entry.op_type, sql, result)
 
     # -------------------------------------------------------------------------
     # Test boundary detection via PYTEST_CURRENT_TEST
@@ -125,7 +165,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return
 
         if self._mode == "replay":
-            self._replay_data = self._snapshot_manager.load(test_id)
+            raw = self._snapshot_manager.load(test_id)
+            self._replay_data = [self._denormalize_from_snapshot(e) for e in raw] if raw else None
             if self._replay_data is None:
                 if self._real is not None or self._fallback_connection_factory is not None:
                     if self._real is None:
@@ -155,7 +196,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
         if self._current_test_id is not None and self._recording:
-            self._snapshot_manager.save(self._current_test_id, self._recording)
+            normalized = [self._normalize_for_snapshot(e) for e in self._recording]
+            self._snapshot_manager.save(self._current_test_id, normalized)
         self._recording = []
         self._replay_data = None
         self._replay_index = 0

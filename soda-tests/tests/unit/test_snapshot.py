@@ -850,3 +850,158 @@ class TestSnapshotLazyConnection:
 
         # Factory was only called once (for the first test)
         assert len(factory_calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# Schema placeholder: portable snapshots across environments
+# ---------------------------------------------------------------------------
+
+PLACEHOLDER = "__$$__TEST_SCHEMA__$$__"
+
+
+class TestSnapshotSchemaPlaceholder:
+    """Tests that schema normalization makes snapshots portable.
+
+    SQL and result data use the real schema name at runtime. When saving
+    to snapshot, real schema is replaced with a placeholder. When loading,
+    placeholder is replaced with the current real schema. This makes
+    snapshots portable across environments.
+    """
+
+    def test_normalize_replaces_real_with_placeholder(self):
+        """_normalize_for_snapshot replaces real schema in SQL and results."""
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="record",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="dev_niels",
+        )
+        entry = SnapshotEntry(
+            "query",
+            'SELECT * FROM "soda"."dev_niels"."t"',
+            QueryResult(rows=[("dev_niels",)], columns=None),
+        )
+        normalized = conn._normalize_for_snapshot(entry)
+        assert normalized.sql == f'SELECT * FROM "soda"."{PLACEHOLDER}"."t"'
+        assert normalized.result.rows == [(PLACEHOLDER,)]
+
+    def test_denormalize_replaces_placeholder_with_real(self):
+        """_denormalize_from_snapshot replaces placeholder with real schema."""
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="ci_main_2026",
+        )
+        entry = SnapshotEntry(
+            "query",
+            f'SELECT * FROM "soda"."{PLACEHOLDER}"."t"',
+            QueryResult(rows=[(PLACEHOLDER,)], columns=None),
+        )
+        denormalized = conn._denormalize_from_snapshot(entry)
+        assert denormalized.sql == 'SELECT * FROM "soda"."ci_main_2026"."t"'
+        assert denormalized.result.rows == [("ci_main_2026",)]
+
+    def test_noop_without_placeholder(self):
+        """Normalize/denormalize are no-ops when placeholder is not set."""
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None, snapshot_manager=manager, mode="replay"
+        )
+        entry = SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))
+        assert conn._normalize_for_snapshot(entry) is entry
+        assert conn._denormalize_from_snapshot(entry) is entry
+
+    def test_record_stores_placeholder_in_snapshot(self, tmp_path):
+        """Record mode stores SQL with placeholder, executes with real schema."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_placeholder_record"
+
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[("dev_niels",)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real_conn,
+            snapshot_manager=manager,
+            mode="record",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="dev_niels",
+        )
+
+        sql = 'SELECT schema FROM "soda"."dev_niels"."t"'
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query(sql)
+        conn.finalize()
+
+        # Real DB received SQL with real schema (unchanged)
+        real_conn.execute_query.assert_called_once_with(sql, log_query=True)
+        assert result.rows == [("dev_niels",)]
+
+        # Snapshot stores SQL and results with placeholder
+        loaded = manager.load(test_id)
+        assert loaded[0].sql == f'SELECT schema FROM "soda"."{PLACEHOLDER}"."t"'
+        assert loaded[0].result.rows == [(PLACEHOLDER,)]
+
+    def test_replay_across_environments(self, tmp_path):
+        """Snapshot recorded on env A replays on env B (different schema name)."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_cross_env"
+
+        # Snapshot was saved with placeholder (as if recorded on env A)
+        manager.save(
+            test_id,
+            [SnapshotEntry(
+                "query",
+                f'SELECT schema FROM "soda"."{PLACEHOLDER}"."t"',
+                QueryResult(rows=[(PLACEHOLDER,)], columns=None),
+            )],
+        )
+
+        # Replay on env B with a DIFFERENT real schema name
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="ci_main_2026",
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # SQL uses env B's schema name — denormalized snapshot SQL matches
+            result = conn.execute_query('SELECT schema FROM "soda"."ci_main_2026"."t"')
+
+        # Result has env B's schema name (denormalized from placeholder)
+        assert result.rows == [("ci_main_2026",)]
+
+    def test_lowercase_schema_in_metadata_queries(self, tmp_path):
+        """Handles LOWER() comparisons when schema has mixed case."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_lowercase"
+
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[("Dev_Schema",)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real_conn,
+            snapshot_manager=manager,
+            mode="record",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="Dev_Schema",
+        )
+
+        # SQL has both quoted (original case) and LOWER() (lowered) schema name
+        sql = """WHERE "schema" = 'Dev_Schema' AND LOWER(n) = 'dev_schema'"""
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query(sql)
+        conn.finalize()
+
+        # Snapshot stores both original and lowercased placeholder forms
+        loaded = manager.load(test_id)
+        assert PLACEHOLDER in loaded[0].sql
+        assert PLACEHOLDER.lower() in loaded[0].sql
