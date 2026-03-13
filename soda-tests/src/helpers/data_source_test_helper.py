@@ -148,6 +148,11 @@ class DataSourceTestHelper:
 
     def __init__(self, name: str):
         self.name = name
+
+        # Snapshot mode must be set before _create_dataset_prefix() because
+        # _create_schema_name() uses it to produce a deterministic schema name.
+        self._snapshot_mode: str = os.getenv("SODA_TEST_SNAPSHOT", "off")
+
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
@@ -166,6 +171,17 @@ class DataSourceTestHelper:
 
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
+
+        # Snapshot manager (only initialized when snapshot mode is active)
+        self._snapshot_manager = None
+        if self._snapshot_mode != "off":
+            from helpers.snapshot_manager import SnapshotManager
+
+            snapshot_dir = os.getenv("SODA_TEST_SNAPSHOT_DIR", os.path.join(os.getcwd(), ".test_snapshots"))
+            self._snapshot_manager = SnapshotManager(
+                datasource_type=self.data_source_impl.type_name,
+                snapshot_dir=snapshot_dir,
+            )
 
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
@@ -227,6 +243,13 @@ class DataSourceTestHelper:
         """
         Called in constructor to initialized self.schema_name
         """
+        # When snapshot mode is active, use a deterministic schema name so that
+        # SQL is identical across record and replay runs.
+        if self._snapshot_mode != "off":
+            if os.getenv("GITHUB_ACTIONS"):
+                return "soda_snapshot_ci"
+            user = os.getenv("USER", "anonymous")
+            return f"soda_snapshot_{user}"
 
         schema_name_parts = []
 
@@ -268,8 +291,22 @@ class DataSourceTestHelper:
         return schema_name
 
     def start_test_session(self) -> None:
+        # Always open connection and create schema — even in replay mode the real
+        # DB is needed for fallback when a snapshot mismatch is detected.
         self.start_test_session_open_connection()
         self.start_test_session_ensure_schema()
+
+        if self._snapshot_mode in ("record", "replay"):
+            # Wrap the real connection AFTER session setup so that schema
+            # creation SQL is not recorded as part of any test's snapshot.
+            from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+            real_connection = self.data_source_impl.data_source_connection
+            self.data_source_impl.data_source_connection = SnapshotDataSourceConnection(
+                real_connection=real_connection,
+                snapshot_manager=self._snapshot_manager,
+                mode=self._snapshot_mode,
+            )
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
@@ -284,6 +321,10 @@ class DataSourceTestHelper:
         self.create_test_schema_if_not_exists()
 
     def end_test_session(self, exception: Optional[Exception]) -> None:
+        # Finalize any in-progress snapshot recording before teardown
+        if self._snapshot_mode != "off" and hasattr(self.data_source_impl.data_source_connection, "finalize"):
+            self.data_source_impl.data_source_connection.finalize()
+
         self.end_test_session_drop_schema()
         self.end_test_session_close_connection()
 
