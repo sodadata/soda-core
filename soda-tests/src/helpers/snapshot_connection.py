@@ -386,6 +386,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             try:
                 entry = self._next_replay_entry("query", sql)
                 if log_query:
+                    sql_logger.debug(f"SNAPSHOT: replaying logs for query:")
                     sql_logger.debug(
                         f"SQL query fetchall in datasource {self.name} "
                         f"(first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
@@ -416,6 +417,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 return result
             try:
                 self._next_replay_entry("update", sql)
+                sql_logger.debug(f"SNAPSHOT: captured update: {sql[:50]}...")
                 return None
             except SnapshotMismatchError as e:
                 self._activate_fallback(reason=str(e))
