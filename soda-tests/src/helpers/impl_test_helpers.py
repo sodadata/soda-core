@@ -79,7 +79,9 @@ def build_contract_impl(
             logs.remove_from_root_logger()
 
 
-def get_check_impl(yaml_str: str, check_index: int = 0, variables: Optional[dict[str, str | int | float]] = None) -> CheckImpl:
+def get_check_impl(
+    yaml_str: str, check_index: int = 0, variables: Optional[dict[str, str | int | float]] = None
+) -> CheckImpl:
     """
     Build a ContractImpl and return a specific CheckImpl by index.
 
