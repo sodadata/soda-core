@@ -291,22 +291,43 @@ class DataSourceTestHelper:
         return schema_name
 
     def start_test_session(self) -> None:
-        # Always open connection and create schema — even in replay mode the real
-        # DB is needed for fallback when a snapshot mismatch is detected.
-        self.start_test_session_open_connection()
-        self.start_test_session_ensure_schema()
-
-        if self._snapshot_mode in ("record", "replay"):
-            # Wrap the real connection AFTER session setup so that schema
-            # creation SQL is not recorded as part of any test's snapshot.
+        if self._snapshot_mode == "replay":
+            # In replay mode, defer DB connection + schema creation until a
+            # fallback is actually triggered (lazy initialization).
             from helpers.snapshot_connection import SnapshotDataSourceConnection
 
-            real_connection = self.data_source_impl.data_source_connection
+            def connection_factory():
+                """Lazily open connection and create schema on first fallback."""
+                # Temporarily swap out the snapshot wrapper so that
+                # open_connection() creates a real DataSourceConnection.
+                snap_conn = self.data_source_impl.data_source_connection
+                self.start_test_session_open_connection()
+                self.start_test_session_ensure_schema()
+                real_conn = self.data_source_impl.data_source_connection
+                # Restore the snapshot wrapper as the public interface
+                self.data_source_impl.data_source_connection = snap_conn
+                return real_conn
+
             self.data_source_impl.data_source_connection = SnapshotDataSourceConnection(
-                real_connection=real_connection,
+                real_connection=None,
                 snapshot_manager=self._snapshot_manager,
-                mode=self._snapshot_mode,
+                mode="replay",
+                fallback_connection_factory=connection_factory,
             )
+        else:
+            # Record mode or snapshot off: always open connection and create schema.
+            self.start_test_session_open_connection()
+            self.start_test_session_ensure_schema()
+
+            if self._snapshot_mode == "record":
+                from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+                real_connection = self.data_source_impl.data_source_connection
+                self.data_source_impl.data_source_connection = SnapshotDataSourceConnection(
+                    real_connection=real_connection,
+                    snapshot_manager=self._snapshot_manager,
+                    mode="record",
+                )
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
@@ -324,6 +345,13 @@ class DataSourceTestHelper:
         # Finalize any in-progress snapshot recording before teardown
         if self._snapshot_mode != "off" and hasattr(self.data_source_impl.data_source_connection, "finalize"):
             self.data_source_impl.data_source_connection.finalize()
+
+        # In replay mode with lazy connection, skip DB teardown if no fallback
+        # was triggered — there's no real connection or schema to clean up.
+        if self._snapshot_mode == "replay":
+            snap_conn = self.data_source_impl.data_source_connection
+            if hasattr(snap_conn, "_real") and snap_conn._real is None:
+                return
 
         self.end_test_session_drop_schema()
         self.end_test_session_close_connection()
