@@ -71,6 +71,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         real_connection: Optional[DataSourceConnection],
         snapshot_manager: SnapshotManager,
         mode: str,
+        fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = None,
     ):
         # Pass the real DBAPI connection (or sentinel) so that open_connection() in
         # DataSourceConnection.__init__ is a no-op (it skips when self.connection is not None).
@@ -80,6 +81,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._real: Optional[DataSourceConnection] = real_connection
         self._snapshot_manager: SnapshotManager = snapshot_manager
         self._mode: str = mode  # "record" or "replay"
+        self._fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = fallback_connection_factory
 
         # Per-test state
         self._current_test_id: Optional[str] = None
@@ -125,9 +127,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._mode == "replay":
             self._replay_data = self._snapshot_manager.load(test_id)
             if self._replay_data is None:
-                if self._real is not None:
-                    logger.warning(f"SNAPSHOT: No snapshot for {test_id}, falling back to real DB")
+                if self._real is not None or self._fallback_connection_factory is not None:
+                    if self._real is None:
+                        self._real = self._fallback_connection_factory()
+                        self.connection = self._real.connection
+                    snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
+                    logger.warning(
+                        f"SNAPSHOT: Falling back to real DB for {test_id}\n"
+                        f"  Reason: No snapshot found (expected at: {snapshot_path})\n"
+                        f"  Running all operations against real DB. A new snapshot will be recorded."
+                    )
                     self._fallback_active = True
+                    self._recording = []
                 else:
                     snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
                     raise SnapshotNotFoundError(
@@ -143,7 +154,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
-        if self._current_test_id is not None and self._mode == "record" and self._recording:
+        if self._current_test_id is not None and self._recording:
             self._snapshot_manager.save(self._current_test_id, self._recording)
         self._recording = []
         self._replay_data = None
@@ -159,7 +170,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     # Replay helpers
     # -------------------------------------------------------------------------
 
-    def _activate_fallback(self) -> None:
+    def _activate_fallback(self, reason: str = "") -> None:
         """Fall back to real DB for the current test.
 
         Re-executes all previously replayed operations against the real DB to
@@ -167,27 +178,36 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         mode for all remaining operations in this test.
         """
         if self._real is None:
-            raise RuntimeError(
-                "Cannot fall back to real DB — no real connection available.\n"
-                "  To enable fallback, ensure the real connection is provided in replay mode."
-            )
+            if self._fallback_connection_factory is not None:
+                self._real = self._fallback_connection_factory()
+                self.connection = self._real.connection
+            else:
+                raise RuntimeError(
+                    "Cannot fall back to real DB — no real connection available.\n"
+                    "  To enable fallback, ensure the real connection is provided in replay mode."
+                )
 
         ops_to_replay = self._replay_index
         logger.warning(
-            f"SNAPSHOT: Falling back to real DB for {self._current_test_id} "
-            f"(re-executing {ops_to_replay} previous operations)"
+            f"SNAPSHOT: Falling back to real DB for {self._current_test_id}\n"
+            f"  Reason: {reason}\n"
+            f"  Re-executing {ops_to_replay} previous operations, then continuing against real DB.\n"
+            f"  The snapshot will be re-recorded with the new SQL."
         )
 
-        # Re-execute all previously replayed operations to set up DB state.
-        # UPDATEs create tables/insert data; QUERYs are harmless but executed
-        # for completeness.
+        # Re-execute all previously replayed operations to set up DB state
+        # and record fresh results so the snapshot can be updated.
+        self._recording = []
         for i in range(ops_to_replay):
             entry = self._replay_data[i]
             if entry.op_type == "update":
                 self._real.execute_update(entry.sql, log_query=False)
+                self._recording.append(SnapshotEntry("update", entry.sql, None))
             else:
-                # query, query_one_by_one, query_iterate — read-only, just run as query
-                self._real.execute_query(entry.sql, log_query=False)
+                result = self._real.execute_query(entry.sql, log_query=False)
+                self._recording.append(
+                    SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result))
+                )
 
         self._fallback_active = True
 
@@ -282,7 +302,9 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return result
         else:  # replay
             if self._fallback_active:
-                return self._real.execute_query(sql, log_query=log_query)
+                result = self._real.execute_query(sql, log_query=log_query)
+                self._recording.append(SnapshotEntry("query", sql, self._normalize_query_result(result)))
+                return result
             try:
                 entry = self._next_replay_entry("query", sql)
                 if log_query:
@@ -291,9 +313,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         f"(first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
                     )
                 return entry.result
-            except SnapshotMismatchError:
-                self._activate_fallback()
-                return self._real.execute_query(sql, log_query=log_query)
+            except SnapshotMismatchError as e:
+                self._activate_fallback(reason=str(e))
+                result = self._real.execute_query(sql, log_query=log_query)
+                self._recording.append(SnapshotEntry("query", sql, self._normalize_query_result(result)))
+                return result
 
     def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
         self._handle_test_boundary()
@@ -309,13 +333,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return result
         else:  # replay
             if self._fallback_active:
-                return self._real.execute_update(sql, log_query=log_query)
+                result = self._real.execute_update(sql, log_query=log_query)
+                self._recording.append(SnapshotEntry("update", sql, None))
+                return result
             try:
                 self._next_replay_entry("update", sql)
                 return None
-            except SnapshotMismatchError:
-                self._activate_fallback()
-                return self._real.execute_update(sql, log_query=log_query)
+            except SnapshotMismatchError as e:
+                self._activate_fallback(reason=str(e))
+                result = self._real.execute_update(sql, log_query=log_query)
+                self._recording.append(SnapshotEntry("update", sql, None))
+                return result
 
     def execute_query_one_by_one(
         self,
@@ -347,7 +375,19 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return description
         else:  # replay
             if self._fallback_active:
-                return self._real.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
+                captured_rows = []
+
+                def capturing_callback(row, description):
+                    captured_rows.append(tuple(row))
+                    row_callback(row, description)
+
+                description = self._real.execute_query_one_by_one(
+                    sql, capturing_callback, log_query=log_query, row_limit=row_limit
+                )
+                self._recording.append(
+                    SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
+                )
+                return description
             try:
                 entry = self._next_replay_entry("query_one_by_one", sql)
                 description, rows = entry.result
@@ -358,9 +398,21 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     rows_processed += 1
                     row_callback(row, description)
                 return description
-            except SnapshotMismatchError:
-                self._activate_fallback()
-                return self._real.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
+            except SnapshotMismatchError as e:
+                self._activate_fallback(reason=str(e))
+                captured_rows = []
+
+                def capturing_callback_fb(row, description):
+                    captured_rows.append(tuple(row))
+                    row_callback(row, description)
+
+                description = self._real.execute_query_one_by_one(
+                    sql, capturing_callback_fb, log_query=log_query, row_limit=row_limit
+                )
+                self._recording.append(
+                    SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
+                )
+                return description
 
     @contextlib.contextmanager
     def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:
@@ -387,8 +439,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 pass
         else:  # replay
             if self._fallback_active:
-                with self._real.execute_query_iterate(sql, log_query=log_query) as iterator:
-                    yield iterator
+                with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
+                    cursor_description = real_iter._cursor.description
+                    rows = [tuple(row) for row in real_iter]
+                normalized_desc = self._normalize_description(cursor_description)
+                self._recording.append(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
+                try:
+                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
+                finally:
+                    pass
                 return
             try:
                 entry = self._next_replay_entry("query_iterate", sql)
@@ -397,10 +456,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
                 finally:
                     pass
-            except SnapshotMismatchError:
-                self._activate_fallback()
-                with self._real.execute_query_iterate(sql, log_query=log_query) as iterator:
-                    yield iterator
+            except SnapshotMismatchError as e:
+                self._activate_fallback(reason=str(e))
+                with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
+                    cursor_description = real_iter._cursor.description
+                    rows = [tuple(row) for row in real_iter]
+                normalized_desc = self._normalize_description(cursor_description)
+                self._recording.append(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
+                try:
+                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
+                finally:
+                    pass
 
     # -------------------------------------------------------------------------
     # Transaction and connection lifecycle — pass through or no-op
