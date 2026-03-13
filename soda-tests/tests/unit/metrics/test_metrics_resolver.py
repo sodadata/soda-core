@@ -28,8 +28,12 @@ class MockMetricImpl(MetricImpl):
         self.type = metric_type
 
     def __eq__(self, other):
-        """Mirrors production MetricImpl: exact type check + id comparison."""
-        if type(other) != type(self):
+        """Mirrors production MetricImpl: exact type check + id comparison.
+
+        Intentionally uses ``type()`` rather than ``isinstance()`` to match
+        the real MetricImpl.__eq__ semantics.
+        """
+        if type(other) != type(self):  # noqa: E721 — mirrors production code
             return False
         return self.id == other.id
 

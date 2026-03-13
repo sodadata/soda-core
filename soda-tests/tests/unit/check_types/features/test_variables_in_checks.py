@@ -32,7 +32,8 @@ def test_required_variable_without_value_stays_unresolved():
           - aggregate:
               function: sum
               filter: status = '${var.status}'
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml, variables={})
 
@@ -56,7 +57,8 @@ def test_required_variable_with_runtime_value():
           - aggregate:
               function: sum
               filter: status = '${var.status}'
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml, variables={"status": "active"})
 
@@ -80,7 +82,8 @@ def test_default_variable_without_runtime_override():
           - aggregate:
               function: sum
               filter: status = '${var.status}'
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml, variables={})
 
@@ -104,7 +107,8 @@ def test_default_variable_overridden_by_runtime():
           - aggregate:
               function: sum
               filter: status = '${var.status}'
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml, variables={"status": "active"})
 
@@ -119,7 +123,12 @@ def test_default_variable_overridden_by_runtime():
 
 
 def test_variable_in_threshold():
-    """Test that runtime variables override defaults in threshold values."""
+    """Test that runtime variables are resolved inside threshold values.
+
+    Variable resolution is string-based, so the substituted value ends up as
+    the string "1000" in the raw YAML object.  ThresholdYaml.read_number_opt
+    then parses it — the raw value confirms resolution happened.
+    """
     contract_yaml = """
     variables:
       min_rows:
@@ -128,12 +137,15 @@ def test_variable_in_threshold():
     columns: []
     checks:
       - row_count:
-          must_be_greater_than: ${var.min_rows}
+          threshold:
+            must_be_greater_than: ${var.min_rows}
     """
     contract = parse_contract(contract_yaml, variables={"min_rows": "1000"})
 
     check = contract.checks[0]
-    assert check.check_yaml_object.read_value("must_be_greater_than") == "1000"
+    # Variable was resolved: the raw YAML value is the runtime string "1000"
+    threshold_obj = check.check_yaml_object.read_object_opt("threshold")
+    assert threshold_obj.read_value("must_be_greater_than") == "1000"
     assert contract.resolved_variable_values["min_rows"] == "1000"
 
 
@@ -174,7 +186,8 @@ def test_variable_in_metric_expression():
       - metric:
           name: custom_count
           expression: count(*) where ${var.filter_condition}
-          must_be_greater_than: 100
+          threshold:
+            must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml, variables={"filter_condition": "active = true"})
 
@@ -241,7 +254,8 @@ def test_undeclared_variable_kept_as_literal():
           - aggregate:
               function: sum
               filter: status = '${var.undefined_status}'
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml, variables={})
 
@@ -266,7 +280,8 @@ def test_multiple_variables_with_mixed_sources():
           - aggregate:
               function: sum
               filter: date >= '${var.start_date}' and date <= '${var.end_date}'
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     # Override only start_date; end_date uses its default
     contract = parse_contract(contract_yaml, variables={"start_date": "2024-06-01"})
@@ -305,7 +320,8 @@ def test_variable_in_column_expression_overridden():
         checks:
           - aggregate:
               function: avg
-              must_be_greater_than: 50000
+              threshold:
+                must_be_greater_than: 50000
     """
     contract = parse_contract(contract_yaml, variables={"exchange_rate": "1.35"})
 

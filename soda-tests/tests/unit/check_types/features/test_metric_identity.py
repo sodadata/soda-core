@@ -65,11 +65,13 @@ def test_aggregate_different_functions_are_distinct():
         checks:
           - aggregate:
               function: sum
-              must_be_greater_than: 1000
+              threshold:
+                must_be_greater_than: 1000
           - aggregate:
               qualifier: avg
               function: avg
-              must_be_greater_than: 100
+              threshold:
+                must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml)
     col = contract.columns[0]
@@ -193,12 +195,14 @@ def test_column_expression_differences_are_distinct():
           - aggregate:
               function: sum
               column_expression: CAST(price AS INTEGER)
-              must_be_greater_than: 0
+              threshold:
+                must_be_greater_than: 0
           - aggregate:
               qualifier: float
               function: sum
               column_expression: CAST(price AS FLOAT)
-              must_be_greater_than: 0
+              threshold:
+                must_be_greater_than: 0
     """
     contract = parse_contract(contract_yaml)
     col = contract.columns[0]

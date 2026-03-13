@@ -38,33 +38,45 @@ from soda_core.contracts.impl.contract_verification_impl import (
 # ---------------------------------------------------------------------------
 
 
-def build_contract_impl(yaml_str: str, variables: Optional[dict[str, str]] = None) -> ContractImpl:
+def build_contract_impl(
+    yaml_str: str, variables: Optional[dict[str, str]] = None, logs: Optional[Logs] = None
+) -> ContractImpl:
     """
     Build a *real* ContractImpl from a contract YAML string.
 
     Uses ``only_validate_without_execute=True`` so that no database connection
     is required.  The returned ``ContractImpl`` has its ``check_impls`` fully
     initialised (including ``setup_metrics()`` having been called).
+
+    If *logs* is not provided, a temporary ``Logs`` instance is created and
+    removed from the root logger before returning.  Pass an explicit ``Logs``
+    when the caller needs to inspect logged errors.
     """
     contract_yaml_source = ContractYamlSource.from_str(dedent_and_strip(yaml_str))
     contract_yaml: ContractYaml = ContractYaml.parse(
         contract_yaml_source=contract_yaml_source,
         provided_variable_values=variables or {},
     )
-    logs = Logs()
+    own_logs = logs is None
+    if own_logs:
+        logs = Logs()
     now = datetime.now(tz=timezone.utc)
-    contract_impl = ContractImpl(
-        logs=logs,
-        contract_yaml=contract_yaml,
-        only_validate_without_execute=True,
-        data_source_impl=None,
-        all_data_source_impls={},
-        data_timestamp=contract_yaml.data_timestamp or now,
-        execution_timestamp=contract_yaml.execution_timestamp or now,
-        soda_cloud=None,
-        publish_results=False,
-    )
-    return contract_impl
+    try:
+        contract_impl = ContractImpl(
+            logs=logs,
+            contract_yaml=contract_yaml,
+            only_validate_without_execute=True,
+            data_source_impl=None,
+            all_data_source_impls={},
+            data_timestamp=contract_yaml.data_timestamp or now,
+            execution_timestamp=contract_yaml.execution_timestamp or now,
+            soda_cloud=None,
+            publish_results=False,
+        )
+        return contract_impl
+    finally:
+        if own_logs:
+            logs.remove_from_root_logger()
 
 
 def get_check_impl(yaml_str: str, check_index: int = 0, variables: Optional[dict[str, str]] = None) -> CheckImpl:

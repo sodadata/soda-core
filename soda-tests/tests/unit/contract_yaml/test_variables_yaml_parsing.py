@@ -38,7 +38,8 @@ def test_variables_in_column_checks():
               - aggregate:
                   function: sum
                   filter: status = '${var.status_filter}'
-                  must_be_greater_than: 0
+                  threshold:
+                    must_be_greater_than: 0
     """
     contract_yaml = parse_contract(yaml_str, variables={"status_filter": "active"})
 

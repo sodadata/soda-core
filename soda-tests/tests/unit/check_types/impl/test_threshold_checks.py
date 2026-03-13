@@ -482,11 +482,6 @@ def test_evaluate_diagnostic_metric_values(config: CheckConfig):
     assert result.diagnostic_metric_values == expected
 
 
-# ---------------------------------------------------------------------------
-# evaluate: WARN outcome (step 4 — previously uncovered)
-# ---------------------------------------------------------------------------
-
-
 WARN_CONFIGS = [c for c in ALL_CONFIGS if c.warn_yaml is not None]
 
 
@@ -497,11 +492,6 @@ def test_evaluate_warn_when_threshold_not_met_with_warn_level(config: CheckConfi
     assert isinstance(check, config.check_class)
     result = _evaluate_check(contract_impl, check, config.warn_metrics(check, contract_impl))
     assert result.outcome == CheckOutcome.WARN
-
-
-# ---------------------------------------------------------------------------
-# evaluate: percent-based thresholds (step 4 — previously uncovered)
-# ---------------------------------------------------------------------------
 
 
 def test_missing_percent_threshold():
@@ -526,7 +516,7 @@ def test_missing_percent_threshold():
         [(check.missing_count_metric_impl, 5), (check.row_count_metric_impl, 100)],
     )
     assert result.outcome == CheckOutcome.PASSED
-    assert result.threshold_value == 5.0
+    assert result.threshold_value == pytest.approx(5.0)
 
 
 def test_missing_percent_threshold_fails():
@@ -550,7 +540,7 @@ def test_missing_percent_threshold_fails():
         [(check.missing_count_metric_impl, 15), (check.row_count_metric_impl, 100)],
     )
     assert result.outcome == CheckOutcome.FAILED
-    assert result.threshold_value == 15.0
+    assert result.threshold_value == pytest.approx(15.0)
 
 
 def test_invalid_percent_threshold():
@@ -604,7 +594,7 @@ def test_failed_rows_percent_threshold():
         [(check.failed_rows_count_metric_impl, 5), (check.check_rows_tested_metric_impl, 100)],
     )
     assert result.outcome == CheckOutcome.PASSED
-    assert result.threshold_value == 5.0
+    assert result.threshold_value == pytest.approx(5.0)
 
 
 # ---------------------------------------------------------------------------
