@@ -2,7 +2,7 @@
 Unit tests for ContractYaml parsing of basic dataset and column structures.
 """
 
-from helpers.yaml_parsing_helpers import parse_contract
+from helpers.yaml_parsing_helpers import parse_column_check, parse_contract
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logs import Logs
 
@@ -150,3 +150,42 @@ def test_parse_invalid_dataset_logs_error(logs: Logs):
     parse_contract(yaml_str)
 
     assert "Invalid dataset qualified name" in logs.get_errors_str()
+
+
+def test_parse_attributes_on_check():
+    """Test that attributes dict on a check is parsed correctly."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: id
+            data_type: integer
+            checks:
+              - missing:
+                  attributes:
+                    owner: data-team
+                    priority: high
+    """
+    check_yaml = parse_column_check(yaml_str)
+
+    assert check_yaml.attributes is not None
+    assert isinstance(check_yaml.attributes, dict)
+    assert check_yaml.attributes["owner"] == "data-team"
+    assert check_yaml.attributes["priority"] == "high"
+
+
+def test_parse_name_and_qualifier():
+    """Test that check name and qualifier fields are parsed."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: status
+            data_type: string
+            checks:
+              - missing:
+                  name: "Status should not be missing"
+                  qualifier: "important_column"
+    """
+    check_yaml = parse_column_check(yaml_str)
+
+    assert check_yaml.name == "Status should not be missing"
+    assert check_yaml.qualifier == "important_column"

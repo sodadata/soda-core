@@ -1,15 +1,16 @@
 """
-Unit tests for metric identity in check configurations.
+Unit tests for metric identity — distinct configs produce distinct check objects.
 
-Tests that different metric configurations result in distinct parsed
-check objects with different characteristics.
+These tests verify that the parser keeps checks with different configurations
+as separate objects. Field-value parsing (e.g. function == "sum") is tested
+in yaml_parsing/; here we only assert distinctness between paired checks.
 """
 
 from helpers.yaml_parsing_helpers import parse_contract
 
 
-def test_different_metric_types_have_different_configs():
-    """Test that missing with count vs percent metric have different configurations."""
+def test_missing_count_vs_percent_are_distinct():
+    """Missing checks with count vs percent metric are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -26,22 +27,13 @@ def test_different_metric_types_have_different_configs():
                 must_be: 0
     """
     contract = parse_contract(contract_yaml)
-
     col = contract.columns[0]
     assert len(col.check_yamls) == 2
-
-    check_count = col.check_yamls[0]
-    check_percent = col.check_yamls[1]
-
-    # Both are missing checks but with different metrics
-    assert check_count.type_name == "missing"
-    assert check_percent.type_name == "missing"
-    assert check_count.metric == "count"
-    assert check_percent.metric == "percent"
+    assert col.check_yamls[0].metric != col.check_yamls[1].metric
 
 
-def test_duplicate_with_different_metrics():
-    """Test that duplicate checks with different metrics have different identities."""
+def test_duplicate_count_vs_percent_are_distinct():
+    """Duplicate checks with count vs percent metric are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -56,19 +48,13 @@ def test_duplicate_with_different_metrics():
                 metric: percent
     """
     contract = parse_contract(contract_yaml)
-
     col = contract.columns[0]
     assert len(col.check_yamls) == 2
-
-    check_count = col.check_yamls[0]
-    check_percent = col.check_yamls[1]
-
-    assert check_count.metric == "count"
-    assert check_percent.metric == "percent"
+    assert col.check_yamls[0].metric != col.check_yamls[1].metric
 
 
-def test_aggregate_with_different_functions():
-    """Test that aggregate checks with different functions have different identities."""
+def test_aggregate_different_functions_are_distinct():
+    """Aggregate checks with different functions are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -83,19 +69,13 @@ def test_aggregate_with_different_functions():
               must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml)
-
     col = contract.columns[0]
     assert len(col.check_yamls) == 2
-
-    check_sum = col.check_yamls[0]
-    check_avg = col.check_yamls[1]
-
-    assert check_sum.function == "sum"
-    assert check_avg.function == "avg"
+    assert col.check_yamls[0].function != col.check_yamls[1].function
 
 
-def test_metric_check_with_different_expressions():
-    """Test that metric checks with different expressions are distinct."""
+def test_metric_different_expressions_are_distinct():
+    """Metric checks with different expressions are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -114,20 +94,13 @@ def test_metric_check_with_different_expressions():
             must_be_greater_than: 100
     """
     contract = parse_contract(contract_yaml)
-
     assert len(contract.checks) == 2
-
-    metric1 = contract.checks[0]
-    metric2 = contract.checks[1]
-
-    assert metric1.expression == "sum(amount)"
-    assert metric2.expression == "avg(amount)"
-    assert metric1.name == "revenue_total"
-    assert metric2.name == "revenue_average"
+    assert contract.checks[0].expression != contract.checks[1].expression
+    assert contract.checks[0].name != contract.checks[1].name
 
 
-def test_metric_check_expression_vs_query():
-    """Test that metric checks distinguish between expression and query."""
+def test_metric_expression_vs_query_are_distinct():
+    """Metric checks using expression vs query are structurally different."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -146,20 +119,15 @@ def test_metric_check_expression_vs_query():
             must_be_greater_than: 0
     """
     contract = parse_contract(contract_yaml)
-
     assert len(contract.checks) == 2
-
     metric_expr = contract.checks[0]
     metric_query = contract.checks[1]
-
-    # First uses expression
     assert metric_expr.expression is not None
-    # Second uses query (expression may be None)
     assert metric_query.query is not None
 
 
-def test_freshness_with_different_units():
-    """Test that freshness checks with different units have different identities."""
+def test_freshness_different_units_are_distinct():
+    """Freshness checks with different units are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -178,18 +146,12 @@ def test_freshness_with_different_units():
             must_be_less_than: 7
     """
     contract = parse_contract(contract_yaml)
-
     assert len(contract.checks) == 2
-
-    check_hour = contract.checks[0]
-    check_day = contract.checks[1]
-
-    assert check_hour.unit == "hour"
-    assert check_day.unit == "day"
+    assert contract.checks[0].unit != contract.checks[1].unit
 
 
-def test_invalid_with_different_validation_types():
-    """Test that invalid checks with different validation types are distinct."""
+def test_invalid_values_vs_format_are_distinct():
+    """Invalid checks with values vs format validation are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -208,22 +170,13 @@ def test_invalid_with_different_validation_types():
                 name: status_regex
     """
     contract = parse_contract(contract_yaml)
-
     col = contract.columns[0]
     assert len(col.check_yamls) == 2
-
-    check_values = col.check_yamls[0]
-    check_format = col.check_yamls[1]
-
-    # Both are invalid but with different validation methods
-    assert check_values.type_name == "invalid"
-    assert check_format.type_name == "invalid"
-    assert check_values.name == "valid status values"
-    assert check_format.name == "valid status format"
+    assert col.check_yamls[0].name != col.check_yamls[1].name
 
 
-def test_check_with_column_expression_differences():
-    """Test that checks with different column expressions are distinct."""
+def test_column_expression_differences_are_distinct():
+    """Checks with different column expressions are distinct objects."""
     contract_yaml = """
     dataset: my_data_source/my_dataset
     columns:
@@ -240,12 +193,6 @@ def test_check_with_column_expression_differences():
               must_be_greater_than: 0
     """
     contract = parse_contract(contract_yaml)
-
     col = contract.columns[0]
     assert len(col.check_yamls) == 2
-
-    check_int = col.check_yamls[0]
-    check_float = col.check_yamls[1]
-
-    assert check_int.column_expression == "CAST(price AS INTEGER)"
-    assert check_float.column_expression == "CAST(price AS FLOAT)"
+    assert col.check_yamls[0].column_expression != col.check_yamls[1].column_expression

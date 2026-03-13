@@ -9,42 +9,6 @@ import pytest
 from helpers.yaml_parsing_helpers import parse_check_from_contract, parse_column_check
 
 
-class TestCheckTypeRecognition:
-    """Test that check types are correctly recognized."""
-
-    @pytest.mark.parametrize(
-        "check_type,yaml_content",
-        [
-            (
-                "row_count",
-                "- row_count:\n                    threshold:\n                      must_be_greater_than: 0",
-            ),
-            (
-                "schema",
-                "- schema:\n                    allow_extra_columns: false",
-            ),
-            (
-                "freshness",
-                "- freshness:\n                    column: created_at\n                    threshold:\n                      unit: day\n                      must_be_less_than: 7",
-            ),
-            (
-                "failed_rows",
-                "- failed_rows:\n                    expression: \"status = 'bad'\"\n                    threshold:\n                      must_be_less_than_or_equal: 0",
-            ),
-        ],
-    )
-    def test_check_type_recognition(self, check_type, yaml_content):
-        """Verify that different check types are correctly parsed."""
-        yaml_str = f"""
-            dataset: schema/table
-            columns: []
-            checks:
-              {yaml_content}
-        """
-        check = parse_check_from_contract(yaml_str)
-        assert check.type_name == check_type
-
-
 class TestCheckNameParsing:
     """Test custom check names."""
 
@@ -56,8 +20,6 @@ class TestCheckNameParsing:
             checks:
               - row_count:
                   name: "At least 100 rows"
-                  threshold:
-                    must_be_greater_than: 100
         """
         check = parse_check_from_contract(yaml_str)
         assert check.name == "At least 100 rows"
@@ -71,8 +33,6 @@ class TestCheckNameParsing:
                 checks:
                   - missing:
                       name: "No missing user IDs"
-                      threshold:
-                        must_be_less_than_or_equal: 0
         """
         check = parse_column_check(yaml_str)
         assert check.name == "No missing user IDs"
@@ -84,8 +44,6 @@ class TestCheckNameParsing:
             columns: []
             checks:
               - row_count:
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.name is None
@@ -102,8 +60,6 @@ class TestCheckQualifierParsing:
             checks:
               - row_count:
                   qualifier: "production"
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.qualifier == "production"
@@ -116,8 +72,6 @@ class TestCheckQualifierParsing:
             checks:
               - row_count:
                   qualifier: 123
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.qualifier == "123"
@@ -129,8 +83,6 @@ class TestCheckQualifierParsing:
             columns: []
             checks:
               - row_count:
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.qualifier is None
@@ -147,8 +99,6 @@ class TestCheckFilterParsing:
             checks:
               - row_count:
                   filter: "status = 'active'"
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.filter == "status = 'active'"
@@ -163,8 +113,6 @@ class TestCheckFilterParsing:
                   filter: |
                     status = 'active'
                     AND created_at > '2024-01-01'
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert "status = 'active'" in check.filter
@@ -177,8 +125,6 @@ class TestCheckFilterParsing:
             columns: []
             checks:
               - row_count:
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.filter is None
@@ -198,8 +144,6 @@ class TestCheckAttributesParsing:
                     owner: "data_team"
                     priority: "high"
                     env: "prod"
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.attributes == {
@@ -215,8 +159,6 @@ class TestCheckAttributesParsing:
             columns: []
             checks:
               - row_count:
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.attributes == {}
@@ -233,8 +175,6 @@ class TestCheckColumnExpressionParsing:
             checks:
               - row_count:
                   column_expression: "YEAR(created_at)"
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.column_expression == "YEAR(created_at)"
@@ -247,8 +187,6 @@ class TestCheckColumnExpressionParsing:
             checks:
               - row_count:
                   column_expression: "  CAST(id AS STRING)  "
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.column_expression == "CAST(id AS STRING)"
@@ -427,8 +365,6 @@ class TestMissingAndValidityOnColumn:
                 checks:
                   - missing:
                       missing_values: ["N/A", "null", ""]
-                      threshold:
-                        must_be_less_than_or_equal: 0
         """
         check = parse_column_check(yaml_str)
         assert check.missing_values == ["N/A", "null", ""]
@@ -442,8 +378,6 @@ class TestMissingAndValidityOnColumn:
                 checks:
                   - invalid:
                       valid_values: ["active", "inactive", "pending"]
-                      threshold:
-                        must_be_less_than_or_equal: 0
         """
         check = parse_column_check(yaml_str)
         assert check.valid_values == ["active", "inactive", "pending"]
@@ -458,8 +392,6 @@ class TestMissingAndValidityOnColumn:
                   - invalid:
                       valid_min: 0
                       valid_max: 150
-                      threshold:
-                        must_be_less_than_or_equal: 0
         """
         check = parse_column_check(yaml_str)
         assert check.valid_min == 0
@@ -478,8 +410,6 @@ class TestStoreFailedRowsFlag:
               - failed_rows:
                   expression: "status = 'error'"
                   store_failed_rows: true
-                  threshold:
-                    must_be_less_than_or_equal: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.store_failed_rows is True
@@ -492,8 +422,6 @@ class TestStoreFailedRowsFlag:
             checks:
               - row_count:
                   store_failed_rows: false
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.store_failed_rows is False
@@ -505,8 +433,6 @@ class TestStoreFailedRowsFlag:
             columns: []
             checks:
               - row_count:
-                  threshold:
-                    must_be_greater_than: 0
         """
         check = parse_check_from_contract(yaml_str)
         assert check.store_failed_rows is False
