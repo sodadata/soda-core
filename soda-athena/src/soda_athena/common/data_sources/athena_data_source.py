@@ -428,14 +428,11 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def _build_alter_table_add_column_sql(
         self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
     ) -> str:
-        # Athena ALTER TABLE uses Trino parser (double quotes), not Hive parser (backticks),
-        # so we must NOT convert the table name to DDL quoting. Column names still use backticks.
-        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
+        # Athena ALTER TABLE uses the Trino parser, which expects double quotes and
+        # singular "ADD COLUMN" (not Hive's backticks / "ADD COLUMNS" / parentheses).
+        column_name_quoted: str = self.quote_default(alter_table.column.name)
         column_type_sql: str = self._build_create_table_column_type(alter_table.column)
-        return f"ALTER TABLE {alter_table.fully_qualified_table_name} {self._get_add_column_sql_expr()} ({column_name_quoted} {column_type_sql});"
-
-    def _get_add_column_sql_expr(self) -> str:
-        return "ADD COLUMNS"
+        return f"ALTER TABLE {alter_table.fully_qualified_table_name} ADD COLUMN {column_name_quoted} {column_type_sql};"
 
     def drop_column_supported(self) -> bool:
         return (
