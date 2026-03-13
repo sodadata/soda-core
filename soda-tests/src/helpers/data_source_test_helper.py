@@ -290,7 +290,7 @@ class DataSourceTestHelper:
             # fallback is actually triggered (lazy initialization).
             from helpers.snapshot_connection import SnapshotDataSourceConnection
 
-            real_schema_name = self.dataset_prefix[1]
+            real_schema_name = self.extract_schema_from_prefix()
 
             def connection_factory():
                 """Lazily open connection and create schema on first fallback."""
@@ -323,7 +323,7 @@ class DataSourceTestHelper:
                     snapshot_manager=self._snapshot_manager,
                     mode="record",
                     schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
-                    real_schema_name=self.dataset_prefix[1],
+                    real_schema_name=self.extract_schema_from_prefix(),
                 )
 
     def start_test_session_open_connection(self) -> None:
