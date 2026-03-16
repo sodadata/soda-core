@@ -883,6 +883,11 @@ class DataSourceTestHelper:
         # self.data_source_impl.data_source_connection.rollback() #TODO: this was originally done to theoretically speed up tests, but needs some datasource-specific work.
         self.soda_cloud = None
         self.use_agent = False
+        if self._snapshot_mode != "off":
+            # Reset the table name cache so the next test re-queries existing tables.
+            # This makes each test's snapshot self-contained (always starts with the
+            # metadata query), allowing tests to be replayed in any order or isolation.
+            self.existing_test_table_names = None
 
     def quote_column(self, column_name: str) -> str:
         """For shorter notation in the tests, we can just point it to the dialect."""
