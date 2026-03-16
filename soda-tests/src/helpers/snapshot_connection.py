@@ -126,7 +126,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         comparisons in metadata queries).
         """
         if isinstance(value, str):
-            value = value.replace(old, new)
+            value: str = value.replace(old, new)
             return value.replace(old.lower(), new.lower())
         if isinstance(value, tuple):
             return tuple(self._replace_schema(v, old, new) for v in value)
