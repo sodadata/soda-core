@@ -155,6 +155,11 @@ class DataSourceTestHelper:
         # _create_schema_name() uses it to produce a deterministic schema name.
         self._snapshot_mode: str = os.getenv("SODA_TEST_SNAPSHOT", "off")
 
+        # Compute and cache the base schema name BEFORE _create_dataset_prefix(),
+        # so that _create_schema_name() returns a consistent value (timestamps
+        # would differ between calls).
+        self._base_schema_name: Optional[str] = DataSourceTestHelper._create_schema_name(self)
+
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
@@ -247,6 +252,10 @@ class DataSourceTestHelper:
         """
         Called in constructor to initialized self.schema_name
         """
+        # Return cached value if available (avoids timestamp drift between calls)
+        if hasattr(self, "_base_schema_name"):
+            return self._base_schema_name
+
         schema_name_parts = []
 
         github_ref_name = os.getenv("GITHUB_REF_NAME")
@@ -286,13 +295,23 @@ class DataSourceTestHelper:
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
 
+    def _snapshot_schema_name(self) -> Optional[str]:
+        """Return the dynamic schema name part for snapshot placeholder replacement.
+
+        Uses the base class _create_schema_name() result (cached in __init__) to get
+        just the environment-specific part (e.g. 'dev_niels') without any data-source-
+        specific prefixes. This ensures the replacement works even for data sources
+        like Dremio that prepend a static path to the schema name.
+        """
+        return self._base_schema_name
+
     def start_test_session(self) -> None:
         if self._snapshot_mode == "replay":
             # In replay mode, defer DB connection + schema creation until a
             # fallback is actually triggered (lazy initialization).
             from helpers.snapshot_connection import SnapshotDataSourceConnection
 
-            real_schema_name = self.extract_schema_from_prefix()
+            real_schema_name = self._snapshot_schema_name()
 
             def connection_factory():
                 """Lazily open connection and create schema on first fallback."""
@@ -325,7 +344,7 @@ class DataSourceTestHelper:
                     snapshot_manager=self._snapshot_manager,
                     mode="record",
                     schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
-                    real_schema_name=self.extract_schema_from_prefix(),
+                    real_schema_name=self._snapshot_schema_name(),
                 )
 
     def start_test_session_open_connection(self) -> None:
