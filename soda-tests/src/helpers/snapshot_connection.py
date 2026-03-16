@@ -74,6 +74,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = None,
         schema_placeholder: Optional[str] = None,
         real_schema_name: Optional[str] = None,
+        allow_fallback: bool = False,
     ):
         # Pass the real DBAPI connection (or sentinel) so that open_connection() in
         # DataSourceConnection.__init__ is a no-op (it skips when self.connection is not None).
@@ -93,6 +94,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_data: Optional[list[SnapshotEntry]] = None
         self._replay_index: int = 0
         self._fallback_active: bool = False
+        self._allow_fallback: bool = allow_fallback
 
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
@@ -189,7 +191,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             raw = self._snapshot_manager.load(test_id)
             self._replay_data = [self._denormalize_from_snapshot(e) for e in raw] if raw else None
             if self._replay_data is None:
-                if self._real is not None or self._fallback_connection_factory is not None:
+                if self._allow_fallback and (self._real is not None or self._fallback_connection_factory is not None):
                     if self._real is None:
                         self._real = self._fallback_connection_factory()
                         self.connection = self._real.connection
@@ -256,6 +258,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         set up database state (tables, inserts), then switches to passthrough
         mode for all remaining operations in this test.
         """
+        if not self._allow_fallback:
+            raise SnapshotMismatchError(
+                f"Snapshot mismatch for test {self._current_test_id} and fallback is disabled.\n"
+                f"  Reason: {reason}\n"
+                f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
+                f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
+            )
         if self._real is None:
             if self._fallback_connection_factory is not None:
                 self._real = self._fallback_connection_factory()
