@@ -192,6 +192,9 @@ class DataSourceTestHelper:
                 snapshot_dir=snapshot_dir,
             )
 
+        # DWH snapshot manager (lazily created when first accessed by DwhTestSetup)
+        self._dwh_snapshot_manager = None
+
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
 
@@ -295,6 +298,18 @@ class DataSourceTestHelper:
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
 
+    def get_dwh_snapshot_manager(self):
+        """Lazily create a SnapshotManager for DWH operations (between-source mode)."""
+        if self._dwh_snapshot_manager is None and self._snapshot_mode != "off":
+            from helpers.snapshot_manager import SnapshotManager
+
+            snapshot_dir = os.getenv("SODA_TEST_SNAPSHOT_DIR", os.path.join(os.getcwd(), ".test_snapshots"))
+            self._dwh_snapshot_manager = SnapshotManager(
+                datasource_type=f"{self.data_source_impl.type_name}_dwh",
+                snapshot_dir=snapshot_dir,
+            )
+        return self._dwh_snapshot_manager
+
     def _snapshot_schema_name(self) -> Optional[str]:
         """Return the dynamic schema name part for snapshot placeholder replacement.
 
@@ -323,7 +338,7 @@ class DataSourceTestHelper:
                 return real_conn
 
             allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
-            self.data_source_impl.data_source_connection = SnapshotDataSourceConnection(
+            snap_conn = SnapshotDataSourceConnection(
                 real_connection=None,
                 snapshot_manager=self._snapshot_manager,
                 mode="replay",
@@ -332,6 +347,11 @@ class DataSourceTestHelper:
                 real_schema_name=real_schema_name,
                 allow_fallback=allow_fallback,
             )
+            # Propagate connection_properties from the data source model so that
+            # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
+            # works without a real DB connection.
+            snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
+            self.data_source_impl.data_source_connection = snap_conn
         else:
             # Record mode or snapshot off: always open connection and create schema.
             self.start_test_session_open_connection()
