@@ -322,6 +322,7 @@ class DataSourceTestHelper:
                 self.data_source_impl.data_source_connection = snap_conn
                 return real_conn
 
+            allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
             self.data_source_impl.data_source_connection = SnapshotDataSourceConnection(
                 real_connection=None,
                 snapshot_manager=self._snapshot_manager,
@@ -329,6 +330,7 @@ class DataSourceTestHelper:
                 fallback_connection_factory=connection_factory,
                 schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
                 real_schema_name=real_schema_name,
+                allow_fallback=allow_fallback,
             )
         else:
             # Record mode or snapshot off: always open connection and create schema.
