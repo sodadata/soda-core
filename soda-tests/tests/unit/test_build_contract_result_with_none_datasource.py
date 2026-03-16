@@ -30,7 +30,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
             soda_qualified_dataset_name="missing_ds/some/schema/my_table",
             source=YamlFileContentInfo(
                 source_content_str="dataset: missing_ds/some/schema/my_table\ncolumns:\n  - name: id\n",
-                local_file_path="/tmp/contract.yml",
+                local_file_path="contract.yml",
                 soda_cloud_file_id="fake_file_id",
             ),
         ),
