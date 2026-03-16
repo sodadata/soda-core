@@ -714,17 +714,26 @@ class ContractImpl:
 
         scan_id: Optional[str] = None
         if soda_cloud_file_id:
-            # send_contract_result will use contract.source.soda_cloud_file_id
-            soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-            scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-            if not scan_id:
+            if data_source is None:
+                logger.error(
+                    f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                    f"Data source not found. Check that the data source name in the contract's "
+                    f"'dataset' field matches the name in your data source configuration."
+                )
+                sending_results_to_soda_cloud_failed = True
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
             else:
-                contract_verification_result.scan_id = scan_id
-                # Put the dataset id in the contract object
-                contract_verification_result.contract.dataset_id = self.__get_dataset_id(
-                    soda_cloud_response_json, self.soda_qualified_dataset_name
-                )
+                # send_contract_result will use contract.source.soda_cloud_file_id
+                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+                scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
+                if not scan_id:
+                    contract_verification_result.sending_results_to_soda_cloud_failed = True
+                else:
+                    contract_verification_result.scan_id = scan_id
+                    # Put the dataset id in the contract object
+                    contract_verification_result.contract.dataset_id = self.__get_dataset_id(
+                        soda_cloud_response_json, self.soda_qualified_dataset_name
+                    )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
