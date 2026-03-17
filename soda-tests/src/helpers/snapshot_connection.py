@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
 from collections import namedtuple
 from collections.abc import Iterator
 from typing import Any, Callable, Optional
@@ -26,6 +27,15 @@ PicklableColumn = namedtuple(
 # Sentinel object used as a fake DBAPI connection in replay mode.
 # Satisfies the `connection is not None` check in DataSourceImpl.has_open_connection().
 _SENTINEL = object()
+
+# Regex matching ISO 8601 timestamps that appear as SQL string literals.
+# Matches formats like '2026-03-16T18:24:35.151223' and '2026-03-16T17:24:35+00:00'.
+_TIMESTAMP_RE = re.compile(r"'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[.+\-]\S+)?'")
+_TIMESTAMP_PLACEHOLDER = "'__$$__SODA_TIMESTAMP__$$__'"
+
+# Regex matching __soda_temp_<uuid-hex> table names that use uuid4().hex.
+_SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-f]{32}")
+_SODA_TEMP_PLACEHOLDER = "__soda_temp___$$__SODA_UUID__$$__"
 
 
 class FakeCursor:
@@ -93,10 +103,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Callers can add entries to this dict to normalize additional dynamic values.
         self.extra_replacements: dict[str, str] = {}
 
-        # When True, replay only validates operation type sequence, not SQL content.
-        # Useful for connections where SQL contains many dynamic values (timestamps,
-        # random IDs) that change between runs but the operation sequence is deterministic.
-        self.lenient_replay: bool = False
+        # When True, ISO 8601 timestamps in SQL are replaced with a generic placeholder
+        # before comparison so that dynamic timestamps (e.g. time_created, execution_time)
+        # don't cause mismatches between record and replay runs.
+        self.normalize_timestamps: bool = False
 
         # Per-test state
         self._current_test_id: Optional[str] = None
@@ -251,11 +261,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             normalized = [self._normalize_for_snapshot(e) for e in self._recording]
             self._snapshot_manager.save(self._current_test_id, normalized)
 
-        # Verify all snapshot entries were consumed during replay (skip for lenient mode)
+        # Verify all snapshot entries were consumed during replay
         if (
             self._mode == "replay"
             and not self._fallback_active
-            and not self.lenient_replay
             and self._replay_data is not None
             and self._replay_index < len(self._replay_data)
         ):
@@ -330,25 +339,24 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._fallback_active = True
 
     @staticmethod
-    def _synthetic_result_for_type(op_type: str, sql: str):
-        """Return a safe synthetic result matching the expected operation type."""
-        from soda_core.common.data_source_results import QueryResult
+    def _normalize_dynamic_values(sql: str) -> str:
+        """Replace dynamic values (timestamps, temp table UUIDs) with placeholders.
 
-        if op_type == "update":
-            return None
-        if op_type in ("query_one_by_one", "query_iterate"):
-            return ((), [])  # (description, rows)
-        # Default: query
-        return QueryResult(rows=[], columns=())
+        Used for SQL comparison so that per-run values don't cause mismatches.
+        """
+        sql = _TIMESTAMP_RE.sub(_TIMESTAMP_PLACEHOLDER, sql)
+        sql = _SODA_TEMP_RE.sub(_SODA_TEMP_PLACEHOLDER, sql)
+        return sql
+
+    def _sql_matches(self, stored_sql: str, incoming_sql: str) -> bool:
+        """Compare two SQL strings, optionally normalizing dynamic values first."""
+        if self.normalize_timestamps:
+            return self._normalize_dynamic_values(stored_sql) == self._normalize_dynamic_values(incoming_sql)
+        return stored_sql == incoming_sql
 
     def _next_replay_entry(self, expected_type: str, expected_sql: str) -> SnapshotEntry:
         """Get the next entry from the replay data and verify it matches."""
         if self._replay_data is None or self._replay_index >= len(self._replay_data):
-            if self.lenient_replay:
-                # Lenient mode: return a synthetic no-op entry when snapshot is exhausted.
-                return SnapshotEntry(
-                    expected_type, expected_sql, self._synthetic_result_for_type(expected_type, expected_sql)
-                )
             raise SnapshotMismatchError(
                 f"Snapshot exhausted for test {self._current_test_id}.\n"
                 f"  No more operations in snapshot (had {len(self._replay_data or [])}).\n"
@@ -356,16 +364,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
             )
         entry = self._denormalize_from_snapshot(self._replay_data[self._replay_index])
-        if self.lenient_replay:
-            # Lenient mode: skip SQL validation, but ensure result type safety.
-            # If the cached entry has a different operation type, return a synthetic
-            # result of the expected type to prevent crashes from type mismatches.
-            if entry.op_type != expected_type:
-                self._replay_index += 1
-                return SnapshotEntry(
-                    expected_type, expected_sql, self._synthetic_result_for_type(expected_type, expected_sql)
-                )
-        elif entry.op_type != expected_type or entry.sql != expected_sql:
+        if entry.op_type != expected_type or not self._sql_matches(entry.sql, expected_sql):
             raise SnapshotMismatchError(
                 f"Snapshot mismatch at operation #{self._replay_index} for test {self._current_test_id}.\n"
                 f"  Expected ({entry.op_type}): {entry.sql[:200]}\n"
