@@ -255,11 +255,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             self._recording = []
             logger.info(f"SNAPSHOT: Recording SQL for {test_id}")
 
+    def _record_entry(self, entry: SnapshotEntry) -> None:
+        """Append an entry to the recording, normalizing with current replacements.
+
+        Normalizing at capture time (rather than finalization) ensures that
+        extra_replacements values active when the SQL was executed are used.
+        This matters when values like scan_id change mid-test.
+        """
+        self._recording.append(self._normalize_for_snapshot(entry))
+
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
         if self._current_test_id is not None and self._recording:
-            normalized = [self._normalize_for_snapshot(e) for e in self._recording]
-            self._snapshot_manager.save(self._current_test_id, normalized)
+            # Entries are already normalized at capture time via _record_entry.
+            self._snapshot_manager.save(self._current_test_id, self._recording)
 
         # Verify all snapshot entries were consumed during replay
         if (
@@ -329,10 +338,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             entry = self._denormalize_from_snapshot(self._replay_data[i])
             if entry.op_type == "update":
                 self._real.execute_update(entry.sql, log_query=False)
-                self._recording.append(SnapshotEntry("update", entry.sql, None))
+                self._record_entry(SnapshotEntry("update", entry.sql, None))
             else:
                 result = self._real.execute_query(entry.sql, log_query=False)
-                self._recording.append(
+                self._record_entry(
                     SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result))
                 )
 
@@ -456,12 +465,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._mode == "record":
             result = self._real.execute_query(sql, log_query=log_query)
             # Store a normalized copy (picklable), return original to caller
-            self._recording.append(SnapshotEntry("query", sql, self._normalize_query_result(result)))
+            self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
             return result
         else:  # replay
             if self._fallback_active:
                 result = self._real.execute_query(sql, log_query=log_query)
-                self._recording.append(SnapshotEntry("query", sql, self._normalize_query_result(result)))
+                self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
                 return result
             try:
                 entry = self._next_replay_entry("query", sql)
@@ -475,7 +484,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             except SnapshotMismatchError as e:
                 self._activate_fallback(reason=str(e))
                 result = self._real.execute_query(sql, log_query=log_query)
-                self._recording.append(SnapshotEntry("query", sql, self._normalize_query_result(result)))
+                self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
                 return result
 
     def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
@@ -488,12 +497,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             result = self._real.execute_update(sql, log_query=log_query)
             # Store None as the result — execute_update return values are driver-specific
             # (e.g. psycopg3 returns the cursor itself) and rarely used by callers.
-            self._recording.append(SnapshotEntry("update", sql, None))
+            self._record_entry(SnapshotEntry("update", sql, None))
             return result
         else:  # replay
             if self._fallback_active:
                 result = self._real.execute_update(sql, log_query=log_query)
-                self._recording.append(SnapshotEntry("update", sql, None))
+                self._record_entry(SnapshotEntry("update", sql, None))
                 return result
             try:
                 self._next_replay_entry("update", sql)
@@ -502,7 +511,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             except SnapshotMismatchError as e:
                 self._activate_fallback(reason=str(e))
                 result = self._real.execute_update(sql, log_query=log_query)
-                self._recording.append(SnapshotEntry("update", sql, None))
+                self._record_entry(SnapshotEntry("update", sql, None))
                 return result
 
     def execute_query_one_by_one(
@@ -529,7 +538,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             description = self._real.execute_query_one_by_one(
                 sql, capturing_callback, log_query=log_query, row_limit=row_limit
             )
-            self._recording.append(
+            self._record_entry(
                 SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
             )
             return description
@@ -544,7 +553,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 description = self._real.execute_query_one_by_one(
                     sql, capturing_callback, log_query=log_query, row_limit=row_limit
                 )
-                self._recording.append(
+                self._record_entry(
                     SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
                 )
                 return description
@@ -569,7 +578,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 description = self._real.execute_query_one_by_one(
                     sql, capturing_callback_fb, log_query=log_query, row_limit=row_limit
                 )
-                self._recording.append(
+                self._record_entry(
                     SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
                 )
                 return description
@@ -591,7 +600,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 cursor_description = real_iter._cursor.description
                 rows = [tuple(row) for row in real_iter]
             normalized_desc = self._normalize_description(cursor_description)
-            self._recording.append(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
+            self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
             # Yield a fake iterator backed by cached data
             try:
                 yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
@@ -603,7 +612,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     cursor_description = real_iter._cursor.description
                     rows = [tuple(row) for row in real_iter]
                 normalized_desc = self._normalize_description(cursor_description)
-                self._recording.append(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
+                self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
                 try:
                     yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
                 finally:
@@ -622,7 +631,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     cursor_description = real_iter._cursor.description
                     rows = [tuple(row) for row in real_iter]
                 normalized_desc = self._normalize_description(cursor_description)
-                self._recording.append(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
+                self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
                 try:
                     yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
                 finally:
