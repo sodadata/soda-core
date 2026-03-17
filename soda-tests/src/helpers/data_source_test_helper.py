@@ -187,13 +187,18 @@ class DataSourceTestHelper:
             from helpers.snapshot_manager import SnapshotManager
 
             snapshot_dir = os.getenv("SODA_TEST_SNAPSHOT_DIR", os.path.join(os.getcwd(), ".test_snapshots"))
+            # In-source DWH transfer mode produces different source SQL operations
+            # (e.g. failed rows queries route differently), so use a separate snapshot path.
+            ds_type = self.data_source_impl.type_name
+            if os.getenv("DWH_USE_IN_SOURCE_TRANSFER", "").lower() == "true":
+                ds_type = f"{ds_type}_insource"
             self._snapshot_manager = SnapshotManager(
-                datasource_type=self.data_source_impl.type_name,
+                datasource_type=ds_type,
                 snapshot_dir=snapshot_dir,
             )
 
-        # DWH snapshot manager (lazily created when first accessed by DwhTestSetup)
-        self._dwh_snapshot_manager = None
+        # DWH snapshot managers (lazily created when first accessed by DwhTestSetup)
+        self._dwh_snapshot_managers: dict[str, "SnapshotManager"] = {}
 
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
@@ -298,17 +303,23 @@ class DataSourceTestHelper:
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
 
-    def get_dwh_snapshot_manager(self):
-        """Lazily create a SnapshotManager for DWH operations (between-source mode)."""
-        if self._dwh_snapshot_manager is None and self._snapshot_mode != "off":
+    def get_dwh_snapshot_manager(self, *, is_in_source: bool = False):
+        """Lazily create a SnapshotManager for DWH operations.
+
+        In-source and between-source modes produce different SQL operation sequences,
+        so they need separate snapshot files to avoid overwriting each other.
+        """
+        suffix = "_dwh_insource" if is_in_source else "_dwh"
+        key = f"{self.data_source_impl.type_name}{suffix}"
+        if key not in self._dwh_snapshot_managers and self._snapshot_mode != "off":
             from helpers.snapshot_manager import SnapshotManager
 
             snapshot_dir = os.getenv("SODA_TEST_SNAPSHOT_DIR", os.path.join(os.getcwd(), ".test_snapshots"))
-            self._dwh_snapshot_manager = SnapshotManager(
-                datasource_type=f"{self.data_source_impl.type_name}_dwh",
+            self._dwh_snapshot_managers[key] = SnapshotManager(
+                datasource_type=key,
                 snapshot_dir=snapshot_dir,
             )
-        return self._dwh_snapshot_manager
+        return self._dwh_snapshot_managers.get(key)
 
     def _snapshot_schema_name(self) -> Optional[str]:
         """Return the dynamic schema name part for snapshot placeholder replacement.
