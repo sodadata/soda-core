@@ -86,11 +86,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         real_schema_name: Optional[str] = None,
         allow_fallback: bool = False,
     ):
-        # Pass the real DBAPI connection (or sentinel) so that open_connection() in
-        # DataSourceConnection.__init__ is a no-op (it skips when self.connection is not None).
-        dbapi_conn = real_connection.connection if real_connection else _SENTINEL
+        # Always use _SENTINEL so that open_connection() is a no-op (skips when
+        # self.connection is not None) AND so that code accessing the raw DBAPI
+        # connection (e.g. _optimized_insert) fails gracefully and falls back to
+        # execute_update, which the snapshot intercepts.  The snapshot's own
+        # execute_query / execute_update use self._real, not self.connection.
         conn_props = real_connection.connection_properties if real_connection else {}
-        super().__init__(name="snapshot", connection_properties=conn_props, connection=dbapi_conn)
+        super().__init__(name="snapshot", connection_properties=conn_props, connection=_SENTINEL)
 
         self._real: Optional[DataSourceConnection] = real_connection
         self._snapshot_manager: SnapshotManager = snapshot_manager
@@ -116,6 +118,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._fallback_active: bool = False
         self._allow_fallback: bool = allow_fallback
 
+
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
 
@@ -132,10 +135,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             if factory is not None:
                 real = factory()
                 self._real = real
-                self.connection = real.connection
         if real is not None and hasattr(real, name):
             return getattr(real, name)
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def _execute_query_get_result_row_column_name(self, column) -> str:
+        """Delegate to the real connection so data-source-specific overrides apply.
+
+        Some drivers (SQL Server, Databricks, Athena, etc.) return plain tuples
+        in cursor.description and override this method to use column[0] instead
+        of column.name.  In record mode the QueryResult still carries the real
+        cursor's description, so we must honour the real connection's method.
+        In replay mode _real may be None but descriptions are PicklableColumn
+        namedtuples which have a .name attribute, so the base fallback works.
+        """
+        if self._real is not None:
+            return self._real._execute_query_get_result_row_column_name(column)
+        return column.name
 
     def _create_connection(self, connection_properties: dict) -> object:
         # Never called because we always pass a non-None connection to __init__.
@@ -233,7 +249,6 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 if self._allow_fallback and (self._real is not None or self._fallback_connection_factory is not None):
                     if self._real is None:
                         self._real = self._fallback_connection_factory()
-                        self.connection = self._real.connection
                     snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
                     logger.warning(
                         f"SNAPSHOT: Falling back to real DB for {test_id}\n"
@@ -316,7 +331,6 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._real is None:
             if self._fallback_connection_factory is not None:
                 self._real = self._fallback_connection_factory()
-                self.connection = self._real.connection
             else:
                 raise RuntimeError(
                     "Cannot fall back to real DB — no real connection available.\n"
@@ -459,7 +473,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._handle_test_boundary()
 
         if self._current_test_id is None:
-            # Session-level SQL (before/after tests) — pass through to real connection
+            # Finalized or session-level SQL — pass through to real connection
             return self._passthrough_or_fail("execute_query", sql, log_query=log_query)
 
         if self._mode == "record":
