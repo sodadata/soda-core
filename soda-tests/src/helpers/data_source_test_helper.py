@@ -358,6 +358,7 @@ class DataSourceTestHelper:
                 real_schema_name=real_schema_name,
                 allow_fallback=allow_fallback,
             )
+            snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
             # Propagate connection_properties from the data source model so that
             # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
             # works without a real DB connection.
@@ -372,13 +373,15 @@ class DataSourceTestHelper:
                 from helpers.snapshot_connection import SnapshotDataSourceConnection
 
                 real_connection = self.data_source_impl.data_source_connection
-                self.data_source_impl.data_source_connection = SnapshotDataSourceConnection(
+                snap_conn = SnapshotDataSourceConnection(
                     real_connection=real_connection,
                     snapshot_manager=self._snapshot_manager,
                     mode="record",
                     schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
                     real_schema_name=self._snapshot_schema_name(),
                 )
+                snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+                self.data_source_impl.data_source_connection = snap_conn
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
@@ -616,6 +619,15 @@ class DataSourceTestHelper:
 
     def _cascade_drop_table(self) -> bool:
         return True
+
+    def _snapshot_passthrough_queries(self) -> dict:
+        """Return a dict mapping exact SQL strings to mock QueryResult objects.
+
+        These queries bypass snapshot recording/replay entirely and return the
+        provided mock result directly. Override in subclasses for data-source-specific
+        session-level queries that run lazily during tests (e.g. BigQuery's SELECT @@location).
+        """
+        return {}
 
     def query_existing_test_views(self) -> list[FullyQualifiedViewName]:
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()

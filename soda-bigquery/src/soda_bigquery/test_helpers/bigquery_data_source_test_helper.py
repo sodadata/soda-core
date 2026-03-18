@@ -36,3 +36,13 @@ class BigQueryDataSourceTestHelper(DataSourceTestHelper):
 
     def _cascade_drop_table(self) -> bool:
         return False
+
+    def _snapshot_passthrough_queries(self) -> dict:
+        from soda_core.common.data_source_results import QueryResult
+
+        # BigQuery lazily runs SELECT @@location to detect the dataset location.
+        # This is session-level metadata that shouldn't be part of per-test snapshots.
+        location = os.getenv("BIGQUERY_LOCATION", "US")
+        return {
+            "SELECT @@location": QueryResult(rows=[(location,)], columns=None),
+        }
