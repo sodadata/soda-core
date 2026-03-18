@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from numbers import Number
 from typing import Optional
 
 from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
@@ -11,7 +12,11 @@ from soda_bigquery.common.data_sources.bigquery_data_source_connection import (
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
+from soda_core.common.metadata_types import (
+    DataSourceNamespace,
+    SamplerType,
+    SodaDataTypeName,
+)
 from soda_core.common.sql_ast import (
     COLUMN,
     CONCAT_WS,
@@ -166,6 +171,14 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def _build_regex_like_sql(self, matches: REGEX_LIKE) -> str:
         expression: str = self.build_expression_sql(matches.expression)
         return f"REGEXP_CONTAINS({expression}, r'{matches.regex_pattern}')"
+
+    def supports_sampler(self, sampler_type: SamplerType) -> bool:
+        return sampler_type is SamplerType.PERCENTAGE
+
+    def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
+        if sampler_type is SamplerType.PERCENTAGE:
+            return f"TABLESAMPLE SYSTEM ({sample_size} PERCENT)"
+        raise ValueError(f"Unsupported sampler type: {sampler_type.name}")
 
     def supports_data_type_character_maximum_length(self) -> bool:
         return False
