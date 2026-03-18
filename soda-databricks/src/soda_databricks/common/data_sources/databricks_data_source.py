@@ -186,9 +186,9 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         }
 
     def escape_string(self, value: str):
-        raw_string = rf"{value}"
-        string_literal: str = raw_string.replace(r"'", r"\'")
-        return string_literal
+        # Databricks uses backslash escaping: escape \ before ' to avoid double-escaping
+        return value.replace("\\", "\\\\").replace("'", "\\'")
+
 
     def encode_string_for_sql(self, string: str) -> str:
         """This escapes values that contain newlines correctly."""
