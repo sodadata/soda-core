@@ -195,7 +195,11 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def literal_string(self, value: str) -> Optional[str]:
         if value is None:
             return None
-        return "'''" + self.escape_string(value) + "'''"
+        # BigQuery triple-quoted strings ('''...''') allow multiline content and
+        # embedded single quotes without escaping.  The only sequence that needs
+        # escaping inside triple-quoted strings is ''' itself and backslashes.
+        escaped = value.replace("\\", "\\\\").replace("'''", "\\'''")
+        return "'''" + escaped + "'''"
 
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         # The first select row should have column aliases
