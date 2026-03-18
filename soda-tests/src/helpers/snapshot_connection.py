@@ -28,13 +28,15 @@ PicklableColumn = namedtuple(
 # Satisfies the `connection is not None` check in DataSourceImpl.has_open_connection().
 _SENTINEL = object()
 
-# Regex matching ISO 8601 timestamps that appear as SQL string literals.
-# Matches formats like '2026-03-16T18:24:35.151223' and '2026-03-16T17:24:35+00:00'.
-_TIMESTAMP_RE = re.compile(r"'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[.+\-]\S+)?'")
+# Regex matching timestamps that appear as SQL string literals.
+# Matches ISO 8601 ('2026-03-16T18:24:35.151223', '2026-03-16T17:24:35+00:00')
+# and Oracle-style TIMESTAMP literals (TIMESTAMP '2026-03-18 14:09:40').
+_TIMESTAMP_RE = re.compile(r"(?:TIMESTAMP\s+)?'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.+\-]\S+)?'")
 _TIMESTAMP_PLACEHOLDER = "'__$$__SODA_TIMESTAMP__$$__'"
 
 # Regex matching __soda_temp_<uuid-hex> table names that use uuid4().hex.
-_SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-f]{32}")
+# Case-insensitive: Snowflake (and other DBs) may uppercase identifiers.
+_SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-fA-F]{32}", re.IGNORECASE)
 _SODA_TEMP_PLACEHOLDER = "__soda_temp___$$__SODA_UUID__$$__"
 
 
@@ -161,10 +163,22 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         """Recursively replace schema name strings in snapshot data.
 
         Handles both the original case and the lowercased form (for LOWER()
-        comparisons in metadata queries).
+        comparisons in metadata queries).  Also handles dot-separated paths
+        that appear as individually-quoted identifiers in SQL (e.g. Dremio:
+        "a.b.c" in schema name → "a"."b"."c" in SQL).
         """
         if isinstance(value, str):
-            value: str = value.replace(old, new)
+            # Handle dot-separated paths that appear as individually-quoted identifiers
+            # (e.g. Dremio: schema "a.b.c" → SQL uses "a"."b"."c")
+            if "." in old or "." in new:
+                def _to_quoted(s):
+                    """Convert 'a.b.c' to '"a"."b"."c"'."""
+                    return '"' + '"."'.join(s.split(".")) + '"'
+                quoted_old = _to_quoted(old) if "." in old else '"' + old + '"'
+                quoted_new = _to_quoted(new) if "." in new else '"' + new + '"'
+                value = value.replace(quoted_old, quoted_new)
+                value = value.replace(quoted_old.lower(), quoted_new.lower())
+            value = value.replace(old, new)
             return value.replace(old.lower(), new.lower())
         if isinstance(value, PicklableColumn):
             # Preserve namedtuple type so .name attribute access works in replay
