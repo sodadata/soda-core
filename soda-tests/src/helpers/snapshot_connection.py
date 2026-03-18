@@ -112,6 +112,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # don't cause mismatches between record and replay runs.
         self.normalize_timestamps: bool = False
 
+        # Exact SQL → mock QueryResult mappings that bypass snapshot recording/replay.
+        # These queries return the provided result directly without hitting the DB
+        # or being stored in snapshots. Used for session-level queries that run
+        # lazily during tests (e.g. BigQuery's SELECT @@location).
+        self.passthrough_queries: dict[str, QueryResult] = {}
+
         # Per-test state
         self._current_test_id: Optional[str] = None
         self._recording: list[SnapshotEntry] = []
@@ -483,12 +489,21 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     # SQL execution methods — the core interception points
     # -------------------------------------------------------------------------
 
+    def _get_passthrough_result(self, sql: str) -> Optional[QueryResult]:
+        """Return a mock result if this SQL is a registered passthrough query, else None."""
+        return self.passthrough_queries.get(sql.strip())
+
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         self._handle_test_boundary()
 
         if self._current_test_id is None:
             # Finalized or session-level SQL — pass through to real connection
             return self._passthrough_or_fail("execute_query", sql, log_query=log_query)
+
+        # Passthrough queries return a mock result, bypassing snapshot entirely
+        passthrough_result = self._get_passthrough_result(sql)
+        if passthrough_result is not None:
+            return passthrough_result
 
         if self._mode == "record":
             result = self._real.execute_query(sql, log_query=log_query)
