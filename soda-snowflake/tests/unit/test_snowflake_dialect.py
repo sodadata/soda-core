@@ -1,5 +1,5 @@
 import pytest
-from soda_core.common.sql_dialect import FROM, SELECT, STAR, SamplerType
+from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
 from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeSqlDialect
 
 
@@ -31,3 +31,9 @@ from soda_snowflake.common.data_sources.snowflake_data_source import SnowflakeSq
 def test_tablesample(sql_ast, expected_sql):
     sql_dialect: SnowflakeSqlDialect = SnowflakeSqlDialect()
     assert sql_dialect.build_select_sql(sql_ast) == expected_sql
+
+
+def test_random():
+    sql_dialect: SnowflakeSqlDialect = SnowflakeSqlDialect()
+    sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
+    assert sql == 'SELECT UNIFORM(0::FLOAT, 1::FLOAT, RANDOM())\nFROM "a";'

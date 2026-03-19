@@ -239,4 +239,4 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
         return f"to_hex({super()._build_string_hash_sql(string_hash)})"
 
     def _build_random_sql(self, random: RANDOM) -> str:
-        return "RANDOM()"
+        return "RAND()"
