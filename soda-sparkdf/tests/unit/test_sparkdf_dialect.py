@@ -1,5 +1,7 @@
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
-from soda_sparkdf.common.data_sources.sparkdf_data_source import SparkDataFrameSqlDialect
+from soda_sparkdf.common.data_sources.sparkdf_data_source import (
+    SparkDataFrameSqlDialect,
+)
 
 
 def test_random():

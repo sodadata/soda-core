@@ -1,5 +1,5 @@
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_athena.common.data_sources.athena_data_source import AthenaSqlDialect
+from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 
 
 def test_random():

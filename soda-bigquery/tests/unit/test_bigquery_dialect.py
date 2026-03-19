@@ -1,5 +1,5 @@
-from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_bigquery.common.data_sources.bigquery_data_source import BigQuerySqlDialect
+from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 
 
 def test_random():
