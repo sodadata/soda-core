@@ -118,6 +118,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # lazily during tests (e.g. BigQuery's SELECT @@location).
         self.passthrough_queries: dict[str, QueryResult] = {}
 
+        # Like passthrough_queries, but only for record mode: returns the cached result
+        # AND records it in the snapshot. Populated externally by DataSourceTestHelper
+        # for specific queries (e.g. metadata tables query).
+        self.record_mode_cached_queries: dict[str, QueryResult] = {}
+
         # Per-test state
         self._current_test_id: Optional[str] = None
         self._recording: list[SnapshotEntry] = []
@@ -569,6 +574,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return passthrough_result
 
         if self._mode == "record":
+            # Check record-mode cache before hitting the real DB
+            cached = self.record_mode_cached_queries.get(sql.strip())
+            if cached is not None:
+                self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(cached)))
+                return cached
             result = self._real.execute_query(sql, log_query=log_query)
             # Store a normalized copy (picklable), return original to caller
             self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))

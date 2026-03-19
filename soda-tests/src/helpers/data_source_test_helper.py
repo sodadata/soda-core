@@ -14,6 +14,7 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
@@ -178,6 +179,12 @@ class DataSourceTestHelper:
 
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
+
+        # Session-level metadata cache (only active in record mode).
+        # Tracks the metadata query SQL and a mutable QueryResult that is kept
+        # in sync as tables are created/dropped by ensure_test_table().
+        self._metadata_cache_sql: Optional[str] = None
+        self._metadata_cache_result: Optional[QueryResult] = None
 
         # Log the snapshot mode
         logger.info(f"Snapshot mode: {self._snapshot_mode}")
@@ -422,11 +429,42 @@ class DataSourceTestHelper:
         schema: Optional[str] = self.extract_schema_from_prefix()
 
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
+
+        # In record mode, on the first call we let execute() run normally (handles all
+        # datasource-specific overrides like Redshift's UNION_ALL), then extract the
+        # recorded SQL from the snapshot connection's recording to register it in the cache.
+        # Subsequent calls (from later tests) hit the cache instead of the DB, but the
+        # result is still recorded in each test's snapshot for replay correctness.
+        snap_conn = self.data_source_impl.data_source_connection
+        setup_cache = self._snapshot_mode == "record" and self._metadata_cache_sql is None
+
+        if setup_cache and hasattr(snap_conn, "_recording"):
+            recording_len_before = len(snap_conn._recording)
+
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
             database_name=database,
             schema_name=schema,
             include_table_name_like_filters=["SODATEST_%"],
         )
+
+        if setup_cache and hasattr(snap_conn, "_recording") and len(snap_conn._recording) > recording_len_before:
+            # Extract the query entry that execute() just recorded
+            recorded_entry = snap_conn._recording[recording_len_before]
+            # Denormalize the SQL to get the real SQL (recording stores normalized form)
+            denormalized = snap_conn._denormalize_from_snapshot(recorded_entry)
+            sql = denormalized.sql.strip()
+            query_result = denormalized.result
+
+            # Cache the SQL and a mutable copy of the result
+            self._metadata_cache_sql = sql
+            self._metadata_cache_result = QueryResult(
+                rows=list(query_result.rows),
+                columns=query_result.columns,
+            )
+            # Register in the snapshot connection so future execute_query() calls
+            # for this exact SQL return the cached result and record it in the snapshot.
+            snap_conn.record_mode_cached_queries[self._metadata_cache_sql] = self._metadata_cache_result
+
         return fully_qualified_table_names
 
     def query_existing_test_table_names(self) -> list[str]:
@@ -436,6 +474,32 @@ class DataSourceTestHelper:
             for fully_qualified_test_table_name in fully_qualified_table_names
             if isinstance(fully_qualified_test_table_name, FullyQualifiedTableName)
         ]
+
+    def _update_metadata_cache(self, table_name: str, added: bool) -> None:
+        """Update the in-memory metadata cache when a test table is created or dropped.
+
+        The snapshot connection's record_mode_cached_queries references the same
+        QueryResult object, so mutations here are automatically visible to it.
+        """
+        if self._metadata_cache_result is None:
+            return
+
+        if added:
+            # Derive template values (database, schema, table_type) from existing rows
+            if self._metadata_cache_result.rows:
+                template = self._metadata_cache_result.rows[0]
+                database_name = template[0]
+                schema_name = template[1]
+                table_type = template[3]
+            else:
+                database_name = self.extract_database_from_prefix()
+                schema_name = self.extract_schema_from_prefix()
+                table_type = "BASE TABLE"
+            self._metadata_cache_result.rows.append((database_name, schema_name, table_name, table_type))
+        else:
+            self._metadata_cache_result.rows = [
+                row for row in self._metadata_cache_result.rows if row[2].lower() != table_name.lower()
+            ]
 
     def create_test_schema_if_not_exists(self) -> None:
         sql: str = self.create_test_schema_if_not_exists_sql()
@@ -511,10 +575,12 @@ class DataSourceTestHelper:
                         logger.debug(f"Test table {obsolete_table_name} has changed and will be recreated")
                         self._drop_test_table(table_name=obsolete_table_name)
                         self.existing_test_table_names.remove(obsolete_table_name)
+                        self._update_metadata_cache(obsolete_table_name, added=False)
 
                 logger.debug(f"Test table {test_table_specification.unique_name} will be created")
                 self._create_and_insert_test_table(test_table=test_table)
                 self.existing_test_table_names.append(test_table.unique_name)
+                self._update_metadata_cache(test_table.unique_name, added=True)
 
                 self.data_source_impl.data_source_connection.commit()
         else:
