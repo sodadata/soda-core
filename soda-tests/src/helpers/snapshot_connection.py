@@ -165,73 +165,104 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Never called because we always pass a non-None connection to __init__.
         return None
 
-    def _replace_schema(self, value: Any, old: str, new: str) -> Any:
-        """Recursively replace schema name strings in snapshot data.
+    @staticmethod
+    def _to_quoted(s: str) -> str:
+        """Convert 'a.b.c' to '"a"."b"."c"'."""
+        return '"' + '"."'.join(s.split(".")) + '"'
 
-        Handles the original case, lowercased form (for LOWER() comparisons in
-        metadata queries), and uppercased form (for databases like Snowflake that
-        uppercase identifiers).  Also handles dot-separated paths that appear as
-        individually-quoted identifiers in SQL (e.g. Dremio: "a.b.c" → "a"."b"."c").
+    def _normalize_value(self, value: Any, old: str, new: str) -> Any:
+        """Recursively replace real values with uniform lowercase placeholders.
+
+        All case variants of ``old`` (upper, lower, mixed) are replaced with
+        ``new.lower()`` so that stored snapshots always contain lowercase
+        placeholders regardless of the database's identifier casing.
+
+        Also handles dot-separated paths that appear as individually-quoted
+        identifiers in SQL (e.g. Dremio: "a.b.c" → "a"."b"."c").
         """
         if isinstance(value, str):
-            # Handle dot-separated paths that appear as individually-quoted identifiers
-            # (e.g. Dremio: schema "a.b.c" → SQL uses "a"."b"."c")
+            new_lower = new.lower()
             if "." in old or "." in new:
-                def _to_quoted(s):
-                    """Convert 'a.b.c' to '"a"."b"."c"'."""
-                    return '"' + '"."'.join(s.split(".")) + '"'
-                quoted_old = _to_quoted(old) if "." in old else '"' + old + '"'
-                quoted_new = _to_quoted(new) if "." in new else '"' + new + '"'
-                value = value.replace(quoted_old, quoted_new)
-                value = value.replace(quoted_old.lower(), quoted_new.lower())
-                value = value.replace(quoted_old.upper(), quoted_new.upper())
-            value = value.replace(old, new)
-            value = value.replace(old.lower(), new.lower())
-            # Handle uppercase (e.g. Snowflake uppercases identifiers containing hex scan IDs)
-            value = value.replace(old.upper(), new.upper())
+                quoted_old = self._to_quoted(old) if "." in old else '"' + old + '"'
+                quoted_new_lower = (self._to_quoted(new) if "." in new else '"' + new + '"').lower()
+                value = value.replace(quoted_old.upper(), quoted_new_lower)
+                value = value.replace(quoted_old.lower(), quoted_new_lower)
+                if quoted_old != quoted_old.upper() and quoted_old != quoted_old.lower():
+                    value = value.replace(quoted_old, quoted_new_lower)
+            value = value.replace(old.upper(), new_lower)
+            value = value.replace(old.lower(), new_lower)
+            if old != old.upper() and old != old.lower():
+                value = value.replace(old, new_lower)
             return value
         if isinstance(value, PicklableColumn):
-            # Preserve namedtuple type so .name attribute access works in replay
-            return PicklableColumn(*(self._replace_schema(v, old, new) for v in value))
+            return PicklableColumn(*(self._normalize_value(v, old, new) for v in value))
         if isinstance(value, tuple):
-            return tuple(self._replace_schema(v, old, new) for v in value)
+            return tuple(self._normalize_value(v, old, new) for v in value)
         if isinstance(value, list):
-            return [self._replace_schema(v, old, new) for v in value]
+            return [self._normalize_value(v, old, new) for v in value]
         if isinstance(value, QueryResult):
             return QueryResult(
-                rows=self._replace_schema(value.rows, old, new),
+                rows=self._normalize_value(value.rows, old, new),
+                columns=value.columns,
+            )
+        return value
+
+    def _denormalize_value(self, value: Any, old: str, new: str) -> Any:
+        """Recursively replace lowercase placeholders with real values.
+
+        Since snapshots always store lowercase placeholders (via _normalize_value),
+        this replaces ``old.lower()`` with ``new`` as-is, preserving the real
+        value's natural case (e.g. uppercase for Snowflake, lowercase for Postgres).
+        """
+        if isinstance(value, str):
+            old_lower = old.lower()
+            if "." in old or "." in new:
+                quoted_old_lower = (self._to_quoted(old) if "." in old else '"' + old + '"').lower()
+                quoted_new = self._to_quoted(new) if "." in new else '"' + new + '"'
+                value = value.replace(quoted_old_lower, quoted_new)
+            value = value.replace(old_lower, new)
+            return value
+        if isinstance(value, PicklableColumn):
+            return PicklableColumn(*(self._denormalize_value(v, old, new) for v in value))
+        if isinstance(value, tuple):
+            return tuple(self._denormalize_value(v, old, new) for v in value)
+        if isinstance(value, list):
+            return [self._denormalize_value(v, old, new) for v in value]
+        if isinstance(value, QueryResult):
+            return QueryResult(
+                rows=self._denormalize_value(value.rows, old, new),
                 columns=value.columns,
             )
         return value
 
     def _normalize_for_snapshot(self, entry: SnapshotEntry) -> SnapshotEntry:
-        """Replace real schema name with placeholder for portable snapshot storage."""
+        """Replace real schema name with uniform lowercase placeholder for portable snapshot storage."""
         has_primary = bool(self._schema_placeholder and self._real_schema_name)
         if not has_primary and not self.extra_replacements:
             return entry
         sql = entry.sql
         result = entry.result
         if has_primary:
-            sql = self._replace_schema(sql, self._real_schema_name, self._schema_placeholder)
-            result = self._replace_schema(result, self._real_schema_name, self._schema_placeholder) if result is not None else None
+            sql = self._normalize_value(sql, self._real_schema_name, self._schema_placeholder)
+            result = self._normalize_value(result, self._real_schema_name, self._schema_placeholder) if result is not None else None
         for placeholder, real_value in self.extra_replacements.items():
-            sql = self._replace_schema(sql, real_value, placeholder)
-            result = self._replace_schema(result, real_value, placeholder) if result is not None else None
+            sql = self._normalize_value(sql, real_value, placeholder)
+            result = self._normalize_value(result, real_value, placeholder) if result is not None else None
         return SnapshotEntry(entry.op_type, sql, result)
 
     def _denormalize_from_snapshot(self, entry: SnapshotEntry) -> SnapshotEntry:
-        """Replace placeholder with real schema name when loading from snapshot."""
+        """Replace lowercase placeholders with real values when loading from snapshot."""
         has_primary = bool(self._schema_placeholder and self._real_schema_name)
         if not has_primary and not self.extra_replacements:
             return entry
         sql = entry.sql
         result = entry.result
         if has_primary:
-            sql = self._replace_schema(sql, self._schema_placeholder, self._real_schema_name)
-            result = self._replace_schema(result, self._schema_placeholder, self._real_schema_name) if result is not None else None
+            sql = self._denormalize_value(sql, self._schema_placeholder, self._real_schema_name)
+            result = self._denormalize_value(result, self._schema_placeholder, self._real_schema_name) if result is not None else None
         for placeholder, real_value in self.extra_replacements.items():
-            sql = self._replace_schema(sql, placeholder, real_value)
-            result = self._replace_schema(result, placeholder, real_value) if result is not None else None
+            sql = self._denormalize_value(sql, placeholder, real_value)
+            result = self._denormalize_value(result, placeholder, real_value) if result is not None else None
         return SnapshotEntry(entry.op_type, sql, result)
 
     # -------------------------------------------------------------------------
