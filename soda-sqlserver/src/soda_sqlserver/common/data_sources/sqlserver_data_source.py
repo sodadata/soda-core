@@ -428,4 +428,4 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
         return super().build_create_view_sql(create_view_copy, add_semicolon, add_parenthesis=False)
 
     def _build_random_sql(self, random: RANDOM) -> str:
-        return "RAND()"
+        return "ABS(CAST(CHECKSUM(NEWID()) AS FLOAT)) / 2147483648.0"
