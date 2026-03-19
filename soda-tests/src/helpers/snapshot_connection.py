@@ -168,10 +168,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     def _replace_schema(self, value: Any, old: str, new: str) -> Any:
         """Recursively replace schema name strings in snapshot data.
 
-        Handles both the original case and the lowercased form (for LOWER()
-        comparisons in metadata queries).  Also handles dot-separated paths
-        that appear as individually-quoted identifiers in SQL (e.g. Dremio:
-        "a.b.c" in schema name → "a"."b"."c" in SQL).
+        Handles the original case, lowercased form (for LOWER() comparisons in
+        metadata queries), and uppercased form (for databases like Snowflake that
+        uppercase identifiers).  Also handles dot-separated paths that appear as
+        individually-quoted identifiers in SQL (e.g. Dremio: "a.b.c" → "a"."b"."c").
         """
         if isinstance(value, str):
             # Handle dot-separated paths that appear as individually-quoted identifiers
@@ -184,8 +184,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 quoted_new = _to_quoted(new) if "." in new else '"' + new + '"'
                 value = value.replace(quoted_old, quoted_new)
                 value = value.replace(quoted_old.lower(), quoted_new.lower())
+                value = value.replace(quoted_old.upper(), quoted_new.upper())
             value = value.replace(old, new)
-            return value.replace(old.lower(), new.lower())
+            value = value.replace(old.lower(), new.lower())
+            # Handle uppercase (e.g. Snowflake uppercases identifiers containing hex scan IDs)
+            value = value.replace(old.upper(), new.upper())
+            return value
         if isinstance(value, PicklableColumn):
             # Preserve namedtuple type so .name attribute access works in replay
             return PicklableColumn(*(self._replace_schema(v, old, new) for v in value))
@@ -252,8 +256,16 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if test_id == self._current_test_id:
             return  # Same test, nothing to do
 
-        # Finalize the previous test's recording
-        self._finalize_current_test()
+        # Finalize the previous test's recording.
+        # Log but don't re-raise unconsumed-operation errors to prevent cascade failures:
+        # if a test fails mid-replay, its unconsumed entries would otherwise propagate as
+        # errors to every subsequent test (each loading replay data but failing before
+        # consuming it, leaving unconsumed entries for the next test, and so on).
+        # The original test already fails on its own SnapshotMismatchError.
+        try:
+            self._finalize_current_test()
+        except SnapshotMismatchError as e:
+            logger.warning(f"SNAPSHOT: {e}")
 
         # Start tracking the new test
         self._current_test_id = test_id
@@ -305,7 +317,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # Entries are already normalized at capture time via _record_entry.
             self._snapshot_manager.save(self._current_test_id, self._recording)
 
-        # Verify all snapshot entries were consumed during replay
+        # Check for unconsumed snapshot entries before resetting state.
+        # We capture the error first and always reset state to prevent cascade failures
+        # where one test's unconsumed operations block all subsequent tests.
+        unconsumed_error = None
         if (
             self._mode == "replay"
             and not self._fallback_active
@@ -314,16 +329,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         ):
             remaining = len(self._replay_data) - self._replay_index
             next_entry = self._replay_data[self._replay_index]
-            raise SnapshotMismatchError(
+            unconsumed_error = SnapshotMismatchError(
                 f"Snapshot has {remaining} unconsumed operation(s) for test {self._current_test_id}.\n"
                 f"  Next unconsumed ({next_entry.op_type}): {next_entry.sql[:200]}\n"
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
             )
 
+        # Always reset per-test state
         self._recording = []
         self._replay_data = None
         self._replay_index = 0
         self._fallback_active = False
+
+        if unconsumed_error:
+            raise unconsumed_error
 
     def finalize(self) -> None:
         """Called at end of session to save the last test's recording."""
@@ -398,7 +417,14 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         return stored_sql == incoming_sql
 
     def _next_replay_entry(self, expected_type: str, expected_sql: str) -> SnapshotEntry:
-        """Get the next entry from the replay data and verify it matches."""
+        """Get the next entry from the replay data and verify it matches.
+
+        Comparison is done at the normalized level: both the stored snapshot SQL
+        (already has placeholders) and the incoming SQL (normalized with current
+        run's real values → placeholders) are compared. This avoids case mismatches
+        from databases that uppercase identifiers (e.g. Snowflake uppercases hex
+        scan IDs in table names, but denormalization can only produce one case).
+        """
         if self._replay_data is None or self._replay_index >= len(self._replay_data):
             raise SnapshotMismatchError(
                 f"Snapshot exhausted for test {self._current_test_id}.\n"
@@ -406,14 +432,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 f"  Next operation would be: {expected_type} {expected_sql[:200]}\n"
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
             )
-        entry = self._denormalize_from_snapshot(self._replay_data[self._replay_index])
-        if entry.op_type != expected_type or not self._sql_matches(entry.sql, expected_sql):
+        stored_entry = self._replay_data[self._replay_index]
+        # Normalize the incoming SQL the same way snapshots are stored (real values → placeholders).
+        incoming_normalized = self._normalize_for_snapshot(SnapshotEntry(expected_type, expected_sql, None))
+        if stored_entry.op_type != incoming_normalized.op_type or not self._sql_matches(stored_entry.sql, incoming_normalized.sql):
+            # Show denormalized forms in error for readability
+            denormalized = self._denormalize_from_snapshot(stored_entry)
             raise SnapshotMismatchError(
                 f"Snapshot mismatch at operation #{self._replay_index} for test {self._current_test_id}.\n"
-                f"  Expected ({entry.op_type}): {entry.sql[:200]}\n"
+                f"  Expected ({denormalized.op_type}): {denormalized.sql[:200]}\n"
                 f"  Got      ({expected_type}): {expected_sql[:200]}\n"
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
             )
+        # Return denormalized entry so callers get usable result data
+        entry = self._denormalize_from_snapshot(stored_entry)
         self._replay_index += 1
         return entry
 
