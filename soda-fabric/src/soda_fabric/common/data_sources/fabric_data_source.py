@@ -5,7 +5,12 @@ from typing import Optional
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import CREATE_TABLE_COLUMN, INSERT_INTO, RANDOM, VALUES_ROW
+from soda_core.common.sql_ast import (
+    CREATE_TABLE_COLUMN,
+    INSERT_INTO,
+    RANDOM,
+    VALUES_ROW,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_fabric.common.data_sources.fabric_data_source_connection import (
     FabricDataSource as FabricDataSourceModel,
