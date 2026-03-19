@@ -1,5 +1,5 @@
 import pytest
-from soda_core.common.sql_dialect import FROM, SELECT, STAR, SamplerType
+from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR, SamplerType
 from soda_databricks.common.data_sources.databricks_data_source import (
     DatabricksSqlDialect,
 )
@@ -47,3 +47,9 @@ def test_tablesample_not_supported(sql_ast, expected_exception_message):
         sql_dialect.build_select_sql(sql_ast)
 
     assert str(ex.value) == expected_exception_message
+
+
+def test_random():
+    sql_dialect: DatabricksSqlDialect = DatabricksSqlDialect()
+    sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
+    assert sql == "SELECT RAND()\nFROM `a`;"
