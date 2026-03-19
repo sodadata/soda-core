@@ -1,3 +1,5 @@
+import os
+
 import freezegun
 import pytest
 from helpers.test_fixtures import *  # noqa: F401
@@ -5,6 +7,27 @@ from soda_core.common.logging_configuration import configure_logging
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
+
+
+def pytest_configure(config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "no_snapshot: mark test to be skipped when running in snapshot record/replay mode. "
+        "Use @pytest.mark.no_snapshot to skip both modes, or "
+        "@pytest.mark.no_snapshot(mode='replay') to skip only replay.",
+    )
+
+
+def pytest_runtest_setup(item):
+    for marker in item.iter_markers(name="no_snapshot"):
+        snapshot_mode = os.environ.get("SODA_TEST_SNAPSHOT", "off").lower()
+        restricted_mode = marker.kwargs.get("mode")
+        if restricted_mode:
+            if snapshot_mode == restricted_mode:
+                pytest.skip(f"Test is marked no_snapshot and snapshot mode '{snapshot_mode}' is active")
+        else:
+            if snapshot_mode in ("record", "replay"):
+                pytest.skip(f"Test is marked no_snapshot and snapshot mode '{snapshot_mode}' is active")
 
 
 def pytest_sessionstart(session) -> None:
