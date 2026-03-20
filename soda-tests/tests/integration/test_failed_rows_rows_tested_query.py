@@ -82,8 +82,8 @@ def test_failed_rows_query_with_rows_tested_query_percent_threshold(data_source_
                     WHERE ({end_quoted} - {start_quoted}) > 5
                   rows_tested_query: |
                     SELECT COUNT(*) FROM {test_table.qualified_name}
-                  metric: percent
                   threshold:
+                    metric: percent
                     must_be_less_than: 50
         """,
     )
@@ -112,8 +112,8 @@ def test_failed_rows_percent_without_rows_tested_query_emits_error(data_source_t
                     SELECT *
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
-                  metric: percent
                   threshold:
+                    metric: percent
                     must_be_less_than: 50
         """,
     )

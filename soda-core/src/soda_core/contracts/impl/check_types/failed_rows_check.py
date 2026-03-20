@@ -73,6 +73,7 @@ class FailedRowsCheckImpl(CheckImpl):
         check_yaml: FailedRowsCheckYaml,
     ):
         self.failed_rows_count_metric_impl: Optional[MetricImpl] = None
+        self.check_rows_tested_metric_impl: Optional[MetricImpl] = None
         if self.is_expression_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
@@ -122,49 +123,15 @@ class FailedRowsCheckImpl(CheckImpl):
         threshold_value: Optional[float] = None
 
         if self.failed_rows_check_yaml.expression:
-            check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
-            failed_rows_percent: Optional[float] = 0
-            if (
-                isinstance(check_rows_tested, Number)
-                and isinstance(failed_rows_count, Number)
-                and check_rows_tested > 0
-            ):
-                failed_rows_percent = failed_rows_count * 100 / check_rows_tested
-
-            if self.failed_rows_check_yaml.metric == "percent":
-                threshold_value = failed_rows_percent
-            else:
-                threshold_value = failed_rows_count
-
-            diagnostic_metric_values = {
-                "failed_rows_count": failed_rows_count,
-                "failed_rows_percent": failed_rows_percent,
-                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-                "check_rows_tested": check_rows_tested,
-            }
+            threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
+                failed_rows_count, measurement_values
+            )
 
         elif self.failed_rows_check_yaml.query:
             if self.failed_rows_check_yaml.rows_tested_query:
-                check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
-                failed_rows_percent: Optional[float] = 0
-                if (
-                    isinstance(check_rows_tested, Number)
-                    and isinstance(failed_rows_count, Number)
-                    and check_rows_tested > 0
-                ):
-                    failed_rows_percent = failed_rows_count * 100 / check_rows_tested
-
-                if self.failed_rows_check_yaml.metric == "percent":
-                    threshold_value = failed_rows_percent
-                else:
-                    threshold_value = failed_rows_count
-
-                diagnostic_metric_values = {
-                    "failed_rows_count": failed_rows_count,
-                    "failed_rows_percent": failed_rows_percent,
-                    "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-                    "check_rows_tested": check_rows_tested,
-                }
+                threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
+                    failed_rows_count, measurement_values
+                )
             else:
                 threshold_value = failed_rows_count
 
@@ -182,6 +149,27 @@ class FailedRowsCheckImpl(CheckImpl):
             threshold_value=threshold_value,
             diagnostic_metric_values=diagnostic_metric_values,
         )
+
+    def _evaluate_with_rows_tested(
+        self, failed_rows_count: Optional[int], measurement_values: MeasurementValues
+    ) -> tuple[Optional[float], dict[str, float]]:
+        check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        failed_rows_percent: Optional[float] = 0
+        if isinstance(check_rows_tested, Number) and isinstance(failed_rows_count, Number) and check_rows_tested > 0:
+            failed_rows_percent = failed_rows_count * 100 / check_rows_tested
+
+        if self.failed_rows_check_yaml.metric == "percent":
+            threshold_value = failed_rows_percent
+        else:
+            threshold_value = failed_rows_count
+
+        diagnostic_metric_values = {
+            "failed_rows_count": failed_rows_count,
+            "failed_rows_percent": failed_rows_percent,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "check_rows_tested": check_rows_tested,
+        }
+        return threshold_value, diagnostic_metric_values
 
     def get_threshold_metric_impl(self) -> Optional[MetricImpl]:
         return self.failed_rows_count_metric_impl
