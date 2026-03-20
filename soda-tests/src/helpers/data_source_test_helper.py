@@ -199,6 +199,10 @@ class DataSourceTestHelper:
             ds_type = self.data_source_impl.type_name
             if os.getenv("DWH_USE_IN_SOURCE_TRANSFER", "").lower() == "true":
                 ds_type = f"{ds_type}_insource"
+            # Use a separate snapshot subdirectory for non-primary helpers
+            # (e.g. secondary_datasource) to avoid file collisions.
+            if self.name != "primary_datasource":
+                ds_type = f"{ds_type}_{self.name}"
             self._snapshot_manager = SnapshotManager(
                 datasource_type=ds_type,
                 snapshot_dir=snapshot_dir,
