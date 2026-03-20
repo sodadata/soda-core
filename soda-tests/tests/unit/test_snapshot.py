@@ -897,8 +897,10 @@ class TestSnapshotSchemaPlaceholder:
             QueryResult(rows=[("dev_niels",)], columns=None),
         )
         normalized = conn._normalize_for_snapshot(entry)
-        assert normalized.sql == f'SELECT * FROM "soda"."{PLACEHOLDER}"."t"'
-        assert normalized.result.rows == [(PLACEHOLDER,)]
+        # _normalize_value lowercases all placeholders for uniform storage
+        lc = PLACEHOLDER.lower()
+        assert normalized.sql == f'SELECT * FROM "soda"."{lc}"."t"'
+        assert normalized.result.rows == [(lc,)]
 
     def test_denormalize_replaces_placeholder_with_real(self):
         """_denormalize_from_snapshot replaces placeholder with real schema."""
@@ -910,10 +912,12 @@ class TestSnapshotSchemaPlaceholder:
             schema_placeholder=PLACEHOLDER,
             real_schema_name="ci_main_2026",
         )
+        # Snapshots always store lowercase placeholders (as produced by _normalize_value)
+        lc = PLACEHOLDER.lower()
         entry = SnapshotEntry(
             "query",
-            f'SELECT * FROM "soda"."{PLACEHOLDER}"."t"',
-            QueryResult(rows=[(PLACEHOLDER,)], columns=None),
+            f'SELECT * FROM "soda"."{lc}"."t"',
+            QueryResult(rows=[(lc,)], columns=None),
         )
         denormalized = conn._denormalize_from_snapshot(entry)
         assert denormalized.sql == 'SELECT * FROM "soda"."ci_main_2026"."t"'
@@ -955,23 +959,25 @@ class TestSnapshotSchemaPlaceholder:
         real_conn.execute_query.assert_called_once_with(sql, log_query=True)
         assert result.rows == [("dev_niels",)]
 
-        # Snapshot stores SQL and results with placeholder
+        # Snapshot stores SQL and results with lowercase placeholder
+        lc = PLACEHOLDER.lower()
         loaded = manager.load(test_id)
-        assert loaded[0].sql == f'SELECT schema FROM "soda"."{PLACEHOLDER}"."t"'
-        assert loaded[0].result.rows == [(PLACEHOLDER,)]
+        assert loaded[0].sql == f'SELECT schema FROM "soda"."{lc}"."t"'
+        assert loaded[0].result.rows == [(lc,)]
 
     def test_replay_across_environments(self, tmp_path):
         """Snapshot recorded on env A replays on env B (different schema name)."""
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         test_id = "tests/test_x.py::test_cross_env"
 
-        # Snapshot was saved with placeholder (as if recorded on env A)
+        # Snapshot was saved with lowercase placeholder (as produced by _normalize_value)
+        lc = PLACEHOLDER.lower()
         manager.save(
             test_id,
             [SnapshotEntry(
                 "query",
-                f'SELECT schema FROM "soda"."{PLACEHOLDER}"."t"',
-                QueryResult(rows=[(PLACEHOLDER,)], columns=None),
+                f'SELECT schema FROM "soda"."{lc}"."t"',
+                QueryResult(rows=[(lc,)], columns=None),
             )],
         )
 
@@ -1014,7 +1020,860 @@ class TestSnapshotSchemaPlaceholder:
             conn.execute_query(sql)
         conn.finalize()
 
-        # Snapshot stores both original and lowercased placeholder forms
+        # Snapshot stores lowercased placeholder forms (uniform lowercase storage)
         loaded = manager.load(test_id)
-        assert PLACEHOLDER in loaded[0].sql
         assert PLACEHOLDER.lower() in loaded[0].sql
+
+
+# ---------------------------------------------------------------------------
+# Passthrough queries: bypass snapshot entirely
+# ---------------------------------------------------------------------------
+
+
+class TestPassthroughQueries:
+    """Tests for passthrough_queries that bypass snapshot recording/replay."""
+
+    def test_passthrough_bypasses_snapshot_in_record_mode(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        conn.passthrough_queries = {"SELECT @@location": QueryResult(rows=[("US",)], columns=None)}
+
+        test_id = "tests/test_x.py::test_passthrough_record"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("SELECT @@location")
+
+        assert result.rows == [("US",)]
+        # Real connection should NOT have been called for the passthrough query
+        real_conn.execute_query.assert_not_called()
+
+    def test_passthrough_bypasses_snapshot_in_replay_mode(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_passthrough_replay"
+
+        # Save a snapshot with a real query (not the passthrough one)
+        manager.save(test_id, [SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))])
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.passthrough_queries = {"SELECT @@location": QueryResult(rows=[("EU",)], columns=None)}
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # Passthrough returns mock result without consuming snapshot entries
+            pt_result = conn.execute_query("SELECT @@location")
+            # Real snapshot entry is still available
+            real_result = conn.execute_query("SELECT 1")
+
+        assert pt_result.rows == [("EU",)]
+        assert real_result.rows == [(1,)]
+
+    def test_passthrough_not_recorded_in_snapshot(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        conn.passthrough_queries = {"SELECT @@location": QueryResult(rows=[("US",)], columns=None)}
+
+        test_id = "tests/test_x.py::test_passthrough_not_stored"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT @@location")  # passthrough
+            conn.execute_query("SELECT 42")  # real query
+
+        conn.finalize()
+        loaded = manager.load(test_id)
+        # Only the real query should be in the snapshot
+        assert len(loaded) == 1
+        assert loaded[0].sql == "SELECT 42"
+
+    def test_passthrough_strips_whitespace(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        conn.passthrough_queries = {"SELECT @@location": QueryResult(rows=[("US",)], columns=None)}
+
+        test_id = "tests/test_x.py::test_passthrough_strip"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("  SELECT @@location  ")
+
+        assert result.rows == [("US",)]
+
+
+# ---------------------------------------------------------------------------
+# Record-mode cached queries: return cached result AND record in snapshot
+# ---------------------------------------------------------------------------
+
+
+class TestRecordModeCachedQueries:
+    """Tests for record_mode_cached_queries that cache expensive queries."""
+
+    def test_cached_query_returns_result_without_db_hit(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        cached_result = QueryResult(
+            rows=[("public", "test_table", "BASE TABLE")],
+            columns=(PicklableColumn("schema", 1043, None, None, None, None, None),),
+        )
+        conn.record_mode_cached_queries = {"SELECT * FROM metadata": cached_result}
+
+        test_id = "tests/test_x.py::test_cached_no_db"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("SELECT * FROM metadata")
+
+        assert result.rows == [("public", "test_table", "BASE TABLE")]
+        # Real connection should NOT have been called
+        real_conn.execute_query.assert_not_called()
+
+    def test_cached_query_still_recorded_in_snapshot(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        cached_result = QueryResult(rows=[("t1",)], columns=None)
+        conn.record_mode_cached_queries = {"SELECT tables": cached_result}
+
+        test_id = "tests/test_x.py::test_cached_recorded"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT tables")
+
+        conn.finalize()
+        loaded = manager.load(test_id)
+        assert len(loaded) == 1
+        assert loaded[0].sql == "SELECT tables"
+        assert loaded[0].result.rows == [("t1",)]
+
+    def test_non_cached_query_hits_db_normally(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[(99,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        conn.record_mode_cached_queries = {"SELECT cached": QueryResult(rows=[(1,)], columns=None)}
+
+        test_id = "tests/test_x.py::test_non_cached"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("SELECT not_cached")
+
+        assert result.rows == [(99,)]
+        real_conn.execute_query.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Extra replacements: additional placeholder→real_value normalization
+# ---------------------------------------------------------------------------
+
+
+class TestExtraReplacements:
+    """Tests for extra_replacements dict used by DWH interceptor."""
+
+    def test_normalize_with_extra_replacements(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="record")
+        conn.extra_replacements = {"__$$__SCAN_ID__$$__": "abc123"}
+
+        entry = SnapshotEntry("query", "SELECT * FROM scan_abc123", QueryResult(rows=[("abc123",)], columns=None))
+        normalized = conn._normalize_for_snapshot(entry)
+        assert "abc123" not in normalized.sql
+        assert "__$$__scan_id__$$__" in normalized.sql
+        assert normalized.result.rows == [("__$$__scan_id__$$__",)]
+
+    def test_denormalize_with_extra_replacements(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.extra_replacements = {"__$$__SCAN_ID__$$__": "xyz789"}
+
+        entry = SnapshotEntry(
+            "query",
+            "SELECT * FROM scan___$$__scan_id__$$__",
+            QueryResult(rows=[("__$$__scan_id__$$__",)], columns=None),
+        )
+        denormalized = conn._denormalize_from_snapshot(entry)
+        assert denormalized.sql == "SELECT * FROM scan_xyz789"
+        assert denormalized.result.rows == [("xyz789",)]
+
+    def test_extra_replacements_combined_with_schema_placeholder(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(
+            rows=[("dev_schema", "scan_001")], columns=None
+        )
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real_conn,
+            snapshot_manager=manager,
+            mode="record",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="dev_schema",
+        )
+        conn.extra_replacements = {"__$$__SCAN__$$__": "scan_001"}
+
+        test_id = "tests/test_x.py::test_combined_replacements"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT dev_schema, scan_001")
+
+        conn.finalize()
+        loaded = manager.load(test_id)
+        # Both schema and scan ID should be replaced
+        assert "dev_schema" not in loaded[0].sql
+        assert "scan_001" not in loaded[0].sql
+
+    def test_extra_replacements_in_record_replay_roundtrip(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_extra_roundtrip"
+
+        # --- Record with scan_id=aaa ---
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[("aaa",)], columns=None)
+
+        record_conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        record_conn.extra_replacements = {"__$$__SCAN__$$__": "aaa"}
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            record_conn.execute_query("SELECT aaa FROM t")
+        record_conn.finalize()
+
+        # --- Replay with scan_id=bbb (different run) ---
+        replay_conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        replay_conn.extra_replacements = {"__$$__SCAN__$$__": "bbb"}
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = replay_conn.execute_query("SELECT bbb FROM t")
+
+        assert result.rows == [("bbb",)]
+
+
+# ---------------------------------------------------------------------------
+# Timestamp and dynamic value normalization
+# ---------------------------------------------------------------------------
+
+
+class TestTimestampNormalization:
+    """Tests for normalize_timestamps and _normalize_dynamic_values."""
+
+    def test_normalize_iso_timestamp(self):
+        sql = "INSERT INTO t VALUES ('2026-03-16T18:24:35.151223')"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "'__$$__SODA_TIMESTAMP__$$__'" in result
+        assert "2026-03-16" not in result
+
+    def test_normalize_oracle_timestamp(self):
+        sql = "INSERT INTO t VALUES (TIMESTAMP '2026-03-18 14:09:40')"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "'__$$__SODA_TIMESTAMP__$$__'" in result
+        assert "2026-03-18" not in result
+
+    def test_normalize_timestamp_with_timezone(self):
+        sql = "INSERT INTO t VALUES ('2026-03-16T17:24:35+00:00')"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "'__$$__SODA_TIMESTAMP__$$__'" in result
+
+    def test_normalize_soda_temp_uuid(self):
+        sql = "CREATE TABLE __soda_temp_abcdef01234567890abcdef012345678 AS SELECT 1"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "__soda_temp___$$__SODA_UUID__$$__" in result
+        assert "abcdef01234567890abcdef012345678" not in result
+
+    def test_normalize_soda_temp_uuid_case_insensitive(self):
+        sql = "DROP TABLE __SODA_TEMP_ABCDEF01234567890ABCDEF012345678"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "__soda_temp___$$__SODA_UUID__$$__" in result
+
+    def test_sql_matches_with_timestamps_enabled(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.normalize_timestamps = True
+
+        stored = "INSERT INTO t VALUES ('2026-03-16T18:24:35.151223')"
+        incoming = "INSERT INTO t VALUES ('2026-03-20T10:00:00.000000')"
+        assert conn._sql_matches(stored, incoming)
+
+    def test_sql_matches_without_timestamps_disabled(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.normalize_timestamps = False
+
+        stored = "INSERT INTO t VALUES ('2026-03-16T18:24:35.151223')"
+        incoming = "INSERT INTO t VALUES ('2026-03-20T10:00:00.000000')"
+        assert not conn._sql_matches(stored, incoming)
+
+    def test_replay_matches_despite_different_timestamps(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_ts_replay"
+
+        # Save snapshot with one timestamp
+        manager.save(
+            test_id,
+            [SnapshotEntry(
+                "update",
+                "INSERT INTO t (ts) VALUES ('2026-03-16T18:24:35.151223')",
+                None,
+            )],
+        )
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.normalize_timestamps = True
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # Different timestamp — should still match because normalize_timestamps=True
+            conn.execute_update("INSERT INTO t (ts) VALUES ('2026-03-20T10:00:00.000000')")
+        # No exception = success
+
+    def test_replay_with_different_soda_temp_uuid(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_uuid_replay"
+
+        manager.save(
+            test_id,
+            [SnapshotEntry(
+                "update",
+                "CREATE TABLE __soda_temp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1 AS SELECT 1",
+                None,
+            )],
+        )
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.normalize_timestamps = True
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("CREATE TABLE __soda_temp_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2 AS SELECT 1")
+
+
+# ---------------------------------------------------------------------------
+# Unconsumed entries detection
+# ---------------------------------------------------------------------------
+
+
+class TestUnconsumedEntries:
+    """Tests for detection of unconsumed snapshot entries."""
+
+    def test_finalize_raises_on_unconsumed_entries(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_unconsumed"
+
+        # Snapshot has 2 entries
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None)),
+            ],
+        )
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT 1")  # consume only the first entry
+            # Second entry is unconsumed
+
+        # finalize() should raise because of unconsumed entries
+        with pytest.raises(SnapshotMismatchError, match="unconsumed"):
+            conn.finalize()
+
+    def test_boundary_transition_logs_warning_for_unconsumed(self, tmp_path):
+        """When transitioning to a new test, unconsumed entries are logged (not raised)."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id_1 = "tests/test_x.py::test_has_unconsumed"
+        test_id_2 = "tests/test_x.py::test_next"
+
+        manager.save(
+            test_id_1,
+            [
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None)),
+            ],
+        )
+        manager.save(
+            test_id_2,
+            [SnapshotEntry("query", "SELECT 3", QueryResult(rows=[(3,)], columns=None))],
+        )
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
+            conn.execute_query("SELECT 1")  # consume only 1 of 2
+
+        # Transition to next test — unconsumed entry should be logged, not raised
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
+            result = conn.execute_query("SELECT 3")
+
+        assert result.rows == [(3,)]
+
+    def test_unconsumed_does_not_affect_next_test(self, tmp_path):
+        """After logging unconsumed entries, next test replays normally."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id_1 = "tests/test_x.py::test_incomplete"
+        test_id_2 = "tests/test_x.py::test_complete"
+
+        manager.save(
+            test_id_1,
+            [
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None)),
+            ],
+        )
+        manager.save(
+            test_id_2,
+            [
+                SnapshotEntry("query", "SELECT A", QueryResult(rows=[("a",)], columns=None)),
+                SnapshotEntry("query", "SELECT B", QueryResult(rows=[("b",)], columns=None)),
+            ],
+        )
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        # First test: consume only 1 entry (leaves 1 unconsumed)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
+            conn.execute_query("SELECT 1")
+
+        # Second test: should replay its own snapshot fully
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
+            r1 = conn.execute_query("SELECT A")
+            r2 = conn.execute_query("SELECT B")
+
+        assert r1.rows == [("a",)]
+        assert r2.rows == [("b",)]
+
+
+# ---------------------------------------------------------------------------
+# __getattr__ proxy
+# ---------------------------------------------------------------------------
+
+
+class TestGetattr:
+    """Tests for __getattr__ attribute proxying to real connection."""
+
+    def test_proxies_attribute_to_real_connection(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        real_conn.athena_staging_dir = "/some/s3/path"
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        assert conn.athena_staging_dir == "/some/s3/path"
+
+    def test_triggers_factory_when_real_is_none(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        real_conn.custom_attr = "hello"
+
+        factory_calls = []
+
+        def factory():
+            factory_calls.append(True)
+            return real_conn
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            fallback_connection_factory=factory,
+        )
+
+        result = conn.custom_attr
+        assert result == "hello"
+        assert len(factory_calls) == 1
+
+    def test_raises_attribute_error_for_missing(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+
+        # Use a real object (not MagicMock) so hasattr() returns False for missing attrs
+        class FakeConn:
+            connection = object()
+            connection_properties = {}
+            custom_attr = "exists"
+
+        conn = SnapshotDataSourceConnection(FakeConn(), manager, mode="record")
+
+        with pytest.raises(AttributeError, match="no_such_attribute"):
+            _ = conn.no_such_attribute
+
+    def test_raises_attribute_error_when_no_real_and_no_factory(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with pytest.raises(AttributeError):
+            _ = conn.some_missing_attr
+
+
+# ---------------------------------------------------------------------------
+# _safe_pickle_value
+# ---------------------------------------------------------------------------
+
+
+class TestSafePickleValue:
+    """Tests for _safe_pickle_value fallback for unpicklable types."""
+
+    def test_picklable_value_unchanged(self):
+        assert SnapshotDataSourceConnection._safe_pickle_value(42) == 42
+        assert SnapshotDataSourceConnection._safe_pickle_value("hello") == "hello"
+        assert SnapshotDataSourceConnection._safe_pickle_value(None) is None
+
+    def test_unpicklable_value_converted_to_string(self):
+        # Create a value that raises TypeError when pickled
+        class Unpicklable:
+            def __reduce__(self):
+                raise TypeError("cannot pickle this")
+
+            def __str__(self):
+                return "unpicklable_value"
+
+        result = SnapshotDataSourceConnection._safe_pickle_value(Unpicklable())
+        assert result == "unpicklable_value"
+
+
+# ---------------------------------------------------------------------------
+# Dot-separated path normalization (Dremio-style)
+# ---------------------------------------------------------------------------
+
+
+class TestDotSeparatedNormalization:
+    """Tests for normalization of dot-separated identifiers (e.g. Dremio)."""
+
+    def test_to_quoted_helper(self):
+        assert SnapshotDataSourceConnection._to_quoted("a.b.c") == '"a"."b"."c"'
+        assert SnapshotDataSourceConnection._to_quoted("schema") == '"schema"'
+
+    def test_normalize_dot_separated_path(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="record")
+        conn.extra_replacements = {"__$$__DWH__$$__": "catalog.schema.prefix"}
+
+        entry = SnapshotEntry(
+            "query",
+            'SELECT * FROM "catalog"."schema"."prefix"."table"',
+            None,
+        )
+        normalized = conn._normalize_for_snapshot(entry)
+        assert '"catalog"."schema"."prefix"' not in normalized.sql.lower()
+
+    def test_denormalize_dot_separated_path(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.extra_replacements = {"__$$__DWH__$$__": "my_cat.my_schema.my_prefix"}
+
+        # Snapshot stored with lowercase placeholder (as normalize does)
+        entry = SnapshotEntry(
+            "query",
+            'SELECT * FROM "__$$__dwh__$$__"."table"',
+            None,
+        )
+        # After denormalize, placeholder should be replaced with dot-separated quoted form
+        denormalized = conn._denormalize_from_snapshot(entry)
+        assert "__$$__dwh__$$__" not in denormalized.sql
+
+
+# ---------------------------------------------------------------------------
+# Connection lifecycle: commit, rollback, close
+# ---------------------------------------------------------------------------
+
+
+class TestConnectionLifecycle:
+    """Tests for commit(), rollback(), close_connection()."""
+
+    def test_commit_delegates_to_real(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        conn.commit()
+        real_conn.commit.assert_called_once()
+
+    def test_commit_noop_in_replay(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        # Should not raise
+        conn.commit()
+
+    def test_rollback_delegates_to_real(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        conn.rollback()
+        real_conn.rollback.assert_called_once()
+
+    def test_rollback_noop_in_replay(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.rollback()
+
+    def test_close_connection_finalizes_and_closes_real(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        test_id = "tests/test_x.py::test_close"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT 1")
+
+        # Remove PYTEST_CURRENT_TEST so close doesn't try to start a new test
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            conn.close_connection()
+
+        # Snapshot should have been saved via finalize()
+        loaded = manager.load(test_id)
+        assert loaded is not None
+        assert len(loaded) == 1
+
+        # Real connection should have been closed
+        real_conn.close_connection.assert_called_once()
+
+        # connection should be set to None
+        assert conn.connection is None
+
+
+# ---------------------------------------------------------------------------
+# Fallback for execute_query_iterate and execute_query_one_by_one
+# ---------------------------------------------------------------------------
+
+
+class TestFallbackIterateAndOneByOne:
+    """Tests for fallback in iterate and one_by_one modes."""
+
+    def test_iterate_fallback_on_mismatch(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_iterate_fallback"
+
+        desc = (PicklableColumn("val", 23, None, None, None, None, None),)
+        # Snapshot has iterate with old SQL
+        manager.save(
+            test_id,
+            [SnapshotEntry("query_iterate", "SELECT old FROM t", ([(1,), (2,)], desc))],
+        )
+
+        real_conn = _make_mock_connection()
+        # Set up real connection to return data via execute_query_iterate
+        from contextlib import contextmanager
+
+        fake_cursor = FakeCursor([(10,), (20,), (30,)], description=desc, rowcount=3)
+        real_iter = QueryResultIterator(fake_cursor)
+
+        @contextmanager
+        def mock_iterate(sql, log_query=True):
+            yield real_iter
+
+        real_conn.execute_query_iterate = mock_iterate
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            with conn.execute_query_iterate("SELECT new FROM t") as it:
+                rows = list(it)
+
+        assert rows == [(10,), (20,), (30,)]
+
+    def test_one_by_one_fallback_on_mismatch(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_obo_fallback"
+
+        desc = (PicklableColumn("id", 23, None, None, None, None, None),)
+        # Snapshot has one_by_one with old SQL
+        manager.save(
+            test_id,
+            [SnapshotEntry("query_one_by_one", "SELECT old FROM t", (desc, [(1,), (2,)]))],
+        )
+
+        real_conn = _make_mock_connection()
+
+        def mock_one_by_one(sql, row_callback, log_query=True, row_limit=None):
+            for row in [(100,), (200,)]:
+                row_callback(row, desc)
+            return desc
+
+        real_conn.execute_query_one_by_one = mock_one_by_one
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+
+        captured = []
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query_one_by_one("SELECT new FROM t", lambda row, desc: captured.append(row))
+
+        assert captured == [(100,), (200,)]
+
+
+# ---------------------------------------------------------------------------
+# Session-level operations (no PYTEST_CURRENT_TEST)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionLevelOperations:
+    """Tests for operations outside of a test context."""
+
+    def test_session_level_iterate_passes_through(self):
+        from contextlib import contextmanager
+
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        desc = (PicklableColumn("v", 23, None, None, None, None, None),)
+        fake_cursor = FakeCursor([(1,)], description=desc, rowcount=1)
+        real_iter = QueryResultIterator(fake_cursor)
+
+        @contextmanager
+        def mock_iterate(sql, log_query=True):
+            yield real_iter
+
+        real_conn.execute_query_iterate = mock_iterate
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        # No PYTEST_CURRENT_TEST set
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            with conn.execute_query_iterate("SELECT 1") as it:
+                rows = list(it)
+
+        assert rows == [(1,)]
+
+    def test_session_level_one_by_one_passes_through(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        desc = (PicklableColumn("id", 23, None, None, None, None, None),)
+
+        def mock_one_by_one(sql, row_callback, log_query=True, row_limit=None):
+            row_callback((1,), desc)
+            return desc
+
+        real_conn.execute_query_one_by_one = mock_one_by_one
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        captured = []
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            conn.execute_query_one_by_one("SELECT 1", lambda row, desc: captured.append(row))
+
+        assert captured == [(1,)]
+
+    def test_session_level_without_real_conn_raises_for_query(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            with pytest.raises(RuntimeError, match="No real connection"):
+                conn.execute_query("SELECT 1")
+
+    def test_session_level_without_real_conn_raises_for_update(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            with pytest.raises(RuntimeError, match="No real connection"):
+                conn.execute_update("CREATE TABLE t (id INT)")
+
+    def test_session_level_without_real_conn_raises_for_iterate(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            with pytest.raises(RuntimeError, match="No real connection"):
+                with conn.execute_query_iterate("SELECT 1") as it:
+                    list(it)
+
+    def test_session_level_without_real_conn_raises_for_one_by_one(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
+            with pytest.raises(RuntimeError, match="No real connection"):
+                conn.execute_query_one_by_one("SELECT 1", lambda row, desc: None)
+
+
+# ---------------------------------------------------------------------------
+# Row limit in execute_query_one_by_one replay
+# ---------------------------------------------------------------------------
+
+
+class TestRowLimitReplay:
+    """Tests for row_limit support in execute_query_one_by_one replay."""
+
+    def test_one_by_one_respects_row_limit_in_replay(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_row_limit"
+
+        desc = (PicklableColumn("id", 23, None, None, None, None, None),)
+        # Snapshot recorded 5 rows
+        manager.save(
+            test_id,
+            [SnapshotEntry("query_one_by_one", "SELECT id FROM t", (desc, [(1,), (2,), (3,), (4,), (5,)]))],
+        )
+
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+        captured = []
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query_one_by_one("SELECT id FROM t", lambda row, desc: captured.append(row), row_limit=3)
+
+        # Only 3 rows should have been delivered despite 5 being in the snapshot
+        assert captured == [(1,), (2,), (3,)]
+
+
+# ---------------------------------------------------------------------------
+# format_rows delegation
+# ---------------------------------------------------------------------------
+
+
+class TestFormatRows:
+    """Tests for format_rows delegation."""
+
+    def test_format_rows_delegates_to_real(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        real_conn = _make_mock_connection()
+        real_conn.format_rows.return_value = [("formatted",)]
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+        result = conn.format_rows([("raw",)])
+        assert result == [("formatted",)]
+        real_conn.format_rows.assert_called_once_with([("raw",)])
+
+    def test_format_rows_identity_without_real(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        rows = [("a", 1), ("b", 2)]
+        assert conn.format_rows(rows) == rows
+
+
+# ---------------------------------------------------------------------------
+# Normalize PicklableColumn in values
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizePicklableColumnInValues:
+    """Tests for recursive normalization of PicklableColumn objects."""
+
+    def test_normalize_value_in_picklable_column(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="record",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="dev_schema",
+        )
+
+        col = PicklableColumn("dev_schema", 1043, None, None, None, None, None)
+        # _normalize_value directly handles PicklableColumn recursion
+        normalized_col = conn._normalize_value(col, "dev_schema", PLACEHOLDER)
+        assert isinstance(normalized_col, PicklableColumn)
+        assert normalized_col.name == PLACEHOLDER.lower()
+        assert normalized_col.type_code == 1043
+
+    def test_denormalize_value_in_picklable_column(self):
+        manager = SnapshotManager("postgres", "/tmp/unused")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            schema_placeholder=PLACEHOLDER,
+            real_schema_name="prod_schema",
+        )
+
+        col = PicklableColumn(PLACEHOLDER.lower(), 1043, None, None, None, None, None)
+        denormalized_col = conn._denormalize_value(col, PLACEHOLDER, "prod_schema")
+        assert isinstance(denormalized_col, PicklableColumn)
+        assert denormalized_col.name == "prod_schema"
