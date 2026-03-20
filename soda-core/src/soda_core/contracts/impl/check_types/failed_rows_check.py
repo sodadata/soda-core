@@ -102,6 +102,17 @@ class FailedRowsCheckImpl(CheckImpl):
                 )
                 self.queries.append(failed_rows_count_query)
 
+            if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
+                self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+                    RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                )
+                rows_tested_query: Query = RowsTestedQuery(
+                    data_source_impl=contract_impl.data_source_impl,
+                    metrics=[self.check_rows_tested_metric_impl],
+                    rows_tested_sql=self.failed_rows_check_yaml.rows_tested_query,
+                )
+                self.queries.append(rows_tested_query)
+
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
@@ -133,12 +144,35 @@ class FailedRowsCheckImpl(CheckImpl):
             }
 
         elif self.failed_rows_check_yaml.query:
-            threshold_value = failed_rows_count
+            if self.failed_rows_check_yaml.rows_tested_query:
+                check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
+                failed_rows_percent: Optional[float] = 0
+                if (
+                    isinstance(check_rows_tested, Number)
+                    and isinstance(failed_rows_count, Number)
+                    and check_rows_tested > 0
+                ):
+                    failed_rows_percent = failed_rows_count * 100 / check_rows_tested
 
-            diagnostic_metric_values = {
-                "failed_rows_count": failed_rows_count,
-                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-            }
+                if self.failed_rows_check_yaml.metric == "percent":
+                    threshold_value = failed_rows_percent
+                else:
+                    threshold_value = failed_rows_count
+
+                diagnostic_metric_values = {
+                    "failed_rows_count": failed_rows_count,
+                    "failed_rows_percent": failed_rows_percent,
+                    "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                    "check_rows_tested": check_rows_tested,
+                }
+            else:
+                threshold_value = failed_rows_count
+
+                diagnostic_metric_values = {
+                    "failed_rows_count": failed_rows_count,
+                    "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                    "check_rows_tested": None,
+                }
 
         outcome = self.evaluate_threshold(threshold_value)
 
@@ -234,6 +268,22 @@ class FailedRowsCountQuery(Query):
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
         except Exception as e:
             logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
+            return []
+
+        metric_value = query_result.rows[0][0]
+        metric_impl: MetricImpl = self.metrics[0]
+        return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
+
+
+class RowsTestedQuery(Query):
+    def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], rows_tested_sql: str):
+        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=rows_tested_sql)
+
+    def execute(self) -> list[Measurement]:
+        try:
+            query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
+        except Exception as e:
+            logger.error(msg=f"Could not execute rows tested query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
         metric_value = query_result.rows[0][0]
