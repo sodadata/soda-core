@@ -286,6 +286,9 @@ class RowsTestedQuery(Query):
             logger.error(msg=f"Could not execute rows tested query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
-        metric_value = query_result.rows[0][0]
+        if not query_result.rows:
+            metric_value = None
+        else:
+            metric_value = query_result.rows[0][0]
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]

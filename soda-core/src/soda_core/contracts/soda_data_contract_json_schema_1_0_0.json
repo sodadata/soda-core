@@ -8,34 +8,18 @@
     "properties": {
         "dataset": {
             "description": "The qualified name of the dataset, which is the combination dataset name, datasource name and database information. Format is [datasource]/[dataset_prefix_1]/.../[dataset_prefix_N]/[dataset]",
-            "type": "string"
+            "type": "string",
         },
-        "description": {
-            "description": "The description of the dataset",
-            "type": "string"
-        },
-        "filter": {
-            "description": "The filter where clause to be applied to the dataset",
-            "type": "string"
-        },
+        "description": {"description": "The description of the dataset", "type": "string"},
+        "filter": {"description": "The filter where clause to be applied to the dataset", "type": "string"},
         "variables": {
             "description": "The variables to be used within the contract file",
             "type": "object",
             "additionalProperties": {
-                "type": [
-                    "object",
-                    "null"
-                ],
-                "properties": {
-                    "default": {
-                        "type": [
-                            "string",
-                            "number"
-                        ]
-                    }
-                },
-                "additionalProperties": false
-            }
+                "type": ["object", "null"],
+                "properties": {"default": {"type": ["string", "number"]}},
+                "additionalProperties": false,
+            },
         },
         "soda_agent": {
             "description": "The agent configuration to be used within the contract file",
@@ -46,26 +30,20 @@
                     "properties": {
                         "cron": {
                             "type": "string",
-                            "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes."
+                            "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes.",
                         },
                         "timezone": {
                             "type": "string",
-                            "description": "The timezone to be used within the contract file"
+                            "description": "The timezone to be used within the contract file",
                         },
                         "variables": {
                             "type": "object",
                             "description": "The variables to be used within the contract file",
-                            "additionalProperties": {
-                                "type": [
-                                    "string",
-                                    "number"
-                                ],
-                                "additionalProperties": false
-                            }
-                        }
-                    }
+                            "additionalProperties": {"type": ["string", "number"], "additionalProperties": false},
+                        },
+                    },
                 }
-            }
+            },
         },
         "columns": {
             "description": "The list of columns, also known as 'the schema' of the dataset.",
@@ -75,24 +53,20 @@
                 "allOf": [
                     {
                         "type": "object",
-                        "required": [
-                            "name"
-                        ],
+                        "required": ["name"],
                         "properties": {
                             "name": {
                                 "description": "The name of the column as in the SQL data_source",
-                                "type": "string"
+                                "type": "string",
                             },
                             "description": {
                                 "description": "The description to be used anywhere this column is shown to users",
-                                "type": "string"
+                                "type": "string",
                             },
                             "data_type": {
                                 "description": "The SQL data type as in the data_source",
                                 "anyOf": [
-                                    {
-                                        "type": "string"
-                                    },
+                                    {"type": "string"},
                                     {
                                         "type": "string",
                                         "enum": [
@@ -125,18 +99,18 @@
                                             "DATE",
                                             "TIME",
                                             "TIMESTAMP",
-                                            "TIMESTAMP_TZ"
-                                        ]
-                                    }
-                                ]
+                                            "TIMESTAMP_TZ",
+                                        ],
+                                    },
+                                ],
                             },
                             "character_maximum_length": {
                                 "description": "Length is only checked by the schema check if character_maximum_length is specified in the column and supported by the data source.",
-                                "type": "number"
+                                "type": "number",
                             },
                             "optional": {
                                 "description": "When set to true, the schema check will not fail if the column is not present. Default is required.",
-                                "type": "boolean"
+                                "type": "boolean",
                             },
                             "checks": {
                                 "description": "Checks for this column",
@@ -156,55 +130,41 @@
                                                             "properties": {
                                                                 "name": {
                                                                     "description": "The display name for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
-                                                                "attributes": {
-                                                                    "$ref": "#/$defs/attributes"
-                                                                },
-                                                                "threshold": {
-                                                                    "$ref": "#/$defs/threshold"
-                                                                },
+                                                                "attributes": {"$ref": "#/$defs/attributes"},
+                                                                "threshold": {"$ref": "#/$defs/threshold"},
                                                                 "filter": {
                                                                     "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "missing_values": {
                                                                     "description": "Customized list of missing values. NULL is always considered missing so that does not have to be specified. If no customization is needed, consider specifying not_null:true instead.",
                                                                     "type": "array",
-                                                                    "items": {
-                                                                        "type": [
-                                                                            "integer",
-                                                                            "string"
-                                                                        ]
-                                                                    }
+                                                                    "items": {"type": ["integer", "string"]},
                                                                 },
                                                                 "missing_format": {
                                                                     "type": "object",
                                                                     "additionalProperties": false,
-                                                                    "required": [
-                                                                        "regex",
-                                                                        "name"
-                                                                    ],
+                                                                    "required": ["regex", "name"],
                                                                     "properties": {
                                                                         "regex": {
                                                                             "description": "Customized regex to identify missing values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
-                                                                            "type": "string"
+                                                                            "type": "string",
                                                                         },
                                                                         "name": {
                                                                             "description": "Name that describes the regex pattern.",
-                                                                            "type": "string"
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
+                                                                            "type": "string",
+                                                                        },
+                                                                    },
+                                                                },
+                                                            },
                                                         },
-                                                        {
-                                                            "type": "null"
-                                                        }
+                                                        {"type": "null"},
                                                     ]
                                                 },
                                                 "invalid": {
@@ -215,137 +175,97 @@
                                                             "properties": {
                                                                 "name": {
                                                                     "description": "The display name for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
-                                                                "attributes": {
-                                                                    "$ref": "#/$defs/attributes"
-                                                                },
-                                                                "threshold": {
-                                                                    "$ref": "#/$defs/threshold"
-                                                                },
+                                                                "attributes": {"$ref": "#/$defs/attributes"},
+                                                                "threshold": {"$ref": "#/$defs/threshold"},
                                                                 "filter": {
                                                                     "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "valid_values": {
                                                                     "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
                                                                     "type": "array",
-                                                                    "items": {
-                                                                        "type": [
-                                                                            "number",
-                                                                            "string"
-                                                                        ]
-                                                                    }
+                                                                    "items": {"type": ["number", "string"]},
                                                                 },
                                                                 "valid_format": {
                                                                     "type": "object",
                                                                     "additionalProperties": false,
-                                                                    "required": [
-                                                                        "regex",
-                                                                        "name"
-                                                                    ],
+                                                                    "required": ["regex", "name"],
                                                                     "properties": {
                                                                         "regex": {
                                                                             "description": "Customized regex to identify valid values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
-                                                                            "type": "string"
+                                                                            "type": "string",
                                                                         },
                                                                         "name": {
                                                                             "description": "Name that describes the regex pattern.",
-                                                                            "type": "string"
-                                                                        }
-                                                                    }
+                                                                            "type": "string",
+                                                                        },
+                                                                    },
                                                                 },
                                                                 "invalid_values": {
                                                                     "description": "A list of valid values. Only supports all strings or all numbers. Implies an invalid_count check in Soda.",
                                                                     "type": "array",
-                                                                    "items": {
-                                                                        "type": [
-                                                                            "number",
-                                                                            "string"
-                                                                        ]
-                                                                    }
+                                                                    "items": {"type": ["number", "string"]},
                                                                 },
                                                                 "invalid_format": {
                                                                     "type": "object",
                                                                     "additionalProperties": false,
-                                                                    "required": [
-                                                                        "regex",
-                                                                        "name"
-                                                                    ],
+                                                                    "required": ["regex", "name"],
                                                                     "properties": {
                                                                         "regex": {
                                                                             "description": "Customized regex to identify invalid values. The flavor of regex depends on the SQL engine / data_source. NULL is always considered missing so that does not have to be specified.",
-                                                                            "type": "string"
+                                                                            "type": "string",
                                                                         },
                                                                         "name": {
                                                                             "description": "Name that describes the regex pattern.",
-                                                                            "type": "string"
-                                                                        }
-                                                                    }
+                                                                            "type": "string",
+                                                                        },
+                                                                    },
                                                                 },
                                                                 "valid_length": {
                                                                     "description": "The length of the valid values",
-                                                                    "type": [
-                                                                        "number",
-                                                                        "string"
-                                                                    ]
+                                                                    "type": ["number", "string"],
                                                                 },
                                                                 "valid_min_length": {
                                                                     "description": "The minimum length of the valid values",
-                                                                    "type": [
-                                                                        "number",
-                                                                        "string"
-                                                                    ]
+                                                                    "type": ["number", "string"],
                                                                 },
                                                                 "valid_max_length": {
                                                                     "description": "The maximum length of the valid values",
-                                                                    "type": [
-                                                                        "number",
-                                                                        "string"
-                                                                    ]
+                                                                    "type": ["number", "string"],
                                                                 },
                                                                 "valid_min": {
                                                                     "description": "The minimum value of the valid values",
-                                                                    "type": [
-                                                                        "number",
-                                                                        "string"
-                                                                    ]
+                                                                    "type": ["number", "string"],
                                                                 },
                                                                 "valid_max": {
                                                                     "description": "The maximum value of the valid values",
-                                                                    "type": [
-                                                                        "number",
-                                                                        "string"
-                                                                    ]
+                                                                    "type": ["number", "string"],
                                                                 },
                                                                 "valid_reference_data": {
                                                                     "type": "object",
                                                                     "description": "Verify valid values occur in a reference dataset",
                                                                     "additionalProperties": false,
-                                                                    "required": [
-                                                                        "dataset",
-                                                                        "column"
-                                                                    ],
+                                                                    "required": ["dataset", "column"],
                                                                     "properties": {
                                                                         "dataset": {
                                                                             "description": "The dataset to be used for the reference data check. Dataset qualified name is required.",
-                                                                            "type": "string"
+                                                                            "type": "string",
                                                                         },
                                                                         "column": {
                                                                             "description": "The column to be used for the reference data check",
-                                                                            "type": "string"
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
+                                                                            "type": "string",
+                                                                        },
+                                                                    },
+                                                                },
+                                                            },
                                                         },
-                                                        {
-                                                            "type": "null"
-                                                        }
+                                                        {"type": "null"},
                                                     ]
                                                 },
                                                 "aggregate": {
@@ -356,21 +276,17 @@
                                                             "properties": {
                                                                 "name": {
                                                                     "description": "The display name for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
-                                                                "attributes": {
-                                                                    "$ref": "#/$defs/attributes"
-                                                                },
-                                                                "threshold": {
-                                                                    "$ref": "#/$defs/threshold"
-                                                                },
+                                                                "attributes": {"$ref": "#/$defs/attributes"},
+                                                                "threshold": {"$ref": "#/$defs/threshold"},
                                                                 "filter": {
                                                                     "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "function": {
                                                                     "description": "The function to be used for the aggregate check",
@@ -381,14 +297,11 @@
                                                                         "max",
                                                                         "minLength",
                                                                         "maxLength",
-                                                                        "avgLength"
-                                                                    ]
-                                                                }
+                                                                        "avgLength",
+                                                                    ],
+                                                                },
                                                             },
-                                                            "required": [
-                                                                "threshold",
-                                                                "function"
-                                                            ]
+                                                            "required": ["threshold", "function"],
                                                         }
                                                     ]
                                                 },
@@ -400,27 +313,21 @@
                                                             "properties": {
                                                                 "name": {
                                                                     "description": "The display name for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
-                                                                "attributes": {
-                                                                    "$ref": "#/$defs/attributes"
-                                                                },
-                                                                "threshold": {
-                                                                    "$ref": "#/$defs/threshold"
-                                                                },
+                                                                "attributes": {"$ref": "#/$defs/attributes"},
+                                                                "threshold": {"$ref": "#/$defs/threshold"},
                                                                 "filter": {
                                                                     "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                                    "type": "string"
-                                                                }
-                                                            }
+                                                                    "type": "string",
+                                                                },
+                                                            },
                                                         },
-                                                        {
-                                                            "type": "null"
-                                                        }
+                                                        {"type": "null"},
                                                     ]
                                                 },
                                                 "failed_rows": {
@@ -431,46 +338,41 @@
                                                             "properties": {
                                                                 "name": {
                                                                     "description": "The display name for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "expression": {
                                                                     "description": "The expression to be used for the failed rows check",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "query": {
                                                                     "description": "The query to be used for the failed rows check",
-                                                                    "type": "string"
+                                                                    "type": "string",
+                                                                },
+                                                                "rows_tested_query": {
+                                                                    "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
+                                                                    "type": "string",
+                                                                },
+                                                                "metric": {
+                                                                    "description": "The metric for threshold evaluation: count (default) or percent (requires rows_tested_query)",
+                                                                    "type": "string",
+                                                                    "enum": ["count", "percent"],
                                                                 },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
-                                                                "threshold": {
-                                                                    "$ref": "#/$defs/threshold"
-                                                                }
+                                                                "threshold": {"$ref": "#/$defs/threshold"},
                                                             },
                                                             "oneOf": [
                                                                 {
-                                                                    "required": [
-                                                                        "expression"
-                                                                    ],
-                                                                    "not": {
-                                                                        "required": [
-                                                                            "query"
-                                                                        ]
-                                                                    }
+                                                                    "required": ["expression"],
+                                                                    "not": {"required": ["query"]},
                                                                 },
                                                                 {
-                                                                    "required": [
-                                                                        "query"
-                                                                    ],
-                                                                    "not": {
-                                                                        "required": [
-                                                                            "expression"
-                                                                        ]
-                                                                    }
-                                                                }
-                                                            ]
+                                                                    "required": ["query"],
+                                                                    "not": {"required": ["expression"]},
+                                                                },
+                                                            ],
                                                         }
                                                     ]
                                                 },
@@ -482,59 +384,54 @@
                                                             "properties": {
                                                                 "name": {
                                                                     "description": "The display name for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "expression": {
                                                                     "description": "The expression to be used for the failed rows check",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
                                                                 "query": {
                                                                     "description": "The query to be used for the failed rows check",
-                                                                    "type": "string"
+                                                                    "type": "string",
+                                                                },
+                                                                "rows_tested_query": {
+                                                                    "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
+                                                                    "type": "string",
+                                                                },
+                                                                "metric": {
+                                                                    "description": "The metric for threshold evaluation: count (default) or percent (requires rows_tested_query)",
+                                                                    "type": "string",
+                                                                    "enum": ["count", "percent"],
                                                                 },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
-                                                                    "type": "string"
+                                                                    "type": "string",
                                                                 },
-                                                                "threshold": {
-                                                                    "$ref": "#/$defs/threshold"
-                                                                }
+                                                                "threshold": {"$ref": "#/$defs/threshold"},
                                                             },
                                                             "oneOf": [
                                                                 {
-                                                                    "required": [
-                                                                        "expression"
-                                                                    ],
-                                                                    "not": {
-                                                                        "required": [
-                                                                            "query"
-                                                                        ]
-                                                                    }
+                                                                    "required": ["expression"],
+                                                                    "not": {"required": ["query"]},
                                                                 },
                                                                 {
-                                                                    "required": [
-                                                                        "query"
-                                                                    ],
-                                                                    "not": {
-                                                                        "required": [
-                                                                            "expression"
-                                                                        ]
-                                                                    }
-                                                                }
-                                                            ]
+                                                                    "required": ["query"],
+                                                                    "not": {"required": ["expression"]},
+                                                                },
+                                                            ],
                                                         }
                                                     ]
-                                                }
+                                                },
                                             },
-                                            "additionalProperties": false
+                                            "additionalProperties": false,
                                         }
                                     ]
-                                }
-                            }
-                        }
+                                },
+                            },
+                        },
                     }
-                ]
-            }
+                ],
+            },
         },
         "checks": {
             "description": "A list of checks for this dataset executed by a Soda",
@@ -554,31 +451,25 @@
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
-                                            "attributes": {
-                                                "$ref": "#/$defs/attributes"
-                                            },
-                                            "threshold": {
-                                                "$ref": "#/$defs/threshold"
-                                            },
+                                            "attributes": {"$ref": "#/$defs/attributes"},
+                                            "threshold": {"$ref": "#/$defs/threshold"},
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                "type": "string"
-                                            }
-                                        }
+                                                "type": "string",
+                                            },
+                                        },
                                     },
-                                    {
-                                        "type": "null"
-                                    }
+                                    {"type": "null"},
                                 ]
                             }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
                     },
                     {
                         "type": "object",
@@ -592,39 +483,33 @@
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
-                                            "attributes": {
-                                                "$ref": "#/$defs/attributes"
-                                            },
-                                            "threshold": {
-                                                "$ref": "#/$defs/threshold"
-                                            },
+                                            "attributes": {"$ref": "#/$defs/attributes"},
+                                            "threshold": {"$ref": "#/$defs/threshold"},
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "allow_extra_columns": {
                                                 "description": "Allow columns that are not in the schema",
-                                                "type": "boolean"
+                                                "type": "boolean",
                                             },
                                             "allow_other_column_order": {
                                                 "description": "Allow columns to be in a different order than the schema",
-                                                "type": "boolean"
-                                            }
-                                        }
+                                                "type": "boolean",
+                                            },
+                                        },
                                     },
-                                    {
-                                        "type": "null"
-                                    }
+                                    {"type": "null"},
                                 ]
                             }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
                     },
                     {
                         "type": "object",
@@ -637,39 +522,30 @@
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "column": {
                                                 "description": "The column to be used for the freshness check",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
-                                            "attributes": {
-                                                "$ref": "#/$defs/attributes"
-                                            },
-                                            "threshold": {
-                                                "$ref": "#/$defs/thresholdFreshness"
-                                            },
+                                            "attributes": {"$ref": "#/$defs/attributes"},
+                                            "threshold": {"$ref": "#/$defs/thresholdFreshness"},
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                "type": "string"
-                                            }
+                                                "type": "string",
+                                            },
                                         },
-                                        "required": [
-                                            "threshold",
-                                            "column"
-                                        ]
+                                        "required": ["threshold", "column"],
                                     },
-                                    {
-                                        "type": "null"
-                                    }
+                                    {"type": "null"},
                                 ]
                             }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
                     },
                     {
                         "type": "object",
@@ -682,38 +558,30 @@
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "columns": {
                                                 "description": "The columns to be used for the duplicate check",
                                                 "type": "array",
-                                                "items": {
-                                                    "type": "string"
-                                                }
+                                                "items": {"type": "string"},
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
-                                            "attributes": {
-                                                "$ref": "#/$defs/attributes"
-                                            },
-                                            "threshold": {
-                                                "$ref": "#/$defs/threshold"
-                                            },
+                                            "attributes": {"$ref": "#/$defs/attributes"},
+                                            "threshold": {"$ref": "#/$defs/threshold"},
                                             "filter": {
                                                 "description": "Specifies a sql expression filter that should be applied on the metric",
-                                                "type": "string"
-                                            }
+                                                "type": "string",
+                                            },
                                         },
-                                        "required": [
-                                            "columns"
-                                        ]
+                                        "required": ["columns"],
                                     }
                                 ]
                             }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
                     },
                     {
                         "type": "object",
@@ -726,51 +594,40 @@
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "expression": {
                                                 "description": "The expression to be used for the failed rows check",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "query": {
                                                 "description": "The query to be used for the failed rows check",
-                                                "type": "string"
+                                                "type": "string",
+                                            },
+                                            "rows_tested_query": {
+                                                "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
+                                                "type": "string",
+                                            },
+                                            "metric": {
+                                                "description": "The metric for threshold evaluation: count (default) or percent (requires rows_tested_query)",
+                                                "type": "string",
+                                                "enum": ["count", "percent"],
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
-                                            "threshold": {
-                                                "$ref": "#/$defs/threshold"
-                                            }
+                                            "threshold": {"$ref": "#/$defs/threshold"},
                                         },
                                         "oneOf": [
-                                            {
-                                                "required": [
-                                                    "expression"
-                                                ],
-                                                "not": {
-                                                    "required": [
-                                                        "query"
-                                                    ]
-                                                }
-                                            },
-                                            {
-                                                "required": [
-                                                    "query"
-                                                ],
-                                                "not": {
-                                                    "required": [
-                                                        "expression"
-                                                    ]
-                                                }
-                                            }
-                                        ]
+                                            {"required": ["expression"], "not": {"required": ["query"]}},
+                                            {"required": ["query"], "not": {"required": ["expression"]}},
+                                        ],
                                     }
                                 ]
                             }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
                     },
                     {
                         "type": "object",
@@ -783,97 +640,53 @@
                                         "properties": {
                                             "name": {
                                                 "description": "The display name for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "expression": {
                                                 "description": "The expression to be used for the failed rows check",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "query": {
                                                 "description": "The query to be used for the failed rows check",
-                                                "type": "string"
+                                                "type": "string",
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",
-                                                "type": "string"
+                                                "type": "string",
                                             },
-                                            "threshold": {
-                                                "$ref": "#/$defs/threshold"
-                                            }
+                                            "threshold": {"$ref": "#/$defs/threshold"},
                                         },
                                         "oneOf": [
-                                            {
-                                                "required": [
-                                                    "expression"
-                                                ],
-                                                "not": {
-                                                    "required": [
-                                                        "query"
-                                                    ]
-                                                }
-                                            },
-                                            {
-                                                "required": [
-                                                    "query"
-                                                ],
-                                                "not": {
-                                                    "required": [
-                                                        "expression"
-                                                    ]
-                                                }
-                                            }
-                                        ]
+                                            {"required": ["expression"], "not": {"required": ["query"]}},
+                                            {"required": ["query"], "not": {"required": ["expression"]}},
+                                        ],
                                     }
                                 ]
                             }
                         },
-                        "additionalProperties": false
-                    }
+                        "additionalProperties": false,
+                    },
                 ]
-            }
-        }
+            },
+        },
     },
-    "required": [
-        "dataset",
-        "columns"
-    ],
+    "required": ["dataset", "columns"],
     "$defs": {
         "generic_check_properties": {
             "description": "NOT USED YET, problem with inheritance and additionalProperties",
             "type": "object",
             "properties": {
-                "name": {
-                    "description": "The display name for the check used in Soda Cloud",
-                    "type": "string"
-                },
-                "qualifier": {
-                    "description": "The qualifier for the check used in Soda Cloud",
-                    "type": "string"
-                },
-                "attributes": {
-                    "$ref": "#/$defs/attributes"
-                },
-                "threshold": {
-                    "$ref": "#/$defs/threshold"
-                },
+                "name": {"description": "The display name for the check used in Soda Cloud", "type": "string"},
+                "qualifier": {"description": "The qualifier for the check used in Soda Cloud", "type": "string"},
+                "attributes": {"$ref": "#/$defs/attributes"},
+                "threshold": {"$ref": "#/$defs/threshold"},
                 "filter": {
                     "description": "Specifies a sql expression filter that should be applied on the metric",
-                    "type": "string"
-                }
-            }
+                    "type": "string",
+                },
+            },
         },
-        "numeric_range": {
-            "anyOf": [
-                {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
-                    },
-                    "minItems": 2,
-                    "maxItems": 2
-                }
-            ]
-        },
+        "numeric_range": {"anyOf": [{"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}]},
         "format": {
             "type": "string",
             "enum": [
@@ -917,252 +730,121 @@
                 "ipv6 address",
                 "email",
                 "phone number",
-                "credit card number"
-            ]
+                "credit card number",
+            ],
         },
-        "attributes": {
-            "type": "object"
-        },
+        "attributes": {"type": "object"},
         "threshold": {
             "type": "object",
             "additionalProperties": false,
             "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/#thresholds",
             "properties": {
-                "metric": {
-                    "description": "The type of the metric value to check",
-                    "enum": [
-                        "count",
-                        "percent"
-                    ]
-                },
+                "metric": {"description": "The type of the metric value to check", "enum": ["count", "percent"]},
                 "must_be": {
                     "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
+                    "type": ["number", "string"],
                 },
                 "must_not_be": {
                     "description": "The value that the check metric (as specified in the type) may not have. The check passes if the metric doesn't have this value and fails otherwise.",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
+                    "type": ["number", "string"],
                 },
                 "must_be_greater_than": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is greater than the specified threshold value.",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
+                    "type": ["number", "string"],
                 },
                 "must_be_greater_than_or_equal": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is greater than or equal to the specified threshold value.",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
+                    "type": ["number", "string"],
                 },
                 "must_be_less_than": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is less than the specified threshold value.",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
+                    "type": ["number", "string"],
                 },
                 "must_be_less_than_or_equal": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is less than or equal to the specified threshold value.",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
+                    "type": ["number", "string"],
                 },
                 "must_be_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is not between the specified threshold values.",
-                    "$ref": "#/$defs/threshold_between"
+                    "$ref": "#/$defs/threshold_between",
                 },
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
-                    "$ref": "#/$defs/threshold_between"
-                }
-            },
-            "if": {
-                "type": "object",
-                "minProperties": 2
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "metric": true
+                    "$ref": "#/$defs/threshold_between",
                 },
-                "required": [
-                    "metric"
-                ]
             },
-            "allOf": [
-                {
-                    "type": "object",
-                    "maxProperties": 2
-                }
-            ]
+            "if": {"type": "object", "minProperties": 2},
+            "then": {"type": "object", "properties": {"metric": true}, "required": ["metric"]},
+            "allOf": [{"type": "object", "maxProperties": 2}],
         },
         "threshold_between": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "greater_than": {
-                    "type": [
-                        "number",
-                        "string"
-                    ]
-                },
-                "greater_than_or_equal": {
-                    "type": [
-                        "number",
-                        "string"
-                    ]
-                },
-                "less_than": {
-                    "type": [
-                        "number",
-                        "string"
-                    ]
-                },
-                "less_than_or_equal": {
-                    "type": [
-                        "number",
-                        "string"
-                    ]
-                }
+                "greater_than": {"type": ["number", "string"]},
+                "greater_than_or_equal": {"type": ["number", "string"]},
+                "less_than": {"type": ["number", "string"]},
+                "less_than_or_equal": {"type": ["number", "string"]},
             },
             "allOf": [
                 {
                     "oneOf": [
-                        {
-                            "required": [
-                                "greater_than"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "greater_than_or_equal"
-                            ]
-                        },
-                        {
-                            "not": {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "greater_than"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "greater_than_or_equal"
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
+                        {"required": ["greater_than"]},
+                        {"required": ["greater_than_or_equal"]},
+                        {"not": {"anyOf": [{"required": ["greater_than"]}, {"required": ["greater_than_or_equal"]}]}},
                     ]
                 },
                 {
                     "oneOf": [
-                        {
-                            "required": [
-                                "less_than"
-                            ]
-                        },
-                        {
-                            "required": [
-                                "less_than_or_equal"
-                            ]
-                        },
-                        {
-                            "not": {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "less_than"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "less_than_or_equal"
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
+                        {"required": ["less_than"]},
+                        {"required": ["less_than_or_equal"]},
+                        {"not": {"anyOf": [{"required": ["less_than"]}, {"required": ["less_than_or_equal"]}]}},
                     ]
-                }
-            ]
+                },
+            ],
         },
         "thresholdFreshness": {
             "type": "object",
             "additionalProperties": false,
             "description": "The threshold for the check. See documentation for more details: https://docs.soda.io/#thresholds",
             "properties": {
-                "unit": {
-                    "description": "The type of the metric value to check",
-                    "enum": [
-                        "minute",
-                        "hour",
-                        "day"
-                    ]
-                },
+                "unit": {"description": "The type of the metric value to check", "enum": ["minute", "hour", "day"]},
                 "must_be": {
                     "description": "YY The value the check metric (as specified in the type) must have for the check to pass; The check passes if the metric has the specified value, and fails otherwise; https://docs.soda.io/#thresholds",
-                    "type": "number"
+                    "type": "number",
                 },
                 "must_not_be": {
                     "description": "The value that the check metric (as specified in the type) may not have. The check passes if the metric doesn't have this value and fails otherwise.",
-                    "type": "number"
+                    "type": "number",
                 },
                 "must_be_greater_than": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is greater than the specified threshold value.",
-                    "type": "number"
+                    "type": "number",
                 },
                 "must_be_greater_than_or_equal": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is greater than or equal to the specified threshold value.",
-                    "type": "number"
+                    "type": "number",
                 },
                 "must_be_less_than": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is less than the specified threshold value.",
-                    "type": "number"
+                    "type": "number",
                 },
                 "must_be_less_than_or_equal": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is less than or equal to the specified threshold value.",
-                    "type": "number"
+                    "type": "number",
                 },
                 "must_be_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is not between the specified threshold values.",
-                    "$ref": "#/$defs/threshold_between"
+                    "$ref": "#/$defs/threshold_between",
                 },
                 "must_be_not_between": {
                     "description": "Specifies the threshold for the check. The check fails if the metric value is between the specified threshold values.",
-                    "$ref": "#/$defs/threshold_between"
-                }
-            },
-            "if": {
-                "type": "object",
-                "minProperties": 2
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "unit": true
+                    "$ref": "#/$defs/threshold_between",
                 },
-                "required": [
-                    "unit"
-                ]
             },
-            "allOf": [
-                {
-                    "type": "object",
-                    "maxProperties": 2
-                }
-            ]
-        }
-    }
+            "if": {"type": "object", "minProperties": 2},
+            "then": {"type": "object", "properties": {"unit": true}, "required": ["unit"]},
+            "allOf": [{"type": "object", "maxProperties": 2}],
+        },
+    },
 }

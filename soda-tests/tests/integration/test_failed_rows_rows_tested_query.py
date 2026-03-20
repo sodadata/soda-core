@@ -257,3 +257,32 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
 
     v4 = check_json["diagnostics"]["v4"]
     assert v4["checkRowsTested"] is None
+
+
+def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source_test_helper: DataSourceTestHelper):
+    """rows_tested_query with expression mode (no query) should emit a warning."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - failed_rows:
+                  expression: |
+                    ({end_quoted} - {start_quoted}) > 5
+                  rows_tested_query: |
+                    SELECT COUNT(*) FROM {test_table.qualified_name}
+        """,
+    )
+
+    warnings_str = contract_verification_result.get_warnings_str()
+    assert "rows_tested_query" in warnings_str
