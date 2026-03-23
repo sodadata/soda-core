@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Protocol
 
 
@@ -57,8 +57,9 @@ class QueryResult:
 
 
 class QueryResultIterator:
-    def __init__(self, cursor: Cursor):
+    def __init__(self, cursor: Cursor, format_row: Callable[[Any], tuple]):
         self._cursor = cursor
+        self._format_row = format_row
 
     def __iter__(self) -> QueryResultIterator:
         return self
@@ -68,7 +69,7 @@ class QueryResultIterator:
         if row is None:
             self._cursor.close()
             raise StopIteration
-        return row
+        return self._format_row(row)
 
     @property
     def row_count(self) -> int:
