@@ -80,7 +80,7 @@ class SparkDataFrameCursor:
             rows.append(row)
         return tuple(rows)
 
-    def fetchone(self) -> tuple:
+    def fetchone(self) -> tuple | None:
         # Fetches have overhead, so we load and cache small pages here as a compromise
         if self._cached_rows is None or self.cursor_index >= self._cache_index + self.CACHE_ROW_COUNT:
             with freeze_time(
