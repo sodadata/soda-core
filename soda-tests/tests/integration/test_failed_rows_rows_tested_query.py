@@ -32,7 +32,7 @@ def test_failed_rows_query_with_rows_tested_query(data_source_test_helper: DataS
         ]
     )
 
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -71,7 +71,7 @@ def test_failed_rows_query_with_rows_tested_query_percent_threshold(data_source_
     )
 
     # 2 out of 3 rows fail → ~66.7%, threshold is 50% → should fail
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -91,9 +91,12 @@ def test_failed_rows_query_with_rows_tested_query_percent_threshold(data_source_
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
-    v4 = check_json["diagnostics"]["v4"]
-    assert v4["checkRowsTested"] == 3
-    assert v4["failedRowsCount"] == 2
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "failed_rows",
+        "failedRowsCount": 2,
+        "datasetRowsTested": 3,
+        "checkRowsTested": 3,
+    }
 
 
 def test_failed_rows_percent_without_rows_tested_query_emits_error(data_source_test_helper: DataSourceTestHelper):
@@ -119,7 +122,7 @@ def test_failed_rows_percent_without_rows_tested_query_emits_error(data_source_t
         """,
     )
 
-    assert "rows_tested_query" in errors_str
+    assert "In a 'failed_rows' check with metric 'percent' and 'query', 'rows_tested_query' is required" in errors_str
 
 
 def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source_test_helper: DataSourceTestHelper):
@@ -135,7 +138,7 @@ def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source
         ]
     )
 
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -153,7 +156,7 @@ def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
-        "datasetRowsTested": 3,
+        "datasetRowsTested": 3
     }
 
 
@@ -170,7 +173,7 @@ def test_failed_rows_expression_emits_check_rows_tested(data_source_test_helper:
         ]
     )
 
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -204,7 +207,7 @@ def test_failed_rows_rows_tested_query_returns_zero(data_source_test_helper: Dat
         ]
     )
 
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -238,7 +241,7 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
         ]
     )
 
-    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+    data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
             checks:
@@ -285,4 +288,4 @@ def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source
     )
 
     warnings_str = contract_verification_result.get_warnings_str()
-    assert "rows_tested_query" in warnings_str
+    assert "In a 'failed_rows' check, 'rows_tested_query' is only used with 'query' mode; expression mode already computes check_rows_tested automatically" in warnings_str
