@@ -5,7 +5,7 @@ from soda_core.contracts.contract_verification import ContractVerificationResult
 
 test_table_specification = (
     TestTableSpecification.builder()
-    .table_purpose("failed_rows_rows_tested")
+    .table_purpose("rtq_failed_rows")
     .column_integer("start")
     .column_integer("end")
     .rows(
