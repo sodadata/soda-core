@@ -153,11 +153,7 @@ def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
-    assert check_json["diagnostics"]["v4"] == {
-        "type": "failed_rows",
-        "failedRowsCount": 2,
-        "datasetRowsTested": 3
-    }
+    assert check_json["diagnostics"]["v4"] == {"type": "failed_rows", "failedRowsCount": 2, "datasetRowsTested": 3}
 
 
 def test_failed_rows_expression_emits_check_rows_tested(data_source_test_helper: DataSourceTestHelper):
@@ -288,4 +284,7 @@ def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source
     )
 
     warnings_str = contract_verification_result.get_warnings_str()
-    assert "In a 'failed_rows' check, 'rows_tested_query' is only used with 'query' mode; expression mode already computes check_rows_tested automatically" in warnings_str
+    assert (
+        "In a 'failed_rows' check, 'rows_tested_query' is only used with 'query' mode; expression mode already computes check_rows_tested automatically"
+        in warnings_str
+    )
