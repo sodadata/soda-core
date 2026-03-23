@@ -67,7 +67,6 @@ class QueryResultIterator:
     def __next__(self) -> Sequence[Any]:
         row = self._cursor.fetchone()
         if row is None:
-            self._cursor.close()
             raise StopIteration
         return self._format_row(row)
 
