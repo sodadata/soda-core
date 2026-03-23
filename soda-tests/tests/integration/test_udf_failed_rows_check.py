@@ -50,6 +50,7 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
         "type": "failed_rows",
         "failedRowsCount": 2,
         "datasetRowsTested": 3,
+        "checkRowsTested": 3,
     }
 
 
