@@ -30,18 +30,28 @@ _in_memory_connection = None
 
 
 class SparkDataFrameCursor:
-    # Copy from v3 of the cursor implementation
+    CACHE_ROW_COUNT = 100
+
     def __init__(self, spark_session: SparkSession, test_dir: Optional[str] = None):
         self.spark_session = spark_session
         self.df: DataFrame | None = None
         self.description: tuple[tuple] | None = None
-        self.rowcount: int = -1
         self.cursor_index: int = -1
+        self._cache_index = -1
+        self._cached_rows: list[Row] | None = None
 
     def execute(self, sql: str):
         self.df = self.spark_session.sql(sqlQuery=sql)
         self.description = self.convert_spark_df_schema_to_dbapi_description(self.df)
         self.cursor_index = 0
+        self._cache_index = -1
+        self._cached_rows = None
+
+    @property
+    def rowcount(self) -> int:
+        if self.df is None:
+            return -1
+        return self.df.count()
 
     def fetchall(self) -> tuple[tuple]:
         rows = []
@@ -53,7 +63,6 @@ class SparkDataFrameCursor:
             spark_rows: list[Row] = self.df.collect()
         # Alternative approach: convert to PyArrow. This will set the timestamps correctly, but introduces memory and time overhead (for the conversion).
         # This also requires more changes regarding the cursor implementation: spark_rows: list[Row] = self.df.toArrow().to_pylist()
-        self.rowcount = len(spark_rows)
         for spark_row in spark_rows:
             row = self.convert_spark_row_to_dbapi_row(spark_row)
             rows.append(row)
@@ -61,7 +70,6 @@ class SparkDataFrameCursor:
 
     def fetchmany(self, size: int) -> tuple[tuple]:
         rows = []
-        self.rowcount = self.df.count()
         with freeze_time(
             datetime.now(timezone.utc)
         ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps. See the comment in fetchall() for more details.
@@ -73,12 +81,18 @@ class SparkDataFrameCursor:
         return tuple(rows)
 
     def fetchone(self) -> tuple:
-        with freeze_time(
-            datetime.now(timezone.utc)
-        ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps. See the comment in fetchall() for more details.
-            spark_rows: list[Row] = self.df.collect()
-        self.rowcount = len(spark_rows)
-        spark_row = spark_rows[0]
+        # Fetches have overhead, so we load and cache small pages here as a compromise
+        if self._cached_rows is None or self.cursor_index >= self._cache_index + self.CACHE_ROW_COUNT:
+            with freeze_time(
+                datetime.now(timezone.utc)
+            ):  # We need to freeze the time to UTC at the time of collecting to avoid issues with timestamps. See the comment in fetchall() for more details.
+                self._cached_rows = self.df.offset(self.cursor_index).limit(self.CACHE_ROW_COUNT).collect()
+                self._cache_index = self.cursor_index
+        access_index = self.cursor_index - self._cache_index
+        if not self._cached_rows or access_index >= len(self._cached_rows):
+            return None
+        spark_row = self._cached_rows[access_index]
+        self.cursor_index += 1
         row = self.convert_spark_row_to_dbapi_row(spark_row)
         return tuple(row)
 
