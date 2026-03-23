@@ -445,14 +445,6 @@
                                                                     "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
                                                                     "type": "string"
                                                                 },
-                                                                "metric": {
-                                                                    "description": "The metric for threshold evaluation: count (default) or percent (requires rows_tested_query)",
-                                                                    "type": "string",
-                                                                    "enum": [
-                                                                        "count",
-                                                                        "percent"
-                                                                    ]
-                                                                },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
@@ -751,14 +743,6 @@
                                             "rows_tested_query": {
                                                 "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
                                                 "type": "string"
-                                            },
-                                            "metric": {
-                                                "description": "The metric for threshold evaluation: count (default) or percent (requires rows_tested_query)",
-                                                "type": "string",
-                                                "enum": [
-                                                    "count",
-                                                    "percent"
-                                                ]
                                             },
                                             "qualifier": {
                                                 "description": "The qualifier for the check used in Soda Cloud",

@@ -78,7 +78,7 @@ class FailedRowsCheckImpl(CheckImpl):
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
             )
-            self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+            self.check_rows_tested_metric_impl = self._resolve_metric(
                 RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
             )
 
@@ -104,7 +104,7 @@ class FailedRowsCheckImpl(CheckImpl):
                 self.queries.append(failed_rows_count_query)
 
             if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
-                self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
+                self.check_rows_tested_metric_impl = self._resolve_metric(
                     RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
                 )
                 rows_tested_query: Query = RowsTestedQuery(
@@ -258,7 +258,10 @@ class FailedRowsCountQuery(Query):
             logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
-        metric_value = query_result.rows[0][0]
+        if not query_result.rows:
+            metric_value = None
+        else:
+            metric_value = query_result.rows[0][0]
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
 
