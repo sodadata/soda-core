@@ -106,6 +106,7 @@ def test_failed_rows_percent_without_rows_tested_query_emits_error(data_source_t
     errors_str: str = data_source_test_helper.assert_contract_error(
         contract_yaml_str=f"""
             dataset: {data_source_test_helper.build_dqn(test_table)}
+            columns: []
             checks:
               - failed_rows:
                   query: |
@@ -153,7 +154,6 @@ def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source
         "type": "failed_rows",
         "failedRowsCount": 2,
         "datasetRowsTested": 3,
-        "checkRowsTested": None,
     }
 
 
@@ -256,7 +256,7 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
     v4 = check_json["diagnostics"]["v4"]
-    assert v4["checkRowsTested"] is None
+    assert "checkRowsTested" not in v4
 
 
 def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source_test_helper: DataSourceTestHelper):
