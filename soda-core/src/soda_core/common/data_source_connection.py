@@ -4,7 +4,7 @@ import contextlib
 import logging
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any, Callable, Optional
 
 from soda_core.common.data_source_results import (

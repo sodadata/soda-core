@@ -12,6 +12,7 @@ test_table_specification = (
     .build()
 )
 
+
 def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
