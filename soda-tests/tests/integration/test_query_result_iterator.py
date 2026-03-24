@@ -28,8 +28,17 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
             # Oracle returns the number of rows that have been read up until this point
             if data_source_impl.type_name == "oracle":
                 expected_row_count = 0
-            # Duckdb doesn't determine the number of rows and returns -1
-            elif data_source_impl.type_name == "duckdb":
+            # These databases don't determine the number of rows and return -1
+            elif data_source_impl.type_name in (
+                "duckdb",
+                "sqlserver",
+                "fabric",
+                "synapse",
+                "trino",
+                "databricks",
+                "athena",
+                "dremio",
+            ):
                 expected_row_count = -1
             # Other datasources should correctly return row count
             else:
