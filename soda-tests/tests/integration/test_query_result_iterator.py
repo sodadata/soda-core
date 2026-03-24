@@ -25,8 +25,26 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
         with data_source_impl.execute_query_iterate(
             f"SELECT * FROM {test_table.qualified_name} ORDER BY {id_quoted}"
         ) as query_result_iterator:
-            # row_count may be -1 for SELECT on some DB-API drivers (e.g. Trino, SQLite)
-            assert query_result_iterator.row_count in (-1, 3)
+            # Oracle returns the number of rows that have been read up until this point
+            if data_source_impl.type_name == "oracle":
+                expected_row_count = 0
+            # These databases don't determine the number of rows and return -1
+            elif data_source_impl.type_name in (
+                "duckdb",
+                "sqlserver",
+                "fabric",
+                "synapse",
+                "trino",
+                "databricks",
+                "athena",
+                "dremio",
+            ):
+                expected_row_count = -1
+            # Other datasources should correctly return row count
+            else:
+                expected_row_count = 3
+
+            assert query_result_iterator.row_count == expected_row_count
             assert query_result_iterator.columns.keys() == {"id", "country"}
 
             rows = list(query_result_iterator)

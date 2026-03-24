@@ -72,7 +72,11 @@ class QueryResultIterator:
 
     @property
     def row_count(self) -> int:
-        """Returns the total number of rows in the result set."""
+        """Returns the total number of rows in the result set.
+
+        Note this field is not reliable on all datasources. DuckDB for example returns -1, and Oracle returns the number
+        of rows fetched so far.
+        """
         return self._cursor.rowcount
 
     @property
