@@ -147,6 +147,8 @@ class BigQueryDataSourceConnection(DataSourceConnection):
 
         return dbapi.Connection(self.client)
 
-    def format_rows(self, rows: list[Row]) -> list[tuple]:
-        formatted_rows = [tuple(r.values()) for r in rows]
-        return formatted_rows
+    def _format_rows(self, rows: list[Row]) -> list[tuple]:
+        return [self._format_row(row) for row in rows]
+
+    def _format_row(self, row: Row) -> tuple:
+        return tuple(row.values())

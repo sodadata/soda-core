@@ -92,7 +92,7 @@ class DataSourceConnection(ABC):
 
             cursor.execute(sql)
             rows = cursor.fetchall()
-            formatted_rows = self.format_rows(rows)
+            formatted_rows = self._format_rows(rows)
             truncated_rows = self.truncate_rows(formatted_rows)
             headers = [self._execute_query_get_result_row_column_name(c) for c in cursor.description]
             # The tabulate can crash if the rows contain non-ASCII characters.
@@ -117,8 +117,11 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
 
-    def format_rows(self, rows: list[tuple]) -> list[tuple]:
+    def _format_rows(self, rows: list[tuple]) -> list[tuple]:
         return rows
+
+    def _format_row(self, row: tuple) -> tuple:
+        return row
 
     def truncate_sql(self, sql: str) -> str:
         """Truncate large strings in sql to a reasonable length."""
@@ -198,7 +201,7 @@ class DataSourceConnection(ABC):
             logger.debug(f"SQL query iterate:\n{sql}")
         try:
             cursor.execute(sql)
-            yield QueryResultIterator(cursor)
+            yield QueryResultIterator(cursor, self._format_row)
         finally:
             cursor.close()
 
