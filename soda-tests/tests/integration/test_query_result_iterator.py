@@ -26,7 +26,8 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
             f"SELECT * FROM {test_table.qualified_name} ORDER BY {id_quoted}"
         ) as query_result_iterator:
             # row_count may be -1 for SELECT on some DB-API drivers (e.g. Trino, SQLite)
-            assert query_result_iterator.row_count in (-1, 3)
+            # Oracle returns the number of rows that have been read up until this point, i.e. 0 (not DB-API compliant)
+            assert query_result_iterator.row_count in (-1, 0, 3)
             assert query_result_iterator.columns.keys() == {"id", "country"}
 
             rows = list(query_result_iterator)
