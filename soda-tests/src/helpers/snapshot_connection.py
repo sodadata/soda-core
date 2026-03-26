@@ -86,7 +86,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = None,
         schema_placeholder: Optional[str] = None,
         real_schema_name: Optional[str] = None,
-        allow_fallback: bool = True,
+        allow_fallback: bool = False,
     ):
         # Always use _SENTINEL so that open_connection() is a no-op (skips when
         # self.connection is not None) AND so that code accessing the raw DBAPI
