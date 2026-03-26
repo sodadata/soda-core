@@ -47,7 +47,8 @@ def get_contract_yaml(data_source_test_helper: DataSourceTestHelper) -> str:
                     severity: critical
             - duplicate:
             - failed_rows:
-                expression: "{id_quoted} > 100"
+                expression: |
+                    {id_quoted} > 100
         - name: name
         - name: created_at
     checks:
