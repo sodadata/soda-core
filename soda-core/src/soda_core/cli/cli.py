@@ -231,7 +231,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         try:
             check_selectors = CheckSelector.parse_all(args.check_filter)
         except CheckSelectorParseException as e:
-            logger.error(str(e))
+            soda_logger.error(str(e))
             exit_with_code(ExitCode.LOG_ERRORS)
 
         exit_code = handle_verify_contract(
