@@ -23,7 +23,10 @@ test_table_specification = (
     .build()
 )
 
-CONTRACT_YAML = """
+
+def get_contract_yaml(data_source_test_helper: DataSourceTestHelper) -> str:
+    id_quoted = data_source_test_helper.quote_column("id")
+    return f"""
     check_attributes:
         description: "Test description"
     columns:
@@ -44,7 +47,7 @@ CONTRACT_YAML = """
                     severity: critical
             - duplicate:
             - failed_rows:
-                expression: "id > 100"
+                expression: "{id_quoted} > 100"
         - name: name
         - name: created_at
     checks:
@@ -67,7 +70,7 @@ def test_filter_by_type(data_source_test_helper: DataSourceTestHelper):
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_selectors=[CheckSelector.parse("type=missing")],
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -87,7 +90,7 @@ def test_filter_by_column(data_source_test_helper: DataSourceTestHelper):
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_selectors=[CheckSelector.parse("column=id")],
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -107,7 +110,7 @@ def test_filter_by_attribute(data_source_test_helper: DataSourceTestHelper):
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_selectors=[CheckSelector.parse("attributes.severity=critical")],
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -127,7 +130,7 @@ def test_filter_and_across_fields(data_source_test_helper: DataSourceTestHelper)
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_selectors=CheckSelector.parse_all(["type=aggregate", "column=id"]),
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -147,7 +150,7 @@ def test_filter_or_within_same_field(data_source_test_helper: DataSourceTestHelp
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_selectors=CheckSelector.parse_all(["type=missing", "type=invalid"]),
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -168,7 +171,7 @@ def test_filter_wildcard(data_source_test_helper: DataSourceTestHelper):
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_selectors=[CheckSelector.parse("type=miss*")],
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -188,7 +191,7 @@ def test_backward_compat_check_paths(data_source_test_helper: DataSourceTestHelp
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
             check_paths=["columns.id.checks.aggregate"],
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
@@ -207,7 +210,7 @@ def test_no_selectors_runs_all(data_source_test_helper: DataSourceTestHelper):
     with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
         result = data_source_test_helper.verify_contract(
             test_table=test_table,
-            contract_yaml_str=CONTRACT_YAML,
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
         )
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
