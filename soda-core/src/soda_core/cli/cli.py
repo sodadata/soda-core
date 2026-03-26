@@ -30,6 +30,7 @@ from soda_core.cli.handlers.soda_cloud import (
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_request import RequestStatus
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
@@ -190,6 +191,16 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         nargs="*",
         help="One or more check paths to run in a contract.",
     )
+    verify_parser.add_argument(
+        "-cf",
+        "--check-filter",
+        action="append",
+        type=str,
+        help="Filter checks by attributes. Format: key=value. "
+        "Supported keys: type, name, column, path, qualifier, attributes.<key>. "
+        "Multiple filters: AND across fields, OR within same field. "
+        "Wildcards (* and ?) supported in values.",
+    )
     # TODO: move into extensions
     verify_parser.add_argument(
         "-dw",
@@ -211,8 +222,12 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         verbose = args.verbose
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
-        check_paths = args.check_paths
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
+
+        # Parse --check-filter expressions
+        check_selectors = CheckSelector.parse_all(args.check_filter)
+        if check_selectors is None:
+            exit_with_code(ExitCode.LOG_ERRORS)
 
         exit_code = handle_verify_contract(
             contract_file_path,
@@ -224,7 +239,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             verbose,
             use_agent,
             blocking_timeout_in_minutes,
-            check_paths,
+            args.check_paths,
+            check_selectors,
             diagnostics_warehouse_file_path,
         )
 

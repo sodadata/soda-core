@@ -13,6 +13,7 @@ from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.api import test_contract, verify_contract
 from soda_core.contracts.api.publish_api import publish_contract
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
+from soda_core.contracts.impl.check_selector import CheckSelector
 
 
 def handle_verify_contract(
@@ -25,7 +26,8 @@ def handle_verify_contract(
     verbose: bool,
     use_agent: bool,
     blocking_timeout_in_minutes: int,
-    check_paths: list[str],
+    check_paths: Optional[list[str]],
+    check_selectors: list[CheckSelector],
     diagnostics_warehouse_file_path: Optional[str],
 ) -> ExitCode:
     try:
@@ -41,6 +43,7 @@ def handle_verify_contract(
             use_agent=use_agent,
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             check_paths=check_paths,
+            check_selectors=check_selectors,
             dwh_data_source_file_path=diagnostics_warehouse_file_path,
         )
 

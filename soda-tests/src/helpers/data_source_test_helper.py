@@ -760,6 +760,7 @@ class DataSourceTestHelper:
         dwh_data_source_file_path: Optional[str] = None,
         extra_data_source_impls: list[DataSourceImpl] = [],
         check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list["CheckSelector"]] = None,
         publish_results: bool = True,
     ) -> ContractVerificationSessionResult:
         contract_yaml_str = self._dedent_strip_and_prepend_dataset(contract_yaml_str, test_table)
@@ -774,6 +775,7 @@ class DataSourceTestHelper:
             soda_cloud_publish_results=publish_results,
             dwh_data_source_file_path=dwh_data_source_file_path,
             check_paths=check_paths,
+            check_selectors=check_selectors,
         )
 
     def _dedent_strip_and_prepend_dataset(self, contract_yaml_str: str, test_table: Optional[TestTable]):

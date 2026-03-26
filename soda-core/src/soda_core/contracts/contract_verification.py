@@ -50,10 +50,16 @@ class ContractVerificationSession:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
+        check_selectors: Optional[list["CheckSelector"]] = None,
     ) -> ContractVerificationSessionResult:
+        from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
         )
+
+        # Merge check_paths into check_selectors for backward compatibility
+        merged_selectors = list(check_selectors) if check_selectors else []
+        merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
 
         return ContractVerificationSessionImpl.execute(
             contract_yaml_sources=contract_yaml_sources,
@@ -67,7 +73,7 @@ class ContractVerificationSession:
             soda_cloud_use_agent=soda_cloud_use_agent,
             soda_cloud_verbose=soda_cloud_verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
-            check_paths=check_paths,
+            check_selectors=merged_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
 
