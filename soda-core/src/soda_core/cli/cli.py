@@ -30,7 +30,10 @@ from soda_core.cli.handlers.soda_cloud import (
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_request import RequestStatus
-from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.check_selector import (
+    CheckSelector,
+    CheckSelectorParseException,
+)
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
 
@@ -225,8 +228,10 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
 
         # Parse --check-filter expressions
-        check_selectors = CheckSelector.parse_all(args.check_filter)
-        if check_selectors is None:
+        try:
+            check_selectors = CheckSelector.parse_all(args.check_filter)
+        except CheckSelectorParseException as e:
+            logger.error(str(e))
             exit_with_code(ExitCode.LOG_ERRORS)
 
         exit_code = handle_verify_contract(

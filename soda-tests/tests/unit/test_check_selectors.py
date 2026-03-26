@@ -1,6 +1,10 @@
 from unittest.mock import MagicMock
 
-from soda_core.contracts.impl.check_selector import CheckSelector
+import pytest
+from soda_core.contracts.impl.check_selector import (
+    CheckSelector,
+    CheckSelectorParseException,
+)
 
 
 def _make_check_impl(
@@ -36,54 +40,48 @@ def _make_check_impl(
 class TestCheckSelectorParse:
     def test_parse_simple(self):
         selector = CheckSelector.parse("type=missing")
-        assert selector is not None
         assert selector.field == "type"
         assert selector.value == "missing"
 
     def test_parse_with_spaces(self):
         selector = CheckSelector.parse(" type = missing ")
-        assert selector is not None
         assert selector.field == "type"
         assert selector.value == "missing"
 
     def test_parse_attribute_dot_notation(self):
         selector = CheckSelector.parse("attributes.severity=critical")
-        assert selector is not None
         assert selector.field == "attributes.severity"
         assert selector.value == "critical"
 
     def test_parse_value_with_equals(self):
         selector = CheckSelector.parse("name=a=b")
-        assert selector is not None
         assert selector.field == "name"
         assert selector.value == "a=b"
 
     def test_parse_empty_value(self):
         selector = CheckSelector.parse("type=")
-        assert selector is not None
         assert selector.field == "type"
         assert selector.value == ""
 
-    def test_parse_no_equals_returns_none(self):
-        selector = CheckSelector.parse("type_missing")
-        assert selector is None
+    def test_parse_no_equals_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector.parse("type_missing")
 
-    def test_parse_empty_field_returns_none(self):
-        selector = CheckSelector.parse("=value")
-        assert selector is None
+    def test_parse_empty_field_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector.parse("=value")
 
-    def test_parse_unknown_field_returns_none(self):
-        selector = CheckSelector.parse("unknown_field=value")
-        assert selector is None
+    def test_parse_unknown_field_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector.parse("unknown_field=value")
 
     def test_parse_all_valid(self):
         selectors = CheckSelector.parse_all(["type=missing", "column=id"])
-        assert selectors is not None
         assert len(selectors) == 2
 
     def test_parse_all_with_error(self):
-        selectors = CheckSelector.parse_all(["type=missing", "bad_expression"])
-        assert selectors is None
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector.parse_all(["type=missing", "bad_expression"])
 
     def test_parse_all_empty(self):
         selectors = CheckSelector.parse_all([])
@@ -96,7 +94,7 @@ class TestCheckSelectorParse:
     def test_parse_all_supported_fields(self):
         for field in ["type", "name", "column", "path", "qualifier"]:
             selector = CheckSelector.parse(f"{field}=value")
-            assert selector is not None, f"Failed to parse field '{field}'"
+            assert selector.field == field
 
     def test_from_check_paths(self):
         selectors = CheckSelector.from_check_paths(["columns.id.checks.missing", "checks.schema"])
@@ -203,6 +201,13 @@ class TestCheckSelectorWildcard:
         selector = CheckSelector.parse("path=columns.*.checks.missing")
         check = _make_check_impl(path="columns.id.checks.missing")
         assert selector.matches(check)
+
+    def test_wildcard_with_brackets_treated_literally(self):
+        selector = CheckSelector.parse("name=test[1]*")
+        check_match = _make_check_impl(name="test[1]foo")
+        check_no_match = _make_check_impl(name="test1foo")
+        assert selector.matches(check_match)
+        assert not selector.matches(check_no_match)
 
 
 # --- Grouping / all_match tests ---

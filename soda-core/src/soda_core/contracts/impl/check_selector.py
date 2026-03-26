@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import fnmatch
-import logging
 from typing import Optional
 
-logger = logging.getLogger("soda")
+from soda_core.common.exceptions import SodaCoreException
+
+
+class CheckSelectorParseException(SodaCoreException):
+    """Indicates an invalid check selector expression."""
 
 
 class CheckSelector:
@@ -32,43 +35,38 @@ class CheckSelector:
         return f"CheckSelector({self.field!r}, {self.value!r})"
 
     @classmethod
-    def parse(cls, expression: str) -> Optional[CheckSelector]:
-        """Parse 'key=value' into a CheckSelector. Returns None on error."""
+    def parse(cls, expression: str) -> CheckSelector:
+        """Parse 'key=value' into a CheckSelector.
+
+        Raises CheckSelectorParseException on invalid syntax.
+        """
         if "=" not in expression:
-            logger.error(f"Invalid check filter '{expression}': expected key=value format")
-            return None
+            raise CheckSelectorParseException(f"Invalid check filter '{expression}': expected key=value format")
 
         field, value = expression.split("=", 1)
         field = field.strip()
         value = value.strip()
 
         if not field:
-            logger.error(f"Invalid check filter '{expression}': empty field name")
-            return None
+            raise CheckSelectorParseException(f"Invalid check filter '{expression}': empty field name")
 
         if field not in cls.SUPPORTED_FIELDS and not field.startswith(cls.ATTRIBUTES_PREFIX):
-            logger.error(
+            raise CheckSelectorParseException(
                 f"Invalid check filter '{expression}': unknown field '{field}'. "
-                f"Supported: {', '.join(sorted(cls.SUPPORTED_FIELDS))}, attributes.<key>"
+                f"Supported: {', '.join(sorted(cls.SUPPORTED_FIELDS))}, {cls.ATTRIBUTES_PREFIX}<key>"
             )
-            return None
 
         return cls(field=field, value=value, raw=expression)
 
     @classmethod
-    def parse_all(cls, expressions: Optional[list[str]]) -> Optional[list[CheckSelector]]:
-        """Parse multiple expressions. Returns None if any is invalid."""
+    def parse_all(cls, expressions: Optional[list[str]]) -> list[CheckSelector]:
+        """Parse multiple expressions.
+
+        Raises CheckSelectorParseException on the first invalid expression.
+        """
         if not expressions:
             return []
-        selectors = []
-        has_errors = False
-        for expr in expressions:
-            selector = cls.parse(expr)
-            if selector is None:
-                has_errors = True
-            else:
-                selectors.append(selector)
-        return None if has_errors else selectors
+        return [cls.parse(expr) for expr in expressions]
 
     @classmethod
     def from_check_paths(cls, check_paths: Optional[list[str]]) -> list[CheckSelector]:
@@ -104,9 +102,9 @@ class CheckSelector:
 
     def _values_match(self, check_value: str, selector_value: str) -> bool:
         """Compare values. Uses fnmatch if selector_value contains wildcards."""
-        if "*" in selector_value or "?" in selector_value:
-            return fnmatch.fnmatchcase(check_value, selector_value)
-        return check_value == selector_value
+        # Escape '[' so fnmatch treats it literally — only * and ? are wildcards
+        escaped = selector_value.replace("[", "[[]")
+        return fnmatch.fnmatchcase(check_value, escaped)
 
     @staticmethod
     def all_match(selectors: list[CheckSelector], check_impl) -> bool:
