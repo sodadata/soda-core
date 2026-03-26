@@ -359,7 +359,7 @@ class DataSourceTestHelper:
                 self.data_source_impl.data_source_connection = snap_conn
                 return real_conn
 
-            allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
+            allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "true").lower() != "false"
             snap_conn = SnapshotDataSourceConnection(
                 real_connection=None,
                 snapshot_manager=self._snapshot_manager,

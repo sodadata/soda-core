@@ -86,7 +86,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         fallback_connection_factory: Optional[Callable[[], DataSourceConnection]] = None,
         schema_placeholder: Optional[str] = None,
         real_schema_name: Optional[str] = None,
-        allow_fallback: bool = False,
+        allow_fallback: bool = True,
     ):
         # Always use _SENTINEL so that open_connection() is a no-op (skips when
         # self.connection is not None) AND so that code accessing the raw DBAPI
@@ -314,12 +314,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # _next_replay_entry so that extra_replacements added after load are applied.
             self._replay_data = raw if raw else None
             if self._replay_data is None:
-                if self._allow_fallback and (self._real is not None or self._fallback_connection_factory is not None):
+                if self._real is not None or self._fallback_connection_factory is not None:
                     if self._real is None:
                         self._real = self._fallback_connection_factory()
                     snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
-                    logger.warning(
-                        f"SNAPSHOT: Falling back to real DB for {test_id}\n"
+                    logger.info(
+                        f"SNAPSHOT: Auto-recording for {test_id}\n"
                         f"  Reason: No snapshot found (expected at: {snapshot_path})\n"
                         f"  Running all operations against real DB. A new snapshot will be recorded."
                     )
@@ -388,6 +388,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     # -------------------------------------------------------------------------
     # Replay helpers
     # -------------------------------------------------------------------------
+
+    def _ensure_real_connection(self) -> None:
+        """Re-establish the real connection if it was closed (e.g. by close_connection)."""
+        if self._real is None:
+            if self._fallback_connection_factory is not None:
+                self._real = self._fallback_connection_factory()
+            else:
+                raise RuntimeError(
+                    "Cannot use real DB — no real connection available.\n"
+                    "  The connection was closed and no factory exists to re-create it."
+                )
 
     def _activate_fallback(self, reason: str = "") -> None:
         """Fall back to real DB for the current test.
@@ -585,6 +596,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return result
         else:  # replay
             if self._fallback_active:
+                self._ensure_real_connection()
                 result = self._real.execute_query(sql, log_query=log_query)
                 self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
                 return result
@@ -617,6 +629,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return result
         else:  # replay
             if self._fallback_active:
+                self._ensure_real_connection()
                 result = self._real.execute_update(sql, log_query=log_query)
                 self._record_entry(SnapshotEntry("update", sql, None))
                 return result
@@ -660,6 +673,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return description
         else:  # replay
             if self._fallback_active:
+                self._ensure_real_connection()
                 captured_rows = []
 
                 def capturing_callback(row, description):
@@ -724,6 +738,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 pass
         else:  # replay
             if self._fallback_active:
+                self._ensure_real_connection()
                 with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
                     cursor_description = real_iter._cursor.description
                     rows = [tuple(row) for row in real_iter]

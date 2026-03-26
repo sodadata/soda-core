@@ -280,7 +280,9 @@ class TestSnapshotConnectionReplay:
         ]
         manager.save(test_id, entries)
 
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None, snapshot_manager=manager, mode="replay", allow_fallback=False
+        )
         return conn, manager, test_id
 
     def test_execute_query_replays(self, setup):
@@ -462,7 +464,7 @@ class TestSnapshotFallback:
         real_conn.execute_update.return_value = None
         real_conn.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             # First two operations match the snapshot → replayed from cache
@@ -513,7 +515,7 @@ class TestSnapshotFallback:
             QueryResult(rows=[(200,)], columns=None),
         ]
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn.execute_update("CREATE TABLE t (id INT)")  # matches snapshot
@@ -545,7 +547,7 @@ class TestSnapshotFallback:
         real_conn.execute_update.return_value = None
         real_conn.execute_query.return_value = QueryResult(rows=[(5,)], columns=None)
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn.execute_update("CREATE TABLE t (id INT)")  # matches, replayed
@@ -567,7 +569,7 @@ class TestSnapshotFallback:
         real_conn.execute_update.return_value = None
         real_conn.execute_query.return_value = QueryResult(rows=[(7,)], columns=None)
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         test_id = "tests/test_x.py::test_no_snapshot"
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
@@ -587,15 +589,49 @@ class TestSnapshotFallback:
             with pytest.raises(SnapshotNotFoundError):
                 conn.execute_query("SELECT 1")
 
-    def test_missing_snapshot_with_real_conn_raises_by_default(self, tmp_path):
-        """With a real connection but fallback disabled, missing snapshot raises."""
+    def test_missing_snapshot_auto_records_with_real_conn(self, tmp_path):
+        """With a real connection, missing snapshot auto-records instead of raising."""
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
         conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "tests/test_x.py::test_gone (call)"}):
-            with pytest.raises(SnapshotNotFoundError):
-                conn.execute_query("SELECT 1")
+        test_id = "tests/test_x.py::test_auto_record"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("SELECT 42")
+
+        assert result.rows == [(42,)]
+        real_conn.execute_query.assert_called_once()
+
+    def test_missing_snapshot_auto_records_then_next_test_replays(self, tmp_path):
+        """First test auto-records (no snapshot), second test replays from cache."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id_1 = "tests/test_x.py::test_auto_records"
+        test_id_2 = "tests/test_x.py::test_replays"
+
+        # Only second test has a snapshot
+        manager.save(
+            test_id_2,
+            [SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None))],
+        )
+
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
+
+        # First test: no snapshot → auto-record against real DB
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
+            result1 = conn.execute_query("SELECT 1")
+        assert result1.rows == [(1,)]
+        real_conn.execute_query.assert_called_once()
+
+        # Second test: snapshot exists → replay from cache (no real DB calls)
+        real_conn.reset_mock()
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
+            result2 = conn.execute_query("SELECT 2")
+        assert result2.rows == [(2,)]
+        real_conn.execute_query.assert_not_called()
 
     def test_mismatch_without_fallback_raises(self, tmp_path):
         """Without fallback enabled, mismatch raises SnapshotMismatchError."""
@@ -607,7 +643,9 @@ class TestSnapshotFallback:
             [SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))],
         )
 
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn = SnapshotDataSourceConnection(
+            real_connection=None, snapshot_manager=manager, mode="replay", allow_fallback=False
+        )
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             with pytest.raises(SnapshotMismatchError, match="fallback is disabled"):
@@ -633,7 +671,7 @@ class TestSnapshotFallback:
         real_conn = _make_mock_connection()
         real_conn.execute_query.return_value = QueryResult(rows=[(99,)], columns=None)
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         # First test: mismatch → fallback to real DB
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
@@ -675,7 +713,7 @@ class TestSnapshotFallback:
             QueryResult(rows=[(99,)], columns=(PicklableColumn("m", 23, None, None, None, None, None),)),
         ]
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn.execute_update("CREATE TABLE t (id INT)")  # matches
@@ -715,7 +753,7 @@ class TestSnapshotFallback:
             rows=[(77,)], columns=(PicklableColumn("v", 23, None, None, None, None, None),)
         )
 
-        conn1 = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn1 = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn1.execute_query("SELECT NEW")  # mismatch → fallback + re-record
         conn1.finalize()
@@ -760,7 +798,6 @@ class TestSnapshotLazyConnection:
             snapshot_manager=manager,
             mode="replay",
             fallback_connection_factory=factory,
-            allow_fallback=True,
         )
 
         test_id = "tests/test_x.py::test_lazy_missing"
@@ -793,7 +830,6 @@ class TestSnapshotLazyConnection:
             snapshot_manager=manager,
             mode="replay",
             fallback_connection_factory=factory,
-            allow_fallback=True,
         )
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
@@ -848,7 +884,6 @@ class TestSnapshotLazyConnection:
             snapshot_manager=manager,
             mode="replay",
             fallback_connection_factory=factory,
-            allow_fallback=True,
         )
 
         # First test: missing snapshot → factory called
@@ -1656,7 +1691,7 @@ class TestFallbackIterateAndOneByOne:
 
         real_conn.execute_query_iterate = mock_iterate
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             with conn.execute_query_iterate("SELECT new FROM t") as it:
@@ -1684,7 +1719,7 @@ class TestFallbackIterateAndOneByOne:
 
         real_conn.execute_query_one_by_one = mock_one_by_one
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
 
         captured = []
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
