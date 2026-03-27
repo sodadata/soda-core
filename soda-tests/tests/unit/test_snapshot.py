@@ -955,9 +955,7 @@ class TestSnapshotSchemaPlaceholder:
     def test_noop_without_placeholder(self):
         """Normalize/denormalize are no-ops when placeholder is not set."""
         manager = SnapshotManager("postgres", ".test_snapshots_temp")
-        conn = SnapshotDataSourceConnection(
-            real_connection=None, snapshot_manager=manager, mode="replay"
-        )
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         entry = SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))
         assert conn._normalize_for_snapshot(entry) is entry
         assert conn._denormalize_from_snapshot(entry) is entry
