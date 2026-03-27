@@ -211,6 +211,13 @@ jobs:
             exit $rc
           }
 
+      # ── Verify recorded snapshots replay correctly ────────────────
+      - name: Verify replay
+        env:
+          SODA_TEST_SNAPSHOT: replay
+          TEST_DATASOURCE: ${{ env.TEST_MODULE }}
+        run: uv run python -m pytest -ra soda-tests/tests/integration
+
       # ── Save snapshots to cache ────────────────────────────────────
       - name: Save snapshot cache
         uses: actions/cache/save@v4
@@ -226,107 +233,4 @@ jobs:
       - name: Stop Trino container
         if: always() && startsWith(matrix.module, 'trino')
         run: docker rm -f trino-ci 2>/dev/null || true
-
-  # ─────────────────────────────────────────────────────────────────────
-  # 3. Verify recorded snapshots replay correctly
-  # ─────────────────────────────────────────────────────────────────────
-  verify-replay:
-    runs-on: ubuntu-24.04
-    needs: [define-test-matrix, record-snapshots]
-    strategy:
-      fail-fast: false
-      matrix:
-        module: ${{ fromJSON(needs.define-test-matrix.outputs.modules) }}
-        # duckdb and sparkdf run fast enough without snapshots
-        exclude:
-          - module: duckdb
-          - module: sparkdf
-    # Same env vars as record-snapshots: replay needs identical database/catalog
-    # names to generate matching SQL, even though no real connections are opened.
-    env:
-      SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_CI_ACCOUNT }}
-      SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_CI_USERNAME }}
-      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_CI_DATABASE }}
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_CI_HOST }}
-      DATABRICKS_HTTP_PATH: ${{ vars.DATABRICKS_CI_HTTP_PATH }}
-      DATABRICKS_CATALOG: ${{ vars.DATABRICKS_CI_CATALOG }}
-      REDSHIFT_HOST: ${{ vars.REDSHIFT_CI_HOST }}
-      REDSHIFT_USERNAME: ${{ vars.REDSHIFT_CI_USERNAME }}
-      REDSHIFT_DATABASE: "soda_test"
-      REDSHIFT_PORT: "5439"
-      ATHENA_S3_TEST_DIR: ${{ vars.ATHENA_CI_STAGING_DIR }}
-      ATHENA_SCHEMA: ${{ vars.ATHENA_CI_SCHEMA }}
-      ATHENA_WORKGROUP: ${{ vars.ATHENA_CI_WORKGROUP }}
-      SQLSERVER_USERNAME: sa
-      SQLSERVER_PASSWORD: Password1!
-      SQLSERVER_DATABASE: master
-      SQLSERVER_SCHEMA: dbo
-      SYNAPSE_HOST: ${{ vars.MICROSOFT_SYNAPSE_CI_HOST }}
-      SYNAPSE_DATABASE: sodacisynapse
-      SYNAPSE_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
-      FABRIC_HOST: ${{ vars.MICROSOFT_FABRIC_CI_HOST }}
-      FABRIC_DATABASE: soda-ci-fabric-warehouse
-      FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
-      SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve module
-        run: |
-          MODULE="${{ matrix.module }}"
-          case "$MODULE" in
-            trino-postgres) echo "TEST_MODULE=trino" >> "$GITHUB_ENV"; echo "TRINO_CATALOG=db" >> "$GITHUB_ENV" ;;
-            trino-s3)       echo "TEST_MODULE=trino" >> "$GITHUB_ENV"; echo "TRINO_CATALOG=iceberg" >> "$GITHUB_ENV" ;;
-            *)              echo "TEST_MODULE=$MODULE" >> "$GITHUB_ENV" ;;
-          esac
-          echo "CACHE_KEY=$MODULE" >> "$GITHUB_ENV"
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - name: Set up UV
-        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081  # v5
-
-      - name: Install dependencies
-        run: |
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/21.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list > /dev/null
-          sudo apt-get update
-          ACCEPT_EULA=Y sudo apt-get install -y libsasl2-dev msodbcsql18
-
-      - name: Get external secrets
-        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
-        with:
-          secret-ids: |
-            ,/soda/github/common/data-sources/envs
-          parse-json-secrets: true
-
-      - name: Get external secrets (special)
-        uses: aws-actions/aws-secretsmanager-get-secrets@a9a7eb4e2f2871d30dc5b892576fde60a2ecc802  # v2.0.10
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BUILD_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BUILD_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_BUILD_DEFAULT_REGION }}
-        with:
-          secret-ids: |
-            BIGQUERY_ACCOUNT_INFO_JSON,/soda/github/common/data-sources/BIGQUERY_ACCOUNT_INFO_JSON
-
-      - name: Sync packages
-        run: uv sync --locked --all-packages --group dev
-
-      - name: Restore snapshot cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .test_snapshots/${{ env.TEST_MODULE }}/
-          key: snapshots-${{ env.CACHE_KEY }}-${{ github.run_id }}
-
-      - name: Verify replay
-        env:
-          SODA_TEST_SNAPSHOT: replay
-          TEST_DATASOURCE: ${{ env.TEST_MODULE }}
-        run: uv run python -m pytest -ra soda-tests/tests/integration
 
