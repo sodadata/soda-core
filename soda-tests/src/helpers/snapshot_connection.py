@@ -140,6 +140,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._fallback_active: bool = False
         self._allow_fallback: bool = allow_fallback
         self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
+        self._finalized: bool = False
 
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
@@ -305,6 +306,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
     def _handle_test_boundary(self) -> None:
         """Detect when the current test changes and handle recording/replay transitions."""
+        if self._finalized:
+            return
         test_id = self._get_current_test_id()
         if test_id == self._current_test_id:
             return  # Same test, nothing to do
@@ -401,6 +404,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         """Called at end of session to save the last test's recording."""
         self._finalize_current_test()
         self._current_test_id = None
+        self._finalized = True
 
     # -------------------------------------------------------------------------
     # Replay helpers

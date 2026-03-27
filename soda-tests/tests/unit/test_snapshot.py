@@ -1908,3 +1908,72 @@ class TestNormalizePicklableColumnInValues:
         denormalized_col = conn._denormalize_value(col, PLACEHOLDER, "prod_schema")
         assert isinstance(denormalized_col, PicklableColumn)
         assert denormalized_col.name == "prod_schema"
+
+
+# ---------------------------------------------------------------------------
+# Finalize prevents re-activation
+# ---------------------------------------------------------------------------
+
+
+class TestFinalizedState:
+    """Tests that finalize() prevents the snapshot from re-activating.
+
+    After finalize(), teardown code may run while PYTEST_CURRENT_TEST is still set.
+    The snapshot must not re-enter recording mode, otherwise cached queries may
+    return stale results (e.g. missing views that were created during tests).
+    """
+
+    def test_finalize_prevents_reactivation(self, tmp_path):
+        """After finalize(), queries pass through to real connection even with PYTEST_CURRENT_TEST set."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        real_conn.execute_query.return_value = QueryResult(rows=[("view_1",)], columns=None)
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        test_id = "tests/test_x.py::test_last"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT 1")
+
+        # Finalize (as end_test_session does)
+        conn.finalize()
+        assert conn._finalized is True
+        assert conn._current_test_id is None
+
+        # PYTEST_CURRENT_TEST is still set (as happens during session fixture teardown)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (teardown)"}):
+            result = conn.execute_query("SELECT view_name FROM views")
+
+        # Should have passed through to real connection, not used cache
+        assert result.rows == [("view_1",)]
+        real_conn.execute_query.assert_called_with("SELECT view_name FROM views", log_query=True)
+        # _current_test_id should remain None (not re-activated)
+        assert conn._current_test_id is None
+
+    def test_finalize_prevents_cached_query_usage(self, tmp_path):
+        """After finalize(), record_mode_cached_queries are bypassed."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        # Real DB returns the view
+        real_conn.execute_query.return_value = QueryResult(rows=[("table_1",), ("view_1",)], columns=None)
+
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
+
+        # Set up a cached query that's stale (missing the view)
+        stale_result = QueryResult(rows=[("table_1",)], columns=None)
+        conn.record_mode_cached_queries["SELECT * FROM metadata"] = stale_result
+
+        test_id = "tests/test_x.py::test_cached"
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # During test, cache is used
+            result = conn.execute_query("SELECT * FROM metadata")
+            assert result.rows == [("table_1",)]  # stale cache
+
+        conn.finalize()
+
+        # After finalize, cache should be bypassed
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (teardown)"}):
+            result = conn.execute_query("SELECT * FROM metadata")
+
+        # Should have gotten the real result with the view
+        assert result.rows == [("table_1",), ("view_1",)]
