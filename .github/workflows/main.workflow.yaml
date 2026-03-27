@@ -38,9 +38,9 @@ jobs:
     name: pre-commit & lockfile
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.10"
       - name: Set up UV
@@ -48,14 +48,14 @@ jobs:
       - name: Check lockfile is up-to-date
         run: uv lock --check
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
   define-test-matrix:
     runs-on: ubuntu-24.04
     needs: [check]
     outputs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set data source (workflow_dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
@@ -142,7 +142,7 @@ jobs:
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Resolve module
         run: |
           MODULE="${{ matrix.module }}"
@@ -152,7 +152,7 @@ jobs:
             *)              echo "TEST_MODULE=$MODULE" >> "$GITHUB_ENV" ;;
           esac
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Set up UV
@@ -236,7 +236,7 @@ jobs:
     outputs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Define modules
         id: modules
         run: |
@@ -250,9 +250,9 @@ jobs:
       matrix:
         module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.10"
       - name: Set up UV
@@ -298,9 +298,9 @@ jobs:
       matrix:
         module: ${{ fromJSON(needs.define-matrix.outputs.modules) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.10"
       - name: Set up UV
