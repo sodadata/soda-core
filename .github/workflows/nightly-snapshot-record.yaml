@@ -38,9 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Resolve data source selection
+        env:
+          INPUT_DATASOURCE: ${{ inputs.dataSource }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            DS="${{ inputs.dataSource }}"
+            DS="$INPUT_DATASOURCE"
             [ -z "$DS" ] && DS="all"
           else
             DS="all"
