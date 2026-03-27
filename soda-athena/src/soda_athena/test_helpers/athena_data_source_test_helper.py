@@ -55,11 +55,13 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         self.data_source_impl._delete_s3_files(self._get_3_schema_dir())
 
     def drop_schema_if_exists_sql(self, schema: str) -> str:
-        quoted_catalog = self.data_source_impl.sql_dialect.quote_default(ATHENA_CATALOG)
-        quoted_schema = self.data_source_impl.sql_dialect.quote_default(schema)
+        dialect = self.data_source_impl.sql_dialect
+        quoted_catalog = dialect.quote_for_ddl(ATHENA_CATALOG)
+        quoted_schema = dialect.quote_for_ddl(schema)
         return f"DROP SCHEMA IF EXISTS {quoted_catalog}.{quoted_schema} CASCADE;"
 
     def drop_schema_sql(self, schema: str) -> str:
-        quoted_catalog = self.data_source_impl.sql_dialect.quote_default(ATHENA_CATALOG)
-        quoted_schema = self.data_source_impl.sql_dialect.quote_default(schema)
+        dialect = self.data_source_impl.sql_dialect
+        quoted_catalog = dialect.quote_for_ddl(ATHENA_CATALOG)
+        quoted_schema = dialect.quote_for_ddl(schema)
         return f"DROP SCHEMA {quoted_catalog}.{quoted_schema} CASCADE;"

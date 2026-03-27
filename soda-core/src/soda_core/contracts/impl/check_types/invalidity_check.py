@@ -97,17 +97,21 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 )
             )
             # this is used in the check extension to extract failed keys and rows
-            self.ref_query = InvalidReferenceCountQuery(
-                cte=contract_impl.cte,
-                sampler_type=contract_impl.sampler_type,
-                sampler_limit=contract_impl.sampler_limit,
-                apply_sampling=contract_impl.should_apply_sampling,
-                metric_impl=self.invalid_count_metric_impl,
-                dataset_filter=self.contract_impl.filter,
-                check_filter=self.check_yaml.filter,
-                data_source_impl=contract_impl.data_source_impl,
-            )
-            self.queries.append(self.ref_query)
+            # Only build the reference query when a data source is available.
+            # In validation-only / dry-run mode (e.g. `soda contract test`),
+            # data_source_impl is None and SQL cannot be generated.
+            if contract_impl.data_source_impl is not None:
+                self.ref_query = InvalidReferenceCountQuery(
+                    cte=contract_impl.cte,
+                    sampler_type=contract_impl.sampler_type,
+                    sampler_limit=contract_impl.sampler_limit,
+                    apply_sampling=contract_impl.should_apply_sampling,
+                    metric_impl=self.invalid_count_metric_impl,
+                    dataset_filter=self.contract_impl.filter,
+                    check_filter=self.check_yaml.filter,
+                    data_source_impl=contract_impl.data_source_impl,
+                )
+                self.queries.append(self.ref_query)
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)

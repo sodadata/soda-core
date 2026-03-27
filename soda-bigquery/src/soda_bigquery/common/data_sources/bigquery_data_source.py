@@ -18,6 +18,7 @@ from soda_core.common.sql_ast import (
     COUNT,
     DISTINCT,
     LITERAL,
+    RANDOM,
     REGEX_LIKE,
     STRING_HASH,
     TUPLE,
@@ -82,20 +83,13 @@ class BigQueryDataSourceImpl(DataSourceImpl, model_class=BigQueryDataSourceModel
         )
         return super_metadata_tables_query
 
-    def build_columns_metadata_query_str(self, dataset_prefixes: list[str], dataset_name: str) -> str:
-        table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
-            project_id=dataset_prefixes[0], dataset=dataset_prefixes[1]
-        )
-
-        # BigQuery must be able to override to get the location
-        return self.sql_dialect.build_columns_metadata_query_str(
-            table_namespace=table_namespace, table_name=dataset_name
-        )
+    def _build_columns_metadata_namespace(self, prefixes: list[str]) -> DataSourceNamespace:
+        return BigQueryDataSourceNamespace(project_id=prefixes[0], dataset=prefixes[1])
 
     def _build_table_namespace_for_schema_query(self, prefixes: list[str]) -> tuple[DataSourceNamespace, str]:
         table_namespace: DataSourceNamespace = BigQueryDataSourceNamespace(
             project_id=prefixes[0],
-            dataset=None,  # We only need the project id to query the schemas, as it's always in the `INFORMATION_SCHEMA`
+            dataset=None,  # Schema existence queries need project-level INFORMATION_SCHEMA
         )
         schema_name = self.extract_schema_from_prefix(prefixes)
         if schema_name is None:
@@ -243,3 +237,6 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
 
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         return f"to_hex({super()._build_string_hash_sql(string_hash)})"
+
+    def _build_random_sql(self, random: RANDOM) -> str:
+        return "RAND()"

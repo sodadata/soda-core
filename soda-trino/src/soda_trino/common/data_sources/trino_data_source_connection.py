@@ -78,8 +78,11 @@ class TrinoDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
 
-    def format_rows(self, rows: list[tuple]) -> list[tuple]:
-        return [tuple(float(v) if isinstance(v, Decimal) else v for v in row) for row in rows]
+    def _format_rows(self, rows: list[tuple]) -> list[tuple]:
+        return [self._format_row(row) for row in rows]
+
+    def _format_row(self, row: tuple) -> tuple:
+        return tuple(float(v) if isinstance(v, Decimal) else v for v in row)
 
     def _create_connection(
         self,

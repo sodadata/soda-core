@@ -59,7 +59,7 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         return result
 
     def table_s3_location(self, qualified_table_name: str, lowercase: bool = True) -> str:
-        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "")
+        table_part_for_location = qualified_table_name.replace(".", "/").replace('"', "").replace("`", "")
         if lowercase:  # Athena table names are always lowercase, so the location should be lowercase as well.
             table_part_for_location = table_part_for_location.lower()
         location = f"{self.connection.athena_staging_dir}/{table_part_for_location}/"
@@ -159,6 +159,8 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
 
 
 class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
+    SUPPORTS_DROP_TABLE_CASCADE = False
+
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
@@ -169,6 +171,10 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def __init__(self, get_table_storage_location: Optional[Callable[[str], str]] = None):
         super().__init__()
         self.get_table_storage_location = get_table_storage_location
+
+    def quote_for_ddl(self, identifier: Optional[str]) -> Optional[str]:
+        """Athena DDL uses Hive parser (backticks) while DML uses Trino parser (double quotes)."""
+        return f"`{identifier}`" if isinstance(identifier, str) and len(identifier) > 0 else None
 
     def default_casify(self, identifier: str) -> str:
         return identifier.lower()
@@ -242,9 +248,6 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def get_data_source_type_names_by_test_type_names(self) -> dict[str, str]:
         raise NotImplementedError()
 
-    def quote_default(self, identifier: Optional[str]) -> Optional[str]:
-        return identifier
-
     def quote_column(self, column_name: str) -> str:
         return f'"{column_name}"'
 
@@ -296,7 +299,8 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
     def _build_create_table_statement_sql(self, create_table: CREATE_TABLE | CREATE_TABLE_IF_NOT_EXISTS) -> str:
         if_not_exists_sql: str = "IF NOT EXISTS" if isinstance(create_table, CREATE_TABLE_IF_NOT_EXISTS) else ""
-        create_table_sql: str = f"CREATE EXTERNAL TABLE {if_not_exists_sql} {create_table.fully_qualified_table_name} "
+        table_name: str = self._convert_fqn_for_ddl(create_table.fully_qualified_table_name)
+        create_table_sql: str = f"CREATE EXTERNAL TABLE {if_not_exists_sql} {table_name} "
         return create_table_sql
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
@@ -309,9 +313,6 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
             return "char(1)"
         else:
             return create_table_column.type.get_sql_data_type_str_with_parameters()
-
-    def _quote_column_for_create_table(self, column_name: str) -> str:
-        return f"`{column_name}`"
 
     def _is_not_null_ddl_supported(self) -> bool:
         return False
@@ -427,10 +428,11 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     def _build_alter_table_add_column_sql(
         self, alter_table: ALTER_TABLE_ADD_COLUMN, add_semicolon: bool = True, add_parenthesis: bool = False
     ) -> str:
-        return super()._build_alter_table_add_column_sql(alter_table, add_semicolon=True, add_parenthesis=True)
-
-    def _get_add_column_sql_expr(self) -> str:
-        return "ADD COLUMNS"
+        # Athena ALTER TABLE uses the Hive parser (backticks, "ADD COLUMNS", parentheses).
+        table_name: str = self._convert_fqn_for_ddl(alter_table.fully_qualified_table_name)
+        column_name_quoted: str = self._quote_column_for_create_table(alter_table.column.name)
+        column_type_sql: str = self._build_create_table_column_type(alter_table.column)
+        return f"ALTER TABLE {table_name} ADD COLUMNS ({column_name_quoted} {column_type_sql});"
 
     def drop_column_supported(self) -> bool:
         return (

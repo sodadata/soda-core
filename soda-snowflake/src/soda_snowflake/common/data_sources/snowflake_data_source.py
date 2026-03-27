@@ -6,7 +6,7 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName
-from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, TUPLE, VALUES
+from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, RANDOM, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
@@ -194,6 +194,9 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
 
     def supports_sampler(self, sampler_type: SamplerType) -> bool:
         return sampler_type in (SamplerType.ABSOLUTE_LIMIT, SamplerType.PERCENTAGE)
+
+    def _build_random_sql(self, random: RANDOM) -> str:
+        return "UNIFORM(0::FLOAT, 1::FLOAT, RANDOM())"
 
     def _build_sample_sql(self, sampler_type: SamplerType, sample_size: Number) -> str:
         if sampler_type is SamplerType.ABSOLUTE_LIMIT:
