@@ -107,10 +107,17 @@ class FailedRowsCheckImpl(CheckImpl):
                 self.check_rows_tested_metric_impl = self._resolve_metric(
                     RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
                 )
+                rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
+                if contract_impl.should_apply_sampling:
+                    rows_tested_sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
+                        sql=rows_tested_sql,
+                        sampler_limit=contract_impl.sampler_limit,
+                        sampler_type=contract_impl.sampler_type,
+                    )
                 rows_tested_query: Query = RowsTestedQuery(
                     data_source_impl=contract_impl.data_source_impl,
                     metrics=[self.check_rows_tested_metric_impl],
-                    rows_tested_sql=self.failed_rows_check_yaml.rows_tested_query,
+                    rows_tested_sql=rows_tested_sql,
                 )
                 self.queries.append(rows_tested_query)
 
