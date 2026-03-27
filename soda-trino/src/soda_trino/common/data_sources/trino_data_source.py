@@ -11,7 +11,7 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import INSERT_INTO_VIA_SELECT, STRING_HASH
+from soda_core.common.sql_ast import CREATE_TABLE_AS_SELECT, INSERT_INTO_VIA_SELECT, STRING_HASH
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_trino.common.data_sources.trino_data_source_connection import (
@@ -325,6 +325,19 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
             statement_lines.append(limit_line)
 
         return "\n".join(statement_lines) + (";" if add_semicolon else "")
+
+    def build_create_table_as_select_sql(
+        self,
+        create_table_as_select: CREATE_TABLE_AS_SELECT,
+        add_semicolon: Optional[bool] = None,
+        add_parenthesis: bool = False,
+    ) -> str:
+        # Trino's grammar does not allow a WITH clause inside parentheses in CTAS context.
+        # The base implementation wraps the SELECT in parens (add_parenthesis=True):
+        #   CREATE TABLE t AS (WITH cte AS (...) SELECT ...)  -- INVALID in Trino
+        # We default to no parens:
+        #   CREATE TABLE t AS WITH cte AS (...) SELECT ...    -- VALID in Trino
+        return super().build_create_table_as_select_sql(create_table_as_select, add_semicolon, add_parenthesis)
 
     def build_insert_into_via_select_sql(
         self, insert_into_via_select: INSERT_INTO_VIA_SELECT, add_semicolon: Optional[bool] = None
