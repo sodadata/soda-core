@@ -441,6 +441,10 @@
                                                                     "description": "The query to be used for the failed rows check",
                                                                     "type": "string"
                                                                 },
+                                                                "rows_tested_query": {
+                                                                    "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
+                                                                    "type": "string"
+                                                                },
                                                                 "qualifier": {
                                                                     "description": "The qualifier for the check used in Soda Cloud",
                                                                     "type": "string"
@@ -734,6 +738,10 @@
                                             },
                                             "query": {
                                                 "description": "The query to be used for the failed rows check",
+                                                "type": "string"
+                                            },
+                                            "rows_tested_query": {
+                                                "description": "A SQL query returning the number of rows evaluated. Used with query mode to enable checkRowsTested and percent thresholds.",
                                                 "type": "string"
                                             },
                                             "qualifier": {

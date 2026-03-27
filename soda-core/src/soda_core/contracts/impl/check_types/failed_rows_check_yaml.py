@@ -35,8 +35,25 @@ class FailedRowsCheckYaml(ThresholdCheckYaml):
         self.query: Optional[str] = check_yaml_object.read_string_opt("query")
         if self.query:
             self.query = dedent(self.query).strip()
+        self.rows_tested_query: Optional[str] = check_yaml_object.read_string_opt("rows_tested_query")
+        if self.rows_tested_query:
+            self.rows_tested_query = dedent(self.rows_tested_query).strip()
         if not self.expression and not self.query:
             logger.error(
                 msg="In a 'failed_rows' check, either 'expression' or 'query' is required",
                 extra={ExtraKeys.LOCATION: check_yaml_object.location},
             )
+        if self.metric == "percent" and self.query and not self.rows_tested_query:
+            logger.error(
+                msg="In a 'failed_rows' check with metric 'percent' and 'query', 'rows_tested_query' is required",
+                extra={ExtraKeys.LOCATION: check_yaml_object.location},
+            )
+        if self.rows_tested_query and not self.query:
+            logger.warning(
+                msg="In a 'failed_rows' check, 'rows_tested_query' is only used with 'query' mode; "
+                "expression mode already computes check_rows_tested automatically",
+                extra={ExtraKeys.LOCATION: check_yaml_object.location},
+            )
+
+    def get_valid_metrics(self) -> list[str]:
+        return ["count", "percent"]
