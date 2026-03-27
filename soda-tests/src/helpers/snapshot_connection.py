@@ -130,6 +130,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_index: int = 0
         self._fallback_active: bool = False
         self._allow_fallback: bool = allow_fallback
+        self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
 
 
     def __getattr__(self, name: str) -> Any:
@@ -421,6 +422,16 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 raise RuntimeError(
                     "Cannot fall back to real DB — no real connection available.\n"
                     "  To enable fallback, ensure the real connection is provided in replay mode."
+                )
+
+        # Cascade fallback to linked snapshot first (insource mode).
+        # The linked source snapshot must re-execute its operations to create
+        # real tables before the DWH snapshot can re-execute CTAS statements.
+        if self._linked_snapshot is not None:
+            linked = self._linked_snapshot
+            if not linked._fallback_active and linked._mode == "replay":
+                linked._activate_fallback(
+                    reason=f"Cascaded from linked snapshot fallback ({reason})"
                 )
 
         ops_to_replay = self._replay_index
