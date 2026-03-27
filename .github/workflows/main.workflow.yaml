@@ -151,6 +151,7 @@ jobs:
             trino-s3)       echo "TEST_MODULE=trino" >> "$GITHUB_ENV"; echo "TRINO_CATALOG=iceberg" >> "$GITHUB_ENV" ;;
             *)              echo "TEST_MODULE=$MODULE" >> "$GITHUB_ENV" ;;
           esac
+          echo "CACHE_KEY=$MODULE" >> "$GITHUB_ENV"
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -194,6 +195,43 @@ jobs:
           TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
           CI_MODULE: ${{ matrix.module }}
         run: bash scripts/start_trino_ci.sh
+
+      # ── Restore nightly snapshots for PR replay ─────────────────────
+      - name: Restore snapshot cache
+        if: github.event_name == 'pull_request'
+        id: snapshot-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .test_snapshots/${{ env.TEST_MODULE }}/
+          key: snapshots-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            snapshots-${{ env.CACHE_KEY }}-
+
+      - name: Restore hive_metastore snapshot cache
+        if: github.event_name == 'pull_request' && env.TEST_MODULE == 'databricks'
+        id: snapshot-cache-hive
+        uses: actions/cache/restore@v4
+        with:
+          path: .test_snapshots_hive_metastore/databricks/
+          key: snapshots-databricks-hive-
+          restore-keys: |
+            snapshots-databricks-hive-
+
+      - name: Determine snapshot mode
+        run: |
+          # duckdb and sparkdf run fast enough without snapshots — always use real DB
+          if [ "${{ env.TEST_MODULE }}" = "duckdb" ] || [ "${{ env.TEST_MODULE }}" = "sparkdf" ]; then
+            echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
+            echo "Running ${{ env.TEST_MODULE }} tests against real DB (no snapshots)"
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ -d ".test_snapshots/${{ env.TEST_MODULE }}" ]; then
+            echo "SODA_TEST_SNAPSHOT=replay" >> "$GITHUB_ENV"
+            echo "SODA_TEST_SNAPSHOT_FALLBACK=true" >> "$GITHUB_ENV"
+            echo "Using snapshot replay with fallback for PR"
+          else
+            echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
+            echo "Running tests against real databases"
+          fi
+
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
@@ -216,6 +254,13 @@ jobs:
           uv run python -m pytest -ra soda-${{ env.TEST_MODULE }}/tests
 
           if [ "${{ env.TEST_MODULE }}" = "databricks" ]; then
+            # Use separate snapshot directory for hive_metastore variant
+            if [ -d ".test_snapshots_hive_metastore/databricks" ]; then
+              export SODA_TEST_SNAPSHOT_DIR=.test_snapshots_hive_metastore
+            else
+              export SODA_TEST_SNAPSHOT=off
+              unset SODA_TEST_SNAPSHOT_FALLBACK
+            fi
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
             uv run python -m pytest -ra soda-tests/tests/integration
