@@ -364,9 +364,9 @@ def test_failed_rows_rows_tested_query_sampling_applied(
 
     # With sampling at limit 3 on a 5-row table, checkRowsTested should reflect the sampled count
     check_rows_tested = check_json["diagnostics"]["v4"]["checkRowsTested"]
-    assert check_rows_tested == sample_limit, (
-        f"Expected checkRowsTested={sample_limit} (sampled), got {check_rows_tested}"
-    )
+    assert (
+        check_rows_tested == sample_limit
+    ), f"Expected checkRowsTested={sample_limit} (sampled), got {check_rows_tested}"
 
 
 @mock.patch(
@@ -422,6 +422,4 @@ def test_failed_rows_rows_tested_query_sampling_not_applied(
 
     # Without sampling, checkRowsTested should be the full table count (5 rows)
     check_rows_tested = check_json["diagnostics"]["v4"]["checkRowsTested"]
-    assert check_rows_tested == 5, (
-        f"Expected checkRowsTested=5 (no sampling), got {check_rows_tested}"
-    )
+    assert check_rows_tested == 5, f"Expected checkRowsTested=5 (no sampling), got {check_rows_tested}"
