@@ -88,12 +88,22 @@ jobs:
       - name: Check PyPI availability
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/soda-core/$VERSION/json")
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "::error::Version $VERSION already exists on PyPI!"
+          MODULES=$(bash scripts/release_matrix.sh)
+          FAILED=""
+          for MODULE in $(echo "$MODULES" | python3 -c "import sys,json; [print(m) for m in json.load(sys.stdin)]"); do
+            # Convert directory name to PyPI package name (underscores to hyphens)
+            PKG=$(echo "$MODULE" | tr '_' '-')
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/$PKG/$VERSION/json")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "::error::$PKG $VERSION already exists on PyPI!"
+              FAILED="$FAILED $PKG"
+            fi
+          done
+          if [ -n "$FAILED" ]; then
+            echo "::error::The following packages already exist on PyPI:$FAILED"
             exit 1
           fi
-          echo "Version $VERSION not found on PyPI (HTTP $HTTP_CODE) — OK"
+          echo "No packages found on PyPI for version $VERSION — OK"
 
       - name: Verify main CI is green
         env:
@@ -198,7 +208,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -221,21 +231,22 @@ jobs:
           source .venv/bin/activate
           uv pip install tbump
 
+          # --only-patch skips tbump's commit/tag/push; before_commit hook won't fire,
+          # so we run uv lock explicitly to keep the lockfile in sync.
           tbump --only-patch --non-interactive "$VERSION"
           uv lock
 
-          git add -A
+          git add -u
           git commit -m "Bump to $VERSION"
           git tag "v$VERSION"
           git push origin main --tags
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
           gh release create "v$VERSION" \
-            --verify-tag \
             --generate-notes
 
   # ---------------------------------------------------------------------------
@@ -412,7 +423,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -438,7 +449,7 @@ jobs:
           tbump --only-patch --non-interactive "$NEXT_VERSION"
           uv lock
 
-          git add -A
+          git add -u
           git commit -m "[skip ci] Bump to next prerelease version $NEXT_VERSION"
           git push origin main
 

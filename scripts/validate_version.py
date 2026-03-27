@@ -54,7 +54,8 @@ def validate_version(version: str) -> None:
 def get_bump_level_from_commits() -> str:
     """Inspect conventional commits since the last tag to determine the bump level.
 
-    Returns "minor" if any feat: commits are found, otherwise "patch".
+    Returns "major" for breaking changes (feat!:, fix!:, or BREAKING CHANGE in body),
+    "minor" if any feat: commits are found, otherwise "patch".
     """
     try:
         last_tag = subprocess.run(
@@ -65,6 +66,7 @@ def get_bump_level_from_commits() -> str:
     except subprocess.CalledProcessError:
         log_range = "HEAD"
 
+    # Check subjects for feat!/fix!/etc. (bang suffix = breaking)
     try:
         log_output = subprocess.run(
             ["git", "log", log_range, "--pretty=format:%s", "--no-merges"],
@@ -73,11 +75,27 @@ def get_bump_level_from_commits() -> str:
     except subprocess.CalledProcessError:
         return "patch"
 
-    for line in log_output.splitlines():
-        if re.match(r"^feat(?:\([^)]*\))?:", line):
-            return "minor"
+    # Check full commit bodies for BREAKING CHANGE footers
+    try:
+        body_output = subprocess.run(
+            ["git", "log", log_range, "--pretty=format:%b", "--no-merges"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        body_output = ""
 
-    return "patch"
+    for line in body_output.splitlines():
+        if re.match(r"^BREAKING[ -]CHANGE:", line):
+            return "major"
+
+    has_feat = False
+    for line in log_output.splitlines():
+        if re.match(r"^\w+(?:\([^)]*\))?!:", line):
+            return "major"
+        if re.match(r"^feat(?:\([^)]*\))?:", line):
+            has_feat = True
+
+    return "minor" if has_feat else "patch"
 
 
 def next_prerelease(version: str) -> str:
@@ -88,7 +106,11 @@ def next_prerelease(version: str) -> str:
     major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
 
     bump = get_bump_level_from_commits()
-    if bump == "minor":
+    if bump == "major":
+        major += 1
+        minor = 0
+        patch = 0
+    elif bump == "minor":
         minor += 1
         patch = 0
     else:
