@@ -11,7 +11,11 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
-from soda_core.common.sql_ast import CREATE_TABLE_AS_SELECT, INSERT_INTO_VIA_SELECT, STRING_HASH
+from soda_core.common.sql_ast import (
+    CREATE_TABLE_AS_SELECT,
+    INSERT_INTO_VIA_SELECT,
+    STRING_HASH,
+)
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.statements.metadata_tables_query import MetadataTablesQuery
 from soda_trino.common.data_sources.trino_data_source_connection import (
