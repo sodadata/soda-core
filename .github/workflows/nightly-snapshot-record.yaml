@@ -4,6 +4,7 @@ name: Nightly snapshot recording
 on:
   schedule:
     - cron: '0 2 * * *'  # 2 AM UTC daily
+  pull_request:  # TODO: remove after initial cache is populated
   workflow_dispatch:
     inputs:
       dataSource:
