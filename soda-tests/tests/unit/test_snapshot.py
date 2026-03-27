@@ -77,7 +77,7 @@ class TestFakeCursor:
         rows = [(10,), (20,)]
         desc = (PicklableColumn("val", 23, None, None, None, None, None),)
         cursor = FakeCursor(rows, description=desc, rowcount=2)
-        iterator = QueryResultIterator(cursor)
+        iterator = QueryResultIterator(cursor, format_row=tuple)
         assert list(iterator) == [(10,), (20,)]
         assert iterator.row_count == 2
 
@@ -327,7 +327,7 @@ class TestSnapshotConnectionQueryIterate:
         real_conn = _make_mock_connection()
         desc = (PicklableColumn("val", 23, None, None, None, None, None),)
         fake_cursor = FakeCursor([(1,), (2,), (3,)], description=desc, rowcount=3)
-        real_iter = QueryResultIterator(fake_cursor)
+        real_iter = QueryResultIterator(fake_cursor, format_row=tuple)
 
         # Mock execute_query_iterate as a context manager
         from contextlib import contextmanager
@@ -1679,7 +1679,7 @@ class TestFallbackIterateAndOneByOne:
         from contextlib import contextmanager
 
         fake_cursor = FakeCursor([(10,), (20,), (30,)], description=desc, rowcount=3)
-        real_iter = QueryResultIterator(fake_cursor)
+        real_iter = QueryResultIterator(fake_cursor, format_row=tuple)
 
         @contextmanager
         def mock_iterate(sql, log_query=True):
@@ -1739,7 +1739,7 @@ class TestSessionLevelOperations:
         real_conn = _make_mock_connection()
         desc = (PicklableColumn("v", 23, None, None, None, None, None),)
         fake_cursor = FakeCursor([(1,)], description=desc, rowcount=1)
-        real_iter = QueryResultIterator(fake_cursor)
+        real_iter = QueryResultIterator(fake_cursor, format_row=tuple)
 
         @contextmanager
         def mock_iterate(sql, log_query=True):

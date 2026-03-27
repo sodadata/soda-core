@@ -758,7 +758,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
             # Yield a fake iterator backed by cached data
             try:
-                yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
+                yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
             finally:
                 pass
         else:  # replay
@@ -770,7 +770,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 normalized_desc = self._normalize_description(cursor_description)
                 self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
                 try:
-                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
+                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
                 finally:
                     pass
                 return
@@ -778,7 +778,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 entry = self._next_replay_entry("query_iterate", sql)
                 rows, cursor_description = entry.result
                 try:
-                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
+                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
                 finally:
                     pass
             except SnapshotMismatchError as e:
@@ -789,7 +789,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 normalized_desc = self._normalize_description(cursor_description)
                 self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
                 try:
-                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)))
+                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
                 finally:
                     pass
 
