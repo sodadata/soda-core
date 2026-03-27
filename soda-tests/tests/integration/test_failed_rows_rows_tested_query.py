@@ -127,7 +127,7 @@ def test_failed_rows_percent_without_rows_tested_query_emits_error(data_source_t
     """metric: percent without rows_tested_query should produce a validation error."""
     errors_str: str = data_source_test_helper.assert_contract_error(
         contract_yaml_str="""
-            dataset: dummy_table
+            dataset: ds/schema/dummy_table
             columns: []
             checks:
               - failed_rows:
