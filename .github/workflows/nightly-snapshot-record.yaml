@@ -197,16 +197,6 @@ jobs:
           TEST_DATASOURCE: ${{ env.TEST_MODULE }}
         run: uv run python -m pytest -ra soda-tests/tests/integration
 
-      # ── Record Databricks hive_metastore snapshots ──────────────────
-      - name: Record Databricks hive_metastore snapshots
-        if: env.TEST_MODULE == 'databricks'
-        env:
-          SODA_TEST_SNAPSHOT: record
-          SODA_TEST_SNAPSHOT_DIR: .test_snapshots_hive_metastore
-          DATABRICKS_CATALOG: hive_metastore
-          TEST_DATASOURCE: databricks
-        run: uv run python -m pytest -ra soda-tests/tests/integration
-
       # ── Run no_snapshot tests against real DB ───────────────────────
       - name: Run no_snapshot tests
         env:
@@ -228,13 +218,6 @@ jobs:
         with:
           path: .test_snapshots/${{ env.TEST_MODULE }}/
           key: snapshots-${{ env.CACHE_KEY }}-${{ github.run_id }}
-
-      - name: Save hive_metastore snapshot cache
-        if: env.TEST_MODULE == 'databricks'
-        uses: actions/cache/save@v4
-        with:
-          path: .test_snapshots_hive_metastore/databricks/
-          key: snapshots-databricks-hive-${{ github.run_id }}
 
       - name: Dump Trino logs
         if: always() && startsWith(matrix.module, 'trino')
@@ -299,18 +282,3 @@ jobs:
           TEST_DATASOURCE: ${{ env.TEST_MODULE }}
         run: uv run python -m pytest -ra soda-tests/tests/integration
 
-      # ── Verify Databricks hive_metastore replay ─────────────────────
-      - name: Restore hive_metastore snapshot cache
-        if: env.TEST_MODULE == 'databricks'
-        uses: actions/cache/restore@v4
-        with:
-          path: .test_snapshots_hive_metastore/databricks/
-          key: snapshots-databricks-hive-${{ github.run_id }}
-
-      - name: Verify hive_metastore replay
-        if: env.TEST_MODULE == 'databricks'
-        env:
-          SODA_TEST_SNAPSHOT: replay
-          SODA_TEST_SNAPSHOT_DIR: .test_snapshots_hive_metastore
-          TEST_DATASOURCE: databricks
-        run: uv run python -m pytest -ra soda-tests/tests/integration

@@ -207,16 +207,6 @@ jobs:
           restore-keys: |
             snapshots-${{ env.CACHE_KEY }}-
 
-      - name: Restore hive_metastore snapshot cache
-        if: github.event_name == 'pull_request' && env.TEST_MODULE == 'databricks'
-        id: snapshot-cache-hive
-        uses: actions/cache/restore@v4
-        with:
-          path: .test_snapshots_hive_metastore/databricks/
-          key: snapshots-databricks-hive-
-          restore-keys: |
-            snapshots-databricks-hive-
-
       - name: Determine snapshot mode
         run: |
           # duckdb and sparkdf run fast enough without snapshots — always use real DB
@@ -254,13 +244,9 @@ jobs:
           uv run python -m pytest -ra soda-${{ env.TEST_MODULE }}/tests
 
           if [ "${{ env.TEST_MODULE }}" = "databricks" ]; then
-            # Use separate snapshot directory for hive_metastore variant
-            if [ -d ".test_snapshots_hive_metastore/databricks" ]; then
-              export SODA_TEST_SNAPSHOT_DIR=.test_snapshots_hive_metastore
-            else
-              export SODA_TEST_SNAPSHOT=off
-              unset SODA_TEST_SNAPSHOT_FALLBACK
-            fi
+            # hive_metastore always runs without snapshots for now
+            export SODA_TEST_SNAPSHOT=off
+            unset SODA_TEST_SNAPSHOT_FALLBACK
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
             uv run python -m pytest -ra soda-tests/tests/integration

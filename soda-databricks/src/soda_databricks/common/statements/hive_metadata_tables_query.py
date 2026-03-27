@@ -91,7 +91,7 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
         exclude_table_name_like_filters: Optional[list[str]] = None,
     ) -> list[FullyQualifiedTableName]:
         if object_type_to_fetch == TableType.TABLE:
-            names_for_filtering = [table_name for _, table_name, *_ in query_result.rows]
+            names_for_filtering = [table_name for _, table_name, _ in query_result.rows]
         elif object_type_to_fetch == TableType.VIEW:
             names_for_filtering = [view_name for _, view_name, *_ in query_result.rows]
         else:
@@ -103,7 +103,7 @@ class HiveMetadataTablesQuery(MetadataTablesQuery):
         if object_type_to_fetch == TableType.TABLE:
             return [
                 FullyQualifiedTableName(database_name="hive_metastore", schema_name=schema_name, table_name=table_name)
-                for schema_name, table_name, *_ in query_result.rows
+                for schema_name, table_name, _is_temporary in query_result.rows
                 if table_name in filtered_names
             ]
         elif object_type_to_fetch == TableType.VIEW:
