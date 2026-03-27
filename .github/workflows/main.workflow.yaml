@@ -251,6 +251,19 @@ jobs:
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
             uv run python -m pytest -ra soda-tests/tests/integration
           fi
+
+      # ── Run no_snapshot tests against real DB ───────────────────────
+      - name: Run no_snapshot tests
+        run: |
+          export TEST_DATASOURCE=${{ env.TEST_MODULE }}
+          export SODA_TEST_SNAPSHOT=off
+          # Run tests marked no_snapshot against the real DB; exit 0 if none found.
+          uv run python -m pytest -ra soda-tests/tests/integration -m "no_snapshot" \
+            --no-header -q || {
+            rc=$?
+            [ $rc -eq 5 ] && exit 0
+            exit $rc
+          }
       - name: Dump Trino logs
         if: always() && startsWith(matrix.module, 'trino')
         run: |
