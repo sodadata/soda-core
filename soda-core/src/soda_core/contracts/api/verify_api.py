@@ -14,6 +14,7 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 
@@ -37,6 +38,7 @@ def verify_contracts_locally(
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
+    check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     if not contract_file_paths and not dataset_identifiers:
         raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
@@ -74,6 +76,7 @@ def verify_contracts_locally(
         publish=publish,
         check_paths=check_paths,
         dwh_data_source_file_path=dwh_data_source_file_path,
+        check_selectors=check_selectors,
     )
 
 
@@ -89,6 +92,7 @@ def verify_contract_locally(
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
+    check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
@@ -109,6 +113,7 @@ def verify_contract_locally(
         use_agent=False,
         check_paths=check_paths,
         dwh_data_source_file_path=dwh_data_source_file_path,
+        check_selectors=check_selectors,
     )
 
 
@@ -204,6 +209,7 @@ def verify_contract(
     data_source_file_paths: Optional[list[str]] = None,
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[str] = None,
+    check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     if not data_source_file_paths:
         data_source_file_paths = []
@@ -269,6 +275,7 @@ def verify_contract(
             soda_cloud_verbose=verbose,
             soda_cloud_use_agent_blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             check_paths=check_paths,
+            check_selectors=check_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
 

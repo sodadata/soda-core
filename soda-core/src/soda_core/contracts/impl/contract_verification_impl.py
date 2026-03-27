@@ -44,6 +44,7 @@ from soda_core.contracts.contract_verification import (
     Threshold,
     YamlFileContentInfo,
 )
+from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -122,7 +123,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
-        check_paths: Optional[list[str]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
     ):
         logs: Logs = Logs()
@@ -170,8 +171,8 @@ class ContractVerificationSessionImpl:
         # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
         assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
 
-        if check_paths is None:
-            check_paths = []
+        if check_selectors is None:
+            check_selectors = []
 
         if soda_cloud_use_agent:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
@@ -194,7 +195,7 @@ class ContractVerificationSessionImpl:
                 data_source_yaml_sources=data_source_yaml_sources,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
-                check_paths=check_paths,
+                check_selectors=check_selectors,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
@@ -211,7 +212,7 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: list[DataSourceYamlSource],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
-        check_paths: list[str],
+        check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies a Contract locally."
@@ -251,7 +252,7 @@ class ContractVerificationSessionImpl:
                         soda_cloud=soda_cloud_impl,
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
-                        check_paths=check_paths,
+                        check_selectors=check_selectors,
                         dwh_data_source_file_path=dwh_data_source_file_path,
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
@@ -375,7 +376,7 @@ class ContractImpl:
         execution_timestamp: datetime,
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
-        check_paths: list[str] = [],
+        check_selectors: list[CheckSelector] = [],
         dwh_data_source_file_path: Optional[str] = None,
     ):
         self.logs: Logs = logs
@@ -388,7 +389,7 @@ class ContractImpl:
         self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = self.contract_yaml.filter
-        self.check_paths: list[str] = check_paths
+        self.check_selectors: list[CheckSelector] = check_selectors
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
 
@@ -1363,14 +1364,12 @@ class CheckImpl:
         self.threshold: Optional[ThresholdImpl] = None
         self.metrics: list[MetricImpl] = []
         self.queries: list[Query] = []
-        self.skip: bool = False
 
-        if contract_impl.check_paths:
-            if self.path not in contract_impl.check_paths:
-                self.skip = True
-
-        # Merge check attributes with contract attributes
+        # Merge attributes before filtering (selectors may query them)
         self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
+
+        # Apply check selectors (subsumes old check_paths logic)
+        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
 
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
