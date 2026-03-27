@@ -915,7 +915,7 @@ class TestSnapshotSchemaPlaceholder:
 
     def test_normalize_replaces_real_with_placeholder(self):
         """_normalize_for_snapshot replaces real schema in SQL and results."""
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(
             real_connection=None,
             snapshot_manager=manager,
@@ -936,7 +936,7 @@ class TestSnapshotSchemaPlaceholder:
 
     def test_denormalize_replaces_placeholder_with_real(self):
         """_denormalize_from_snapshot replaces placeholder with real schema."""
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(
             real_connection=None,
             snapshot_manager=manager,
@@ -957,7 +957,7 @@ class TestSnapshotSchemaPlaceholder:
 
     def test_noop_without_placeholder(self):
         """Normalize/denormalize are no-ops when placeholder is not set."""
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(
             real_connection=None, snapshot_manager=manager, mode="replay"
         )
@@ -1200,7 +1200,7 @@ class TestExtraReplacements:
     """Tests for extra_replacements dict used by DWH interceptor."""
 
     def test_normalize_with_extra_replacements(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="record")
         conn.extra_replacements = {"__$$__SCAN_ID__$$__": "abc123"}
 
@@ -1211,7 +1211,7 @@ class TestExtraReplacements:
         assert normalized.result.rows == [("__$$__scan_id__$$__",)]
 
     def test_denormalize_with_extra_replacements(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         conn.extra_replacements = {"__$$__SCAN_ID__$$__": "xyz789"}
 
@@ -1312,7 +1312,7 @@ class TestTimestampNormalization:
         assert "__soda_temp___$$__SODA_UUID__$$__" in result
 
     def test_sql_matches_with_timestamps_enabled(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         conn.normalize_timestamps = True
 
@@ -1321,7 +1321,7 @@ class TestTimestampNormalization:
         assert conn._sql_matches(stored, incoming)
 
     def test_sql_matches_without_timestamps_disabled(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         conn.normalize_timestamps = False
 
@@ -1476,7 +1476,7 @@ class TestGetattr:
     """Tests for __getattr__ attribute proxying to real connection."""
 
     def test_proxies_attribute_to_real_connection(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         real_conn.athena_staging_dir = "/some/s3/path"
 
@@ -1484,7 +1484,7 @@ class TestGetattr:
         assert conn.athena_staging_dir == "/some/s3/path"
 
     def test_triggers_factory_when_real_is_none(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         real_conn.custom_attr = "hello"
 
@@ -1506,7 +1506,7 @@ class TestGetattr:
         assert len(factory_calls) == 1
 
     def test_raises_attribute_error_for_missing(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
 
         # Use a real object (not MagicMock) so hasattr() returns False for missing attrs
         class FakeConn:
@@ -1520,7 +1520,7 @@ class TestGetattr:
             _ = conn.no_such_attribute
 
     def test_raises_attribute_error_when_no_real_and_no_factory(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
 
         with pytest.raises(AttributeError):
@@ -1566,7 +1566,7 @@ class TestDotSeparatedNormalization:
         assert SnapshotDataSourceConnection._to_quoted("schema") == '"schema"'
 
     def test_normalize_dot_separated_path(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="record")
         conn.extra_replacements = {"__$$__DWH__$$__": "catalog.schema.prefix"}
 
@@ -1579,7 +1579,7 @@ class TestDotSeparatedNormalization:
         assert '"catalog"."schema"."prefix"' not in normalized.sql.lower()
 
     def test_denormalize_dot_separated_path(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         conn.extra_replacements = {"__$$__DWH__$$__": "my_cat.my_schema.my_prefix"}
 
@@ -1603,7 +1603,7 @@ class TestConnectionLifecycle:
     """Tests for commit(), rollback(), close_connection()."""
 
     def test_commit_delegates_to_real(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
 
@@ -1611,13 +1611,13 @@ class TestConnectionLifecycle:
         real_conn.commit.assert_called_once()
 
     def test_commit_noop_in_replay(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         # Should not raise
         conn.commit()
 
     def test_rollback_delegates_to_real(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         conn = SnapshotDataSourceConnection(real_conn, manager, mode="record")
 
@@ -1625,7 +1625,7 @@ class TestConnectionLifecycle:
         real_conn.rollback.assert_called_once()
 
     def test_rollback_noop_in_replay(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         conn.rollback()
 
@@ -1736,7 +1736,7 @@ class TestSessionLevelOperations:
     def test_session_level_iterate_passes_through(self):
         from contextlib import contextmanager
 
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         desc = (PicklableColumn("v", 23, None, None, None, None, None),)
         fake_cursor = FakeCursor([(1,)], description=desc, rowcount=1)
@@ -1759,7 +1759,7 @@ class TestSessionLevelOperations:
         assert rows == [(1,)]
 
     def test_session_level_one_by_one_passes_through(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         desc = (PicklableColumn("id", 23, None, None, None, None, None),)
 
@@ -1779,7 +1779,7 @@ class TestSessionLevelOperations:
         assert captured == [(1,)]
 
     def test_session_level_without_real_conn_raises_for_query(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
 
         with patch.dict(os.environ, {}, clear=False):
@@ -1788,7 +1788,7 @@ class TestSessionLevelOperations:
                 conn.execute_query("SELECT 1")
 
     def test_session_level_without_real_conn_raises_for_update(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
 
         with patch.dict(os.environ, {}, clear=False):
@@ -1797,7 +1797,7 @@ class TestSessionLevelOperations:
                 conn.execute_update("CREATE TABLE t (id INT)")
 
     def test_session_level_without_real_conn_raises_for_iterate(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
 
         with patch.dict(os.environ, {}, clear=False):
@@ -1807,7 +1807,7 @@ class TestSessionLevelOperations:
                     list(it)
 
     def test_session_level_without_real_conn_raises_for_one_by_one(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
 
         with patch.dict(os.environ, {}, clear=False):
@@ -1854,7 +1854,7 @@ class TestFormatRows:
     """Tests for format_rows delegation."""
 
     def test_format_rows_delegates_to_real(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         real_conn = _make_mock_connection()
         real_conn.format_rows.return_value = [("formatted",)]
 
@@ -1864,7 +1864,7 @@ class TestFormatRows:
         real_conn.format_rows.assert_called_once_with([("raw",)])
 
     def test_format_rows_identity_without_real(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         rows = [("a", 1), ("b", 2)]
         assert conn.format_rows(rows) == rows
@@ -1879,7 +1879,7 @@ class TestNormalizePicklableColumnInValues:
     """Tests for recursive normalization of PicklableColumn objects."""
 
     def test_normalize_value_in_picklable_column(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(
             real_connection=None,
             snapshot_manager=manager,
@@ -1896,7 +1896,7 @@ class TestNormalizePicklableColumnInValues:
         assert normalized_col.type_code == 1043
 
     def test_denormalize_value_in_picklable_column(self):
-        manager = SnapshotManager("postgres", "/tmp/unused")
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
         conn = SnapshotDataSourceConnection(
             real_connection=None,
             snapshot_manager=manager,
