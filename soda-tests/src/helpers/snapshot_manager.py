@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import pickle
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -64,9 +64,7 @@ class SnapshotManager:
             "datasource_type": self.datasource_type,
             "test_id": test_id,
             "operation_count": len(recording),
-            "operations": [
-                {"index": i, "type": entry.op_type, "sql": entry.sql} for i, entry in enumerate(recording)
-            ],
+            "operations": [{"index": i, "type": entry.op_type, "sql": entry.sql} for i, entry in enumerate(recording)],
         }
         with open(json_path, "w") as f:
             json.dump(json_data, f, indent=2)

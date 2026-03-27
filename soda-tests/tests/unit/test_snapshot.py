@@ -5,11 +5,9 @@ from __future__ import annotations
 import json
 import os
 import pickle
-import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from helpers.snapshot_connection import (
     FakeCursor,
     PicklableColumn,
@@ -22,7 +20,6 @@ from helpers.snapshot_manager import (
     SnapshotNotFoundError,
 )
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
-
 
 # ---------------------------------------------------------------------------
 # PicklableColumn
@@ -1006,11 +1003,13 @@ class TestSnapshotSchemaPlaceholder:
         lc = PLACEHOLDER.lower()
         manager.save(
             test_id,
-            [SnapshotEntry(
-                "query",
-                f'SELECT schema FROM "soda"."{lc}"."t"',
-                QueryResult(rows=[(lc,)], columns=None),
-            )],
+            [
+                SnapshotEntry(
+                    "query",
+                    f'SELECT schema FROM "soda"."{lc}"."t"',
+                    QueryResult(rows=[(lc,)], columns=None),
+                )
+            ],
         )
 
         # Replay on env B with a DIFFERENT real schema name
@@ -1227,9 +1226,7 @@ class TestExtraReplacements:
     def test_extra_replacements_combined_with_schema_placeholder(self, tmp_path):
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(
-            rows=[("dev_schema", "scan_001")], columns=None
-        )
+        real_conn.execute_query.return_value = QueryResult(rows=[("dev_schema", "scan_001")], columns=None)
 
         conn = SnapshotDataSourceConnection(
             real_connection=real_conn,
@@ -1336,11 +1333,13 @@ class TestTimestampNormalization:
         # Save snapshot with one timestamp
         manager.save(
             test_id,
-            [SnapshotEntry(
-                "update",
-                "INSERT INTO t (ts) VALUES ('2026-03-16T18:24:35.151223')",
-                None,
-            )],
+            [
+                SnapshotEntry(
+                    "update",
+                    "INSERT INTO t (ts) VALUES ('2026-03-16T18:24:35.151223')",
+                    None,
+                )
+            ],
         )
 
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
@@ -1357,11 +1356,13 @@ class TestTimestampNormalization:
 
         manager.save(
             test_id,
-            [SnapshotEntry(
-                "update",
-                "CREATE TABLE __soda_temp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1 AS SELECT 1",
-                None,
-            )],
+            [
+                SnapshotEntry(
+                    "update",
+                    "CREATE TABLE __soda_temp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1 AS SELECT 1",
+                    None,
+                )
+            ],
         )
 
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")

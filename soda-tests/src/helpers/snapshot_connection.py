@@ -8,9 +8,18 @@ from collections import namedtuple
 from collections.abc import Iterator
 from typing import Any, Callable, Optional
 
-from helpers.snapshot_manager import SnapshotEntry, SnapshotManager, SnapshotMismatchError, SnapshotNotFoundError
+from helpers.snapshot_manager import (
+    SnapshotEntry,
+    SnapshotManager,
+    SnapshotMismatchError,
+    SnapshotNotFoundError,
+)
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_results import QueryResult, QueryResultIterator, UpdateResult
+from soda_core.common.data_source_results import (
+    QueryResult,
+    QueryResultIterator,
+    UpdateResult,
+)
 from soda_core.common.logging_constants import soda_logger
 
 logger = logging.getLogger(__name__)
@@ -132,7 +141,6 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._allow_fallback: bool = allow_fallback
         self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
 
-
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
 
@@ -250,7 +258,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         result = entry.result
         if has_primary:
             sql = self._normalize_value(sql, self._real_schema_name, self._schema_placeholder)
-            result = self._normalize_value(result, self._real_schema_name, self._schema_placeholder) if result is not None else None
+            result = (
+                self._normalize_value(result, self._real_schema_name, self._schema_placeholder)
+                if result is not None
+                else None
+            )
         for placeholder, real_value in self.extra_replacements.items():
             sql = self._normalize_value(sql, real_value, placeholder)
             result = self._normalize_value(result, real_value, placeholder) if result is not None else None
@@ -265,7 +277,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         result = entry.result
         if has_primary:
             sql = self._denormalize_value(sql, self._schema_placeholder, self._real_schema_name)
-            result = self._denormalize_value(result, self._schema_placeholder, self._real_schema_name) if result is not None else None
+            result = (
+                self._denormalize_value(result, self._schema_placeholder, self._real_schema_name)
+                if result is not None
+                else None
+            )
         for placeholder, real_value in self.extra_replacements.items():
             sql = self._denormalize_value(sql, placeholder, real_value)
             result = self._denormalize_value(result, placeholder, real_value) if result is not None else None
@@ -430,9 +446,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._linked_snapshot is not None:
             linked = self._linked_snapshot
             if not linked._fallback_active and linked._mode == "replay":
-                linked._activate_fallback(
-                    reason=f"Cascaded from linked snapshot fallback ({reason})"
-                )
+                linked._activate_fallback(reason=f"Cascaded from linked snapshot fallback ({reason})")
 
         ops_to_replay = self._replay_index
         logger.warning(
@@ -452,9 +466,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 self._record_entry(SnapshotEntry("update", entry.sql, None))
             else:
                 result = self._real.execute_query(entry.sql, log_query=False)
-                self._record_entry(
-                    SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result))
-                )
+                self._record_entry(SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result)))
 
         self._fallback_active = True
 
@@ -493,7 +505,9 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         stored_entry = self._replay_data[self._replay_index]
         # Normalize the incoming SQL the same way snapshots are stored (real values → placeholders).
         incoming_normalized = self._normalize_for_snapshot(SnapshotEntry(expected_type, expected_sql, None))
-        if stored_entry.op_type != incoming_normalized.op_type or not self._sql_matches(stored_entry.sql, incoming_normalized.sql):
+        if stored_entry.op_type != incoming_normalized.op_type or not self._sql_matches(
+            stored_entry.sql, incoming_normalized.sql
+        ):
             # Show denormalized forms in error for readability
             denormalized = self._denormalize_from_snapshot(stored_entry)
             raise SnapshotMismatchError(
