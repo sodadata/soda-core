@@ -248,3 +248,172 @@ def test_consistent_hash_metric_identity_scenario():
 
     assert builder1.get_hash() == builder2.get_hash()
     assert builder1.get_hash() != builder3.get_hash()
+
+
+# --- Extra identity properties (extensibility via extra_identity_properties in _build_identity) ---
+
+
+def test_add_property_none_is_noop():
+    """add_property(key, None) must not change the hash.
+
+    This is the foundation of backward compatibility for extensions that add
+    optional identity dimensions: when the extra property is absent (None),
+    the hash must be identical to one computed without the property at all.
+    """
+    builder_without = ConsistentHashBuilder(8)
+    builder_without.add_property("dso", "ds1")
+    builder_without.add_property("pr", "schema")
+    builder_without.add_property("ds", "table")
+    builder_without.add_property("c", None)
+    builder_without.add_property("t", "row_count")
+    builder_without.add_property("q", None)
+    hash_without = builder_without.get_hash()
+
+    builder_with_none = ConsistentHashBuilder(8)
+    builder_with_none.add_property("dso", "ds1")
+    builder_with_none.add_property("pr", "schema")
+    builder_with_none.add_property("ds", "table")
+    builder_with_none.add_property("c", None)
+    builder_with_none.add_property("t", "row_count")
+    builder_with_none.add_property("q", None)
+    builder_with_none.add_property("extra", None)
+    hash_with_none = builder_with_none.get_hash()
+
+    assert hash_without == hash_with_none
+
+
+def test_extra_property_changes_hash():
+    """add_property(key, value) with a non-None value must change the hash."""
+    builder_without = ConsistentHashBuilder(8)
+    builder_without.add_property("dso", "ds1")
+    builder_without.add_property("t", "row_count")
+
+    builder_with = ConsistentHashBuilder(8)
+    builder_with.add_property("dso", "ds1")
+    builder_with.add_property("t", "row_count")
+    builder_with.add_property("extra", "some_value")
+
+    assert builder_without.get_hash() != builder_with.get_hash()
+
+
+def test_different_extra_property_values_produce_different_hashes():
+    """Different values for the same extra property key must produce different hashes."""
+    builder_a = ConsistentHashBuilder(8)
+    builder_a.add_property("t", "row_count")
+    builder_a.add_property("extra", "value_a")
+
+    builder_b = ConsistentHashBuilder(8)
+    builder_b.add_property("t", "row_count")
+    builder_b.add_property("extra", "value_b")
+
+    assert builder_a.get_hash() != builder_b.get_hash()
+
+
+def test_extra_property_hash_is_deterministic():
+    """Same base properties + same extra property must always produce the same hash."""
+
+    def build():
+        builder = ConsistentHashBuilder(8)
+        builder.add_property("dso", "ds1")
+        builder.add_property("pr", "schema")
+        builder.add_property("ds", "table")
+        builder.add_property("t", "row_count")
+        builder.add_property("extra", "value")
+        return builder.get_hash()
+
+    assert build() == build()
+
+
+def test_multiple_none_extra_properties_are_noop():
+    """Multiple add_property calls with None values must not change the hash."""
+    builder_without = ConsistentHashBuilder(8)
+    builder_without.add_property("t", "row_count")
+    hash_without = builder_without.get_hash()
+
+    builder_with = ConsistentHashBuilder(8)
+    builder_with.add_property("t", "row_count")
+    builder_with.add_property("extra1", None)
+    builder_with.add_property("extra2", None)
+    builder_with.add_property("extra3", None)
+
+    assert builder_with.get_hash() == hash_without
+
+
+def test_extra_properties_order_independent():
+    """Extra properties added in different order must produce the same hash.
+
+    _build_identity sorts the extra_identity_properties dict by key before
+    adding them to the hash, so callers don't need to worry about dict key
+    ordering.
+    """
+    from soda_core.contracts.impl.contract_verification_impl import CheckImpl
+
+    hash_ab = CheckImpl._build_identity(
+        contract_impl=_stub_contract_impl(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+        extra_identity_properties={"alpha": "a", "beta": "b"},
+    )
+    hash_ba = CheckImpl._build_identity(
+        contract_impl=_stub_contract_impl(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+        extra_identity_properties={"beta": "b", "alpha": "a"},
+    )
+    assert hash_ab == hash_ba
+
+
+def test_build_identity_extra_none_preserves_hash():
+    """Passing extra_identity_properties with None value must not change the identity."""
+    from soda_core.contracts.impl.contract_verification_impl import CheckImpl
+
+    hash_without = CheckImpl._build_identity(
+        contract_impl=_stub_contract_impl(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+    )
+    hash_with_none = CheckImpl._build_identity(
+        contract_impl=_stub_contract_impl(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+        extra_identity_properties={"src": None},
+    )
+    assert hash_without == hash_with_none
+
+
+def test_build_identity_extra_value_changes_hash():
+    """Passing a non-None extra property must produce a different identity."""
+    from soda_core.contracts.impl.contract_verification_impl import CheckImpl
+
+    hash_without = CheckImpl._build_identity(
+        contract_impl=_stub_contract_impl(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+    )
+    hash_with = CheckImpl._build_identity(
+        contract_impl=_stub_contract_impl(),
+        column_impl=None,
+        check_type="row_count",
+        qualifier=None,
+        extra_identity_properties={"src": "warehouse"},
+    )
+    assert hash_without != hash_with
+
+
+class _StubDataSourceImpl:
+    name = "ds1"
+
+
+class _StubContractImpl:
+    data_source_impl = _StubDataSourceImpl()
+    dataset_prefix = "schema"
+    dataset_name = "table"
+
+
+def _stub_contract_impl():
+    return _StubContractImpl()

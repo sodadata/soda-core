@@ -1346,6 +1346,7 @@ class CheckImpl:
         contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         self.logs: Logs = contract_impl.logs
 
@@ -1359,6 +1360,7 @@ class CheckImpl:
             column_impl=column_impl,
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
+            extra_identity_properties=extra_identity_properties,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -1453,7 +1455,12 @@ class CheckImpl:
 
     @classmethod
     def _build_identity(
-        cls, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
+        cls,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_type: str,
+        qualifier: Optional[str],
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
         if contract_impl.data_source_impl:
@@ -1463,6 +1470,9 @@ class CheckImpl:
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
+        if extra_identity_properties:
+            for key in sorted(extra_identity_properties):
+                identity_hash_builder.add_property(key, extra_identity_properties[key])
 
         return identity_hash_builder.get_hash()
 
@@ -1520,9 +1530,13 @@ class CheckImpl:
 
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
-        self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: MissingAncValidityCheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
-        super().__init__(contract_impl, column_impl, check_yaml)
+        super().__init__(contract_impl, column_impl, check_yaml, extra_identity_properties=extra_identity_properties)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=check_yaml)
         self.missing_and_validity.apply_column_defaults(column_impl)
 
