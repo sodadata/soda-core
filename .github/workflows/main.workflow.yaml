@@ -207,10 +207,21 @@ jobs:
           restore-keys: |
             snapshots-${{ env.CACHE_KEY }}-
 
+      - name: Check for replay override
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          if [[ "$COMMIT_MSG" == "[REPLAY=OFF]"* ]]; then
+            echo "FORCE_SNAPSHOT_OFF=true" >> "$GITHUB_ENV"
+            echo "Commit message starts with [REPLAY=OFF] — forcing snapshot mode off"
+          fi
+
       - name: Determine snapshot mode
         run: |
+          if [ "$FORCE_SNAPSHOT_OFF" = "true" ]; then
+            echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
+            echo "Snapshot replay disabled via [REPLAY=OFF] in commit message"
           # duckdb and sparkdf run fast enough without snapshots — always use real DB
-          if [ "${{ env.TEST_MODULE }}" = "duckdb" ] || [ "${{ env.TEST_MODULE }}" = "sparkdf" ]; then
+          elif [ "${{ env.TEST_MODULE }}" = "duckdb" ] || [ "${{ env.TEST_MODULE }}" = "sparkdf" ]; then
             echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
             echo "Running ${{ env.TEST_MODULE }} tests against real DB (no snapshots)"
           elif [ "${{ github.event_name }}" = "pull_request" ] && [ -d ".test_snapshots/${{ env.TEST_MODULE }}" ]; then
