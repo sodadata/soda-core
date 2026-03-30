@@ -334,10 +334,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # _next_replay_entry so that extra_replacements added after load are applied.
             self._replay_data = raw if raw else None
             if self._replay_data is None:
+                snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
+                if not self._allow_fallback:
+                    raise SnapshotNotFoundError(
+                        f"No snapshot found for test: {test_id}\n"
+                        f"  Expected at: {snapshot_path}\n"
+                        f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
+                        f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
+                    )
                 if self._real is not None or self._fallback_connection_factory is not None:
                     if self._real is None:
                         self._real = self._fallback_connection_factory()
-                    snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
                     logger.info(
                         f"SNAPSHOT: Auto-recording for {test_id}\n"
                         f"  Reason: No snapshot found (expected at: {snapshot_path})\n"
@@ -346,7 +353,6 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     self._fallback_active = True
                     self._recording = []
                 else:
-                    snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
                     raise SnapshotNotFoundError(
                         f"No snapshot found for test: {test_id}\n"
                         f"  Expected at: {snapshot_path}\n"

@@ -215,6 +215,7 @@ jobs:
       - name: Verify replay
         env:
           SODA_TEST_SNAPSHOT: replay
+          SODA_TEST_SNAPSHOT_FALLBACK: "false"
           TEST_DATASOURCE: ${{ env.TEST_MODULE }}
         run: uv run python -m pytest -ra soda-tests/tests/integration
 
