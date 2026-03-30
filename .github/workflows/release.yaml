@@ -154,7 +154,6 @@ jobs:
 
       - name: Pre-flight summary
         env:
-        env:
           VERSION: ${{ steps.resolve.outputs.version }}
           NEXT: ${{ steps.resolve.outputs.next_version }}
           MODULES: ${{ steps.modules.outputs.modules }}
