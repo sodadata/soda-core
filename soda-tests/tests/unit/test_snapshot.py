@@ -564,7 +564,7 @@ class TestSnapshotFallback:
         real_conn.execute_update.return_value = None
         real_conn.execute_query.return_value = QueryResult(rows=[(7,)], columns=None)
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
 
         test_id = "tests/test_x.py::test_no_snapshot"
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
@@ -585,11 +585,11 @@ class TestSnapshotFallback:
                 conn.execute_query("SELECT 1")
 
     def test_missing_snapshot_auto_records_with_real_conn(self, tmp_path):
-        """With a real connection, missing snapshot auto-records instead of raising."""
+        """With a real connection and fallback enabled, missing snapshot auto-records instead of raising."""
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         real_conn = _make_mock_connection()
         real_conn.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
 
         test_id = "tests/test_x.py::test_auto_record"
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
@@ -597,6 +597,16 @@ class TestSnapshotFallback:
 
         assert result.rows == [(42,)]
         real_conn.execute_query.assert_called_once()
+
+    def test_missing_snapshot_raises_with_real_conn_when_fallback_disabled(self, tmp_path):
+        """With a real connection but fallback disabled, missing snapshot raises."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real_conn = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=False)
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "tests/test_x.py::test_strict (call)"}):
+            with pytest.raises(SnapshotNotFoundError, match="No snapshot found"):
+                conn.execute_query("SELECT 1")
 
     def test_missing_snapshot_auto_records_then_next_test_replays(self, tmp_path):
         """First test auto-records (no snapshot), second test replays from cache."""
@@ -613,7 +623,7 @@ class TestSnapshotFallback:
         real_conn = _make_mock_connection()
         real_conn.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
 
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay")
+        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
 
         # First test: no snapshot → auto-record against real DB
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
@@ -791,6 +801,7 @@ class TestSnapshotLazyConnection:
             snapshot_manager=manager,
             mode="replay",
             fallback_connection_factory=factory,
+            allow_fallback=True,
         )
 
         test_id = "tests/test_x.py::test_lazy_missing"
@@ -878,6 +889,7 @@ class TestSnapshotLazyConnection:
             snapshot_manager=manager,
             mode="replay",
             fallback_connection_factory=factory,
+            allow_fallback=True,
         )
 
         # First test: missing snapshot → factory called
