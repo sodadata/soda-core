@@ -202,7 +202,7 @@ jobs:
         id: snapshot-cache
         uses: actions/cache/restore@v4
         with:
-          path: .test_snapshots/${{ env.TEST_MODULE }}/
+          path: .test_snapshots/
           key: snapshots-${{ env.CACHE_KEY }}-
           restore-keys: |
             snapshots-${{ env.CACHE_KEY }}-

@@ -223,7 +223,7 @@ jobs:
       - name: Save snapshot cache
         uses: actions/cache/save@v4
         with:
-          path: .test_snapshots/${{ env.TEST_MODULE }}/
+          path: .test_snapshots/
           key: snapshots-${{ env.CACHE_KEY }}-${{ github.run_id }}
 
       - name: Dump Trino logs
