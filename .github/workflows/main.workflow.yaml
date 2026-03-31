@@ -224,7 +224,7 @@ jobs:
           elif [ "${{ env.TEST_MODULE }}" = "duckdb" ] || [ "${{ env.TEST_MODULE }}" = "sparkdf" ]; then
             echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
             echo "Running ${{ env.TEST_MODULE }} tests against real DB (no snapshots)"
-          elif [ "${{ github.event_name }}" = "pull_request" ] && [ -d ".test_snapshots/${{ env.TEST_MODULE }}" ]; then
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ -d ".test_snapshots" ]; then
             echo "SODA_TEST_SNAPSHOT=replay" >> "$GITHUB_ENV"
             echo "SODA_TEST_SNAPSHOT_FALLBACK=true" >> "$GITHUB_ENV"
             echo "Using snapshot replay with fallback for PR"
