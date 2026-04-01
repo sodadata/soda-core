@@ -47,13 +47,15 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
     def __init__(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl,
+        column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
+            extra_identity_properties=extra_identity_properties,
         )
 
         self.now_variable: Optional[str] = check_yaml.now_variable
@@ -146,7 +148,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
     def __init__(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl,
+        column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
     ):
         super().__init__(
@@ -169,7 +171,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
     def setup_metrics(
         self,
         contract_impl: ContractImpl,
-        column_impl: ColumnImpl,
+        column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
     ):
         self.max_timestamp_metric = self._resolve_metric(
