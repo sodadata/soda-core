@@ -1,5 +1,6 @@
 import datetime
 
+import pytest
 import pytz
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
@@ -323,6 +324,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         data_source_impl.execute_update(drop_table_sql)
 
 
+@pytest.mark.no_snapshot
 def test_large_insert_test_table(data_source_test_helper: DataSourceTestHelper):
     NUMBER_OF_ROWS = 2025
     large_test_table_specification = (

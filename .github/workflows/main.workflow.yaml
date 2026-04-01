@@ -151,6 +151,7 @@ jobs:
             trino-s3)       echo "TEST_MODULE=trino" >> "$GITHUB_ENV"; echo "TRINO_CATALOG=iceberg" >> "$GITHUB_ENV" ;;
             *)              echo "TEST_MODULE=$MODULE" >> "$GITHUB_ENV" ;;
           esac
+          echo "CACHE_KEY=$MODULE" >> "$GITHUB_ENV"
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -194,6 +195,44 @@ jobs:
           TRINO_CI_ASSUME_ROLE_ARN: ${{ secrets.TRINO_CI_ASSUME_ROLE_ARN }}
           CI_MODULE: ${{ matrix.module }}
         run: bash scripts/start_trino_ci.sh
+
+      # ── Restore nightly snapshots for PR replay ─────────────────────
+      - name: Restore snapshot cache
+        if: github.event_name == 'pull_request'
+        id: snapshot-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .test_snapshots/
+          key: snapshots-${{ env.CACHE_KEY }}-
+          restore-keys: |
+            snapshots-${{ env.CACHE_KEY }}-
+
+      - name: Check for replay override
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          if [[ "$COMMIT_MSG" == "[REPLAY=OFF]"* ]]; then
+            echo "FORCE_SNAPSHOT_OFF=true" >> "$GITHUB_ENV"
+            echo "Commit message starts with [REPLAY=OFF] — forcing snapshot mode off"
+          fi
+
+      - name: Determine snapshot mode
+        run: |
+          if [ "$FORCE_SNAPSHOT_OFF" = "true" ]; then
+            echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
+            echo "Snapshot replay disabled via [REPLAY=OFF] in commit message"
+          # duckdb and sparkdf run fast enough without snapshots — always use real DB
+          elif [ "${{ env.TEST_MODULE }}" = "duckdb" ] || [ "${{ env.TEST_MODULE }}" = "sparkdf" ]; then
+            echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
+            echo "Running ${{ env.TEST_MODULE }} tests against real DB (no snapshots)"
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ -d ".test_snapshots" ]; then
+            echo "SODA_TEST_SNAPSHOT=replay" >> "$GITHUB_ENV"
+            echo "SODA_TEST_SNAPSHOT_FALLBACK=true" >> "$GITHUB_ENV"
+            echo "Using snapshot replay with fallback for PR"
+          else
+            echo "SODA_TEST_SNAPSHOT=off" >> "$GITHUB_ENV"
+            echo "Running tests against real databases"
+          fi
+
       - name: Run tests
         run: |
           uv sync --locked --all-packages --group dev
@@ -216,10 +255,26 @@ jobs:
           uv run python -m pytest -ra soda-${{ env.TEST_MODULE }}/tests
 
           if [ "${{ env.TEST_MODULE }}" = "databricks" ]; then
+            # hive_metastore always runs without snapshots for now
+            export SODA_TEST_SNAPSHOT=off
+            unset SODA_TEST_SNAPSHOT_FALLBACK
             export DATABRICKS_CATALOG=hive_metastore
             echo "Changed DATABRICKS_CATALOG environment variable to hive_metastore"
             uv run python -m pytest -ra soda-tests/tests/integration
           fi
+
+      # ── Run no_snapshot tests against real DB ───────────────────────
+      - name: Run no_snapshot tests
+        run: |
+          export TEST_DATASOURCE=${{ env.TEST_MODULE }}
+          export SODA_TEST_SNAPSHOT=off
+          # Run tests marked no_snapshot against the real DB; exit 0 if none found.
+          uv run python -m pytest -ra soda-tests/tests/integration -m "no_snapshot" \
+            --no-header -q || {
+            rc=$?
+            [ $rc -eq 5 ] && exit 0
+            exit $rc
+          }
       - name: Dump Trino logs
         if: always() && startsWith(matrix.module, 'trino')
         run: |
