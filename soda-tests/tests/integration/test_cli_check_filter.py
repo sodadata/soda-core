@@ -163,9 +163,7 @@ class TestCliCheckFilterListAttributes:
         Matches: id.missing (has tag 'prod' AND column 'id') — passes.
         Excludes: id.duplicate (no tag 'prod'), name.missing (column 'name' not 'id').
         """
-        exit_code, result = _run_cli(
-            _base_args(cli_test_dir) + ["-cf", "attributes.tags=prod", "-cf", "column=id"]
-        )
+        exit_code, result = _run_cli(_base_args(cli_test_dir) + ["-cf", "attributes.tags=prod", "-cf", "column=id"])
 
         assert exit_code == ExitCode.OK
         cvr = result.contract_verification_results[0]
