@@ -38,10 +38,15 @@ def get_contract_yaml(data_source_test_helper: DataSourceTestHelper) -> str:
                     must_be: 2
                 attributes:
                     severity: critical
+                    tags:
+                        - prod
+                        - critical
             - invalid:
                 valid_values: [1, 2, 3]
                 attributes:
                     severity: low
+                    tags:
+                        - staging
             - missing:
                 attributes:
                     severity: critical
@@ -216,3 +221,43 @@ def test_no_selectors_runs_all(data_source_test_helper: DataSourceTestHelper):
         assert result.is_ok
         cvr: ContractVerificationResult = result.contract_verification_results[0]
         assert cvr.number_of_checks_excluded == 0
+
+
+def test_filter_by_list_attribute_member_match(data_source_test_helper: DataSourceTestHelper):
+    """attributes.tags=prod should match checks where 'prod' is a member of the tags list."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    data_source_test_helper.enable_soda_cloud_mock(
+        [MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"})]
+    )
+
+    with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
+        result = data_source_test_helper.verify_contract(
+            test_table=test_table,
+            check_selectors=[CheckSelector.parse("attributes.tags=prod")],
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
+        )
+        assert result.is_ok
+        cvr: ContractVerificationResult = result.contract_verification_results[0]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        assert len(non_excluded) == 1
+        assert non_excluded[0].check.type == "aggregate"
+
+
+def test_filter_by_list_attribute_full_match(data_source_test_helper: DataSourceTestHelper):
+    """attributes.tags=[prod,critical] should match only the check with exactly those tags."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    data_source_test_helper.enable_soda_cloud_mock(
+        [MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"})]
+    )
+
+    with freeze_time(datetime(year=2025, month=1, day=3, hour=10, minute=0, second=0, tzinfo=timezone.utc)):
+        result = data_source_test_helper.verify_contract(
+            test_table=test_table,
+            check_selectors=[CheckSelector.parse("attributes.tags=[prod,critical]")],
+            contract_yaml_str=get_contract_yaml(data_source_test_helper),
+        )
+        assert result.is_ok
+        cvr: ContractVerificationResult = result.contract_verification_results[0]
+        non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+        assert len(non_excluded) == 1
+        assert non_excluded[0].check.type == "aggregate"

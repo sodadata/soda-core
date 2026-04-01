@@ -316,6 +316,14 @@ class TestCheckSelectorParseListValue:
     def test_mixed_quoted_unquoted(self):
         assert CheckSelector._parse_list_value('[a, "b,c", d]') == ["a", "b,c", "d"]
 
+    def test_unterminated_quote_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector._parse_list_value('["a,b]')
+
+    def test_unterminated_quote_middle_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector._parse_list_value('[a, "b, c]')
+
 
 class TestCheckSelectorListMemberMatch:
     def test_member_match(self):
