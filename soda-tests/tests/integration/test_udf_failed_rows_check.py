@@ -44,12 +44,12 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
-    multicolumn_duplicate_diagnostics: dict = check_json["diagnostics"]["v4"]
-
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
+        "failedRowsPercent": 2 * 100 / 3,
         "datasetRowsTested": 3,
+        "checkRowsTested": 3,
     }
 
 

@@ -14,6 +14,7 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
 from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
 from soda_core.common.soda_cloud import SodaCloud
@@ -51,6 +52,8 @@ from soda_core.contracts.contract_verification import (
 )
 
 logger = logging.getLogger(__name__)
+
+SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
 
 
 class DataSourceTestHelper:
@@ -148,6 +151,16 @@ class DataSourceTestHelper:
 
     def __init__(self, name: str):
         self.name = name
+
+        # Snapshot mode must be set before _create_dataset_prefix() because
+        # _create_schema_name() uses it to produce a deterministic schema name.
+        self._snapshot_mode: str = os.getenv("SODA_TEST_SNAPSHOT", "off")
+
+        # Compute and cache the base schema name BEFORE _create_dataset_prefix(),
+        # so that _create_schema_name() returns a consistent value (timestamps
+        # would differ between calls).
+        self._base_schema_name: Optional[str] = DataSourceTestHelper._create_schema_name(self)
+
         self.dataset_prefix: list[str] = self._create_dataset_prefix()
         logs: Logs = Logs()
         self.data_source_impl: "DataSourceImpl" = self._create_data_source_impl()
@@ -166,6 +179,37 @@ class DataSourceTestHelper:
 
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
+
+        # Session-level metadata cache (only active in record mode).
+        # Tracks the metadata query SQL and a mutable QueryResult that is kept
+        # in sync as tables are created/dropped by ensure_test_table().
+        self._metadata_cache_sql: Optional[str] = None
+        self._metadata_cache_result: Optional[QueryResult] = None
+
+        # Log the snapshot mode
+        logger.info(f"Snapshot mode: {self._snapshot_mode}")
+        # Snapshot manager (only initialized when snapshot mode is active)
+        self._snapshot_manager = None
+        if self._snapshot_mode != "off":
+            from helpers.snapshot_manager import SnapshotManager
+
+            snapshot_dir = os.getenv("SODA_TEST_SNAPSHOT_DIR", os.path.join(os.getcwd(), ".test_snapshots"))
+            # In-source DWH transfer mode produces different source SQL operations
+            # (e.g. failed rows queries route differently), so use a separate snapshot path.
+            ds_type = self.data_source_impl.type_name
+            if os.getenv("DWH_USE_IN_SOURCE_TRANSFER", "").lower() == "true":
+                ds_type = f"{ds_type}_insource"
+            # Use a separate snapshot subdirectory for non-primary helpers
+            # (e.g. secondary_datasource) to avoid file collisions.
+            if self.name != "primary_datasource":
+                ds_type = f"{ds_type}_{self.name}"
+            self._snapshot_manager = SnapshotManager(
+                datasource_type=ds_type,
+                snapshot_dir=snapshot_dir,
+            )
+
+        # DWH snapshot managers (lazily created when first accessed by DwhTestSetup)
+        self._dwh_snapshot_managers: dict[str, "SnapshotManager"] = {}
 
         if os.environ.get("SEND_RESULTS_TO_SODA_CLOUD") == "on":
             self.enable_soda_cloud()
@@ -227,6 +271,9 @@ class DataSourceTestHelper:
         """
         Called in constructor to initialized self.schema_name
         """
+        # Return cached value if available (avoids timestamp drift between calls)
+        if hasattr(self, "_base_schema_name"):
+            return self._base_schema_name
 
         schema_name_parts = []
 
@@ -267,9 +314,85 @@ class DataSourceTestHelper:
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name
 
+    def get_dwh_snapshot_manager(self, *, is_in_source: bool = False):
+        """Lazily create a SnapshotManager for DWH operations.
+
+        In-source and between-source modes produce different SQL operation sequences,
+        so they need separate snapshot files to avoid overwriting each other.
+        """
+        suffix = "_dwh_insource" if is_in_source else "_dwh"
+        key = f"{self.data_source_impl.type_name}{suffix}"
+        if key not in self._dwh_snapshot_managers and self._snapshot_mode != "off":
+            from helpers.snapshot_manager import SnapshotManager
+
+            snapshot_dir = os.getenv("SODA_TEST_SNAPSHOT_DIR", os.path.join(os.getcwd(), ".test_snapshots"))
+            self._dwh_snapshot_managers[key] = SnapshotManager(
+                datasource_type=key,
+                snapshot_dir=snapshot_dir,
+            )
+        return self._dwh_snapshot_managers.get(key)
+
+    def _snapshot_schema_name(self) -> Optional[str]:
+        """Return the dynamic schema name part for snapshot placeholder replacement.
+
+        Uses the base class _create_schema_name() result (cached in __init__) to get
+        just the environment-specific part (e.g. 'dev_niels') without any data-source-
+        specific prefixes. This ensures the replacement works even for data sources
+        like Dremio that prepend a static path to the schema name.
+        """
+        return self._base_schema_name
+
     def start_test_session(self) -> None:
-        self.start_test_session_open_connection()
-        self.start_test_session_ensure_schema()
+        if self._snapshot_mode == "replay":
+            # In replay mode, defer DB connection + schema creation until a
+            # fallback is actually triggered (lazy initialization).
+            from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+            real_schema_name = self._snapshot_schema_name()
+
+            def connection_factory():
+                """Lazily open connection and create schema on first fallback."""
+                snap_conn = self.data_source_impl.data_source_connection
+                self.start_test_session_open_connection()
+                self.start_test_session_ensure_schema()
+                real_conn = self.data_source_impl.data_source_connection
+                self.data_source_impl.data_source_connection = snap_conn
+                return real_conn
+
+            allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
+            snap_conn = SnapshotDataSourceConnection(
+                real_connection=None,
+                snapshot_manager=self._snapshot_manager,
+                mode="replay",
+                fallback_connection_factory=connection_factory,
+                schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
+                real_schema_name=real_schema_name,
+                allow_fallback=allow_fallback,
+            )
+            snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+            # Propagate connection_properties from the data source model so that
+            # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
+            # works without a real DB connection.
+            snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
+            self.data_source_impl.data_source_connection = snap_conn
+        else:
+            # Record mode or snapshot off: always open connection and create schema.
+            self.start_test_session_open_connection()
+            self.start_test_session_ensure_schema()
+
+            if self._snapshot_mode == "record":
+                from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+                real_connection = self.data_source_impl.data_source_connection
+                snap_conn = SnapshotDataSourceConnection(
+                    real_connection=real_connection,
+                    snapshot_manager=self._snapshot_manager,
+                    mode="record",
+                    schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
+                    real_schema_name=self._snapshot_schema_name(),
+                )
+                snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+                self.data_source_impl.data_source_connection = snap_conn
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
@@ -284,6 +407,17 @@ class DataSourceTestHelper:
         self.create_test_schema_if_not_exists()
 
     def end_test_session(self, exception: Optional[Exception]) -> None:
+        # Finalize any in-progress snapshot recording before teardown
+        if self._snapshot_mode != "off" and hasattr(self.data_source_impl.data_source_connection, "finalize"):
+            self.data_source_impl.data_source_connection.finalize()
+
+        # In replay mode with lazy connection, skip DB teardown if no fallback
+        # was triggered — there's no real connection or schema to clean up.
+        if self._snapshot_mode == "replay":
+            snap_conn = self.data_source_impl.data_source_connection
+            if hasattr(snap_conn, "_real") and snap_conn._real is None:
+                return
+
         self.end_test_session_drop_schema()
         self.end_test_session_close_connection()
 
@@ -299,11 +433,42 @@ class DataSourceTestHelper:
         schema: Optional[str] = self.extract_schema_from_prefix()
 
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
+
+        # In record mode, on the first call we let execute() run normally (handles all
+        # datasource-specific overrides like Redshift's UNION_ALL), then extract the
+        # recorded SQL from the snapshot connection's recording to register it in the cache.
+        # Subsequent calls (from later tests) hit the cache instead of the DB, but the
+        # result is still recorded in each test's snapshot for replay correctness.
+        snap_conn = self.data_source_impl.data_source_connection
+        setup_cache = self._snapshot_mode == "record" and self._metadata_cache_sql is None
+
+        if setup_cache and hasattr(snap_conn, "_recording"):
+            recording_len_before = len(snap_conn._recording)
+
         fully_qualified_table_names: list[FullyQualifiedTableName] = metadata_tables_query.execute(
             database_name=database,
             schema_name=schema,
             include_table_name_like_filters=["SODATEST_%"],
         )
+
+        if setup_cache and hasattr(snap_conn, "_recording") and len(snap_conn._recording) > recording_len_before:
+            # Extract the query entry that execute() just recorded
+            recorded_entry = snap_conn._recording[recording_len_before]
+            # Denormalize the SQL to get the real SQL (recording stores normalized form)
+            denormalized = snap_conn._denormalize_from_snapshot(recorded_entry)
+            sql = denormalized.sql.strip()
+            query_result = denormalized.result
+
+            # Cache the SQL and a mutable copy of the result
+            self._metadata_cache_sql = sql
+            self._metadata_cache_result = QueryResult(
+                rows=list(query_result.rows),
+                columns=query_result.columns,
+            )
+            # Register in the snapshot connection so future execute_query() calls
+            # for this exact SQL return the cached result and record it in the snapshot.
+            snap_conn.record_mode_cached_queries[self._metadata_cache_sql] = self._metadata_cache_result
+
         return fully_qualified_table_names
 
     def query_existing_test_table_names(self) -> list[str]:
@@ -313,6 +478,32 @@ class DataSourceTestHelper:
             for fully_qualified_test_table_name in fully_qualified_table_names
             if isinstance(fully_qualified_test_table_name, FullyQualifiedTableName)
         ]
+
+    def _update_metadata_cache(self, table_name: str, added: bool) -> None:
+        """Update the in-memory metadata cache when a test table is created or dropped.
+
+        The snapshot connection's record_mode_cached_queries references the same
+        QueryResult object, so mutations here are automatically visible to it.
+        """
+        if self._metadata_cache_result is None:
+            return
+
+        if added:
+            # Derive template values (database, schema, table_type) from existing rows
+            if self._metadata_cache_result.rows:
+                template = self._metadata_cache_result.rows[0]
+                database_name = template[0]
+                schema_name = template[1]
+                table_type = template[3]
+            else:
+                database_name = self.extract_database_from_prefix()
+                schema_name = self.extract_schema_from_prefix()
+                table_type = "BASE TABLE"
+            self._metadata_cache_result.rows.append((database_name, schema_name, table_name, table_type))
+        else:
+            self._metadata_cache_result.rows = [
+                row for row in self._metadata_cache_result.rows if row[2].lower() != table_name.lower()
+            ]
 
     def create_test_schema_if_not_exists(self) -> None:
         sql: str = self.create_test_schema_if_not_exists_sql()
@@ -388,10 +579,12 @@ class DataSourceTestHelper:
                         logger.debug(f"Test table {obsolete_table_name} has changed and will be recreated")
                         self._drop_test_table(table_name=obsolete_table_name)
                         self.existing_test_table_names.remove(obsolete_table_name)
+                        self._update_metadata_cache(obsolete_table_name, added=False)
 
                 logger.debug(f"Test table {test_table_specification.unique_name} will be created")
                 self._create_and_insert_test_table(test_table=test_table)
                 self.existing_test_table_names.append(test_table.unique_name)
+                self._update_metadata_cache(test_table.unique_name, added=True)
 
                 self.data_source_impl.data_source_connection.commit()
         else:
@@ -496,6 +689,15 @@ class DataSourceTestHelper:
 
     def _cascade_drop_table(self) -> bool:
         return True
+
+    def _snapshot_passthrough_queries(self) -> dict:
+        """Return a dict mapping exact SQL strings to mock QueryResult objects.
+
+        These queries bypass snapshot recording/replay entirely and return the
+        provided mock result directly. Override in subclasses for data-source-specific
+        session-level queries that run lazily during tests (e.g. BigQuery's SELECT @@location).
+        """
+        return {}
 
     def query_existing_test_views(self) -> list[FullyQualifiedViewName]:
         metadata_tables_query: MetadataTablesQuery = self.data_source_impl.create_metadata_tables_query()
@@ -796,6 +998,11 @@ class DataSourceTestHelper:
         # self.data_source_impl.data_source_connection.rollback() #TODO: this was originally done to theoretically speed up tests, but needs some datasource-specific work.
         self.soda_cloud = None
         self.use_agent = False
+        if self._snapshot_mode != "off":
+            # Reset the table name cache so the next test re-queries existing tables.
+            # This makes each test's snapshot self-contained (always starts with the
+            # metadata query), allowing tests to be replayed in any order or isolation.
+            self.existing_test_table_names = None
 
     def quote_column(self, column_name: str) -> str:
         """For shorter notation in the tests, we can just point it to the dialect."""

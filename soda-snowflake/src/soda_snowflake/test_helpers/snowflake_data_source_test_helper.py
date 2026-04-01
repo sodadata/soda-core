@@ -26,3 +26,13 @@ class SnowflakeDataSourceTestHelper(DataSourceTestHelper):
 
     def _adjust_schema_name(self, schema_name: str) -> str:
         return schema_name.upper()
+
+    def _snapshot_passthrough_queries(self) -> dict:
+        from soda_core.common.data_source_results import QueryResult
+
+        # Snowflake lazily runs SELECT CURRENT_WAREHOUSE() to detect the active warehouse.
+        # This is session-level metadata that shouldn't be part of per-test snapshots.
+        warehouse = os.getenv("SNOWFLAKE_WAREHOUSE", "SODA_TESTING_WH")
+        return {
+            "SELECT CURRENT_WAREHOUSE()": QueryResult(rows=[(warehouse,)], columns=None),
+        }

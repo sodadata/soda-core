@@ -13,7 +13,8 @@ ATHENA_ACCESS_KEY_ID = os.getenv("ATHENA_ACCESS_KEY_ID", None)
 ATHENA_SECRET_ACCESS_KEY = os.getenv("ATHENA_SECRET_ACCESS_KEY", None)
 ATHENA_S3_TEST_DIR = os.getenv("ATHENA_S3_TEST_DIR")
 # Drop the extra / at the end of the S3 test dir. This gives conflicts with the location to clean up later.
-ATHENA_S3_TEST_DIR = ATHENA_S3_TEST_DIR[:-1] if ATHENA_S3_TEST_DIR.endswith("/") else ATHENA_S3_TEST_DIR
+if ATHENA_S3_TEST_DIR is not None:
+    ATHENA_S3_TEST_DIR = ATHENA_S3_TEST_DIR[:-1] if ATHENA_S3_TEST_DIR.endswith("/") else ATHENA_S3_TEST_DIR
 ATHENA_REGION_NAME = os.getenv("ATHENA_REGION_NAME", "eu-west-1")
 ATHENA_CATALOG = os.getenv("ATHENA_CATALOG", "awsdatacatalog")
 ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP")
@@ -23,7 +24,7 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
     def __init__(self, name: str):
         super().__init__(name)
         self.s3_test_dir = ATHENA_S3_TEST_DIR
-        if self.s3_test_dir.endswith("/"):
+        if self.s3_test_dir and self.s3_test_dir.endswith("/"):
             self.s3_test_dir = self.s3_test_dir[:-1]
 
     def _create_database_name(self) -> str | None:

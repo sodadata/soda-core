@@ -715,17 +715,26 @@ class ContractImpl:
 
         scan_id: Optional[str] = None
         if soda_cloud_file_id:
-            # send_contract_result will use contract.source.soda_cloud_file_id
-            soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-            scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-            if not scan_id:
+            if data_source is None:
+                logger.error(
+                    f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
+                    f"Data source not found. Check that the data source name in the contract's "
+                    f"'dataset' field matches the name in your data source configuration."
+                )
+                sending_results_to_soda_cloud_failed = True
                 contract_verification_result.sending_results_to_soda_cloud_failed = True
             else:
-                contract_verification_result.scan_id = scan_id
-                # Put the dataset id in the contract object
-                contract_verification_result.contract.dataset_id = self.__get_dataset_id(
-                    soda_cloud_response_json, self.soda_qualified_dataset_name
-                )
+                # send_contract_result will use contract.source.soda_cloud_file_id
+                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+                scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
+                if not scan_id:
+                    contract_verification_result.sending_results_to_soda_cloud_failed = True
+                else:
+                    contract_verification_result.scan_id = scan_id
+                    # Put the dataset id in the contract object
+                    contract_verification_result.contract.dataset_id = self.__get_dataset_id(
+                        soda_cloud_response_json, self.soda_qualified_dataset_name
+                    )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -1346,6 +1355,7 @@ class CheckImpl:
         contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         self.logs: Logs = contract_impl.logs
 
@@ -1359,6 +1369,7 @@ class CheckImpl:
             column_impl=column_impl,
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
+            extra_identity_properties=extra_identity_properties,
         )
 
         self.threshold: Optional[ThresholdImpl] = None
@@ -1453,7 +1464,12 @@ class CheckImpl:
 
     @classmethod
     def _build_identity(
-        cls, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_type: str, qualifier: Optional[str]
+        cls,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_type: str,
+        qualifier: Optional[str],
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
         if contract_impl.data_source_impl:
@@ -1463,6 +1479,9 @@ class CheckImpl:
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
+        if extra_identity_properties:
+            for key in sorted(extra_identity_properties):
+                identity_hash_builder.add_property(key, extra_identity_properties[key])
 
         return identity_hash_builder.get_hash()
 
@@ -1520,9 +1539,13 @@ class CheckImpl:
 
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
-        self, contract_impl: ContractImpl, column_impl: Optional[ColumnImpl], check_yaml: MissingAncValidityCheckYaml
+        self,
+        contract_impl: ContractImpl,
+        column_impl: Optional[ColumnImpl],
+        check_yaml: MissingAncValidityCheckYaml,
+        extra_identity_properties: Optional[dict[str, object]] = None,
     ):
-        super().__init__(contract_impl, column_impl, check_yaml)
+        super().__init__(contract_impl, column_impl, check_yaml, extra_identity_properties=extra_identity_properties)
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=check_yaml)
         self.missing_and_validity.apply_column_defaults(column_impl)
 

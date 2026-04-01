@@ -1,3 +1,4 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -13,6 +14,7 @@ test_table_specification = (
 )
 
 
+@pytest.mark.no_snapshot
 def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

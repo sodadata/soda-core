@@ -1432,8 +1432,12 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             # The scan definition name is still required on result ingestion to link to the contract
             # and determine if we're dealing with a default or test contract.
             "definitionName": _build_scan_definition_name(contract_verification_result),
-            "defaultDataSource": contract_verification_result.data_source.name,
-            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type},
+            "defaultDataSource": contract_verification_result.data_source.name
+            if contract_verification_result.data_source
+            else None,
+            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type}
+            if contract_verification_result.data_source
+            else None,
             # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
             # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
             "dataTimestamp": contract_verification_result.data_timestamp,
@@ -1569,7 +1573,9 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
         return {
             "type": check_result.check.type,
             "failedRowsCount": check_result.diagnostic_metric_values.get("failed_rows_count"),
+            "failedRowsPercent": check_result.diagnostic_metric_values.get("failed_rows_percent"),
             "datasetRowsTested": check_result.diagnostic_metric_values.get("dataset_rows_tested"),
+            "checkRowsTested": check_result.diagnostic_metric_values.get("check_rows_tested"),
         }
     elif check_result.check.type == "aggregate":
         return {
