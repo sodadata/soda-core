@@ -114,13 +114,29 @@ class CheckSelector:
 
     @staticmethod
     def _parse_list_value(value: str) -> Optional[list[str]]:
-        """Parse '[a,b,c]' into ['a','b','c']. Returns None if not list syntax."""
-        if value.startswith("[") and value.endswith("]"):
-            inner = value[1:-1]
-            if not inner:
-                return []
-            return [item.strip() for item in inner.split(",")]
-        return None
+        """Parse '[a,b,c]' into ['a','b','c']. Returns None if not list syntax.
+
+        Supports quoted elements for values containing commas or spaces:
+            ["a,b", c, "d e"] -> ['a,b', 'c', 'd e']
+        """
+        if not (value.startswith("[") and value.endswith("]")):
+            return None
+        inner = value[1:-1]
+        if not inner.strip():
+            return []
+        items = []
+        current = []
+        in_quotes = False
+        for char in inner:
+            if char == '"':
+                in_quotes = not in_quotes
+            elif char == "," and not in_quotes:
+                items.append("".join(current).strip())
+                current = []
+            else:
+                current.append(char)
+        items.append("".join(current).strip())
+        return items
 
     def _values_match(self, check_value: str, selector_value: str) -> bool:
         """Compare values. Uses fnmatch if selector_value contains wildcards."""

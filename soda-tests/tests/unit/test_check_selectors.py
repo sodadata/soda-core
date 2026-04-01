@@ -304,6 +304,18 @@ class TestCheckSelectorParseListValue:
     def test_single_element(self):
         assert CheckSelector._parse_list_value("[prod]") == ["prod"]
 
+    def test_quoted_element_with_comma(self):
+        assert CheckSelector._parse_list_value('["a,b",c]') == ["a,b", "c"]
+
+    def test_quoted_element_with_spaces(self):
+        assert CheckSelector._parse_list_value('["hello world", foo]') == ["hello world", "foo"]
+
+    def test_all_quoted(self):
+        assert CheckSelector._parse_list_value('["a,b","c,d"]') == ["a,b", "c,d"]
+
+    def test_mixed_quoted_unquoted(self):
+        assert CheckSelector._parse_list_value('[a, "b,c", d]') == ["a", "b,c", "d"]
+
 
 class TestCheckSelectorListMemberMatch:
     def test_member_match(self):
