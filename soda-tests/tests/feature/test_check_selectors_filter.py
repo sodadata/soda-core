@@ -261,3 +261,58 @@ def test_filter_by_list_attribute_full_match(data_source_test_helper: DataSource
         non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
         assert len(non_excluded) == 1
         assert non_excluded[0].check.type == "aggregate"
+
+
+# Separate table with duplicate data so the duplicate check fails
+test_table_with_duplicates_specification = (
+    TestTableSpecification.builder()
+    .table_purpose("check_selectors_filter_dup")
+    .column_integer("id")
+    .column_varchar("name")
+    .rows(rows=[(1, "Alice"), (2, "Bob"), (2, "Charlie")])
+    .build()
+)
+
+
+def get_contract_with_duplicates_yaml() -> str:
+    return """
+    columns:
+        - name: id
+          checks:
+            - missing:
+                attributes:
+                    tags:
+                        - prod
+                        - critical
+            - duplicate:
+                attributes:
+                    tags:
+                        - staging
+        - name: name
+          checks:
+            - missing:
+                attributes:
+                    tags:
+                        - prod
+"""
+
+
+def test_filter_selects_failing_check(data_source_test_helper: DataSourceTestHelper):
+    """Filtering to a tag that only matches a failing check should produce a failed result.
+
+    attributes.tags=staging matches only id.duplicate, which fails (id=2 is duplicated).
+    The two missing checks (tags: [prod, critical] and [prod]) must be excluded.
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_with_duplicates_specification)
+    result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        check_selectors=[CheckSelector.parse("attributes.tags=staging")],
+        contract_yaml_str=get_contract_with_duplicates_yaml(),
+    )
+    assert result.is_failed
+    cvr: ContractVerificationResult = result.contract_verification_results[0]
+    non_excluded = [cr for cr in cvr.check_results if not cr.is_excluded()]
+    assert len(non_excluded) == 1
+    assert non_excluded[0].check.type == "duplicate"
+    assert non_excluded[0].check.column_name == "id"
+    assert cvr.number_of_checks_excluded == 2
