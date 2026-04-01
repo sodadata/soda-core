@@ -249,14 +249,9 @@ class FailedRowsQueryMetricImpl(MetricImpl):
 
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
-        sql = data_source_impl.sql_dialect.build_select_sql(
-            [
-                WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]),
-                SELECT(COUNT(STAR())),
-                FROM("failed_rows"),
-            ]
-        )
-        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
+        # Execute user query directly — no CTE wrapping, which breaks ORDER BY on SQL Server
+        # and user queries that already contain CTEs.
+        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=failed_rows_query)
 
     def execute(self) -> list[Measurement]:
         try:
@@ -265,10 +260,7 @@ class FailedRowsCountQuery(Query):
             logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
-        if not query_result.rows:
-            metric_value = None
-        else:
-            metric_value = query_result.rows[0][0]
+        metric_value = len(query_result.rows)
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
 
