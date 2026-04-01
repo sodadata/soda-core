@@ -30,11 +30,7 @@ def cli_test_dir():
         # Write data source config
         ds_path = tmp_path / "ds.yml"
         ds_path.write_text(
-            f"type: duckdb\n"
-            f"name: cli-test\n"
-            f"connection:\n"
-            f'  database: "{db_path}"\n'
-            f"  schema: main\n"
+            f"type: duckdb\n" f"name: cli-test\n" f"connection:\n" f'  database: "{db_path}"\n' f"  schema: main\n"
         )
 
         # Write contract YAML with list-valued attributes
