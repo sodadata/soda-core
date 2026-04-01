@@ -76,6 +76,7 @@ def test_failed_rows_query_with_rows_tested_query(data_source_test_helper: DataS
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
+        "failedRowsPercent": 2 * 100 / 3,
         "datasetRowsTested": 3,
         "checkRowsTested": 3,
     }
@@ -118,6 +119,7 @@ def test_failed_rows_query_with_rows_tested_query_percent_threshold(data_source_
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
+        "failedRowsPercent": 2 * 100 / 3,
         "datasetRowsTested": 3,
         "checkRowsTested": 3,
     }
@@ -170,7 +172,12 @@ def test_failed_rows_query_without_rows_tested_query_backward_compat(data_source
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
 
-    assert check_json["diagnostics"]["v4"] == {"type": "failed_rows", "failedRowsCount": 2, "datasetRowsTested": 3}
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "failed_rows",
+        "failedRowsCount": 2,
+        "failedRowsPercent": None,
+        "datasetRowsTested": 3,
+    }
 
 
 def test_failed_rows_expression_emits_check_rows_tested(data_source_test_helper: DataSourceTestHelper):
@@ -202,6 +209,7 @@ def test_failed_rows_expression_emits_check_rows_tested(data_source_test_helper:
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
+        "failedRowsPercent": 2 * 100 / 3,
         "datasetRowsTested": 3,
         "checkRowsTested": 3,
     }
