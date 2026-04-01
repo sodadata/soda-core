@@ -25,6 +25,7 @@ class CheckSelector:
         self.field = field
         self.value = value
         self.raw = raw
+        self._selector_list = self._parse_list_value(value)
 
     def __eq__(self, other):
         if not isinstance(other, CheckSelector):
@@ -80,9 +81,17 @@ class CheckSelector:
         check_value = self._get_check_value(check_impl)
         if check_value is None:
             return False
+        if isinstance(check_value, list):
+            selector_list = self._selector_list
+            if selector_list is not None:
+                # Full list match: exact set equality, no wildcards
+                return set(check_value) == set(selector_list)
+            else:
+                # Member match: any element matches (with wildcards)
+                return any(self._values_match(item, self.value) for item in check_value)
         return self._values_match(check_value, self.value)
 
-    def _get_check_value(self, check_impl) -> Optional[str]:
+    def _get_check_value(self, check_impl) -> Optional[str | list[str]]:
         """Extract the relevant field value from a CheckImpl."""
         if self.field == "type":
             return check_impl.type
@@ -97,8 +106,44 @@ class CheckSelector:
         elif self.field.startswith(self.ATTRIBUTES_PREFIX):
             attr_key = self.field[len(self.ATTRIBUTES_PREFIX) :]
             attr_value = check_impl.attributes.get(attr_key)
-            return str(attr_value) if attr_value is not None else None
+            if attr_value is None:
+                return None
+            if isinstance(attr_value, list):
+                return [str(item) for item in attr_value]
+            return str(attr_value)
         return None
+
+    @staticmethod
+    def _parse_list_value(value: str) -> Optional[list[str]]:
+        """Parse '[a,b,c]' into ['a','b','c']. Returns None if not list syntax.
+
+        Supports quoted elements for values containing commas or spaces:
+            ["a,b", c, "d e"] -> ['a,b', 'c', 'd e']
+        """
+        if not (value.startswith("[") and value.endswith("]")):
+            return None
+        inner = value[1:-1]
+        if not inner.strip():
+            return []
+        items = []
+        current = []
+        in_quotes = False
+        for char in inner:
+            if char == '"':
+                in_quotes = not in_quotes
+            elif char == "," and not in_quotes:
+                items.append("".join(current).strip())
+                current = []
+            else:
+                current.append(char)
+        if in_quotes:
+            raise CheckSelectorParseException(f"Invalid list syntax in selector value {value!r}: unterminated quote")
+        items.append("".join(current).strip())
+        if any(item == "" for item in items):
+            raise CheckSelectorParseException(
+                f"Invalid list syntax in selector value {value!r}: empty elements are not allowed"
+            )
+        return items
 
     def _values_match(self, check_value: str, selector_value: str) -> bool:
         """Compare values. Uses fnmatch if selector_value contains wildcards."""

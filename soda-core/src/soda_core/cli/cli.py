@@ -202,7 +202,9 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         help="Filter checks by attributes. Format: key=value. "
         "Supported keys: type, name, column, path, qualifier, attributes.<key>. "
         "Multiple filters: AND across fields, OR within same field. "
-        "Wildcards (* and ?) supported in values.",
+        "Wildcards (* and ?) supported in values. "
+        "For list attributes: key=value for member match, key=[a,b] for exact list match. "
+        'Quote values containing shell special characters: -cf "attributes.tags=[a,b]".',
     )
     # TODO: move into extensions
     verify_parser.add_argument(
