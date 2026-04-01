@@ -47,6 +47,7 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
     assert check_json["diagnostics"]["v4"] == {
         "type": "failed_rows",
         "failedRowsCount": 2,
+        "failedRowsPercent": 2 * 100 / 3,
         "datasetRowsTested": 3,
         "checkRowsTested": 3,
     }
