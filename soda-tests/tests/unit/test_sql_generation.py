@@ -261,6 +261,119 @@ def test_sql_ast_create_table_as_select():
     assert my_create_table_as_select_statement == 'CREATE TABLE "customers" AS (\nSELECT "name"\nFROM "customers");'
 
 
+def test_sql_ast_create_table_as_raw_select():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    raw_query = "SELECT * FROM users WHERE active = 1 ORDER BY id ASC"
+    my_ctas_statement = sql_dialect.build_create_table_as_select_sql(
+        CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name='"temp_table"',
+            raw_select_sql=raw_query,
+        )
+    )
+    assert my_ctas_statement == f'CREATE TABLE "temp_table" AS (\n{raw_query});'
+
+
+def test_sql_ast_create_table_as_raw_select_with_user_ctes():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    raw_query = "WITH my_cte AS (SELECT * FROM source) SELECT * FROM my_cte"
+    my_ctas_statement = sql_dialect.build_create_table_as_select_sql(
+        CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name='"temp_table"',
+            raw_select_sql=raw_query,
+        )
+    )
+    assert my_ctas_statement == f'CREATE TABLE "temp_table" AS (\n{raw_query});'
+
+
+def test_sql_ast_update_single_set():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_update_statement = sql_dialect.build_update_sql(
+        UPDATE(
+            fully_qualified_table_name='"my_table"',
+            set_clauses=[SET_CLAUSE(column_name="status", value=LITERAL("active"))],
+        )
+    )
+    assert my_update_statement == "UPDATE \"my_table\" SET \"status\" = 'active';"
+
+
+def test_sql_ast_update_multiple_set():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_update_statement = sql_dialect.build_update_sql(
+        UPDATE(
+            fully_qualified_table_name='"my_table"',
+            set_clauses=[
+                SET_CLAUSE(column_name="status", value=LITERAL("active")),
+                SET_CLAUSE(column_name="count", value=LITERAL(42)),
+            ],
+        )
+    )
+    assert my_update_statement == "UPDATE \"my_table\" SET \"status\" = 'active', \"count\" = 42;"
+
+
+def test_sql_ast_update_with_where():
+    sql_dialect: SqlDialect = SqlDialect()
+
+    my_update_statement = sql_dialect.build_update_sql(
+        UPDATE(
+            fully_qualified_table_name='"my_table"',
+            set_clauses=[SET_CLAUSE(column_name="scan_id", value=LITERAL("abc-123"))],
+            where_condition=WHERE(EQ("id", LITERAL(1))),
+        )
+    )
+    assert my_update_statement == (
+        "UPDATE \"my_table\" SET \"scan_id\" = 'abc-123'\n" 'WHERE "id" = 1;'
+    )
+
+
+def test_failed_rows_dwh_fallback_sql_sequence():
+    """Verify the exact SQL sequence produced by the DWH fallback path for failed rows queries."""
+    sql_dialect: SqlDialect = SqlDialect()
+    table_name = '"schema"."__soda_temp_abc123"'
+    user_query = "SELECT DISTINCT * FROM orders ORDER BY id ASC"
+    scan_id = "scan-001"
+
+    # Step 1: CTAS from raw user query
+    ctas_sql = sql_dialect.build_create_table_as_select_sql(
+        CREATE_TABLE_AS_SELECT(
+            fully_qualified_table_name=table_name,
+            raw_select_sql=user_query,
+        )
+    )
+    assert "CREATE TABLE" in ctas_sql
+    assert table_name in ctas_sql
+    assert user_query in ctas_sql
+    assert "WITH" not in ctas_sql
+
+    # Step 2: ALTER TABLE to add metadata column
+    alter_sql = sql_dialect.build_alter_table_sql(
+        ALTER_TABLE_ADD_COLUMN(
+            fully_qualified_table_name=table_name,
+            column=CREATE_TABLE_COLUMN(
+                name="__soda_scan_id",
+                type=SqlDataType(name=SodaDataTypeName.TEXT),
+            ),
+        )
+    )
+    assert "ALTER TABLE" in alter_sql
+    assert "__soda_scan_id" in alter_sql
+    assert "text" in alter_sql.lower()
+
+    # Step 3: UPDATE to set scan_id
+    update_sql = sql_dialect.build_update_sql(
+        UPDATE(
+            fully_qualified_table_name=table_name,
+            set_clauses=[SET_CLAUSE(column_name="__soda_scan_id", value=LITERAL(scan_id))],
+        )
+    )
+    assert "UPDATE" in update_sql
+    assert table_name in update_sql
+    assert f"'{scan_id}'" in update_sql
+
+
 def test_sql_ast_union():
     sql_dialect: SqlDialect = SqlDialect()
 

@@ -640,11 +640,15 @@ class CREATE_TABLE_IF_NOT_EXISTS(CREATE_TABLE):
 @dataclass
 class CREATE_TABLE_AS_SELECT(BaseSqlExpression):
     fully_qualified_table_name: str
-    select_elements: list[Any]
+    select_elements: list[Any] | None = None
+    raw_select_sql: str | None = None
 
     def __post_init__(self):
         super().__post_init__()
-        self.handle_parent_node_update(self.select_elements)
+        if self.select_elements is None and self.raw_select_sql is None:
+            raise ValueError("CREATE_TABLE_AS_SELECT requires either select_elements or raw_select_sql")
+        if self.select_elements is not None:
+            self.handle_parent_node_update(self.select_elements)
 
 
 @dataclass
@@ -697,7 +701,30 @@ class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.select_elements)
-        self.handle_parent_node_update(self.columns)
+
+
+@dataclass
+class SET_CLAUSE(BaseSqlExpression):
+    column_name: str
+    value: SqlExpression | str | Number
+
+    def __post_init__(self):
+        super().__post_init__()
+        if isinstance(self.value, BaseSqlExpression):
+            self.handle_parent_node_update(self.value)
+
+
+@dataclass
+class UPDATE(BaseSqlExpression):
+    fully_qualified_table_name: str
+    set_clauses: list[SET_CLAUSE]
+    where_condition: WHERE | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.set_clauses)
+        if self.where_condition is not None:
+            self.handle_parent_node_update(self.where_condition)
 
 
 @dataclass
