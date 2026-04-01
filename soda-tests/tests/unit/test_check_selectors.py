@@ -324,6 +324,23 @@ class TestCheckSelectorParseListValue:
         with pytest.raises(CheckSelectorParseException):
             CheckSelector._parse_list_value('[a, "b, c]')
 
+    def test_empty_element_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector._parse_list_value("[a,,b]")
+
+    def test_trailing_comma_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector._parse_list_value("[a,b,]")
+
+    def test_leading_comma_raises(self):
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector._parse_list_value("[,a,b]")
+
+    def test_invalid_list_rejected_at_parse_time(self):
+        """Invalid list syntax should fail during parse(), not during matches()."""
+        with pytest.raises(CheckSelectorParseException):
+            CheckSelector.parse('attributes.tags=["a,b]')
+
 
 class TestCheckSelectorListMemberMatch:
     def test_member_match(self):

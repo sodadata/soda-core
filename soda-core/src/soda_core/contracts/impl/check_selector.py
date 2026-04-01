@@ -10,9 +10,6 @@ class CheckSelectorParseException(SodaCoreException):
     """Indicates an invalid check selector expression."""
 
 
-_UNSET = object()
-
-
 class CheckSelector:
     """Selects checks by matching field values.
 
@@ -28,7 +25,7 @@ class CheckSelector:
         self.field = field
         self.value = value
         self.raw = raw
-        self._cached_selector_list = _UNSET
+        self._selector_list = self._parse_list_value(value)
 
     def __eq__(self, other):
         if not isinstance(other, CheckSelector):
@@ -79,18 +76,13 @@ class CheckSelector:
             return []
         return [cls(field="path", value=path, raw=f"path={path}") for path in check_paths]
 
-    def _get_selector_list(self) -> Optional[list[str]]:
-        if self._cached_selector_list is _UNSET:
-            self._cached_selector_list = self._parse_list_value(self.value)
-        return self._cached_selector_list
-
     def matches(self, check_impl) -> bool:
         """Returns True if the given CheckImpl matches this selector."""
         check_value = self._get_check_value(check_impl)
         if check_value is None:
             return False
         if isinstance(check_value, list):
-            selector_list = self._get_selector_list()
+            selector_list = self._selector_list
             if selector_list is not None:
                 # Full list match: exact set equality, no wildcards
                 return set(check_value) == set(selector_list)
@@ -147,6 +139,10 @@ class CheckSelector:
         if in_quotes:
             raise CheckSelectorParseException(f"Invalid list syntax in selector value {value!r}: unterminated quote")
         items.append("".join(current).strip())
+        if any(item == "" for item in items):
+            raise CheckSelectorParseException(
+                f"Invalid list syntax in selector value {value!r}: empty elements are not allowed"
+            )
         return items
 
     def _values_match(self, check_value: str, selector_value: str) -> bool:
