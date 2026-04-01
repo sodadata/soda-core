@@ -280,3 +280,105 @@ class TestCheckSelectorAllMatch:
         assert CheckSelector.all_match(all_selectors, check_match)
         assert not CheckSelector.all_match(all_selectors, check_wrong_path)
         assert not CheckSelector.all_match(all_selectors, check_wrong_attr)
+
+
+# --- List attribute tests ---
+
+
+class TestCheckSelectorParseListValue:
+    def test_valid(self):
+        assert CheckSelector._parse_list_value("[a,b,c]") == ["a", "b", "c"]
+
+    def test_with_spaces(self):
+        assert CheckSelector._parse_list_value("[a, b , c]") == ["a", "b", "c"]
+
+    def test_empty(self):
+        assert CheckSelector._parse_list_value("[]") == []
+
+    def test_not_list(self):
+        assert CheckSelector._parse_list_value("prod") is None
+
+    def test_partial_bracket(self):
+        assert CheckSelector._parse_list_value("[prod") is None
+
+    def test_single_element(self):
+        assert CheckSelector._parse_list_value("[prod]") == ["prod"]
+
+
+class TestCheckSelectorListMemberMatch:
+    def test_member_match(self):
+        selector = CheckSelector.parse("attributes.tags=prod")
+        check = _make_check_impl(attributes={"tags": ["prod", "critical"]})
+        assert selector.matches(check)
+
+    def test_member_no_match(self):
+        selector = CheckSelector.parse("attributes.tags=staging")
+        check = _make_check_impl(attributes={"tags": ["prod", "critical"]})
+        assert not selector.matches(check)
+
+    def test_member_match_wildcard(self):
+        selector = CheckSelector.parse("attributes.tags=prod*")
+        check = _make_check_impl(attributes={"tags": ["prod-us", "prod-eu"]})
+        assert selector.matches(check)
+
+    def test_member_match_numeric(self):
+        selector = CheckSelector.parse("attributes.priority=2")
+        check = _make_check_impl(attributes={"priority": [1, 2, 3]})
+        assert selector.matches(check)
+
+    def test_member_match_empty_list(self):
+        selector = CheckSelector.parse("attributes.tags=prod")
+        check = _make_check_impl(attributes={"tags": []})
+        assert not selector.matches(check)
+
+
+class TestCheckSelectorListFullMatch:
+    def test_full_match(self):
+        selector = CheckSelector.parse("attributes.tags=[prod,critical]")
+        check = _make_check_impl(attributes={"tags": ["prod", "critical"]})
+        assert selector.matches(check)
+
+    def test_full_match_order_independent(self):
+        selector = CheckSelector.parse("attributes.tags=[critical,prod]")
+        check = _make_check_impl(attributes={"tags": ["prod", "critical"]})
+        assert selector.matches(check)
+
+    def test_full_match_wrong_cardinality(self):
+        selector = CheckSelector.parse("attributes.tags=[prod]")
+        check = _make_check_impl(attributes={"tags": ["prod", "critical"]})
+        assert not selector.matches(check)
+
+    def test_full_match_extra_element(self):
+        selector = CheckSelector.parse("attributes.tags=[prod,critical]")
+        check = _make_check_impl(attributes={"tags": ["prod"]})
+        assert not selector.matches(check)
+
+    def test_full_match_empty(self):
+        selector = CheckSelector.parse("attributes.tags=[]")
+        check = _make_check_impl(attributes={"tags": []})
+        assert selector.matches(check)
+
+    def test_full_match_no_wildcards(self):
+        selector = CheckSelector.parse("attributes.tags=[prod*]")
+        check = _make_check_impl(attributes={"tags": ["prod-us"]})
+        assert not selector.matches(check)
+
+
+class TestCheckSelectorListAllMatch:
+    def test_or_within_same_list_attribute(self):
+        selectors = CheckSelector.parse_all(["attributes.tags=prod", "attributes.tags=staging"])
+        check_prod = _make_check_impl(attributes={"tags": ["prod", "critical"]})
+        check_staging = _make_check_impl(attributes={"tags": ["staging"]})
+        check_dev = _make_check_impl(attributes={"tags": ["dev"]})
+        assert CheckSelector.all_match(selectors, check_prod)
+        assert CheckSelector.all_match(selectors, check_staging)
+        assert not CheckSelector.all_match(selectors, check_dev)
+
+    def test_and_across_list_attribute_and_type(self):
+        selectors = CheckSelector.parse_all(["attributes.tags=prod", "type=missing"])
+        check_match = _make_check_impl(type="missing", attributes={"tags": ["prod", "critical"]})
+        check_wrong_type = _make_check_impl(type="invalid", attributes={"tags": ["prod"]})
+        check_wrong_attr = _make_check_impl(type="missing", attributes={"tags": ["staging"]})
+        assert CheckSelector.all_match(selectors, check_match)
+        assert not CheckSelector.all_match(selectors, check_wrong_type)
+        assert not CheckSelector.all_match(selectors, check_wrong_attr)

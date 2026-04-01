@@ -80,9 +80,17 @@ class CheckSelector:
         check_value = self._get_check_value(check_impl)
         if check_value is None:
             return False
+        if isinstance(check_value, list):
+            selector_list = self._parse_list_value(self.value)
+            if selector_list is not None:
+                # Full list match: exact set equality, no wildcards
+                return set(check_value) == set(selector_list)
+            else:
+                # Member match: any element matches (with wildcards)
+                return any(self._values_match(item, self.value) for item in check_value)
         return self._values_match(check_value, self.value)
 
-    def _get_check_value(self, check_impl) -> Optional[str]:
+    def _get_check_value(self, check_impl) -> Optional[str | list[str]]:
         """Extract the relevant field value from a CheckImpl."""
         if self.field == "type":
             return check_impl.type
@@ -97,7 +105,21 @@ class CheckSelector:
         elif self.field.startswith(self.ATTRIBUTES_PREFIX):
             attr_key = self.field[len(self.ATTRIBUTES_PREFIX) :]
             attr_value = check_impl.attributes.get(attr_key)
-            return str(attr_value) if attr_value is not None else None
+            if attr_value is None:
+                return None
+            if isinstance(attr_value, list):
+                return [str(item) for item in attr_value]
+            return str(attr_value)
+        return None
+
+    @staticmethod
+    def _parse_list_value(value: str) -> Optional[list[str]]:
+        """Parse '[a,b,c]' into ['a','b','c']. Returns None if not list syntax."""
+        if value.startswith("[") and value.endswith("]"):
+            inner = value[1:-1]
+            if not inner:
+                return []
+            return [item.strip() for item in inner.split(",")]
         return None
 
     def _values_match(self, check_value: str, selector_value: str) -> bool:
