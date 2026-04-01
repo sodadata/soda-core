@@ -45,7 +45,7 @@ _TIMESTAMP_PLACEHOLDER = "'__$$__SODA_TIMESTAMP__$$__'"
 
 # Regex matching __soda_temp_<uuid-hex> table names that use uuid4().hex.
 # Case-insensitive: Snowflake (and other DBs) may uppercase identifiers.
-_SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-fA-F]{32}", re.IGNORECASE)
+_SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-f]{32}", re.IGNORECASE)
 _SODA_TEMP_PLACEHOLDER = "__soda_temp___$$__SODA_UUID__$$__"
 
 
@@ -74,6 +74,7 @@ class FakeCursor:
         return remaining
 
     def close(self):
+        # No-op: FakeCursor has no real resources to release.
         pass
 
 
@@ -638,7 +639,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             try:
                 entry = self._next_replay_entry("query", sql)
                 if log_query:
-                    sql_logger.debug(f"SNAPSHOT: replaying logs for query:")
+                    sql_logger.debug("SNAPSHOT: replaying logs for query:")
                     sql_logger.debug(
                         f"SQL query fetchall in datasource {self.name} "
                         f"(first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
@@ -671,7 +672,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             try:
                 self._next_replay_entry("update", sql)
                 sql_logger.debug(f"SNAPSHOT: captured update: {sql[:50]}...")
-                return None
+                return UpdateResult(result=None)
             except SnapshotMismatchError as e:
                 self._activate_fallback(reason=str(e))
                 result = self._real.execute_update(sql, log_query=log_query)
@@ -770,7 +771,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             try:
                 yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
             finally:
-                pass
+                logger.debug("SNAPSHOT: record query_iterate generator closed")
         else:  # replay
             if self._fallback_active:
                 self._ensure_real_connection()
@@ -782,7 +783,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 try:
                     yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
                 finally:
-                    pass
+                    logger.debug("SNAPSHOT: fallback query_iterate generator closed")
                 return
             try:
                 entry = self._next_replay_entry("query_iterate", sql)
@@ -790,7 +791,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 try:
                     yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
                 finally:
-                    pass
+                    logger.debug("SNAPSHOT: replay query_iterate generator closed")
             except SnapshotMismatchError as e:
                 self._activate_fallback(reason=str(e))
                 with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
@@ -801,7 +802,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 try:
                     yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
                 finally:
-                    pass
+                    logger.debug("SNAPSHOT: mismatch-fallback query_iterate generator closed")
 
     # -------------------------------------------------------------------------
     # Transaction and connection lifecycle — pass through or no-op

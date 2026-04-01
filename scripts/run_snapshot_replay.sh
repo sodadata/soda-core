@@ -39,7 +39,7 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-if [ $# -gt 0 ]; then
+if [[ $# -gt 0 ]]; then
   DATASOURCES=("$@")
 else
   DATASOURCES=("${ALL_DATASOURCES[@]}")
@@ -55,10 +55,11 @@ rm -f "${OUTPUT_DIR}"/*.txt
 job_count=0
 
 wait_for_slot() {
-  while [ "$job_count" -ge "$MAX_JOBS" ]; do
+  while [[ "$job_count" -ge "$MAX_JOBS" ]]; do
     wait -n 2>/dev/null || true
     job_count=$((job_count - 1))
   done
+  return 0
 }
 
 # -------------------------------------------------------------------------
@@ -110,11 +111,11 @@ failed_runs=0
 failed_labels=()
 
 for output_file in "${OUTPUT_DIR}"/*.txt; do
-  [ -f "$output_file" ] || continue
+  [[ -f "$output_file" ]] || continue
   label=$(basename "$output_file" .txt)
 
   summary=$(grep -E '=+ .*(passed|failed|error)' "$output_file" | tail -1 || true)
-  extract_count() { echo "$summary" | grep -oE "[0-9]+ $1" | head -1 | grep -oE '[0-9]+' || echo "0"; }
+  extract_count() { local pattern="$1"; local result; result=$(echo "$summary" | grep -oE "[0-9]+ ${pattern}" | head -1 | grep -oE '[0-9]+' || echo "0"); echo "$result"; return 0; }
   n_passed=$(extract_count passed)
   n_failed=$(extract_count failed)
   n_skipped=$(extract_count skipped)
@@ -122,14 +123,12 @@ for output_file in "${OUTPUT_DIR}"/*.txt; do
   n_fallbacks=$(grep -c 'SNAPSHOT: Falling back to real DB' "$output_file" 2>/dev/null || echo "0")
 
   has_failure=false
-  if [ "${n_failed:-0}" -gt 0 ] 2>/dev/null || [ "${n_errors:-0}" -gt 0 ] 2>/dev/null; then
+  if [[ "${n_failed:-0}" -gt 0 ]] || [[ "${n_errors:-0}" -gt 0 ]]; then
     has_failure=true
   fi
-  if [ -z "$summary" ]; then
-    if grep -qE '^(ERROR|ERRORS|E )' "$output_file" 2>/dev/null; then
-      has_failure=true
-      n_errors="?"
-    fi
+  if [[ -z "$summary" ]] && grep -qE '^(ERROR|ERRORS|E )' "$output_file" 2>/dev/null; then
+    has_failure=true
+    n_errors="?"
   fi
 
   if $has_failure; then
@@ -142,7 +141,7 @@ for output_file in "${OUTPUT_DIR}"/*.txt; do
   fi
 
   fallback_info=""
-  if [ "${n_fallbacks:-0}" -gt 0 ] 2>/dev/null; then
+  if [[ "${n_fallbacks:-0}" -gt 0 ]]; then
     fallback_info=" ${YELLOW}(${n_fallbacks} fallbacks)${NC}"
   fi
 
@@ -153,7 +152,7 @@ done
 echo ""
 echo -e "${BOLD}Summary:${NC} ${GREEN}${passed_runs} passed${NC}, ${RED}${failed_runs} failed${NC} (out of ${total_runs} runs)"
 
-if [ ${#failed_labels[@]} -gt 0 ]; then
+if [[ ${#failed_labels[@]} -gt 0 ]]; then
   echo ""
   echo -e "${RED}Failed runs:${NC}"
   for label in "${failed_labels[@]}"; do
