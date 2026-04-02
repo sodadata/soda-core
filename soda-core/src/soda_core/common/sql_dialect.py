@@ -86,7 +86,6 @@ from soda_core.common.sql_ast import (
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
-    SET_CLAUSE,
     STAR,
     STRING_HASH,
     SUM,
@@ -498,9 +497,7 @@ class SqlDialect:
             inner_sql = create_table_as_select.raw_select_sql
         else:
             inner_sql = self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)
-        result_sql += (
-            f"{pre_parenthesis_sql}\n{inner_sql}{post_parenthesis_sql}" + (";" if add_semicolon else "")
-        )
+        result_sql += f"{pre_parenthesis_sql}\n{inner_sql}{post_parenthesis_sql}" + (";" if add_semicolon else "")
         return result_sql
 
     #########################################################
@@ -569,7 +566,11 @@ class SqlDialect:
         set_parts: list[str] = []
         for clause in update.set_clauses:
             col_sql = self.quote_column(clause.column_name)
-            val_sql = self.build_expression_sql(clause.value) if isinstance(clause.value, SqlExpression) else self.literal(clause.value)
+            val_sql = (
+                self.build_expression_sql(clause.value)
+                if isinstance(clause.value, SqlExpression)
+                else self.literal(clause.value)
+            )
             set_parts.append(f"{col_sql} = {val_sql}")
         result = f"UPDATE {update.fully_qualified_table_name} SET {', '.join(set_parts)}"
         if update.where_condition is not None:
