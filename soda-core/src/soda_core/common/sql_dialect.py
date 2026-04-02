@@ -569,8 +569,13 @@ class SqlDialect:
         set_parts: list[str] = []
         for clause in update.set_clauses:
             col_sql = self.quote_column(clause.column_name)
-            val_sql = self.build_expression_sql(clause.value) if isinstance(clause.value, SqlExpression) else self.literal(clause.value)
+            if isinstance(clause.value, SqlExpression):
+                val_sql = self.build_expression_sql(clause.value)
+            else:
+                val_sql = self.literal(clause.value)
             set_parts.append(f"{col_sql} = {val_sql}")
+        # Note: fully_qualified_table_name is pre-quoted via qualify_dataset_name(), same pattern as
+        # build_insert_into_sql and build_create_table_as_select_sql. Not user-controlled input.
         result = f"UPDATE {update.fully_qualified_table_name} SET {', '.join(set_parts)}"
         if update.where_condition is not None:
             where_sql = self.build_expression_sql(update.where_condition.condition)

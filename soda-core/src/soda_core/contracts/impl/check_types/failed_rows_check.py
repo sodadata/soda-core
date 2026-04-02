@@ -260,7 +260,10 @@ class FailedRowsCountQuery(Query):
             logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
-        metric_value = len(query_result.rows)
+        if not query_result or not query_result.rows:
+            metric_value = 0
+        else:
+            metric_value = len(query_result.rows)
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
 
