@@ -405,60 +405,11 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def build_create_table_as_select_sql(
         self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
-        if create_table_as_select.raw_select_sql is not None:
-            # SQL Server uses SELECT ... INTO instead of CREATE TABLE ... AS SELECT.
-            # For raw user queries (fallback path), we can't wrap in a subquery or CTE because
-            # SQL Server rejects ORDER BY in derived tables, subqueries, and CTEs.
-            # Instead, inject "INTO <table>" before the first FROM of the outermost SELECT.
-            table_name = create_table_as_select.fully_qualified_table_name
-            raw_sql = create_table_as_select.raw_select_sql
-            injected = self._inject_into_for_select_into(raw_sql, table_name)
-            return injected + (";" if add_semicolon else "")
         # Copy the select elements and insert an INTO with the same table name as the create table as select statement
         select_elements = create_table_as_select.select_elements.copy()
         select_elements += [INTO(fully_qualified_table_name=create_table_as_select.fully_qualified_table_name)]
         result_sql: str = self.build_select_sql(select_elements, add_semicolon=add_semicolon)
         return result_sql
-
-    @staticmethod
-    def _inject_into_for_select_into(sql: str, table_name: str) -> str:
-        """Inject 'INTO <table>' before the first FROM of the outermost SELECT.
-
-        SQL Server requires SELECT ... INTO ... FROM instead of CREATE TABLE ... AS SELECT.
-        For queries starting with WITH (user CTEs), we skip past the CTE definitions
-        by tracking parenthesis depth to find the outer SELECT's FROM.
-        """
-        import re
-
-        upper_sql = sql.upper().strip()
-
-        # Find where the outermost SELECT begins (skip WITH ... AS (...) blocks)
-        if upper_sql.startswith("WITH"):
-            # Skip past CTE definitions by counting parentheses
-            depth = 0
-            outer_select_pos = 0
-            for i, ch in enumerate(sql):
-                if ch == "(":
-                    depth += 1
-                elif ch == ")":
-                    depth -= 1
-                    if depth == 0:
-                        # Find the next SELECT or comma (for multiple CTEs)
-                        rest = sql[i + 1 :].lstrip()
-                        if rest.upper().startswith("SELECT"):
-                            outer_select_pos = i + 1 + (len(sql[i + 1 :]) - len(rest))
-                            break
-                        # Otherwise it's another CTE after a comma — continue
-        else:
-            outer_select_pos = 0
-
-        # Now inject INTO before the first FROM after outer_select_pos
-        from_pattern = re.compile(r"\bFROM\b", re.IGNORECASE)
-        match = from_pattern.search(sql, pos=outer_select_pos)
-        if match:
-            return sql[: match.start()] + f"INTO {table_name} " + sql[match.start() :]
-        # No FROM found — shouldn't happen for valid SELECT queries
-        return sql
 
     def build_drop_view_sql(self, drop_view: DROP_VIEW | DROP_VIEW_IF_EXISTS, add_semicolon: bool = True) -> str:
         # SqlServer does not allow for the database name to be specified in the view name, so we need to drop it.
