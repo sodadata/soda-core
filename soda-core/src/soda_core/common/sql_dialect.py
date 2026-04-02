@@ -22,9 +22,6 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (  # noqa: F401 — re-exported for wildcard import in tests
-    SET_CLAUSE,
-)
-from soda_core.common.sql_ast import (  # noqa: F401 — re-exported for wildcard import in tests
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
@@ -89,6 +86,7 @@ from soda_core.common.sql_ast import (  # noqa: F401 — re-exported for wildcar
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
+    SET_CLAUSE,
     STAR,
     STRING_HASH,
     SUM,
