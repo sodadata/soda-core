@@ -219,6 +219,8 @@ def test_sampling_not_applied_simple_pass(
     "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
     new_callable=mock.PropertyMock(return_value=True),
 )
+# TODO: Remove after snapshots are re-recorded (CTE wrapping removal changed the SQL).
+@pytest.mark.no_snapshot(mode="replay")
 def test_sampling_custom_sql_pass(
     mocked_is_running_on_agent,
     mocked_is_contract_test_scan_definition_type,

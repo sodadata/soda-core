@@ -54,6 +54,7 @@ def test_failed_rows_expression(data_source_test_helper: DataSourceTestHelper):
     }
 
 
+# TODO: Remove after snapshots are re-recorded (CTE wrapping removal changed the SQL).
 @pytest.mark.no_snapshot(mode="replay")
 def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
