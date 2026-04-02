@@ -103,8 +103,8 @@ class TestFailedRowsCountQueryNoCteWrapping:
         assert len(measurements) == 1
         assert measurements[0].value == 0
 
-    def test_none_query_result_returns_zero(self):
-        """If execute_query returns None, metric value should be 0."""
+    def test_none_query_result_returns_none(self):
+        """If execute_query returns None, metric value should be None (not evaluated)."""
         data_source_impl = mock.MagicMock()
         data_source_impl.execute_query.return_value = None
 
@@ -116,7 +116,7 @@ class TestFailedRowsCountQueryNoCteWrapping:
         measurements = query.execute()
 
         assert len(measurements) == 1
-        assert measurements[0].value == 0
+        assert measurements[0].value is None
 
     def test_execute_query_error_returns_empty(self):
         """On SQL execution error, execute() should return an empty list (not raise)."""

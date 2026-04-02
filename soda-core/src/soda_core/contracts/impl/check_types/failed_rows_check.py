@@ -260,7 +260,9 @@ class FailedRowsCountQuery(Query):
             logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
             return []
 
-        if not query_result or not query_result.rows:
+        if not query_result:
+            metric_value = None
+        elif not query_result.rows:
             metric_value = 0
         else:
             metric_value = len(query_result.rows)
