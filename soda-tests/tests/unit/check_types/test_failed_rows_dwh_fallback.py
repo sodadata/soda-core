@@ -25,11 +25,9 @@ from soda_core.common.sql_ast import (
     SET_CLAUSE,
     STAR,
     UPDATE,
-    WHERE,
     WITH,
 )
 from soda_core.common.sql_dialect import SqlDialect
-
 
 SCAN_ID = "scan-001"
 CHECK_ID = "check-abc"
