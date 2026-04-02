@@ -328,13 +328,13 @@ def test_sql_ast_update_with_where():
 
 
 def test_failed_rows_dwh_fallback_sql_sequence():
-    """Verify the exact SQL sequence produced by the DWH fallback path for failed rows queries."""
+    """Verify the SQL produced by the DWH fallback path for failed rows queries."""
     sql_dialect: SqlDialect = SqlDialect()
     table_name = '"schema"."__soda_temp_abc123"'
     user_query = "SELECT DISTINCT * FROM orders ORDER BY id ASC"
     scan_id = "scan-001"
 
-    # Step 1: CTAS from raw user query
+    # Fallback step 1: CTAS from raw user query (no wrapping)
     ctas_sql = sql_dialect.build_create_table_as_select_sql(
         CREATE_TABLE_AS_SELECT(
             fully_qualified_table_name=table_name,
@@ -346,30 +346,17 @@ def test_failed_rows_dwh_fallback_sql_sequence():
     assert user_query in ctas_sql
     assert "WITH" not in ctas_sql
 
-    # Step 2: ALTER TABLE to add metadata column
-    alter_sql = sql_dialect.build_alter_table_sql(
-        ALTER_TABLE_ADD_COLUMN(
-            fully_qualified_table_name=table_name,
-            column=CREATE_TABLE_COLUMN(
-                name="__soda_scan_id",
-                type=SqlDataType(name=SodaDataTypeName.TEXT),
-            ),
-        )
+    # Fallback step 2: copy query adds scan_id and limit
+    copy_sql = sql_dialect.build_select_sql(
+        [
+            SELECT([STAR(), COLUMN(LITERAL(scan_id)).AS("__soda_scan_id")]),
+            FROM(table_name),
+            LIMIT(100),
+        ]
     )
-    assert "ALTER TABLE" in alter_sql
-    assert "__soda_scan_id" in alter_sql
-    assert "text" in alter_sql.lower()
-
-    # Step 3: UPDATE to set scan_id
-    update_sql = sql_dialect.build_update_sql(
-        UPDATE(
-            fully_qualified_table_name=table_name,
-            set_clauses=[SET_CLAUSE(column_name="__soda_scan_id", value=LITERAL(scan_id))],
-        )
-    )
-    assert "UPDATE" in update_sql
-    assert table_name in update_sql
-    assert f"'{scan_id}'" in update_sql
+    assert "__soda_scan_id" in copy_sql
+    assert f"'{scan_id}'" in copy_sql
+    assert "LIMIT 100" in copy_sql
 
 
 def test_sql_ast_union():
