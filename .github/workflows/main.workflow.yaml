@@ -209,7 +209,12 @@ jobs:
 
       - name: Check for replay override
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%s)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.event.pull_request.head.sha }}" --depth=1
+            COMMIT_MSG=$(git log -1 --pretty=%s FETCH_HEAD)
+          else
+            COMMIT_MSG=$(git log -1 --pretty=%s)
+          fi
           if [[ "$COMMIT_MSG" == "[REPLAY=OFF]"* ]]; then
             echo "FORCE_SNAPSHOT_OFF=true" >> "$GITHUB_ENV"
             echo "Commit message starts with [REPLAY=OFF] — forcing snapshot mode off"
