@@ -86,6 +86,7 @@ from soda_core.common.sql_ast import (
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
+    SET_CLAUSE,  # noqa: F401 — re-exported for wildcard import in tests
     STAR,
     STRING_HASH,
     SUM,

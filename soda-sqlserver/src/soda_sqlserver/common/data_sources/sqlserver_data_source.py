@@ -405,6 +405,14 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def build_create_table_as_select_sql(
         self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
+        if create_table_as_select.raw_select_sql is not None:
+            # raw_select_sql fallback is not yet supported on SQL Server — ORDER BY and user CTEs
+            # cannot be safely wrapped into SELECT ... INTO syntax without SQL parsing.
+            # The error will surface to the user with a clear message.
+            raise NotImplementedError(
+                "The failed rows query could not be CTE-wrapped and the fallback is not yet supported "
+                "on SQL Server / Synapse / Fabric. Consider removing ORDER BY from the query."
+            )
         # Copy the select elements and insert an INTO with the same table name as the create table as select statement
         select_elements = create_table_as_select.select_elements.copy()
         select_elements += [INTO(fully_qualified_table_name=create_table_as_select.fully_qualified_table_name)]
