@@ -86,6 +86,7 @@ from soda_core.common.sql_ast import (
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
+    SET_CLAUSE,
     STAR,
     STRING_HASH,
     SUM,
