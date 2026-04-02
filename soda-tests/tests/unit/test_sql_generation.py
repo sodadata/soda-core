@@ -296,7 +296,7 @@ def test_sql_ast_update_single_set():
             set_clauses=[SET_CLAUSE(column_name="status", value=LITERAL("active"))],
         )
     )
-    assert my_update_statement == "UPDATE \"my_table\" SET \"status\" = 'active';"
+    assert my_update_statement == 'UPDATE "my_table" SET "status" = \'active\';'
 
 
 def test_sql_ast_update_multiple_set():
@@ -311,7 +311,7 @@ def test_sql_ast_update_multiple_set():
             ],
         )
     )
-    assert my_update_statement == "UPDATE \"my_table\" SET \"status\" = 'active', \"count\" = 42;"
+    assert my_update_statement == 'UPDATE "my_table" SET "status" = \'active\', "count" = 42;'
 
 
 def test_sql_ast_update_with_where():
@@ -324,9 +324,7 @@ def test_sql_ast_update_with_where():
             where_condition=WHERE(EQ("id", LITERAL(1))),
         )
     )
-    assert my_update_statement == (
-        "UPDATE \"my_table\" SET \"scan_id\" = 'abc-123'\n" 'WHERE "id" = 1;'
-    )
+    assert my_update_statement == ('UPDATE "my_table" SET "scan_id" = \'abc-123\'\n' 'WHERE "id" = 1;')
 
 
 def test_failed_rows_dwh_fallback_sql_sequence():

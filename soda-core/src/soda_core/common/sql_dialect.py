@@ -498,9 +498,7 @@ class SqlDialect:
             inner_sql = create_table_as_select.raw_select_sql
         else:
             inner_sql = self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)
-        result_sql += (
-            f"{pre_parenthesis_sql}\n{inner_sql}{post_parenthesis_sql}" + (";" if add_semicolon else "")
-        )
+        result_sql += f"{pre_parenthesis_sql}\n{inner_sql}{post_parenthesis_sql}" + (";" if add_semicolon else "")
         return result_sql
 
     #########################################################
@@ -569,10 +567,11 @@ class SqlDialect:
         set_parts: list[str] = []
         for clause in update.set_clauses:
             col_sql = self.quote_column(clause.column_name)
-            if isinstance(clause.value, SqlExpression):
-                val_sql = self.build_expression_sql(clause.value)
-            else:
-                val_sql = self.literal(clause.value)
+            val_sql = (
+                self.build_expression_sql(clause.value)
+                if isinstance(clause.value, SqlExpression)
+                else self.literal(clause.value)
+            )
             set_parts.append(f"{col_sql} = {val_sql}")
         # Note: fully_qualified_table_name is pre-quoted via qualify_dataset_name(), same pattern as
         # build_insert_into_sql and build_create_table_as_select_sql. Not user-controlled input.

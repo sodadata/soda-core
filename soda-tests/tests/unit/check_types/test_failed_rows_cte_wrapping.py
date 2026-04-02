@@ -62,8 +62,7 @@ class TestFailedRowsCountQueryNoCteWrapping:
     def test_user_query_with_ctes_preserved(self):
         """User queries that already contain CTEs must not be double-wrapped."""
         user_query = (
-            "WITH active_users AS (SELECT * FROM users WHERE active = 1) "
-            "SELECT * FROM active_users WHERE age < 0"
+            "WITH active_users AS (SELECT * FROM users WHERE active = 1) " "SELECT * FROM active_users WHERE age < 0"
         )
         data_source_impl = _make_mock_data_source_impl(rows=[])
 
