@@ -80,6 +80,14 @@ class SnowflakeSqlDialect(SqlDialect, sqlglot_dialect="snowflake"):
         (SodaDataTypeName.FLOAT, SodaDataTypeName.DOUBLE),
     )
 
+    def escape_string(self, value: str):
+        # Snowflake treats backslash as an escape character in SQL string
+        # literals (e.g. '\n' → newline).  Double backslashes first so they
+        # are interpreted as literal backslashes, then escape single quotes.
+        string_literal: str = value.replace("\\", "\\\\")
+        string_literal = string_literal.replace("'", "''")
+        return string_literal
+
     def default_casify(self, identifier: str) -> str:
         return identifier.upper()
 
