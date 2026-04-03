@@ -93,6 +93,8 @@ class MockSodaCloud(SodaCloud):
         json: Optional[dict],
         data: Optional[TemporaryFile],
     ) -> Response:
+        if data is not None and hasattr(data, "read"):
+            data = data.read()
         self.requests.append(MockRequest(url=url, headers=headers, json=json, data=data))
         if self.responses:
             response = self.responses.pop(0)
