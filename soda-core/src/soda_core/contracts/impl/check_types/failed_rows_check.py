@@ -276,9 +276,7 @@ class FailedRowsCountQuery(Query):
                 def count_row(row, description):
                     counter[0] += 1
 
-                self.data_source_impl.execute_query_one_by_one(
-                    sql=self.failed_rows_query, row_callback=count_row
-                )
+                self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = counter[0]
             except Exception as e2:
                 logger.error(
