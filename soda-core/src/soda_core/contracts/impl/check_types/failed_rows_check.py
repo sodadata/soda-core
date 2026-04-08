@@ -247,6 +247,9 @@ class FailedRowsQueryMetricImpl(MetricImpl):
         return id_properties
 
 
+STREAMING_COUNT_WARNING_THRESHOLD = 10_000
+
+
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
         self.failed_rows_query = failed_rows_query
@@ -267,7 +270,7 @@ class FailedRowsCountQuery(Query):
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
             metric_value = query_result.rows[0][0]
         except Exception as e:
-            logger.info(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
+            logger.debug(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
             # Fallback: execute the raw user query and count rows one-by-one.
             # Handles ORDER BY on SQL Server, user CTEs, and other unsupported wrapping.
             try:
@@ -278,11 +281,11 @@ class FailedRowsCountQuery(Query):
 
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = counter[0]
-                if metric_value > 10_000:
+                if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:
                     logger.warning(
                         f"Streamed {metric_value} rows to count failed rows. "
-                        f"This may be slow for large result sets. Consider simplifying your query "
-                        f"to avoid ORDER BY or nested CTEs so the efficient CTE-wrapped COUNT(*) path can be used."
+                        f"The query could not be wrapped in a CTE and had to be executed directly. "
+                        f"Consider rewriting your query so that it can be wrapped in a CTE."
                     )
             except Exception as e2:
                 logger.error(
