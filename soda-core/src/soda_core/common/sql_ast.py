@@ -697,6 +697,7 @@ class INSERT_INTO_VIA_SELECT(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.select_elements)
+        self.handle_parent_node_update(self.columns)
 
 
 @dataclass

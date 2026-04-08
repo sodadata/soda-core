@@ -21,7 +21,7 @@ from soda_core.common.metadata_types import (
     SodaDataTypeName,
     SqlDataType,
 )
-from soda_core.common.sql_ast import (  # noqa: F401 — re-exported for wildcard import in tests
+from soda_core.common.sql_ast import (
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
@@ -492,8 +492,10 @@ class SqlDialect:
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
-        inner_sql = self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)
-        result_sql += f"{pre_parenthesis_sql}\n{inner_sql}{post_parenthesis_sql}" + (";" if add_semicolon else "")
+        result_sql += (
+            f"{pre_parenthesis_sql}\n{self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)}{post_parenthesis_sql}"
+            + (";" if add_semicolon else "")
+        )
         return result_sql
 
     #########################################################

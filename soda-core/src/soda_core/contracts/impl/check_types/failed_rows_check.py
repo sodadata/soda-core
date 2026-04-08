@@ -265,14 +265,16 @@ class FailedRowsCountQuery(Query):
         super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=count_sql)
 
     def execute(self) -> list[Measurement]:
+        metric_value = None
+
         # Try CTE-wrapped COUNT(*) first — efficient, server-side aggregation.
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
-            metric_value = query_result.rows[0][0]
+            if query_result.rows:
+                metric_value = query_result.rows[0][0]
         except Exception as e:
             logger.debug(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
             # Fallback: execute the raw user query and count rows one-by-one.
-            # Handles ORDER BY on SQL Server, user CTEs, and other unsupported wrapping.
             try:
                 counter = [0]
 
