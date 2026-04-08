@@ -194,6 +194,25 @@ class TestNormalization:
         restored = pickle.loads(pickle.dumps(result))
         assert restored.rows == [(1, "x"), (2, "y")]
 
+    @pytest.mark.parametrize(
+        "sql, expected",
+        [
+            ("CREATE TABLE t (id INT)", "t"),
+            ("CREATE TABLE myschema.mytable (id INT)", "myschema.mytable"),
+            ('CREATE TABLE "myschema"."mytable" (id INT)', '"myschema"."mytable"'),
+            ("CREATE TABLE IF NOT EXISTS t (id INT)", "t"),
+            ("CREATE TEMP TABLE t (id INT)", "t"),
+            ("CREATE TEMPORARY TABLE t (id INT)", "t"),
+            ("  CREATE TABLE t (id INT)", "t"),
+            # Non-TABLE CREATE statements return None
+            ("CREATE SCHEMA myschema", None),
+            ("CREATE VIEW myview AS SELECT 1", None),
+            ("CREATE INDEX idx ON t (id)", None),
+        ],
+    )
+    def test_extract_table_name_from_create(self, sql, expected):
+        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == expected
+
 
 # ---------------------------------------------------------------------------
 # SnapshotDataSourceConnection — record and replay
@@ -2245,6 +2264,9 @@ class TestLinkedSnapshotFallback:
         This happens when connection_factory already created tables (via
         _ensured_test_tables) and then _activate_fallback tries to re-execute
         the same CREATE TABLE from the snapshot.
+
+        When a CREATE TABLE is suppressed, the table's data is cleared (DELETE FROM)
+        to prevent doubling when the subsequent INSERT re-executes.
         """
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         test_id = "tests/test_x.py::test_ignore_create_errors"
@@ -2260,11 +2282,12 @@ class TestLinkedSnapshotFallback:
         )
 
         real = _make_mock_connection()
-        # CREATE TABLE fails (already exists), INSERT succeeds
+        # CREATE TABLE fails (already exists), DELETE clears data, INSERT succeeds
         real.execute_update.side_effect = [
             Exception("Object 't' already exists"),  # CREATE TABLE during re-execution
+            None,  # DELETE FROM t (clear factory data)
             None,  # INSERT during re-execution
-            None,  # mismatched UPDATE in passthrough
+            None,  # mismatched query's passthrough (not used — query goes through execute_query)
         ]
         real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
 
@@ -2280,14 +2303,87 @@ class TestLinkedSnapshotFallback:
             conn.execute_update("CREATE TABLE t (id INT)")
             conn.execute_update("INSERT INTO t VALUES (1)")
             # Third op mismatches → triggers fallback → re-executes 2 updates
-            # CREATE TABLE fails but is ignored, INSERT succeeds
+            # CREATE TABLE fails but is ignored + data cleared, INSERT succeeds
             result = conn.execute_query("SELECT * FROM t WHERE id = 2")
 
         assert conn._fallback_active is True
-        # All 3 update calls made: CREATE TABLE (failed+ignored), INSERT, mismatched query's passthrough
-        assert real.execute_update.call_count == 2
+        # 3 update calls: CREATE TABLE (failed), DELETE FROM t (clear data), INSERT
+        assert real.execute_update.call_count == 3
+        # Verify the DELETE was called to prevent data doubling
+        delete_call = real.execute_update.call_args_list[1]
+        assert delete_call[0][0] == "DELETE FROM t"
         # Query was run against real DB after fallback
         assert real.execute_query.call_count == 1
+
+    def test_fallback_re_execution_clears_qualified_table(self, tmp_path):
+        """When CREATE TABLE with qualified name is suppressed, DELETE uses the same qualified name."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_clear_qualified_table"
+
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", 'CREATE TABLE "myschema"."mytable" (id INT)', None),
+                SnapshotEntry("update", 'INSERT INTO "myschema"."mytable" VALUES (1)', None),
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+
+        real = _make_mock_connection()
+        real.execute_update.side_effect = [
+            Exception("already exists"),  # CREATE TABLE
+            None,  # DELETE FROM (clear data)
+            None,  # INSERT
+        ]
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update('CREATE TABLE "myschema"."mytable" (id INT)')
+            conn.execute_update('INSERT INTO "myschema"."mytable" VALUES (1)')
+            conn.execute_query("SELECT 2")  # mismatch triggers fallback
+
+        delete_call = real.execute_update.call_args_list[1]
+        assert delete_call[0][0] == 'DELETE FROM "myschema"."mytable"'
+
+    def test_fallback_create_schema_does_not_trigger_delete(self, tmp_path):
+        """CREATE SCHEMA errors are suppressed but don't trigger a DELETE (only CREATE TABLE does)."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_create_schema_no_delete"
+
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE SCHEMA myschema", None),
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+
+        real = _make_mock_connection()
+        real.execute_update.side_effect = [
+            Exception("schema already exists"),  # CREATE SCHEMA
+        ]
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("CREATE SCHEMA myschema")
+            conn.execute_query("SELECT 2")  # mismatch triggers fallback
+
+        # Only 1 update call: CREATE SCHEMA (failed). No DELETE issued.
+        assert real.execute_update.call_count == 1
 
     def test_fallback_re_execution_raises_non_create_errors(self, tmp_path):
         """When fallback re-executes non-CREATE ops, errors are NOT suppressed."""

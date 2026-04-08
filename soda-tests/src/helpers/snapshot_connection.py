@@ -491,6 +491,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # already created tables/schemas (via _ensured_test_tables) before this
         # re-execution runs. Only those errors are suppressed; other update
         # failures (INSERT, DROP, etc.) are re-raised.
+        #
+        # When a CREATE TABLE fails because the connection_factory already created
+        # and populated the table, the subsequent INSERT in the snapshot ops would
+        # double the data. To prevent this, we clear the table data (DELETE FROM)
+        # when a CREATE TABLE is suppressed, so the INSERT starts fresh.
         self._recording = []
         for i in range(ops_to_replay):
             entry = self._denormalize_from_snapshot(self._replay_data[i])
@@ -502,6 +507,16 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         logger.warning(
                             f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
                         )
+                        # If a CREATE TABLE failed, the table was already created by
+                        # connection_factory (with data).  Clear the factory-inserted
+                        # rows so the subsequent INSERT from snapshot ops doesn't double.
+                        table_name = self._extract_table_name_from_create(entry.sql)
+                        if table_name:
+                            with contextlib.suppress(Exception):
+                                self._real.execute_update(f"DELETE FROM {table_name}", log_query=False)
+                                logger.info(
+                                    f"SNAPSHOT: Cleared data from {table_name} to prevent doubling during fallback"
+                                )
                     else:
                         raise
                 self._record_entry(SnapshotEntry("update", entry.sql, None))
@@ -510,6 +525,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 self._record_entry(SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result)))
 
         self._fallback_active = True
+
+    @staticmethod
+    def _extract_table_name_from_create(sql: str) -> Optional[str]:
+        """Extract the table name from a CREATE TABLE statement.
+
+        Returns None for non-TABLE CREATE statements (CREATE SCHEMA, CREATE VIEW, etc.).
+        Handles optional TEMP/TEMPORARY keyword and IF NOT EXISTS clause.
+        """
+        match = re.match(
+            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\"]+)",
+            sql,
+            re.IGNORECASE,
+        )
+        return match.group(1) if match else None
 
     @staticmethod
     def _normalize_dynamic_values(sql: str) -> str:
