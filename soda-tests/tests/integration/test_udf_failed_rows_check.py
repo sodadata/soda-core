@@ -88,10 +88,10 @@ def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
     }
 
 
-@pytest.mark.no_snapshot  # Requires a real DB error (nested CTE rejection) to trigger the fallback path
-def test_failed_rows_query_with_cte_falls_back_to_streaming(data_source_test_helper: DataSourceTestHelper):
-    """A user query containing a CTE cannot be wrapped in another CTE.
-    The count path should fall back to row-by-row streaming and still produce the correct count."""
+@pytest.mark.no_snapshot  # The fallback path (when triggered) requires a real DB error, not a snapshot replay
+def test_failed_rows_query_with_cte_produces_correct_count(data_source_test_helper: DataSourceTestHelper):
+    """A user query containing a CTE should produce the correct count regardless of whether the
+    database supports nested CTEs (CTE path) or not (streaming fallback)."""
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     end_quoted = data_source_test_helper.quote_column("end")
@@ -117,12 +117,6 @@ def test_failed_rows_query_with_cte_falls_back_to_streaming(data_source_test_hel
                     SELECT * FROM filtered
         """,
     )
-
-    # Confirm the fallback path was triggered
-    logs_str = contract_verification_result.get_logs_str()
-    assert (
-        "falling back to row-by-row streaming" in logs_str
-    ), "Expected the CTE-wrapped count to fail and trigger the streaming fallback"
 
     soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
     check_json: dict = soda_core_insert_scan_results_command["checks"][0]
