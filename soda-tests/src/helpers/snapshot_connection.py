@@ -487,11 +487,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         # Re-execute all previously replayed operations to set up DB state
         # and record fresh results so the snapshot can be updated.
+        # CREATE statements may fail with "already exists" when connection_factory
+        # already created tables/schemas (via _ensured_test_tables) before this
+        # re-execution runs. Only those errors are suppressed; other update
+        # failures (INSERT, DROP, etc.) are re-raised.
         self._recording = []
         for i in range(ops_to_replay):
             entry = self._denormalize_from_snapshot(self._replay_data[i])
             if entry.op_type == "update":
-                self._real.execute_update(entry.sql, log_query=False)
+                try:
+                    self._real.execute_update(entry.sql, log_query=False)
+                except Exception as exc:
+                    if entry.sql.lstrip().upper().startswith("CREATE "):
+                        logger.warning(
+                            f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
+                        )
+                    else:
+                        raise
                 self._record_entry(SnapshotEntry("update", entry.sql, None))
             else:
                 result = self._real.execute_query(entry.sql, log_query=False)

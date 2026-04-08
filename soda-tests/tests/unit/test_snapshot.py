@@ -2238,3 +2238,84 @@ class TestLinkedSnapshotFallback:
         # Source should NOT have been re-cascaded (no additional execute calls)
         source_real.execute_update.assert_not_called()
         source_real.execute_query.assert_not_called()
+
+    def test_fallback_re_execution_ignores_create_errors(self, tmp_path):
+        """When fallback re-executes CREATE ops, 'already exists' errors are ignored.
+
+        This happens when connection_factory already created tables (via
+        _ensured_test_tables) and then _activate_fallback tries to re-execute
+        the same CREATE TABLE from the snapshot.
+        """
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_ignore_create_errors"
+
+        # Snapshot: CREATE TABLE + INSERT + query that will mismatch
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
+                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
+                SnapshotEntry("query", "SELECT * FROM t", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+
+        real = _make_mock_connection()
+        # CREATE TABLE fails (already exists), INSERT succeeds
+        real.execute_update.side_effect = [
+            Exception("Object 't' already exists"),  # CREATE TABLE during re-execution
+            None,  # INSERT during re-execution
+            None,  # mismatched UPDATE in passthrough
+        ]
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # Replay first two ops successfully
+            conn.execute_update("CREATE TABLE t (id INT)")
+            conn.execute_update("INSERT INTO t VALUES (1)")
+            # Third op mismatches → triggers fallback → re-executes 2 updates
+            # CREATE TABLE fails but is ignored, INSERT succeeds
+            result = conn.execute_query("SELECT * FROM t WHERE id = 2")
+
+        assert conn._fallback_active is True
+        # All 3 update calls made: CREATE TABLE (failed+ignored), INSERT, mismatched query's passthrough
+        assert real.execute_update.call_count == 2
+        # Query was run against real DB after fallback
+        assert real.execute_query.call_count == 1
+
+    def test_fallback_re_execution_raises_non_create_errors(self, tmp_path):
+        """When fallback re-executes non-CREATE ops, errors are NOT suppressed."""
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_raise_non_create_errors"
+
+        # Snapshot: INSERT + query that will mismatch
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
+                SnapshotEntry("query", "SELECT * FROM t", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+
+        real = _make_mock_connection()
+        real.execute_update.side_effect = Exception("relation 't' does not exist")
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("INSERT INTO t VALUES (1)")
+            # Mismatch triggers fallback → re-executes INSERT → fails → re-raised
+            with pytest.raises(Exception, match="does not exist"):
+                conn.execute_query("SELECT * FROM t WHERE id = 2")
