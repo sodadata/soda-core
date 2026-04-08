@@ -139,6 +139,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_data: Optional[list[SnapshotEntry]] = None
         self._replay_index: int = 0
         self._fallback_active: bool = False
+        self._fallback_is_auto_record: bool = False  # True when fallback is for a missing snapshot (new recording)
         self._allow_fallback: bool = allow_fallback
         self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
         self._finalized: bool = False
@@ -352,6 +353,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         f"  Running all operations against real DB. A new snapshot will be recorded."
                     )
                     self._fallback_active = True
+                    self._fallback_is_auto_record = True
                     self._recording = []
                 else:
                     raise SnapshotNotFoundError(
@@ -377,8 +379,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
         if self._current_test_id is not None and self._recording:
-            # Entries are already normalized at capture time via _record_entry.
-            self._snapshot_manager.save(self._current_test_id, self._recording)
+            # In record mode, always save.  In replay+fallback for a missing
+            # snapshot, save too (creating a new snapshot, not overwriting).
+            # For mismatch fallback, only save when SODA_TEST_SNAPSHOT_RERECORD=true
+            # — otherwise fallback re-recording silently overwrites the
+            # nightly-recorded snapshot, which can corrupt it.
+            should_save = (
+                self._mode == "record"
+                or self._fallback_is_auto_record
+                or os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
+            )
+            if should_save:
+                self._snapshot_manager.save(self._current_test_id, self._recording)
+            elif self._fallback_active:
+                logger.info(
+                    f"SNAPSHOT: Skipping re-record for {self._current_test_id} "
+                    f"(set SODA_TEST_SNAPSHOT_RERECORD=true to overwrite)"
+                )
 
         # Check for unconsumed snapshot entries before resetting state.
         # We capture the error first and always reset state to prevent cascade failures
@@ -403,6 +420,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_data = None
         self._replay_index = 0
         self._fallback_active = False
+        self._fallback_is_auto_record = False
 
         if unconsumed_error:
             raise unconsumed_error
