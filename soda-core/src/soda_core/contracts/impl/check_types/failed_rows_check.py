@@ -276,13 +276,14 @@ class FailedRowsCountQuery(Query):
             logger.debug(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
             # Fallback: execute the raw user query and count rows one-by-one.
             try:
-                counter = [0]
+                row_count = 0
 
                 def count_row(row, description):
-                    counter[0] += 1
+                    nonlocal row_count
+                    row_count += 1
 
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
-                metric_value = counter[0]
+                metric_value = row_count
                 if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:
                     logger.warning(
                         f"Streamed {metric_value} rows to count failed rows. "
