@@ -278,6 +278,12 @@ class FailedRowsCountQuery(Query):
 
                 self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
                 metric_value = counter[0]
+                if metric_value > 10_000:
+                    logger.warning(
+                        f"Streamed {metric_value} rows to count failed rows. "
+                        f"This may be slow for large result sets. Consider simplifying your query "
+                        f"to avoid ORDER BY or nested CTEs so the efficient CTE-wrapped COUNT(*) path can be used."
+                    )
             except Exception as e2:
                 logger.error(
                     msg=f"Could not execute failed rows count query: \n{self.failed_rows_query}:\n{e2}",
