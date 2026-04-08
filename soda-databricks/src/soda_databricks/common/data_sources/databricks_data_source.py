@@ -191,8 +191,11 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
         }
 
     def escape_string(self, value: str):
-        raw_string = rf"{value}"
-        string_literal: str = raw_string.replace(r"'", r"\'")
+        # Databricks treats backslash as an escape character in SQL string
+        # literals.  Double backslashes first so they are interpreted as
+        # literal backslashes, then escape single quotes with backslash.
+        string_literal: str = value.replace("\\", "\\\\")
+        string_literal = string_literal.replace("'", "\\'")
         return string_literal
 
     def encode_string_for_sql(self, string: str) -> str:

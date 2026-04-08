@@ -439,6 +439,87 @@ def test_hashing_output_text(data_source_test_helper: DataSourceTestHelper):
         assert isinstance(result.rows[i][0], str)
 
 
+BACKSLASH_ROWS = [
+    (1, "C:\\path\\to\\file", "windows_path"),
+    (2, "no_backslash", "plain"),
+    (3, "back\\slash", "mid_backslash"),
+    (4, "trailing\\", "trailing_backslash"),
+    (5, "\\\\server\\share", "unc_path"),
+    (6, "double\\\\backslash", "double_backslash"),
+    (7, "tab\\there", "looks_like_tab_escape"),
+    (8, "new\\nline", "looks_like_newline_escape"),
+]
+
+
+def test_backslash_ast_insert(data_source_test_helper: DataSourceTestHelper):
+    """Backslash characters round-trip correctly via AST INSERT path."""
+    data_source_impl: DataSourceImpl = data_source_test_helper.data_source_impl
+    sql_dialect: SqlDialect = data_source_impl.sql_dialect
+
+    test_table_specification = (
+        TestTableSpecification.builder()
+        .table_purpose("backslash_ast")
+        .column_integer("id")
+        .column_varchar("value", 200)
+        .column_varchar("description", 200)
+        .rows(rows=BACKSLASH_ROWS)
+        .build()
+    )
+
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    table_name = data_source_test_helper.get_qualified_name_from_test_table(test_table)
+
+    try:
+        # Build an explicit AST INSERT with the same backslash data
+        value_rows = [VALUES_ROW(values=list(row)) for row in BACKSLASH_ROWS]
+        columns = [COLUMN(name=column.column_name) for column in test_table_specification.columns]
+
+        insert_into = INSERT_INTO(
+            fully_qualified_table_name=table_name,
+            values=value_rows,
+            columns=columns,
+        )
+
+        insert_sql = sql_dialect.build_insert_into_sql(insert_into)
+        data_source_impl.execute_update(insert_sql)
+
+        # Verify row count: ensure_test_table inserts once, we insert again
+        count_sql = sql_dialect.build_select_sql(
+            [
+                SELECT(COUNT(STAR())),
+                FROM(table_name[1:-1] if sql_dialect.is_quoted(table_name) else table_name),
+            ]
+        )
+        result: QueryResult = data_source_impl.execute_query(count_sql)
+        expected_count = len(BACKSLASH_ROWS) * 2
+        assert result.rows[0][0] == expected_count, f"Expected {expected_count} rows, got {result.rows[0][0]}"
+
+        # Read back and verify backslash values survived the round-trip
+        select_sql = sql_dialect.build_select_sql(
+            [
+                SELECT([COLUMN(name="id"), COLUMN(name="value")]),
+                FROM(table_name[1:-1] if sql_dialect.is_quoted(table_name) else table_name),
+            ]
+        )
+        result: QueryResult = data_source_impl.execute_query(select_sql)
+
+        result_values = {}
+        for row in result.rows:
+            if row[0] not in result_values:
+                result_values[row[0]] = row[1]
+
+        for row_id, expected_value, description in BACKSLASH_ROWS:
+            actual = result_values.get(row_id)
+            assert actual is not None, f"Row {row_id} ({description}) not found in results"
+            assert (
+                actual == expected_value
+            ), f"Row {row_id} ({description}): expected {expected_value!r}, got {actual!r}"
+
+    finally:
+        drop_sql = sql_dialect.build_drop_table_sql(DROP_TABLE_IF_EXISTS(fully_qualified_table_name=table_name))
+        data_source_impl.execute_update(drop_sql)
+
+
 def test_insert_into_via_select_with_cte_into_existing_table(data_source_test_helper: DataSourceTestHelper):
     """Test INSERT INTO ... SELECT with a CTE (WITH clause) when the destination table already exists.
 

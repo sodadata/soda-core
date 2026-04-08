@@ -60,6 +60,15 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
     )
 
+    def escape_string(self, value: str):
+        # Redshift treats backslash as an escape character by default
+        # (standard_conforming_strings is off).  Double backslashes first
+        # so they are interpreted as literal backslashes, then escape
+        # single quotes.
+        string_literal: str = value.replace("\\", "\\\\")
+        string_literal = string_literal.replace("'", "''")
+        return string_literal
+
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
         return {
             SodaDataTypeName.CHAR: "char",
