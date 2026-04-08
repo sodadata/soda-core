@@ -210,6 +210,19 @@ jobs:
             exit $rc
           }
 
+      # ── Run nightly-only tests against real DB ───────────────────
+      - name: Run nightly-only tests
+        env:
+          SODA_NIGHTLY: "true"
+          TEST_DATASOURCE: ${{ env.TEST_MODULE }}
+        run: |
+          uv run python -m pytest -ra soda-tests/tests/integration -m "nightly_only" \
+            --no-header -q || {
+            rc=$?
+            [ $rc -eq 5 ] && exit 0
+            exit $rc
+          }
+
       # ── Verify recorded snapshots replay correctly ────────────────
       - name: Verify replay
         env:

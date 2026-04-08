@@ -23,6 +23,10 @@ on:
           - sparkdf
           - trino-postgres
           - trino-s3
+      includeNightlyTests:
+        description: Include nightly-only tests (slow / rarely changing)
+        type: boolean
+        default: false
   push:
     branches:
       - 'main'
@@ -140,6 +144,7 @@ jobs:
       FABRIC_DATABASE: soda-ci-fabric-warehouse
       FABRIC_AUTHENTICATION_TYPE: activedirectoryserviceprincipal
       SODA_CORE_TELEMETRY_LOCAL_TEST_MODE: "true"
+      SODA_NIGHTLY: ${{ inputs.includeNightlyTests }}
 
     steps:
       - uses: actions/checkout@v4
@@ -270,9 +275,11 @@ jobs:
 
       # ── Run no_snapshot tests against real DB ───────────────────────
       - name: Run no_snapshot tests
+        if: env.SODA_TEST_SNAPSHOT == 'off' || env.SODA_TEST_SNAPSHOT == 'replay'
+        env:
+          SODA_TEST_SNAPSHOT: "off"
+          TEST_DATASOURCE: ${{ env.TEST_MODULE }}
         run: |
-          export TEST_DATASOURCE=${{ env.TEST_MODULE }}
-          export SODA_TEST_SNAPSHOT=off
           # Run tests marked no_snapshot against the real DB; exit 0 if none found.
           uv run python -m pytest -ra soda-tests/tests/integration -m "no_snapshot" \
             --no-header -q || {

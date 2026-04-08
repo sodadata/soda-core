@@ -16,9 +16,18 @@ def pytest_configure(config) -> None:
         "Use @pytest.mark.no_snapshot to skip both modes, or "
         "@pytest.mark.no_snapshot(mode='replay') to skip only replay.",
     )
+    config.addinivalue_line(
+        "markers",
+        "nightly_only: mark test to run only in nightly builds (implies no_snapshot). "
+        "Skipped unless SODA_NIGHTLY=true is set.",
+    )
 
 
 def pytest_runtest_setup(item):
+    if any(item.iter_markers(name="nightly_only")):
+        if os.environ.get("SODA_NIGHTLY", "").lower() != "true":
+            pytest.skip("Test is marked nightly_only and SODA_NIGHTLY is not set")
+
     for marker in item.iter_markers(name="no_snapshot"):
         snapshot_mode = os.environ.get("SODA_TEST_SNAPSHOT", "off").lower()
         restricted_mode = marker.kwargs.get("mode")
