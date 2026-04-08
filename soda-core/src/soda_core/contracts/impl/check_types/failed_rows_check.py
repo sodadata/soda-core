@@ -249,23 +249,44 @@ class FailedRowsQueryMetricImpl(MetricImpl):
 
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
-        # Execute user query directly — no CTE wrapping, which breaks ORDER BY on SQL Server
-        # and user queries that already contain CTEs.
-        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=failed_rows_query)
+        self.failed_rows_query = failed_rows_query
+        # Try CTE-wrapped COUNT first (efficient — only transfers a single number).
+        # Store the raw query as self.sql for fallback and logging.
+        count_sql = data_source_impl.sql_dialect.build_select_sql(
+            [
+                WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]),
+                SELECT(COUNT(STAR())),
+                FROM("failed_rows"),
+            ]
+        )
+        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=count_sql)
 
     def execute(self) -> list[Measurement]:
+        # Try CTE-wrapped COUNT(*) first — efficient, server-side aggregation.
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
+            metric_value = query_result.rows[0][0]
         except Exception as e:
-            logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
-            return []
+            logger.info(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
+            # Fallback: execute the raw user query and count rows one-by-one.
+            # Handles ORDER BY on SQL Server, user CTEs, and other unsupported wrapping.
+            try:
+                counter = [0]
 
-        if not query_result:
-            metric_value = None
-        elif not query_result.rows:
-            metric_value = 0
-        else:
-            metric_value = len(query_result.rows)
+                def count_row(row, description):
+                    counter[0] += 1
+
+                self.data_source_impl.execute_query_one_by_one(
+                    sql=self.failed_rows_query, row_callback=count_row
+                )
+                metric_value = counter[0]
+            except Exception as e2:
+                logger.error(
+                    msg=f"Could not execute failed rows count query: \n{self.failed_rows_query}:\n{e2}",
+                    exc_info=True,
+                )
+                return []
+
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
 

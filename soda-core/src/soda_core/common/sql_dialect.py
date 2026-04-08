@@ -86,14 +86,12 @@ from soda_core.common.sql_ast import (  # noqa: F401 — re-exported for wildcar
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
-    SET_CLAUSE,
     STAR,
     STRING_HASH,
     SUM,
     TUPLE,
     UNION,
     UNION_ALL,
-    UPDATE,
     VALUES,
     VALUES_ROW,
     WHERE,
@@ -494,10 +492,7 @@ class SqlDialect:
         pre_parenthesis_sql: str = "(" if add_parenthesis else ""
         post_parenthesis_sql: str = ")" if add_parenthesis else ""
         result_sql: str = f"CREATE TABLE {create_table_as_select.fully_qualified_table_name} AS "
-        if create_table_as_select.raw_select_sql is not None:
-            inner_sql = create_table_as_select.raw_select_sql
-        else:
-            inner_sql = self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)
+        inner_sql = self.build_select_sql(create_table_as_select.select_elements, add_semicolon=False)
         result_sql += f"{pre_parenthesis_sql}\n{inner_sql}{post_parenthesis_sql}" + (";" if add_semicolon else "")
         return result_sql
 
@@ -558,28 +553,6 @@ class SqlDialect:
         )
         table_name: str = self._convert_fqn_for_ddl(drop_table.fully_qualified_table_name)
         return f"DROP TABLE {if_exists_sql}{table_name}{cascade_sql}" + (";" if add_semicolon else "")
-
-    #########################################################
-    # UPDATE
-    #########################################################
-    def build_update_sql(self, update: UPDATE, add_semicolon: Optional[bool] = None) -> str:
-        add_semicolon = self.apply_default_add_semicolon(add_semicolon)
-        set_parts: list[str] = []
-        for clause in update.set_clauses:
-            col_sql = self.quote_column(clause.column_name)
-            val_sql = (
-                self.build_expression_sql(clause.value)
-                if isinstance(clause.value, SqlExpression)
-                else self.literal(clause.value)
-            )
-            set_parts.append(f"{col_sql} = {val_sql}")
-        # Note: fully_qualified_table_name is pre-quoted via qualify_dataset_name(), same pattern as
-        # build_insert_into_sql and build_create_table_as_select_sql. Not user-controlled input.
-        result = f"UPDATE {update.fully_qualified_table_name} SET {', '.join(set_parts)}"
-        if update.where_condition is not None:
-            where_sql = self.build_expression_sql(update.where_condition.condition)
-            result += f"\nWHERE {where_sql}"
-        return result + (";" if add_semicolon else "")
 
     #########################################################
     # INSERT INTO

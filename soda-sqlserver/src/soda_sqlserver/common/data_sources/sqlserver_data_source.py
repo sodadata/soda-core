@@ -405,16 +405,6 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def build_create_table_as_select_sql(
         self, create_table_as_select: CREATE_TABLE_AS_SELECT, add_semicolon: bool = True, add_parenthesis: bool = True
     ) -> str:
-        if create_table_as_select.raw_select_sql is not None:
-            # SQL Server uses SELECT ... INTO instead of CREATE TABLE ... AS SELECT.
-            # Safely injecting INTO into arbitrary user SQL requires parsing, which is
-            # not yet implemented. The caller should catch this and surface the original
-            # database error that caused the CTE-wrapped path to fail.
-            raise NotImplementedError(
-                "Storing failed rows to the diagnostics warehouse is not yet supported for this query "
-                "on SQL Server / Synapse / Fabric. If possible, rewrite the query so that it can be "
-                "embedded in a CTE (Common Table Expression)."
-            )
         # Copy the select elements and insert an INTO with the same table name as the create table as select statement
         select_elements = create_table_as_select.select_elements.copy()
         select_elements += [INTO(fully_qualified_table_name=create_table_as_select.fully_qualified_table_name)]

@@ -2,25 +2,42 @@
 Tests for the CTE wrapping fix in failed_rows checks.
 
 Verifies that:
-- FailedRowsCountQuery does NOT wrap user queries in CTEs
-- User queries with ORDER BY are preserved as-is
-- User queries containing CTEs are preserved as-is
-- Row count is derived from len(result.rows), not SELECT COUNT(*)
+- FailedRowsCountQuery tries CTE-wrapped COUNT(*) first (efficient path)
+- On CTE failure, falls back to row-by-row streaming count
+- User queries with ORDER BY or CTEs are handled via the fallback
 """
 
 from unittest import mock
 
 from soda_core.common.data_source_results import QueryResult
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.check_types.failed_rows_check import FailedRowsCountQuery
 
 
-def _make_mock_data_source_impl(rows: list[tuple]):
-    """Create a mock DataSourceImpl that returns the given rows from execute_query."""
+def _make_mock_data_source_impl_cte_success(count: int):
+    """Mock where CTE-wrapped COUNT(*) succeeds."""
     data_source_impl = mock.MagicMock()
+    data_source_impl.sql_dialect = SqlDialect()
     data_source_impl.execute_query.return_value = QueryResult(
-        rows=rows,
-        columns=(("col1",),),
+        rows=[(count,)],
+        columns=(("count",),),
     )
+    return data_source_impl
+
+
+def _make_mock_data_source_impl_cte_fails(rows: list[tuple]):
+    """Mock where CTE-wrapped COUNT(*) fails, fallback streams given rows."""
+    data_source_impl = mock.MagicMock()
+    data_source_impl.sql_dialect = SqlDialect()
+    data_source_impl.execute_query.side_effect = Exception("ORDER BY not allowed in CTE")
+    description = (("col1",),)
+
+    def fake_execute_one_by_one(sql, row_callback, log_query=True, row_limit=None):
+        for row in rows:
+            row_callback(row, description)
+        return description
+
+    data_source_impl.execute_query_one_by_one.side_effect = fake_execute_one_by_one
     return data_source_impl
 
 
@@ -31,53 +48,10 @@ def _make_mock_metric():
     return metric
 
 
-class TestFailedRowsCountQueryNoCteWrapping:
-    def test_user_query_not_wrapped_in_cte(self):
-        """The exact user query should be passed through as SQL, not wrapped in a CTE."""
-        user_query = "SELECT * FROM orders WHERE status = 'invalid' ORDER BY id ASC"
-        data_source_impl = _make_mock_data_source_impl(rows=[])
-
-        query = FailedRowsCountQuery(
-            data_source_impl=data_source_impl,
-            metrics=[_make_mock_metric()],
-            failed_rows_query=user_query,
-        )
-
-        assert query.sql == user_query
-        assert "WITH" not in query.sql
-
-    def test_user_query_with_order_by_preserved(self):
-        """ORDER BY in user queries must not be stripped or wrapped (SQL Server breaks otherwise)."""
-        user_query = "SELECT DISTINCT * FROM customers ORDER BY id ASC"
-        data_source_impl = _make_mock_data_source_impl(rows=[])
-
-        query = FailedRowsCountQuery(
-            data_source_impl=data_source_impl,
-            metrics=[_make_mock_metric()],
-            failed_rows_query=user_query,
-        )
-
-        assert query.sql == user_query
-
-    def test_user_query_with_ctes_preserved(self):
-        """User queries that already contain CTEs must not be double-wrapped."""
-        user_query = (
-            "WITH active_users AS (SELECT * FROM users WHERE active = 1) " "SELECT * FROM active_users WHERE age < 0"
-        )
-        data_source_impl = _make_mock_data_source_impl(rows=[])
-
-        query = FailedRowsCountQuery(
-            data_source_impl=data_source_impl,
-            metrics=[_make_mock_metric()],
-            failed_rows_query=user_query,
-        )
-
-        assert query.sql == user_query
-
-    def test_count_via_len_rows(self):
-        """Row count should come from len(result.rows), not from a SQL COUNT(*)."""
-        rows = [(1, "bad"), (2, "worse"), (3, "terrible")]
-        data_source_impl = _make_mock_data_source_impl(rows=rows)
+class TestFailedRowsCountQueryCteSuccess:
+    def test_cte_count_used_when_successful(self):
+        """When CTE wrapping succeeds, the count comes from SELECT COUNT(*)."""
+        data_source_impl = _make_mock_data_source_impl_cte_success(count=5)
 
         query = FailedRowsCountQuery(
             data_source_impl=data_source_impl,
@@ -87,11 +61,26 @@ class TestFailedRowsCountQueryNoCteWrapping:
         measurements = query.execute()
 
         assert len(measurements) == 1
-        assert measurements[0].value == 3
+        assert measurements[0].value == 5
+        data_source_impl.execute_query.assert_called_once()
+        data_source_impl.execute_query_one_by_one.assert_not_called()
 
-    def test_count_zero_rows(self):
-        """Zero failed rows should produce a measurement with value 0."""
-        data_source_impl = _make_mock_data_source_impl(rows=[])
+    def test_cte_sql_contains_count_and_with(self):
+        """The CTE-wrapped SQL should use WITH and COUNT(*)."""
+        data_source_impl = _make_mock_data_source_impl_cte_success(count=0)
+
+        query = FailedRowsCountQuery(
+            data_source_impl=data_source_impl,
+            metrics=[_make_mock_metric()],
+            failed_rows_query="SELECT * FROM orders WHERE status = 'invalid'",
+        )
+
+        assert "WITH" in query.sql
+        assert "COUNT" in query.sql
+
+    def test_cte_count_zero_rows(self):
+        """Zero failed rows via CTE path should produce value 0."""
+        data_source_impl = _make_mock_data_source_impl_cte_success(count=0)
 
         query = FailedRowsCountQuery(
             data_source_impl=data_source_impl,
@@ -103,25 +92,59 @@ class TestFailedRowsCountQueryNoCteWrapping:
         assert len(measurements) == 1
         assert measurements[0].value == 0
 
-    def test_none_query_result_returns_none(self):
-        """If execute_query returns None, metric value should be None (not evaluated)."""
-        data_source_impl = mock.MagicMock()
-        data_source_impl.execute_query.return_value = None
+
+class TestFailedRowsCountQueryFallback:
+    def test_fallback_on_cte_failure(self):
+        """When CTE wrapping fails, fall back to streaming row count."""
+        rows = [(1, "bad"), (2, "worse"), (3, "terrible")]
+        data_source_impl = _make_mock_data_source_impl_cte_fails(rows=rows)
 
         query = FailedRowsCountQuery(
             data_source_impl=data_source_impl,
             metrics=[_make_mock_metric()],
-            failed_rows_query="SELECT * FROM orders",
+            failed_rows_query="SELECT * FROM orders WHERE status = 'invalid' ORDER BY id ASC",
         )
         measurements = query.execute()
 
         assert len(measurements) == 1
-        assert measurements[0].value is None
+        assert measurements[0].value == 3
+        data_source_impl.execute_query_one_by_one.assert_called_once()
 
-    def test_execute_query_error_returns_empty(self):
-        """On SQL execution error, execute() should return an empty list (not raise)."""
+    def test_fallback_zero_rows(self):
+        """Fallback path with zero rows should produce value 0."""
+        data_source_impl = _make_mock_data_source_impl_cte_fails(rows=[])
+
+        query = FailedRowsCountQuery(
+            data_source_impl=data_source_impl,
+            metrics=[_make_mock_metric()],
+            failed_rows_query="SELECT * FROM orders WHERE 1=0 ORDER BY id",
+        )
+        measurements = query.execute()
+
+        assert len(measurements) == 1
+        assert measurements[0].value == 0
+
+    def test_fallback_streams_raw_user_query(self):
+        """The fallback should execute the original user query, not the CTE-wrapped one."""
+        user_query = "SELECT * FROM orders ORDER BY id ASC"
+        data_source_impl = _make_mock_data_source_impl_cte_fails(rows=[])
+
+        query = FailedRowsCountQuery(
+            data_source_impl=data_source_impl,
+            metrics=[_make_mock_metric()],
+            failed_rows_query=user_query,
+        )
+        query.execute()
+
+        call_args = data_source_impl.execute_query_one_by_one.call_args
+        assert call_args.kwargs["sql"] == user_query
+
+    def test_both_paths_fail_returns_empty(self):
+        """If both CTE and streaming fail, execute() returns an empty list."""
         data_source_impl = mock.MagicMock()
-        data_source_impl.execute_query.side_effect = Exception("connection lost")
+        data_source_impl.sql_dialect = SqlDialect()
+        data_source_impl.execute_query.side_effect = Exception("CTE failed")
+        data_source_impl.execute_query_one_by_one.side_effect = Exception("connection lost")
 
         query = FailedRowsCountQuery(
             data_source_impl=data_source_impl,
