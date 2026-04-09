@@ -247,28 +247,56 @@ class FailedRowsQueryMetricImpl(MetricImpl):
         return id_properties
 
 
+STREAMING_COUNT_WARNING_THRESHOLD = 10_000
+
+
 class FailedRowsCountQuery(Query):
     def __init__(self, data_source_impl: Optional[DataSourceImpl], metrics: list[MetricImpl], failed_rows_query: str):
-        sql = data_source_impl.sql_dialect.build_select_sql(
+        self.failed_rows_query = failed_rows_query
+        # Try CTE-wrapped COUNT first (efficient — only transfers a single number).
+        # Store the raw query as self.sql for fallback and logging.
+        count_sql = data_source_impl.sql_dialect.build_select_sql(
             [
                 WITH([CTE(alias="failed_rows").AS(cte_query=failed_rows_query)]),
                 SELECT(COUNT(STAR())),
                 FROM("failed_rows"),
             ]
         )
-        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=sql)
+        super().__init__(data_source_impl=data_source_impl, metrics=metrics, sql=count_sql)
 
     def execute(self) -> list[Measurement]:
+        metric_value = None
+
+        # Try CTE-wrapped COUNT(*) first — efficient, server-side aggregation.
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
+            if query_result.rows:
+                metric_value = query_result.rows[0][0]
         except Exception as e:
-            logger.error(msg=f"Could not execute failed rows count query: \n{self.sql}:\n{e}", exc_info=True)
-            return []
+            logger.debug(f"CTE-wrapped count failed, falling back to row-by-row streaming: {e}")
+            # Fallback: execute the raw user query and count rows one-by-one.
+            try:
+                row_count = 0
 
-        if not query_result.rows:
-            metric_value = None
-        else:
-            metric_value = query_result.rows[0][0]
+                def count_row(row, description):
+                    nonlocal row_count
+                    row_count += 1
+
+                self.data_source_impl.execute_query_one_by_one(sql=self.failed_rows_query, row_callback=count_row)
+                metric_value = row_count
+                if metric_value > STREAMING_COUNT_WARNING_THRESHOLD:
+                    logger.warning(
+                        f"Streamed {metric_value} rows to count failed rows. "
+                        f"The query could not be wrapped in a CTE and had to be executed directly. "
+                        f"Consider rewriting your query so that it can be wrapped in a CTE."
+                    )
+            except Exception as e2:
+                logger.error(
+                    msg=f"Could not execute failed rows count query: \n{self.failed_rows_query}:\n{e2}",
+                    exc_info=True,
+                )
+                return []
+
         metric_impl: MetricImpl = self.metrics[0]
         return [Measurement(metric_id=metric_impl.id, value=metric_value, metric_name=metric_impl.type)]
 

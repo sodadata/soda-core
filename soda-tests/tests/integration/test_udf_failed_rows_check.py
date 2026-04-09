@@ -1,3 +1,4 @@
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
@@ -74,6 +75,46 @@ def test_failed_rows_query(data_source_test_helper: DataSourceTestHelper):
                     SELECT *
                     FROM {test_table.qualified_name}
                     WHERE ({end_quoted} - {start_quoted}) > 5
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    check_json: dict = soda_core_insert_scan_results_command["checks"][0]
+
+    assert check_json["diagnostics"]["v4"] == {
+        "type": "failed_rows",
+        "failedRowsCount": 2,
+        "datasetRowsTested": 3,
+    }
+
+
+@pytest.mark.no_snapshot  # The fallback path (when triggered) requires a real DB error, not a snapshot replay
+def test_failed_rows_query_with_cte_produces_correct_count(data_source_test_helper: DataSourceTestHelper):
+    """A user query containing a CTE should produce the correct count regardless of whether the
+    database supports nested CTEs (CTE path) or not (streaming fallback)."""
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - failed_rows:
+                  query: |
+                    WITH filtered AS (
+                        SELECT *
+                        FROM {test_table.qualified_name}
+                        WHERE ({end_quoted} - {start_quoted}) > 5
+                    )
+                    SELECT * FROM filtered
         """,
     )
 
