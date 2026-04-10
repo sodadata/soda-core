@@ -78,7 +78,13 @@ class MySQLDataSource(DataSource):
     def connect(self):
         try:
             self.connection = mysql.connector.connect(
-                user=self.username, password=self.password, host=self.host, port=self.port, database=self.database, charset="utf8mb4", use_unicode=True
+                user=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                charset="utf8mb4",
+                use_unicode=True,
             )
 
             return self.connection
