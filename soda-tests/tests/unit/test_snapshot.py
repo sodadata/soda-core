@@ -2304,7 +2304,7 @@ class TestLinkedSnapshotFallback:
             conn.execute_update("INSERT INTO t VALUES (1)")
             # Third op mismatches → triggers fallback → re-executes 2 updates
             # CREATE TABLE fails but is ignored + data cleared, INSERT succeeds
-            result = conn.execute_query("SELECT * FROM t WHERE id = 2")
+            conn.execute_query("SELECT * FROM t WHERE id = 2")
 
         assert conn._fallback_active is True
         # 3 update calls: CREATE TABLE (failed), DELETE FROM t (clear data), INSERT
