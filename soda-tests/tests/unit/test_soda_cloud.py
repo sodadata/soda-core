@@ -20,7 +20,11 @@ from soda_core.common.exceptions import (
     FailedContractSkeletonGenerationException,
     SodaCloudException,
 )
-from soda_core.common.soda_cloud import ContractSkeletonGenerationState, SodaCloud, _build_diagnostics_json_dict
+from soda_core.common.soda_cloud import (
+    ContractSkeletonGenerationState,
+    SodaCloud,
+    _build_diagnostics_json_dict,
+)
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
