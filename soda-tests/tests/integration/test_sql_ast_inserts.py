@@ -246,9 +246,7 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
             assert interpret_datetime_as_utc(result.rows[0][5]) == datetime.datetime(
                 2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc
             )
-            assert interpret_datetime_as_utc(result.rows[1][5]) == tz.localize(
-                datetime.datetime(2021, 1, 2, 10, 0, 0)
-            )
+            assert interpret_datetime_as_utc(result.rows[1][5]) == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
         assert result.rows[2][5] is None
 
         assert result.rows[0][6] == 100
