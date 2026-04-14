@@ -4,6 +4,7 @@ import freezegun
 import pytest
 from helpers.test_fixtures import *  # noqa: F401
 from soda_core.common.logging_configuration import configure_logging
+from soda_core.common.streaming import StreamingOrchestrator
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
@@ -86,3 +87,10 @@ def clear_contract_verification_handlers():
     yield
     ContractVerificationHandlerRegistry.contract_verification_handlers.clear()
     ContractVerificationHandlerRegistry.post_processing_stages.clear()
+
+
+@pytest.fixture(autouse=True)
+def clear_streaming_consumers():
+    StreamingOrchestrator.reset()
+    yield
+    StreamingOrchestrator.reset()
