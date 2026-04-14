@@ -4,7 +4,7 @@ import logging
 import struct
 from abc import ABC
 from datetime import datetime, timedelta, timezone
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import pyodbc
 from pydantic import Field, SecretStr
@@ -108,6 +108,13 @@ def handle_datetimeoffset(dto_value):
 class SqlServerDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
+
+    # Normalize pyodbc.Row objects so downstream consumers see plain tuples.
+    def _format_rows(self, rows: list[tuple]) -> list[tuple]:
+        return [self._format_row(row) for row in rows]
+
+    def _format_row(self, row: Any) -> tuple:
+        return tuple(row)
 
     def build_connection_string(self, config: SqlServerConnectionProperties):
         conn_params = []
