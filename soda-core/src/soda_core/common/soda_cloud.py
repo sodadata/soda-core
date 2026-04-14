@@ -1312,7 +1312,12 @@ class SodaCloud:
         logger.info(f"Migration {migration_id} failed")
 
     def post_processing_update(
-        self, stage: str, scan_id: str, state: PostProcessingStageState, error: Optional[str] = None
+        self,
+        stage: str,
+        scan_id: str,
+        state: PostProcessingStageState,
+        error: Optional[str] = None,
+        records_written: Optional[int] = None,
     ):
         logger.info(f"Updating post processing stage '{stage}' to state '{state.value}' for scan {scan_id}")
 
@@ -1324,6 +1329,8 @@ class SodaCloud:
         }
         if error:
             request["error"] = error
+        if records_written is not None:
+            request["recordsWritten"] = records_written
         response = self._execute_command(request, request_log_name="post_processing_update")
         response.json()  # verify response is in JSON format
 
@@ -1419,10 +1426,28 @@ def _build_scan_definition_name(contract_verification_result: ContractVerificati
 def _build_post_processing_stages_dicts(
     contract_verification_result: ContractVerificationResult,
 ) -> list[Dict[str, str]]:
+    # Note: CorePostProcessingStage DTO only has `name`. The server hardcodes
+    # state to ONGOING on initial ingestion. State/recordsWritten are updated
+    # later via the sodaCorePostProcessingUpdate command.
     if contract_verification_result and contract_verification_result.post_processing_stages:
         return [{"name": stage.name} for stage in contract_verification_result.post_processing_stages]
     else:
         return []
+
+
+def _build_token_usage_dicts(contract_verification_result: ContractVerificationResult) -> list[dict]:
+    if contract_verification_result and contract_verification_result.token_usage:
+        return [
+            {
+                "promptTokens": tu.prompt_tokens,
+                "completionTokens": tu.completion_tokens,
+                "totalTokens": tu.total_tokens,
+                "model": tu.model,
+                "operation": tu.operation,
+            }
+            for tu in contract_verification_result.token_usage
+        ]
+    return []
 
 
 def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
@@ -1454,6 +1479,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
             "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
+            "tokenUsage": _build_token_usage_dicts(contract_verification_result),
         }
     )
 
