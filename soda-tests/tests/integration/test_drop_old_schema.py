@@ -19,7 +19,7 @@ DATASOURCES_TO_RUN = [
     "bigquery",
     "fabric",
     "synapse",
-    # "athena", # Skipping for now, there is a bug whereby we can't delete the schemas on Athena currently.
+    "athena",  # Skipping for now, there is a bug whereby we can't delete the schemas on Athena currently.
     "redshift",
     "oracle",
     "databricks",
@@ -106,6 +106,7 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
                     try:
                         data_source_test_helper.drop_schema_if_exists(schema_name)
                         num_deleted_schemas += 1
+                        # Old code, don't just create the SQL, but use the data source test helper to drop the schema.
                         # data_source_test_helper.data_source_impl.execute_update(
                         #     data_source_test_helper.drop_schema_if_exists_sql(
                         #         schema_name
