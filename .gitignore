@@ -161,3 +161,4 @@ reports/*
 # keys
 *.pem
 *.jks
+logs/

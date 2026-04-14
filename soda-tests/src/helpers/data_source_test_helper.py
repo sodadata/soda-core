@@ -150,6 +150,12 @@ class DataSourceTestHelper:
             )
 
             return TrinoDataSourceTestHelper(name)
+        elif test_datasource == "db2":
+            from soda_db2.test_helpers.db2_data_source_test_helper import (
+                Db2DataSourceTestHelper,
+            )
+
+            return Db2DataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

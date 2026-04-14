@@ -231,10 +231,24 @@ def test_full_create_insert_drop_ast(data_source_test_helper: DataSourceTestHelp
         assert result.rows[2][4] is None
 
         # Check that the timezone is correctly set, otherwise assume utc.
-        assert interpret_datetime_as_utc(result.rows[0][5]) == datetime.datetime(
-            2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc
-        )
-        assert interpret_datetime_as_utc(result.rows[1][5]) == tz.localize(datetime.datetime(2021, 1, 2, 10, 0, 0))
+        # DB2 LUW v11.5 (and others without TIMESTAMP WITH TIME ZONE)
+        # store the wall-clock value tz-naive; the inserted Pacific tz value
+        # comes back as the unconverted local time interpreted as UTC.
+        tz_unaware_data_sources = ("db2",)
+        if data_source_impl.type_name in tz_unaware_data_sources:
+            assert interpret_datetime_as_utc(result.rows[0][5]) == datetime.datetime(
+                2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc
+            )
+            assert interpret_datetime_as_utc(result.rows[1][5]) == datetime.datetime(
+                2021, 1, 2, 10, 0, 0, tzinfo=datetime.timezone.utc
+            )
+        else:
+            assert interpret_datetime_as_utc(result.rows[0][5]) == datetime.datetime(
+                2021, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc
+            )
+            assert interpret_datetime_as_utc(result.rows[1][5]) == tz.localize(
+                datetime.datetime(2021, 1, 2, 10, 0, 0)
+            )
         assert result.rows[2][5] is None
 
         assert result.rows[0][6] == 100
