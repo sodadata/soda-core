@@ -1,6 +1,7 @@
 scripts/antlr*.jar
 .antlr
 agents/
+.claude/
 .idea/
 .postgres/
 .db2/
