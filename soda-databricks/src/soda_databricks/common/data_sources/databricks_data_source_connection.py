@@ -33,9 +33,10 @@ def _probe_databricks_reachability(host: str, port: int = 443, timeout: float = 
     try:
         with socket.create_connection((host, port), timeout=timeout) as sock:
             ctx = ssl.create_default_context()
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             with ctx.wrap_socket(sock, server_hostname=host):
                 return
-    except (socket.gaierror, socket.timeout, ConnectionError, ssl.SSLError, OSError) as e:
+    except OSError as e:
         raise ConnectionError(f"Databricks host {host}:{port} is not reachable: {e}") from e
 
 
