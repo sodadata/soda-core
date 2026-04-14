@@ -15,18 +15,12 @@ See: projects/enhancements/common_bugs_tests/historical-bug-analysis.md
 import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
-from soda_core.common.metadata_types import (
-    ColumnMetadata,
-    SodaDataTypeName,
-    SqlDataType,
-)
+from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_tables_query import TableType
 from soda_core.common.statements.table_types import (
     FullyQualifiedTableName,
     FullyQualifiedViewName,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test tables
@@ -111,9 +105,7 @@ def test_discovery_excludes_soda_internal_tables(data_source_test_helper: DataSo
         if name and name.lower().startswith("__soda"):
             internal_tables.append(name)
 
-    assert internal_tables == [], (
-        f"Internal Soda tables leaked into discovery results: {internal_tables}"
-    )
+    assert internal_tables == [], f"Internal Soda tables leaked into discovery results: {internal_tables}"
 
 
 def test_discovery_finds_test_table(data_source_test_helper: DataSourceTestHelper):
@@ -127,14 +119,10 @@ def test_discovery_finds_test_table(data_source_test_helper: DataSourceTestHelpe
         include_table_name_like_filters=[f"{test_table.unique_name}"],
     )
 
-    table_names = [
-        entry.table_name.lower()
-        for entry in results
-        if isinstance(entry, FullyQualifiedTableName)
-    ]
-    assert test_table.unique_name.lower() in table_names, (
-        f"Test table {test_table.unique_name} not found in discovery. Found: {table_names}"
-    )
+    table_names = [entry.table_name.lower() for entry in results if isinstance(entry, FullyQualifiedTableName)]
+    assert (
+        test_table.unique_name.lower() in table_names
+    ), f"Test table {test_table.unique_name} not found in discovery. Found: {table_names}"
 
 
 # ---------------------------------------------------------------------------
@@ -227,9 +215,9 @@ def test_all_types_round_trip(data_source_test_helper: DataSourceTestHelper):
         dataset_name=test_table.unique_name,
     )
 
-    assert len(actual_columns) == len(EXPECTED_TYPE_MAP), (
-        f"Column count mismatch: expected {len(EXPECTED_TYPE_MAP)}, got {len(actual_columns)}"
-    )
+    assert len(actual_columns) == len(
+        EXPECTED_TYPE_MAP
+    ), f"Column count mismatch: expected {len(EXPECTED_TYPE_MAP)}, got {len(actual_columns)}"
 
     reverse_map = sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()
 
@@ -240,9 +228,9 @@ def test_all_types_round_trip(data_source_test_helper: DataSourceTestHelper):
 
         ds_type_name = col.sql_data_type.name
         actual_soda_type = reverse_map.get(ds_type_name)
-        assert actual_soda_type is not None, (
-            f"Column '{col_name}': data source type '{ds_type_name}' has no reverse mapping"
-        )
+        assert (
+            actual_soda_type is not None
+        ), f"Column '{col_name}': data source type '{ds_type_name}' has no reverse mapping"
         assert sql_dialect.is_same_soda_data_type_with_synonyms(expected_soda_type, actual_soda_type), (
             f"Column '{col_name}': expected SodaDataType {expected_soda_type}, "
             f"got {actual_soda_type} (from DS type '{ds_type_name}')"
@@ -288,9 +276,7 @@ def test_type_synonyms_are_bidirectional(data_source_test_helper: DataSourceTest
                     f"but others map to {canonical}"
                 )
 
-    assert mismatches == [], (
-        f"Type synonym bidirectionality broken:\n" + "\n".join(mismatches)
-    )
+    assert mismatches == [], f"Type synonym bidirectionality broken:\n" + "\n".join(mismatches)
 
 
 # ---------------------------------------------------------------------------
@@ -316,63 +302,63 @@ def test_column_type_parameters_preserved(data_source_test_helper: DataSourceTes
         varchar_col = cols_by_name.get("varchar_100")
         assert varchar_col is not None, "Column varchar_100 not found"
         if varchar_col.sql_data_type.character_maximum_length is not None:
-            assert varchar_col.sql_data_type.character_maximum_length == 100, (
-                f"varchar_100: expected length 100, got {varchar_col.sql_data_type.character_maximum_length}"
-            )
+            assert (
+                varchar_col.sql_data_type.character_maximum_length == 100
+            ), f"varchar_100: expected length 100, got {varchar_col.sql_data_type.character_maximum_length}"
 
         char_col = cols_by_name.get("char_10")
         assert char_col is not None, "Column char_10 not found"
         if char_col.sql_data_type.character_maximum_length is not None:
-            assert char_col.sql_data_type.character_maximum_length == 10, (
-                f"char_10: expected length 10, got {char_col.sql_data_type.character_maximum_length}"
-            )
+            assert (
+                char_col.sql_data_type.character_maximum_length == 10
+            ), f"char_10: expected length 10, got {char_col.sql_data_type.character_maximum_length}"
 
     # numeric_precision and numeric_scale
     if sql_dialect.supports_data_type_numeric_precision():
         numeric_col = cols_by_name.get("numeric_18_4")
         assert numeric_col is not None, "Column numeric_18_4 not found"
         if numeric_col.sql_data_type.numeric_precision is not None:
-            assert numeric_col.sql_data_type.numeric_precision == 18, (
-                f"numeric_18_4: expected precision 18, got {numeric_col.sql_data_type.numeric_precision}"
-            )
+            assert (
+                numeric_col.sql_data_type.numeric_precision == 18
+            ), f"numeric_18_4: expected precision 18, got {numeric_col.sql_data_type.numeric_precision}"
 
         decimal_col = cols_by_name.get("decimal_10_2")
         assert decimal_col is not None, "Column decimal_10_2 not found"
         if decimal_col.sql_data_type.numeric_precision is not None:
-            assert decimal_col.sql_data_type.numeric_precision == 10, (
-                f"decimal_10_2: expected precision 10, got {decimal_col.sql_data_type.numeric_precision}"
-            )
+            assert (
+                decimal_col.sql_data_type.numeric_precision == 10
+            ), f"decimal_10_2: expected precision 10, got {decimal_col.sql_data_type.numeric_precision}"
 
     if sql_dialect.supports_data_type_numeric_scale():
         numeric_col = cols_by_name.get("numeric_18_4")
         assert numeric_col is not None, "Column numeric_18_4 not found"
         if numeric_col.sql_data_type.numeric_scale is not None:
-            assert numeric_col.sql_data_type.numeric_scale == 4, (
-                f"numeric_18_4: expected scale 4, got {numeric_col.sql_data_type.numeric_scale}"
-            )
+            assert (
+                numeric_col.sql_data_type.numeric_scale == 4
+            ), f"numeric_18_4: expected scale 4, got {numeric_col.sql_data_type.numeric_scale}"
 
         decimal_col = cols_by_name.get("decimal_10_2")
         assert decimal_col is not None, "Column decimal_10_2 not found"
         if decimal_col.sql_data_type.numeric_scale is not None:
-            assert decimal_col.sql_data_type.numeric_scale == 2, (
-                f"decimal_10_2: expected scale 2, got {decimal_col.sql_data_type.numeric_scale}"
-            )
+            assert (
+                decimal_col.sql_data_type.numeric_scale == 2
+            ), f"decimal_10_2: expected scale 2, got {decimal_col.sql_data_type.numeric_scale}"
 
     # datetime_precision
     if sql_dialect.supports_data_type_datetime_precision():
         ts_col = cols_by_name.get("ts_precision_3")
         assert ts_col is not None, "Column ts_precision_3 not found"
         if ts_col.sql_data_type.datetime_precision is not None:
-            assert ts_col.sql_data_type.datetime_precision == 3, (
-                f"ts_precision_3: expected datetime_precision 3, got {ts_col.sql_data_type.datetime_precision}"
-            )
+            assert (
+                ts_col.sql_data_type.datetime_precision == 3
+            ), f"ts_precision_3: expected datetime_precision 3, got {ts_col.sql_data_type.datetime_precision}"
 
         ts_tz_col = cols_by_name.get("ts_tz_precision_6")
         assert ts_tz_col is not None, "Column ts_tz_precision_6 not found"
         if ts_tz_col.sql_data_type.datetime_precision is not None:
-            assert ts_tz_col.sql_data_type.datetime_precision == 6, (
-                f"ts_tz_precision_6: expected datetime_precision 6, got {ts_tz_col.sql_data_type.datetime_precision}"
-            )
+            assert (
+                ts_tz_col.sql_data_type.datetime_precision == 6
+            ), f"ts_tz_precision_6: expected datetime_precision 6, got {ts_tz_col.sql_data_type.datetime_precision}"
 
 
 # ---------------------------------------------------------------------------
@@ -383,8 +369,7 @@ def test_column_type_parameters_preserved(data_source_test_helper: DataSourceTes
 def test_every_soda_type_has_forward_mapping(data_source_test_helper: DataSourceTestHelper):
     """Every SodaDataTypeName must have a forward mapping (Soda→data source)."""
     forward_map = (
-        data_source_test_helper.data_source_impl.sql_dialect
-        .get_data_source_data_type_name_by_soda_data_type_names()
+        data_source_test_helper.data_source_impl.sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()
     )
     unmapped = [str(t) for t in SodaDataTypeName if t not in forward_map]
     assert unmapped == [], f"SodaDataTypeNames with no forward mapping: {unmapped}"
@@ -401,12 +386,8 @@ def test_every_forward_mapped_type_has_reverse(data_source_test_helper: DataSour
         ds_type_lower = ds_type.lower() if isinstance(ds_type, str) else ds_type
         if ds_type not in reverse_map and ds_type_lower not in reverse_map:
             # Check synonyms
-            canonical = sql_dialect._data_type_name_synonym_mappings.get(
-                ds_type_lower, ds_type_lower
-            )
+            canonical = sql_dialect._data_type_name_synonym_mappings.get(ds_type_lower, ds_type_lower)
             if canonical not in reverse_map:
                 unmapped.append(f"{soda_type} → '{ds_type}' (no reverse)")
 
-    assert unmapped == [], (
-        f"Forward-mapped types with no reverse mapping:\n" + "\n".join(unmapped)
-    )
+    assert unmapped == [], f"Forward-mapped types with no reverse mapping:\n" + "\n".join(unmapped)

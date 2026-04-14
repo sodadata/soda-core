@@ -24,7 +24,6 @@ from soda_core.common.metadata_types import SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR
 from soda_core.common.sql_dialect import SqlDialect
 
-
 # ---------------------------------------------------------------------------
 # Test table: one column per Soda data type, with actual data
 # ---------------------------------------------------------------------------
@@ -50,21 +49,21 @@ all_types_with_data_table = (
     .rows(
         [
             (
-                "a",                                            # char
-                "hello",                                        # varchar
-                "some text",                                    # text
-                1,                                              # smallint
-                42,                                             # integer
-                1000000,                                        # bigint
-                3.14,                                           # numeric
-                2.718,                                          # decimal
-                1.5,                                            # float
-                2.71828,                                        # double
-                True,                                           # boolean
-                datetime.date(2025, 6, 15),                     # date
-                datetime.time(10, 30, 0),                       # time
-                datetime.datetime(2025, 6, 15, 10, 30, 0),     # timestamp
-                datetime.datetime(2025, 6, 15, 10, 30, 0),     # timestamp_tz
+                "a",  # char
+                "hello",  # varchar
+                "some text",  # text
+                1,  # smallint
+                42,  # integer
+                1000000,  # bigint
+                3.14,  # numeric
+                2.718,  # decimal
+                1.5,  # float
+                2.71828,  # double
+                True,  # boolean
+                datetime.date(2025, 6, 15),  # date
+                datetime.time(10, 30, 0),  # time
+                datetime.datetime(2025, 6, 15, 10, 30, 0),  # timestamp
+                datetime.datetime(2025, 6, 15, 10, 30, 0),  # timestamp_tz
             ),
             (
                 "b",
@@ -84,21 +83,21 @@ all_types_with_data_table = (
                 datetime.datetime(2025, 7, 20, 14, 0, 0),
             ),
             (
-                None,                                           # null char
-                None,                                           # null varchar
-                None,                                           # null text
-                None,                                           # null smallint
-                None,                                           # null integer
-                None,                                           # null bigint
-                None,                                           # null numeric
-                None,                                           # null decimal
-                None,                                           # null float
-                None,                                           # null double
-                None,                                           # null boolean
-                None,                                           # null date
-                None,                                           # null time
-                None,                                           # null timestamp
-                None,                                           # null timestamp_tz
+                None,  # null char
+                None,  # null varchar
+                None,  # null text
+                None,  # null smallint
+                None,  # null integer
+                None,  # null bigint
+                None,  # null numeric
+                None,  # null decimal
+                None,  # null float
+                None,  # null double
+                None,  # null boolean
+                None,  # null date
+                None,  # null time
+                None,  # null timestamp
+                None,  # null timestamp_tz
             ),
         ]
     )
@@ -201,10 +200,7 @@ def test_schema_check_all_types(data_source_test_helper: DataSourceTestHelper):
     Type round-trip accuracy is tested in Phase 2 (test_conformance_discovery.py)."""
     test_table = data_source_test_helper.ensure_test_table(all_types_with_data_table)
 
-    columns_yaml = "\n".join(
-        f"              - name: {col}"
-        for col in ALL_TYPE_COLUMNS
-    )
+    columns_yaml = "\n".join(f"              - name: {col}" for col in ALL_TYPE_COLUMNS)
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -236,9 +232,7 @@ def test_sampling_sql_generation(sampler_type: SamplerType, data_source_test_hel
 
     assert sample_sql is not None, f"_build_sample_sql returned None for {sampler_type.name}"
     assert len(sample_sql.strip()) > 0, f"_build_sample_sql returned empty string for {sampler_type.name}"
-    assert str(sample_size) in sample_sql, (
-        f"Sample size {sample_size} not found in generated SQL: {sample_sql}"
-    )
+    assert str(sample_size) in sample_sql, f"Sample size {sample_size} not found in generated SQL: {sample_sql}"
 
 
 @pytest.mark.parametrize("sampler_type", list(SamplerType))
@@ -253,10 +247,12 @@ def test_sampling_sql_executes(sampler_type: SamplerType, data_source_test_helpe
     table_from_name = sql_dialect.get_from_name_from_qualified_name(test_table.qualified_name)
 
     sample_size = 50 if sampler_type == SamplerType.PERCENTAGE else 2
-    select_sql = sql_dialect.build_select_sql([
-        SELECT(STAR()),
-        FROM(table_from_name).SAMPLE(sampler_type, sample_size),
-    ])
+    select_sql = sql_dialect.build_select_sql(
+        [
+            SELECT(STAR()),
+            FROM(table_from_name).SAMPLE(sampler_type, sample_size),
+        ]
+    )
 
     result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
     assert result is not None, "Sampled query returned None"
@@ -318,10 +314,12 @@ def test_random_generates_valid_sql(data_source_test_helper: DataSourceTestHelpe
     sql_dialect: SqlDialect = data_source_impl.sql_dialect
 
     table_from_name = sql_dialect.get_from_name_from_qualified_name(test_table.qualified_name)
-    select_sql = sql_dialect.build_select_sql([
-        SELECT(RANDOM()),
-        FROM(table_from_name),
-    ])
+    select_sql = sql_dialect.build_select_sql(
+        [
+            SELECT(RANDOM()),
+            FROM(table_from_name),
+        ]
+    )
 
     result: QueryResult = data_source_impl.execute_query(select_sql)
     assert len(result.rows) == 3
@@ -339,8 +337,7 @@ def test_random_generates_valid_sql(data_source_test_helper: DataSourceTestHelpe
 def test_forward_mapping_covers_all_types(data_source_test_helper: DataSourceTestHelper):
     """Every SodaDataTypeName must have a data source type in the forward mapping."""
     forward_map = (
-        data_source_test_helper.data_source_impl.sql_dialect
-        .get_data_source_data_type_name_by_soda_data_type_names()
+        data_source_test_helper.data_source_impl.sql_dialect.get_data_source_data_type_name_by_soda_data_type_names()
     )
     unmapped = [t.name for t in SodaDataTypeName if t not in forward_map]
     assert unmapped == [], f"SodaDataTypeNames missing from forward mapping: {unmapped}"
@@ -384,6 +381,4 @@ def test_data_type_synonyms_internally_consistent(data_source_test_helper: DataS
         if len(canonicals) > 1:
             inconsistencies.append(f"Group {group} maps to multiple canonicals: {canonicals}")
 
-    assert inconsistencies == [], (
-        "Synonym groups with inconsistent canonical mappings:\n" + "\n".join(inconsistencies)
-    )
+    assert inconsistencies == [], "Synonym groups with inconsistent canonical mappings:\n" + "\n".join(inconsistencies)

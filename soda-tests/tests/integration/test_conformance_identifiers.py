@@ -16,7 +16,6 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 
-
 # ---------------------------------------------------------------------------
 # Test tables
 # ---------------------------------------------------------------------------
@@ -323,9 +322,7 @@ SPECIAL_IDENTIFIERS = [
 
 
 @pytest.mark.parametrize("identifier", SPECIAL_IDENTIFIERS)
-def test_quote_default_handles_special_identifiers(
-    identifier: str, data_source_test_helper: DataSourceTestHelper
-):
+def test_quote_default_handles_special_identifiers(identifier: str, data_source_test_helper: DataSourceTestHelper):
     """quote_default must return a quoted, non-None identifier for each special pattern."""
     sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
     quoted = sql_dialect.quote_default(identifier)
@@ -334,9 +331,7 @@ def test_quote_default_handles_special_identifiers(
 
 
 @pytest.mark.parametrize("identifier", SPECIAL_IDENTIFIERS)
-def test_quote_for_ddl_handles_special_identifiers(
-    identifier: str, data_source_test_helper: DataSourceTestHelper
-):
+def test_quote_for_ddl_handles_special_identifiers(identifier: str, data_source_test_helper: DataSourceTestHelper):
     """quote_for_ddl must return a quoted, non-None identifier for each special pattern."""
     sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
     quoted = sql_dialect.quote_for_ddl(identifier)
@@ -345,9 +340,7 @@ def test_quote_for_ddl_handles_special_identifiers(
 
 
 @pytest.mark.parametrize("identifier", SPECIAL_IDENTIFIERS)
-def test_ddl_and_dml_quoting_both_preserve_identifier(
-    identifier: str, data_source_test_helper: DataSourceTestHelper
-):
+def test_ddl_and_dml_quoting_both_preserve_identifier(identifier: str, data_source_test_helper: DataSourceTestHelper):
     """Both DDL and DML quoting must preserve the original identifier string."""
     sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
     dml_quoted = sql_dialect.quote_default(identifier)
