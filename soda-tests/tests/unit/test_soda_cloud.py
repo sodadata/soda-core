@@ -20,10 +20,16 @@ from soda_core.common.exceptions import (
     FailedContractSkeletonGenerationException,
     SodaCloudException,
 )
-from soda_core.common.soda_cloud import ContractSkeletonGenerationState, SodaCloud
+from soda_core.common.soda_cloud import (
+    ContractSkeletonGenerationState,
+    SodaCloud,
+    _build_diagnostics_json_dict,
+)
 from soda_core.common.yaml import ContractYamlSource, SodaCloudYamlSource
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    CheckOutcome,
+    CheckResult,
     ContractVerificationResult,
     PostProcessingStage,
     PostProcessingStageState,
@@ -692,6 +698,28 @@ def test_trigger_contract_skeleton_generation__error(mock_post):
             "token": "some_token",
         },
     )
+
+
+@pytest.mark.parametrize(
+    "threshold_value, expected_diagnostics_value",
+    [
+        (True, 1),
+        (False, 0),
+        (42, 42),
+        (3.14, 3.14),
+        (0, 0),
+        (None, 0),
+    ],
+)
+def test_build_diagnostics_json_dict_casts_bool_to_int(threshold_value, expected_diagnostics_value):
+    check_result = CheckResult(
+        check=mock.MagicMock(),
+        outcome=CheckOutcome.PASSED,
+        threshold_value=threshold_value,
+    )
+    diagnostics = _build_diagnostics_json_dict(check_result)
+    assert diagnostics["value"] == expected_diagnostics_value
+    assert not isinstance(diagnostics["value"], bool)
 
 
 def test_build_token_usage_dicts_serialization():
