@@ -139,6 +139,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_data: Optional[list[SnapshotEntry]] = None
         self._replay_index: int = 0
         self._fallback_active: bool = False
+        self._fallback_is_auto_record: bool = False  # True when fallback is for a missing snapshot (new recording)
         self._allow_fallback: bool = allow_fallback
         self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
         self._finalized: bool = False
@@ -352,6 +353,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         f"  Running all operations against real DB. A new snapshot will be recorded."
                     )
                     self._fallback_active = True
+                    self._fallback_is_auto_record = True
                     self._recording = []
                 else:
                     raise SnapshotNotFoundError(
@@ -377,8 +379,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
         if self._current_test_id is not None and self._recording:
-            # Entries are already normalized at capture time via _record_entry.
-            self._snapshot_manager.save(self._current_test_id, self._recording)
+            # In record mode, always save.  In replay+fallback for a missing
+            # snapshot, save too (creating a new snapshot, not overwriting).
+            # For mismatch fallback, only save when SODA_TEST_SNAPSHOT_RERECORD=true
+            # — otherwise fallback re-recording silently overwrites the
+            # nightly-recorded snapshot, which can corrupt it.
+            should_save = (
+                self._mode == "record"
+                or self._fallback_is_auto_record
+                or os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
+            )
+            if should_save:
+                self._snapshot_manager.save(self._current_test_id, self._recording)
+            elif self._fallback_active:
+                logger.info(
+                    f"SNAPSHOT: Skipping re-record for {self._current_test_id} "
+                    f"(set SODA_TEST_SNAPSHOT_RERECORD=true to overwrite)"
+                )
 
         # Check for unconsumed snapshot entries before resetting state.
         # We capture the error first and always reset state to prevent cascade failures
@@ -403,6 +420,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._replay_data = None
         self._replay_index = 0
         self._fallback_active = False
+        self._fallback_is_auto_record = False
 
         if unconsumed_error:
             raise unconsumed_error
@@ -469,17 +487,58 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         # Re-execute all previously replayed operations to set up DB state
         # and record fresh results so the snapshot can be updated.
+        # CREATE statements may fail with "already exists" when connection_factory
+        # already created tables/schemas (via _ensured_test_tables) before this
+        # re-execution runs. Only those errors are suppressed; other update
+        # failures (INSERT, DROP, etc.) are re-raised.
+        #
+        # When a CREATE TABLE fails because the connection_factory already created
+        # and populated the table, the subsequent INSERT in the snapshot ops would
+        # double the data. To prevent this, we clear the table data (DELETE FROM)
+        # when a CREATE TABLE is suppressed, so the INSERT starts fresh.
         self._recording = []
         for i in range(ops_to_replay):
             entry = self._denormalize_from_snapshot(self._replay_data[i])
             if entry.op_type == "update":
-                self._real.execute_update(entry.sql, log_query=False)
+                try:
+                    self._real.execute_update(entry.sql, log_query=False)
+                except Exception as exc:
+                    if entry.sql.lstrip().upper().startswith("CREATE "):
+                        logger.warning(
+                            f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
+                        )
+                        # If a CREATE TABLE failed, the table was already created by
+                        # connection_factory (with data).  Clear the factory-inserted
+                        # rows so the subsequent INSERT from snapshot ops doesn't double.
+                        table_name = self._extract_table_name_from_create(entry.sql)
+                        if table_name:
+                            with contextlib.suppress(Exception):
+                                self._real.execute_update(f"DELETE FROM {table_name}", log_query=False)
+                                logger.info(
+                                    f"SNAPSHOT: Cleared data from {table_name} to prevent doubling during fallback"
+                                )
+                    else:
+                        raise
                 self._record_entry(SnapshotEntry("update", entry.sql, None))
             else:
                 result = self._real.execute_query(entry.sql, log_query=False)
                 self._record_entry(SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result)))
 
         self._fallback_active = True
+
+    @staticmethod
+    def _extract_table_name_from_create(sql: str) -> Optional[str]:
+        """Extract the table name from a CREATE TABLE statement.
+
+        Returns None for non-TABLE CREATE statements (CREATE SCHEMA, CREATE VIEW, etc.).
+        Handles optional TEMP/TEMPORARY keyword and IF NOT EXISTS clause.
+        """
+        match = re.match(
+            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\"]+)",
+            sql,
+            re.IGNORECASE,
+        )
+        return match.group(1) if match else None
 
     @staticmethod
     def _normalize_dynamic_values(sql: str) -> str:

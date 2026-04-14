@@ -177,6 +177,11 @@ class DataSourceTestHelper:
         # (that is the the full table name composed of "SODATEST_" prefix, table purpose & test table hash)
         self.test_tables: dict[str, TestTable] = {}
 
+        # Tracks all TestTable objects that have been ensured via ensure_test_table().
+        # Used by connection_factory during snapshot fallback to recreate tables that
+        # were only virtually created during replay (no actual DDL executed).
+        self._ensured_test_tables: dict[str, TestTable] = {}
+
         self.soda_cloud: Optional[SodaCloud] = None
         self.use_agent: bool = False
 
@@ -351,10 +356,23 @@ class DataSourceTestHelper:
             real_schema_name = self._snapshot_schema_name()
 
             def connection_factory():
-                """Lazily open connection and create schema on first fallback."""
+                """Lazily open connection and create schema on first fallback.
+
+                Also recreates test tables that were ensured during snapshot replay.
+                When tests share tables (test A creates, test B reuses), test B's snapshot
+                has no CREATE TABLE/INSERT ops. Without recreating them here, fallback
+                would fail on queries that reference those tables.
+                """
                 snap_conn = self.data_source_impl.data_source_connection
                 self.start_test_session_open_connection()
                 self.start_test_session_ensure_schema()
+                # Recreate test tables that were ensured via snapshot replay.
+                # _ensured_test_tables is populated by ensure_test_table() calls that
+                # happened before fallback was triggered.
+                if self._ensured_test_tables:
+                    for test_table in self._ensured_test_tables.values():
+                        self._create_and_insert_test_table(test_table=test_table)
+                    self.data_source_impl.data_source_connection.commit()
                 real_conn = self.data_source_impl.data_source_connection
                 self.data_source_impl.data_source_connection = snap_conn
                 return real_conn
@@ -590,6 +608,7 @@ class DataSourceTestHelper:
         else:
             logger.debug(f"Test table {test_table.unique_name} already exists")
 
+        self._ensured_test_tables[test_table_specification.unique_name] = test_table
         return test_table
 
     def verify_test_table_row_count(self, test_table_specification: TestTableSpecification) -> bool:
