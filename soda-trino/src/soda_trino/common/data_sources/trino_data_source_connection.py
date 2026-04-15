@@ -78,8 +78,9 @@ class TrinoDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
 
-    def _cursor_execute_update_and_commit(self, cursor, sql):
+    def _cursor_execute_update_and_commit(self, cursor, sql) -> int:
         cursor.execute(sql)
+        rowcount = cursor.rowcount if cursor.rowcount is not None and cursor.rowcount >= 0 else 0
         # Drain all remaining results so the Trino query fully transitions to FINISHED.
         # The trino-python-client's cursor.close() calls cancel(), which sends a DELETE
         # to next_uri if the query hasn't been fully consumed. For DDL like CTAS, this
@@ -87,6 +88,7 @@ class TrinoDataSourceConnection(DataSourceConnection):
         # subsequent queries to fail with TABLE_NOT_FOUND.
         cursor.fetchall()
         self.commit()
+        return rowcount
 
     def _format_rows(self, rows: list[tuple]) -> list[tuple]:
         return [self._format_row(row) for row in rows]

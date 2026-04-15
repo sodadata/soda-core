@@ -8,7 +8,7 @@ from typing import Callable, ClassVar, Dict, Literal, Optional, Union
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_results import QueryResult, UpdateResult
+from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -95,7 +95,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
             self.rollback()
             raise e
 
-    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
         try:
             return super().execute_update(sql, log_query=log_query)
         except psycopg.errors.Error as e:  # Catch the error and roll back the transaction

@@ -22,7 +22,6 @@ from helpers.snapshot_manager import (
 from soda_core.common.data_source_results import (
     QueryResult,
     QueryResultIterator,
-    UpdateResult,
 )
 
 # ---------------------------------------------------------------------------
@@ -296,8 +295,7 @@ class TestSnapshotConnectionReplay:
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn.execute_query("SELECT COUNT(*)")  # consume first entry
             result = conn.execute_update("INSERT INTO t VALUES (1)")
-        assert isinstance(result, UpdateResult)
-        assert result.results is None
+        assert result == 0
 
     def test_sql_mismatch_raises_by_default(self, setup):
         conn, _, test_id = setup

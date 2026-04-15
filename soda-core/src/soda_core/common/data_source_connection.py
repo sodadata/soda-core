@@ -10,7 +10,6 @@ from typing import Any, Callable, Optional
 from soda_core.common.data_source_results import (
     QueryResult,
     QueryResultIterator,
-    UpdateResult,
 )
 from soda_core.common.logging_constants import soda_logger
 
@@ -146,7 +145,7 @@ class DataSourceConnection(ABC):
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column.name
 
-    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
         # noinspection PyUnresolvedReferences
         cursor = self.connection.cursor()
         try:
@@ -157,10 +156,11 @@ class DataSourceConnection(ABC):
         finally:
             cursor.close()
 
-    def _cursor_execute_update_and_commit(self, cursor: Any, sql: str):
-        updates = cursor.execute(sql)
+    def _cursor_execute_update_and_commit(self, cursor: Any, sql: str) -> int:
+        cursor.execute(sql)
+        rowcount = cursor.rowcount if cursor.rowcount is not None and cursor.rowcount >= 0 else 0
         self.commit()
-        return updates
+        return rowcount
 
     def execute_query_one_by_one(
         self,
