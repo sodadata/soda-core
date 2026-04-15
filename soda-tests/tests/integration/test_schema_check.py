@@ -312,15 +312,29 @@ def test_schema_precision_mismatch(data_source_test_helper: DataSourceTestHelper
     if sql_dialect.supports_data_type_numeric_precision():
         # Table has numeric_precision=10, numeric_scale=2, specify 15 and 5
         score_extras = "numeric_precision: 15"
+        expected_scale = None
         if sql_dialect.supports_data_type_numeric_scale():
             score_extras += "\n                numeric_scale: 5"
-        n_expected_mismatches += 1
+            expected_scale = 5
+        numeric_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
+            expected=SqlDataType(
+                name=test_table.data_type("score"), numeric_precision=15, numeric_scale=expected_scale
+            ),
+            actual=SqlDataType(name=test_table.data_type("score"), numeric_precision=10, numeric_scale=2),
+        )
+        if numeric_mismatch_detected:
+            n_expected_mismatches += 1
 
     ts_extras = ""
     if sql_dialect.supports_data_type_datetime_precision():
         # Table has datetime_precision=3, specify 6
         ts_extras = "datetime_precision: 6"
-        n_expected_mismatches += 1
+        datetime_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
+            expected=SqlDataType(name=test_table.data_type("created_at"), datetime_precision=6),
+            actual=SqlDataType(name=test_table.data_type("created_at"), datetime_precision=3),
+        )
+        if datetime_mismatch_detected:
+            n_expected_mismatches += 1
 
     if n_expected_mismatches == 0:
         pytest.skip("Dialect does not support any precision types")

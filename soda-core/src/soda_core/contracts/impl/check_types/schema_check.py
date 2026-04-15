@@ -62,41 +62,22 @@ class ColumnDataTypeMismatch:
     actual_datetime_precision: Optional[int]
 
     def get_expected(self) -> str:
-        return self._format_data_type(
-            self.expected_data_type,
-            self.expected_character_maximum_length,
-            self.expected_numeric_precision,
-            self.expected_numeric_scale,
-            self.expected_datetime_precision,
-        )
+        return SqlDataType(
+            name=self.expected_data_type,
+            character_maximum_length=self.expected_character_maximum_length,
+            numeric_precision=self.expected_numeric_precision,
+            numeric_scale=self.expected_numeric_scale,
+            datetime_precision=self.expected_datetime_precision,
+        ).get_sql_data_type_str_with_parameters()
 
     def get_actual(self) -> str:
-        return self._format_data_type(
-            self.actual_data_type,
-            self.actual_character_maximum_length,
-            self.actual_numeric_precision,
-            self.actual_numeric_scale,
-            self.actual_datetime_precision,
-        )
-
-    @classmethod
-    def _format_data_type(
-        cls,
-        name: str,
-        character_maximum_length: Optional[int],
-        numeric_precision: Optional[int],
-        numeric_scale: Optional[int],
-        datetime_precision: Optional[int],
-    ) -> str:
-        if isinstance(character_maximum_length, int):
-            return f"{name}({character_maximum_length})"
-        if isinstance(numeric_precision, int) and isinstance(numeric_scale, int):
-            return f"{name}({numeric_precision},{numeric_scale})"
-        if isinstance(numeric_precision, int):
-            return f"{name}({numeric_precision})"
-        if isinstance(datetime_precision, int):
-            return f"{name}({datetime_precision})"
-        return name
+        return SqlDataType(
+            name=self.actual_data_type,
+            character_maximum_length=self.actual_character_maximum_length,
+            numeric_precision=self.actual_numeric_precision,
+            numeric_scale=self.actual_numeric_scale,
+            datetime_precision=self.actual_datetime_precision,
+        ).get_sql_data_type_str_with_parameters()
 
 
 class SchemaCheckImpl(CheckImpl):
