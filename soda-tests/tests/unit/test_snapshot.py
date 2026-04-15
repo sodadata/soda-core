@@ -19,10 +19,7 @@ from helpers.snapshot_manager import (
     SnapshotMismatchError,
     SnapshotNotFoundError,
 )
-from soda_core.common.data_source_results import (
-    QueryResult,
-    QueryResultIterator,
-)
+from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 
 # ---------------------------------------------------------------------------
 # PicklableColumn
