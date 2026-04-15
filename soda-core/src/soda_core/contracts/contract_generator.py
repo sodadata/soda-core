@@ -33,5 +33,6 @@ class IContractGenerator:
         soda_cloud: Optional[SodaCloud],
         use_agent: bool,
         generate_checks: bool = True,
+        include_type_parameters: bool = True,
     ):
         raise NotImplementedError("No implementation for create_skeleton() yet. Please install an appropriate plugin.")

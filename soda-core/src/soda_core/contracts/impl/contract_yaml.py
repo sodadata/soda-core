@@ -417,6 +417,9 @@ class ColumnYaml(MissingAndValidityYaml):
         self.name: Optional[str] = column_yaml_object.read_string("name")
         self.data_type: Optional[str] = column_yaml_object.read_string_opt("data_type")
         self.character_maximum_length: Optional[int] = column_yaml_object.read_number_opt("character_maximum_length")
+        self.numeric_precision: Optional[int] = column_yaml_object.read_number_opt("numeric_precision")
+        self.numeric_scale: Optional[int] = column_yaml_object.read_number_opt("numeric_scale")
+        self.datetime_precision: Optional[int] = column_yaml_object.read_number_opt("datetime_precision")
         self.column_expression: Optional[str] = column_yaml_object.read_string_opt("column_expression")
         if self.column_expression:
             self.column_expression = self.column_expression.strip()

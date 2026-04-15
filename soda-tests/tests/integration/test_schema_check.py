@@ -13,6 +13,9 @@ test_table_specification = (
     .column_varchar("id")
     .column_integer("size")
     .column_date("created")
+    .column_varchar("label", character_maximum_length=100)
+    .column_numeric("score", numeric_precision=10, numeric_scale=2)
+    .column_timestamp("created_at", datetime_precision=3)
     .build()
 )
 
@@ -49,6 +52,12 @@ def test_schema(data_source_test_helper: DataSourceTestHelper, table_type: Table
               - name: size
                 data_type: {test_table.data_type('size')}
               - name: created
+              - name: label
+                data_type: {test_table.data_type('label')}
+              - name: score
+                data_type: {test_table.data_type('score')}
+              - name: created_at
+                data_type: {test_table.data_type('created_at')}
         """,
     )
 
@@ -60,11 +69,17 @@ def test_schema(data_source_test_helper: DataSourceTestHelper, table_type: Table
         "id",
         "size",
         "created",
+        "label",
+        "score",
+        "created_at",
     }
     assert set([c["name"] for c in schema_diagnostics["expected"]]) == {
         "id",
         "size",
         "created",
+        "label",
+        "score",
+        "created_at",
     }
 
 
@@ -101,6 +116,9 @@ def test_schema_warn_not_supported(data_source_test_helper: DataSourceTestHelper
         "id",
         "size",
         "created",
+        "label",
+        "score",
+        "created_at",
     }
     assert set([c["name"] for c in schema_diagnostics["expected"]]) == {"id"}
 
@@ -135,6 +153,12 @@ def test_schema_errors(data_source_test_helper: DataSourceTestHelper):
               - name: sizzze
               - name: created
                 data_type: {test_table.data_type('id')}
+              - name: label
+                data_type: {test_table.data_type('label')}
+              - name: score
+                data_type: {test_table.data_type('score')}
+              - name: created_at
+                data_type: {test_table.data_type('created_at')}
         """,
     )
 
@@ -154,6 +178,9 @@ def test_schema_default_order(data_source_test_helper: DataSourceTestHelper):
               - name: id
               - name: created
               - name: size
+              - name: label
+              - name: score
+              - name: created_at
         """,
     )
 
@@ -174,6 +201,9 @@ def test_schema_allow_out_of_order(data_source_test_helper: DataSourceTestHelper
               - name: id
               - name: created
               - name: size
+              - name: label
+              - name: score
+              - name: created_at
         """,
     )
 
@@ -196,7 +226,7 @@ def test_schema_extra_columns_default(data_source_test_helper: DataSourceTestHel
     )
 
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
-    assert schema_check_result.actual_column_names_not_expected == ["created"]
+    assert schema_check_result.actual_column_names_not_expected == ["created", "label", "score", "created_at"]
 
 
 def test_schema_allow_extra_columns(data_source_test_helper: DataSourceTestHelper):
@@ -216,6 +246,142 @@ def test_schema_allow_extra_columns(data_source_test_helper: DataSourceTestHelpe
 
     schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
     assert schema_check_result.actual_column_names_not_expected == []
+
+
+def test_schema_precision_pass(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    # Use actual DB metadata values — dialects may adjust precision from what was requested
+    # in the table spec (e.g. Trino normalizes datetime_precision=3 to 6).
+    actual_by_name = data_source_test_helper.get_actual_column_metadata(test_table)
+
+    n_precision_fields_tested = 0
+
+    label_extras = ""
+    actual_label = actual_by_name["label"].sql_data_type
+    if actual_label.character_maximum_length is not None:
+        label_extras = f"character_maximum_length: {actual_label.character_maximum_length}"
+        n_precision_fields_tested += 1
+
+    score_extras = ""
+    actual_score = actual_by_name["score"].sql_data_type
+    if actual_score.numeric_precision is not None:
+        score_extras = f"numeric_precision: {actual_score.numeric_precision}"
+        n_precision_fields_tested += 1
+        if actual_score.numeric_scale is not None:
+            score_extras += f"\n                numeric_scale: {actual_score.numeric_scale}"
+
+    ts_extras = ""
+    actual_ts = actual_by_name["created_at"].sql_data_type
+    if actual_ts.datetime_precision is not None:
+        ts_extras = f"datetime_precision: {actual_ts.datetime_precision}"
+        n_precision_fields_tested += 1
+
+    if n_precision_fields_tested == 0:
+        pytest.skip("Dialect does not return any precision metadata")
+
+    data_source_test_helper.assert_contract_pass(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - schema:
+            columns:
+              - name: id
+                data_type: {test_table.data_type('id')}
+              - name: size
+                data_type: {test_table.data_type('size')}
+              - name: created
+              - name: label
+                data_type: {test_table.data_type('label')}
+                {label_extras}
+              - name: score
+                data_type: {test_table.data_type('score')}
+                {score_extras}
+              - name: created_at
+                data_type: {test_table.data_type('created_at')}
+                {ts_extras}
+        """,
+    )
+
+
+def test_schema_precision_mismatch(data_source_test_helper: DataSourceTestHelper):
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+    sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
+
+    # Use actual DB metadata — dialects may adjust precision from what was requested.
+    # Derive "wrong" values from actuals to guarantee they differ.
+    actual_by_name = data_source_test_helper.get_actual_column_metadata(test_table)
+    n_expected_mismatches = 0
+
+    label_extras = ""
+    actual_label = actual_by_name["label"].sql_data_type
+    if actual_label.character_maximum_length is not None:
+        wrong_length = actual_label.character_maximum_length + 100
+        label_extras = f"character_maximum_length: {wrong_length}"
+        length_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
+            expected=SqlDataType(name=actual_label.name, character_maximum_length=wrong_length),
+            actual=actual_label,
+        )
+        if length_mismatch_detected:
+            n_expected_mismatches += 1
+
+    score_extras = ""
+    actual_score = actual_by_name["score"].sql_data_type
+    if actual_score.numeric_precision is not None:
+        wrong_precision = actual_score.numeric_precision + 5
+        score_extras = f"numeric_precision: {wrong_precision}"
+        wrong_scale = None
+        if actual_score.numeric_scale is not None:
+            wrong_scale = actual_score.numeric_scale + 3
+            score_extras += f"\n                numeric_scale: {wrong_scale}"
+        numeric_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
+            expected=SqlDataType(name=actual_score.name, numeric_precision=wrong_precision, numeric_scale=wrong_scale),
+            actual=actual_score,
+        )
+        if numeric_mismatch_detected:
+            n_expected_mismatches += 1
+
+    ts_extras = ""
+    actual_ts = actual_by_name["created_at"].sql_data_type
+    if actual_ts.datetime_precision is not None:
+        wrong_dt_precision = actual_ts.datetime_precision + 1
+        ts_extras = f"datetime_precision: {wrong_dt_precision}"
+        datetime_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
+            expected=SqlDataType(name=actual_ts.name, datetime_precision=wrong_dt_precision),
+            actual=actual_ts,
+        )
+        if datetime_mismatch_detected:
+            n_expected_mismatches += 1
+
+    if n_expected_mismatches == 0:
+        pytest.skip("Dialect does not support any precision types")
+
+    contract_verification_result: ContractVerificationResult = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - schema:
+            columns:
+              - name: id
+                data_type: {test_table.data_type('id')}
+              - name: size
+                data_type: {test_table.data_type('size')}
+              - name: created
+              - name: label
+                data_type: {test_table.data_type('label')}
+                {label_extras}
+              - name: score
+                data_type: {test_table.data_type('score')}
+                {score_extras}
+              - name: created_at
+                data_type: {test_table.data_type('created_at')}
+                {ts_extras}
+        """,
+    )
+
+    schema_check_result: SchemaCheckResult = contract_verification_result.check_results[0]
+    assert len(schema_check_result.column_data_type_mismatches) == n_expected_mismatches
 
 
 def test_schema_metadata_query_exists(data_source_test_helper: DataSourceTestHelper):

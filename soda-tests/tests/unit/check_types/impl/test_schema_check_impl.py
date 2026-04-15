@@ -211,6 +211,38 @@ def test_schema_evaluate_passes_with_allow_extra_columns():
     assert result.actual_column_names_not_expected == []
 
 
+def test_schema_expected_columns_with_numeric_precision():
+    """expected_columns should include numeric_precision and numeric_scale when specified."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: score
+        data_type: numeric
+        numeric_precision: 10
+        numeric_scale: 2
+    checks:
+      - schema:
+    """
+    check = get_check_impl(contract_yaml)
+    assert check.expected_columns[0].sql_data_type.numeric_precision == 10
+    assert check.expected_columns[0].sql_data_type.numeric_scale == 2
+
+
+def test_schema_expected_columns_with_datetime_precision():
+    """expected_columns should include datetime_precision when specified."""
+    contract_yaml = """
+    dataset: my_data_source/my_dataset
+    columns:
+      - name: created_at
+        data_type: timestamp
+        datetime_precision: 6
+    checks:
+      - schema:
+    """
+    check = get_check_impl(contract_yaml)
+    assert check.expected_columns[0].sql_data_type.datetime_precision == 6
+
+
 def test_schema_evaluate_schema_events_count():
     """SchemaCheckResult.diagnostic_metric_values should include schema_events_count."""
     contract_yaml = """
