@@ -52,18 +52,51 @@ class ColumnDataTypeMismatch:
     column: str
     expected_data_type: str
     expected_character_maximum_length: Optional[int]
+    expected_numeric_precision: Optional[int]
+    expected_numeric_scale: Optional[int]
+    expected_datetime_precision: Optional[int]
     actual_data_type: str
     actual_character_maximum_length: Optional[int]
+    actual_numeric_precision: Optional[int]
+    actual_numeric_scale: Optional[int]
+    actual_datetime_precision: Optional[int]
 
     def get_expected(self) -> str:
-        return f"{self.expected_data_type}{self.get_optional_length_str(self.expected_character_maximum_length)}"
+        return self._format_data_type(
+            self.expected_data_type,
+            self.expected_character_maximum_length,
+            self.expected_numeric_precision,
+            self.expected_numeric_scale,
+            self.expected_datetime_precision,
+        )
 
     def get_actual(self) -> str:
-        return f"{self.actual_data_type}{self.get_optional_length_str(self.actual_character_maximum_length)}"
+        return self._format_data_type(
+            self.actual_data_type,
+            self.actual_character_maximum_length,
+            self.actual_numeric_precision,
+            self.actual_numeric_scale,
+            self.actual_datetime_precision,
+        )
 
     @classmethod
-    def get_optional_length_str(cls, character_maximum_length: Optional[int]) -> str:
-        return f"({character_maximum_length})" if isinstance(character_maximum_length, int) else ""
+    def _format_data_type(
+        cls,
+        name: str,
+        character_maximum_length: Optional[int],
+        numeric_precision: Optional[int],
+        numeric_scale: Optional[int],
+        datetime_precision: Optional[int],
+    ) -> str:
+        if isinstance(character_maximum_length, int):
+            return f"{name}({character_maximum_length})"
+        if isinstance(numeric_precision, int) and isinstance(numeric_scale, int):
+            return f"{name}({numeric_precision},{numeric_scale})"
+        if isinstance(numeric_precision, int):
+            return f"{name}({numeric_precision})"
+        if isinstance(datetime_precision, int):
+            return f"{name}({datetime_precision})"
+        return name
 
 
 class SchemaCheckImpl(CheckImpl):
@@ -87,6 +120,9 @@ class SchemaCheckImpl(CheckImpl):
                     SqlDataType(
                         name=column_impl.column_yaml.data_type,
                         character_maximum_length=column_impl.column_yaml.character_maximum_length,
+                        numeric_precision=column_impl.column_yaml.numeric_precision,
+                        numeric_scale=column_impl.column_yaml.numeric_scale,
+                        datetime_precision=column_impl.column_yaml.datetime_precision,
                     )
                     if column_impl.column_yaml.data_type
                     else None
@@ -187,13 +223,18 @@ class SchemaCheckImpl(CheckImpl):
                     continue
                 if not is_same_data_type:
                     column_data_type_mismatches.append(
-                        # TODO add numeric_scale, numeric_precision & datetime_precision to the ColumnDataTypeMismatch
                         ColumnDataTypeMismatch(
                             column=expected_column.column_name,
                             expected_data_type=expected_column.sql_data_type.name,
                             expected_character_maximum_length=expected_column.sql_data_type.character_maximum_length,
+                            expected_numeric_precision=expected_column.sql_data_type.numeric_precision,
+                            expected_numeric_scale=expected_column.sql_data_type.numeric_scale,
+                            expected_datetime_precision=expected_column.sql_data_type.datetime_precision,
                             actual_data_type=actual_column_metadata.sql_data_type.name,
                             actual_character_maximum_length=actual_column_metadata.sql_data_type.character_maximum_length,
+                            actual_numeric_precision=actual_column_metadata.sql_data_type.numeric_precision,
+                            actual_numeric_scale=actual_column_metadata.sql_data_type.numeric_scale,
+                            actual_datetime_precision=actual_column_metadata.sql_data_type.datetime_precision,
                         )
                     )
             logger.info(f"Found {len(column_data_type_mismatches)} data type mismatches.")
