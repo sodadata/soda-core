@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from freezegun import freeze_time
 from pyspark.sql import DataFrame, SparkSession
@@ -199,6 +199,12 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]  # The first element of the tuple is the column name
+
+    def _cursor_execute_update_and_commit(self, cursor: Any, sql: str) -> int:
+        cursor.execute(sql)
+        # Skip cursor.rowcount for Spark — it triggers df.count() which runs a full Spark job.
+        self.commit()
+        return 0
 
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):

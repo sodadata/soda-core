@@ -80,17 +80,18 @@ class TrinoDataSourceConnection(DataSourceConnection):
 
     def _cursor_execute_update_and_commit(self, cursor, sql) -> int:
         cursor.execute(sql)
-        try:
-            rowcount = cursor.rowcount
-            rowcount = rowcount if isinstance(rowcount, int) and rowcount >= 0 else 0
-        except Exception:
-            rowcount = 0
         # Drain all remaining results so the Trino query fully transitions to FINISHED.
         # The trino-python-client's cursor.close() calls cancel(), which sends a DELETE
         # to next_uri if the query hasn't been fully consumed. For DDL like CTAS, this
         # cancel during the FINISHING state can prevent metadata updates, causing
         # subsequent queries to fail with TABLE_NOT_FOUND.
         cursor.fetchall()
+        # Read rowcount after fetchall — Trino populates it lazily after the query finishes.
+        try:
+            rowcount = cursor.rowcount
+            rowcount = rowcount if isinstance(rowcount, int) and rowcount >= 0 else 0
+        except Exception:
+            rowcount = 0
         self.commit()
         return rowcount
 
