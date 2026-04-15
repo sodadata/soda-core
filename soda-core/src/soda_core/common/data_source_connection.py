@@ -155,7 +155,11 @@ class DataSourceConnection(ABC):
 
     def _cursor_execute_update_and_commit(self, cursor: Any, sql: str) -> int:
         cursor.execute(sql)
-        rowcount = cursor.rowcount if cursor.rowcount is not None and cursor.rowcount >= 0 else 0
+        try:
+            rowcount = cursor.rowcount
+            rowcount = rowcount if isinstance(rowcount, int) and rowcount >= 0 else 0
+        except Exception:
+            rowcount = 0
         self.commit()
         return rowcount
 

@@ -80,7 +80,11 @@ class TrinoDataSourceConnection(DataSourceConnection):
 
     def _cursor_execute_update_and_commit(self, cursor, sql) -> int:
         cursor.execute(sql)
-        rowcount = cursor.rowcount if cursor.rowcount is not None and cursor.rowcount >= 0 else 0
+        try:
+            rowcount = cursor.rowcount
+            rowcount = rowcount if isinstance(rowcount, int) and rowcount >= 0 else 0
+        except Exception:
+            rowcount = 0
         # Drain all remaining results so the Trino query fully transitions to FINISHED.
         # The trino-python-client's cursor.close() calls cancel(), which sends a DELETE
         # to next_uri if the query hasn't been fully consumed. For DDL like CTAS, this
