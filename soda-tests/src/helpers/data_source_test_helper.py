@@ -16,7 +16,11 @@ from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logs import Logs
-from soda_core.common.metadata_types import SodaDataTypeName, SqlDataType
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    SodaDataTypeName,
+    SqlDataType,
+)
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.sql_ast import (
     COLUMN,
@@ -591,6 +595,14 @@ class DataSourceTestHelper:
             logger.debug(f"Test table {test_table.unique_name} already exists")
 
         return test_table
+
+    def get_actual_column_metadata(self, test_table: TestTable) -> dict[str, ColumnMetadata]:
+        """Fetch actual column metadata from the DB for a test table, keyed by column name."""
+        columns = self.data_source_impl.get_columns_metadata(
+            dataset_prefixes=self.dataset_prefix,
+            dataset_name=test_table.unique_name,
+        )
+        return {c.column_name: c for c in columns}
 
     def verify_test_table_row_count(self, test_table_specification: TestTableSpecification) -> bool:
         expected_row_values = test_table_specification.row_values

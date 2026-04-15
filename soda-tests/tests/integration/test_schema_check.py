@@ -252,19 +252,34 @@ def test_schema_precision_pass(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
 
+    # Use actual DB metadata values — dialects may adjust precision from what was requested
+    # in the table spec (e.g. Trino normalizes datetime_precision=3 to 6).
+    actual_by_name = data_source_test_helper.get_actual_column_metadata(test_table)
+
+    n_precision_fields_tested = 0
+
     label_extras = ""
-    if sql_dialect.supports_data_type_character_maximum_length():
-        label_extras = "character_maximum_length: 100"
+    actual_label = actual_by_name["label"].sql_data_type
+    if actual_label.character_maximum_length is not None:
+        label_extras = f"character_maximum_length: {actual_label.character_maximum_length}"
+        n_precision_fields_tested += 1
 
     score_extras = ""
-    if sql_dialect.supports_data_type_numeric_precision():
-        score_extras = "numeric_precision: 10"
-        if sql_dialect.supports_data_type_numeric_scale():
-            score_extras += "\n                numeric_scale: 2"
+    actual_score = actual_by_name["score"].sql_data_type
+    if actual_score.numeric_precision is not None:
+        score_extras = f"numeric_precision: {actual_score.numeric_precision}"
+        n_precision_fields_tested += 1
+        if actual_score.numeric_scale is not None:
+            score_extras += f"\n                numeric_scale: {actual_score.numeric_scale}"
 
     ts_extras = ""
-    if sql_dialect.supports_data_type_datetime_precision():
-        ts_extras = "datetime_precision: 3"
+    actual_ts = actual_by_name["created_at"].sql_data_type
+    if actual_ts.datetime_precision is not None:
+        ts_extras = f"datetime_precision: {actual_ts.datetime_precision}"
+        n_precision_fields_tested += 1
+
+    if n_precision_fields_tested == 0:
+        pytest.skip("Dialect does not return any precision metadata")
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -294,44 +309,47 @@ def test_schema_precision_mismatch(data_source_test_helper: DataSourceTestHelper
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
     sql_dialect = data_source_test_helper.data_source_impl.sql_dialect
 
-    # Build wrong precision values for each supported type and count expected mismatches
+    # Use actual DB metadata — dialects may adjust precision from what was requested.
+    # Derive "wrong" values from actuals to guarantee they differ.
+    actual_by_name = data_source_test_helper.get_actual_column_metadata(test_table)
     n_expected_mismatches = 0
 
     label_extras = ""
-    if sql_dialect.supports_data_type_character_maximum_length():
-        # Table has character_maximum_length=100, specify 200
-        label_extras = "character_maximum_length: 200"
+    actual_label = actual_by_name["label"].sql_data_type
+    if actual_label.character_maximum_length is not None:
+        wrong_length = actual_label.character_maximum_length + 100
+        label_extras = f"character_maximum_length: {wrong_length}"
         length_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
-            expected=SqlDataType(name=test_table.data_type("label"), character_maximum_length=200),
-            actual=SqlDataType(name=test_table.data_type("label"), character_maximum_length=100),
+            expected=SqlDataType(name=actual_label.name, character_maximum_length=wrong_length),
+            actual=actual_label,
         )
         if length_mismatch_detected:
             n_expected_mismatches += 1
 
     score_extras = ""
-    if sql_dialect.supports_data_type_numeric_precision():
-        # Table has numeric_precision=10, numeric_scale=2, specify 15 and 5
-        score_extras = "numeric_precision: 15"
-        expected_scale = None
-        if sql_dialect.supports_data_type_numeric_scale():
-            score_extras += "\n                numeric_scale: 5"
-            expected_scale = 5
+    actual_score = actual_by_name["score"].sql_data_type
+    if actual_score.numeric_precision is not None:
+        wrong_precision = actual_score.numeric_precision + 5
+        score_extras = f"numeric_precision: {wrong_precision}"
+        wrong_scale = None
+        if actual_score.numeric_scale is not None:
+            wrong_scale = actual_score.numeric_scale + 3
+            score_extras += f"\n                numeric_scale: {wrong_scale}"
         numeric_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
-            expected=SqlDataType(
-                name=test_table.data_type("score"), numeric_precision=15, numeric_scale=expected_scale
-            ),
-            actual=SqlDataType(name=test_table.data_type("score"), numeric_precision=10, numeric_scale=2),
+            expected=SqlDataType(name=actual_score.name, numeric_precision=wrong_precision, numeric_scale=wrong_scale),
+            actual=actual_score,
         )
         if numeric_mismatch_detected:
             n_expected_mismatches += 1
 
     ts_extras = ""
-    if sql_dialect.supports_data_type_datetime_precision():
-        # Table has datetime_precision=3, specify 6
-        ts_extras = "datetime_precision: 6"
+    actual_ts = actual_by_name["created_at"].sql_data_type
+    if actual_ts.datetime_precision is not None:
+        wrong_dt_precision = actual_ts.datetime_precision + 1
+        ts_extras = f"datetime_precision: {wrong_dt_precision}"
         datetime_mismatch_detected = not sql_dialect.is_same_data_type_for_schema_check(
-            expected=SqlDataType(name=test_table.data_type("created_at"), datetime_precision=6),
-            actual=SqlDataType(name=test_table.data_type("created_at"), datetime_precision=3),
+            expected=SqlDataType(name=actual_ts.name, datetime_precision=wrong_dt_precision),
+            actual=actual_ts,
         )
         if datetime_mismatch_detected:
             n_expected_mismatches += 1
