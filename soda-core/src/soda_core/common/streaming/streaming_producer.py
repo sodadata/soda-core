@@ -17,7 +17,6 @@ class StreamingProducer(ABC):
     @abstractmethod
     def produced_actions(self) -> list[str]:
         """Declare what actions this producer generates."""
-        pass
 
     def initialize_action(self, action: str, context: dict[str, Any] | None = None) -> StreamingActionHandle:
         """Convenience method that validates the action and delegates to StreamingOrchestrator."""
