@@ -40,6 +40,7 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
                 "databricks",
                 "athena",
                 "dremio",
+                "db2",
             ):
                 expected_row_count = -1
             # Other datasources should correctly return row count
