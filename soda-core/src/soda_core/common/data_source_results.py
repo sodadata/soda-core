@@ -83,11 +83,3 @@ class QueryResultIterator:
     def columns(self) -> dict[str, Any]:
         """Returns the columns metadata as a dictionary mapping column names to type codes."""
         return {column[0]: column[1] for column in self._cursor.description}
-
-
-class UpdateResult:
-    def __init__(
-        self,
-        result: object,
-    ):
-        self.results: object = result

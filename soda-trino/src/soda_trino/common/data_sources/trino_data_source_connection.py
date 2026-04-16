@@ -78,7 +78,7 @@ class TrinoDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: DataSourceConnectionProperties):
         super().__init__(name, connection_properties)
 
-    def _cursor_execute_update_and_commit(self, cursor, sql):
+    def _cursor_execute_update_and_commit(self, cursor, sql) -> int:
         cursor.execute(sql)
         # Drain all remaining results so the Trino query fully transitions to FINISHED.
         # The trino-python-client's cursor.close() calls cancel(), which sends a DELETE
@@ -86,7 +86,14 @@ class TrinoDataSourceConnection(DataSourceConnection):
         # cancel during the FINISHING state can prevent metadata updates, causing
         # subsequent queries to fail with TABLE_NOT_FOUND.
         cursor.fetchall()
+        # Read rowcount after fetchall — Trino populates it lazily after the query finishes.
+        try:
+            rowcount = cursor.rowcount
+            rowcount = rowcount if isinstance(rowcount, int) and rowcount >= 0 else 0
+        except Exception:
+            rowcount = 0
         self.commit()
+        return rowcount
 
     def _format_rows(self, rows: list[tuple]) -> list[tuple]:
         return [self._format_row(row) for row in rows]

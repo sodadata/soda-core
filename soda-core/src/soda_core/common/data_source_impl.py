@@ -5,11 +5,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
 
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_results import (
-    QueryResult,
-    QueryResultIterator,
-    UpdateResult,
-)
+from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import (
@@ -153,7 +149,7 @@ class DataSourceImpl(ABC):
     def execute_query_iterate(self, sql: str, log_query: bool = True) -> QueryResultIterator:
         return self.data_source_connection.execute_query_iterate(sql=sql, log_query=log_query)
 
-    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
         return self.connection.execute_update(sql=sql, log_query=log_query)
 
     @property

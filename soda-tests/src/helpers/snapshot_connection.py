@@ -15,11 +15,7 @@ from helpers.snapshot_manager import (
     SnapshotNotFoundError,
 )
 from soda_core.common.data_source_connection import DataSourceConnection
-from soda_core.common.data_source_results import (
-    QueryResult,
-    QueryResultIterator,
-    UpdateResult,
-)
+from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 from soda_core.common.logging_constants import soda_logger
 
 logger = logging.getLogger(__name__)
@@ -710,7 +706,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
                 return result
 
-    def execute_update(self, sql: str, log_query: bool = True) -> UpdateResult:
+    def execute_update(self, sql: str, log_query: bool = True) -> int:
         self._handle_test_boundary()
 
         if self._current_test_id is None:
@@ -731,7 +727,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             try:
                 self._next_replay_entry("update", sql)
                 sql_logger.debug(f"SNAPSHOT: captured update: {sql[:50]}...")
-                return UpdateResult(result=None)
+                return 0
             except SnapshotMismatchError as e:
                 self._activate_fallback(reason=str(e))
                 result = self._real.execute_update(sql, log_query=log_query)

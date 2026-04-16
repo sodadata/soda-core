@@ -33,6 +33,7 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     PostProcessingStage,
     PostProcessingStageState,
+    ScanTokenUsage,
 )
 from soda_core.contracts.impl.contract_verification_impl import (
     ContractImpl,
@@ -719,3 +720,38 @@ def test_build_diagnostics_json_dict_casts_bool_to_int(threshold_value, expected
     diagnostics = _build_diagnostics_json_dict(check_result)
     assert diagnostics["value"] == expected_diagnostics_value
     assert not isinstance(diagnostics["value"], bool)
+
+
+def test_build_token_usage_dicts_serialization():
+    from soda_core.common.soda_cloud import _build_token_usage_dicts
+
+    mock_result = mock.MagicMock()
+    mock_result.token_usage = [
+        ScanTokenUsage(
+            prompt_tokens=1500,
+            completion_tokens=500,
+            total_tokens=2000,
+            model="gpt-4o",
+            operation="autopilot",
+        ),
+    ]
+    token_dicts = _build_token_usage_dicts(mock_result)
+    assert len(token_dicts) == 1
+    assert token_dicts[0] == {
+        "promptTokens": 1500,
+        "completionTokens": 500,
+        "totalTokens": 2000,
+        "model": "gpt-4o",
+        "operation": "autopilot",
+    }
+
+
+def test_build_token_usage_dicts_empty_when_no_usage():
+    from soda_core.common.soda_cloud import _build_token_usage_dicts
+
+    mock_result = mock.MagicMock()
+    mock_result.token_usage = None
+    assert _build_token_usage_dicts(mock_result) == []
+
+    mock_result.token_usage = []
+    assert _build_token_usage_dicts(mock_result) == []

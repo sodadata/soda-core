@@ -16,7 +16,7 @@ class SnapshotEntry:
 
     op_type: str  # "query", "update", "query_one_by_one", "query_iterate"
     sql: str
-    result: Any = None  # QueryResult, UpdateResult, (description, rows), etc.
+    result: Any = None  # QueryResult, (description, rows), etc.
 
 
 class SnapshotNotFoundError(Exception):
