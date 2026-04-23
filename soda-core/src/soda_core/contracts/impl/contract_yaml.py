@@ -15,6 +15,7 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
+from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.yaml import (
     ContractYamlSource,
     VariableResolver,
@@ -77,6 +78,7 @@ class ContractYaml:
     ):
         self.contract_yaml_source: ContractYamlSource = contract_yaml_source
         self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
+        self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
 
@@ -411,6 +413,49 @@ class MissingAndValidityYaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
 
 
+_CHAR_LENGTH_FAMILY: frozenset[SodaDataTypeName] = frozenset(
+    {
+        SodaDataTypeName.VARCHAR,
+        SodaDataTypeName.CHAR,
+        SodaDataTypeName.TEXT,
+    }
+)
+_NUMERIC_PRECISION_FAMILY: frozenset[SodaDataTypeName] = frozenset(
+    {
+        SodaDataTypeName.DECIMAL,
+        SodaDataTypeName.NUMERIC,
+    }
+)
+_DATETIME_PRECISION_FAMILY: frozenset[SodaDataTypeName] = frozenset(
+    {
+        SodaDataTypeName.TIMESTAMP,
+        SodaDataTypeName.TIMESTAMP_TZ,
+        SodaDataTypeName.TIME,
+    }
+)
+
+
+def _resolve_to_soda_type(data_type: Optional[str], sql_dialect: Optional["SqlDialect"]) -> Optional[SodaDataTypeName]:
+    """
+    Resolve a raw YAML data_type string to a canonical SodaDataTypeName.
+
+    Order:
+    1. Direct match against SodaDataTypeName values (no dialect needed).
+    2. Dialect-aware resolution via native→canonical mapping (e.g. Databricks "string" → TEXT).
+    3. Give up (return None) — caller skips type-param validation for unknown types.
+    """
+    if not data_type:
+        return None
+    normalized = data_type.split("(", 1)[0].strip().lower()
+    try:
+        return SodaDataTypeName(normalized)
+    except ValueError:
+        pass
+    if sql_dialect is not None:
+        return sql_dialect.get_soda_data_type_name_by_data_source_data_type_names().get(normalized)
+    return None
+
+
 class ColumnYaml(MissingAndValidityYaml):
     def __init__(self, contract_yaml: ContractYaml, column_yaml_object: YamlObject):
         self.column_yaml_object: YamlObject = column_yaml_object
@@ -424,10 +469,38 @@ class ColumnYaml(MissingAndValidityYaml):
         if self.column_expression:
             self.column_expression = self.column_expression.strip()
 
+        sql_dialect = (
+            contract_yaml.primary_data_source_impl.sql_dialect
+            if contract_yaml.primary_data_source_impl is not None
+            else None
+        )
+        self._validate_type_parameters(column_yaml_object, sql_dialect)
+
         super().__init__(column_yaml_object)
         self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object, column_yaml=self
         )
+
+    def _validate_type_parameters(self, column_yaml_object: YamlObject, sql_dialect: Optional["SqlDialect"]) -> None:
+        soda_type = _resolve_to_soda_type(self.data_type, sql_dialect)
+        if soda_type is None:
+            return
+        checks = [
+            ("character_maximum_length", self.character_maximum_length, _CHAR_LENGTH_FAMILY),
+            ("numeric_precision", self.numeric_precision, _NUMERIC_PRECISION_FAMILY),
+            ("numeric_scale", self.numeric_scale, _NUMERIC_PRECISION_FAMILY),
+            ("datetime_precision", self.datetime_precision, _DATETIME_PRECISION_FAMILY),
+        ]
+        for key, value, allowed_types in checks:
+            if value is not None and soda_type not in allowed_types:
+                allowed_values = sorted(t.value for t in allowed_types)
+                logger.error(
+                    msg=(
+                        f"'{key}' is only valid for data types {allowed_values}, "
+                        f"but was set on column '{self.name}' with data_type '{self.data_type}'"
+                    ),
+                    extra={ExtraKeys.LOCATION: column_yaml_object.create_location_from_yaml_dict_key(key)},
+                )
 
 
 class RangeYaml:

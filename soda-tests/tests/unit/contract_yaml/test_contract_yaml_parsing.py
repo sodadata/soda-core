@@ -2,9 +2,43 @@
 Unit tests for ContractYaml parsing of basic dataset and column structures.
 """
 
+from helpers.test_functions import dedent_and_strip
 from helpers.yaml_parsing_helpers import parse_column_check, parse_contract
+from soda_core.common.datetime_conversions import (
+    convert_datetime_to_str,
+    convert_str_to_datetime,
+)
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logs import Logs
+from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.yaml import ContractYamlSource
+from soda_core.contracts.impl.contract_yaml import ContractYaml
+
+
+class _FakeSqlDialect:
+    """Minimal dialect stub exposing only what ContractYaml parsing calls."""
+
+    convert_str_to_datetime = staticmethod(convert_str_to_datetime)
+    convert_datetime_to_str = staticmethod(convert_datetime_to_str)
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {
+            "string": SodaDataTypeName.TEXT,
+            "clob": SodaDataTypeName.TEXT,
+        }
+
+
+class _FakeDataSourceImpl:
+    sql_dialect = _FakeSqlDialect()
+
+
+def _parse_with_dialect(yaml_str: str) -> ContractYaml:
+    source = ContractYamlSource.from_str(yaml_str=dedent_and_strip(yaml_str))
+    return ContractYaml.parse(
+        contract_yaml_source=source,
+        provided_variable_values={},
+        primary_data_source_impl=_FakeDataSourceImpl(),
+    )
 
 
 def test_parse_dataset_qualified_name():
@@ -189,3 +223,193 @@ def test_parse_name_and_qualifier():
 
     assert check_yaml.name == "Status should not be missing"
     assert check_yaml.qualifier == "important_column"
+
+
+def test_parse_character_maximum_length_valid_on_varchar():
+    """Test that character_maximum_length is accepted on character types without errors."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: email
+            data_type: VARCHAR
+            character_maximum_length: 255
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.columns[0].character_maximum_length == 255
+
+
+def test_parse_character_maximum_length_accepts_parenthesized_type():
+    """Test that data_type with parenthesized suffix like 'varchar(255)' is normalized for validation."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: email
+            data_type: varchar(255)
+            character_maximum_length: 255
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.columns[0].character_maximum_length == 255
+
+
+def test_parse_character_maximum_length_invalid_on_decimal(logs: Logs):
+    """Test that character_maximum_length on DECIMAL logs an error."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: amount
+            data_type: DECIMAL
+            character_maximum_length: 255
+    """
+    parse_contract(yaml_str)
+
+    assert "'character_maximum_length' is only valid for data types" in logs.get_errors_str()
+    assert "amount" in logs.get_errors_str()
+
+
+def test_parse_numeric_precision_valid_on_decimal():
+    """Test that numeric_precision/scale are accepted on DECIMAL without errors."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: amount
+            data_type: DECIMAL
+            numeric_precision: 10
+            numeric_scale: 2
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.columns[0].numeric_precision == 10
+    assert contract_yaml.columns[0].numeric_scale == 2
+
+
+def test_parse_numeric_precision_invalid_on_varchar(logs: Logs):
+    """Test that numeric_precision on VARCHAR logs an error."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: name
+            data_type: VARCHAR
+            numeric_precision: 10
+    """
+    parse_contract(yaml_str)
+
+    assert "'numeric_precision' is only valid for data types" in logs.get_errors_str()
+
+
+def test_parse_numeric_scale_invalid_on_timestamp(logs: Logs):
+    """Test that numeric_scale on TIMESTAMP logs an error."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: created_at
+            data_type: TIMESTAMP
+            numeric_scale: 2
+    """
+    parse_contract(yaml_str)
+
+    assert "'numeric_scale' is only valid for data types" in logs.get_errors_str()
+
+
+def test_parse_datetime_precision_valid_on_timestamp():
+    """Test that datetime_precision is accepted on TIMESTAMP without errors."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: created_at
+            data_type: TIMESTAMP
+            datetime_precision: 6
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.columns[0].datetime_precision == 6
+
+
+def test_parse_datetime_precision_invalid_on_integer(logs: Logs):
+    """Test that datetime_precision on INTEGER logs an error."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: id
+            data_type: INTEGER
+            datetime_precision: 6
+    """
+    parse_contract(yaml_str)
+
+    assert "'datetime_precision' is only valid for data types" in logs.get_errors_str()
+
+
+def test_parse_type_params_without_data_type_skipped(logs: Logs):
+    """Test that missing data_type skips type-param validation (other validators handle it)."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: mystery
+            character_maximum_length: 255
+    """
+    parse_contract(yaml_str)
+
+    assert "character_maximum_length" not in logs.get_errors_str()
+
+
+def test_parse_numeric_family_switch_preserves_params():
+    """Test that DECIMAL and NUMERIC are in the same family — params are valid for both."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: a
+            data_type: DECIMAL
+            numeric_precision: 10
+            numeric_scale: 2
+          - name: b
+            data_type: NUMERIC
+            numeric_precision: 10
+            numeric_scale: 2
+    """
+    contract_yaml = parse_contract(yaml_str)
+
+    assert contract_yaml.columns[0].numeric_precision == 10
+    assert contract_yaml.columns[1].numeric_precision == 10
+
+
+def test_parse_dialect_unknown_type_without_dialect_is_skipped(logs: Logs):
+    """Without a dialect, native types like 'string' are unresolvable — validation skipped."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: s
+            data_type: string
+            numeric_precision: 10
+    """
+    parse_contract(yaml_str)
+
+    assert "numeric_precision" not in logs.get_errors_str()
+
+
+def test_parse_dialect_resolves_native_string_valid_char_param():
+    """With a dialect, 'string' resolves to TEXT → character_maximum_length is valid."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: s
+            data_type: string
+            character_maximum_length: 255
+    """
+    contract_yaml = _parse_with_dialect(yaml_str)
+
+    assert contract_yaml.columns[0].character_maximum_length == 255
+
+
+def test_parse_dialect_resolves_native_string_invalid_numeric_param(logs: Logs):
+    """With a dialect, 'string' resolves to TEXT → numeric_precision on it is flagged."""
+    yaml_str = """
+        dataset: ds/db/schema/table
+        columns:
+          - name: s
+            data_type: string
+            numeric_precision: 10
+    """
+    _parse_with_dialect(yaml_str)
+
+    assert "'numeric_precision' is only valid for data types" in logs.get_errors_str()
