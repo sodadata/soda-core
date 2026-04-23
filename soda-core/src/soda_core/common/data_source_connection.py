@@ -74,6 +74,19 @@ class DataSourceConnection(ABC):
             finally:
                 self.connection = None
 
+    def create_additional_dbapi_connection(self) -> object:
+        """
+        Open and return a fresh raw DBAPI connection using the same
+        connection properties as this one. The caller owns the returned
+        connection and MUST close it.
+
+        Used by features (e.g. within-database rows_diff) that need two
+        independent cursors against the same data source, where sharing
+        self.connection would require concurrent cursors — unreliable
+        across drivers (Snowflake, BigQuery, MSSQL etc.).
+        """
+        return self._create_connection(self.connection_properties)
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_connection()
 
