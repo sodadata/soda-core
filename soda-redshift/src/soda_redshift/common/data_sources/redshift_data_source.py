@@ -205,5 +205,16 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
     def build_columns_metadata_from_clause(self, table_namespace: DataSourceNamespace) -> FROM:
         return FROM(self.table_columns()).IN(self._pg_catalog_schema())
 
+    def supports_regex_advanced(self) -> bool:
+        """
+        Redshift uses POSIX regex (~ operator) which does NOT support advanced
+        regex features like lookaheads/lookbehinds (e.g., (?!...), (?=...)).
+        Returning False signals soda-core to raise InvalidRegexException
+        rather than generating a query that Redshift will reject.
+        Fixes: https://github.com/sodadata/soda-core/issues/2269
+        """
+        return False
+
+
     def _pg_catalog_schema(self) -> str:
         return "pg_catalog"
