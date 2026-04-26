@@ -81,6 +81,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
 
         missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
+        missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
         if row_count == 0:
             # Fix #2407: When filter removes all rows, skip the check rather than
             # failing with a misleading value. There are no rows to evaluate against.
@@ -94,7 +95,6 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
                     "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
                 },
             )
-        missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
 
         diagnostic_metric_values: dict[str, float] = {
             "missing_count": missing_count,
