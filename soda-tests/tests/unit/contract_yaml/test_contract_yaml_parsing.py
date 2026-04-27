@@ -27,6 +27,18 @@ class _FakeSqlDialect:
             "clob": SodaDataTypeName.TEXT,
         }
 
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["varchar", "char", "string", "clob"]
+
+    def data_type_has_parameter_numeric_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_numeric_scale(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["numeric", "number", "decimal"]
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return data_type_name.lower() in ["timestamp", "timestamp_tz", "time"]
+
 
 class _FakeDataSourceImpl:
     sql_dialect = _FakeSqlDialect()

@@ -16,6 +16,7 @@ from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import (
     ContractYamlSource,
     VariableResolver,
@@ -419,26 +420,51 @@ class MissingAndValidityYaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
 
 
-_CHAR_LENGTH_FAMILY: frozenset[SodaDataTypeName] = frozenset(
-    {
-        SodaDataTypeName.VARCHAR,
-        SodaDataTypeName.CHAR,
-        SodaDataTypeName.TEXT,
-    }
-)
-_NUMERIC_PRECISION_FAMILY: frozenset[SodaDataTypeName] = frozenset(
-    {
-        SodaDataTypeName.DECIMAL,
-        SodaDataTypeName.NUMERIC,
-    }
-)
-_DATETIME_PRECISION_FAMILY: frozenset[SodaDataTypeName] = frozenset(
-    {
-        SodaDataTypeName.TIMESTAMP,
-        SodaDataTypeName.TIMESTAMP_TZ,
-        SodaDataTypeName.TIME,
-    }
-)
+class _DefaultSqlDialect(SqlDialect, sqlglot_dialect="default"):
+    """Permissive fallback dialect used by parse-time type-parameter validation
+    when no concrete dialect is bound (e.g. ``contract publish`` and any
+    ``contract verify`` invocation that doesn't carry a data source).
+
+    Why this exists rather than only using a bound dialect: parse-time
+    validation needs to run on those non-dialect paths too — otherwise
+    contracts could be published with obvious mismatches (e.g.
+    ``numeric_precision`` on a VARCHAR) that only surface later at scan time.
+    Concrete dialects remain authoritative when bound; this fallback simply
+    keeps validation alive when no dialect is available, using SqlDialect's
+    base method lists (which cover canonical Soda type values like ``varchar``,
+    ``decimal``, ``timestamp``) plus a couple of aliases for canonical-only
+    values that the standard-SQL base lists don't include verbatim.
+    """
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
+        return {}
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {}
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return (
+            super().data_type_has_parameter_character_maximum_length(data_type_name) or data_type_name.lower() == "text"
+        )
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return (
+            super().data_type_has_parameter_datetime_precision(data_type_name)
+            or data_type_name.lower() == "timestamp_tz"
+        )
+
+
+_DEFAULT_SQL_DIALECT: SqlDialect = _DefaultSqlDialect()
+
+# Human-readable allowed-types list per type-param, used only for error messages.
+# The actual yes/no on whether a param applies to a data_type is delegated to the
+# dialect's data_type_has_parameter_* methods.
+_TYPE_PARAM_ALLOWED_TYPES_FOR_MESSAGE: dict[str, list[str]] = {
+    "character_maximum_length": ["char", "text", "varchar"],
+    "numeric_precision": ["decimal", "numeric"],
+    "numeric_scale": ["decimal", "numeric"],
+    "datetime_precision": ["time", "timestamp", "timestamp_tz"],
+}
 
 
 def _resolve_to_soda_type(
@@ -447,6 +473,10 @@ def _resolve_to_soda_type(
 ) -> Optional[SodaDataTypeName]:
     """
     Resolve a raw YAML data_type string to a canonical SodaDataTypeName.
+
+    Used as the "is this type recognized" gate before parse-time type-param
+    validation. If the type can't be resolved we skip validation and let the
+    schema check catch real DB mismatches at scan time.
 
     Order:
     1. Direct match against SodaDataTypeName values (no mapping needed).
@@ -478,7 +508,15 @@ class ColumnYaml(MissingAndValidityYaml):
         if self.column_expression:
             self.column_expression = self.column_expression.strip()
 
-        self._validate_type_parameters(column_yaml_object, contract_yaml._native_to_soda_data_type_mapping)
+        self._validate_type_parameters(
+            column_yaml_object,
+            sql_dialect=(
+                contract_yaml.primary_data_source_impl.sql_dialect
+                if contract_yaml.primary_data_source_impl is not None
+                else None
+            ),
+            native_to_soda_mapping=contract_yaml._native_to_soda_data_type_mapping,
+        )
 
         super().__init__(column_yaml_object)
         self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
@@ -488,23 +526,40 @@ class ColumnYaml(MissingAndValidityYaml):
     def _validate_type_parameters(
         self,
         column_yaml_object: YamlObject,
+        sql_dialect: Optional[SqlDialect],
         native_to_soda_mapping: Optional[dict[str, SodaDataTypeName]],
     ) -> None:
-        soda_type = _resolve_to_soda_type(self.data_type, native_to_soda_mapping)
-        if soda_type is None:
+        # Skip validation for unrecognized data_types — the schema check catches real DB
+        # mismatches at scan time. Recognized = a SodaDataTypeName enum value or a key in
+        # the bound dialect's native→canonical mapping.
+        if _resolve_to_soda_type(self.data_type, native_to_soda_mapping) is None:
             return
+
+        # Defer to the bound dialect's data_type_has_parameter_* methods as the source of
+        # truth (they're already used by extract_* on info_schema). When no dialect is
+        # bound — e.g. contract publish, contract verify without a data source — fall back
+        # to _DEFAULT_SQL_DIALECT so those paths still get parse-time validation rather
+        # than silently skipping it.
+        dialect: SqlDialect = sql_dialect if sql_dialect is not None else _DEFAULT_SQL_DIALECT
+        data_type_name: str = self.data_type.split("(", 1)[0].strip()
+
         type_param_validations = [
-            ("character_maximum_length", self.character_maximum_length, _CHAR_LENGTH_FAMILY),
-            ("numeric_precision", self.numeric_precision, _NUMERIC_PRECISION_FAMILY),
-            ("numeric_scale", self.numeric_scale, _NUMERIC_PRECISION_FAMILY),
-            ("datetime_precision", self.datetime_precision, _DATETIME_PRECISION_FAMILY),
+            (
+                "character_maximum_length",
+                self.character_maximum_length,
+                dialect.data_type_has_parameter_character_maximum_length,
+            ),
+            ("numeric_precision", self.numeric_precision, dialect.data_type_has_parameter_numeric_precision),
+            ("numeric_scale", self.numeric_scale, dialect.data_type_has_parameter_numeric_scale),
+            ("datetime_precision", self.datetime_precision, dialect.data_type_has_parameter_datetime_precision),
         ]
-        for key, value, allowed_types in type_param_validations:
-            if value is not None and soda_type not in allowed_types:
-                allowed_values = sorted(t.value for t in allowed_types)
+        for key, value, has_parameter in type_param_validations:
+            if value is None:
+                continue
+            if not has_parameter(data_type_name):
                 logger.error(
                     msg=(
-                        f"'{key}' is only valid for data types {allowed_values}, "
+                        f"'{key}' is only valid for data types {_TYPE_PARAM_ALLOWED_TYPES_FOR_MESSAGE[key]}, "
                         f"but was set on column '{self.name}' with data_type '{self.data_type}'"
                     ),
                     extra={ExtraKeys.LOCATION: column_yaml_object.create_location_from_yaml_dict_key(key)},
