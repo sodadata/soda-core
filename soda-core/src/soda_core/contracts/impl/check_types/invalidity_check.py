@@ -248,11 +248,24 @@ class InvalidReferenceCountQuery(Query):
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
     def build_query(self, cte: CTE, select_clause: SqlExpression) -> list[SqlExpression]:
+        # Qualify unqualified columns in the user's filter with the source alias so they
+        # are unambiguous after the JOIN with the reference dataset. The original
+        # check_filter is left untouched on self so the un-aliased aggregate row-count
+        # query (RowCountMetricImpl, run via AggregationQuery against the source CTE
+        # alone) still resolves.
+        join_query_filter: Optional[str] = (
+            self.data_source_impl.sql_dialect.qualify_unqualified_columns_with_alias(
+                self.check_filter, self.referencing_alias
+            )
+            if self.check_filter
+            else None
+        )
+
         query = [
             WITH([cte, self.referenced_cte()]),
             select_clause,
             FROM(cte.alias).AS(self.referencing_alias),
-            WHERE.optional(SqlExpressionStr.optional(self.check_filter)),
+            WHERE.optional(SqlExpressionStr.optional(join_query_filter)),
         ]
 
         query.extend(self.query_join())

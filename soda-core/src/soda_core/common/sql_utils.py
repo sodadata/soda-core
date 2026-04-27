@@ -37,6 +37,36 @@ def attach_sample_to_relation(rel: exp.Expression, sampler_limit: Number, sample
         rel.set("sample", build_sample_clause(sampler_limit, sampler_type))
 
 
+def qualify_unqualified_columns_with_alias(
+    sql_expression: str,
+    alias: str,
+    read_dialect: str | None = None,
+    write_dialect: str | None = None,
+) -> str:
+    """
+    Qualify every unqualified column reference in a SQL expression with the given table alias.
+
+    Already-qualified columns are left untouched. If the expression cannot be parsed as SQL,
+    it is returned unchanged so any database error surfaces unmodified to the user.
+    """
+    if not sql_expression or not sql_expression.strip():
+        return sql_expression
+
+    try:
+        tree = (
+            sqlglot.parse_one(sql_expression, read=read_dialect) if read_dialect else sqlglot.parse_one(sql_expression)
+        )
+    except sqlglot.errors.ParseError:
+        return sql_expression
+
+    for column in tree.find_all(exp.Column):
+        if column.table:
+            continue
+        column.set("table", exp.to_identifier(alias, quoted=True))
+
+    return tree.sql(dialect=write_dialect) if write_dialect else tree.sql()
+
+
 def apply_sampling_to_sql(
     sql: str,
     sampler_limit: Number,

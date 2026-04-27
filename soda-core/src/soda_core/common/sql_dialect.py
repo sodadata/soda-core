@@ -100,7 +100,10 @@ from soda_core.common.sql_ast import (
     SqlExpression,
     SqlExpressionStr,
 )
-from soda_core.common.sql_utils import apply_sampling_to_sql
+from soda_core.common.sql_utils import (
+    apply_sampling_to_sql,
+    qualify_unqualified_columns_with_alias,
+)
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from typing_extensions import deprecated
 
@@ -1448,6 +1451,14 @@ class SqlDialect:
             sql=sql,
             sampler_limit=sampler_limit,
             sampler_type=sampler_type,
+            read_dialect=self.SQLGLOT_DIALECT,
+            write_dialect=self.SQLGLOT_DIALECT,
+        )
+
+    def qualify_unqualified_columns_with_alias(self, sql_expression: str, alias: str) -> str:
+        return qualify_unqualified_columns_with_alias(
+            sql_expression=sql_expression,
+            alias=alias,
             read_dialect=self.SQLGLOT_DIALECT,
             write_dialect=self.SQLGLOT_DIALECT,
         )
