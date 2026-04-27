@@ -81,32 +81,32 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         limit: int,
         offset: int,
     ) -> str:
-        """TODO: Synapse uses completely different pagination syntax, AST does not have enough flexibility for this yet."""
-        where_clauses = []
+        # Synapse Dedicated SQL Pool does not support OFFSET ... FETCH NEXT, so we paginate via
+        # ROW_NUMBER() over the key columns and INNER JOIN back to the original table. Joining
+        # rather than wrapping in a CTE keeps the row-shape clean (no synthetic rn column leaks
+        # into the result set, which would otherwise be mistaken for a real column by the
+        # downstream rows_diff comparator).
+        qualified_table = self.build_fully_qualified_sql_name(dataset_identifier)
+        quoted_keys = [self.quote_default(c) for c in order_by]
+        keys_csv = ", ".join(quoted_keys)
+        order_by_csv = ", ".join(f"{c} ASC" for c in quoted_keys)
+        join_condition = " AND ".join(f"t.{c} = p.{c}" for c in quoted_keys)
+        where_sql = f"WHERE {filter}" if filter else ""
 
-        if filter:
-            where_clauses.append(SqlExpressionStr(filter))
+        if columns:
+            select_clause = "SELECT " + ", ".join(f"t.{self.quote_default(c)}" for c in columns)
+        else:
+            select_clause = "SELECT t.*"
 
-        select_statements = self._build_select_sql_lines([SELECT(columns or [STAR()])])
-        select = ", ".join(select_statements)
-        order_by_statements = self._build_order_by_lines([ORDER_BY_ASC(c) for c in order_by])
-        order_by = ", ".join(order_by_statements)
-        where_statements = self._build_where_sql_lines([WHERE.optional(AND.optional(where_clauses))])
-        where = ", ".join(where_statements)
-
-        query = f"""WITH src AS (
-        {select}, ROW_NUMBER()
-            OVER (
-                {order_by}
-            ) AS rn
-        FROM {self.build_fully_qualified_sql_name(dataset_identifier)} AS t
-        {where}
+        return (
+            f"WITH paginated_keys AS (\n"
+            f"    SELECT {keys_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS rn\n"
+            f"    FROM {qualified_table}\n"
+            f"    {where_sql}\n"
+            f")\n"
+            f"{select_clause}\n"
+            f"FROM {qualified_table} AS t\n"
+            f"INNER JOIN paginated_keys AS p ON {join_condition}\n"
+            f"WHERE p.rn > {offset} AND p.rn <= {offset + limit}\n"
+            f"ORDER BY p.rn;"
         )
-        SELECT *
-            FROM src
-            WHERE rn > {offset}
-            AND rn <= {offset + limit}
-        ORDER BY rn;
-        """
-
-        return query
