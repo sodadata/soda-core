@@ -41,16 +41,24 @@ class OdpsDataSourceConnection(DataSourceConnection):
         return str(value) if value is not None else None
 
     def _resolve_env_var(self, value: str) -> str:
-        """Resolve environment variable placeholder in value."""
-        import os
-        import re
+        """Resolve environment variable placeholder in value.
 
-        match = re.search(r"\$\{env\.(\w+)(?::-)?([^}]*?)\}", value)
-        if not match:
+        Supports formats: ${env.VAR} and ${env.VAR:-default}
+        """
+        import os
+
+        if not value.startswith("${env.") or not value.endswith("}"):
             return value
 
-        env_var = match.group(1)
-        default_val = match.group(2) or None
+        content = value[6:-1]  # strip "${env." and "}"
+
+        # split on first ":-" to get default value
+        if ":-" in content:
+            env_var, default_val = content.split(":-", 1)
+        else:
+            env_var = content
+            default_val = None
+
         return os.getenv(env_var) or default_val or ""
 
     def _resolve_config_values(self, config) -> dict:
