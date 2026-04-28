@@ -48,14 +48,22 @@ def qualify_unqualified_columns_with_alias(
 
     Already-qualified columns are left untouched. If the expression cannot be parsed as SQL,
     it is returned unchanged so any database error surfaces unmodified to the user.
+
+    Data sources without a native sqlglot dialect (DB2, for example, sets
+    `sqlglot_dialect=""`) are not rewritten, because the round-trip through sqlglot's default
+    parser/printer can mangle dialect-specific syntax (e.g. DB2 timestamp literals like
+    `'2024-01-01-12.30.00'`). On those data sources the filter is returned unchanged and the
+    pre-fix behaviour applies, so a filter that references a column shared with the reference
+    table will still error at the database — no new regression vs today.
     """
     if not sql_expression or not sql_expression.strip():
         return sql_expression
 
+    if not read_dialect:
+        return sql_expression
+
     try:
-        tree = (
-            sqlglot.parse_one(sql_expression, read=read_dialect) if read_dialect else sqlglot.parse_one(sql_expression)
-        )
+        tree = sqlglot.parse_one(sql_expression, read=read_dialect)
     except sqlglot.errors.ParseError:
         return sql_expression
 
