@@ -168,6 +168,9 @@ class OdpsCursor:
             else:
                 table_expr = sql[4:].strip().rstrip(";").strip()
 
+            # Remove backtick quotes added by qualify_dataset_name
+            table_expr = table_expr.replace("`", "")
+
             # Parse the table name - could be project.schema.table, schema.table, or just table_name
             # In ODPS, the table name is in format: project.schema.table
             parts = table_expr.split(".")

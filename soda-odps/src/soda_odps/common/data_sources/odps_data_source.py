@@ -77,8 +77,8 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
     def _build_regex_like_sql(self, matches: "REGEX_LIKE") -> str:
         """ODPS uses rlike operator for regex matching instead of REGEXP_LIKE function."""
         expression: str = self.build_expression_sql(matches.expression)
-        # Escape single quotes in the regex pattern
-        escaped_pattern = matches.regex_pattern.replace("'", "'")
+        # Escape single quotes in the regex pattern by doubling them
+        escaped_pattern = matches.regex_pattern.replace("'", "''")
         return f"{expression} RLIKE '{escaped_pattern}'"
 
     def _build_string_hash_sql(self, string_hash) -> str:
@@ -98,10 +98,12 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
 
     def build_columns_metadata_query_str(self, table_namespace, table_name: str) -> str:
         """ODPS uses DESCRIBE TABLE instead of information_schema."""
-        # Table name from contract: zhidou_hz.test_ksf.mid_ksf_sales_detail_m_v2
-        # We need to pass the full path so ODPS can determine the schema
-        # DESCRIBE will be handled via Table API, not SQL
-        return f"DESCRIBE {table_name};"
+        database_name = table_namespace.get_database_for_metadata_query()
+        schema_name = table_namespace.get_schema_for_metadata_query()
+        fully_qualified_name = self.qualify_dataset_name(
+            dataset_prefix=[database_name, schema_name], dataset_name=table_name
+        )
+        return f"DESCRIBE {fully_qualified_name};"
 
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
         """Build CTE with ODPS partition support.
