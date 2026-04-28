@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import logging
+from abc import ABC
+from typing import Any, Optional
+
+from pydantic import SecretStr
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -12,7 +17,6 @@ logger = soda_logger
 def _get_odps_class():
     """Lazy import of ODPS class to avoid early initialization issues."""
     from odps import ODPS
-
     return ODPS
 
 
@@ -24,58 +28,62 @@ class OdpsDataSourceConnection(DataSourceConnection):
         self._odps_client = None
         self._cursor = None
 
+    def _get_config_value(self, config, attr_name: str, default: Any = None) -> Any:
+        """Extract and resolve a config attribute value."""
+        value = getattr(config, attr_name, default)
+
+        # Handle SecretStr type
+        if hasattr(value, 'get_secret_value'):
+            return value.get_secret_value()
+
+        # Resolve env var placeholders like ${env.VAR} or ${env.VAR:-default}
+        if value and isinstance(value, str) and value.startswith('${'):
+            return self._resolve_env_var(value)
+
+        return str(value) if value is not None else None
+
+    def _resolve_env_var(self, value: str) -> str:
+        """Resolve environment variable placeholder in value."""
+        import re,os
+
+        match = re.search(r'\$\{env\.(\w+)(?::-)?([^}]*?)\}', value)
+        if not match:
+            return value
+
+        env_var = match.group(1)
+        default_val = match.group(2) or None
+        return os.getenv(env_var) or default_val or ''
+
+    def _resolve_config_values(self, config) -> dict:
+        """Resolve all config values including environment variables."""
+        access_id = self._get_config_value(config, 'access_id')
+        secret_access_key = self._get_config_value(config, 'secret_access_key')
+        project = self._get_config_value(config, 'project')
+        endpoint = self._get_config_value(config, 'endpoint')
+        tunnel_endpoint = self._get_config_value(config, 'tunnel_endpoint', None)
+
+        return {
+            'access_id': access_id,
+            'secret_access_key': secret_access_key,
+            'project': project,
+            'endpoint': endpoint,
+            'tunnel_endpoint': tunnel_endpoint,
+        }
+
     def _create_connection(
         self,
         config,
     ):
         ODPS = _get_odps_class()
-        # Resolve environment variables
-        access_id = config.access_id
-        secret_access_key = (
-            config.secret_access_key.get_secret_value()
-            if hasattr(config.secret_access_key, "get_secret_value")
-            else str(config.secret_access_key)
-        )
-        project = config.project
-        endpoint = config.endpoint
-        tunnel_endpoint = config.tunnel_endpoint if hasattr(config, "tunnel_endpoint") else None
 
-        # Simple env var resolution
-        import os
-
-        for attr_name, attr_val in [
-            ("access_id", access_id),
-            ("secret_access_key", secret_access_key),
-            ("project", project),
-            ("endpoint", endpoint),
-            ("tunnel_endpoint", tunnel_endpoint),
-        ]:
-            if attr_val and isinstance(attr_val, str) and attr_val.startswith("${"):
-                # Extract env var name from ${env.VAR} or ${env.VAR:-default}
-                import re
-
-                match = re.search(r"\$\{env\.(\w+)(?::-)?([^}]*?)\}", attr_val)
-                if match:
-                    env_var = match.group(1)
-                    default_val = match.group(2) if match.group(2) else None
-                    resolved = os.getenv(env_var) or default_val or ""
-                    if attr_name == "access_id":
-                        access_id = resolved
-                    elif attr_name == "secret_access_key":
-                        secret_access_key = resolved
-                    elif attr_name == "project":
-                        project = resolved
-                    elif attr_name == "endpoint":
-                        endpoint = resolved
-                    elif attr_name == "tunnel_endpoint":
-                        tunnel_endpoint = resolved
+        values = self._resolve_config_values(config)
 
         self._odps_client = ODPS(
-            access_id=access_id,
-            secret_access_key=secret_access_key,
-            project=project,
-            endpoint=endpoint,
-            tunnel_endpoint=tunnel_endpoint,
+            access_id=values['access_id'],
+            secret_access_key=values['secret_access_key'],
+            project=values['project'],
+            endpoint=values['endpoint'],
+            tunnel_endpoint=values['tunnel_endpoint'],
         )
         # Create a cursor-like wrapper for compatibility
         self._cursor = OdpsCursor(self._odps_client)
@@ -136,9 +144,7 @@ class OdpsCursor:
                     # Get schema from first record if available
                     if self._last_result and len(self._last_result) > 0:
                         # PEP-249 format: (name, type_code, display_size, internal_size, precision, scale, null_ok)
-                        self._description = [
-                            (str(i), "string", None, None, None, None, None) for i in range(len(self._last_result[0]))
-                        ]
+                        self._description = [(str(i), "string", None, None, None, None, None) for i in range(len(self._last_result[0]))]
                     else:
                         self._description = []
             except Exception as e:
@@ -157,13 +163,13 @@ class OdpsCursor:
             # Format: DESCRIBE table_name or DESC table_name
             sql_upper = sql.strip().upper()
             if sql_upper.startswith("DESCRIBE"):
-                table_expr = sql[8:].strip().rstrip(";").strip()
+                table_expr = sql[8:].strip().rstrip(';').strip()
             else:
-                table_expr = sql[4:].strip().rstrip(";").strip()
+                table_expr = sql[4:].strip().rstrip(';').strip()
 
             # Parse the table name - could be project.schema.table, schema.table, or just table_name
             # In ODPS, the table name is in format: project.schema.table
-            parts = table_expr.split(".")
+            parts = table_expr.split('.')
             if len(parts) == 3:
                 # project.schema.table - use as is for ODPS Table API
                 full_table_name = table_expr
