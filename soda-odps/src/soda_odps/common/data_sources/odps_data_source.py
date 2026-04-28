@@ -90,10 +90,11 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
         from soda_core.common.sql_dialect import SchemaDataSourceNamespace
 
         # ODPS uses project.schema.table, where schema is the "project" in ODPS terms
-        if prefixes and len(prefixes) > 0:
+        schema = None
+        if prefixes:
             # prefixes[0] should be the ODPS project
-            return SchemaDataSourceNamespace(schema=prefixes[0] if prefixes else None)
-        return SchemaDataSourceNamespace(schema=None)
+            schema = prefixes[0]
+        return SchemaDataSourceNamespace(schema=schema)
 
     def build_columns_metadata_query_str(self, table_namespace, table_name: str) -> str:
         """ODPS uses DESCRIBE TABLE instead of information_schema."""

@@ -14,6 +14,7 @@ logger = soda_logger
 def _get_odps_class():
     """Lazy import of ODPS class to avoid early initialization issues."""
     from odps import ODPS
+
     return ODPS
 
 
@@ -30,11 +31,11 @@ class OdpsDataSourceConnection(DataSourceConnection):
         value = getattr(config, attr_name, default)
 
         # Handle SecretStr type
-        if hasattr(value, 'get_secret_value'):
+        if hasattr(value, "get_secret_value"):
             return value.get_secret_value()
 
         # Resolve env var placeholders like ${env.VAR} or ${env.VAR:-default}
-        if value and isinstance(value, str) and value.startswith('${'):
+        if value and isinstance(value, str) and value.startswith("${"):
             return self._resolve_env_var(value)
 
         return str(value) if value is not None else None
@@ -44,28 +45,28 @@ class OdpsDataSourceConnection(DataSourceConnection):
         import os
         import re
 
-        match = re.search(r'\$\{env\.(\w+)(?::-)?([^}]*?)\}', value)
+        match = re.search(r"\$\{env\.(\w+)(?::-)?([^}]*?)\}", value)
         if not match:
             return value
 
         env_var = match.group(1)
         default_val = match.group(2) or None
-        return os.getenv(env_var) or default_val or ''
+        return os.getenv(env_var) or default_val or ""
 
     def _resolve_config_values(self, config) -> dict:
         """Resolve all config values including environment variables."""
-        access_id = self._get_config_value(config, 'access_id')
-        secret_access_key = self._get_config_value(config, 'secret_access_key')
-        project = self._get_config_value(config, 'project')
-        endpoint = self._get_config_value(config, 'endpoint')
-        tunnel_endpoint = self._get_config_value(config, 'tunnel_endpoint', None)
+        access_id = self._get_config_value(config, "access_id")
+        secret_access_key = self._get_config_value(config, "secret_access_key")
+        project = self._get_config_value(config, "project")
+        endpoint = self._get_config_value(config, "endpoint")
+        tunnel_endpoint = self._get_config_value(config, "tunnel_endpoint", None)
 
         return {
-            'access_id': access_id,
-            'secret_access_key': secret_access_key,
-            'project': project,
-            'endpoint': endpoint,
-            'tunnel_endpoint': tunnel_endpoint,
+            "access_id": access_id,
+            "secret_access_key": secret_access_key,
+            "project": project,
+            "endpoint": endpoint,
+            "tunnel_endpoint": tunnel_endpoint,
         }
 
     def _create_connection(
@@ -77,11 +78,11 @@ class OdpsDataSourceConnection(DataSourceConnection):
         values = self._resolve_config_values(config)
 
         self._odps_client = ODPS(
-            access_id=values['access_id'],
-            secret_access_key=values['secret_access_key'],
-            project=values['project'],
-            endpoint=values['endpoint'],
-            tunnel_endpoint=values['tunnel_endpoint'],
+            access_id=values["access_id"],
+            secret_access_key=values["secret_access_key"],
+            project=values["project"],
+            endpoint=values["endpoint"],
+            tunnel_endpoint=values["tunnel_endpoint"],
         )
         # Create a cursor-like wrapper for compatibility
         self._cursor = OdpsCursor(self._odps_client)
@@ -140,9 +141,11 @@ class OdpsCursor:
                     # For regular queries, get rows from reader
                     self._last_result = list(reader)
                     # Get schema from first record if available
-                    if self._last_result and len(self._last_result) > 0:
+                    if self._last_result:
                         # PEP-249 format: (name, type_code, display_size, internal_size, precision, scale, null_ok)
-                        self._description = [(str(i), "string", None, None, None, None, None) for i in range(len(self._last_result[0]))]
+                        self._description = [
+                            (str(i), "string", None, None, None, None, None) for i in range(len(self._last_result[0]))
+                        ]
                     else:
                         self._description = []
             except Exception as e:
@@ -161,13 +164,13 @@ class OdpsCursor:
             # Format: DESCRIBE table_name or DESC table_name
             sql_upper = sql.strip().upper()
             if sql_upper.startswith("DESCRIBE"):
-                table_expr = sql[8:].strip().rstrip(';').strip()
+                table_expr = sql[8:].strip().rstrip(";").strip()
             else:
-                table_expr = sql[4:].strip().rstrip(';').strip()
+                table_expr = sql[4:].strip().rstrip(";").strip()
 
             # Parse the table name - could be project.schema.table, schema.table, or just table_name
             # In ODPS, the table name is in format: project.schema.table
-            parts = table_expr.split('.')
+            parts = table_expr.split(".")
             if len(parts) == 3:
                 # project.schema.table - use as is for ODPS Table API
                 full_table_name = table_expr
@@ -212,7 +215,7 @@ class OdpsCursor:
 
     def fetchone(self):
         """Fetch one row."""
-        if self._last_result and len(self._last_result) > 0:
+        if self._last_result:
             return self._last_result.pop(0)
         return None
 
