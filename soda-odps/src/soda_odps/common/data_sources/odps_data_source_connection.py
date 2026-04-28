@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import logging
-from abc import ABC
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import SecretStr
 from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -44,7 +41,8 @@ class OdpsDataSourceConnection(DataSourceConnection):
 
     def _resolve_env_var(self, value: str) -> str:
         """Resolve environment variable placeholder in value."""
-        import re,os
+        import os
+        import re
 
         match = re.search(r'\$\{env\.(\w+)(?::-)?([^}]*?)\}', value)
         if not match:
