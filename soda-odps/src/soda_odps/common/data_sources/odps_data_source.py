@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Optional
 
 from soda_core.common.data_source_connection import DataSourceConnection
@@ -49,14 +48,10 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
 
     DEFAULT_QUOTE_CHAR = "`"
     SUPPORTS_DROP_TABLE_CASCADE = False
-    # Class variable to persist partition info across method calls
-    _odps_partition: Optional[str] = None
 
     def __init__(self):
-        """Initialize ODPS dialect, reset partition state."""
+        """Initialize ODPS dialect."""
         super().__init__()
-        # Reset partition for new query
-        OdpsSqlDialect._odps_partition = None
 
     def quote_for_ddl(self, identifier: Optional[str]) -> Optional[str]:
         """MaxCompute DDL uses backticks."""
@@ -106,36 +101,11 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
         return f"DESCRIBE {fully_qualified_name};"
 
     def _build_cte_sql_lines(self, select_elements: list) -> list[str]:
-        """Build CTE with ODPS partition support.
+        """Build CTE SQL lines.
 
-        Override to extract partition filters from WHERE and add them to FROM PARTITION clause.
+        Delegates to parent implementation.
         """
-
-        from soda_core.common.sql_dialect import CTE
-
-        # Reset partition state at start
-        OdpsSqlDialect._odps_partition = None
-
-        # First, let parent build CTE normally
-        cte_sql_lines = super()._build_cte_sql_lines(select_elements)
-
-        # Find the CTE and its filter
-        for select_element in select_elements:
-            if isinstance(select_element, CTE) and select_element.filter:
-                filter_str = select_element.filter
-                logger.info(f"Found CTE filter: {filter_str}")
-                # Check if this is a partition filter like "ds = '20260101'"
-                partition_match = re.search(r"(\w+)\s*=\s*'([^']+)'", filter_str)
-                if partition_match:
-                    partition_col = partition_match.group(1)
-                    partition_value = partition_match.group(2)
-                    # Store partition info in class variable for use in FROM clause
-                    OdpsSqlDialect._odps_partition = f"PARTITION({partition_col}='{partition_value}')"
-                    logger.info(f"Extracted ODPS partition: {OdpsSqlDialect._odps_partition}")
-                else:
-                    logger.info(f"Filter is not a partition filter: {filter_str}")
-
-        return cte_sql_lines
+        return super()._build_cte_sql_lines(select_elements)
 
     def _build_from_part(self, from_part: FROM) -> str:
         """Build FROM clause with ODPS partition support.
@@ -148,10 +118,6 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
                 dataset_name=from_part.table_name, dataset_prefix=from_part.table_prefix
             )
         ]
-
-        # Add partition from class variable if available
-        if OdpsSqlDialect._odps_partition:
-            from_parts.append(OdpsSqlDialect._odps_partition)
 
         if from_part.sampler_type is not None and isinstance(from_part.sample_size, Number):
             from_parts.append(self._build_sample_sql(from_part.sampler_type, from_part.sample_size))
@@ -183,37 +149,8 @@ class OdpsSqlDialect(SqlDialect, sqlglot_dialect=None):
         return from_lines
 
     def _build_where_sql_lines(self, select_elements: list) -> list[str]:
-        """Build WHERE clause, skipping partition filters that are handled in FROM PARTITION.
+        """Build WHERE clause.
 
-        Partition filters like "ds = '20260101'" are moved to FROM PARTITION clause in ODPS.
+        Delegates to parent implementation.
         """
-        from soda_core.common.sql_ast import AND, WHERE
-
-        and_expressions = []
-        for select_element in select_elements:
-            if isinstance(select_element, WHERE):
-                and_expressions.append(select_element.condition)
-            elif isinstance(select_element, AND):
-                and_expressions.extend(select_element._get_clauses_as_list())
-
-        # Filter out partition-only filters (they go to FROM PARTITION clause)
-        filtered_expressions = []
-        for expr in and_expressions:
-            if expr:
-                expr_str = self.build_expression_sql(expr)
-                # Check if this is a pure partition filter like "`ds` = '20260101'" or "ds = '20260101'"
-                if re.match(r"^`?\w+`?\s*=\s*'[^']+'$", expr_str):
-                    logger.info(f"Skipping partition filter in WHERE: {expr_str}")
-                    continue
-                filtered_expressions.append(expr)
-
-        where_parts = [self.build_expression_sql(and_expression) for and_expression in filtered_expressions]
-
-        where_sql_lines = []
-        for i in range(0, len(where_parts)):
-            if i == 0:
-                sql_line = f"WHERE {where_parts[0]}"
-            else:
-                sql_line = f"  AND {where_parts[i]}"
-            where_sql_lines.append(sql_line)
-        return where_sql_lines
+        return super()._build_where_sql_lines(select_elements)
