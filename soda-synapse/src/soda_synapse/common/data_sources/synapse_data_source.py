@@ -78,6 +78,18 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
     def build_cte_values_sql(self, values: VALUES, alias_columns: list[COLUMN] | None) -> str:
         return "\nUNION ALL\n".join(["SELECT " + self.build_expression_sql(value) for value in values.values])
 
+    def _quote_identifier_safe(self, identifier: str) -> str:
+        """T-SQL-safe identifier quoting that escapes closing brackets.
+
+        `quote_default` (inherited from SqlServerSqlDialect) wraps in `[...]` without escaping
+        any `]` characters embedded in the identifier — fine in practice for trusted
+        identifiers, but allows SQL injection if the identifier is not pre-validated. The
+        Synapse paginator below interpolates column names directly into a hand-built SQL
+        string (rather than going through the AST), so it must defend against this. The T-SQL
+        rule for bracket-quoted identifiers is to double any embedded `]`.
+        """
+        return f"[{identifier.replace(']', ']]')}]"
+
     def select_all_paginated_sql(
         self,
         dataset_identifier: DatasetIdentifier,
@@ -115,9 +127,10 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
                 )
             ]
         qualified_table = self.build_fully_qualified_sql_name(dataset_identifier)
-        quoted_columns = [self.quote_default(c) for c in columns]
+        # Use the safe quoter so column / order-by identifiers can't break out of `[...]`.
+        quoted_columns = [self._quote_identifier_safe(c) for c in columns]
         columns_csv = ", ".join(quoted_columns)
-        order_by_csv = ", ".join(f"{self.quote_default(c)} ASC" for c in order_by)
+        order_by_csv = ", ".join(f"{self._quote_identifier_safe(c)} ASC" for c in order_by)
         where_sql = f"WHERE {filter}" if filter else ""
 
         return (
