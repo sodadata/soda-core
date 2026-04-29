@@ -10,9 +10,18 @@ logger = soda_logger
 
 
 class StreamingOrchestrator:
-    """Singleton (class-level state) that manages streaming consumer registration and action dispatch.
+    """Module-level registry of streaming consumers (class-level mutable state).
 
-    Follows the ContractVerificationHandlerRegistry pattern.
+    Same shape as `ContractVerificationHandlerRegistry`: consumers register at plugin-load
+    time and stay registered for the process lifetime; producers ask the orchestrator to
+    initialize an action and receive a handle that dispatches data to all matching consumers.
+
+    Concurrency: consumers carry per-instance state (e.g. `ReconRowsDiffDwhConsumer` holds
+    `_pending_rows`, `_dwh_data_source_impl`, `_context`). The current contract-verification
+    flow is sequential, so a single consumer instance is reused across actions without
+    overlap. If/when verifications run concurrently, this design must change — either
+    consumers must be stateless and key all per-action state on the action handle, or each
+    `initialize_action` must hand out fresh consumer instances.
     """
 
     _consumers: list[StreamingConsumer] = []
@@ -57,6 +66,10 @@ class StreamingOrchestrator:
 
     @classmethod
     def reset(cls) -> None:
-        """Clear all state. Used in tests."""
+        """Clear all registered consumers.
+
+        Primarily used by test fixtures to isolate consumer registration between tests, but
+        also valid in any setup that tears down and re-initializes the plugin layer.
+        """
         cls._consumers = []
         cls._action_consumers = {}
