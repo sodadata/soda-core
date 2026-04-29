@@ -44,16 +44,21 @@ def qualify_unqualified_columns_with_alias(
     write_dialect: str | None = None,
 ) -> str:
     """
-    Qualify every unqualified column reference in a SQL expression with the given table alias.
+    Qualify every unqualified top-level column reference in a SQL expression with the given
+    table alias.
 
-    Already-qualified columns are left untouched. If the expression cannot be parsed as SQL,
-    it is returned unchanged so any database error surfaces unmodified to the user.
+    Already-qualified columns are left untouched. Columns inside subqueries are also left
+    untouched — they belong to the subquery's own scope, not the outer alias. If sqlglot
+    cannot parse or print the expression for any reason (parse error, unknown dialect),
+    the input is returned unchanged so any database error surfaces unmodified to the user.
+
+    Note: a successful parse round-trips through sqlglot's printer, which canonicalises some
+    syntax (e.g. ``col::int`` becomes ``CAST(col AS INT)``, function names get uppercased).
+    On the same read/write dialect the rewrite is semantically equivalent in standard cases,
+    but recognised functions may be rewritten into canonical equivalents.
 
     If ``read_dialect`` / ``write_dialect`` are not provided (or are empty), sqlglot's
-    default parser/printer is used. Every Soda data source ships a non-empty
-    ``SQLGLOT_DIALECT`` today — including DB2 LUW + z/OS, both registered as ``"db2"``
-    via ``soda_db2.base.sqlglot_dialect``. If you add a new adapter, make sure its
-    ``SqlDialect`` subclass passes a real sqlglot dialect name in ``sqlglot_dialect=``.
+    default parser/printer is used.
     """
     if not sql_expression or not sql_expression.strip():
         return sql_expression
@@ -62,15 +67,20 @@ def qualify_unqualified_columns_with_alias(
         tree = (
             sqlglot.parse_one(sql_expression, read=read_dialect) if read_dialect else sqlglot.parse_one(sql_expression)
         )
-    except sqlglot.errors.ParseError:
+
+        for column in tree.find_all(exp.Column):
+            if column.table:
+                continue
+            # Skip columns inside any nested SELECT scope (subqueries via exp.Subquery,
+            # EXISTS bodies via exp.Exists, scalar subqueries, CTEs). These resolve in
+            # their own scope first and shouldn't be silently aliased to the outer one.
+            if column.find_ancestor(exp.Select):
+                continue
+            column.set("table", exp.to_identifier(alias, quoted=True))
+
+        return tree.sql(dialect=write_dialect) if write_dialect else tree.sql()
+    except Exception:
         return sql_expression
-
-    for column in tree.find_all(exp.Column):
-        if column.table:
-            continue
-        column.set("table", exp.to_identifier(alias, quoted=True))
-
-    return tree.sql(dialect=write_dialect) if write_dialect else tree.sql()
 
 
 def apply_sampling_to_sql(
