@@ -244,9 +244,7 @@ class InvalidReferenceCountQuery(Query):
 
         self._cte = cte
 
-        sql_ast = self.build_query(
-            cte=self._cte, select_clause=SELECT(COUNT(STAR())), check_filter=self.check_filter
-        )
+        sql_ast = self.build_query(cte=self._cte, select_clause=SELECT(COUNT(STAR())), check_filter=self.check_filter)
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
     def build_query(
