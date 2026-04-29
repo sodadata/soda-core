@@ -638,10 +638,16 @@ class ContractImpl:
             contract_verification_status = ContractVerificationStatus.ERROR
 
         elif not self.only_validate_without_execute:
-            # Executing the queries will set the value of the metrics linked to queries
+            # Executing the queries will set the value of the metrics linked to queries.
+            # A SodaCoreException from one query (e.g. an aggregation referencing a column
+            # that has been dropped) must not abort the scan — other queries, including the
+            # schema query, still need to run so the user sees the real cause.
             for query in self.queries:
-                query_measurements: list[Measurement] = query.execute()
-                measurements.extend(query_measurements)
+                try:
+                    query_measurements: list[Measurement] = query.execute()
+                    measurements.extend(query_measurements)
+                except SodaCoreException as e:
+                    logger.error(f"Query execution failed, continuing with remaining checks: {e}")
 
             measurement_values: MeasurementValues = MeasurementValues(measurements)
 
