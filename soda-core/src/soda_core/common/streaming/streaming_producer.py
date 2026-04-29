@@ -23,6 +23,6 @@ class StreamingProducer(ABC):
         produced_actions = self.produced_actions()
         if action not in produced_actions:
             raise ValueError(
-                f"{type(self).__name__} does not produce action '{action}'. " f"Produced actions: {produced_actions}"
+                f"{type(self).__name__} does not produce action '{action}'. Produced actions: {produced_actions}"
             )
         return StreamingOrchestrator.initialize_action(action, context)
