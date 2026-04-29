@@ -53,8 +53,10 @@ class InvalidRegexException(InvalidContractException):
 
     @classmethod
     def should_raise(cls, exception: Exception, sql: str) -> Optional["InvalidRegexException"]:
+        # `args` may be empty (e.g. PySpark's AnalysisException), so guard the index access.
         if (
             hasattr(exception, "args")
+            and len(exception.args) > 0
             and exception.args[0] == "invalid regular expression: quantifier operand invalid\n"
         ):
             return cls(sql)
