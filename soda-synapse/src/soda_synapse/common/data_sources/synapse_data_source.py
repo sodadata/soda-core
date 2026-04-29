@@ -32,7 +32,13 @@ class SynapseDataSourceImpl(SqlServerDataSourceImpl, model_class=SynapseDataSour
         super().__init__(data_source_model=data_source_model, connection=connection)
 
     def _create_sql_dialect(self) -> SqlDialect:
-        return SynapseSqlDialect()
+        # Hand the dialect a back-reference to this data source impl so its paginator can
+        # resolve the table's column list via INFORMATION_SCHEMA when the caller didn't
+        # enumerate columns. This is Synapse-specific because the ROW_NUMBER()-based
+        # paginator below needs explicit columns to avoid leaking the synthetic rn column.
+        dialect = SynapseSqlDialect()
+        dialect._data_source_impl = self
+        return dialect
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SynapseDataSourceConnection(
@@ -82,31 +88,46 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         offset: int,
     ) -> str:
         # Synapse Dedicated SQL Pool does not support OFFSET ... FETCH NEXT, so we paginate via
-        # ROW_NUMBER() over the key columns and INNER JOIN back to the original table. Joining
-        # rather than wrapping in a CTE keeps the row-shape clean (no synthetic rn column leaks
-        # into the result set, which would otherwise be mistaken for a real column by the
-        # downstream rows_diff comparator).
+        # ROW_NUMBER(). The earlier implementation joined `t.<key> = p.<key>` to drop the rn
+        # column from the result set, but `NULL = NULL` is false and duplicate keys amplify
+        # rows past the page size — both diverge from native OFFSET/LIMIT semantics on other
+        # data sources and break the rows_diff merge join. Instead we compute rn inside an
+        # inner CTE alongside the requested columns and select only those columns from the
+        # outer SELECT, so rn never leaks and no JOIN is needed.
+        #
+        # We need an explicit column list to project rn out. When the caller doesn't supply
+        # one (e.g. rows_diff with no `source_columns`/`target_columns` in YAML), we resolve
+        # the table's columns via INFORMATION_SCHEMA using the back-reference set by
+        # `SynapseDataSourceImpl._create_sql_dialect`. Other dialects don't need this because
+        # they paginate with native OFFSET/LIMIT and `SELECT *` works fine.
+        if not columns:
+            data_source_impl = getattr(self, "_data_source_impl", None)
+            if data_source_impl is None:
+                raise ValueError(
+                    "Synapse paginator requires explicit `columns` (or a SynapseDataSourceImpl "
+                    "back-reference) to avoid leaking the synthetic rn column into the result set."
+                )
+            columns = [
+                cm.column_name
+                for cm in data_source_impl.get_columns_metadata(
+                    dataset_prefixes=dataset_identifier.prefixes,
+                    dataset_name=dataset_identifier.dataset_name,
+                )
+            ]
         qualified_table = self.build_fully_qualified_sql_name(dataset_identifier)
-        quoted_keys = [self.quote_default(c) for c in order_by]
-        keys_csv = ", ".join(quoted_keys)
-        order_by_csv = ", ".join(f"{c} ASC" for c in quoted_keys)
-        join_condition = " AND ".join(f"t.{c} = p.{c}" for c in quoted_keys)
+        quoted_columns = [self.quote_default(c) for c in columns]
+        columns_csv = ", ".join(quoted_columns)
+        order_by_csv = ", ".join(f"{self.quote_default(c)} ASC" for c in order_by)
         where_sql = f"WHERE {filter}" if filter else ""
 
-        if columns:
-            select_clause = "SELECT " + ", ".join(f"t.{self.quote_default(c)}" for c in columns)
-        else:
-            select_clause = "SELECT t.*"
-
         return (
-            f"WITH paginated_keys AS (\n"
-            f"    SELECT {keys_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS rn\n"
+            f"WITH paginated AS (\n"
+            f"    SELECT {columns_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS rn\n"
             f"    FROM {qualified_table}\n"
             f"    {where_sql}\n"
             f")\n"
-            f"{select_clause}\n"
-            f"FROM {qualified_table} AS t\n"
-            f"INNER JOIN paginated_keys AS p ON {join_condition}\n"
-            f"WHERE p.rn > {offset} AND p.rn <= {offset + limit}\n"
-            f"ORDER BY p.rn;"
+            f"SELECT {columns_csv}\n"
+            f"FROM paginated\n"
+            f"WHERE rn > {offset} AND rn <= {offset + limit}\n"
+            f"ORDER BY rn;"
         )

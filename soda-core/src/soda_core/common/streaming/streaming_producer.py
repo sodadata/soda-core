@@ -20,9 +20,10 @@ class StreamingProducer(ABC):
 
     def initialize_action(self, action: str, context: dict[str, Any] | None = None) -> StreamingActionHandle:
         """Convenience method that validates the action and delegates to StreamingOrchestrator."""
-        if action not in self.produced_actions():
+        produced_actions = self.produced_actions()
+        if action not in produced_actions:
             raise ValueError(
                 f"{type(self).__name__} does not produce action '{action}'. "
-                f"Produced actions: {self.produced_actions()}"
+                f"Produced actions: {produced_actions}"
             )
         return StreamingOrchestrator.initialize_action(action, context)
