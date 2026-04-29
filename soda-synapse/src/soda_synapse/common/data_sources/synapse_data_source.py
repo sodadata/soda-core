@@ -130,17 +130,25 @@ class SynapseSqlDialect(SqlServerSqlDialect, sqlglot_dialect="tsql"):
         # Use the safe quoter so column / order-by identifiers can't break out of `[...]`.
         quoted_columns = [self._quote_identifier_safe(c) for c in columns]
         columns_csv = ", ".join(quoted_columns)
-        order_by_csv = ", ".join(f"{self._quote_identifier_safe(c)} ASC" for c in order_by)
+        # An empty `order_by` is allowed by the base `SqlDialect.select_all_paginated_sql`
+        # contract — produce a deterministic-enough fallback that T-SQL accepts inside the
+        # OVER(...) clause. `(SELECT NULL)` is the standard idiom for "any order".
+        order_by_csv = (
+            ", ".join(f"{self._quote_identifier_safe(c)} ASC" for c in order_by) if order_by else "(SELECT NULL)"
+        )
         where_sql = f"WHERE {filter}" if filter else ""
+        # Use a `__soda_`-prefixed alias so we don't collide with a real column named `rn`
+        # (possible when `columns` was resolved from the table's metadata).
+        rn_alias = "__soda_rn"
 
         return (
             f"WITH paginated AS (\n"
-            f"    SELECT {columns_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS rn\n"
+            f"    SELECT {columns_csv}, ROW_NUMBER() OVER (ORDER BY {order_by_csv}) AS {rn_alias}\n"
             f"    FROM {qualified_table}\n"
             f"    {where_sql}\n"
             f")\n"
             f"SELECT {columns_csv}\n"
             f"FROM paginated\n"
-            f"WHERE rn > {offset} AND rn <= {offset + limit}\n"
-            f"ORDER BY rn;"
+            f"WHERE {rn_alias} > {offset} AND {rn_alias} <= {offset + limit}\n"
+            f"ORDER BY {rn_alias};"
         )
