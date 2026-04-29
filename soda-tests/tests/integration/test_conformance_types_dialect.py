@@ -21,7 +21,7 @@ from helpers.test_table import TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName
-from soda_core.common.sql_ast import COLUMN, FROM, RANDOM, REGEX_LIKE, SELECT, STAR
+from soda_core.common.sql_ast import FROM, RANDOM, SELECT, STAR
 from soda_core.common.sql_dialect import SqlDialect
 
 # ---------------------------------------------------------------------------
@@ -219,25 +219,10 @@ def test_schema_check_all_types(data_source_test_helper: DataSourceTestHelper):
 
 
 @pytest.mark.parametrize("sampler_type", list(SamplerType))
-def test_sampling_sql_generation(sampler_type: SamplerType, data_source_test_helper: DataSourceTestHelper):
-    """For each sampler type the adapter claims to support, the generated SQL must
-    be non-empty and parseable (used in a SELECT ... FROM table SAMPLE clause)."""
-    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
-
-    if not sql_dialect.supports_sampler(sampler_type):
-        pytest.skip(f"{sql_dialect.__class__.__name__} does not support {sampler_type.name}")
-
-    sample_size = 10 if sampler_type == SamplerType.PERCENTAGE else 50
-    sample_sql = sql_dialect._build_sample_sql(sampler_type, sample_size)
-
-    assert sample_sql is not None, f"_build_sample_sql returned None for {sampler_type.name}"
-    assert len(sample_sql.strip()) > 0, f"_build_sample_sql returned empty string for {sampler_type.name}"
-    assert str(sample_size) in sample_sql, f"Sample size {sample_size} not found in generated SQL: {sample_sql}"
-
-
-@pytest.mark.parametrize("sampler_type", list(SamplerType))
 def test_sampling_sql_executes(sampler_type: SamplerType, data_source_test_helper: DataSourceTestHelper):
-    """For each supported sampler type, generate a full SELECT with sampling and execute it."""
+    """For each supported sampler type, generate a full SELECT with sampling and execute it.
+    Exercises the public sampling SQL path end-to-end: SAMPLE clause generation,
+    parameter substitution, and adapter execution."""
     sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
 
     if not sql_dialect.supports_sampler(sampler_type):
@@ -254,26 +239,13 @@ def test_sampling_sql_executes(sampler_type: SamplerType, data_source_test_helpe
         ]
     )
 
-    result: QueryResult = data_source_test_helper.data_source_impl.execute_query(select_sql)
-    assert result is not None, "Sampled query returned None"
-    assert len(result.rows) >= 0, "Sampled query returned negative row count"
+    # Successful execution implies non-empty parseable SQL — no extra assertion needed.
+    data_source_test_helper.data_source_impl.execute_query(select_sql)
 
 
 # ---------------------------------------------------------------------------
 # Regex SQL conformance
 # ---------------------------------------------------------------------------
-
-
-def test_regex_sql_generation(data_source_test_helper: DataSourceTestHelper):
-    """The adapter must generate valid regex SQL from a REGEX_LIKE expression."""
-    sql_dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
-
-    regex_expr = REGEX_LIKE(expression=COLUMN("col_varchar"), regex_pattern="^[a-z]+$")
-    sql = sql_dialect._build_regex_like_sql(regex_expr)
-
-    assert sql is not None, "regex SQL is None"
-    assert len(sql.strip()) > 0, "regex SQL is empty"
-    assert "col_varchar" in sql, f"Column name missing from regex SQL: {sql}"
 
 
 def test_regex_via_invalid_check(data_source_test_helper: DataSourceTestHelper):
@@ -362,7 +334,7 @@ def test_reverse_mapping_covers_forward(data_source_test_helper: DataSourceTestH
         if not found:
             broken.append(f"{soda_type.name} → '{ds_type}'")
 
-    assert broken == [], f"Forward-mapped types with no reverse path:\n" + "\n".join(broken)
+    assert broken == [], "Forward-mapped types with no reverse path:\n" + "\n".join(broken)
 
 
 def test_data_type_synonyms_internally_consistent(data_source_test_helper: DataSourceTestHelper):

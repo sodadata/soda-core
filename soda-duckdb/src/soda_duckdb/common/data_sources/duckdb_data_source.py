@@ -128,14 +128,19 @@ class DuckDBSqlDialect(SqlDialect, sqlglot_dialect="duckdb"):
 
     def _get_data_type_name_synonyms(self) -> list[list[str]]:
         # Implements data type synonyms
-        # Each list should represent a list of synonyms
+        # Each list should represent a list of synonyms — every member of a
+        # group must reverse-map to the same SodaDataTypeName (or to a Soda
+        # type pair that is_same_soda_data_type_with_synonyms treats as equal).
         return [
             ["varchar", "text", "string"],
-            ["number", "decimal", "numeric", "int", "integer", "bigint", "smallint", "tinyint", "byteint"],
-            ["float", "float4", "float8", "double", "double precision", "real"],
-            ["timestamp", "datetime", "timestamp_ntz", "timestamp without time zone"],
-            ["timestamp_ltz", "timestamp with local time zone"],
-            ["timestamp_tz", "timestamp with time zone"],
+            ["decimal", "numeric"],
+            ["smallint", "int2"],
+            ["integer", "int", "int4"],
+            ["bigint", "int8"],
+            ["real", "float4", "float"],
+            ["float8", "double", "double precision"],
+            ["timestamp", "datetime", "timestamp without time zone"],
+            ["timestamptz", "timestamp with time zone"],
         ]
 
     def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict:
