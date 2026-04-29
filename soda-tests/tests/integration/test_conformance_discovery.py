@@ -357,8 +357,7 @@ def test_column_type_parameters_preserved(data_source_test_helper: DataSourceTes
         assert ts_col is not None, "Column ts_precision_3 not found"
         if ts_col.sql_data_type.datetime_precision is not None:
             assert ts_col.sql_data_type.datetime_precision >= 3, (
-                f"ts_precision_3: expected datetime_precision >= 3, "
-                f"got {ts_col.sql_data_type.datetime_precision}"
+                f"ts_precision_3: expected datetime_precision >= 3, " f"got {ts_col.sql_data_type.datetime_precision}"
             )
 
         ts_tz_col = cols_by_name.get("ts_tz_precision_6")
