@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from soda_core.common.sql_dialect import (
     COUNT,
@@ -76,8 +78,13 @@ def test_random():
         ),
         pytest.param(
             [SELECT(fields=["a", "b", "c"], distinct=True), FROM("t")],
-            'SELECT DISTINCT "a",\n       "b",\n       "c"\nFROM "t";',
+            'SELECT DISTINCT "a",\n                "b",\n                "c"\nFROM "t";',
             id="select_distinct_multiple_columns_no_parens",
+        ),
+        pytest.param(
+            [SELECT(STAR(), distinct=True), FROM("t")],
+            'SELECT DISTINCT *\nFROM "t";',
+            id="select_distinct_star_expression",
         ),
         pytest.param(
             [SELECT(fields=["a", "b"]), FROM("t")],
@@ -95,7 +102,7 @@ def test_random():
             ],
             (
                 'SELECT DISTINCT "a",\n'
-                '       "b"\n'
+                '                "b"\n'
                 'FROM "t"\n'
                 'WHERE "status" = 1\n'
                 'ORDER BY "a" ASC\n'
@@ -121,3 +128,16 @@ def test_select_distinct_default_is_false():
     sql_dialect: PostgresSqlDialect = PostgresSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(["a"]), FROM("t")])
     assert sql == 'SELECT "a"\nFROM "t";'
+
+
+def test_distinct_expression_inside_select_fields_warns(caplog):
+    # Nesting DISTINCT inside SELECT.fields with multiple fields should warn the
+    # caller to use the set-quantifier flag instead.
+    with caplog.at_level(logging.WARNING, logger="soda"):
+        SELECT(fields=[DISTINCT(expression="a"), "b"])
+
+    assert any(
+        "use SELECT(..., distinct=True)" in record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    )

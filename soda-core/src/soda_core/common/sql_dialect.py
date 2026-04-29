@@ -692,8 +692,7 @@ class SqlDialect:
         select_field_sqls: list[str] = []
         for select_element in select_elements:
             if isinstance(select_element, SELECT):
-                if select_element.distinct:
-                    distinct = True
+                distinct = select_element.distinct
                 if isinstance(select_element.fields, str) or isinstance(select_element.fields, SqlExpression):
                     select_element.fields = [select_element.fields]
                 for select_field in select_element.fields:
@@ -709,13 +708,14 @@ class SqlDialect:
         # For now, we opt for SELECT statement readability...
 
         select_keyword = "SELECT DISTINCT" if distinct else "SELECT"
+        continuation_indent = " " * (len(select_keyword) + 1)
 
         select_sql_lines: list[str] = []
         for i in range(0, len(select_field_sqls)):
             if i == 0:
                 sql_line = f"{select_keyword} {select_field_sqls[0]}"
             else:
-                sql_line = f"       {select_field_sqls[i]}"
+                sql_line = f"{continuation_indent}{select_field_sqls[i]}"
             # Append comma all lines except the last one
             if i < len(select_field_sqls) - 1:
                 sql_line += ","
