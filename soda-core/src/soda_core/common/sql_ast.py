@@ -53,17 +53,22 @@ class BaseSqlExpression:
 @dataclass
 class SELECT(BaseSqlExpression):
     fields: SqlExpression | str | list[SqlExpression | str]
+    distinct: bool = False
 
     def __post_init__(self):
         super().__post_init__()
         self.handle_parent_node_update(self.fields)
 
-        # Check that the select contains a distinct and has multiple fields -> give a warning
+        # A DISTINCT expression inside SELECT.fields renders as DISTINCT(...) with
+        # parens, which is only correct inside an aggregate (e.g. COUNT(DISTINCT x)).
+        # For the set-quantifier form (SELECT DISTINCT a, b FROM t) use distinct=True.
         if isinstance(self.fields, list) and len(self.fields) > 1:
             if any(isinstance(field, DISTINCT) for field in self.fields):
                 logger.warning(
-                    """Found DISTINCT in a SELECT statement with multiple fields.
-                               This might have unintended consequences."""
+                    "DISTINCT expression inside SELECT fields. "
+                    "For set-quantifier deduplication, use SELECT(..., distinct=True). "
+                    "The DISTINCT expression node is intended for aggregate-level use "
+                    "(e.g. COUNT(DISTINCT x))."
                 )
 
 
