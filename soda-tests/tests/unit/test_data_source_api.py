@@ -70,3 +70,27 @@ def test_empty_data_source_file():
     data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_str("")
     with pytest.raises(YamlParserException, match="Data Source YAML string root must be an object, but was empty"):
         data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
+
+
+def test_data_source_resolves_password_with_yaml_control_chars(env_vars: dict):
+    # SAS-11735: a secret containing YAML control chars must round-trip through
+    # ${env.X} without breaking the parser.
+    hostile = "'[#FAKE,test%password&for)yaml-parser-regression"
+    env_vars["TEST_HOSTILE_PASSWORD"] = hostile
+
+    data_source_yaml_source: DataSourceYamlSource = DataSourceYamlSource.from_str(
+        yaml_str="""
+            type: postgres
+            name: postgres_test_ds
+            connection:
+                host: localhost
+                user: someuser
+                password: ${env.TEST_HOSTILE_PASSWORD}
+                database: somedb
+        """
+    )
+    data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(data_source_yaml_source)
+
+    connection_properties = data_source_impl.data_source_model.connection_properties
+    assert isinstance(connection_properties.password, SecretStr)
+    assert connection_properties.password.get_secret_value() == hostile
