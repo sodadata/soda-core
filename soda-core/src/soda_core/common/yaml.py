@@ -500,6 +500,31 @@ class YamlList(YamlValue, Iterable):
 
 class VariableResolver:
     @classmethod
+    def resolve_in_object(
+        cls,
+        obj: any,
+        variable_values: Optional[dict[str, str]] = None,
+        soda_variable_values: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True,
+        location: Optional[Location] = None,
+    ) -> any:
+        # Walk a parsed structure and substitute ${ns.var} only on string scalars.
+        # Mirrors soda-library f2a926c5 (resolve_v4_variables).
+        if isinstance(obj, dict):
+            return {
+                k: cls.resolve_in_object(v, variable_values, soda_variable_values, use_env_vars, location)
+                for k, v in obj.items()
+            }
+        if isinstance(obj, list):
+            return [
+                cls.resolve_in_object(item, variable_values, soda_variable_values, use_env_vars, location)
+                for item in obj
+            ]
+        if isinstance(obj, str):
+            return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location)
+        return obj
+
+    @classmethod
     def resolve(
         cls,
         source_text: str,
