@@ -29,4 +29,7 @@ class RedshiftDataSourceTestHelper(DataSourceTestHelper):
                 database: '{REDSHIFT_DATABASE}'
                 user: '{REDSHIFT_USERNAME}'
                 password: '{REDSHIFT_PASSWORD}'
+                keepalives_idle: 60
+                keepalives_interval: 30
+                keepalives_count: 3
         """
