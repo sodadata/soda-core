@@ -7,6 +7,13 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.contracts.impl.check_types.schema_check import SchemaCheckResult
 
+# These tests deliberately reference a missing column to exercise the SQL-error
+# degradation path. The snapshot recorder only captures successful queries (see
+# snapshot_connection.py execute_query record branch), so the failing aggregation
+# never enters the snapshot — replay then surfaces a SnapshotMismatchError instead
+# of the real DB error the assertions look for. Run against real DB only.
+pytestmark = pytest.mark.no_snapshot
+
 # Table has only `id`. The contracts below reference `ghost_column` which does not exist —
 # without the fix this triggers `column "ghost_column" does not exist` from the database
 # and the entire scan aborts before the schema check can evaluate.
