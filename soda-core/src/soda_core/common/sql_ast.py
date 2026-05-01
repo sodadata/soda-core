@@ -61,10 +61,8 @@ class SELECT(BaseSqlExpression):
         # Check that the select contains a distinct and has multiple fields -> give a warning
         if isinstance(self.fields, list) and len(self.fields) > 1:
             if any(isinstance(field, DISTINCT) for field in self.fields):
-                logger.warning(
-                    """Found DISTINCT in a SELECT statement with multiple fields.
-                               This might have unintended consequences."""
-                )
+                logger.warning("""Found DISTINCT in a SELECT statement with multiple fields.
+                               This might have unintended consequences.""")
 
 
 @dataclass
