@@ -335,6 +335,12 @@ class DataSourceTestHelper:
             )
 
             return HanaDataSourceTestHelper(name)
+        elif test_datasource == "mysql":
+            from soda_mysql.test_helpers.mysql_data_source_test_helper import (
+                MySqlDataSourceTestHelper,
+            )
+
+            return MySqlDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 
