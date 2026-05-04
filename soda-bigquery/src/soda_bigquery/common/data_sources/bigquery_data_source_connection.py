@@ -27,6 +27,9 @@ CONTEXT_AUTHENTICATION_DESCRIPTION = "Use context authentication"
 
 class BigQueryConnectionProperties(DataSourceConnectionProperties, ABC):
     project_id: Optional[str] = Field(None, description="BigQuery project ID")
+    execution_project: Optional[str] = Field(
+        None, description="BigQuery execution/billing project ID. If not set, uses project_id"
+    )
     storage_project_id: Optional[str] = Field(None, description="BigQuery storage project ID")
     location: Optional[str] = Field(None, description="BigQuery location")
     client_options: Optional[dict] = Field(None, description="Client options")
@@ -115,6 +118,18 @@ class BigQueryDataSourceConnection(DataSourceConnection):
     def _apply_optional_params(self, config: BigQueryConnectionProperties):
         # Users can optionally overwrite in the connection properties
         self.project_id = config.project_id if config.project_id else self.project_id
+        # execution_project is the project that will be billed for queries (aka billing project)
+        # If not set, defaults to project_id
+        if config.execution_project:
+            self.execution_project = config.execution_project
+        else:
+            # Ensure project_id is set before using it as fallback
+            if not self.project_id:
+                raise ValueError(
+                    "Either execution_project or project_id must be set. "
+                    "When using context authentication, ensure your default credentials include a project ID."
+                )
+            self.execution_project = self.project_id
         self.location = config.location
         self.client_options = config.client_options
 
@@ -137,7 +152,7 @@ class BigQueryDataSourceConnection(DataSourceConnection):
         )
         default_query_job_config = bigquery.QueryJobConfig(labels=self.labels)
         self.client = bigquery.Client(
-            project=self.project_id,
+            project=self.execution_project,
             credentials=self.credentials,
             default_query_job_config=default_query_job_config,
             client_info=client_info,
