@@ -274,6 +274,12 @@ class DataSourceTestHelper:
             )
 
             return Db2DataSourceTestHelper(name)
+        elif test_datasource == "hana":
+            from soda_hana.test_helpers.hana_data_source_test_helper import (
+                HanaDataSourceTestHelper,
+            )
+
+            return HanaDataSourceTestHelper(name)
         else:
             raise AssertionError(f"Unknown test data source {test_datasource}")
 

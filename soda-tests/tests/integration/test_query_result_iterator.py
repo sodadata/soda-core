@@ -41,6 +41,11 @@ def test_data_source_query_result_iterator(data_source_test_helper: DataSourceTe
                 "athena",
                 "dremio",
                 "db2",
+                # HANA's hdbcli reports rowcount=1 after a fetchall() but
+                # rowcount=-1 from the streaming iterator path before the
+                # first row is fetched (the cursor doesn't know the
+                # cardinality up front).
+                "hana",
             ):
                 expected_row_count = -1
             # Other datasources should correctly return row count
