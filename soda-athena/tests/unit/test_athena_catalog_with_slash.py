@@ -122,9 +122,9 @@ class TestE2EColumnMetadataFlowWithSlashCatalog:
         sql = dialect.build_columns_metadata_query_str(table_namespace=namespace, table_name=identifier.dataset_name)
 
         # FROM clause should reference the correct catalog
-        assert f'"s3tablescatalog/my_bucket"."information_schema"' in sql
+        assert '"s3tablescatalog/my_bucket"."information_schema"' in sql
         # WHERE clause should filter on the correct catalog
-        assert f"'s3tablescatalog/my_bucket'" in sql
+        assert "'s3tablescatalog/my_bucket'" in sql
         # WHERE clause should filter on the correct schema
         assert f"'{SCHEMA}'" in sql.lower()
         # WHERE clause should filter on the correct table
