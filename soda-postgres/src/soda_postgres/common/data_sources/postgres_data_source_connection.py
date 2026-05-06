@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from datetime import tzinfo
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, Literal, Optional, Union
 
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -85,6 +89,12 @@ class PostgresDataSourceConnection(DataSourceConnection):
         connection_kwargs = config.to_connection_kwargs()
         connection = psycopg.connect(**connection_kwargs)
         return connection
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        with self.connection.cursor() as cursor:
+            cursor.execute("SHOW timezone")
+            row = cursor.fetchone()
+        return parse_session_timezone(row[0] if row else "")
 
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         try:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import struct
 from abc import ABC
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Literal, Optional, Union
 
 import pyodbc
@@ -195,6 +195,24 @@ class SqlServerDataSourceConnection(DataSourceConnection):
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        # Use SYSDATETIMEOFFSET() instead of CURRENT_TIMEZONE_ID() so the same query works
+        # across the whole SQL Server family: SQL Server proper, Microsoft Fabric DW, Azure
+        # Synapse Dedicated/Serverless. CURRENT_TIMEZONE_ID is unsupported in Fabric and
+        # Synapse Dedicated; SYSDATETIMEOFFSET is universally supported.
+        # The connection registers ``handle_datetimeoffset`` as a pyodbc output converter for
+        # SQL_TYPE -155, so the returned value is a tz-aware ``datetime`` whose tzinfo is the
+        # exact offset reported by the server.
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("SELECT SYSDATETIMEOFFSET()")
+            row = cursor.fetchone()
+        finally:
+            cursor.close()
+        if row and isinstance(row[0], datetime) and row[0].tzinfo is not None:
+            return row[0].tzinfo
+        return timezone.utc
 
     def _get_autocommit_setting(self) -> bool:
         return False  # No need to set autocommit, as it is set to False by default.

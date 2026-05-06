@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from datetime import tzinfo
 from pathlib import Path
 from typing import Dict, Literal, Optional
 
@@ -9,7 +10,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from pydantic import Field, SecretStr, field_validator
 from snowflake import connector
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -145,3 +149,20 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
             application="Soda",
             **config.to_connection_kwargs(),
         )
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("SHOW PARAMETERS LIKE 'TIMEZONE' IN SESSION")
+            rows = cursor.fetchall()
+            description = cursor.description
+        finally:
+            cursor.close()
+        if not rows:
+            return parse_session_timezone("")
+        column_names = [col[0].lower() if col[0] else "" for col in description]
+        try:
+            value_index = column_names.index("value")
+        except ValueError:
+            value_index = 1  # Snowflake's SHOW PARAMETERS layout: key, value, default, level, description
+        return parse_session_timezone(rows[0][value_index])

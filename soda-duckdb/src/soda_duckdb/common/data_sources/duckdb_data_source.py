@@ -1,8 +1,12 @@
 from collections import namedtuple
+from datetime import tzinfo
 from pathlib import Path
 
 from duckdb import DuckDBPyConnection
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
@@ -252,6 +256,15 @@ class DuckDBDataSourceConnection(DataSourceConnection):
 
         except Exception as e:
             raise DataSourceConnectionException(e)
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("SELECT current_setting('TimeZone')")
+            row = cursor.fetchone()
+        finally:
+            cursor.close()
+        return parse_session_timezone(row[0] if row else "")
 
     def extract_format(self, config: DuckDBStandardConnectionProperties) -> str:
         return Path(config.database).suffix

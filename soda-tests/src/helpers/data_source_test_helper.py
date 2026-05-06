@@ -1086,9 +1086,12 @@ class DataSourceTestHelper:
                 # Timestamps
                 datetime.datetime(2021, 1, 1, 1, 1, 1),
                 datetime.datetime(2022, 1, 1, 1, 1, 1, 12),
-                # Timestamp Zones
-                datetime.datetime(2023, 1, 1, 1, 1, 1),
-                datetime.datetime(2024, 1, 1, 1, 1, 1, 12),
+                # Timestamp Zones — explicit UTC so the insert is unambiguous across vendors
+                # with different session TZs. Snowflake on session=PST would otherwise interpret
+                # a naive 01:01:01 as PST and store it as 09:01:01 UTC, breaking every test that
+                # round-trips this value back through the engine value mappers.
+                datetime.datetime(2023, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2024, 1, 1, 1, 1, 1, 12, tzinfo=datetime.timezone.utc),
                 # Dates
                 datetime.date(2025, 1, 1),
                 # Times

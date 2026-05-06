@@ -3,9 +3,17 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from datetime import timedelta, timezone, tzinfo
 from typing import Any, Callable, Optional
+
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except ImportError:
+    ZoneInfo = None
+    ZoneInfoNotFoundError = Exception
 
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 from soda_core.common.logging_constants import soda_logger
@@ -13,6 +21,35 @@ from soda_core.common.logging_constants import soda_logger
 logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
+
+
+def parse_session_timezone(value: str) -> tzinfo:
+    """Parse a session-timezone string returned by a database driver into a tzinfo.
+
+    Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT', or numeric offsets like
+    '+00:00', '-08:00', '+0530', 'UTC+02:00'. Falls back to UTC if unparseable.
+    """
+    if not value:
+        return timezone.utc
+    text = value.strip().strip("'\"")
+    if text.upper() in ("UTC", "GMT", "Z"):
+        return timezone.utc
+
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo(text)
+        except (ZoneInfoNotFoundError, ValueError, OSError):
+            pass
+
+    match = re.match(r"^(?:UTC|GMT)?([+-])(\d{1,2}):?(\d{2})?$", text)
+    if match:
+        sign = -1 if match.group(1) == "-" else 1
+        hours = int(match.group(2))
+        minutes = int(match.group(3) or 0)
+        return timezone(sign * timedelta(hours=hours, minutes=minutes))
+
+    logger.warning(f"Could not parse session timezone {text!r}; defaulting to UTC")
+    return timezone.utc
 
 
 class DataSourceConnection(ABC):
@@ -29,9 +66,27 @@ class DataSourceConnection(ABC):
         self.name: str = name
         self.connection_properties: dict = connection_properties
         self.connection: Optional[object] = connection
+        self._session_timezone_cache: Optional[tzinfo] = None
 
         # Auto-open on creation if no connection already supplied. See DataSource.open_connection()
         self.open_connection()
+
+    def get_session_timezone(self) -> tzinfo:
+        """Return the live session timezone of this connection.
+
+        Result is cached for the connection's lifetime. Subclasses override
+        :meth:`_fetch_session_timezone` to query their backend; the default is UTC.
+        """
+        if self._session_timezone_cache is None:
+            try:
+                self._session_timezone_cache = self._fetch_session_timezone()
+            except Exception as e:
+                logger.warning(f"Failed to query session timezone on '{self.name}'; defaulting to UTC: {e}")
+                self._session_timezone_cache = timezone.utc
+        return self._session_timezone_cache
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        return timezone.utc
 
     def __enter__(self):
         pass

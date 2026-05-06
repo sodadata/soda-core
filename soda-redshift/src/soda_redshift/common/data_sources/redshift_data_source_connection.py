@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
+from datetime import tzinfo
 from ipaddress import IPv4Address, IPv6Address
 from typing import Literal, Optional, Union
 
@@ -8,7 +9,10 @@ import boto3
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr
 from soda_core.common.aws_credentials import AwsCredentials
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
     DataSourceConnectionProperties,
@@ -140,3 +144,9 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         # Otherwise an `DEALLOCATE ALL` will be triggered, which is not supported.
         conn.prepare_threshold = None
         return conn
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        with self.connection.cursor() as cursor:
+            cursor.execute("SHOW timezone")
+            row = cursor.fetchone()
+        return parse_session_timezone(row[0] if row else "")
