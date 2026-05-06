@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from typing import Any, Optional
 
 from freezegun import freeze_time
@@ -196,6 +196,13 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
 
     def close_connection(self) -> None:
         "This is a no-op for SparkDataFrameDataSourceConnection, there is no connection to close."
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        # SparkDataFrameDataSourceConnection's _create_connection issues
+        # ``SET TIME ZONE 'UTC';`` for new sessions; existing sessions are caller-provided
+        # but the value mappers only ever need the *effective* TZ at read time, which we
+        # report as UTC since that's the only mode this adapter is configured for.
+        return timezone.utc
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]  # The first element of the tuple is the column name
