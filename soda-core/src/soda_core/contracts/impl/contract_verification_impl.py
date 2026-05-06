@@ -358,7 +358,7 @@ class CheckCollectionImplExtension(Protocol):
         return []
 
 
-class ContractImpl:
+class CheckCollectionImpl:
     contract_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     @classmethod
@@ -906,6 +906,10 @@ def _get_contract_verification_status(has_errors: bool, check_results: list[Chec
         return ContractVerificationStatus.PASSED
 
     return ContractVerificationStatus.UNKNOWN
+
+
+class ContractImpl(CheckCollectionImpl):
+    pass
 
 
 class MeasurementValues:
