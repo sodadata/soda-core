@@ -12,8 +12,8 @@ affected paths: contract verify queries, column metadata queries, and DDL.
 from __future__ import annotations
 
 from soda_athena.common.data_sources.athena_data_source import (
-    AthenaDataSourceImpl,
     AthenaSqlDialect,
+    _collapse_athena_prefixes,
 )
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.metadata_types import DbSchemaDataSourceNamespace
@@ -95,14 +95,14 @@ class TestE2EColumnMetadataFlowWithSlashCatalog:
         identifier = DatasetIdentifier.parse(DQN)
         # Simulate what DataSourceImpl._build_columns_metadata_namespace does,
         # but using Athena's overridden extract methods
-        catalog, schema = AthenaDataSourceImpl._normalize_athena_prefixes(None, identifier.prefixes)
+        catalog, schema = _collapse_athena_prefixes(identifier.prefixes)
         assert catalog == S3_TABLES_CATALOG
         assert schema == SCHEMA
 
     def test_metadata_query_from_clause(self):
         """The metadata query FROM clause references the correct catalog's information_schema."""
         identifier = DatasetIdentifier.parse(DQN)
-        catalog, schema = AthenaDataSourceImpl._normalize_athena_prefixes(None, identifier.prefixes)
+        catalog, schema = _collapse_athena_prefixes(identifier.prefixes)
 
         namespace = DbSchemaDataSourceNamespace(database=catalog, schema=schema)
         dialect = AthenaSqlDialect()
@@ -114,7 +114,7 @@ class TestE2EColumnMetadataFlowWithSlashCatalog:
     def test_full_metadata_query_sql(self):
         """Full column metadata query SQL uses the correct catalog in FROM and WHERE."""
         identifier = DatasetIdentifier.parse(DQN)
-        catalog, schema = AthenaDataSourceImpl._normalize_athena_prefixes(None, identifier.prefixes)
+        catalog, schema = _collapse_athena_prefixes(identifier.prefixes)
 
         namespace = DbSchemaDataSourceNamespace(database=catalog, schema=schema)
         dialect = AthenaSqlDialect()
@@ -168,7 +168,7 @@ class TestE2ERoundTripWithSlashCatalog:
         reconstructed = identifier.to_string()
         re_parsed = DatasetIdentifier.parse(reconstructed)
 
-        catalog, schema = AthenaDataSourceImpl._normalize_athena_prefixes(None, re_parsed.prefixes)
+        catalog, schema = _collapse_athena_prefixes(re_parsed.prefixes)
         assert catalog == S3_TABLES_CATALOG
         assert schema == SCHEMA
 
@@ -195,13 +195,13 @@ class TestBackwardCompatibilityRegularCatalog:
 
     def test_regular_prefix_extraction(self):
         identifier = DatasetIdentifier.parse(self.REGULAR_DQN)
-        catalog, schema = AthenaDataSourceImpl._normalize_athena_prefixes(None, identifier.prefixes)
+        catalog, schema = _collapse_athena_prefixes(identifier.prefixes)
         assert catalog == "awsdatacatalog"
         assert schema == "my_schema"
 
     def test_regular_metadata_query(self):
         identifier = DatasetIdentifier.parse(self.REGULAR_DQN)
-        catalog, schema = AthenaDataSourceImpl._normalize_athena_prefixes(None, identifier.prefixes)
+        catalog, schema = _collapse_athena_prefixes(identifier.prefixes)
         namespace = DbSchemaDataSourceNamespace(database=catalog, schema=schema)
         dialect = AthenaSqlDialect()
         sql = dialect.build_columns_metadata_query_str(table_namespace=namespace, table_name=identifier.dataset_name)

@@ -1,6 +1,6 @@
 from soda_athena.common.data_sources.athena_data_source import (
-    AthenaDataSourceImpl,
     AthenaSqlDialect,
+    _collapse_athena_prefixes,
 )
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT, STAR
 
@@ -66,25 +66,26 @@ class TestAthenaCatalogWithSlash:
         assert '"s3tablescatalog/bucket_name"."my_schema"."my_table"' in sql
 
 
-class TestAthenaDataSourcePrefixExtraction:
-    """Test AthenaDataSourceImpl correctly extracts catalog/schema from over-split prefixes."""
+class TestCollapseAthenaPrefixes:
+    """Test the prefix collapse helper used by AthenaDataSourceImpl and AthenaSqlDialect."""
 
     def test_regular_prefix(self):
-        result = AthenaDataSourceImpl._normalize_athena_prefixes(None, ["awsdatacatalog", "my_schema"])
-        assert result == ("awsdatacatalog", "my_schema")
+        assert _collapse_athena_prefixes(["awsdatacatalog", "my_schema"]) == ("awsdatacatalog", "my_schema")
 
     def test_slash_catalog_prefix(self):
-        result = AthenaDataSourceImpl._normalize_athena_prefixes(None, ["s3tablescatalog", "bucket_name", "my_schema"])
-        assert result == ("s3tablescatalog/bucket_name", "my_schema")
+        assert _collapse_athena_prefixes(["s3tablescatalog", "bucket_name", "my_schema"]) == (
+            "s3tablescatalog/bucket_name",
+            "my_schema",
+        )
 
     def test_empty_prefix(self):
-        result = AthenaDataSourceImpl._normalize_athena_prefixes(None, [])
-        assert result == (None, None)
+        assert _collapse_athena_prefixes([]) == (None, None)
 
     def test_single_prefix(self):
-        result = AthenaDataSourceImpl._normalize_athena_prefixes(None, ["awsdatacatalog"])
-        assert result == ("awsdatacatalog", None)
+        assert _collapse_athena_prefixes(["awsdatacatalog"]) == ("awsdatacatalog", None)
 
     def test_multiple_slashes_in_catalog(self):
-        result = AthenaDataSourceImpl._normalize_athena_prefixes(None, ["s3tablescatalog", "a", "b", "my_schema"])
-        assert result == ("s3tablescatalog/a/b", "my_schema")
+        assert _collapse_athena_prefixes(["s3tablescatalog", "a", "b", "my_schema"]) == (
+            "s3tablescatalog/a/b",
+            "my_schema",
+        )

@@ -29,6 +29,22 @@ from soda_core.common.sql_dialect import SqlDialect
 logger: logging.Logger = soda_logger
 
 
+def _collapse_athena_prefixes(prefixes: Optional[list[str]]) -> tuple[Optional[str], Optional[str]]:
+    """Collapse a possibly over-split prefix list back to (catalog, schema).
+
+    Athena always has exactly 2 logical prefix levels: [catalog, schema].
+    When a catalog name contains '/' (e.g. 's3tablescatalog/bucket_name'),
+    DatasetIdentifier.parse() splits it into extra elements. This helper
+    rejoins everything except the last element as the catalog and treats
+    the last element as the schema.
+    """
+    if not prefixes:
+        return None, None
+    if len(prefixes) == 1:
+        return prefixes[0], None
+    return "/".join(prefixes[:-1]), prefixes[-1]
+
+
 class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
     def __init__(self, data_source_model: AthenaDataSourceModel, connection: Optional[DataSourceConnection] = None):
         super().__init__(data_source_model=data_source_model, connection=connection)
@@ -146,30 +162,16 @@ class AthenaDataSourceImpl(DataSourceImpl, model_class=AthenaDataSourceModel):
         warnings.filterwarnings("ignore", category=DeprecationWarning, message="the imp module is deprecated")
         warnings.filterwarnings("ignore", category=DeprecationWarning, message="Using or importing the ABCs")
 
-    def _normalize_athena_prefixes(self, prefixes: list[str]) -> tuple[Optional[str], Optional[str]]:
-        """Extract catalog and schema from a prefix list that may have been over-split.
-
-        Athena always has exactly 2 logical prefix levels: [catalog, schema].
-        When a catalog name contains '/' (e.g. 's3tablescatalog/bucket_name'),
-        DatasetIdentifier.parse() splits it into extra elements. This method
-        rejoins them: everything except the last element forms the catalog,
-        and the last element is the schema.
-        """
-        if not prefixes:
-            return None, None
-        if len(prefixes) == 1:
-            return prefixes[0], None
-        # All elements except the last form the catalog; last is schema
-        catalog = "/".join(prefixes[:-1])
-        schema = prefixes[-1]
-        return catalog, schema
-
+    # The base impl uses sql_dialect.get_database_prefix_index() / get_schema_prefix_index() —
+    # fixed indices into prefixes. That seam doesn't work for Athena: a catalog containing '/'
+    # is over-split by DatasetIdentifier.parse() into an arbitrary number of prefix elements,
+    # so we bypass the index machinery and collapse the tail back into a single catalog name.
     def extract_database_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        catalog, _ = self._normalize_athena_prefixes(prefixes)
+        catalog, _ = _collapse_athena_prefixes(prefixes)
         return catalog
 
     def extract_schema_from_prefix(self, prefixes: list[str]) -> Optional[str]:
-        _, schema = self._normalize_athena_prefixes(prefixes)
+        _, schema = _collapse_athena_prefixes(prefixes)
         return schema
 
     def verify_if_table_exists(self, prefixes: list[str], table_name: str) -> bool:
@@ -201,24 +203,20 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
         """Athena DDL uses Hive parser (backticks) while DML uses Trino parser (double quotes)."""
         return f"`{identifier}`" if isinstance(identifier, str) and len(identifier) > 0 else None
 
-    def _normalize_prefix(self, dataset_prefix: Optional[list[str]]) -> Optional[list[str]]:
-        """Collapse over-split prefix parts back into [catalog, schema].
-
-        When a catalog contains '/', DatasetIdentifier.parse() produces extra prefix
-        elements. This method rejoins all but the last element as the catalog name.
-        """
-        if dataset_prefix and len(dataset_prefix) > 2:
-            catalog = "/".join(dataset_prefix[:-1])
-            schema = dataset_prefix[-1]
-            return [catalog, schema]
-        return dataset_prefix
+    @staticmethod
+    def _normalize_prefix(dataset_prefix: Optional[list[str]]) -> Optional[list[str]]:
+        """Adapt _collapse_athena_prefixes to the [catalog, schema] list shape the base dialect expects."""
+        if not dataset_prefix:
+            return dataset_prefix
+        catalog, schema = _collapse_athena_prefixes(dataset_prefix)
+        if schema is None:
+            return [catalog] if catalog is not None else dataset_prefix
+        return [catalog, schema]
 
     def _build_qualified_quoted_dataset_name(self, dataset_name: str, dataset_prefix: Optional[list[str]]) -> str:
-        """Build quoted qualified name, collapsing over-split catalog prefix parts."""
         return super()._build_qualified_quoted_dataset_name(dataset_name, self._normalize_prefix(dataset_prefix))
 
     def qualify_dataset_name(self, dataset_prefix: list[str], dataset_name: str) -> str:
-        """Qualify a dataset name, collapsing over-split catalog prefix parts."""
         return super().qualify_dataset_name(self._normalize_prefix(dataset_prefix), dataset_name)
 
     def default_casify(self, identifier: str) -> str:
