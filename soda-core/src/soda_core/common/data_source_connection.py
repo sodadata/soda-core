@@ -81,9 +81,7 @@ class DataSourceConnection(ABC):
             try:
                 self._session_timezone_cache = self._fetch_session_timezone()
             except Exception as e:
-                logger.warning(
-                    f"Failed to query session timezone on '{self.name}'; defaulting to UTC: {e}"
-                )
+                logger.warning(f"Failed to query session timezone on '{self.name}'; defaulting to UTC: {e}")
                 self._session_timezone_cache = timezone.utc
         return self._session_timezone_cache
 

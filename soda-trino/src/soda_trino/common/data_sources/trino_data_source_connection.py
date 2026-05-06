@@ -8,7 +8,10 @@ from typing import Literal, Optional, Union
 import requests
 import trino
 from pydantic import BaseModel, Field, IPvAnyAddress, SecretStr
-from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (

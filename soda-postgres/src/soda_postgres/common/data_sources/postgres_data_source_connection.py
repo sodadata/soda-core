@@ -8,7 +8,10 @@ from typing import Callable, ClassVar, Dict, Literal, Optional, Union
 
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
-from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase

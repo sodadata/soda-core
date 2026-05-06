@@ -3,7 +3,10 @@ from datetime import tzinfo
 from pathlib import Path
 
 from duckdb import DuckDBPyConnection
-from soda_core.common.data_source_connection import DataSourceConnection, parse_session_timezone
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName

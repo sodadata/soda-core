@@ -91,8 +91,7 @@ def test_fetch_session_timezone_emits_no_errors(data_source_test_helper: DataSou
         captured_logs.remove_from_root_logger()
 
     assert isinstance(result, tzinfo), (
-        f"_fetch_session_timezone() returned {result!r} (type {type(result).__name__}); "
-        "expected a tzinfo instance"
+        f"_fetch_session_timezone() returned {result!r} (type {type(result).__name__}); " "expected a tzinfo instance"
     )
 
     error_records = [r for r in captured_logs.get_log_records() if r.levelno >= logging.WARNING]
@@ -134,6 +133,6 @@ def test_get_session_timezone_matches_expected(data_source_test_helper: DataSour
 
     # Names differ but offsets agree — accept (e.g. "UTC" vs "Etc/UTC" vs +00:00).
     now = datetime.now()
-    assert expected.utcoffset(now) == actual.utcoffset(now), (
-        f"Expected session TZ {expected!r} for '{test_datasource}' but connection reported {actual!r}"
-    )
+    assert expected.utcoffset(now) == actual.utcoffset(
+        now
+    ), f"Expected session TZ {expected!r} for '{test_datasource}' but connection reported {actual!r}"
