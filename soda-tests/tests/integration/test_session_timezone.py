@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
@@ -6,6 +7,12 @@ import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_fixtures import test_datasource
 from soda_core.common.logs import Logs
+
+# GitHub Actions sets ``GITHUB_ACTIONS=true`` on every CI runner. We use it to switch the
+# Snowflake-expected session TZ between Soda's CI account (configured to UTC) and the dev
+# default account (which defaults to ``America/Los_Angeles``). Allows the same test file to
+# run cleanly in both environments without manual edits.
+_IN_GITHUB_ACTIONS: bool = os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
 
 # What session timezone we expect each test datasource to report.
 #
@@ -23,7 +30,10 @@ EXPECTED_SESSION_TIMEZONES: dict[str, tzinfo] = {
     "sqlserver": timezone.utc,
     "redshift": timezone.utc,
     "databricks": ZoneInfo("Etc/UTC"),
-    "snowflake": ZoneInfo("America/Los_Angeles"),
+    # Soda's GitHub Actions Snowflake account is configured to UTC; the developer-default
+    # account is on America/Los_Angeles. Pick whichever we expect for the current environment
+    # so the assertion fires only when the *actual* configured TZ drifts.
+    "snowflake": timezone.utc if _IN_GITHUB_ACTIONS else ZoneInfo("America/Los_Angeles"),
     "bigquery": timezone.utc,  # BigQuery is UTC-only by design
     "athena": timezone.utc,  # Athena is UTC-only
     "fabric": timezone.utc,  # Inherits SQL Server adapter; test instance is UTC
