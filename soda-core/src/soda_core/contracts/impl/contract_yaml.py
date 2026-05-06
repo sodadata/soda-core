@@ -30,8 +30,8 @@ logger: logging.Logger = soda_logger
 from typing import Protocol
 
 
-class ContractYamlExtension(Protocol):
-    # Extend the contract YAML object. Can modify the state of the contract YAML.
+class CheckCollectionYamlExtension(Protocol):
+    # Extend the check-collection YAML object. Can modify the state of the YAML.
     def extend(self, contract_yaml: "ContractYaml") -> None:
         ...
 
@@ -48,10 +48,10 @@ class ContractYaml:
     Extensions can be registered using the `register_extension` method, and they will be automatically applied.
     """
 
-    contract_yaml_extensions: dict[str, type[ContractYamlExtension]] = {}
+    contract_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
 
     @classmethod
-    def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
+    def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:
         cls.contract_yaml_extensions[name] = extension_cls
 
     @classmethod
