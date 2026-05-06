@@ -347,7 +347,7 @@ class ContractVerificationSessionImpl:
         return contract_verification_results
 
 
-class ContractImplExtension(Protocol):
+class CheckCollectionImplExtension(Protocol):
     def __init__(self, contract_impl: ContractImpl):
         self.contract_impl: ContractImpl = contract_impl
 
@@ -359,10 +359,10 @@ class ContractImplExtension(Protocol):
 
 
 class ContractImpl:
-    contract_impl_extensions: dict[str, type[ContractImplExtension]] = {}
+    contract_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     @classmethod
-    def register_extension(cls, name: str, extension_cls: type[ContractImplExtension]) -> None:
+    def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:
         cls.contract_impl_extensions[name] = extension_cls
 
     def __init__(
@@ -481,7 +481,7 @@ class ContractImpl:
                 self.sampler_limit,
             )
 
-        self.extensions: list[ContractImplExtension] = []
+        self.extensions: list[CheckCollectionImplExtension] = []
         for extension_cls in ContractImpl.contract_impl_extensions.values():
             try:
                 extension = extension_cls(self)
