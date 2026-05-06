@@ -36,7 +36,7 @@ class CheckCollectionYamlExtension(Protocol):
         ...
 
 
-class ContractYaml:
+class CheckCollectionYaml:
     """
     Represents YAML as close as possible.
     None means the key was not present.
@@ -61,7 +61,7 @@ class ContractYaml:
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ) -> Optional[ContractYaml]:
+    ) -> Optional[CheckCollectionYaml]:
         contract_yaml = ContractYaml(
             contract_yaml_source=contract_yaml_source,
             provided_variable_values=provided_variable_values,
@@ -132,7 +132,7 @@ class ContractYaml:
         self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
 
-        for extension_cls in ContractYaml.contract_yaml_extensions.values():
+        for extension_cls in CheckCollectionYaml.contract_yaml_extensions.values():
             try:
                 extension = extension_cls()
                 extension.extend(self)
@@ -357,6 +357,10 @@ class ContractYaml:
                     f"timestamp format: '{data_timestamp}'"
                 )
         return default_soda_now
+
+
+class ContractYaml(CheckCollectionYaml):
+    pass
 
 
 class VariableYaml:
