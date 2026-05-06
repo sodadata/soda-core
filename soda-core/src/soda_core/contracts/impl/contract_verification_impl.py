@@ -1403,9 +1403,12 @@ class CheckImpl:
         "missing": "No missing values",
         "invalid": "No invalid values",
         "duplicate": "No duplicate values",
+        "fuzzy_duplicate": "No fuzzy duplicate values",
         "aggregate": "Metric function meets threshold",
         "metric": "Metric meets threshold",
         "failed_rows": "No rows violating the condition",
+        "llm": "LLM validation passes",
+        "hierarchy": "Hierarchy structure is valid",
     }
 
     @property
