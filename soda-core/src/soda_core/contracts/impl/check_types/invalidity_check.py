@@ -244,20 +244,35 @@ class InvalidReferenceCountQuery(Query):
 
         self._cte = cte
 
-        sql_ast = self.build_query(cte=self._cte, select_clause=SELECT(COUNT(STAR())))
+        sql_ast = self.build_query(cte=self._cte, select_clause=SELECT(COUNT(STAR())), check_filter=self.check_filter)
         self.sql = self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
-    def build_query(self, cte: CTE, select_clause: SqlExpression) -> list[SqlExpression]:
+    def build_query(
+        self, cte: CTE, select_clause: SqlExpression, check_filter: Optional[str] = None
+    ) -> list[SqlExpression]:
         query = [
             WITH([cte, self.referenced_cte()]),
             select_clause,
             FROM(cte.alias).AS(self.referencing_alias),
-            WHERE.optional(SqlExpressionStr.optional(self.check_filter)),
+            WHERE.optional(SqlExpressionStr.optional(check_filter)),
         ]
 
         query.extend(self.query_join())
 
         return query
+
+    def _build_qualified_filter_sql(self) -> str:
+        """Re-render the JOIN query with check_filter columns qualified against the
+        source alias. Used as a one-shot retry when the original query errors."""
+        qualified_filter: str = self.data_source_impl.sql_dialect.qualify_unqualified_columns_with_alias(
+            self.check_filter, self.referencing_alias
+        )
+        sql_ast = self.build_query(
+            cte=self._cte,
+            select_clause=SELECT(COUNT(STAR())),
+            check_filter=qualified_filter,
+        )
+        return self.data_source_impl.sql_dialect.build_select_sql(sql_ast)
 
     def referenced_cte(self) -> CTE:
         valid_reference_data: ValidReferenceData = self.metric_impl.missing_and_validity.valid_reference_data
@@ -332,9 +347,39 @@ class InvalidReferenceCountQuery(Query):
     def execute(self) -> list[Measurement]:
         try:
             query_result: QueryResult = self.data_source_impl.execute_query(self.sql)
-        except Exception as e:
-            logger.error(msg=f"Could not execute invalid reference query {self.sql}: {e}", exc_info=True)
-            return []
+        except Exception as initial_error:
+            # The most common cause of failure here is an ambiguous-column error when the
+            # check_filter references a name that exists in both the source and reference
+            # datasets (the JOIN exposes both). Engine error wording varies, so instead of
+            # sniffing the message we retry once with the filter columns qualified against
+            # the source alias. If the retry also fails (or there is no filter to retry
+            # with), surface the original error and, where applicable, the retry error too.
+            if not self.check_filter:
+                logger.error(
+                    msg=f"Could not execute invalid reference query {self.sql}: {initial_error}",
+                    exc_info=True,
+                )
+                return []
+
+            retry_sql: str = self._build_qualified_filter_sql()
+            try:
+                query_result = self.data_source_impl.execute_query(retry_sql)
+            except Exception as retry_error:
+                logger.error(
+                    msg=(
+                        f"Could not execute invalid reference query.\n"
+                        f"Initial query failed: {self.sql}\n"
+                        f"  Initial error: {initial_error}\n"
+                        f"Retried with the check_filter columns qualified against source alias "
+                        f"{self.referencing_alias!r} (common fix for ambiguous-column errors when "
+                        f"the filter references a column that exists in both the source and "
+                        f"reference datasets); the retry also failed.\n"
+                        f"Retry query: {retry_sql}\n"
+                        f"  Retry error: {retry_error}"
+                    ),
+                    exc_info=True,
+                )
+                return []
 
         metric_value = query_result.rows[0][0]
         metric_impl: MetricImpl = self.metrics[0]
