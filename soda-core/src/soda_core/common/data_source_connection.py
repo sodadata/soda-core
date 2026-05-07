@@ -6,7 +6,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from datetime import timedelta, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Optional
 
 try:
@@ -24,8 +24,39 @@ from tabulate import tabulate
 
 # IANA names that mean "UTC, no DST, no historical offsets". When ZoneInfo returns one
 # of these, we collapse to ``timezone.utc`` so adapter outputs are uniform regardless of
-# whether the driver reports the literal string ``"UTC"`` or the IANA alias ``"Etc/UTC"``.
-_UTC_ALIAS_ZONE_KEYS = frozenset({"UTC", "Etc/UTC", "Universal", "Zulu", "Etc/Zulu"})
+# whether the driver reports the literal string ``"UTC"`` or one of the IANA aliases
+# below. The Etc/GMT entries are tricky — note that Etc/GMT+0 / Etc/GMT-0 are both
+# zero-offset variants (Etc/GMT+N has *negative* offset N hours per POSIX inversion,
+# but +0/-0 collapse to UTC). GMT0 is a System V-style zero-offset zone alias.
+_UTC_ALIAS_ZONE_KEYS = frozenset(
+    {
+        "UTC",
+        "Etc/UTC",
+        "Universal",
+        "Etc/Universal",
+        "Zulu",
+        "Etc/Zulu",
+        "GMT",
+        "GMT0",
+        "GMT+0",
+        "GMT-0",
+        "Etc/GMT",
+        "Etc/GMT0",
+        "Etc/GMT+0",
+        "Etc/GMT-0",
+        "Greenwich",
+        "Etc/Greenwich",
+    }
+)
+
+# Driver outputs that mean "use the host's local TZ at the time of the query". Postgres
+# returns ``localtime`` from ``SHOW timezone`` when the server is configured that way.
+# Trino's ``current_timezone()`` can return ``system`` for a similar setup. Both should
+# resolve to the engine host's actual local TZ so naive returns from the source can be
+# canonicalized correctly. Without this, ``parse_session_timezone`` would reject the
+# literal as unparseable and the connection wrapper would fall back to UTC, silently
+# shifting wallclocks by the host's offset for every naive return from a TZ-aware column.
+_HOST_LOCAL_LITERAL_VALUES = frozenset({"localtime", "system"})
 
 
 def parse_session_timezone(value: Optional[str]) -> tzinfo:
@@ -64,6 +95,14 @@ def parse_session_timezone(value: Optional[str]) -> tzinfo:
         return timezone.utc
     if text.upper() in ("UTC", "GMT", "Z"):
         return timezone.utc
+
+    if text.lower() in _HOST_LOCAL_LITERAL_VALUES:
+        # Driver said "use the host local TZ". Resolve via the OS now. The result is a
+        # fixed-offset tzinfo derived from the current local time — DST drift across a
+        # long-lived connection is the same as for SQL Server / DB2 (out of scope per
+        # the team's "DWH connections are short-lived" stance), but the wallclock at
+        # canonicalization time is correct.
+        return datetime.now().astimezone().tzinfo
 
     if ZoneInfo is not None:
         try:

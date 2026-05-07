@@ -167,3 +167,57 @@ class TestUtcAliasIanaZoneNormalization:
         result = parse_session_timezone("America/Los_Angeles")
         assert isinstance(result, ZoneInfo)
         assert result is not timezone.utc
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "Etc/GMT+0",
+            "Etc/GMT-0",
+            "Etc/GMT0",
+            "Etc/GMT",
+            "Etc/Universal",
+            "Etc/Greenwich",
+            "GMT0",
+            "GMT+0",
+            "GMT-0",
+            "Greenwich",
+        ],
+    )
+    def test_extended_utc_aliases_collapse_to_timezone_utc(self, value: str) -> None:
+        # The ``Etc/GMT+0`` / ``Etc/GMT-0`` family are zero-offset zones in the IANA
+        # database. DuckDB's ``current_setting('TimeZone')`` can return ``GMT0``;
+        # Postgres can return ``Greenwich``. The first-pass whitelist missed these.
+        assert parse_session_timezone(value) is timezone.utc
+
+
+class TestHostLocalLiteralValues:
+    """Postgres ``timezone = 'localtime'`` and Trino's ``current_timezone() = 'system'``
+    both mean "use the host's local TZ". The parser previously rejected these as
+    unparseable, the connection wrapper caught and returned UTC, and naive returns
+    from TZ-aware columns silently shifted by the host's offset. Now resolves to the
+    OS-local TZ.
+    """
+
+    def test_localtime_resolves_to_host_local_tzinfo(self) -> None:
+        result = parse_session_timezone("localtime")
+        # The result must be a tzinfo whose offset matches the host's current offset.
+        # Don't pin a specific zone (the test runs on multiple hosts).
+        from datetime import datetime as _dt
+
+        host_local = _dt.now().astimezone().tzinfo
+        assert result.utcoffset(_dt.now()) == host_local.utcoffset(_dt.now())
+
+    def test_system_resolves_to_host_local_tzinfo(self) -> None:
+        result = parse_session_timezone("system")
+        from datetime import datetime as _dt
+
+        host_local = _dt.now().astimezone().tzinfo
+        assert result.utcoffset(_dt.now()) == host_local.utcoffset(_dt.now())
+
+    @pytest.mark.parametrize("value", ["LOCALTIME", "SYSTEM", "LocalTime", "  localtime  ", "'localtime'"])
+    def test_localtime_case_and_whitespace_insensitive(self, value: str) -> None:
+        # Drivers may upper-case, lower-case, quote, or pad their reported value;
+        # all forms should resolve to host-local.
+        result = parse_session_timezone(value)
+        assert result is not None
+        assert hasattr(result, "utcoffset")
