@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from datetime import tzinfo
+from datetime import timezone, tzinfo
 from pathlib import Path
 from typing import Dict, Literal, Optional
 
@@ -159,10 +159,23 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
         finally:
             cursor.close()
         if not rows:
-            return parse_session_timezone("")
+            # SHOW PARAMETERS returned no row at all — treat as "no session TZ
+            # configured" rather than a parse failure (parse_session_timezone returns
+            # UTC silently for empty input but raises on truly junk values).
+            return timezone.utc
         column_names = [col[0].lower() if col[0] else "" for col in description]
         try:
             value_index = column_names.index("value")
         except ValueError:
-            value_index = 1  # Snowflake's SHOW PARAMETERS layout: key, value, default, level, description
+            # Defensive: a Snowflake driver / server upgrade has reshaped the SHOW
+            # PARAMETERS output. We refuse to guess a column index — the prior code
+            # silently fell back to ``column 1`` which would happen to be right today
+            # but would mask a real schema change tomorrow. Surface the situation as a
+            # warning and default to UTC; the connection-level wrapper will not log it
+            # again because we return rather than raise.
+            logger.warning(
+                "Snowflake SHOW PARAMETERS did not include a 'value' column "
+                f"(got {column_names!r}); defaulting session timezone to UTC"
+            )
+            return timezone.utc
         return parse_session_timezone(rows[0][value_index])
