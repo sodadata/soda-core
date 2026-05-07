@@ -93,12 +93,15 @@ class TestEmptyInputFallback:
     about *non-empty* junk, covered by ``TestUnparseableInputRaises``.
     """
 
+    def _assert_silent_utc_fallback(self, value, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level("WARNING"):
+            assert parse_session_timezone(value) is timezone.utc
+        assert caplog.records == []
+
     @pytest.mark.parametrize("value", ["", "   ", "\t\n", None])
     def test_empty_or_none_returns_utc_silently(self, value, caplog: pytest.LogCaptureFixture) -> None:
-        with caplog.at_level("WARNING"):
-            result = parse_session_timezone(value)
-        assert result is timezone.utc
-        assert caplog.records == []  # No noise on the conventional empty-fallback path.
+        # No noise on the conventional empty-fallback path.
+        self._assert_silent_utc_fallback(value, caplog)
 
     @pytest.mark.parametrize("value", ["''", '""', "' '", '"  "'])
     def test_quoted_empty_returns_utc_silently(self, value, caplog: pytest.LogCaptureFixture) -> None:
@@ -106,10 +109,7 @@ class TestEmptyInputFallback:
         # under particular configs return ``''``). After stripping the outer quotes the
         # body is empty — this is the same conceptual fallback as a raw empty input and
         # must not produce a warning.
-        with caplog.at_level("WARNING"):
-            result = parse_session_timezone(value)
-        assert result is timezone.utc
-        assert caplog.records == []
+        self._assert_silent_utc_fallback(value, caplog)
 
 
 class TestUnparseableInputRaises:
