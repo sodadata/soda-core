@@ -189,7 +189,11 @@ class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):
     ...
 
 
-class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
+class CheckCollectionYamlSource(YamlSource, file_type=FileType.CONTRACT):
+    ...
+
+
+class ContractYamlSource(CheckCollectionYamlSource, file_type=FileType.CONTRACT):
     ...
 
 
