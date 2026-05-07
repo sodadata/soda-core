@@ -11,7 +11,11 @@ from typing import Any, Optional
 from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
-from soda_core.common.yaml import CheckCollectionYamlSource, ContractYamlSource, DataSourceYamlSource
+from soda_core.common.yaml import (
+    CheckCollectionYamlSource,
+    ContractYamlSource,
+    DataSourceYamlSource,
+)
 from soda_core.contracts.contract_interfaces import Loggable
 
 logger: logging.Logger = soda_logger
