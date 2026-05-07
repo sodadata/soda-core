@@ -10,8 +10,6 @@ from typing import Protocol
 from ruamel.yaml import YAML
 from soda_core.check_collections.check_collection_verification import (
     Check,
-    CheckCollectionResult,
-    CheckCollectionSessionResult,
     CheckOutcome,
     CheckResult,
     Contract,

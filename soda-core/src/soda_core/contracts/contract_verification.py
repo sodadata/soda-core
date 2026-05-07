@@ -22,7 +22,11 @@ from soda_core.check_collections.check_collection_verification import (
     YamlFileContentInfo,
 )
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.yaml import CheckCollectionYamlSource, ContractYamlSource, DataSourceYamlSource
+from soda_core.common.yaml import (
+    CheckCollectionYamlSource,
+    ContractYamlSource,
+    DataSourceYamlSource,
+)
 
 logger: logging.Logger = soda_logger
 

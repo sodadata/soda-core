@@ -26,7 +26,6 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
     ThresholdType,
     ValidCountMetric,
     ValidReferenceData,
-    _get_contract_verification_status,
 )
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger

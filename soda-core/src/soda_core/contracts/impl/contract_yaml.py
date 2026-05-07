@@ -17,10 +17,6 @@ from soda_core.check_collections.impl.check_collection_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
     VariableYaml,
-    _DefaultSqlDialect,
-    _DEFAULT_SQL_DIALECT,
-    _TYPE_PARAM_ALLOWED_TYPES_FOR_MESSAGE,
-    _resolve_to_soda_type,
 )
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
