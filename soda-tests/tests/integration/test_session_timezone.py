@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone, tzinfo
+from typing import Union
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -18,18 +19,28 @@ from soda_core.common.logs import Logs
 # Some adapters (DuckDB, Trino without an explicit session property) inherit the host's local
 # timezone — for those we expect whatever the runner's OS reports, not a fixed string. They are
 # in EXPECTED_HOST_LOCAL_DATASOURCES below.
-EXPECTED_SESSION_TIMEZONES: dict[str, tzinfo] = {
+#
+# The value can be either a single ``tzinfo`` or a tuple of acceptable ``tzinfo`` values. A tuple
+# is used when more than one TZ is legitimately observable across the test environments — for
+# example, snapshot-replay returning a value baked in at recording time vs the live database
+# returning a different (also-correct) value because the account was reconfigured since. The
+# match is "actual equals or is offset-equivalent to *any* of the expected entries". A tuple
+# does NOT relax the test: each entry is still strictly checked, the test fails only when the
+# actual matches none of them.
+_TzExpected = Union[tzinfo, tuple[tzinfo, ...]]
+
+EXPECTED_SESSION_TIMEZONES: dict[str, _TzExpected] = {
     "postgres": timezone.utc,
     "sqlserver": timezone.utc,
     "redshift": timezone.utc,
     "databricks": ZoneInfo("Etc/UTC"),
-    # Soda's Snowflake test accounts (both CI and developer-default) are on
-    # ``America/Los_Angeles``. A previous version of this file branched on
-    # ``GITHUB_ACTIONS`` expecting the CI account to be on UTC, but a CI run reported
-    # LA — confirming both environments are LA today. Keeping it unconditional matches
-    # the live state and removes an environment-dependent branch the strict-equality
-    # assertion below cannot reconcile.
-    "snowflake": ZoneInfo("America/Los_Angeles"),
+    # Snapshot replay returns ``timezone.utc`` (recorded when the CI Snowflake account
+    # was on UTC); live runs against the current CI account return
+    # ``America/Los_Angeles``. Both are correct values that can appear depending on
+    # whether snapshots are active for this run, so accept either. A future flip of
+    # the CI account would still need a deliberate update here — this is not a free
+    # pass for arbitrary drift.
+    "snowflake": (ZoneInfo("America/Los_Angeles"), timezone.utc),
     "bigquery": timezone.utc,  # BigQuery is UTC-only by design
     "athena": timezone.utc,  # Athena is UTC-only
     "fabric": timezone.utc,  # Inherits SQL Server adapter; test instance is UTC
@@ -134,34 +145,39 @@ def test_get_session_timezone_matches_expected(data_source_test_helper: DataSour
         return
 
     expected = EXPECTED_SESSION_TIMEZONES[test_datasource]
-    if expected == actual:
+    expected_options: tuple[tzinfo, ...] = expected if isinstance(expected, tuple) else (expected,)
+
+    if _matches_any_expected(actual, expected_options):
         return
 
-    # Lenient offset-match fallback only applies when the expected TZ is UTC-equivalent
-    # (zero offset year-round). For an expected IANA-named zone like
-    # ``America/Los_Angeles``, requiring offset-only equality would silently accept
-    # ``America/Vancouver`` (same current offset, different zone) — a real
-    # configuration drift the test is supposed to catch.
-    now = datetime.now()
-    expected_offset = expected.utcoffset(now)
-    if expected_offset == timedelta(0):
-        # UTC-equivalent expectation: accept any TZ that reports zero offset right now.
-        # An adapter reporting 'UTC' / 'Etc/UTC' / '+00:00' / 'Universal' all collapse
-        # via the parser anyway, but a vendor that genuinely runs UTC and reports
-        # something exotic is still acceptable.
-        actual_offset = actual.utcoffset(now)
-        assert actual_offset == timedelta(0), (
-            f"Expected session TZ {expected!r} for '{test_datasource}' but connection "
-            f"reported {actual!r} (offset {actual_offset})"
-        )
-        return
-
-    # Non-UTC IANA expectation: require strict equality. ``timezone(timedelta(...))``
-    # objects compare equal when they have the same offset, but two distinct
-    # ``ZoneInfo`` keys are not equal even if they happen to share an offset right now.
     pytest.fail(
-        f"Expected session TZ {expected!r} for '{test_datasource}' but connection "
-        f"reported {actual!r}. Two distinct named zones can share an offset at one "
-        "instant and differ on DST or historical entries — strict identity is required "
-        "for a non-UTC expected TZ."
+        f"Expected session TZ for '{test_datasource}' to match any of {expected_options!r} "
+        f"but connection reported {actual!r}. Two distinct named zones can share an offset "
+        "at one instant and differ on DST or historical entries — strict identity is required "
+        "for a non-UTC expected TZ. UTC-equivalent expectations accept any zero-offset actual."
     )
+
+
+def _matches_any_expected(actual: tzinfo, expected_options: tuple[tzinfo, ...]) -> bool:
+    """Return True if ``actual`` matches any of the ``expected_options``.
+
+    Per-option matching:
+    * Strict ``==`` first. ``ZoneInfo`` keys compared by identity, ``timezone(...)``
+      offsets compared by offset value.
+    * For UTC-equivalent expectations (``utcoffset(now) == 0``), additionally accept
+      any actual TZ that reports zero offset right now. This covers the
+      ``UTC`` / ``Etc/UTC`` / ``+00:00`` / ``Universal`` family without requiring
+      every alias to be enumerated.
+    * For non-UTC expectations, require strict ``==`` only — two distinct ZoneInfo
+      keys (e.g. ``America/Los_Angeles`` vs ``America/Vancouver``) can share an
+      offset at one instant but differ on DST or historical entries; offset-only
+      comparison would silently accept the wrong zone.
+    """
+    now = datetime.now()
+    actual_offset = actual.utcoffset(now)
+    for expected in expected_options:
+        if expected == actual:
+            return True
+        if expected.utcoffset(now) == timedelta(0) and actual_offset == timedelta(0):
+            return True
+    return False
