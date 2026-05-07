@@ -175,9 +175,17 @@ class DatabricksSqlDialect(SqlDialect, sqlglot_dialect="databricks"):
             "double": SodaDataTypeName.DOUBLE,
             "double precision": SodaDataTypeName.DOUBLE,
             "float8": SodaDataTypeName.DOUBLE,
-            "timestamp": SodaDataTypeName.TIMESTAMP,
+            # Native ``timestamp`` in Databricks is TZ-aware in semantics (stored as
+            # an instant, displayed in session TZ — see Databricks "Timestamp" docs).
+            # The truly-naive variant is ``timestamp_ntz`` (Databricks Runtime 13.3+).
+            # Map ``timestamp`` to TIMESTAMP_TZ so cross-source DWH dispatch picks the
+            # TZ-aware value mapper for Databricks-as-source, otherwise driver-returned
+            # tz-aware values would be sent through the naive mapper which strips
+            # tzinfo, leaving a session-local wallclock in the warehouse instead of
+            # the canonical UTC instant.
+            "timestamp": SodaDataTypeName.TIMESTAMP_TZ,
             "timestamp without time zone": SodaDataTypeName.TIMESTAMP,
-            "timestamp_ntz": SodaDataTypeName.TIMESTAMP,  # If there is explicitly stated that the timestamp is without time zone, we consider it to be the same as TIMESTAMP
+            "timestamp_ntz": SodaDataTypeName.TIMESTAMP,
             "timestamptz": SodaDataTypeName.TIMESTAMP_TZ,
             "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
             "date": SodaDataTypeName.DATE,
