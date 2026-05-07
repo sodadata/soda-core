@@ -22,7 +22,6 @@ logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
 
-
 # IANA names that mean "UTC, no DST, no historical offsets". When ZoneInfo returns one
 # of these, we collapse to ``timezone.utc`` so adapter outputs are uniform regardless of
 # whether the driver reports the literal string ``"UTC"`` or the IANA alias ``"Etc/UTC"``.

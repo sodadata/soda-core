@@ -79,9 +79,7 @@ class TestTimestampReverseMapping:
             ("timestamp without time zone", SodaDataTypeName.TIMESTAMP),
         ],
     )
-    def test_reverse_map_resolves_correctly(
-        self, data_type_name: str, expected_canonical: SodaDataTypeName
-    ) -> None:
+    def test_reverse_map_resolves_correctly(self, data_type_name: str, expected_canonical: SodaDataTypeName) -> None:
         dialect = DatabricksSqlDialect()
         actual = dialect.get_soda_data_type_name_by_data_source_data_type_names().get(data_type_name)
         assert actual == expected_canonical, (

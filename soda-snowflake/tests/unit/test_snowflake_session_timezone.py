@@ -13,7 +13,6 @@ import logging
 from datetime import timezone
 from unittest.mock import MagicMock
 
-import pytest
 from soda_core.common.logs import Logs
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSourceConnection,
