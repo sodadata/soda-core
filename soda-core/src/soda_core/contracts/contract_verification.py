@@ -78,7 +78,7 @@ class ContractVerificationSession:
         )
 
 
-class ContractVerificationSessionResult:
+class CheckCollectionSessionResult:
     """Represents the result of a contract verification session.
 
     Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
@@ -196,10 +196,14 @@ class ContractVerificationSessionResult:
             contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
         )
 
-    def assert_ok(self) -> ContractVerificationSessionResult:
+    def assert_ok(self) -> CheckCollectionSessionResult:
         if not self.is_ok:
             raise SodaException(message=self.get_errors_str())
         return self
+
+
+class ContractVerificationSessionResult(CheckCollectionSessionResult):
+    pass
 
 
 class SodaException(Exception):
