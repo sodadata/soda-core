@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -141,8 +141,31 @@ def test_get_session_timezone_matches_expected(data_source_test_helper: DataSour
     if expected == actual:
         return
 
-    # Names differ but offsets agree — accept (e.g. "UTC" vs "Etc/UTC" vs +00:00).
+    # Lenient offset-match fallback only applies when the expected TZ is UTC-equivalent
+    # (zero offset year-round). For an expected IANA-named zone like
+    # ``America/Los_Angeles``, requiring offset-only equality would silently accept
+    # ``America/Vancouver`` (same current offset, different zone) — a real
+    # configuration drift the test is supposed to catch.
     now = datetime.now()
-    assert expected.utcoffset(now) == actual.utcoffset(
-        now
-    ), f"Expected session TZ {expected!r} for '{test_datasource}' but connection reported {actual!r}"
+    expected_offset = expected.utcoffset(now)
+    if expected_offset == timedelta(0):
+        # UTC-equivalent expectation: accept any TZ that reports zero offset right now.
+        # An adapter reporting 'UTC' / 'Etc/UTC' / '+00:00' / 'Universal' all collapse
+        # via the parser anyway, but a vendor that genuinely runs UTC and reports
+        # something exotic is still acceptable.
+        actual_offset = actual.utcoffset(now)
+        assert actual_offset == timedelta(0), (
+            f"Expected session TZ {expected!r} for '{test_datasource}' but connection "
+            f"reported {actual!r} (offset {actual_offset})"
+        )
+        return
+
+    # Non-UTC IANA expectation: require strict equality. ``timezone(timedelta(...))``
+    # objects compare equal when they have the same offset, but two distinct
+    # ``ZoneInfo`` keys are not equal even if they happen to share an offset right now.
+    pytest.fail(
+        f"Expected session TZ {expected!r} for '{test_datasource}' but connection "
+        f"reported {actual!r}. Two distinct named zones can share an offset at one "
+        "instant and differ on DST or historical entries — strict identity is required "
+        "for a non-UTC expected TZ."
+    )
