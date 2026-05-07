@@ -28,9 +28,11 @@ def parse_session_timezone(value: str) -> tzinfo:
 
     Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT'/'Z', or numeric offsets like
     '+00:00', '-08:00', '+0530', 'UTC+02:00'. Zero offsets ('+00:00', 'UTC+00:00', etc.)
-    are normalized to ``timezone.utc`` so that identity comparisons across adapters are
-    consistent — an adapter that reports '+00:00' produces the same tzinfo as one that
-    reports 'UTC' or 'Etc/UTC'.
+    are normalized to ``timezone.utc`` so adapter outputs are uniform across vendors
+    that report UTC by name vs by offset. No production code currently depends on this
+    by-identity (``is timezone.utc``) check — call it future-proofing for any
+    fast-path branches that may want to skip ``astimezone`` on a guaranteed-UTC tzinfo,
+    and treat it as cosmetic uniformity rather than a correctness fix.
 
     Empty / None / whitespace-only input is treated as "no session TZ configured" and
     returns ``timezone.utc`` silently. This is the conventional fallback every adapter
@@ -45,7 +47,13 @@ def parse_session_timezone(value: str) -> tzinfo:
     """
     if value is None or not str(value).strip():
         return timezone.utc
-    text = value.strip().strip("'\"")
+    # Strip outer whitespace, outer quotes, then inner whitespace. Drivers may quote
+    # their result and the body of those quotes may also be empty / whitespace-only.
+    text = value.strip().strip("'\"").strip()
+    if not text:
+        # Outer quotes wrapped an empty (or whitespace-only) string — same intent as
+        # a raw-empty input on the conventional empty-fallback path.
+        return timezone.utc
     if text.upper() in ("UTC", "GMT", "Z"):
         return timezone.utc
 

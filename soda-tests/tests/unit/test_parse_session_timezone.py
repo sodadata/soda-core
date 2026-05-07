@@ -66,6 +66,12 @@ class TestNumericOffsets:
             ("GMT-05:00", -timedelta(hours=5)),
             ("+1", timedelta(hours=1)),
             ("-1", -timedelta(hours=1)),
+            # Single-digit offsets without a colon are valid Postgres ``SHOW timezone``
+            # outputs when the server is configured as ``timezone = '-7'`` or similar.
+            # Pin the parser's acceptance so a regex tightening doesn't silently break
+            # those Postgres deployments.
+            ("-7", -timedelta(hours=7)),
+            ("+8", timedelta(hours=8)),
         ],
     )
     def test_offset_string_returns_fixed_offset(self, value: str, expected_offset: timedelta) -> None:
@@ -91,6 +97,17 @@ class TestEmptyInputFallback:
             result = parse_session_timezone(value)
         assert result is timezone.utc
         assert caplog.records == []  # No noise on the conventional empty-fallback path.
+
+    @pytest.mark.parametrize("value", ["''", '""', "' '", '"  "'])
+    def test_quoted_empty_returns_utc_silently(self, value, caplog: pytest.LogCaptureFixture) -> None:
+        # Some drivers quote their session-TZ result (e.g. Postgres ``SHOW`` variants
+        # under particular configs return ``''``). After stripping the outer quotes the
+        # body is empty — this is the same conceptual fallback as a raw empty input and
+        # must not produce a warning.
+        with caplog.at_level("WARNING"):
+            result = parse_session_timezone(value)
+        assert result is timezone.utc
+        assert caplog.records == []
 
 
 class TestUnparseableInputRaises:
