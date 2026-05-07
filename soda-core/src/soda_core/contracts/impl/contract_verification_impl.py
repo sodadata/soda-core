@@ -24,6 +24,7 @@ from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
 from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import (
+    CheckCollectionYamlSource,
     ContractYamlSource,
     DataSourceYamlSource,
     SodaCloudYamlSource,
@@ -95,7 +96,7 @@ class ContractVerificationHandlerRegistry(ABC):
 class CheckCollectionVerificationSessionImpl:
     """Implements the check-collection verification session.
 
-    @param contract_yaml_sources: The list of check-collection YAML sources to verify.
+    @param check_collection_yaml_sources: The list of check-collection YAML sources to verify.
     @param only_validate_without_execute: If True, only validate without executing.
     @param variables: The variables to use in the queries.
     @param data_timestamp: The timestamp of the data to use for the verification.
@@ -112,7 +113,7 @@ class CheckCollectionVerificationSessionImpl:
     @classmethod
     def execute(
         cls,
-        contract_yaml_sources: list[ContractYamlSource],
+        check_collection_yaml_sources: list[CheckCollectionYamlSource],
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
@@ -128,10 +129,11 @@ class CheckCollectionVerificationSessionImpl:
     ):
         logs: Logs = Logs()
 
-        # Validate input contract_yaml_sources
-        assert isinstance(contract_yaml_sources, list)
+        # Validate input check_collection_yaml_sources
+        assert isinstance(check_collection_yaml_sources, list)
         assert all(
-            isinstance(contract_yaml_source, ContractYamlSource) for contract_yaml_source in contract_yaml_sources
+            isinstance(check_collection_yaml_source, CheckCollectionYamlSource)
+            for check_collection_yaml_source in check_collection_yaml_sources
         )
 
         # Validate input variables
@@ -176,7 +178,7 @@ class CheckCollectionVerificationSessionImpl:
 
         if soda_cloud_use_agent:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
-                contract_yaml_sources=contract_yaml_sources,
+                check_collection_yaml_sources=check_collection_yaml_sources,
                 variables=variables,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
@@ -187,7 +189,7 @@ class CheckCollectionVerificationSessionImpl:
         else:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_locally(
                 logs=logs,
-                contract_yaml_sources=contract_yaml_sources,
+                check_collection_yaml_sources=check_collection_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
                 provided_variable_values=variables,
                 data_timestamp=data_timestamp,
@@ -204,7 +206,7 @@ class CheckCollectionVerificationSessionImpl:
     def _execute_locally(
         cls,
         logs: Logs,
-        contract_yaml_sources: list[ContractYamlSource],
+        check_collection_yaml_sources: list[CheckCollectionYamlSource],
         only_validate_without_execute: bool,
         provided_variable_values: dict[str, str],
         data_timestamp: Optional[str],
@@ -226,7 +228,7 @@ class CheckCollectionVerificationSessionImpl:
 
         opened_data_sources: list[DataSourceImpl] = []
         try:
-            for check_collection_yaml_source in contract_yaml_sources:
+            for check_collection_yaml_source in check_collection_yaml_sources:
                 try:
                     check_collection_yaml: ContractYaml = ContractYaml.parse(
                         check_collection_yaml_source=check_collection_yaml_source,
@@ -319,7 +321,7 @@ class CheckCollectionVerificationSessionImpl:
     @classmethod
     def _execute_on_agent(
         cls,
-        contract_yaml_sources: list[ContractYamlSource],
+        check_collection_yaml_sources: list[CheckCollectionYamlSource],
         variables: dict[str, str],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
@@ -329,7 +331,7 @@ class CheckCollectionVerificationSessionImpl:
         "Verifies check collections on the Soda Cloud agent."
         contract_verification_results: list[ContractVerificationResult] = []
 
-        for check_collection_yaml_source in contract_yaml_sources:
+        for check_collection_yaml_source in check_collection_yaml_sources:
             try:
                 check_collection_yaml: ContractYaml = ContractYaml.parse(
                     check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
@@ -348,7 +350,40 @@ class CheckCollectionVerificationSessionImpl:
 
 
 class ContractVerificationSessionImpl(CheckCollectionVerificationSessionImpl):
-    pass
+    @classmethod
+    def execute(
+        cls,
+        contract_yaml_sources: Optional[list[ContractYamlSource]] = None,
+        only_validate_without_execute: bool = False,
+        variables: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
+        data_source_impls: Optional[list[DataSourceImpl]] = None,
+        data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
+        soda_cloud_impl: Optional[SodaCloud] = None,
+        soda_cloud_publish_results: bool = False,
+        soda_cloud_use_agent: bool = False,
+        soda_cloud_verbose: bool = False,
+        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        check_selectors: Optional[list[CheckSelector]] = None,
+        dwh_data_source_file_path: Optional[str] = None,
+        check_collection_yaml_sources: Optional[list[CheckCollectionYamlSource]] = None,
+    ):
+        sources = contract_yaml_sources if contract_yaml_sources is not None else check_collection_yaml_sources
+        return super().execute(
+            check_collection_yaml_sources=sources,
+            only_validate_without_execute=only_validate_without_execute,
+            variables=variables,
+            data_timestamp=data_timestamp,
+            data_source_impls=data_source_impls,
+            data_source_yaml_sources=data_source_yaml_sources,
+            soda_cloud_impl=soda_cloud_impl,
+            soda_cloud_publish_results=soda_cloud_publish_results,
+            soda_cloud_use_agent=soda_cloud_use_agent,
+            soda_cloud_verbose=soda_cloud_verbose,
+            soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            check_selectors=check_selectors,
+            dwh_data_source_file_path=dwh_data_source_file_path,
+        )
 
 
 class CheckCollectionImplExtension(Protocol):
