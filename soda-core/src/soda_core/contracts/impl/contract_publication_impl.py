@@ -34,9 +34,9 @@ class ContractPublicationImpl:
         if contract_yaml_sources is None or len(contract_yaml_sources) == 0:
             logger.error(f"No contracts configured")
         else:
-            for contract_yaml_source in contract_yaml_sources:
+            for check_collection_yaml_source in contract_yaml_sources:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, provided_variable_values=variables
+                    check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
                 )
                 self.contract_yamls.append(contract_yaml)
 

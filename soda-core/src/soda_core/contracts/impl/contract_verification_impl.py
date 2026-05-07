@@ -226,27 +226,27 @@ class CheckCollectionVerificationSessionImpl:
 
         opened_data_sources: list[DataSourceImpl] = []
         try:
-            for contract_yaml_source in contract_yaml_sources:
+            for check_collection_yaml_source in contract_yaml_sources:
                 try:
-                    contract_yaml: ContractYaml = ContractYaml.parse(
-                        contract_yaml_source=contract_yaml_source,
+                    check_collection_yaml: ContractYaml = ContractYaml.parse(
+                        check_collection_yaml_source=check_collection_yaml_source,
                         provided_variable_values=provided_variable_values,
                         data_timestamp=data_timestamp,
                         primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
                     )
                     data_source_name: str = (
-                        contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
+                        check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")] if check_collection_yaml.dataset else None
                     )
                     data_source_impl: Optional[DataSourceImpl] = (
                         cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
-                        if (contract_yaml and data_source_name and not only_validate_without_execute)
+                        if (check_collection_yaml and data_source_name and not only_validate_without_execute)
                         else None
                     )
                     contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml,
+                        check_collection_yaml=check_collection_yaml,
                         only_validate_without_execute=only_validate_without_execute,
-                        data_timestamp=contract_yaml.data_timestamp,
-                        execution_timestamp=contract_yaml.execution_timestamp,
+                        data_timestamp=check_collection_yaml.data_timestamp,
+                        execution_timestamp=check_collection_yaml.execution_timestamp,
                         data_source_impl=data_source_impl,
                         all_data_source_impls=data_source_impls_by_name,
                         soda_cloud=soda_cloud_impl,
@@ -329,13 +329,13 @@ class CheckCollectionVerificationSessionImpl:
         "Verifies Contracts on the Soda Cloud agent."
         contract_verification_results: list[ContractVerificationResult] = []
 
-        for contract_yaml_source in contract_yaml_sources:
+        for check_collection_yaml_source in contract_yaml_sources:
             try:
-                contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, provided_variable_values=variables
+                check_collection_yaml: ContractYaml = ContractYaml.parse(
+                    check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
                 )
                 contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
-                    contract_yaml=contract_yaml,
+                    contract_yaml=check_collection_yaml,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
@@ -343,7 +343,7 @@ class CheckCollectionVerificationSessionImpl:
                 )
                 contract_verification_results.append(contract_verification_result)
             except:
-                logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
+                logger.error(msg=f"Could not verify contract {check_collection_yaml_source}", exc_info=True)
         return contract_verification_results
 
 
@@ -372,7 +372,7 @@ class CheckCollectionImpl:
     def __init__(
         self,
         logs: Logs,
-        contract_yaml: ContractYaml,
+        check_collection_yaml: ContractYaml,
         only_validate_without_execute: bool,
         data_source_impl: Optional[DataSourceImpl],
         all_data_source_impls: dict[str, DataSourceImpl],
@@ -384,7 +384,7 @@ class CheckCollectionImpl:
         dwh_data_source_file_path: Optional[str] = None,
     ):
         self.logs: Logs = logs
-        self.contract_yaml: ContractYaml = contract_yaml
+        self.check_collection_yaml: ContractYaml = check_collection_yaml
         self.only_validate_without_execute: bool = only_validate_without_execute
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls
@@ -392,7 +392,7 @@ class CheckCollectionImpl:
         self.publish_results: bool = publish_results
         self.soda_config = EnvConfigHelper()
 
-        self.filter: Optional[str] = self.contract_yaml.filter
+        self.filter: Optional[str] = self.check_collection_yaml.filter
         self.check_selectors: list[CheckSelector] = check_selectors
 
         self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
@@ -402,9 +402,9 @@ class CheckCollectionImpl:
 
         self.dataset_name: Optional[str] = None
 
-        self.check_attributes: dict[str, any] = contract_yaml.check_attributes
+        self.check_attributes: dict[str, any] = check_collection_yaml.check_attributes
 
-        self.dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
+        self.dataset_identifier = DatasetIdentifier.parse(check_collection_yaml.dataset)
         self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
         self.dataset_name = self.dataset_identifier.dataset_name
 
@@ -414,7 +414,7 @@ class CheckCollectionImpl:
         self.check_impls: list[CheckImpl] = []
 
         # TODO replace usage of self.soda_qualified_dataset_name with self.dataset_identifier
-        self.soda_qualified_dataset_name = contract_yaml.dataset
+        self.soda_qualified_dataset_name = check_collection_yaml.dataset
         # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
         self.sql_qualified_dataset_name: Optional[str] = None
 
@@ -495,8 +495,8 @@ class CheckCollectionImpl:
                     f"Error extending contract implementation with extension {extension_cls.__name__}: {e}",
                 )
 
-        self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
-        self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
+        self.column_impls: list[ColumnImpl] = self._parse_columns(check_collection_yaml=check_collection_yaml)
+        self.check_impls: list[CheckImpl] = self._parse_checks(check_collection_yaml)
 
         dataset_check_impls: list[CheckImpl] = list(self.check_impls)
         column_check_impls: list[CheckImpl] = []
@@ -531,7 +531,7 @@ class CheckCollectionImpl:
         return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
-        contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
+        contract_keys: list[str] = self.check_collection_yaml.check_collection_yaml_object.keys()
         if "checks" in contract_keys and "columns" in contract_keys:
             return contract_keys.index("checks") < contract_keys.index("columns")
         return None
@@ -542,10 +542,10 @@ class CheckCollectionImpl:
         # Skipped for 'NOW' :)
         return None
 
-    def _parse_checks(self, contract_yaml: ContractYaml) -> list[CheckImpl]:
+    def _parse_checks(self, check_collection_yaml: ContractYaml) -> list[CheckImpl]:
         check_impls: list[CheckImpl] = []
-        if contract_yaml.checks:
-            for check_yaml in contract_yaml.checks:
+        if check_collection_yaml.checks:
+            for check_yaml in check_collection_yaml.checks:
                 if check_yaml:
                     check = CheckImpl.parse_check(contract_impl=self, check_yaml=check_yaml)
                     check_impls.append(check)
@@ -611,10 +611,10 @@ class CheckCollectionImpl:
 
         return all_queries
 
-    def _parse_columns(self, contract_yaml: ContractYaml) -> list[ColumnImpl]:
+    def _parse_columns(self, check_collection_yaml: ContractYaml) -> list[ColumnImpl]:
         columns: list[ColumnImpl] = []
-        if contract_yaml.columns:
-            for column_yaml in contract_yaml.columns:
+        if check_collection_yaml.columns:
+            for column_yaml in check_collection_yaml.columns:
                 if column_yaml:
                     column = ColumnImpl(contract_impl=self, column_yaml=column_yaml)
                     columns.append(column)
@@ -632,7 +632,7 @@ class CheckCollectionImpl:
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
             f"{verb} contract {Emoticons.SCROLL} "
-            f"{self.contract_yaml.contract_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
+            f"{self.check_collection_yaml.check_collection_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
         if self.data_source_impl:
@@ -688,7 +688,7 @@ class CheckCollectionImpl:
 
         soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
-        contract_yaml_source_str_original = self.contract_yaml.contract_yaml_source.yaml_str_original
+        contract_yaml_source_str_original = self.check_collection_yaml.check_collection_yaml_source.yaml_str_original
         soda_cloud_response_json: Optional[dict] = None
 
         if self.soda_cloud and self.publish_results:
@@ -706,7 +706,7 @@ class CheckCollectionImpl:
                 soda_qualified_dataset_name=self.soda_qualified_dataset_name,
                 source=YamlFileContentInfo(
                     source_content_str=contract_yaml_source_str_original,
-                    local_file_path=self.contract_yaml.contract_yaml_source.file_path,
+                    local_file_path=self.check_collection_yaml.check_collection_yaml_source.file_path,
                     soda_cloud_file_id=soda_cloud_file_id,
                 ),
                 dataset_id=None,  # Set this to None for now (default). Will be filled later when we get the dataset id from Soda Cloud
@@ -913,7 +913,39 @@ def _get_contract_verification_status(has_errors: bool, check_results: list[Chec
 
 
 class ContractImpl(CheckCollectionImpl):
-    pass
+    @property
+    def contract_yaml(self) -> ContractYaml:
+        return self.check_collection_yaml
+
+    def __init__(
+        self,
+        logs: Logs,
+        check_collection_yaml: Optional[ContractYaml] = None,
+        only_validate_without_execute: bool = False,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
+        data_timestamp: Optional[datetime] = None,
+        execution_timestamp: Optional[datetime] = None,
+        soda_cloud: Optional[SodaCloud] = None,
+        publish_results: bool = False,
+        check_selectors: list[CheckSelector] = [],
+        dwh_data_source_file_path: Optional[str] = None,
+        contract_yaml: Optional[ContractYaml] = None,
+    ):
+        resolved_yaml = check_collection_yaml if check_collection_yaml is not None else contract_yaml
+        super().__init__(
+            logs=logs,
+            check_collection_yaml=resolved_yaml,
+            only_validate_without_execute=only_validate_without_execute,
+            data_source_impl=data_source_impl,
+            all_data_source_impls=all_data_source_impls if all_data_source_impls is not None else {},
+            data_timestamp=data_timestamp,
+            execution_timestamp=execution_timestamp,
+            soda_cloud=soda_cloud,
+            publish_results=publish_results,
+            check_selectors=check_selectors,
+            dwh_data_source_file_path=dwh_data_source_file_path,
+        )
 
 
 class MeasurementValues:
@@ -1501,7 +1533,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.contract_yaml.contract_yaml_source.file_path,
+            self.contract_impl.check_collection_yaml.check_collection_yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,
@@ -1511,8 +1543,8 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        if self.contract_impl.contract_yaml.filter:
-            contract_dict["filter"] = self.contract_impl.contract_yaml.filter
+        if self.contract_impl.check_collection_yaml.filter:
+            contract_dict["filter"] = self.contract_impl.check_collection_yaml.filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 
