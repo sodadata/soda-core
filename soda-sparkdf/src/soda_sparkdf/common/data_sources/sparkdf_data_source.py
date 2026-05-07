@@ -4,7 +4,10 @@ from typing import Any, Optional
 from freezegun import freeze_time
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import Row
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuery
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
@@ -198,11 +201,15 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
         "This is a no-op for SparkDataFrameDataSourceConnection, there is no connection to close."
 
     def _fetch_session_timezone(self) -> tzinfo:
-        # SparkDataFrameDataSourceConnection's _create_connection issues
-        # ``SET TIME ZONE 'UTC';`` for new sessions; existing sessions are caller-provided
-        # but the value mappers only ever need the *effective* TZ at read time, which we
-        # report as UTC since that's the only mode this adapter is configured for.
-        return timezone.utc
+        # New sessions created by this adapter explicitly ``SET TIME ZONE 'UTC';``,
+        # but ``SparkDataFrameExistingSessionProperties`` lets a caller wrap an existing
+        # SparkSession that may have any configured zone. Read the live setting so the
+        # value mappers see the same zone the Spark engine will use to interpret
+        # naive returns. ``parse_session_timezone`` accepts Spark's reported value
+        # ('UTC', '+00:00', 'America/Los_Angeles', etc.) and the connection-level
+        # wrapper falls back to UTC if the call raises.
+        tz_value = self.session.conf.get("spark.sql.session.timeZone")
+        return parse_session_timezone(tz_value)
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]  # The first element of the tuple is the column name
