@@ -478,7 +478,7 @@ class PostProcessingStage:
         self.records_written: Optional[int] = records_written
 
 
-class ContractVerificationResult:
+class CheckCollectionResult:
     """
     This is the immutable data structure containing all the results from a single contract verification.
     This includes any potential execution errors as well as the results of all the checks performed.
@@ -596,3 +596,7 @@ class ContractVerificationResult:
         return len(
             [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
         )
+
+
+class ContractVerificationResult(CheckCollectionResult):
+    pass
