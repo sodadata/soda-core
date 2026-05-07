@@ -23,16 +23,25 @@ logger: logging.Logger = soda_logger
 from tabulate import tabulate
 
 
-def parse_session_timezone(value: str) -> tzinfo:
+# IANA names that mean "UTC, no DST, no historical offsets". When ZoneInfo returns one
+# of these, we collapse to ``timezone.utc`` so adapter outputs are uniform regardless of
+# whether the driver reports the literal string ``"UTC"`` or the IANA alias ``"Etc/UTC"``.
+_UTC_ALIAS_ZONE_KEYS = frozenset({"UTC", "Etc/UTC", "Universal", "Zulu", "Etc/Zulu"})
+
+
+def parse_session_timezone(value: Optional[str]) -> tzinfo:
     """Parse a session-timezone string returned by a database driver into a tzinfo.
 
-    Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT'/'Z', or numeric offsets like
-    '+00:00', '-08:00', '+0530', 'UTC+02:00'. Zero offsets ('+00:00', 'UTC+00:00', etc.)
-    are normalized to ``timezone.utc`` so adapter outputs are uniform across vendors
-    that report UTC by name vs by offset. No production code currently depends on this
-    by-identity (``is timezone.utc``) check — call it future-proofing for any
-    fast-path branches that may want to skip ``astimezone`` on a guaranteed-UTC tzinfo,
-    and treat it as cosmetic uniformity rather than a correctness fix.
+    Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT'/'Z', UTC-equivalent IANA
+    aliases (``'Etc/UTC'``, ``'Universal'``, ``'Zulu'``, ``'Etc/Zulu'``), or numeric
+    offsets like '+00:00', '-08:00', '+0530', 'UTC+02:00'. Every UTC-equivalent input
+    — the literal strings, the alias zones, and zero numeric offsets — is normalized
+    to ``timezone.utc`` (the singleton) so adapter outputs are uniform across vendors
+    that report UTC by name, by alias, or by offset. No production code currently
+    depends on this by-identity (``is timezone.utc``) check; treat the normalization
+    as future-proofing for any fast-path branches that may want to skip ``astimezone``
+    on a guaranteed-UTC tzinfo, and as cosmetic uniformity rather than a correctness
+    fix.
 
     Empty / None / whitespace-only input is treated as "no session TZ configured" and
     returns ``timezone.utc`` silently. This is the conventional fallback every adapter
@@ -59,24 +68,33 @@ def parse_session_timezone(value: str) -> tzinfo:
 
     if ZoneInfo is not None:
         try:
-            return ZoneInfo(text)
+            zi = ZoneInfo(text)
         except (ZoneInfoNotFoundError, ValueError, OSError):
-            pass
+            zi = None
+        if zi is not None:
+            # Collapse UTC-equivalent IANA aliases to ``timezone.utc`` so an adapter
+            # reporting ``"Etc/UTC"`` returns the same singleton as one reporting the
+            # literal ``"UTC"`` or the ``+00:00`` numeric offset. Without this, the
+            # docstring's identity-parity claim would be false for one specific input.
+            if zi.key in _UTC_ALIAS_ZONE_KEYS:
+                return timezone.utc
+            return zi
 
     match = re.match(r"^(?:UTC|GMT)?([+-])(\d{1,2}):?(\d{2})?$", text)
     if match:
         sign = -1 if match.group(1) == "-" else 1
         hours = int(match.group(2))
         minutes = int(match.group(3) or 0)
+        # Reject components out of range explicitly. The regex's ``\d{2}`` for the
+        # minutes group accepts up to ``99``, which would otherwise spill via timedelta
+        # arithmetic into a higher hour bucket — e.g. ``+05:99`` becomes ``06:39``,
+        # silently producing a real-but-wrong offset for what is actually junk input.
+        if hours >= 24 or minutes >= 60:
+            raise ValueError(f"could not parse session timezone {text!r}")
         offset = sign * timedelta(hours=hours, minutes=minutes)
         if offset == timedelta(0):
             return timezone.utc
-        try:
-            return timezone(offset)
-        except ValueError as e:
-            # ``datetime.timezone`` rejects offsets >= 24h; surface as our standard
-            # parse-failure message so callers see a uniform error shape.
-            raise ValueError(f"could not parse session timezone {text!r}") from e
+        return timezone(offset)
 
     raise ValueError(f"could not parse session timezone {text!r}")
 

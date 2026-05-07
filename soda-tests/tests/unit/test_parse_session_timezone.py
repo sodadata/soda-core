@@ -29,10 +29,12 @@ class TestNamedZones:
         assert isinstance(result, ZoneInfo)
         assert str(result) == "America/Los_Angeles"
 
-    @pytest.mark.skipif(ZoneInfo is None, reason="ZoneInfo unavailable on this Python")
-    def test_etc_utc_returns_zoneinfo(self) -> None:
-        result = parse_session_timezone("Etc/UTC")
-        assert isinstance(result, ZoneInfo)
+    # Note: ``Etc/UTC`` and other UTC-equivalent IANA aliases are intentionally
+    # collapsed to ``timezone.utc`` (the singleton) — see
+    # ``TestUtcAliasIanaZoneNormalization`` below. The previous expectation that
+    # ``parse_session_timezone("Etc/UTC")`` returned a ``ZoneInfo`` instance was a
+    # pre-Copilot-review behavior; the docstring's identity-parity claim made it
+    # incorrect.
 
 
 class TestUtcShorthands:
@@ -117,7 +119,51 @@ class TestUnparseableInputRaises:
     adapter implementations that yielded garbage values (the colleague-review A2 concern).
     """
 
-    @pytest.mark.parametrize("value", ["junk", "Mars/Olympus", "+99:99", "five o'clock"])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "junk",
+            "Mars/Olympus",
+            "+99:99",
+            "five o'clock",
+            # Out-of-range minute / hour components that the regex allows. Without an
+            # explicit range check, ``+05:99`` would silently normalize to ``+06:39``
+            # via timedelta arithmetic, misinterpreting junk as a real but wrong
+            # offset (Copilot review #1).
+            "+05:99",
+            "-05:99",
+            "+24:00",
+            "+00:60",
+        ],
+    )
     def test_unparseable_input_raises(self, value: str) -> None:
         with pytest.raises(ValueError, match="could not parse"):
             parse_session_timezone(value)
+
+
+class TestUtcAliasIanaZoneNormalization:
+    """``Etc/UTC`` and friends collapse to ``timezone.utc`` (the singleton) so an
+    adapter reporting an IANA-aliased UTC zone matches an adapter reporting the
+    literal ``UTC`` string or a ``+00:00`` numeric offset (Copilot review #2).
+    """
+
+    @pytest.mark.parametrize(
+        "value",
+        ["Etc/UTC", "Universal", "Zulu", "Etc/Zulu"],
+    )
+    def test_iana_alias_for_utc_returns_timezone_utc_identity(self, value: str) -> None:
+        result = parse_session_timezone(value)
+        assert result is timezone.utc, (
+            f"Expected {value!r} to normalize to timezone.utc identity (so adapters "
+            f"that report this alias agree with the literal-UTC path), got {result!r}"
+        )
+
+    def test_real_iana_zone_returns_zoneinfo_not_utc(self) -> None:
+        # Sanity check: a non-UTC-aliased zone still returns a ZoneInfo, not collapsed.
+        try:
+            from zoneinfo import ZoneInfo
+        except ImportError:
+            pytest.skip("ZoneInfo unavailable on this Python")
+        result = parse_session_timezone("America/Los_Angeles")
+        assert isinstance(result, ZoneInfo)
+        assert result is not timezone.utc
