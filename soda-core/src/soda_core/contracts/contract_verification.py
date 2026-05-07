@@ -122,15 +122,15 @@ class CheckCollectionSessionResult:
 
     Provides overview of logs, errors, and the status of the verification process over all of the verified check collections.
 
-    @param contract_verification_results: The list of check-collection verification results.
+    @param check_collection_results: The list of check-collection verification results.
     """
 
-    def __init__(self, contract_verification_results: list[ContractVerificationResult]):
-        self.contract_verification_results: list[ContractVerificationResult] = contract_verification_results
+    def __init__(self, check_collection_results: list[CheckCollectionResult]):
+        self.check_collection_results: list[CheckCollectionResult] = check_collection_results
 
     def get_logs(self) -> list[str]:
         logs: list[str] = []
-        for contract_verification_result in self.contract_verification_results:
+        for contract_verification_result in self.check_collection_results:
             logs.extend(contract_verification_result.get_logs())
         return logs
 
@@ -139,7 +139,7 @@ class CheckCollectionSessionResult:
 
     def get_errors(self) -> list[str]:
         errors: list[str] = []
-        for contract_verification_result in self.contract_verification_results:
+        for contract_verification_result in self.check_collection_results:
             errors.extend(contract_verification_result.get_errors())
         return errors
 
@@ -147,28 +147,28 @@ class CheckCollectionSessionResult:
     def number_of_checks(self) -> int:
         return sum(
             contract_verification_result.number_of_checks
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
     def number_of_checks_passed(self) -> int:
         return sum(
             contract_verification_result.number_of_checks_passed
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
     def number_of_checks_failed(self) -> int:
         return sum(
             contract_verification_result.number_of_checks_failed
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
     def number_of_checks_excluded(self) -> int:
         return sum(
             contract_verification_result.number_of_checks_excluded
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     def get_errors_str(self) -> str:
@@ -178,7 +178,7 @@ class CheckCollectionSessionResult:
     def has_errors(self) -> bool:
         return any(
             contract_verification_result.has_errors
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -191,7 +191,7 @@ class CheckCollectionSessionResult:
         """
         return any(
             contract_verification_result.is_failed
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -204,7 +204,7 @@ class CheckCollectionSessionResult:
         """
         return any(
             contract_verification_result.is_warned
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -215,7 +215,7 @@ class CheckCollectionSessionResult:
         """
         return all(
             contract_verification_result.is_passed
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -226,13 +226,13 @@ class CheckCollectionSessionResult:
         """
         return any(
             contract_verification_result.has_excluded
-            for contract_verification_result in self.contract_verification_results
+            for contract_verification_result in self.check_collection_results
         )
 
     @property
     def is_ok(self) -> bool:
         return all(
-            contract_verification_result.is_ok for contract_verification_result in self.contract_verification_results
+            contract_verification_result.is_ok for contract_verification_result in self.check_collection_results
         )
 
     def assert_ok(self) -> CheckCollectionSessionResult:
@@ -242,7 +242,21 @@ class CheckCollectionSessionResult:
 
 
 class ContractVerificationSessionResult(CheckCollectionSessionResult):
-    pass
+    def __init__(
+        self,
+        contract_verification_results: Optional[list["ContractVerificationResult"]] = None,
+        check_collection_results: Optional[list[CheckCollectionResult]] = None,
+    ):
+        results = (
+            contract_verification_results
+            if contract_verification_results is not None
+            else check_collection_results
+        )
+        super().__init__(check_collection_results=results)
+
+    @property
+    def contract_verification_results(self) -> list["ContractVerificationResult"]:
+        return self.check_collection_results
 
 
 class SodaException(Exception):
