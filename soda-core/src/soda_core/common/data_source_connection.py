@@ -26,10 +26,24 @@ from tabulate import tabulate
 def parse_session_timezone(value: str) -> tzinfo:
     """Parse a session-timezone string returned by a database driver into a tzinfo.
 
-    Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT', or numeric offsets like
-    '+00:00', '-08:00', '+0530', 'UTC+02:00'. Falls back to UTC if unparseable.
+    Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT'/'Z', or numeric offsets like
+    '+00:00', '-08:00', '+0530', 'UTC+02:00'. Zero offsets ('+00:00', 'UTC+00:00', etc.)
+    are normalized to ``timezone.utc`` so that identity comparisons across adapters are
+    consistent — an adapter that reports '+00:00' produces the same tzinfo as one that
+    reports 'UTC' or 'Etc/UTC'.
+
+    Empty / None / whitespace-only input is treated as "no session TZ configured" and
+    returns ``timezone.utc`` silently. This is the conventional fallback every adapter
+    uses on a missing-row query result; promoting it to an error would emit warnings on
+    every cold start.
+
+    Raises ``ValueError`` on non-empty unparseable input (the colleague-review concern
+    A2: junk like ``'Mars/Olympus'`` previously degraded to UTC with only a debug-level
+    log; now it surfaces clearly so adapter authors and operators see the problem). The
+    single legitimate fallback site is ``DataSourceConnection.get_session_timezone()``,
+    which catches and logs one warning before returning UTC.
     """
-    if not value:
+    if value is None or not str(value).strip():
         return timezone.utc
     text = value.strip().strip("'\"")
     if text.upper() in ("UTC", "GMT", "Z"):
@@ -46,10 +60,17 @@ def parse_session_timezone(value: str) -> tzinfo:
         sign = -1 if match.group(1) == "-" else 1
         hours = int(match.group(2))
         minutes = int(match.group(3) or 0)
-        return timezone(sign * timedelta(hours=hours, minutes=minutes))
+        offset = sign * timedelta(hours=hours, minutes=minutes)
+        if offset == timedelta(0):
+            return timezone.utc
+        try:
+            return timezone(offset)
+        except ValueError as e:
+            # ``datetime.timezone`` rejects offsets >= 24h; surface as our standard
+            # parse-failure message so callers see a uniform error shape.
+            raise ValueError(f"could not parse session timezone {text!r}") from e
 
-    logger.warning(f"Could not parse session timezone {text!r}; defaulting to UTC")
-    return timezone.utc
+    raise ValueError(f"could not parse session timezone {text!r}")
 
 
 class DataSourceConnection(ABC):
