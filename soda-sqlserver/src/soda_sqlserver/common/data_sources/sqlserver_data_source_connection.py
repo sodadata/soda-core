@@ -9,7 +9,10 @@ from typing import Any, Literal, Optional, Union
 import pyodbc
 from pydantic import Field, SecretStr
 from soda_core.__version__ import SODA_CORE_VERSION
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
@@ -210,9 +213,17 @@ class SqlServerDataSourceConnection(DataSourceConnection):
             row = cursor.fetchone()
         finally:
             cursor.close()
-        if row and isinstance(row[0], datetime) and row[0].tzinfo is not None:
-            return row[0].tzinfo
-        return timezone.utc
+        if not row or not isinstance(row[0], datetime) or row[0].tzinfo is None:
+            return timezone.utc
+        # Format the live offset as a ±HH:MM string and route through parse_session_timezone
+        # so SQL Server returns the same shape of tzinfo as adapters that report IANA-named
+        # zones — in particular, +00:00 normalizes to ``timezone.utc`` (identity), matching
+        # Postgres / Snowflake / Databricks etc. on UTC sessions.
+        offset = row[0].tzinfo.utcoffset(row[0])
+        total_minutes = int(offset.total_seconds() // 60)
+        sign = "-" if total_minutes < 0 else "+"
+        hours, minutes = divmod(abs(total_minutes), 60)
+        return parse_session_timezone(f"{sign}{hours:02d}:{minutes:02d}")
 
     def _get_autocommit_setting(self) -> bool:
         return False  # No need to set autocommit, as it is set to False by default.
