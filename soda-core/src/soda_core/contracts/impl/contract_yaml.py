@@ -48,11 +48,11 @@ class CheckCollectionYaml:
     Extensions can be registered using the `register_extension` method, and they will be automatically applied.
     """
 
-    contract_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
+    check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:
-        cls.contract_yaml_extensions[name] = extension_cls
+        cls.check_collection_yaml_extensions[name] = extension_cls
 
     @classmethod
     def parse(
@@ -132,7 +132,7 @@ class CheckCollectionYaml:
         self.columns: list[ColumnYaml] = self._parse_columns(self.check_collection_yaml_object)
         self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.check_collection_yaml_object)
 
-        for extension_cls in CheckCollectionYaml.contract_yaml_extensions.values():
+        for extension_cls in CheckCollectionYaml.check_collection_yaml_extensions.values():
             try:
                 extension = extension_cls()
                 extension.extend(self)

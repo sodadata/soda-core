@@ -363,11 +363,11 @@ class CheckCollectionImplExtension(Protocol):
 
 
 class CheckCollectionImpl:
-    contract_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
+    check_collection_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:
-        cls.contract_impl_extensions[name] = extension_cls
+        cls.check_collection_impl_extensions[name] = extension_cls
 
     def __init__(
         self,
@@ -486,7 +486,7 @@ class CheckCollectionImpl:
             )
 
         self.extensions: list[CheckCollectionImplExtension] = []
-        for extension_cls in ContractImpl.contract_impl_extensions.values():
+        for extension_cls in ContractImpl.check_collection_impl_extensions.values():
             try:
                 extension = extension_cls(self)
                 self.extensions.append(extension)
