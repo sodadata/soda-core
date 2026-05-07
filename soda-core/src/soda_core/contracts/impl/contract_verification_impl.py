@@ -93,11 +93,11 @@ class ContractVerificationHandlerRegistry(ABC):
 
 
 class CheckCollectionVerificationSessionImpl:
-    """Implements the contract verification session.
+    """Implements the check-collection verification session.
 
-    @param contract_yaml_sources: The list of contract YAML sources to verify.
-    @param only_validate_without_execute: If True, only validate the contracts without executing them.
-    @param variables: The variables to use in the contract queries.
+    @param contract_yaml_sources: The list of check-collection YAML sources to verify.
+    @param only_validate_without_execute: If True, only validate without executing.
+    @param variables: The variables to use in the queries.
     @param data_timestamp: The timestamp of the data to use for the verification.
     @param data_source_impls: The data source implementations to use for the verification.
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
@@ -215,7 +215,7 @@ class CheckCollectionVerificationSessionImpl:
         check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
-        "Verifies a Contract locally."
+        "Verifies a check collection locally."
         contract_verification_results: list[ContractVerificationResult] = []
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
@@ -326,7 +326,7 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
     ) -> list[ContractVerificationResult]:
-        "Verifies Contracts on the Soda Cloud agent."
+        "Verifies check collections on the Soda Cloud agent."
         contract_verification_results: list[ContractVerificationResult] = []
 
         for check_collection_yaml_source in contract_yaml_sources:
@@ -443,7 +443,7 @@ class CheckCollectionImpl:
         )
         self.dataset_rows_tested: Optional[int] = None
 
-        # Dataset defining CTE - used as basis for all queries in this contract
+        # Dataset defining CTE - used as basis for all queries in this check collection
         self.cte = CTE("_soda_filtered_dataset").AS(
             [
                 SELECT(STAR()),
@@ -502,7 +502,7 @@ class CheckCollectionImpl:
         column_check_impls: list[CheckImpl] = []
         for column_impl in self.column_impls:
             column_check_impls.extend(column_impl.check_impls)
-        # For consistency and predictability, we want the checks eval and results in the same order as in the contract
+        # For consistency and predictability, we want the checks eval and results in the same order as in the check-collection YAML
         self.all_check_impls: list[CheckImpl] = (
             dataset_check_impls + column_check_impls
             if self._dataset_checks_came_before_columns_in_yaml()
@@ -567,7 +567,7 @@ class CheckCollectionImpl:
 
         for metric in self.metrics:
             # Only build aggregation queries for metrics of known origin. Extensions might build their own queries.
-            # Known origin means that the metric does not have any specific datasource/dataset associated or the ones that are linked are the same as the contract's datasource and dataset.
+            # Known origin means that the metric does not have any specific datasource/dataset associated or the ones that are linked are the same as the check collection's datasource and dataset.
             if isinstance(metric, AggregationMetricImpl):
                 if (metric.data_source_impl is None and metric.dataset_identifier is None) or (
                     metric.data_source_impl == self.data_source_impl

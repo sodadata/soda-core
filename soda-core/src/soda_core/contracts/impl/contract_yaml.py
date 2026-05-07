@@ -44,7 +44,7 @@ class CheckCollectionYaml:
     List properties will have a None value if the property is not present or the content was not a list, a list
     otherwise
 
-    Extensions can add manipulate the contract YAML object.
+    Extensions can manipulate the check-collection YAML object.
     Extensions can be registered using the `register_extension` method, and they will be automatically applied.
     """
 

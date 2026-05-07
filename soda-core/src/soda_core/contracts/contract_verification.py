@@ -18,13 +18,13 @@ logger: logging.Logger = soda_logger
 
 
 class CheckCollectionVerificationSession:
-    """Represents the contract verification session.
+    """Represents a check-collection verification session.
 
-    Multiple Contracts over multiple Data Sources can be verified in one verification session.
+    Multiple check collections over multiple data sources can be verified in one verification session.
 
-    @param contract_yaml_sources: The list of contract YAML sources to verify.
-    @param only_validate_without_execute: If True, only validate the contracts without executing them.
-    @param variables: The variables to use in the contract queries.
+    @param contract_yaml_sources: The list of check-collection YAML sources to verify.
+    @param only_validate_without_execute: If True, only validate without executing.
+    @param variables: The variables to use in the queries.
     @param data_timestamp: The timestamp of the data to use for the verification.
     @param data_source_impls: The data source implementations to use for the verification.
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
@@ -83,11 +83,11 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
 
 
 class CheckCollectionSessionResult:
-    """Represents the result of a contract verification session.
+    """Represents the result of a check-collection verification session.
 
-    Provides overview of logs, errors, and the status of the verification process over all of the verified Contracts.
+    Provides overview of logs, errors, and the status of the verification process over all of the verified check collections.
 
-    @param contract_verification_results: The list of contract verification results.
+    @param contract_verification_results: The list of check-collection verification results.
     """
 
     def __init__(self, contract_verification_results: list[ContractVerificationResult]):
@@ -488,10 +488,10 @@ class PostProcessingStage:
 
 class CheckCollectionResult:
     """
-    This is the immutable data structure containing all the results from a single contract verification.
+    This is the immutable data structure containing all the results from a single check-collection verification.
     This includes any potential execution errors as well as the results of all the checks performed.
 
-    @param contract: The contract that was verified.
+    @param contract: The check collection that was verified.
     @param data_source: The data source that was used for the verification.
     @param data_timestamp: The timestamp of the data to use for the verification.
     @param ended_timestamp: The timestamp when the verification ended.
