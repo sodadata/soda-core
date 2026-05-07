@@ -92,7 +92,7 @@ class ContractVerificationHandlerRegistry(ABC):
             cls.post_processing_stages[stage_name] = verification_handler
 
 
-class ContractVerificationSessionImpl:
+class CheckCollectionVerificationSessionImpl:
     """Implements the contract verification session.
 
     @param contract_yaml_sources: The list of contract YAML sources to verify.
@@ -345,6 +345,10 @@ class ContractVerificationSessionImpl:
             except:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         return contract_verification_results
+
+
+class ContractVerificationSessionImpl(CheckCollectionVerificationSessionImpl):
+    pass
 
 
 class CheckCollectionImplExtension(Protocol):
