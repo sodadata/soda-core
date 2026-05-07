@@ -17,7 +17,7 @@ from soda_core.contracts.contract_interfaces import Loggable
 logger: logging.Logger = soda_logger
 
 
-class ContractVerificationSession:
+class CheckCollectionVerificationSession:
     """Represents the contract verification session.
 
     Multiple Contracts over multiple Data Sources can be verified in one verification session.
@@ -51,7 +51,7 @@ class ContractVerificationSession:
         check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
-    ) -> ContractVerificationSessionResult:
+    ) -> CheckCollectionSessionResult:
         from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
@@ -76,6 +76,10 @@ class ContractVerificationSession:
             check_selectors=merged_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
+
+
+class ContractVerificationSession(CheckCollectionVerificationSession):
+    pass
 
 
 class CheckCollectionSessionResult:
