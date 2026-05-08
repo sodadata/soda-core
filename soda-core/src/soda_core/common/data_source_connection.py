@@ -9,11 +9,7 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Optional
 
-try:
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-except ImportError:
-    ZoneInfo = None
-    ZoneInfoNotFoundError = Exception
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 from soda_core.common.logging_constants import soda_logger
@@ -63,36 +59,31 @@ def parse_session_timezone(value: Optional[str]) -> tzinfo:
     """Parse a session-timezone string returned by a database driver into a tzinfo.
 
     Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT'/'Z', UTC-equivalent IANA
-    aliases (``'Etc/UTC'``, ``'Universal'``, ``'Zulu'``, ``'Etc/Zulu'``), or numeric
-    offsets like '+00:00', '-08:00', '+0530', 'UTC+02:00'. Every UTC-equivalent input
-    — the literal strings, the alias zones, and zero numeric offsets — is normalized
-    to ``timezone.utc`` (the singleton) so adapter outputs are uniform across vendors
-    that report UTC by name, by alias, or by offset. No production code currently
-    depends on this by-identity (``is timezone.utc``) check; treat the normalization
-    as future-proofing for any fast-path branches that may want to skip ``astimezone``
-    on a guaranteed-UTC tzinfo, and as cosmetic uniformity rather than a correctness
-    fix.
+    aliases ('Etc/UTC', 'Universal', 'Zulu', etc.), or numeric offsets like '+00:00',
+    '-08:00', '+0530', 'UTC+02:00'. Every UTC-equivalent input — the literal strings,
+    the alias zones, and zero numeric offsets — is normalized to ``timezone.utc`` (the
+    singleton) so adapter outputs are uniform across vendors that report UTC by name,
+    by alias, or by offset.
 
     Empty / None / whitespace-only input is treated as "no session TZ configured" and
-    returns ``timezone.utc`` silently. This is the conventional fallback every adapter
-    uses on a missing-row query result; promoting it to an error would emit warnings on
-    every cold start.
+    returns ``timezone.utc`` silently — the conventional fallback every adapter uses
+    on a missing-row query result.
 
-    Raises ``ValueError`` on non-empty unparseable input (the colleague-review concern
-    A2: junk like ``'Mars/Olympus'`` previously degraded to UTC with only a debug-level
-    log; now it surfaces clearly so adapter authors and operators see the problem). The
-    single legitimate fallback site is ``DataSourceConnection.get_session_timezone()``,
-    which catches and logs one warning before returning UTC.
+    Raises ``ValueError`` on non-empty unparseable input. The single legitimate
+    fallback site is ``DataSourceConnection.get_session_timezone()``, which catches
+    and logs one warning before returning UTC.
     """
-    if value is None or not str(value).strip():
+    if value is None:
         return timezone.utc
-    # Strip outer whitespace, outer quotes, then inner whitespace. Drivers may quote
-    # their result and the body of those quotes may also be empty / whitespace-only.
-    text = value.strip().strip("'\"").strip()
+    # Strip outer whitespace and quotes in a single pass — drivers may quote their
+    # result, and the body of those quotes may also be empty / whitespace-only.
+    text = value.strip(" \r\n\t'\"")
     if not text:
-        # Outer quotes wrapped an empty (or whitespace-only) string — same intent as
-        # a raw-empty input on the conventional empty-fallback path.
         return timezone.utc
+    # Case-insensitive match for the UTC literals. ZoneInfo lookup below is
+    # case-sensitive (``ZoneInfo("utc")`` raises ZoneInfoNotFoundError), so we
+    # have to normalize these here. ``Z`` is the ISO-8601 alias for UTC and is
+    # not in the IANA database at all, so it can only be caught at this stage.
     if text.upper() in ("UTC", "GMT", "Z"):
         return timezone.utc
 
@@ -104,19 +95,17 @@ def parse_session_timezone(value: Optional[str]) -> tzinfo:
         # canonicalization time is correct.
         return datetime.now().astimezone().tzinfo
 
-    if ZoneInfo is not None:
-        try:
-            zi = ZoneInfo(text)
-        except (ZoneInfoNotFoundError, ValueError, OSError):
-            zi = None
-        if zi is not None:
-            # Collapse UTC-equivalent IANA aliases to ``timezone.utc`` so an adapter
-            # reporting ``"Etc/UTC"`` returns the same singleton as one reporting the
-            # literal ``"UTC"`` or the ``+00:00`` numeric offset. Without this, the
-            # docstring's identity-parity claim would be false for one specific input.
-            if zi.key in _UTC_ALIAS_ZONE_KEYS:
-                return timezone.utc
-            return zi
+    try:
+        zi = ZoneInfo(text)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        zi = None
+    if zi is not None:
+        # Collapse UTC-equivalent IANA aliases to ``timezone.utc`` so an adapter
+        # reporting ``"Etc/UTC"`` returns the same singleton as one reporting the
+        # literal ``"UTC"`` or the ``+00:00`` numeric offset.
+        if zi.key in _UTC_ALIAS_ZONE_KEYS:
+            return timezone.utc
+        return zi
 
     match = re.match(r"^(?:UTC|GMT)?([+-])(\d{1,2}):?(\d{2})?$", text)
     if match:
