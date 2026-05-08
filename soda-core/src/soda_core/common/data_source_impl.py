@@ -20,7 +20,7 @@ from soda_core.common.statements.metadata_tables_query import (
     MetadataTablesQuery,
 )
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
-from soda_core.common.yaml import DataSourceYamlSource, VariableResolver, YamlObject
+from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
 from soda_core.model.data_source.data_source import DataSourceBase
 
@@ -38,19 +38,13 @@ class DataSourceImpl(ABC):
     def from_yaml_source(
         cls, data_source_yaml_source: DataSourceYamlSource, provided_variable_values: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
-        # Resolve ${ns.var} after parsing; pre-parse substitution breaks ruamel
-        # when a secret contains YAML control chars (', [, #, &). Mirrors
-        # soda-library f2a926c5.
-        data_source_yaml: YamlObject = data_source_yaml_source.parse()
+        data_source_yaml: Optional[YamlObject] = data_source_yaml_source.parse_and_resolve(
+            variables=provided_variable_values,
+        )
         if not data_source_yaml:
             return None
 
-        resolved_dict = VariableResolver.resolve_in_object(
-            obj=data_source_yaml.yaml_dict,
-            variable_values=provided_variable_values,
-        )
-
-        type_name = resolved_dict.get("type")
+        type_name = data_source_yaml.yaml_dict.get("type")
         if not type_name:
             raise ValueError("Missing required 'type' in data source YAML")
 
@@ -68,7 +62,7 @@ class DataSourceImpl(ABC):
                 f"This is likely a bug in the plugin implementation."
             )
 
-        validated_model = model_class.model_validate(resolved_dict)
+        validated_model = model_class.model_validate(data_source_yaml.yaml_dict)
         return impl_class(data_source_model=validated_model)
 
     def __init__(

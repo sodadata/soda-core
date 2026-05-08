@@ -57,12 +57,10 @@ class YamlSource:
     # The default file type is 'YAML'.
     # Specific subclasses use different file types.
 
-    # Optionally resolve variables as many times as you like:
-    # resolving will trigger file loading (if applicable)
-    yaml_source.resolve(variables={}, use_env_vars=True)
+    # parse + post-parse variable substitution in one call:
+    yaml_object: YamlObject = yaml_source.parse_and_resolve(variables={}, use_env_vars=True)
 
-    # parse will create the YamlObject
-    # resolving will trigger file loading (if applicable)
+    # Or parse without substitution if variables are not used:
     yaml_object: YamlObject = yaml_source.parse()
     """
 
@@ -136,14 +134,34 @@ class YamlSource:
                 else:
                     logger.error(f"{self.description} can't be read", exc_info=True)
 
-    def resolve(self, variables: Optional[dict[str, str]] = None, use_env_vars: bool = True) -> None:
+    def parse_and_resolve(
+        self,
+        variables: Optional[dict[str, str]] = None,
+        soda_variables: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True,
+    ) -> Optional[YamlObject]:
+        """Parse the YAML, then walk the parsed structure and substitute
+        ${ns.var} references on string scalars only.
+
+        Pre-parse string substitution is unsafe: a substituted secret can
+        contain YAML control characters (', [, #, &, ...) that re-tokenise
+        the byte stream and break the parser. Mirrors the soda-library
+        post-parse approach (commit f2a926c5 / PR #697). The standalone
+        ``YamlSource.resolve`` method that did pre-parse substitution has
+        been removed; callers needing variable substitution must go through
+        this method or call ``VariableResolver.resolve_in_object`` directly
+        on an already-parsed object.
         """
-        Note: this does not change the object, but returns a new ResolvedYamlSource instead
-        """
-        self._ensure_yaml_str()
-        self.yaml_str = VariableResolver.resolve(
-            source_text=self.yaml_str, variable_values=variables, use_env_vars=use_env_vars
+        yaml_object = self.parse()
+        if yaml_object is None:
+            return None
+        VariableResolver.resolve_in_object(
+            obj=yaml_object.yaml_dict,
+            variable_values=variables,
+            soda_variable_values=soda_variables,
+            use_env_vars=use_env_vars,
         )
+        return yaml_object
 
     def resolve_on_read_value(
         self,
@@ -508,19 +526,31 @@ class VariableResolver:
         use_env_vars: bool = True,
         location: Optional[Location] = None,
     ) -> any:
-        # Walk a parsed structure and substitute ${ns.var} only on string scalars.
-        # Mirrors soda-library f2a926c5 (resolve_v4_variables).
+        # Walks a parsed structure and substitutes ${ns.var} on string scalars
+        # only. Mirrors soda-library f2a926c5 (resolve_v4_variables).
+        #
+        # Mutates dict / list containers in place so ruamel CommentedMap /
+        # CommentedSeq / quoted-scalar-string types are preserved on values
+        # that don't contain a substitution marker. Pydantic Union resolution
+        # downstream (e.g. Union[str, IPvAnyAddress]) can be sensitive to
+        # whether the input is a plain str or a ruamel ScalarString subclass.
         if isinstance(obj, dict):
-            return {
-                k: cls.resolve_in_object(v, variable_values, soda_variable_values, use_env_vars, location)
-                for k, v in obj.items()
-            }
+            for k in list(obj.keys()):
+                obj[k] = cls.resolve_in_object(
+                    obj[k], variable_values, soda_variable_values, use_env_vars, location
+                )
+            return obj
         if isinstance(obj, list):
-            return [
-                cls.resolve_in_object(item, variable_values, soda_variable_values, use_env_vars, location)
-                for item in obj
-            ]
+            for i in range(len(obj)):
+                obj[i] = cls.resolve_in_object(
+                    obj[i], variable_values, soda_variable_values, use_env_vars, location
+                )
+            return obj
         if isinstance(obj, str):
+            # Fast path: untouched strings keep their original (possibly typed)
+            # instance — important for downstream type-sensitive validators.
+            if "${" not in obj:
+                return obj
             return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location)
         return obj
 

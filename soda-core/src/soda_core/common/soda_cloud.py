@@ -219,8 +219,9 @@ class SodaCloud:
             return None
 
         soda_cloud_yaml_source: SodaCloudYamlSource = SodaCloudYamlSource.from_file_path(file_path=config_file_path)
-        soda_cloud_yaml_source.resolve(variables=provided_variable_values)
-        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse_and_resolve(
+            variables=provided_variable_values,
+        )
 
         if not soda_cloud_yaml_root_object:
             logger.error("Invalid Soda Cloud config file: No valid YAML object as file content")
@@ -254,8 +255,9 @@ class SodaCloud:
     def from_yaml_source(
         cls, soda_cloud_yaml_source: SodaCloudYamlSource, provided_variable_values: Optional[dict[str, str]]
     ) -> Optional[SodaCloud]:
-        soda_cloud_yaml_source.resolve(variables=provided_variable_values)
-        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse()
+        soda_cloud_yaml_root_object: YamlObject = soda_cloud_yaml_source.parse_and_resolve(
+            variables=provided_variable_values,
+        )
 
         if not soda_cloud_yaml_root_object:
             logger.error("Invalid Soda Cloud config file: No valid YAML object as file content")
