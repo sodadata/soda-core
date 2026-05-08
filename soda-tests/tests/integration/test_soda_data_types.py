@@ -88,9 +88,9 @@ def test_mapping_canonical_to_data_type_to_canonical(data_source_test_helper: Da
                     # Timestamps
                     datetime.datetime(2021, 1, 1, 1, 1, 1),
                     datetime.datetime(2022, 1, 1, 1, 1, 1, 12),
-                    # Timestamp Zones
-                    datetime.datetime(2023, 1, 1, 1, 1, 1),
-                    datetime.datetime(2024, 1, 1, 1, 1, 1, 12),
+                    # Timestamp Zones — explicit UTC so the insert is unambiguous across vendors.
+                    datetime.datetime(2023, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(2024, 1, 1, 1, 1, 1, 12, tzinfo=datetime.timezone.utc),
                     # Dates
                     datetime.date(2025, 1, 1),
                     # Times

@@ -5,9 +5,33 @@ import logging
 import os
 import pickle
 from dataclasses import dataclass
+from datetime import timezone, tzinfo
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_tzinfo(tz: tzinfo) -> str:
+    """Render a ``tzinfo`` as a string parsable by ``parse_session_timezone``.
+
+    ZoneInfo zones serialize to their IANA key (``"America/Los_Angeles"``).
+    ``timezone.utc`` and any zero-offset ``datetime.timezone(...)`` serialize as
+    ``"UTC"``. Non-zero fixed offsets serialize as ``"±HH:MM"``.
+    """
+    if tz is timezone.utc:
+        return "UTC"
+    iana_key = getattr(tz, "key", None)  # ZoneInfo / pytz-style zones expose .key
+    if iana_key:
+        return iana_key
+    offset = tz.utcoffset(None)
+    if offset is None:
+        return "UTC"
+    total_minutes = int(offset.total_seconds() // 60)
+    if total_minutes == 0:
+        return "UTC"
+    sign = "-" if total_minutes < 0 else "+"
+    hours, minutes = divmod(abs(total_minutes), 60)
+    return f"{sign}{hours:02d}:{minutes:02d}"
 
 
 @dataclass
@@ -80,3 +104,43 @@ class SnapshotManager:
 
     def has_snapshot(self, test_id: str) -> bool:
         return os.path.exists(self._snapshot_path(test_id, "pickle"))
+
+    # ------------------------------------------------------------------
+    # Session-TZ sidecar
+    #
+    # Session timezone is connection-scoped (queried once at mapper-construction
+    # time, cached for the connection's lifetime), not test-scoped. We persist it
+    # in a single file per datasource rather than embedding it in every per-test
+    # pickle: that keeps the per-test format unchanged (no migration cost) and
+    # avoids redundant per-test storage of a single value.
+    #
+    # The vendor-specific ``_fetch_session_timezone`` implementations call
+    # ``self.connection.cursor()`` directly, bypassing the snapshot's
+    # ``execute_query`` / ``execute_update`` interception. So we cannot capture
+    # session-TZ replay through the same mechanism as SQL ops; the wrapper has
+    # to record the result of the call explicitly via this sidecar.
+    # ------------------------------------------------------------------
+
+    def _session_timezone_path(self) -> str:
+        return os.path.join(self.snapshot_dir, self.datasource_type, "_session_timezone.json")
+
+    def save_session_timezone(self, tz: tzinfo) -> None:
+        path = self._session_timezone_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        payload = {"datasource_type": self.datasource_type, "session_timezone": _serialize_tzinfo(tz)}
+        with open(path, "w") as f:
+            json.dump(payload, f, indent=2)
+        logger.info(f"SNAPSHOT: Saved session timezone {payload['session_timezone']!r} for {self.datasource_type}")
+
+    def load_session_timezone(self) -> Optional[str]:
+        """Return the recorded session-TZ string for this datasource, or None.
+
+        The string is suitable for ``parse_session_timezone``; the caller routes
+        it through that helper to get a ``tzinfo``.
+        """
+        path = self._session_timezone_path()
+        if not os.path.exists(path):
+            return None
+        with open(path, "r") as f:
+            payload = json.load(f)
+        return payload.get("session_timezone")

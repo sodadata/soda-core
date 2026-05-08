@@ -174,6 +174,88 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return self._real._execute_query_get_result_row_column_name(column)
         return column.name
 
+    def _fetch_session_timezone(self):
+        """Record / replay the session timezone via the SnapshotManager sidecar.
+
+        Vendor-specific ``_fetch_session_timezone`` implementations call
+        ``self.connection.cursor()`` directly, bypassing the snapshot's
+        ``execute_query`` / ``execute_update`` interception. So the regular
+        record/replay layer cannot capture them — we wire session-TZ recording
+        explicitly through the SnapshotManager's sidecar file.
+
+        Behavior:
+        * **Record mode** (or auto-record fallback during replay) — delegate to
+          the real connection's ``_fetch_session_timezone`` and persist the
+          result via ``snapshot_manager.save_session_timezone``. Subsequent
+          calls within the same connection lifetime are cached by the base
+          class so the real query runs once.
+        * **Replay mode with a parseable sidecar** — load the recorded string
+          and route through ``parse_session_timezone`` so an IANA name like
+          ``"America/Los_Angeles"`` returns a real DST-aware ``ZoneInfo``.
+        * **Replay mode with an unparseable or missing sidecar** — fall back
+          to the real connection (auto-record on success). If the real
+          connection is also unreachable, raise — DON'T silently default to
+          UTC. The caller can't tell UTC-by-record from UTC-by-fabrication, so
+          fabricating UTC here would corrupt the engine's wallclock
+          canonicalization for any non-UTC source. The upstream
+          ``get_session_timezone`` wrapper catches the raised exception,
+          produces a single warning + UTC fallback, and the failure is
+          visible in the operator's logs rather than embedded in wrong data.
+        """
+        from soda_core.common.data_source_connection import parse_session_timezone
+
+        # Record mode: the real connection is the source of truth. Persist the
+        # query result so subsequent replay runs find it.
+        if self._mode == "record" or self._fallback_is_auto_record:
+            return self._fetch_and_record_real_session_timezone(reason="record mode")
+
+        # Replay mode.
+        recorded = self._snapshot_manager.load_session_timezone()
+        if recorded is not None:
+            try:
+                return parse_session_timezone(recorded)
+            except ValueError as exc:
+                logger.warning(
+                    f"SNAPSHOT: recorded session timezone {recorded!r} is no longer "
+                    f"parseable ({exc!r}); falling back to the real connection. "
+                    "Re-record to refresh the sidecar."
+                )
+                # fall through to live-fetch path below
+
+        # No (or unparseable) sidecar — query the real connection. The real
+        # connection is the only authoritative source of session TZ; we never
+        # fabricate a default here.
+        return self._fetch_and_record_real_session_timezone(
+            reason="replay sidecar missing or unparseable",
+        )
+
+    def _fetch_and_record_real_session_timezone(self, *, reason: str):
+        """Query the real connection's session TZ and persist into the sidecar.
+
+        Raises ``RuntimeError`` (caught by the public ``get_session_timezone``
+        wrapper, which logs one warning and falls back to UTC) when no real
+        connection is available — never silently defaults.
+        """
+        real = self._real
+        if real is None and self._fallback_connection_factory is not None:
+            real = self._fallback_connection_factory()
+            self._real = real
+        if real is None:
+            raise RuntimeError(
+                f"SnapshotDataSourceConnection cannot determine session timezone "
+                f"({reason}): no real connection is attached and no fallback factory "
+                "is configured."
+            )
+        tz = real._fetch_session_timezone()
+        try:
+            self._snapshot_manager.save_session_timezone(tz)
+        except Exception as exc:
+            # Sidecar persistence is an optimization; the value is already
+            # determined for the current run. Don't let a write failure take
+            # down the test.
+            logger.warning(f"SNAPSHOT: failed to persist session timezone: {exc!r}")
+        return tz
+
     def _create_connection(self, connection_properties: dict) -> object:
         # Never called because we always pass a non-None connection to __init__.
         return None

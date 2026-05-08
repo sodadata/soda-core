@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from datetime import timezone, tzinfo
 from pathlib import Path
 from typing import Dict, Literal, Optional
 
@@ -9,7 +10,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from pydantic import Field, SecretStr, field_validator
 from snowflake import connector
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -145,3 +149,30 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
             application="Soda",
             **config.to_connection_kwargs(),
         )
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        with self.connection.cursor() as cursor:
+            cursor.execute("SHOW PARAMETERS LIKE 'TIMEZONE' IN SESSION")
+            rows = cursor.fetchall()
+            description = cursor.description
+        if not rows:
+            # SHOW PARAMETERS returned no row at all — treat as "no session TZ
+            # configured" rather than a parse failure (parse_session_timezone returns
+            # UTC silently for empty input but raises on truly junk values).
+            return timezone.utc
+        column_names = [col[0].lower() if col[0] else "" for col in description]
+        try:
+            value_index = column_names.index("value")
+        except ValueError:
+            # Defensive: a Snowflake driver / server upgrade has reshaped the SHOW
+            # PARAMETERS output. We refuse to guess a column index — the prior code
+            # silently fell back to ``column 1`` which would happen to be right today
+            # but would mask a real schema change tomorrow. Surface the situation as a
+            # warning and default to UTC; the connection-level wrapper will not log it
+            # again because we return rather than raise.
+            logger.warning(
+                "Snowflake SHOW PARAMETERS did not include a 'value' column "
+                f"(got {column_names!r}); defaulting session timezone to UTC"
+            )
+            return timezone.utc
+        return parse_session_timezone(rows[0][value_index])

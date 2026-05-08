@@ -3,9 +3,12 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
 from soda_core.common.logging_constants import soda_logger
@@ -13,6 +16,113 @@ from soda_core.common.logging_constants import soda_logger
 logger: logging.Logger = soda_logger
 
 from tabulate import tabulate
+
+# IANA names that mean "UTC, no DST, no historical offsets". When ZoneInfo returns one
+# of these, we collapse to ``timezone.utc`` so adapter outputs are uniform regardless of
+# whether the driver reports the literal string ``"UTC"`` or one of the IANA aliases
+# below. The Etc/GMT entries are tricky — note that Etc/GMT+0 / Etc/GMT-0 are both
+# zero-offset variants (Etc/GMT+N has *negative* offset N hours per POSIX inversion,
+# but +0/-0 collapse to UTC). GMT0 is a System V-style zero-offset zone alias.
+_UTC_ALIAS_ZONE_KEYS = frozenset(
+    {
+        "UTC",
+        "Etc/UTC",
+        "Universal",
+        "Etc/Universal",
+        "Zulu",
+        "Etc/Zulu",
+        "GMT",
+        "GMT0",
+        "GMT+0",
+        "GMT-0",
+        "Etc/GMT",
+        "Etc/GMT0",
+        "Etc/GMT+0",
+        "Etc/GMT-0",
+        "Greenwich",
+        "Etc/Greenwich",
+    }
+)
+
+# Driver outputs that mean "use the host's local TZ at the time of the query". Postgres
+# returns ``localtime`` from ``SHOW timezone`` when the server is configured that way.
+# Trino's ``current_timezone()`` can return ``system`` for a similar setup. Both should
+# resolve to the engine host's actual local TZ so naive returns from the source can be
+# canonicalized correctly. Without this, ``parse_session_timezone`` would reject the
+# literal as unparseable and the connection wrapper would fall back to UTC, silently
+# shifting wallclocks by the host's offset for every naive return from a TZ-aware column.
+_HOST_LOCAL_LITERAL_VALUES = frozenset({"localtime", "system"})
+
+
+def parse_session_timezone(value: Optional[str]) -> tzinfo:
+    """Parse a session-timezone string returned by a database driver into a tzinfo.
+
+    Accepts IANA names ('America/Los_Angeles'), 'UTC'/'GMT'/'Z', UTC-equivalent IANA
+    aliases ('Etc/UTC', 'Universal', 'Zulu', etc.), or numeric offsets like '+00:00',
+    '-08:00', '+0530', 'UTC+02:00'. Every UTC-equivalent input — the literal strings,
+    the alias zones, and zero numeric offsets — is normalized to ``timezone.utc`` (the
+    singleton) so adapter outputs are uniform across vendors that report UTC by name,
+    by alias, or by offset.
+
+    Empty / None / whitespace-only input is treated as "no session TZ configured" and
+    returns ``timezone.utc`` silently — the conventional fallback every adapter uses
+    on a missing-row query result.
+
+    Raises ``ValueError`` on non-empty unparseable input. The single legitimate
+    fallback site is ``DataSourceConnection.get_session_timezone()``, which catches
+    and logs one warning before returning UTC.
+    """
+    if value is None:
+        return timezone.utc
+    # Strip outer whitespace and quotes in a single pass — drivers may quote their
+    # result, and the body of those quotes may also be empty / whitespace-only.
+    text = value.strip(" \r\n\t'\"")
+    if not text:
+        return timezone.utc
+    # Case-insensitive match for the UTC literals. ZoneInfo lookup below is
+    # case-sensitive (``ZoneInfo("utc")`` raises ZoneInfoNotFoundError), so we
+    # have to normalize these here. ``Z`` is the ISO-8601 alias for UTC and is
+    # not in the IANA database at all, so it can only be caught at this stage.
+    if text.upper() in ("UTC", "GMT", "Z"):
+        return timezone.utc
+
+    if text.lower() in _HOST_LOCAL_LITERAL_VALUES:
+        # Driver said "use the host local TZ". Resolve via the OS now. The result is a
+        # fixed-offset tzinfo derived from the current local time — DST drift across a
+        # long-lived connection is the same as for SQL Server / DB2 (out of scope per
+        # the team's "DWH connections are short-lived" stance), but the wallclock at
+        # canonicalization time is correct.
+        return datetime.now().astimezone().tzinfo
+
+    try:
+        zi = ZoneInfo(text)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        zi = None
+    if zi is not None:
+        # Collapse UTC-equivalent IANA aliases to ``timezone.utc`` so an adapter
+        # reporting ``"Etc/UTC"`` returns the same singleton as one reporting the
+        # literal ``"UTC"`` or the ``+00:00`` numeric offset.
+        if zi.key in _UTC_ALIAS_ZONE_KEYS:
+            return timezone.utc
+        return zi
+
+    match = re.match(r"^(?:UTC|GMT)?([+-])(\d{1,2}):?(\d{2})?$", text)
+    if match:
+        sign = -1 if match.group(1) == "-" else 1
+        hours = int(match.group(2))
+        minutes = int(match.group(3) or 0)
+        # Reject components out of range explicitly. The regex's ``\d{2}`` for the
+        # minutes group accepts up to ``99``, which would otherwise spill via timedelta
+        # arithmetic into a higher hour bucket — e.g. ``+05:99`` becomes ``06:39``,
+        # silently producing a real-but-wrong offset for what is actually junk input.
+        if hours >= 24 or minutes >= 60:
+            raise ValueError(f"could not parse session timezone {text!r}")
+        offset = sign * timedelta(hours=hours, minutes=minutes)
+        if offset == timedelta(0):
+            return timezone.utc
+        return timezone(offset)
+
+    raise ValueError(f"could not parse session timezone {text!r}")
 
 
 class DataSourceConnection(ABC):
@@ -29,9 +139,62 @@ class DataSourceConnection(ABC):
         self.name: str = name
         self.connection_properties: dict = connection_properties
         self.connection: Optional[object] = connection
+        self._session_timezone_cache: Optional[tzinfo] = None
 
         # Auto-open on creation if no connection already supplied. See DataSource.open_connection()
         self.open_connection()
+
+    def get_session_timezone(self) -> tzinfo:
+        """Return the live session timezone of this connection.
+
+        Result is cached for the connection's lifetime. Subclasses MUST override
+        :meth:`_fetch_session_timezone` to declare how their backend reports the
+        session TZ. If a subclass forgets to override (or the override raises
+        unexpectedly), this method catches the failure, logs a single warning,
+        and falls back to UTC — but the warning makes the missing implementation
+        visible rather than silently treating UTC as the global default.
+        """
+        if self._session_timezone_cache is None:
+            try:
+                self._session_timezone_cache = self._fetch_session_timezone()
+            except Exception as e:
+                logger.warning(f"Failed to query session timezone on '{self.name}'; defaulting to UTC: {e}")
+                self._session_timezone_cache = timezone.utc
+        return self._session_timezone_cache
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        """Query the backend for the live session timezone and return as a ``tzinfo``.
+
+        Subclasses MUST override. Raising ``NotImplementedError`` here (rather than
+        silently returning UTC) makes the contract explicit for new adapters: a
+        contributor adding a new vendor will see an immediate failure if they
+        forget the override, instead of every cross-source DWH transfer through
+        their adapter silently treating session TZ as UTC.
+
+        Recommended implementation:
+        * Vendors with a single source of session-TZ truth (Postgres ``SHOW
+          timezone``, Snowflake ``SHOW PARAMETERS LIKE 'TIMEZONE'``, Trino /
+          Databricks ``current_timezone()``, DuckDB ``current_setting('TimeZone')``,
+          Oracle ``SESSIONTIMEZONE``, DB2 ``CURRENT TIMEZONE``): query, then route
+          the resulting string through ``parse_session_timezone`` for normalization.
+        * Vendors that are UTC-only by design (BigQuery, Athena, Dremio): return
+          ``timezone.utc`` directly.
+        * Vendors whose connection wraps a session that may be reconfigured by the
+          caller (SparkDF's ``from_existing_session``): query the live setting
+          (e.g. ``self.session.conf.get("spark.sql.session.timeZone")``) rather
+          than hard-coding UTC.
+
+        ``get_session_timezone`` (the public accessor) wraps this in a try/except
+        that logs a single warning and falls back to UTC, so a runtime failure of
+        an existing override (driver upgrade, permission change) won't crash the
+        caller — it surfaces as a single warning + UTC.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must override _fetch_session_timezone(). "
+            "See the docstring on DataSourceConnection._fetch_session_timezone for the "
+            "recommended pattern. Vendors that are UTC-only by design should explicitly "
+            "return timezone.utc."
+        )
 
     def __enter__(self):
         pass

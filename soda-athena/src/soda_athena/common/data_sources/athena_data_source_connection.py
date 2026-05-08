@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
+from datetime import timezone, tzinfo
 from typing import Literal, Optional, Union
 
 import pyathena
@@ -80,3 +81,7 @@ class AthenaDataSourceConnection(DataSourceConnection):
 
     def _execute_query_get_result_row_column_name(self, column) -> str:
         return column[0]  # Column names are in the first element of the tuple
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        # Athena always operates in UTC; there is no per-session TZ knob.
+        return timezone.utc

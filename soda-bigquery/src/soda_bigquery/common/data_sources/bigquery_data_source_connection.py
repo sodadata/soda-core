@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC
+from datetime import timezone, tzinfo
 from typing import Literal, Optional, Union
 
 from google.api_core.client_info import ClientInfo
@@ -152,3 +153,7 @@ class BigQueryDataSourceConnection(DataSourceConnection):
 
     def _format_row(self, row: Row) -> tuple:
         return tuple(row.values())
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        # BigQuery always operates in UTC; there is no per-session TZ knob.
+        return timezone.utc
