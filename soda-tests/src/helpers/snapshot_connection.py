@@ -174,6 +174,27 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             return self._real._execute_query_get_result_row_column_name(column)
         return column.name
 
+    def _fetch_session_timezone(self):
+        """Snapshot wrapper does not record session-TZ queries.
+
+        The base ``DataSourceConnection._fetch_session_timezone`` raises
+        ``NotImplementedError`` (intentional — to make the contract explicit for
+        new adapters). The vendor-specific overrides typically call
+        ``self.connection.cursor()`` directly, which bypasses the snapshot
+        record/replay layer (snapshots intercept ``execute_query`` /
+        ``execute_update``, not raw cursor access). So delegating to
+        ``self._real._fetch_session_timezone()`` would not produce a snapshot-
+        recoverable result.
+
+        Returning ``timezone.utc`` here matches the historical default that the
+        snapshot layer produced before the base raised. Tests that need to assert
+        a specific session TZ run against a real connection (REPLAY=OFF), not the
+        snapshot wrapper.
+        """
+        from datetime import timezone as _timezone  # local import to avoid module-level churn
+
+        return _timezone.utc
+
     def _create_connection(self, connection_properties: dict) -> object:
         # Never called because we always pass a non-None connection to __init__.
         return None

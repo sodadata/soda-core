@@ -159,8 +159,12 @@ class DataSourceConnection(ABC):
     def get_session_timezone(self) -> tzinfo:
         """Return the live session timezone of this connection.
 
-        Result is cached for the connection's lifetime. Subclasses override
-        :meth:`_fetch_session_timezone` to query their backend; the default is UTC.
+        Result is cached for the connection's lifetime. Subclasses MUST override
+        :meth:`_fetch_session_timezone` to declare how their backend reports the
+        session TZ. If a subclass forgets to override (or the override raises
+        unexpectedly), this method catches the failure, logs a single warning,
+        and falls back to UTC — but the warning makes the missing implementation
+        visible rather than silently treating UTC as the global default.
         """
         if self._session_timezone_cache is None:
             try:
@@ -171,7 +175,38 @@ class DataSourceConnection(ABC):
         return self._session_timezone_cache
 
     def _fetch_session_timezone(self) -> tzinfo:
-        return timezone.utc
+        """Query the backend for the live session timezone and return as a ``tzinfo``.
+
+        Subclasses MUST override. Raising ``NotImplementedError`` here (rather than
+        silently returning UTC) makes the contract explicit for new adapters: a
+        contributor adding a new vendor will see an immediate failure if they
+        forget the override, instead of every cross-source DWH transfer through
+        their adapter silently treating session TZ as UTC.
+
+        Recommended implementation:
+        * Vendors with a single source of session-TZ truth (Postgres ``SHOW
+          timezone``, Snowflake ``SHOW PARAMETERS LIKE 'TIMEZONE'``, Trino /
+          Databricks ``current_timezone()``, DuckDB ``current_setting('TimeZone')``,
+          Oracle ``SESSIONTIMEZONE``, DB2 ``CURRENT TIMEZONE``): query, then route
+          the resulting string through ``parse_session_timezone`` for normalization.
+        * Vendors that are UTC-only by design (BigQuery, Athena, Dremio): return
+          ``timezone.utc`` directly.
+        * Vendors whose connection wraps a session that may be reconfigured by the
+          caller (SparkDF's ``from_existing_session``): query the live setting
+          (e.g. ``self.session.conf.get("spark.sql.session.timeZone")``) rather
+          than hard-coding UTC.
+
+        ``get_session_timezone`` (the public accessor) wraps this in a try/except
+        that logs a single warning and falls back to UTC, so a runtime failure of
+        an existing override (driver upgrade, permission change) won't crash the
+        caller — it surfaces as a single warning + UTC.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must override _fetch_session_timezone(). "
+            "See the docstring on DataSourceConnection._fetch_session_timezone for the "
+            "recommended pattern. Vendors that are UTC-only by design should explicitly "
+            "return timezone.utc."
+        )
 
     def __enter__(self):
         pass
