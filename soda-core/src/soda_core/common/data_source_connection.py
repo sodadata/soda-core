@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any, Callable, Optional
-
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from soda_core.common.data_source_results import QueryResult, QueryResultIterator
