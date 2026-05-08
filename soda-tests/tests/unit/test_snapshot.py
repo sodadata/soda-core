@@ -141,6 +141,91 @@ class TestSnapshotManager:
         assert manager.has_snapshot(test_id)
 
 
+class TestSnapshotManagerSessionTimezone:
+    """Session-TZ sidecar is per-datasource (one file shared across tests)
+    because session timezone is connection-scoped, not test-scoped.
+    """
+
+    @pytest.fixture
+    def tmp_snapshot_dir(self, tmp_path):
+        return str(tmp_path / "snapshots")
+
+    @pytest.fixture
+    def manager(self, tmp_snapshot_dir):
+        return SnapshotManager(datasource_type="postgres", snapshot_dir=tmp_snapshot_dir)
+
+    def test_load_returns_none_when_sidecar_missing(self, manager):
+        assert manager.load_session_timezone() is None
+
+    def test_save_then_load_iana_zone_roundtrip(self, manager):
+        from datetime import timezone as _timezone
+        from zoneinfo import ZoneInfo
+
+        manager.save_session_timezone(ZoneInfo("America/Los_Angeles"))
+        recorded = manager.load_session_timezone()
+        assert recorded == "America/Los_Angeles"
+
+        # Round-trip: parse the recorded string back and confirm it produces a
+        # tzinfo that gives the right offset. (We can't compare ZoneInfo objects
+        # by identity because the parser returns a fresh ZoneInfo instance.)
+        from soda_core.common.data_source_connection import parse_session_timezone
+
+        parsed = parse_session_timezone(recorded)
+        from datetime import datetime
+
+        assert parsed.utcoffset(datetime(2024, 1, 15)).total_seconds() == -8 * 3600  # PST winter
+        assert parsed.utcoffset(datetime(2024, 7, 15)).total_seconds() == -7 * 3600  # PDT summer
+
+    def test_save_then_load_utc_roundtrip(self, manager):
+        from datetime import timezone as _timezone
+
+        manager.save_session_timezone(_timezone.utc)
+        recorded = manager.load_session_timezone()
+        assert recorded == "UTC"
+
+    def test_save_then_load_fixed_offset_roundtrip(self, manager):
+        from datetime import timedelta, timezone as _timezone
+
+        manager.save_session_timezone(_timezone(timedelta(hours=-8)))
+        recorded = manager.load_session_timezone()
+        assert recorded == "-08:00"
+
+    def test_save_then_load_zero_offset_collapses_to_utc(self, manager):
+        from datetime import timedelta, timezone as _timezone
+
+        # ``timezone(timedelta(0))`` is functionally UTC; we serialize as "UTC"
+        # so the recorded value round-trips cleanly through parse_session_timezone
+        # back to the singleton.
+        manager.save_session_timezone(_timezone(timedelta(0)))
+        recorded = manager.load_session_timezone()
+        assert recorded == "UTC"
+
+    def test_save_overwrites_existing_sidecar(self, manager):
+        # Re-recording updates the sidecar in place rather than appending.
+        from datetime import timezone as _timezone
+        from zoneinfo import ZoneInfo
+
+        manager.save_session_timezone(_timezone.utc)
+        assert manager.load_session_timezone() == "UTC"
+
+        manager.save_session_timezone(ZoneInfo("America/Los_Angeles"))
+        assert manager.load_session_timezone() == "America/Los_Angeles"
+
+    def test_sidecar_is_per_datasource(self, tmp_snapshot_dir):
+        # Two managers for two datasources see independent sidecar files.
+        from datetime import timezone as _timezone
+        from zoneinfo import ZoneInfo
+
+        pg = SnapshotManager(datasource_type="postgres", snapshot_dir=tmp_snapshot_dir)
+        sf = SnapshotManager(datasource_type="snowflake", snapshot_dir=tmp_snapshot_dir)
+
+        pg.save_session_timezone(_timezone.utc)
+        sf.save_session_timezone(ZoneInfo("America/Los_Angeles"))
+
+        assert pg.load_session_timezone() == "UTC"
+        assert sf.load_session_timezone() == "America/Los_Angeles"
+
+
 # ---------------------------------------------------------------------------
 # Normalization helpers
 # ---------------------------------------------------------------------------
