@@ -204,12 +204,9 @@ class SqlServerDataSourceConnection(DataSourceConnection):
         # The connection registers ``handle_datetimeoffset`` as a pyodbc output converter for
         # SQL_TYPE -155, so the returned value is a tz-aware ``datetime`` whose tzinfo is the
         # exact offset reported by the server.
-        cursor = self.connection.cursor()
-        try:
+        with self.connection.cursor() as cursor:
             cursor.execute("SELECT SYSDATETIMEOFFSET()")
             row = cursor.fetchone()
-        finally:
-            cursor.close()
         if not row or not isinstance(row[0], datetime) or row[0].tzinfo is None:
             return timezone.utc
         offset = row[0].tzinfo.utcoffset(row[0])

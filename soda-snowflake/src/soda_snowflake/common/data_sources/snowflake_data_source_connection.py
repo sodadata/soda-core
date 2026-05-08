@@ -151,13 +151,10 @@ class SnowflakeDataSourceConnection(DataSourceConnection):
         )
 
     def _fetch_session_timezone(self) -> tzinfo:
-        cursor = self.connection.cursor()
-        try:
+        with self.connection.cursor() as cursor:
             cursor.execute("SHOW PARAMETERS LIKE 'TIMEZONE' IN SESSION")
             rows = cursor.fetchall()
             description = cursor.description
-        finally:
-            cursor.close()
         if not rows:
             # SHOW PARAMETERS returned no row at all — treat as "no session TZ
             # configured" rather than a parse failure (parse_session_timezone returns

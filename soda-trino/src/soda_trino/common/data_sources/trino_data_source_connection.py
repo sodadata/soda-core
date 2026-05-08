@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import tzinfo
+from datetime import timezone, tzinfo
 from decimal import Decimal
 from typing import Literal, Optional, Union
 
@@ -106,13 +106,12 @@ class TrinoDataSourceConnection(DataSourceConnection):
         return tuple(float(v) if isinstance(v, Decimal) else v for v in row)
 
     def _fetch_session_timezone(self) -> tzinfo:
-        cursor = self.connection.cursor()
-        try:
+        with self.connection.cursor() as cursor:
             cursor.execute("SELECT current_timezone()")
             row = cursor.fetchone()
-        finally:
-            cursor.close()
-        return parse_session_timezone(row[0] if row else "")
+        if not row:
+            return timezone.utc
+        return parse_session_timezone(row[0])
 
     def _create_connection(
         self,

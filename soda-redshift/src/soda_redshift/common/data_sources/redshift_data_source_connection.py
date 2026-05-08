@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from datetime import tzinfo
+from datetime import timezone, tzinfo
 from ipaddress import IPv4Address, IPv6Address
 from typing import Literal, Optional, Union
 
@@ -149,4 +149,6 @@ class RedshiftDataSourceConnection(DataSourceConnection):
         with self.connection.cursor() as cursor:
             cursor.execute("SHOW timezone")
             row = cursor.fetchone()
-        return parse_session_timezone(row[0] if row else "")
+        if not row:
+            return timezone.utc
+        return parse_session_timezone(row[0])

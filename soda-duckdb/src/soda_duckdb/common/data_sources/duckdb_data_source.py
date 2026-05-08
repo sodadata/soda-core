@@ -1,5 +1,5 @@
 from collections import namedtuple
-from datetime import tzinfo
+from datetime import timezone, tzinfo
 from pathlib import Path
 
 from duckdb import DuckDBPyConnection
@@ -258,13 +258,12 @@ class DuckDBDataSourceConnection(DataSourceConnection):
             raise DataSourceConnectionException(e)
 
     def _fetch_session_timezone(self) -> tzinfo:
-        cursor = self.connection.cursor()
-        try:
+        with self.connection.cursor() as cursor:
             cursor.execute("SELECT current_setting('TimeZone')")
             row = cursor.fetchone()
-        finally:
-            cursor.close()
-        return parse_session_timezone(row[0] if row else "")
+        if not row:
+            return timezone.utc
+        return parse_session_timezone(row[0])
 
     def extract_format(self, config: DuckDBStandardConnectionProperties) -> str:
         return Path(config.database).suffix

@@ -26,6 +26,8 @@ def _make_connection(rows, description):
     cursor.description = description
     cursor.execute.return_value = None
     cursor.close.return_value = None
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=None)
 
     snow_conn = MagicMock()
     snow_conn.cursor.return_value = cursor

@@ -32,6 +32,10 @@ def _make_connection(returned_offset_value):
     cursor.fetchone.return_value = (returned_offset_value,) if returned_offset_value is not None else None
     cursor.execute.return_value = None
     cursor.close.return_value = None
+    # The adapter uses ``with self.connection.cursor() as cursor:`` so the context
+    # manager protocol must return the same cursor mock we configured above.
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=None)
 
     pyodbc_conn = MagicMock()
     pyodbc_conn.cursor.return_value = cursor

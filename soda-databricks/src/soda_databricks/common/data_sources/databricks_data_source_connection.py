@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import tzinfo
+from datetime import timezone, tzinfo
 
 from databricks import sql
 from soda_core.common.data_source_connection import (
@@ -36,7 +36,9 @@ class DatabricksDataSourceConnection(DataSourceConnection):
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT current_timezone()")
             row = cursor.fetchone()
-        return parse_session_timezone(row[0] if row else "")
+        if not row:
+            return timezone.utc
+        return parse_session_timezone(row[0])
 
     def rollback(self) -> None:
         # We do not start any transactions, Databricks default is autocommit.
