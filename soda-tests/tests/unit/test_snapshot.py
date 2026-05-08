@@ -158,7 +158,6 @@ class TestSnapshotManagerSessionTimezone:
         assert manager.load_session_timezone() is None
 
     def test_save_then_load_iana_zone_roundtrip(self, manager):
-        from datetime import timezone as _timezone
         from zoneinfo import ZoneInfo
 
         manager.save_session_timezone(ZoneInfo("America/Los_Angeles"))
@@ -184,14 +183,16 @@ class TestSnapshotManagerSessionTimezone:
         assert recorded == "UTC"
 
     def test_save_then_load_fixed_offset_roundtrip(self, manager):
-        from datetime import timedelta, timezone as _timezone
+        from datetime import timedelta
+        from datetime import timezone as _timezone
 
         manager.save_session_timezone(_timezone(timedelta(hours=-8)))
         recorded = manager.load_session_timezone()
         assert recorded == "-08:00"
 
     def test_save_then_load_zero_offset_collapses_to_utc(self, manager):
-        from datetime import timedelta, timezone as _timezone
+        from datetime import timedelta
+        from datetime import timezone as _timezone
 
         # ``timezone(timedelta(0))`` is functionally UTC; we serialize as "UTC"
         # so the recorded value round-trips cleanly through parse_session_timezone
