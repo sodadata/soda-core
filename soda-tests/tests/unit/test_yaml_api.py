@@ -30,8 +30,7 @@ def test_yaml_resolve_env_vars(env_vars: dict, logs: Logs):
         """
         )
     )
-    yaml_source.resolve()
-    yaml_object: YamlObject = yaml_source.parse()
+    yaml_object: YamlObject = yaml_source.parse_and_resolve()
     assert not logs.has_errors
     assert yaml_object.read_string("dataset") == "thedataset"
 
