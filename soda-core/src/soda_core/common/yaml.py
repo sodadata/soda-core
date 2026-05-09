@@ -536,15 +536,11 @@ class VariableResolver:
         # whether the input is a plain str or a ruamel ScalarString subclass.
         if isinstance(obj, dict):
             for k in list(obj.keys()):
-                obj[k] = cls.resolve_in_object(
-                    obj[k], variable_values, soda_variable_values, use_env_vars, location
-                )
+                obj[k] = cls.resolve_in_object(obj[k], variable_values, soda_variable_values, use_env_vars, location)
             return obj
         if isinstance(obj, list):
             for i in range(len(obj)):
-                obj[i] = cls.resolve_in_object(
-                    obj[i], variable_values, soda_variable_values, use_env_vars, location
-                )
+                obj[i] = cls.resolve_in_object(obj[i], variable_values, soda_variable_values, use_env_vars, location)
             return obj
         if isinstance(obj, str):
             # Fast path: untouched strings keep their original (possibly typed)
