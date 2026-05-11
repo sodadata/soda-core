@@ -26,18 +26,23 @@ from soda_core.common.data_source_impl import DataSourceImpl
 # Fixtures and helpers
 # ---------------------------------------------------------------------------
 
+# Capture the truly-original method at module import — before any test can run.
+# Tests that install the patch but don't uninstall would otherwise leak the
+# patched function into the global class, which would break unrelated tests
+# (e.g. test_create_additional_connection.py) by making them route through
+# the patched function that expects a SnapshotDataSourceConnection primary.
+_TRULY_ORIGINAL_CREATE_ADDITIONAL_CONNECTION = DataSourceImpl.create_additional_connection
+
 
 @pytest.fixture
 def reset_patch_state():
-    """Save and restore the class-level patch state around each test so they
-    can't leak monkey-patches into each other."""
-    orig_refs = DataSourceTestHelper._create_additional_connection_patch_refs
-    orig_func = DataSourceTestHelper._orig_create_additional_connection
-    orig_method = DataSourceImpl.create_additional_connection
+    """Always restore DataSourceImpl.create_additional_connection to the truly
+    original method and zero the class-level ref counter after each test. This
+    cleans up tests that install the patch without an explicit uninstall."""
     yield
-    DataSourceTestHelper._create_additional_connection_patch_refs = orig_refs
-    DataSourceTestHelper._orig_create_additional_connection = orig_func
-    DataSourceImpl.create_additional_connection = orig_method
+    DataSourceImpl.create_additional_connection = _TRULY_ORIGINAL_CREATE_ADDITIONAL_CONNECTION
+    DataSourceTestHelper._create_additional_connection_patch_refs = 0
+    DataSourceTestHelper._orig_create_additional_connection = None
 
 
 class _FakeDbapi:
