@@ -30,7 +30,7 @@ logger: logging.Logger = soda_logger
 
 class CheckCollectionYamlExtension(Protocol):
     # Extend the check-collection YAML object. Can modify the state of the YAML.
-    def extend(self, contract_yaml: "CheckCollectionYaml") -> None:
+    def extend(self, check_collection_yaml: "CheckCollectionYaml") -> None:
         ...
 
 
@@ -253,20 +253,23 @@ class CheckCollectionYaml:
 
         return variable_values
 
-    def _parse_columns(self, contract_yaml_object: YamlObject) -> list[ColumnYaml]:
+    def _parse_columns(self, check_collection_yaml_object: YamlObject) -> list[ColumnYaml]:
         columns: Optional[list[Optional[ColumnYaml]]] = None
-        if contract_yaml_object:
-            column_yaml_objects: Optional[YamlList] = contract_yaml_object.read_list_of_objects_opt("columns")
+        if check_collection_yaml_object:
+            column_yaml_objects: Optional[YamlList] = check_collection_yaml_object.read_list_of_objects_opt("columns")
             if not column_yaml_objects:
                 raise ContractParserException(
-                    "The contract is missing the required 'columns' property", str(contract_yaml_object.location)
+                    "The contract is missing the required 'columns' property",
+                    str(check_collection_yaml_object.location),
                 )
             if isinstance(column_yaml_objects, YamlList):
                 columns = []
                 column_locations_by_name: dict[str, list[Optional[Location]]] = {}
                 for column_yaml_object in column_yaml_objects:
                     if isinstance(column_yaml_object, YamlObject):
-                        column_yaml: ColumnYaml = ColumnYaml(contract_yaml=self, column_yaml_object=column_yaml_object)
+                        column_yaml: ColumnYaml = ColumnYaml(
+                            check_collection_yaml=self, column_yaml_object=column_yaml_object
+                        )
                         columns.append(column_yaml)
                         if isinstance(column_yaml.name, str):
                             (
@@ -498,7 +501,7 @@ def _resolve_to_soda_type(
 
 
 class ColumnYaml(MissingAndValidityYaml):
-    def __init__(self, contract_yaml: CheckCollectionYaml, column_yaml_object: YamlObject):
+    def __init__(self, check_collection_yaml: CheckCollectionYaml, column_yaml_object: YamlObject):
         self.column_yaml_object: YamlObject = column_yaml_object
         self.name: Optional[str] = column_yaml_object.read_string("name")
         self.data_type: Optional[str] = column_yaml_object.read_string_opt("data_type")
@@ -513,15 +516,15 @@ class ColumnYaml(MissingAndValidityYaml):
         self._validate_type_parameters(
             column_yaml_object,
             sql_dialect=(
-                contract_yaml.primary_data_source_impl.sql_dialect
-                if contract_yaml.primary_data_source_impl is not None
+                check_collection_yaml.primary_data_source_impl.sql_dialect
+                if check_collection_yaml.primary_data_source_impl is not None
                 else None
             ),
-            native_to_soda_mapping=contract_yaml._native_to_soda_data_type_mapping,
+            native_to_soda_mapping=check_collection_yaml._native_to_soda_data_type_mapping,
         )
 
         super().__init__(column_yaml_object)
-        self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
+        self.check_yamls: Optional[list[CheckYaml]] = check_collection_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object, column_yaml=self
         )
 

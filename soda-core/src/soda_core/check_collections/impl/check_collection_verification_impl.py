@@ -58,7 +58,7 @@ from tabulate import tabulate
 logger: logging.Logger = soda_logger
 
 
-class ContractVerificationHandler(ABC):
+class CheckCollectionVerificationHandler(ABC):
     @abstractmethod
     def handle(
         self,
@@ -69,6 +69,12 @@ class ContractVerificationHandler(ABC):
         soda_cloud_send_results_response_json: dict,
         dwh_data_source_file_path: Optional[str] = None,
     ):
+        # NOTE: handle()'s parameter names intentionally remain `contract_impl` and
+        # `contract_verification_result` for backwards-compatibility. External handler
+        # implementations (e.g. FailedRowsExtractor) expect these as keyword-argument
+        # names from the registry's call site. Renaming requires lockstep updates of
+        # all handler subclasses across repos and is out of scope for the base layer
+        # rename to CheckCollectionVerificationHandler.
         pass
 
     @abstractmethod
@@ -76,18 +82,31 @@ class ContractVerificationHandler(ABC):
         pass
 
 
-class ContractVerificationHandlerRegistry(ABC):
-    contract_verification_handlers: list[ContractVerificationHandler] = []
-    post_processing_stages: dict[str, ContractVerificationHandler] = {}
+class CheckCollectionVerificationHandlerRegistry(ABC):
+    check_collection_verification_handlers: list[CheckCollectionVerificationHandler] = []
+    post_processing_stages: dict[str, CheckCollectionVerificationHandler] = {}
 
     @classmethod
-    def register(cls, verification_handler: ContractVerificationHandler) -> None:
-        cls.contract_verification_handlers.append(verification_handler)
+    def register(cls, verification_handler: CheckCollectionVerificationHandler) -> None:
+        cls.check_collection_verification_handlers.append(verification_handler)
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
             if stage_name in cls.post_processing_stages:
                 logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
+
+
+# Backwards-compat aliases — external handler implementations (e.g. FailedRowsExtractor in
+# soda-extensions) subclass `ContractVerificationHandler` and access
+# `ContractVerificationHandlerRegistry.contract_verification_handlers` directly. These aliases
+# preserve compatibility until all such consumers migrate to the new names.
+ContractVerificationHandler = CheckCollectionVerificationHandler
+ContractVerificationHandlerRegistry = CheckCollectionVerificationHandlerRegistry
+# Expose the classvar under its legacy name as a reference to the same underlying list,
+# so existing `.contract_verification_handlers.clear()` / `.append(...)` calls keep working.
+CheckCollectionVerificationHandlerRegistry.contract_verification_handlers = (
+    CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers
+)
 
 
 class CheckCollectionVerificationSessionImpl:
@@ -361,13 +380,13 @@ class CheckCollectionVerificationSessionImpl:
 
 
 class CheckCollectionImplExtension(Protocol):
-    def __init__(self, contract_impl: "ContractImpl"):
-        self.contract_impl: "ContractImpl" = contract_impl
+    def __init__(self, check_collection_impl: "CheckCollectionImpl"):
+        self.check_collection_impl: "CheckCollectionImpl" = check_collection_impl
 
-    def parse_checks(self, contract_impl: "ContractImpl") -> list[CheckImpl]:
+    def parse_checks(self, check_collection_impl: "CheckCollectionImpl") -> list[CheckImpl]:
         return []
 
-    def build_queries(self, contract_impl: "ContractImpl") -> list[Query]:
+    def build_queries(self, check_collection_impl: "CheckCollectionImpl") -> list[Query]:
         return []
 
 
@@ -561,7 +580,7 @@ class CheckCollectionImpl:
 
         for extension in self.extensions:
             try:
-                check_impls.extend(extension.parse_checks(contract_impl=self))
+                check_impls.extend(extension.parse_checks(check_collection_impl=self))
             except Exception as e:
                 logger.error(f"Error parsing checks with extension {extension.__class__.__name__}: {e}")
 
@@ -612,7 +631,7 @@ class CheckCollectionImpl:
 
         for extension in self.extensions:
             try:
-                extension_queries: list[Query] = extension.build_queries(contract_impl=self)
+                extension_queries: list[Query] = extension.build_queries(check_collection_impl=self)
                 all_queries.extend(extension_queries)
             except Exception as e:
                 logger.error(f"Error building queries with extension {extension.__class__.__name__}: {e}")
@@ -624,7 +643,7 @@ class CheckCollectionImpl:
         if check_collection_yaml.columns:
             for column_yaml in check_collection_yaml.columns:
                 if column_yaml:
-                    column = ColumnImpl(contract_impl=self, column_yaml=column_yaml)
+                    column = ColumnImpl(check_collection_impl=self, column_yaml=column_yaml)
                     columns.append(column)
         return columns
 
@@ -705,7 +724,7 @@ class CheckCollectionImpl:
             soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
 
         post_processing_stages: list[PostProcessingStage] = []
-        for contract_verification_handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
+        for contract_verification_handler in CheckCollectionVerificationHandlerRegistry.post_processing_stages.values():
             post_processing_stages += contract_verification_handler.provides_post_processing_stages()
 
         contract_verification_result: ContractVerificationResult = ContractVerificationResult(
@@ -758,7 +777,9 @@ class CheckCollectionImpl:
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+        for (
+            contract_verification_handler
+        ) in CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers:
             try:
                 contract_verification_handler.handle(
                     contract_impl=self,
@@ -889,7 +910,10 @@ class CheckCollectionImpl:
         return 100 - (total_failed_rows_count * 100 / total_rows_count)
 
     def _handle_post_processing_failure(
-        self, scan_id: Optional[str], exc: Exception, contract_verification_handler: ContractVerificationHandler
+        self,
+        scan_id: Optional[str],
+        exc: Exception,
+        contract_verification_handler: CheckCollectionVerificationHandler,
     ):
         if scan_id is None:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no scan ID")
@@ -947,15 +971,18 @@ class MeasurementValues:
 
 
 class ColumnImpl:
-    def __init__(self, contract_impl: "ContractImpl", column_yaml: ColumnYaml):
+    def __init__(self, check_collection_impl: "CheckCollectionImpl", column_yaml: ColumnYaml):
         self.column_yaml: ColumnYaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=column_yaml)
         self.check_impls: list[CheckImpl] = []
         if column_yaml.check_yamls:
             for check_yaml in column_yaml.check_yamls:
                 if check_yaml:
+                    # NOTE: kwarg name stays `contract_impl` to match CheckImpl.parse_check's
+                    # parameter name, whose subclasses (in contracts/impl/check_types/, out of
+                    # scope for this rename) override `parse_check(contract_impl=...)`.
                     check = CheckImpl.parse_check(
-                        contract_impl=contract_impl,
+                        contract_impl=check_collection_impl,
                         column_impl=self,
                         check_yaml=check_yaml,
                     )
