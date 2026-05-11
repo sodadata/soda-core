@@ -376,7 +376,10 @@ class DataSourceTestHelper:
             cls._orig_create_additional_connection = DataSourceImpl.create_additional_connection
 
             def patched(ds_self: "DataSourceImpl"):
-                primary = ds_self.data_source_connection
+                # getattr (not direct attribute access) so the patch stays safe
+                # if it leaks into a test that mocks DataSourceImpl without an
+                # explicit data_source_connection attribute (e.g. MagicMock(spec=...)).
+                primary = getattr(ds_self, "data_source_connection", None)
                 if not isinstance(primary, SnapshotDataSourceConnection):
                     # Snapshot is not active for this DataSourceImpl — passthrough.
                     return cls._orig_create_additional_connection(ds_self)

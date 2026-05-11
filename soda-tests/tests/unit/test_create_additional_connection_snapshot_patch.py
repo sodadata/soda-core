@@ -151,6 +151,26 @@ def test_patched_passes_through_when_primary_is_not_a_snapshot(reset_patch_state
     impl._create_data_source_connection.assert_called_once_with()
 
 
+def test_patched_passes_through_when_impl_mock_has_no_data_source_connection(reset_patch_state) -> None:
+    """Regression: if the patch leaks across tests (e.g. a previous test in the
+    suite installed it via start_test_session and didn't run end_test_session),
+    invoking it on a MagicMock(spec=DataSourceImpl) without an explicit
+    data_source_connection attribute must NOT raise AttributeError — it must
+    fall back to the original create_additional_connection."""
+    DataSourceTestHelper._install_create_additional_connection_patch()
+    patched = DataSourceImpl.create_additional_connection
+
+    extra = MagicMock(spec=DataSourceConnection, name="extra")
+    # spec=DataSourceImpl does not expose the data_source_connection instance attr.
+    impl = MagicMock(spec=DataSourceImpl)
+    impl._create_data_source_connection.return_value = extra
+
+    result = _bind(patched, impl)()
+
+    assert result is extra
+    impl._create_data_source_connection.assert_called_once_with()
+
+
 def test_patched_wraps_in_record_mode_with_real_connection(reset_patch_state, tmp_path) -> None:
     DataSourceTestHelper._install_create_additional_connection_patch()
     patched = DataSourceImpl.create_additional_connection
