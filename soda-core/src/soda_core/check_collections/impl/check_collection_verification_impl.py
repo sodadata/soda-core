@@ -304,40 +304,37 @@ class CheckCollectionVerificationSessionImpl:
         opened_data_sources: list[DataSourceImpl] = []
         try:
             for check_collection_yaml_source in check_collection_yaml_sources:
-                try:
-                    check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
-                        check_collection_yaml_source=check_collection_yaml_source,
-                        provided_variable_values=provided_variable_values,
-                        data_timestamp=data_timestamp,
-                        primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
-                    )
-                    data_source_name: str = (
-                        check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")]
-                        if check_collection_yaml.dataset
-                        else None
-                    )
-                    data_source_impl: Optional[DataSourceImpl] = (
-                        cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
-                        if (check_collection_yaml and data_source_name and not only_validate_without_execute)
-                        else None
-                    )
-                    check_collection_impl: CheckCollectionImpl = impl_cls(
-                        check_collection_yaml=check_collection_yaml,
-                        only_validate_without_execute=only_validate_without_execute,
-                        data_timestamp=check_collection_yaml.data_timestamp,
-                        execution_timestamp=check_collection_yaml.execution_timestamp,
-                        data_source_impl=data_source_impl,
-                        all_data_source_impls=data_source_impls_by_name,
-                        soda_cloud=soda_cloud_impl,
-                        publish_results=soda_cloud_publish_results,
-                        logs=logs,
-                        check_selectors=check_selectors,
-                        dwh_data_source_file_path=dwh_data_source_file_path,
-                    )
-                    contract_verification_result = check_collection_impl.verify()
-                    contract_verification_results.append(contract_verification_result)
-                except Exception as e:
-                    raise e
+                check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
+                    check_collection_yaml_source=check_collection_yaml_source,
+                    provided_variable_values=provided_variable_values,
+                    data_timestamp=data_timestamp,
+                    primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
+                )
+                data_source_name: str = (
+                    check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")]
+                    if check_collection_yaml.dataset
+                    else None
+                )
+                data_source_impl: Optional[DataSourceImpl] = (
+                    cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
+                    if (check_collection_yaml and data_source_name and not only_validate_without_execute)
+                    else None
+                )
+                check_collection_impl: CheckCollectionImpl = impl_cls(
+                    check_collection_yaml=check_collection_yaml,
+                    only_validate_without_execute=only_validate_without_execute,
+                    data_timestamp=check_collection_yaml.data_timestamp,
+                    execution_timestamp=check_collection_yaml.execution_timestamp,
+                    data_source_impl=data_source_impl,
+                    all_data_source_impls=data_source_impls_by_name,
+                    soda_cloud=soda_cloud_impl,
+                    publish_results=soda_cloud_publish_results,
+                    logs=logs,
+                    check_selectors=check_selectors,
+                    dwh_data_source_file_path=dwh_data_source_file_path,
+                )
+                contract_verification_result = check_collection_impl.verify()
+                contract_verification_results.append(contract_verification_result)
         finally:
             for data_source_impl in opened_data_sources:
                 data_source_impl.close_connection()

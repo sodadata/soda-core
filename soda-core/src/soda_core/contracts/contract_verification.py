@@ -51,6 +51,8 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
         check_selectors: Optional[list["CheckSelector"]] = None,
         check_collection_yaml_sources: Optional[list[CheckCollectionYamlSource]] = None,
     ) -> CheckCollectionSessionResult:
+        if contract_yaml_sources is not None and check_collection_yaml_sources is not None:
+            raise TypeError("Pass either contract_yaml_sources (legacy) or check_collection_yaml_sources, not both")
         sources = contract_yaml_sources if contract_yaml_sources is not None else check_collection_yaml_sources
         return super().execute(
             check_collection_yaml_sources=sources,
@@ -76,6 +78,8 @@ class ContractVerificationSessionResult(CheckCollectionSessionResult):
         contract_verification_results: Optional[list["ContractVerificationResult"]] = None,
         check_collection_results: Optional[list[CheckCollectionResult]] = None,
     ):
+        if contract_verification_results is not None and check_collection_results is not None:
+            raise TypeError("Pass either contract_verification_results (legacy) or check_collection_results, not both")
         results = (
             contract_verification_results if contract_verification_results is not None else check_collection_results
         )

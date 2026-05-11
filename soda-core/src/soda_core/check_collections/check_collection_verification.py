@@ -21,17 +21,6 @@ class CheckCollectionVerificationSession:
     """Represents a check-collection verification session.
 
     Multiple check collections over multiple data sources can be verified in one verification session.
-
-    @param check_collection_yaml_sources: The list of check-collection YAML sources to verify.
-    @param only_validate_without_execute: If True, only validate without executing.
-    @param variables: The variables to use in the queries.
-    @param data_timestamp: The timestamp of the data to use for the verification.
-    @param data_source_impls: The data source implementations to use for the verification.
-    @param data_source_yaml_sources: The data source YAML sources to use for the verification.
-    @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
-    @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
     """
 
     @classmethod
@@ -52,6 +41,19 @@ class CheckCollectionVerificationSession:
         dwh_data_source_file_path: Optional[str] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
     ) -> CheckCollectionSessionResult:
+        """Execute a check-collection verification session.
+
+        @param check_collection_yaml_sources: The list of check-collection YAML sources to verify.
+        @param only_validate_without_execute: If True, only validate without executing.
+        @param variables: The variables to use in the queries.
+        @param data_timestamp: The timestamp of the data to use for the verification.
+        @param data_source_impls: The data source implementations to use for the verification.
+        @param data_source_yaml_sources: The data source YAML sources to use for the verification.
+        @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
+        @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
+        @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
+        @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+        """
         from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,

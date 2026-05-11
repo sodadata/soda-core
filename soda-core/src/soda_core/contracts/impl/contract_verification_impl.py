@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from datetime import datetime
 from typing import Optional
 
 from soda_core.check_collections.impl.check_collection_verification_impl import (
@@ -29,8 +31,8 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
 )
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import (
     CheckCollectionYamlSource,
     ContractYamlSource,
@@ -74,6 +76,8 @@ class ContractVerificationSessionImpl(CheckCollectionVerificationSessionImpl):
         dwh_data_source_file_path: Optional[str] = None,
         check_collection_yaml_sources: Optional[list[CheckCollectionYamlSource]] = None,
     ):
+        if contract_yaml_sources is not None and check_collection_yaml_sources is not None:
+            raise TypeError("Pass either contract_yaml_sources (legacy) or check_collection_yaml_sources, not both")
         sources = contract_yaml_sources if contract_yaml_sources is not None else check_collection_yaml_sources
         return super().execute(
             check_collection_yaml_sources=sources,
@@ -112,6 +116,8 @@ class ContractImpl(CheckCollectionImpl):
         dwh_data_source_file_path: Optional[str] = None,
         contract_yaml: Optional[ContractYaml] = None,
     ):
+        if check_collection_yaml is not None and contract_yaml is not None:
+            raise TypeError("Pass either contract_yaml (legacy) or check_collection_yaml, not both")
         resolved_yaml = check_collection_yaml if check_collection_yaml is not None else contract_yaml
         super().__init__(
             logs=logs,

@@ -35,6 +35,8 @@ class ContractYaml(CheckCollectionYaml):
         primary_data_source_impl: Optional[DataSourceImpl] = None,
         check_collection_yaml_source: Optional[ContractYamlSource] = None,
     ) -> Optional["ContractYaml"]:
+        if contract_yaml_source is not None and check_collection_yaml_source is not None:
+            raise TypeError("Pass either contract_yaml_source (legacy) or check_collection_yaml_source, not both")
         source = contract_yaml_source if contract_yaml_source is not None else check_collection_yaml_source
         return super().parse(
             check_collection_yaml_source=source,
@@ -51,6 +53,8 @@ class ContractYaml(CheckCollectionYaml):
         primary_data_source_impl: Optional[DataSourceImpl] = None,
         check_collection_yaml_source: Optional[ContractYamlSource] = None,
     ):
+        if contract_yaml_source is not None and check_collection_yaml_source is not None:
+            raise TypeError("Pass either contract_yaml_source (legacy) or check_collection_yaml_source, not both")
         source = contract_yaml_source if contract_yaml_source is not None else check_collection_yaml_source
         super().__init__(
             check_collection_yaml_source=source,
