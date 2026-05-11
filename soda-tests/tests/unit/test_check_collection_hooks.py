@@ -51,9 +51,7 @@ class _SentinelSessionResult(CheckCollectionSessionResult):
         check_collection_results: Optional[list[CheckCollectionResult]] = None,
     ):
         results = (
-            contract_verification_results
-            if contract_verification_results is not None
-            else check_collection_results
+            contract_verification_results if contract_verification_results is not None else check_collection_results
         )
         super().__init__(check_collection_results=results)
 
@@ -105,9 +103,7 @@ def test_yaml_class_hook_routes_to_subclass():
     """
     source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
     instance = _SentinelYaml.parse(check_collection_yaml_source=source)
-    assert isinstance(instance, _SentinelYaml), (
-        f"Expected _SentinelYaml, got {type(instance).__name__}"
-    )
+    assert isinstance(instance, _SentinelYaml), f"Expected _SentinelYaml, got {type(instance).__name__}"
 
 
 def test_session_impl_hooks_route_to_subclass_types():
@@ -131,17 +127,15 @@ def test_session_impl_hooks_route_to_subclass_types():
         soda_cloud_use_agent=False,
     )
 
-    assert isinstance(result, _SentinelSessionResult), (
-        f"Expected _SentinelSessionResult, got {type(result).__name__}"
-    )
+    assert isinstance(result, _SentinelSessionResult), f"Expected _SentinelSessionResult, got {type(result).__name__}"
     # Sanity: the session must contain at least one per-collection result so the
     # next assertion is actually checking something. If the verify path bailed
     # early before constructing a per-collection result, list iteration below
     # would silently pass.
-    assert len(result.check_collection_results) == 1, (
-        f"Expected exactly 1 per-collection result, got {len(result.check_collection_results)}"
-    )
+    assert (
+        len(result.check_collection_results) == 1
+    ), f"Expected exactly 1 per-collection result, got {len(result.check_collection_results)}"
     for per_collection in result.check_collection_results:
-        assert isinstance(per_collection, _SentinelResult), (
-            f"Expected _SentinelResult per-collection, got {type(per_collection).__name__}"
-        )
+        assert isinstance(
+            per_collection, _SentinelResult
+        ), f"Expected _SentinelResult per-collection, got {type(per_collection).__name__}"
