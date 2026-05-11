@@ -59,6 +59,16 @@ class ContractYaml(CheckCollectionYaml):
             primary_data_source_impl=primary_data_source_impl,
         )
 
+    @property
+    def contract_yaml_source(self):
+        """Backwards-compatible alias for self.check_collection_yaml_source."""
+        return self.check_collection_yaml_source
+
+    @property
+    def contract_yaml_object(self):
+        """Backwards-compatible alias for self.check_collection_yaml_object."""
+        return self.check_collection_yaml_object
+
 
 # Re-exports for backwards compatibility
 __all__ = [
