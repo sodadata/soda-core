@@ -465,6 +465,23 @@ class SqlDialect:
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
 
+        # Strip precision/length fields that don't apply to this column's data type.
+        # Some source extensions populate multiple precision fields from a single
+        # cursor-description value (e.g. postgres sets numeric_precision AND
+        # datetime_precision from column.precision); without this filter,
+        # get_sql_data_type_str_with_parameters() picks the first non-None and would
+        # emit e.g. `timestamp(2)` from a leaked numeric_precision even after a
+        # subsequent dialect-level safeguard zeros datetime_precision.
+        type_name: str = create_table_column.type.name
+        if not self.data_type_has_parameter_character_maximum_length(type_name):
+            create_table_column.type.character_maximum_length = None
+        if not self.data_type_has_parameter_numeric_precision(type_name):
+            create_table_column.type.numeric_precision = None
+        if not self.data_type_has_parameter_numeric_scale(type_name):
+            create_table_column.type.numeric_scale = None
+        if not self.data_type_has_parameter_datetime_precision(type_name):
+            create_table_column.type.datetime_precision = None
+
         if not self.supports_data_type_character_maximum_length():
             create_table_column.type.character_maximum_length = None
         if not self.supports_data_type_numeric_precision():
