@@ -161,9 +161,9 @@ class FailedRowsCheckImpl(CheckImpl):
         self, failed_rows_count: Optional[int], measurement_values: MeasurementValues
     ) -> tuple[Optional[float], dict[str, float]]:
         check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
-        failed_rows_percent: Optional[float] = 0
-        if isinstance(check_rows_tested, Number) and isinstance(failed_rows_count, Number) and check_rows_tested > 0:
-            failed_rows_percent = failed_rows_count * 100 / check_rows_tested
+        failed_rows_percent: Optional[float] = None
+        if measurement_values.all_measured(self.failed_rows_count_metric_impl, self.check_rows_tested_metric_impl):
+            failed_rows_percent = failed_rows_count * 100 / check_rows_tested if check_rows_tested > 0 else 0
 
         if self.failed_rows_check_yaml.metric == "percent":
             threshold_value = failed_rows_percent

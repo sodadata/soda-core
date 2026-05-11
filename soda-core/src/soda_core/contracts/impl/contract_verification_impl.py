@@ -918,6 +918,18 @@ class MeasurementValues:
     def get_value(self, metric_impl: MetricImpl) -> any:
         return self.metric_values_by_id.get(metric_impl.id)
 
+    def all_measured(self, *metric_impls: "MetricImpl") -> bool:
+        """True iff every metric has a non-None measurement.
+
+        Use in check `evaluate()` to gate threshold-value construction: when any
+        dependency is unmeasured (because its aggregation query failed upstream),
+        return outcome NOT_EVALUATED instead of defaulting computed values to 0
+        and falsely PASSING against thresholds like `must_be: 0`. The CheckImpl
+        base also exposes `evaluate_threshold(None) -> NOT_EVALUATED`, but only
+        if `threshold_value` is None — checks must not default it to a Number.
+        """
+        return all(self.get_value(m) is not None for m in metric_impls)
+
     def derive_value(self, derived_metric_impl: DerivedMetricImpl) -> None:
         if derived_metric_impl.id not in self.metric_values_by_id:
             if derived_metric_impl.id in self.metric_ids_being_derived:
@@ -1710,11 +1722,16 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
     def get_metric_dependencies(self) -> list[MetricImpl]:
         return [self.fraction_metric_impl, self.total_metric_impl]
 
-    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
-        fraction: int = measurement_values.get_value(self.fraction_metric_impl)
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
+        fraction = measurement_values.get_value(self.fraction_metric_impl)
         if fraction is None:
             return 0
-        total: int = measurement_values.get_value(self.total_metric_impl)
+        total = measurement_values.get_value(self.total_metric_impl)
+        if total is None:
+            # fraction came back but total did not (e.g. its aggregation query was in a
+            # different bundle that failed). Surface None so the check goes to
+            # NOT_EVALUATED rather than crashing on `fraction * 100 / None`.
+            return None
         return (fraction * 100 / total) if total != 0 else 0
 
 
@@ -1807,7 +1824,16 @@ class AggregationQuery(Query):
         if len(self.aggregation_metrics) == 0:
             # This is to get the initial query length in the constructor
             return [COUNT(STAR())]
-        return [aggregation_metric.sql_expression() for aggregation_metric in self.aggregation_metrics]
+        # Wrap each aggregation expression with a per-position alias so the result
+        # schema always has unique column names. Two metrics may render to byte-identical
+        # SQL (e.g. MissingCheckImpl and InvalidCheckImpl both resolve a MissingCount
+        # metric that produces the same SUM(CASE WHEN col IS NULL ...) expression);
+        # without aliases Spark 4.x rejects the query with "Can't unify schema with
+        # duplicate field names". Positional row access in execute() is unaffected.
+        return [
+            ALIAS(aggregation_metric.sql_expression(), f"m_{i}")
+            for i, aggregation_metric in enumerate(self.aggregation_metrics)
+        ]
 
     def execute(self) -> list[Measurement]:
         sql = self.build_sql()
