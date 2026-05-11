@@ -74,6 +74,140 @@ class FakeCursor:
         pass
 
 
+class _SnapshotDbapiProxy:
+    """Proxy installed as ``self.connection`` on a SnapshotDataSourceConnection.
+
+    Production code that bypasses the high-level execute_query family (notably the
+    rows_diff reconciliation check, which does ``data_source.connection.connection.cursor()``)
+    reaches the raw DBAPI through this proxy. The only DBAPI surface exposed is
+    ``cursor()``. Every other attribute raises AttributeError so the existing
+    production fallback paths (e.g. ``_optimized_insert`` falling back to
+    ``execute_update``) keep working unchanged.
+    """
+
+    def __init__(self, owner: "SnapshotDataSourceConnection"):
+        self._owner = owner
+
+    def cursor(self) -> "_SnapshotCursor":
+        return _SnapshotCursor(owner=self._owner)
+
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(
+            f"_SnapshotDbapiProxy: '{name}' is not supported by the snapshot wrapper. "
+            f"Only cursor() is exposed; use the high-level execute_query / execute_update "
+            f"methods on DataSourceConnection so the operation is recorded."
+        )
+
+
+class _SnapshotCursor:
+    """Records or replays raw DBAPI cursor operations at the ``execute()`` boundary.
+
+    The supported surface mirrors what rows_diff needs and nothing else:
+    ``execute(sql)`` (single argument, no params), ``fetchmany(size)``,
+    ``description``, ``close()``. Any other attribute raises AttributeError so
+    callers that need more functionality keep falling back to the high-level
+    snapshot-aware methods.
+
+    Recording is eager: at ``execute()`` time the full result set is drained via
+    ``fetchall()`` on the real cursor and stored in the snapshot. Subsequent
+    ``fetchmany()`` calls are served from the in-memory buffer. For test
+    workloads (recon datasets are small) this is simpler and avoids interleaving
+    record/replay state across cursor calls.
+
+    When the owner has a ``_primary_snapshot`` (i.e. it is a secondary
+    connection wrapping a ``create_additional_connection()`` result), test
+    boundary detection, recording, and replay all delegate to the primary so
+    interleaved cursor executes share a single ordered snapshot stream.
+    """
+
+    _OP_TYPE = "cursor_execute"
+
+    def __init__(self, owner: "SnapshotDataSourceConnection"):
+        self._owner = owner
+        self._real_cursor: Optional[Any] = None
+        self._rows: Optional[list[tuple]] = None
+        self._row_index: int = 0
+        self._description: Any = None
+        self._closed: bool = False
+
+    def _stream(self) -> "SnapshotDataSourceConnection":
+        """Return the snapshot connection that owns the per-test recording stream."""
+        return self._owner._primary_snapshot or self._owner
+
+    def execute(self, sql: str, params: Any = None) -> None:
+        if params is not None:
+            raise AttributeError(
+                "_SnapshotCursor: parameterized execute is not supported. " "Pass a fully-formatted SQL string."
+            )
+        stream = self._stream()
+        stream._handle_test_boundary()
+
+        # Record mode OR replay-with-active-fallback: run against the real DB and capture.
+        if self._owner._mode == "record" or stream._fallback_active:
+            if self._owner._real is None:
+                stream._ensure_real_connection()
+            if self._real_cursor is None:
+                self._real_cursor = self._owner._real.connection.cursor()
+            self._real_cursor.execute(sql)
+            self._description = self._real_cursor.description
+            self._rows = [tuple(row) for row in self._real_cursor.fetchall()]
+            self._row_index = 0
+            normalized_desc = SnapshotDataSourceConnection._normalize_description(self._description)
+            stream._record_entry(SnapshotEntry(self._OP_TYPE, sql, (list(self._rows), normalized_desc)))
+            return
+
+        # Pure replay
+        try:
+            entry = stream._next_replay_entry(self._OP_TYPE, sql)
+        except SnapshotMismatchError as e:
+            stream._activate_fallback(reason=str(e))
+            if self._real_cursor is None:
+                self._real_cursor = self._owner._real.connection.cursor()
+            self._real_cursor.execute(sql)
+            self._description = self._real_cursor.description
+            self._rows = [tuple(row) for row in self._real_cursor.fetchall()]
+            self._row_index = 0
+            normalized_desc = SnapshotDataSourceConnection._normalize_description(self._description)
+            stream._record_entry(SnapshotEntry(self._OP_TYPE, sql, (list(self._rows), normalized_desc)))
+            return
+
+        rows, description = entry.result
+        self._rows = list(rows)
+        self._description = description
+        self._row_index = 0
+
+    def fetchmany(self, size: Optional[int] = None) -> list[tuple]:
+        if self._rows is None:
+            return []
+        if size is None:
+            size = 1  # DBAPI default arraysize
+        start = self._row_index
+        end = min(start + size, len(self._rows))
+        self._row_index = end
+        return self._rows[start:end]
+
+    @property
+    def description(self) -> Any:
+        return self._description
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        if self._real_cursor is not None:
+            try:
+                self._real_cursor.close()
+            except Exception:
+                logger.warning("Failed to close real cursor in _SnapshotCursor", exc_info=True)
+            self._real_cursor = None
+
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(
+            f"_SnapshotCursor: '{name}' is not supported by the snapshot wrapper. "
+            f"Only execute(sql), fetchmany(size), description, close() are exposed."
+        )
+
+
 class SnapshotDataSourceConnection(DataSourceConnection):
     """A DataSourceConnection wrapper that records or replays SQL operations.
 
@@ -93,12 +227,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         schema_placeholder: Optional[str] = None,
         real_schema_name: Optional[str] = None,
         allow_fallback: bool = False,
+        primary_snapshot: Optional["SnapshotDataSourceConnection"] = None,
     ):
-        # Always use _SENTINEL so that open_connection() is a no-op (skips when
-        # self.connection is not None) AND so that code accessing the raw DBAPI
-        # connection (e.g. _optimized_insert) fails gracefully and falls back to
-        # execute_update, which the snapshot intercepts.  The snapshot's own
-        # execute_query / execute_update use self._real, not self.connection.
+        # Pass _SENTINEL during super().__init__ so the base open_connection()
+        # is a no-op (skips when self.connection is not None). Immediately after,
+        # we replace self.connection with a _SnapshotDbapiProxy so that callers
+        # which reach for the raw DBAPI (e.g. rows_diff: connection.connection.cursor())
+        # get a recording/replaying cursor instead of an AttributeError.
+        # The snapshot's own execute_query / execute_update still use self._real,
+        # not self.connection.
         conn_props = real_connection.connection_properties if real_connection else {}
         super().__init__(name="snapshot", connection_properties=conn_props, connection=_SENTINEL)
 
@@ -139,6 +276,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._allow_fallback: bool = allow_fallback
         self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
         self._finalized: bool = False
+
+        # When set, this is a secondary snapshot wrapper that shares the primary's
+        # per-test recording stream. Used to wrap connections returned by
+        # DataSourceImpl.create_additional_connection() so that interleaved cursor
+        # executes (e.g. rows_diff's merge-join) appear in one ordered snapshot.
+        self._primary_snapshot: Optional["SnapshotDataSourceConnection"] = primary_snapshot
+
+        # Install the DBAPI proxy in place of the sentinel passed to super().__init__.
+        # Production code that does data_source.connection.connection.cursor() will
+        # now receive a recording/replaying _SnapshotCursor.
+        self.connection = _SnapshotDbapiProxy(owner=self)
 
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
@@ -386,6 +534,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
     def _handle_test_boundary(self) -> None:
         """Detect when the current test changes and handle recording/replay transitions."""
+        if self._primary_snapshot is not None:
+            # Secondary wrapper: delegate to primary, then mirror the test id so
+            # inherited methods (execute_query, etc.) that gate on _current_test_id
+            # see the same value as the primary.
+            self._primary_snapshot._handle_test_boundary()
+            self._current_test_id = self._primary_snapshot._current_test_id
+            return
         if self._finalized:
             return
         test_id = self._get_current_test_id()
@@ -452,6 +607,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         extra_replacements values active when the SQL was executed are used.
         This matters when values like scan_id change mid-test.
         """
+        if self._primary_snapshot is not None:
+            # Secondary wrapper: delegate so all entries land in the primary's
+            # ordered recording stream.
+            self._primary_snapshot._record_entry(entry)
+            return
         self._recording.append(self._normalize_for_snapshot(entry))
 
     def _finalize_current_test(self) -> None:
@@ -598,6 +758,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     else:
                         raise
                 self._record_entry(SnapshotEntry("update", entry.sql, None))
+            elif entry.op_type == _SnapshotCursor._OP_TYPE:
+                # cursor_execute entries are read-only and tied to live cursor
+                # state. Re-executing them isn't meaningful for state setup;
+                # preserve the already-recorded entry so the new snapshot stays
+                # consistent with what the test code already consumed.
+                self._recording.append(self._replay_data[i])
             else:
                 result = self._real.execute_query(entry.sql, log_query=False)
                 self._record_entry(SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result)))
@@ -643,6 +809,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         from databases that uppercase identifiers (e.g. Snowflake uppercases hex
         scan IDs in table names, but denormalization can only produce one case).
         """
+        if self._primary_snapshot is not None:
+            # Secondary wrapper: delegate so all cursor executes are matched against
+            # the primary's single ordered replay stream.
+            return self._primary_snapshot._next_replay_entry(expected_type, expected_sql)
         if self._replay_data is None or self._replay_index >= len(self._replay_data):
             raise SnapshotMismatchError(
                 f"Snapshot exhausted for test {self._current_test_id}.\n"

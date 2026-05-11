@@ -357,6 +357,79 @@ class DataSourceTestHelper:
         """
         return self._base_schema_name
 
+    # Class-level state for the create_additional_connection monkey-patch.
+    # Reference-counted so primary + secondary helpers can both activate snapshot
+    # mode and the patch is installed once, uninstalled when the last helper ends.
+    _create_additional_connection_patch_refs: int = 0
+    _orig_create_additional_connection = None
+
+    @classmethod
+    def _install_create_additional_connection_patch(cls) -> None:
+        """Patch DataSourceImpl.create_additional_connection so the returned
+        DataSourceConnection is snapshot-aware when the primary connection on that
+        DataSourceImpl is a SnapshotDataSourceConnection. Reference counted so
+        multiple helpers can call it without colliding.
+        """
+        if cls._create_additional_connection_patch_refs == 0:
+            from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+            cls._orig_create_additional_connection = DataSourceImpl.create_additional_connection
+
+            def patched(ds_self: "DataSourceImpl"):
+                primary = ds_self.data_source_connection
+                if not isinstance(primary, SnapshotDataSourceConnection):
+                    # Snapshot is not active for this DataSourceImpl — passthrough.
+                    return cls._orig_create_additional_connection(ds_self)
+
+                if primary._mode == "replay":
+                    # In replay mode, do not open a real DBAPI connection up-front.
+                    # The secondary's cursor reads from the primary's recording stream
+                    # via _SnapshotCursor; a real connection is only opened lazily if
+                    # fallback activates.
+                    captured_ds_self = ds_self
+
+                    def lazy_factory():
+                        return cls._orig_create_additional_connection(captured_ds_self)
+
+                    secondary = SnapshotDataSourceConnection(
+                        real_connection=None,
+                        snapshot_manager=primary._snapshot_manager,
+                        mode="replay",
+                        fallback_connection_factory=lazy_factory,
+                        schema_placeholder=primary._schema_placeholder,
+                        real_schema_name=primary._real_schema_name,
+                        allow_fallback=primary._allow_fallback,
+                        primary_snapshot=primary,
+                    )
+                else:
+                    # Record mode — open the real additional connection and wrap.
+                    real_conn = cls._orig_create_additional_connection(ds_self)
+                    secondary = SnapshotDataSourceConnection(
+                        real_connection=real_conn,
+                        snapshot_manager=primary._snapshot_manager,
+                        mode="record",
+                        schema_placeholder=primary._schema_placeholder,
+                        real_schema_name=primary._real_schema_name,
+                        allow_fallback=primary._allow_fallback,
+                        primary_snapshot=primary,
+                    )
+                # Mirror connection_properties so callers that read them work in
+                # both modes without needing a live real connection.
+                secondary.connection_properties = primary.connection_properties
+                return secondary
+
+            DataSourceImpl.create_additional_connection = patched
+        cls._create_additional_connection_patch_refs += 1
+
+    @classmethod
+    def _uninstall_create_additional_connection_patch(cls) -> None:
+        if cls._create_additional_connection_patch_refs == 0:
+            return
+        cls._create_additional_connection_patch_refs -= 1
+        if cls._create_additional_connection_patch_refs == 0 and cls._orig_create_additional_connection is not None:
+            DataSourceImpl.create_additional_connection = cls._orig_create_additional_connection
+            cls._orig_create_additional_connection = None
+
     def start_test_session(self) -> None:
         if self._snapshot_mode == "replay":
             # In replay mode, defer DB connection + schema creation until a
@@ -403,6 +476,7 @@ class DataSourceTestHelper:
             # works without a real DB connection.
             snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
             self.data_source_impl.data_source_connection = snap_conn
+            self._install_create_additional_connection_patch()
         else:
             # Record mode or snapshot off: always open connection and create schema.
             self.start_test_session_open_connection()
@@ -421,6 +495,7 @@ class DataSourceTestHelper:
                 )
                 snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
                 self.data_source_impl.data_source_connection = snap_conn
+                self._install_create_additional_connection_patch()
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
@@ -438,6 +513,11 @@ class DataSourceTestHelper:
         # Finalize any in-progress snapshot recording before teardown
         if self._snapshot_mode != "off" and hasattr(self.data_source_impl.data_source_connection, "finalize"):
             self.data_source_impl.data_source_connection.finalize()
+
+        # Restore DataSourceImpl.create_additional_connection if this helper
+        # installed the patch (no-op in snapshot=off mode).
+        if self._snapshot_mode != "off":
+            self._uninstall_create_additional_connection_patch()
 
         # In replay mode with lazy connection, skip DB teardown if no fallback
         # was triggered — there's no real connection or schema to clean up.
