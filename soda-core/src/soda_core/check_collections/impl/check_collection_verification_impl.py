@@ -265,7 +265,7 @@ class CheckCollectionVerificationSessionImpl:
                 check_selectors=check_selectors,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
-        return session_result_cls(contract_verification_results=contract_verification_results)
+        return session_result_cls(check_collection_results=contract_verification_results)
 
     @classmethod
     def _execute_locally(

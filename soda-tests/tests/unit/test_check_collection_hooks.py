@@ -14,8 +14,6 @@ Documents the extension recipe for future check-collection subtypes
 (data-standards, check-suites, etc.).
 """
 
-from typing import Optional
-
 from soda_core.check_collections.check_collection_verification import (
     CheckCollectionResult,
     CheckCollectionSessionResult,
@@ -37,23 +35,7 @@ class _SentinelResult(CheckCollectionResult):
 
 
 class _SentinelSessionResult(CheckCollectionSessionResult):
-    """Sentinel session-result subclass — proves _SESSION_RESULT_CLASS routing.
-
-    Accepts the legacy ``contract_verification_results`` keyword used by
-    ``CheckCollectionVerificationSessionImpl.execute()`` at the
-    ``session_result_cls(contract_verification_results=...)`` construction
-    site, mirroring ``ContractVerificationSessionResult``.
-    """
-
-    def __init__(
-        self,
-        contract_verification_results: Optional[list[CheckCollectionResult]] = None,
-        check_collection_results: Optional[list[CheckCollectionResult]] = None,
-    ):
-        results = (
-            contract_verification_results if contract_verification_results is not None else check_collection_results
-        )
-        super().__init__(check_collection_results=results)
+    """Sentinel session-result subclass — proves _SESSION_RESULT_CLASS routing."""
 
 
 class _SentinelImpl(CheckCollectionImpl):
