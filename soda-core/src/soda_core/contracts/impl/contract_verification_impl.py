@@ -36,6 +36,10 @@ from soda_core.common.yaml import (
     ContractYamlSource,
     DataSourceYamlSource,
 )
+from soda_core.contracts.contract_verification import (
+    ContractVerificationResult,
+    ContractVerificationSessionResult,
+)
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
@@ -122,6 +126,19 @@ class ContractImpl(CheckCollectionImpl):
             check_selectors=check_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
+
+
+# Wire the polymorphism hooks on the Contract* subtypes. The base classes
+# (CheckCollectionVerificationSessionImpl, CheckCollectionImpl) read these at
+# construction sites and route to the concrete classes. A future
+# DataStandard* subtype would subclass these and set its own _YAML_CLASS /
+# _IMPL_CLASS / _RESULT_CLASS / _SESSION_RESULT_CLASS to its own types.
+ContractVerificationSessionImpl._YAML_CLASS = ContractYaml
+ContractVerificationSessionImpl._IMPL_CLASS = ContractImpl
+ContractVerificationSessionImpl._RESULT_CLASS = ContractVerificationResult
+ContractVerificationSessionImpl._SESSION_RESULT_CLASS = ContractVerificationSessionResult
+
+ContractImpl._RESULT_CLASS = ContractVerificationResult
 
 
 # Re-exports for backwards compatibility

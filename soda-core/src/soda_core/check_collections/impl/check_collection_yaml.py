@@ -28,6 +28,18 @@ from soda_core.common.yaml import (
 logger: logging.Logger = soda_logger
 
 
+def _default_yaml_cls() -> type["CheckCollectionYaml"]:
+    """Lazy-resolve the default concrete CheckCollectionYaml subclass.
+
+    Used as the fallback when CheckCollectionYaml.parse() is called on the base
+    directly (or on a subclass that has not set ``_YAML_CLASS``). Lazy import to
+    avoid a circular dependency between this module and contract_yaml.
+    """
+    from soda_core.contracts.impl.contract_yaml import ContractYaml
+
+    return ContractYaml
+
+
 class CheckCollectionYamlExtension(Protocol):
     # Extend the check-collection YAML object. Can modify the state of the YAML.
     def extend(self, check_collection_yaml: "CheckCollectionYaml") -> None:
@@ -48,6 +60,12 @@ class CheckCollectionYaml:
 
     check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
 
+    # Subtype hook: subclasses (e.g. ContractYaml, a future DataStandardYaml) set this
+    # at module level to themselves, so calling CheckCollectionYaml.parse(...) on the
+    # base resolves to the concrete subclass. None means "use the default" which is
+    # lazy-resolved to ContractYaml for backwards-compatibility.
+    _YAML_CLASS: Optional[type["CheckCollectionYaml"]] = None
+
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:
         cls.check_collection_yaml_extensions[name] = extension_cls
@@ -60,15 +78,15 @@ class CheckCollectionYaml:
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ) -> Optional[CheckCollectionYaml]:
-        from soda_core.contracts.impl.contract_yaml import ContractYaml
+        target_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
 
-        contract_yaml = ContractYaml(
+        check_collection_yaml = target_cls(
             check_collection_yaml_source=check_collection_yaml_source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
-        return contract_yaml
+        return check_collection_yaml
 
     def __init__(
         self,

@@ -58,6 +58,36 @@ from tabulate import tabulate
 logger: logging.Logger = soda_logger
 
 
+def _default_yaml_cls():
+    """Lazy-resolve the default concrete CheckCollectionYaml subclass."""
+    from soda_core.contracts.impl.contract_yaml import ContractYaml
+
+    return ContractYaml
+
+
+def _default_impl_cls():
+    """Lazy-resolve the default concrete CheckCollectionImpl subclass."""
+    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+    return ContractImpl
+
+
+def _default_result_cls():
+    """Lazy-resolve the default concrete CheckCollectionResult subclass."""
+    from soda_core.contracts.contract_verification import ContractVerificationResult
+
+    return ContractVerificationResult
+
+
+def _default_session_result_cls():
+    """Lazy-resolve the default concrete CheckCollectionSessionResult subclass."""
+    from soda_core.contracts.contract_verification import (
+        ContractVerificationSessionResult,
+    )
+
+    return ContractVerificationSessionResult
+
+
 class CheckCollectionVerificationHandler(ABC):
     @abstractmethod
     def handle(
@@ -126,6 +156,18 @@ class CheckCollectionVerificationSessionImpl:
     @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
     """
 
+    # Subtype hooks: subclasses (e.g. ContractVerificationSessionImpl, a future
+    # DataStandardVerificationSessionImpl) set these to their concrete YAML / impl /
+    # result / session-result classes. Resolved at use sites in execute() and its
+    # helpers; ``None`` falls back to the default Contract* types so the base layer
+    # remains usable directly. This makes the structural seam polymorphic — a
+    # subclass that sets the four hooks gets its own types constructed and returned
+    # without re-implementing orchestration.
+    _YAML_CLASS: Optional[type["CheckCollectionYaml"]] = None
+    _IMPL_CLASS: Optional[type["CheckCollectionImpl"]] = None
+    _RESULT_CLASS: Optional[type] = None
+    _SESSION_RESULT_CLASS: Optional[type] = None
+
     @classmethod
     def execute(
         cls,
@@ -143,10 +185,12 @@ class CheckCollectionVerificationSessionImpl:
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
     ):
-        from soda_core.contracts.contract_verification import (
-            ContractVerificationResult,
-            ContractVerificationSessionResult,
-        )
+        # Resolve concrete classes via the subtype hooks. Construction of the
+        # session result goes through ``cls._SESSION_RESULT_CLASS`` (or the
+        # default ContractVerificationSessionResult); construction of per-
+        # contract YAMLs and impls happens in ``_execute_locally`` /
+        # ``_execute_on_agent`` via the corresponding hooks.
+        session_result_cls: type = cls._SESSION_RESULT_CLASS or _default_session_result_cls()
 
         logs: Logs = Logs()
 
@@ -198,7 +242,7 @@ class CheckCollectionVerificationSessionImpl:
             check_selectors = []
 
         if soda_cloud_use_agent:
-            contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
+            contract_verification_results: list = cls._execute_on_agent(
                 check_collection_yaml_sources=check_collection_yaml_sources,
                 variables=variables,
                 soda_cloud_impl=soda_cloud_impl,
@@ -208,7 +252,7 @@ class CheckCollectionVerificationSessionImpl:
             )
 
         else:
-            contract_verification_results: list[ContractVerificationResult] = cls._execute_locally(
+            contract_verification_results: list = cls._execute_locally(
                 logs=logs,
                 check_collection_yaml_sources=check_collection_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
@@ -221,7 +265,7 @@ class CheckCollectionVerificationSessionImpl:
                 check_selectors=check_selectors,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
-        return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
+        return session_result_cls(contract_verification_results=contract_verification_results)
 
     @classmethod
     def _execute_locally(
@@ -239,11 +283,17 @@ class CheckCollectionVerificationSessionImpl:
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list["ContractVerificationResult"]:
         "Verifies a check collection locally."
-        from soda_core.contracts.contract_verification import ContractVerificationResult
-        from soda_core.contracts.impl.contract_verification_impl import ContractImpl
-        from soda_core.contracts.impl.contract_yaml import ContractYaml
+        # Type-only deferred import — kept resolvable for the return annotation
+        # without forcing a module-load-time circular dependency. Construction
+        # routes through the ``cls._RESULT_CLASS`` hook via ``impl.verify()``.
+        from soda_core.contracts.contract_verification import (  # noqa: F401
+            ContractVerificationResult,
+        )
 
-        contract_verification_results: list[ContractVerificationResult] = []
+        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
+        impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS or _default_impl_cls()
+
+        contract_verification_results: list = []
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
             data_source_impls=data_source_impls,
@@ -255,7 +305,7 @@ class CheckCollectionVerificationSessionImpl:
         try:
             for check_collection_yaml_source in check_collection_yaml_sources:
                 try:
-                    check_collection_yaml: ContractYaml = ContractYaml.parse(
+                    check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
                         check_collection_yaml_source=check_collection_yaml_source,
                         provided_variable_values=provided_variable_values,
                         data_timestamp=data_timestamp,
@@ -271,7 +321,7 @@ class CheckCollectionVerificationSessionImpl:
                         if (check_collection_yaml and data_source_name and not only_validate_without_execute)
                         else None
                     )
-                    contract_impl: ContractImpl = ContractImpl(
+                    check_collection_impl: CheckCollectionImpl = impl_cls(
                         check_collection_yaml=check_collection_yaml,
                         only_validate_without_execute=only_validate_without_execute,
                         data_timestamp=check_collection_yaml.data_timestamp,
@@ -284,7 +334,7 @@ class CheckCollectionVerificationSessionImpl:
                         check_selectors=check_selectors,
                         dwh_data_source_file_path=dwh_data_source_file_path,
                     )
-                    contract_verification_result: ContractVerificationResult = contract_impl.verify()
+                    contract_verification_result = check_collection_impl.verify()
                     contract_verification_results.append(contract_verification_result)
                 except Exception as e:
                     raise e
@@ -356,17 +406,21 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_verbose: bool,
     ) -> list["ContractVerificationResult"]:
         "Verifies check collections on the Soda Cloud agent."
-        from soda_core.contracts.contract_verification import ContractVerificationResult
-        from soda_core.contracts.impl.contract_yaml import ContractYaml
+        # Type-only deferred import — see ``_execute_locally`` for the rationale.
+        from soda_core.contracts.contract_verification import (  # noqa: F401
+            ContractVerificationResult,
+        )
 
-        contract_verification_results: list[ContractVerificationResult] = []
+        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
+
+        contract_verification_results: list = []
 
         for check_collection_yaml_source in check_collection_yaml_sources:
             try:
-                check_collection_yaml: ContractYaml = ContractYaml.parse(
+                check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
                     check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
                 )
-                contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
+                contract_verification_result = soda_cloud_impl.verify_contract_on_agent(
                     contract_yaml=check_collection_yaml,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
@@ -392,6 +446,12 @@ class CheckCollectionImplExtension(Protocol):
 
 class CheckCollectionImpl:
     check_collection_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
+
+    # Subtype hook: subclasses (e.g. ContractImpl, a future DataStandardImpl) set this
+    # at module level to the concrete result class they want ``verify()`` to construct
+    # and return. ``None`` falls back to ContractVerificationResult for backwards
+    # compatibility.
+    _RESULT_CLASS: Optional[type] = None
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:
@@ -648,7 +708,11 @@ class CheckCollectionImpl:
         return columns
 
     def verify(self) -> "ContractVerificationResult":
-        from soda_core.contracts.contract_verification import ContractVerificationResult
+        # Resolve the concrete result class via the subtype hook. The Contract*
+        # path sets ``_RESULT_CLASS = ContractVerificationResult``; a future
+        # DataStandard* subtype sets it to its own result class and gets that
+        # back from ``verify()`` with no other change to this method.
+        result_cls: type = type(self)._RESULT_CLASS or _default_result_cls()
 
         if self.data_source_impl and self.soda_config.is_running_on_agent:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
@@ -727,7 +791,7 @@ class CheckCollectionImpl:
         for contract_verification_handler in CheckCollectionVerificationHandlerRegistry.post_processing_stages.values():
             post_processing_stages += contract_verification_handler.provides_post_processing_stages()
 
-        contract_verification_result: ContractVerificationResult = ContractVerificationResult(
+        contract_verification_result = result_cls(
             contract=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
                 dataset_prefix=self.dataset_prefix,
