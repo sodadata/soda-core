@@ -87,7 +87,9 @@ class CheckCollectionYaml:
             else None
         )
 
-        self.variables: list[VariableYaml] = self._parse_variable_yamls(check_collection_yaml_source, provided_variable_values)
+        self.variables: list[VariableYaml] = self._parse_variable_yamls(
+            check_collection_yaml_source, provided_variable_values
+        )
 
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)

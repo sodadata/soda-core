@@ -77,9 +77,7 @@ class ContractVerificationSessionResult(CheckCollectionSessionResult):
         check_collection_results: Optional[list[CheckCollectionResult]] = None,
     ):
         results = (
-            contract_verification_results
-            if contract_verification_results is not None
-            else check_collection_results
+            contract_verification_results if contract_verification_results is not None else check_collection_results
         )
         super().__init__(check_collection_results=results)
 

@@ -543,7 +543,9 @@ class SodaCloud:
         verbose: bool,
     ) -> ContractVerificationResult:
         contract_yaml_str_original: str = contract_yaml.check_collection_yaml_source.yaml_str_original
-        contract_local_file_path: Optional[str] = contract_yaml.check_collection_yaml_source.file_path or "REMOTE"  # TODO
+        contract_local_file_path: Optional[str] = (
+            contract_yaml.check_collection_yaml_source.file_path or "REMOTE"
+        )  # TODO
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 

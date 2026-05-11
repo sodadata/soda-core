@@ -243,7 +243,9 @@ class CheckCollectionVerificationSessionImpl:
                         primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
                     )
                     data_source_name: str = (
-                        check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")] if check_collection_yaml.dataset else None
+                        check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")]
+                        if check_collection_yaml.dataset
+                        else None
                     )
                     data_source_impl: Optional[DataSourceImpl] = (
                         cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)

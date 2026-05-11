@@ -138,8 +138,7 @@ class CheckCollectionSessionResult:
     @property
     def has_errors(self) -> bool:
         return any(
-            contract_verification_result.has_errors
-            for contract_verification_result in self.check_collection_results
+            contract_verification_result.has_errors for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -151,8 +150,7 @@ class CheckCollectionSessionResult:
         Ignores execution errors in the logs.
         """
         return any(
-            contract_verification_result.is_failed
-            for contract_verification_result in self.check_collection_results
+            contract_verification_result.is_failed for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -164,8 +162,7 @@ class CheckCollectionSessionResult:
         Ignores execution errors in the logs.
         """
         return any(
-            contract_verification_result.is_warned
-            for contract_verification_result in self.check_collection_results
+            contract_verification_result.is_warned for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -175,8 +172,7 @@ class CheckCollectionSessionResult:
         Ignores execution errors in the logs.
         """
         return all(
-            contract_verification_result.is_passed
-            for contract_verification_result in self.check_collection_results
+            contract_verification_result.is_passed for contract_verification_result in self.check_collection_results
         )
 
     @property
@@ -186,15 +182,12 @@ class CheckCollectionSessionResult:
         Ignores execution errors in the logs.
         """
         return any(
-            contract_verification_result.has_excluded
-            for contract_verification_result in self.check_collection_results
+            contract_verification_result.has_excluded for contract_verification_result in self.check_collection_results
         )
 
     @property
     def is_ok(self) -> bool:
-        return all(
-            contract_verification_result.is_ok for contract_verification_result in self.check_collection_results
-        )
+        return all(contract_verification_result.is_ok for contract_verification_result in self.check_collection_results)
 
     def assert_ok(self) -> CheckCollectionSessionResult:
         if not self.is_ok:
