@@ -52,6 +52,38 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         schema_name = self.extract_schema_from_prefix()
         return f"{self.s3_test_dir}/staging-dir/{ATHENA_CATALOG}/{schema_name}"
 
+    def reset_table_for_fallback_retry(self, real_connection, table_name: str) -> None:
+        """Athena needs an extra S3 cleanup step the base implementation can't
+        deliver during snapshot fallback recovery.
+
+        AthenaDataSourceImpl.execute_update intercepts ``DROP TABLE`` to also
+        ``_delete_s3_files`` the underlying location — that's the path used by
+        regular test cleanup. We can't reuse it here because the fallback
+        recovery loop runs INSIDE ``SnapshotDataSourceConnection._activate_fallback``,
+        and routing the DROP through ``data_source_impl.execute_update`` would
+        bounce back into the snapshot we're currently inside (the snapshot's
+        ``_fallback_active`` flag isn't set until after the recovery loop
+        finishes, so the call would attempt a replay match, fail, and recurse
+        into ``_activate_fallback`` again).
+
+        So we replicate the two-step cleanup explicitly:
+
+        1. ``DROP TABLE`` on the real connection → removes the Glue catalog
+           entry. On Athena this does NOT remove the table's S3 files because
+           we're talking to the connection directly, bypassing the Impl hook.
+        2. Manual ``_delete_s3_files`` against the same path that
+           ``AthenaDataSourceImpl.execute_update`` would have used. Otherwise
+           the subsequent ``CREATE EXTERNAL TABLE`` re-attaches to the
+           previous LOCATION's stale Parquet files and the snapshot's INSERT
+           doubles the data.
+        """
+        real_connection.execute_update(f"DROP TABLE {table_name}", log_query=False)
+        # table_s3_location is public; _delete_s3_files is "private" by naming
+        # convention but already used externally by drop_test_schema_if_exists
+        # for the same reason — there isn't a public equivalent.
+        table_location: str = self.data_source_impl.table_s3_location(table_name, lowercase=True)
+        self.data_source_impl._delete_s3_files(table_location)
+
     def drop_test_schema_if_exists(self) -> str:
         super().drop_test_schema_if_exists()
         self.data_source_impl._delete_s3_files(self._get_3_schema_dir())
