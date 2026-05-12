@@ -2638,6 +2638,85 @@ class TestDependentSnapshotCascade:
         assert dwh_conn._fallback_active is False
 
 
+class TestFallbackTestRecord:
+    """The module-level fallback registry that snapshot_pytest_plugin consumes
+    to surface fallback events in pytest output. The recorder MUST capture the
+    test id and first-seen reason whenever _activate_fallback fires under an
+    active test; subsequent re-activations within the same test are derivative
+    and shouldn't overwrite the original cause."""
+
+    def setup_method(self):
+        from helpers.snapshot_connection import reset_fallback_test_record
+
+        reset_fallback_test_record()
+
+    def test_activate_fallback_records_test_id(self, tmp_path):
+        from helpers.snapshot_connection import get_fallback_test_record
+
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_records_fallback"
+        manager.save(
+            test_id,
+            [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))],
+        )
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT NEW")  # mismatch triggers fallback
+
+        record = get_fallback_test_record()
+        assert test_id in record
+        assert "Snapshot mismatch at operation #0" in record[test_id]
+
+    def test_first_reason_wins(self, tmp_path):
+        """Cascaded fallbacks should not overwrite the original triggering reason."""
+        from helpers.snapshot_connection import get_fallback_test_record
+
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_first_wins"
+        manager.save(test_id, [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))])
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(0,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # First fallback (real reason: mismatch on op #0).
+            conn.execute_query("SELECT NEW")
+            first_reason = get_fallback_test_record()[test_id]
+
+            # Manually trigger a second fallback (simulating a cascade with a
+            # different reason). Reset _fallback_active so the path runs again.
+            conn._fallback_active = False
+            conn._activate_fallback(reason="cascaded reason")
+
+        assert get_fallback_test_record()[test_id] == first_reason
+        assert "cascaded reason" not in get_fallback_test_record()[test_id]
+
+    def test_no_record_outside_test(self, tmp_path):
+        """Fallback fired with no PYTEST_CURRENT_TEST set must not record an entry."""
+        from helpers.snapshot_connection import get_fallback_test_record
+
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        real = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+
+        # Force-activate with no test id assigned.
+        conn._current_test_id = None
+        conn._replay_index = 0
+        conn._activate_fallback(reason="no test id")
+
+        assert get_fallback_test_record() == {}
+
+
 class TestExtractTableNameFromCreate:
     """Regex coverage for the various CREATE TABLE shapes Soda emits across
     supported datasources. Important for fallback re-execution recovery —

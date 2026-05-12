@@ -44,6 +44,24 @@ _TIMESTAMP_PLACEHOLDER = "'__$$__SODA_TIMESTAMP__$$__'"
 _SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-f]{32}", re.IGNORECASE)
 _SODA_TEMP_PLACEHOLDER = "__soda_temp___$$__SODA_UUID__$$__"
 
+# Process-local registry of (test_id → first fallback reason) recorded as soon as
+# _activate_fallback fires. Consumed by snapshot_pytest_plugin to surface fallback
+# events in pytest output (custom progress char + end-of-session summary). Module
+# scope (rather than class state) so the plugin can read it without a connection
+# instance. With pytest-xdist each worker has its own copy — the plugin aggregates
+# on the master via the test-report path so summaries still come out correct.
+_FALLBACK_TEST_RECORD: dict[str, str] = {}
+
+
+def get_fallback_test_record() -> dict[str, str]:
+    """Return the (test_id → reason) map of tests that triggered fallback in this process."""
+    return _FALLBACK_TEST_RECORD
+
+
+def reset_fallback_test_record() -> None:
+    """Clear the fallback registry. Intended for unit tests that need a clean slate."""
+    _FALLBACK_TEST_RECORD.clear()
+
 
 class FakeCursor:
     """A minimal cursor-like object that replays cached rows.
@@ -750,6 +768,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
                 f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
             )
+        # Record this fallback against the active test for pytest reporting.
+        # Only the FIRST reason wins per test (subsequent cascades from a
+        # dependent snapshot are derivative). Skip when there is no current
+        # test id (e.g. session-level fallback during teardown).
+        if self._current_test_id and self._current_test_id not in _FALLBACK_TEST_RECORD:
+            _FALLBACK_TEST_RECORD[self._current_test_id] = reason or "unspecified"
         # Call the factory on every fallback so it can both lazily open the
         # real connection (first call) and top up any test tables that this
         # test ensured but earlier fallbacks didn't yet materialize in the
