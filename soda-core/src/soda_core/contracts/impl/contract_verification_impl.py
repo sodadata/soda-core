@@ -921,12 +921,15 @@ class MeasurementValues:
     def all_measured(self, *metric_impls: "MetricImpl") -> bool:
         """True iff every metric has a non-None measurement.
 
-        Use in check `evaluate()` to gate threshold-value construction: when any
-        dependency is unmeasured (because its aggregation query failed upstream),
-        return outcome NOT_EVALUATED instead of defaulting computed values to 0
-        and falsely PASSING against thresholds like `must_be: 0`. The CheckImpl
-        base also exposes `evaluate_threshold(None) -> NOT_EVALUATED`, but only
-        if `threshold_value` is None — checks must not default it to a Number.
+        Intent: gate threshold-value construction in `evaluate()`. If any dependency
+        is unmeasured (upstream aggregation query failed), callers must keep
+        `threshold_value=None` so `evaluate_threshold(None)` returns NOT_EVALUATED
+        — defaulting it to a Number (e.g. 0) would falsely PASS against thresholds
+        like `must_be: 0`.
+
+        Note: this is `is not None`, not `isinstance(Number)`. Diagnostic-dict
+        population in `evaluate()` already gates on `isinstance(Number)` for type
+        narrowing — that's a different concern and stays as-is.
         """
         return all(self.get_value(m) is not None for m in metric_impls)
 
@@ -1697,8 +1700,19 @@ class DerivedMetricImpl(MetricImpl, ABC):
         pass
 
     @abstractmethod
-    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
         pass
+
+    def gather_dependency_values(self, measurement_values: MeasurementValues) -> Optional[list]:
+        """Return the dependency values in declaration order, or None if any is unmeasured.
+
+        Use at the top of `compute_derived_value` to short-circuit when an upstream
+        aggregation query failed: returning None from the derived metric causes the
+        consuming check to evaluate to NOT_EVALUATED, not crash on None arithmetic
+        and not falsely PASS against a 0 default.
+        """
+        values = [measurement_values.get_value(d) for d in self.get_metric_dependencies()]
+        return None if any(v is None for v in values) else values
 
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, any] = super()._get_id_properties()
@@ -1723,14 +1737,10 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
         return [self.fraction_metric_impl, self.total_metric_impl]
 
     def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
-        # Propagate None when either dependency is unmeasured. Returning 0 here would
-        # falsely PASS percent checks with a `must_be: 0` threshold against a value
-        # we never actually measured (this powers missing_percent / invalid_percent /
-        # duplicate_percent).
-        fraction = measurement_values.get_value(self.fraction_metric_impl)
-        total = measurement_values.get_value(self.total_metric_impl)
-        if fraction is None or total is None:
+        values = self.gather_dependency_values(measurement_values)
+        if values is None:
             return None
+        fraction, total = values
         return (fraction * 100 / total) if total != 0 else 0
 
 

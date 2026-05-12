@@ -219,13 +219,10 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
         return [self.distinct_count_metric_impl, self.valid_count_metric_impl]
 
     def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
-        distinct_count = measurement_values.get_value(self.distinct_count_metric_impl)
-        valid_count = measurement_values.get_value(self.valid_count_metric_impl)
-        # If either dependency is missing (e.g. the aggregation query failed upstream),
-        # propagate None so the check evaluates to NOT_EVALUATED rather than crashing
-        # the whole scan with `TypeError: unsupported operand type(s) for -`.
-        if distinct_count is None or valid_count is None:
+        values = self.gather_dependency_values(measurement_values)
+        if values is None:
             return None
+        distinct_count, valid_count = values
         return valid_count - distinct_count
 
 
@@ -377,8 +374,8 @@ class MultiColumnDuplicateCountMetricImpl(DerivedMetricImpl):
         return [self.multi_column_distinct_count_metric_impl, self.row_count_metric_impl]
 
     def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
-        distinct_count = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
-        row_count = measurement_values.get_value(self.row_count_metric_impl)
-        if distinct_count is None or row_count is None:
+        values = self.gather_dependency_values(measurement_values)
+        if values is None:
             return None
+        distinct_count, row_count = values
         return row_count - distinct_count
