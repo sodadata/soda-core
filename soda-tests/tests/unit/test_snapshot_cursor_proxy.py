@@ -60,7 +60,7 @@ class _FakeDbapiConnection:
         self.commits += 1
 
     def close(self) -> None:
-        pass
+        """Intentional no-op: fake holds no real resources to release."""
 
 
 class _FakeRealConnection:
@@ -242,10 +242,11 @@ def test_cursor_does_not_support_context_manager(tmp_path) -> None:
     cursor = snap.connection.cursor()
 
     # `with` looks up __enter__ on the type (bypasses __getattr__); _SnapshotCursor
-    # doesn't define __enter__, so Python raises AttributeError or TypeError.
+    # doesn't define __enter__, so Python raises AttributeError or TypeError before
+    # entering the body. The body is intentionally unreachable.
     with pytest.raises((AttributeError, TypeError)):
         with cursor:
-            pass
+            raise AssertionError("unreachable: __enter__ should have raised")
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +328,7 @@ def test_secondary_in_fallback_opens_its_own_real_connection(tmp_path) -> None:
     # The secondary opened its OWN real connection lazily.
     assert secondary._real is secondary_real
     # And drove it once.
+    assert len(secondary_real_dbapi.cursors_returned) == 1
     assert secondary_real_dbapi.cursors_returned[0].executed_sql == ["SELECT v FROM t"]
 
 
@@ -400,9 +402,8 @@ def test_secondary_replay_pulls_from_primary_stream(tmp_path) -> None:
 def test_activate_fallback_preserves_cursor_execute_entries_without_re_execution(tmp_path) -> None:
     """When fallback kicks in mid-replay, already-consumed cursor_execute entries
     must be preserved as-is (they're read-only and tied to live cursor state)."""
-    # Record three ops: two queries and a cursor_execute in between.
-    real_q = _FakeDbapiCursor(rows=[(7,)], description=(("v", "int"),))
-    real_q2 = _FakeDbapiCursor(rows=[(8,)], description=(("v", "int"),))
+    # Record three ops: two queries (results come from _Real._results) and a
+    # cursor_execute in between (served from the real DBAPI cursor).
     real_cur = _FakeDbapiCursor(rows=[(9,)], description=(("v", "int"),))
     dbapi = _FakeDbapiConnection(cursors=[real_cur])
     # We need both execute_query (via real_connection) and a cursor: build a

@@ -52,7 +52,7 @@ class _FakeDbapi:
         return MagicMock()
 
     def commit(self) -> None:
-        pass
+        """Intentional no-op: tests only assert on construction/lookup, no real txn."""
 
 
 class _FakeReal(DataSourceConnection):

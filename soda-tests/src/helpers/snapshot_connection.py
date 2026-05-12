@@ -137,7 +137,7 @@ class _SnapshotCursor:
     def execute(self, sql: str, params: Any = None) -> None:
         if params is not None:
             raise AttributeError(
-                "_SnapshotCursor: parameterized execute is not supported. " "Pass a fully-formatted SQL string."
+                "_SnapshotCursor: parameterized execute is not supported. Pass a fully-formatted SQL string."
             )
         stream = self._stream()
         stream._handle_test_boundary()
@@ -804,8 +804,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         [bracket-quoted] (SqlServer/Synapse/Fabric), and `backtick-quoted`
         (BigQuery/Databricks/MySQL). Returns the fully qualified name as written.
         """
+        # Use [^\s(]+ rather than a reluctant \S+? — the character class
+        # explicitly stops at whitespace or "(", which avoids the lazy
+        # quantifier and is equivalent for all CREATE TABLE shapes Soda emits
+        # ("CREATE TABLE <name> (...)" or "CREATE TABLE <name>(...)").
         match = re.match(
-            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\S+?)(?=[\s(]|$)",
+            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)",
             sql,
             re.IGNORECASE,
         )

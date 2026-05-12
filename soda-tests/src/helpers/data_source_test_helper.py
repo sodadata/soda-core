@@ -60,6 +60,63 @@ logger = logging.getLogger(__name__)
 SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
 
 
+class _LazyRealConnectionFactory:
+    """Callable used by replay-mode SnapshotDataSourceConnection as its
+    `_fallback_connection_factory`.
+
+    First call: opens a fresh real DB connection and ensures the test schema.
+    Every call: drops+recreates the test tables that the current test ensured
+    but have not yet been materialized in the real DB. Idempotent across
+    repeated fallbacks on the same helper session.
+    """
+
+    def __init__(self, helper: "DataSourceTestHelper") -> None:
+        self._helper = helper
+        self._materialized: set[str] = set()
+
+    def __call__(self):
+        helper = self._helper
+        snap_conn = helper.data_source_impl.data_source_connection
+        existing_real = getattr(snap_conn, "_real", None)
+        if existing_real is None:
+            helper.start_test_session_open_connection()
+            helper.start_test_session_ensure_schema()
+            real_conn = helper.data_source_impl.data_source_connection
+        else:
+            real_conn = existing_real
+            helper.data_source_impl.data_source_connection = real_conn
+
+        self._materialize_pending_tables()
+        helper.data_source_impl.data_source_connection = snap_conn
+        return real_conn
+
+    def _materialize_pending_tables(self) -> None:
+        helper = self._helper
+        pending = [t for t in helper._ensured_test_tables.values() if t.unique_name not in self._materialized]
+        if not pending:
+            return
+        for test_table in pending:
+            try:
+                helper._drop_test_table(table_name=test_table.unique_name)
+            except Exception:
+                self._rollback_silent()
+            try:
+                helper._create_and_insert_test_table(test_table=test_table)
+                self._materialized.add(test_table.unique_name)
+            except Exception as exc:
+                self._rollback_silent()
+                logger.warning(
+                    f"SNAPSHOT: could not materialize {test_table.unique_name} in real DB on fallback: {exc}"
+                )
+        helper.data_source_impl.data_source_connection.commit()
+
+    def _rollback_silent(self) -> None:
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            self._helper.data_source_impl.data_source_connection.rollback()
+
+
 class DataSourceTestHelper:
     @classmethod
     def create(cls, test_datasource: str, name: str) -> DataSourceTestHelper:
@@ -435,114 +492,51 @@ class DataSourceTestHelper:
 
     def start_test_session(self) -> None:
         if self._snapshot_mode == "replay":
-            # In replay mode, defer DB connection + schema creation until a
-            # fallback is actually triggered (lazy initialization).
-            from helpers.snapshot_connection import SnapshotDataSourceConnection
-
-            real_schema_name = self._snapshot_schema_name()
-
-            # Track tables we've already materialized in the real DB so each
-            # fallback only creates the NEW tables added by the current test.
-            # This dict is closed over by both the factory and the per-test
-            # state hook below.
-            real_db_materialized: set[str] = set()
-
-            def _materialize_pending_tables_in_real_db() -> None:
-                """Drop+recreate _ensured_test_tables entries that haven't been
-                materialized in the real DB yet. Idempotent and safe to call
-                across multiple fallbacks on the same helper session."""
-                import contextlib
-
-                pending = [t for t in self._ensured_test_tables.values() if t.unique_name not in real_db_materialized]
-                if not pending:
-                    return
-
-                def _rollback_after_ddl_failure():
-                    with contextlib.suppress(Exception):
-                        self.data_source_impl.data_source_connection.rollback()
-
-                for test_table in pending:
-                    try:
-                        self._drop_test_table(table_name=test_table.unique_name)
-                    except Exception:
-                        _rollback_after_ddl_failure()
-                    try:
-                        self._create_and_insert_test_table(test_table=test_table)
-                        real_db_materialized.add(test_table.unique_name)
-                    except Exception as recreate_exc:
-                        _rollback_after_ddl_failure()
-                        logger.warning(
-                            f"SNAPSHOT: could not materialize {test_table.unique_name} "
-                            f"in real DB during fallback: {recreate_exc}"
-                        )
-                self.data_source_impl.data_source_connection.commit()
-
-            def connection_factory():
-                """Open real connection (first call only) and materialize the
-                ensured test tables in the real DB.
-
-                Called by SnapshotDataSourceConnection._activate_fallback on every
-                fallback. The first invocation opens a fresh real connection and
-                ensures the schema; subsequent invocations reuse that connection
-                via snap_conn._real and just top up newly-ensured tables.
-                """
-                snap_conn = self.data_source_impl.data_source_connection
-                existing_real = getattr(snap_conn, "_real", None)
-
-                if existing_real is None:
-                    # First fallback — open a real connection.
-                    self.start_test_session_open_connection()
-                    self.start_test_session_ensure_schema()
-                    real_conn = self.data_source_impl.data_source_connection
-                else:
-                    # Reuse the real connection already attached to the snapshot.
-                    real_conn = existing_real
-                    self.data_source_impl.data_source_connection = real_conn
-
-                # Always (re)materialize the tables the current test ensured.
-                _materialize_pending_tables_in_real_db()
-
-                # Restore the snapshot wrapper on the impl so subsequent test
-                # code keeps going through replay/fallback machinery.
-                self.data_source_impl.data_source_connection = snap_conn
-                return real_conn
-
-            allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
-            snap_conn = SnapshotDataSourceConnection(
-                real_connection=None,
-                snapshot_manager=self._snapshot_manager,
-                mode="replay",
-                fallback_connection_factory=connection_factory,
-                schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
-                real_schema_name=real_schema_name,
-                allow_fallback=allow_fallback,
-            )
-            snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
-            # Propagate connection_properties from the data source model so that
-            # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
-            # works without a real DB connection.
-            snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
-            self.data_source_impl.data_source_connection = snap_conn
-            self._install_create_additional_connection_patch()
+            self._start_test_session_replay()
         else:
             # Record mode or snapshot off: always open connection and create schema.
             self.start_test_session_open_connection()
             self.start_test_session_ensure_schema()
-
             if self._snapshot_mode == "record":
-                from helpers.snapshot_connection import SnapshotDataSourceConnection
+                self._start_test_session_record()
 
-                real_connection = self.data_source_impl.data_source_connection
-                snap_conn = SnapshotDataSourceConnection(
-                    real_connection=real_connection,
-                    snapshot_manager=self._snapshot_manager,
-                    mode="record",
-                    schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
-                    real_schema_name=self._snapshot_schema_name(),
-                )
-                snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
-                self.data_source_impl.data_source_connection = snap_conn
-                self._install_create_additional_connection_patch()
+    def _start_test_session_replay(self) -> None:
+        """Replay mode: defer real DB connection + schema creation until a
+        fallback is actually triggered (lazy initialization)."""
+        from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+        allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
+        snap_conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=self._snapshot_manager,
+            mode="replay",
+            fallback_connection_factory=_LazyRealConnectionFactory(self),
+            schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
+            real_schema_name=self._snapshot_schema_name(),
+            allow_fallback=allow_fallback,
+        )
+        snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        # Propagate connection_properties from the data source model so that
+        # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
+        # works without a real DB connection.
+        snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
+        self.data_source_impl.data_source_connection = snap_conn
+        self._install_create_additional_connection_patch()
+
+    def _start_test_session_record(self) -> None:
+        """Record mode: wrap the already-opened real connection with a recording snapshot wrapper."""
+        from helpers.snapshot_connection import SnapshotDataSourceConnection
+
+        snap_conn = SnapshotDataSourceConnection(
+            real_connection=self.data_source_impl.data_source_connection,
+            snapshot_manager=self._snapshot_manager,
+            mode="record",
+            schema_placeholder=SNAPSHOT_SCHEMA_PLACEHOLDER,
+            real_schema_name=self._snapshot_schema_name(),
+        )
+        snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        self.data_source_impl.data_source_connection = snap_conn
+        self._install_create_additional_connection_patch()
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
