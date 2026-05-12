@@ -2346,8 +2346,10 @@ class TestLinkedSnapshotFallback:
         _ensured_test_tables) and then _activate_fallback tries to re-execute
         the same CREATE TABLE from the snapshot.
 
-        When a CREATE TABLE is suppressed, the table's data is cleared (DELETE FROM)
-        to prevent doubling when the subsequent INSERT re-executes.
+        When a CREATE TABLE is suppressed, the existing table is dropped and the
+        CREATE is retried — that produces an empty table so the subsequent INSERT
+        doesn't double the data. (DELETE FROM was the original approach but is
+        not supported on Hive/Athena non-Iceberg tables.)
         """
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         test_id = "tests/test_x.py::test_ignore_create_errors"
@@ -2363,12 +2365,12 @@ class TestLinkedSnapshotFallback:
         )
 
         real = _make_mock_connection()
-        # CREATE TABLE fails (already exists), DELETE clears data, INSERT succeeds
+        # CREATE TABLE fails (already exists) → DROP + retry CREATE + INSERT succeeds
         real.execute_update.side_effect = [
             Exception("Object 't' already exists"),  # CREATE TABLE during re-execution
-            None,  # DELETE FROM t (clear factory data)
+            None,  # DROP TABLE t
+            None,  # CREATE TABLE t (retry)
             None,  # INSERT during re-execution
-            None,  # mismatched query's passthrough (not used — query goes through execute_query)
         ]
         real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
 
@@ -2384,20 +2386,20 @@ class TestLinkedSnapshotFallback:
             conn.execute_update("CREATE TABLE t (id INT)")
             conn.execute_update("INSERT INTO t VALUES (1)")
             # Third op mismatches → triggers fallback → re-executes 2 updates
-            # CREATE TABLE fails but is ignored + data cleared, INSERT succeeds
+            # CREATE TABLE fails but DROP+retry-CREATE recovers, INSERT lands clean
             conn.execute_query("SELECT * FROM t WHERE id = 2")
 
         assert conn._fallback_active is True
-        # 3 update calls: CREATE TABLE (failed), DELETE FROM t (clear data), INSERT
-        assert real.execute_update.call_count == 3
-        # Verify the DELETE was called to prevent data doubling
-        delete_call = real.execute_update.call_args_list[1]
-        assert delete_call[0][0] == "DELETE FROM t WHERE 1=1"
+        # 4 update calls: CREATE (failed) + DROP + CREATE (retry) + INSERT
+        assert real.execute_update.call_count == 4
+        # Verify DROP+retry-CREATE were issued
+        assert real.execute_update.call_args_list[1][0][0] == "DROP TABLE t"
+        assert real.execute_update.call_args_list[2][0][0] == "CREATE TABLE t (id INT)"
         # Query was run against real DB after fallback
         assert real.execute_query.call_count == 1
 
     def test_fallback_re_execution_clears_qualified_table(self, tmp_path):
-        """When CREATE TABLE with qualified name is suppressed, DELETE uses the same qualified name."""
+        """When CREATE TABLE with qualified name is suppressed, DROP+re-CREATE uses the same qualified name."""
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         test_id = "tests/test_x.py::test_clear_qualified_table"
 
@@ -2413,7 +2415,8 @@ class TestLinkedSnapshotFallback:
         real = _make_mock_connection()
         real.execute_update.side_effect = [
             Exception("already exists"),  # CREATE TABLE
-            None,  # DELETE FROM (clear data)
+            None,  # DROP TABLE
+            None,  # CREATE TABLE (retry)
             None,  # INSERT
         ]
         real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
@@ -2430,8 +2433,8 @@ class TestLinkedSnapshotFallback:
             conn.execute_update('INSERT INTO "myschema"."mytable" VALUES (1)')
             conn.execute_query("SELECT 2")  # mismatch triggers fallback
 
-        delete_call = real.execute_update.call_args_list[1]
-        assert delete_call[0][0] == 'DELETE FROM "myschema"."mytable" WHERE 1=1'
+        assert real.execute_update.call_args_list[1][0][0] == 'DROP TABLE "myschema"."mytable"'
+        assert real.execute_update.call_args_list[2][0][0] == 'CREATE TABLE "myschema"."mytable" (id INT)'
 
     def test_fallback_create_schema_does_not_trigger_delete(self, tmp_path):
         """CREATE SCHEMA errors are suppressed but don't trigger a DELETE (only CREATE TABLE does)."""
@@ -2496,3 +2499,140 @@ class TestLinkedSnapshotFallback:
             # Mismatch triggers fallback → re-executes INSERT → fails → re-raised
             with pytest.raises(Exception, match="does not exist"):
                 conn.execute_query("SELECT * FROM t WHERE id = 2")
+
+
+class TestDependentSnapshotCascade:
+    """Source→DWH cascade: when an upstream snapshot enters fallback, its
+    dependent snapshot must follow, both via the push side (`_dependent_snapshots`,
+    fired at `_activate_fallback`) and the pull side (`_upstream_snapshot`,
+    rechecked at every dependent test boundary)."""
+
+    def _make_source_with_mismatch(self, tmp_path, test_id: str):
+        manager = SnapshotManager("postgres", str(tmp_path / "src"))
+        manager.save(
+            test_id,
+            [SnapshotEntry("query", "SELECT OLD_SOURCE", QueryResult(rows=[(1,)], columns=None))],
+        )
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+        real.execute_update.return_value = None
+        return manager, real
+
+    def _make_dwh(self, tmp_path, test_id: str):
+        manager = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        manager.save(
+            test_id,
+            [SnapshotEntry("update", "INSERT INTO dwh VALUES (1)", None)],
+        )
+        real = _make_mock_connection()
+        real.execute_update.return_value = None
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+        return manager, real
+
+    def test_push_cascade_when_dependent_factory_present(self, tmp_path):
+        """Source falls back first → dependent DWH (with factory installed) is cascaded
+        immediately via `_dependent_snapshots`."""
+        test_id = "tests/test_x.py::test_push_cascade"
+        src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
+        dwh_mgr, dwh_real = self._make_dwh(tmp_path, test_id)
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # Source query mismatches → triggers source fallback → pushes to DWH
+            source_conn.execute_query("SELECT NEW_SOURCE")
+
+        assert source_conn._fallback_active is True
+        assert dwh_conn._fallback_active is True
+
+    def test_push_cascade_skips_dependent_without_factory_or_real(self, tmp_path):
+        """If the dependent has no factory and no real connection yet (DWH not opened),
+        the push cascade quietly skips it — the pull side will catch up later."""
+        test_id = "tests/test_x.py::test_push_skips"
+        src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
+        dwh_mgr, _dwh_real_unused = self._make_dwh(tmp_path, test_id)
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=None, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        # Deliberately no fallback factory or _real on the DWH.
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_query("SELECT NEW_SOURCE")
+
+        assert source_conn._fallback_active is True
+        assert dwh_conn._fallback_active is False
+
+    def test_pull_cascade_activates_at_dependent_test_boundary(self, tmp_path):
+        """If the DWH gets its factory installed AFTER source already fell back, then
+        at the DWH's first test-boundary it must detect the upstream's fallback and
+        follow via `_upstream_snapshot`."""
+        test_id = "tests/test_x.py::test_pull_cascade"
+        src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
+        dwh_mgr, dwh_real = self._make_dwh(tmp_path, test_id)
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
+        )
+        # DWH has no factory yet at the moment source falls back.
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=None, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_query("SELECT NEW_SOURCE")
+            assert source_conn._fallback_active is True
+            assert dwh_conn._fallback_active is False
+
+            # Now install the factory (simulates DwhSnapshotInterceptor opening the
+            # DWH connection later in the same test), then run a DWH op. The DWH
+            # snapshot's test-boundary check should activate fallback via upstream.
+            dwh_conn._fallback_connection_factory = lambda: dwh_real
+            dwh_conn.execute_update("INSERT INTO dwh VALUES (1)")
+
+        assert dwh_conn._fallback_active is True
+        # The DWH's fallback factory must have been invoked.
+        assert dwh_conn._real is dwh_real
+
+    def test_pull_cascade_no_op_when_upstream_not_in_fallback(self, tmp_path):
+        """If upstream is healthy, the pull-side check at the DWH test boundary
+        does NOT activate fallback."""
+        test_id = "tests/test_x.py::test_pull_noop"
+        # Source snapshot matches its replay query so it stays in pure replay.
+        src_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
+        src_mgr.save(
+            test_id,
+            [SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))],
+        )
+        src_real = _make_mock_connection()
+        dwh_mgr, dwh_real = self._make_dwh(tmp_path, test_id)
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_query("SELECT 1")  # matches snapshot, no fallback
+            dwh_conn.execute_update("INSERT INTO dwh VALUES (1)")
+
+        assert source_conn._fallback_active is False
+        assert dwh_conn._fallback_active is False

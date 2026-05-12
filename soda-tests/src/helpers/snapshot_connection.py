@@ -283,7 +283,24 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._fallback_active: bool = False
         self._fallback_is_auto_record: bool = False  # True when fallback is for a missing snapshot (new recording)
         self._allow_fallback: bool = allow_fallback
+        # _linked_snapshot models an *upstream* dependency for cascade-on-fallback:
+        # when this snapshot falls back, its linked snapshot must fall back FIRST
+        # (because this snapshot's re-execution depends on the linked one's state
+        # already being on the real DB). Used by DWH→source insource mode.
         self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
+        # _dependent_snapshots is the *inverse* relationship for cascade-on-fallback:
+        # when this snapshot falls back, every dependent must ALSO fall back
+        # (because their writes would otherwise stay in replay land and never
+        # reach the real DB that subsequent code reads back from). Used to
+        # propagate a source snapshot's fallback to its DWH snapshot.
+        self._dependent_snapshots: list[SnapshotDataSourceConnection] = []
+        # _upstream_snapshot is the pull-side check for the same dependency.
+        # If this snapshot's upstream is already in fallback when this snapshot
+        # starts processing a new test (via _handle_test_boundary), this
+        # snapshot must also enter fallback. Covers the case where the source
+        # fell back before the dependent DWH was opened, so the push-cascade
+        # couldn't reach it then.
+        self._upstream_snapshot: Optional[SnapshotDataSourceConnection] = None
         self._finalized: bool = False
 
         # When set, this is a secondary snapshot wrapper that shares the primary's
@@ -605,6 +622,19 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     )
             self._replay_index = 0
             logger.info(f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}")
+            # Pull-side cascade: if our upstream snapshot is already in fallback
+            # by the time we start this test, we must follow it. Covers the case
+            # where the upstream (e.g. source) fell back before this snapshot
+            # (e.g. DWH) opened its real connection, so _activate_fallback's
+            # forward cascade couldn't reach us back then.
+            upstream = self._upstream_snapshot
+            if (
+                upstream is not None
+                and upstream._fallback_active
+                and not self._fallback_active
+                and (self._fallback_connection_factory is not None or self._real is not None)
+            ):
+                self._activate_fallback(reason="Upstream snapshot already in fallback at test boundary")
         elif self._mode == "record":
             self._recording = []
             logger.info(f"SNAPSHOT: Recording SQL for {test_id}")
@@ -745,8 +775,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         #
         # When a CREATE TABLE fails because the connection_factory already created
         # and populated the table, the subsequent INSERT in the snapshot ops would
-        # double the data. To prevent this, we clear the table data (DELETE FROM)
-        # when a CREATE TABLE is suppressed, so the INSERT starts fresh.
+        # double the data. To avoid that, on CREATE failure we DROP the existing
+        # table and retry the CREATE — that's portable across Postgres, BigQuery,
+        # Snowflake, SqlServer, Databricks, AND Athena/Hive (the latter doesn't
+        # support DELETE FROM on non-Iceberg tables, which silently swallowed the
+        # cleanup and caused data doubling). CREATE SCHEMA / CREATE VIEW failures
+        # are still just suppressed since there's no INSERT after them.
         self._recording = []
         for i in range(ops_to_replay):
             entry = self._denormalize_from_snapshot(self._replay_data[i])
@@ -765,18 +799,28 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         logger.warning(
                             f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
                         )
-                        # If a CREATE TABLE failed, the table was already created by
-                        # connection_factory (with data).  Clear the factory-inserted
-                        # rows so the subsequent INSERT from snapshot ops doesn't double.
-                        # Use `WHERE 1=1` — BigQuery rejects unqualified DELETE FROM
-                        # ("DELETE must have a WHERE clause"); 1=1 is portable across
-                        # Postgres / SqlServer / Snowflake / Databricks / BigQuery.
+                        # DROP+retry-CREATE so a subsequent INSERT lands in an empty
+                        # table. If the failure was for CREATE SCHEMA / VIEW (no table
+                        # name extractable), skip — those don't have data-doubling
+                        # consequences and re-creating them isn't worth the risk.
                         table_name = self._extract_table_name_from_create(entry.sql)
                         if table_name:
                             with contextlib.suppress(Exception):
-                                self._real.execute_update(f"DELETE FROM {table_name} WHERE 1=1", log_query=False)
+                                self._real.execute_update(f"DROP TABLE {table_name}", log_query=False)
+                            try:
+                                self._real.execute_update(entry.sql, log_query=False)
                                 logger.info(
-                                    f"SNAPSHOT: Cleared data from {table_name} to prevent doubling during fallback"
+                                    f"SNAPSHOT: Recreated {table_name} after dropping the pre-existing copy "
+                                    "to prevent data doubling during fallback"
+                                )
+                            except Exception as recreate_exc:
+                                # If recreate still fails, leave it: rollback once more
+                                # so a following INSERT can attempt to run. The INSERT
+                                # may still fail, and that will be surfaced as before.
+                                with contextlib.suppress(Exception):
+                                    self._real.rollback()
+                                logger.warning(
+                                    f"SNAPSHOT: Recreate of {table_name} also failed during fallback: {recreate_exc}"
                                 )
                     else:
                         raise
@@ -792,6 +836,26 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 self._record_entry(SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result)))
 
         self._fallback_active = True
+
+        # Cascade fallback to dependent snapshots (e.g. a DWH snapshot
+        # registered against this source snapshot). If we don't, the dependent
+        # stays in pure replay land — its writes are returned from cache and
+        # never reach the real DB — but later test code that queries the real
+        # DB (via this snapshot, now in fallback) sees an empty target schema
+        # and fails with cryptic "table not found" / IndexError errors. Set
+        # _fallback_active BEFORE the cascade so a dependent's own cascade back
+        # to us (via _linked_snapshot) is a no-op.
+        # A dependent whose fallback factory isn't ready yet (e.g. a DWH
+        # snapshot whose DataSourceImpl hasn't been opened yet) is skipped
+        # here; whoever installs the factory later is responsible for
+        # detecting that the upstream is already in fallback and activating
+        # it then.
+        for dependent in self._dependent_snapshots:
+            if dependent._fallback_active or dependent._mode != "replay":
+                continue
+            if dependent._fallback_connection_factory is None and dependent._real is None:
+                continue
+            dependent._activate_fallback(reason=f"Cascaded from upstream snapshot fallback ({reason})")
 
     @staticmethod
     def _extract_table_name_from_create(sql: str) -> Optional[str]:
