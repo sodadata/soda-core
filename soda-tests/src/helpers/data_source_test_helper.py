@@ -441,58 +441,69 @@ class DataSourceTestHelper:
 
             real_schema_name = self._snapshot_schema_name()
 
+            # Track tables we've already materialized in the real DB so each
+            # fallback only creates the NEW tables added by the current test.
+            # This dict is closed over by both the factory and the per-test
+            # state hook below.
+            real_db_materialized: set[str] = set()
+
+            def _materialize_pending_tables_in_real_db() -> None:
+                """Drop+recreate _ensured_test_tables entries that haven't been
+                materialized in the real DB yet. Idempotent and safe to call
+                across multiple fallbacks on the same helper session."""
+                import contextlib
+
+                pending = [t for t in self._ensured_test_tables.values() if t.unique_name not in real_db_materialized]
+                if not pending:
+                    return
+
+                def _rollback_after_ddl_failure():
+                    with contextlib.suppress(Exception):
+                        self.data_source_impl.data_source_connection.rollback()
+
+                for test_table in pending:
+                    try:
+                        self._drop_test_table(table_name=test_table.unique_name)
+                    except Exception:
+                        _rollback_after_ddl_failure()
+                    try:
+                        self._create_and_insert_test_table(test_table=test_table)
+                        real_db_materialized.add(test_table.unique_name)
+                    except Exception as recreate_exc:
+                        _rollback_after_ddl_failure()
+                        logger.warning(
+                            f"SNAPSHOT: could not materialize {test_table.unique_name} "
+                            f"in real DB during fallback: {recreate_exc}"
+                        )
+                self.data_source_impl.data_source_connection.commit()
+
             def connection_factory():
-                """Lazily open connection and create schema on first fallback.
+                """Open real connection (first call only) and materialize the
+                ensured test tables in the real DB.
 
-                Also recreates test tables that were ensured during snapshot replay.
-                When tests share tables (test A creates, test B reuses), test B's snapshot
-                has no CREATE TABLE/INSERT ops. Without recreating them here, fallback
-                would fail on queries that reference those tables.
-
-                Drop-then-create is idempotent against stale state — a prior test in
-                the same suite may have already created the table during its own
-                fallback. Without the drop, the CREATE here raises "already exists"
-                and (on Postgres) aborts the transaction, breaking the rest of the
-                fallback flow with cryptic cascading errors.
+                Called by SnapshotDataSourceConnection._activate_fallback on every
+                fallback. The first invocation opens a fresh real connection and
+                ensures the schema; subsequent invocations reuse that connection
+                via snap_conn._real and just top up newly-ensured tables.
                 """
                 snap_conn = self.data_source_impl.data_source_connection
-                self.start_test_session_open_connection()
-                self.start_test_session_ensure_schema()
-                # Recreate test tables that were ensured via snapshot replay.
-                # _ensured_test_tables is populated by ensure_test_table() calls that
-                # happened before fallback was triggered.
-                if self._ensured_test_tables:
-                    import contextlib
+                existing_real = getattr(snap_conn, "_real", None)
 
-                    # _ensured_test_tables accumulates across every test on this
-                    # session-scoped helper, so by the time a later test triggers
-                    # fallback the dict may contain tables from earlier tests that
-                    # this fallback doesn't actually need. Recreate each in its own
-                    # try/except so a failure on a stale entry (e.g. a MV-backed
-                    # TestTable whose CREATE TABLE doesn't match reality) doesn't
-                    # abort the loop and leave the CURRENT test's table missing.
-                    # Drop is best-effort; rollback after any DDL failure so the
-                    # next iteration starts from a clean transaction (Postgres
-                    # aborts the entire transaction on a single failed DDL).
-                    def _rollback_after_ddl_failure():
-                        with contextlib.suppress(Exception):
-                            self.data_source_impl.data_source_connection.rollback()
+                if existing_real is None:
+                    # First fallback — open a real connection.
+                    self.start_test_session_open_connection()
+                    self.start_test_session_ensure_schema()
+                    real_conn = self.data_source_impl.data_source_connection
+                else:
+                    # Reuse the real connection already attached to the snapshot.
+                    real_conn = existing_real
+                    self.data_source_impl.data_source_connection = real_conn
 
-                    for test_table in self._ensured_test_tables.values():
-                        try:
-                            self._drop_test_table(table_name=test_table.unique_name)
-                        except Exception:
-                            _rollback_after_ddl_failure()
-                        try:
-                            self._create_and_insert_test_table(test_table=test_table)
-                        except Exception as recreate_exc:
-                            _rollback_after_ddl_failure()
-                            logger.warning(
-                                f"SNAPSHOT: connection_factory could not recreate "
-                                f"{test_table.unique_name} during fallback: {recreate_exc}"
-                            )
-                    self.data_source_impl.data_source_connection.commit()
-                real_conn = self.data_source_impl.data_source_connection
+                # Always (re)materialize the tables the current test ensured.
+                _materialize_pending_tables_in_real_db()
+
+                # Restore the snapshot wrapper on the impl so subsequent test
+                # code keeps going through replay/fallback machinery.
                 self.data_source_impl.data_source_connection = snap_conn
                 return real_conn
 

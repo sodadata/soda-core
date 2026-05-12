@@ -707,14 +707,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
                 f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
             )
-        if self._real is None:
-            if self._fallback_connection_factory is not None:
-                self._real = self._fallback_connection_factory()
-            else:
-                raise RuntimeError(
-                    "Cannot fall back to real DB — no real connection available.\n"
-                    "  To enable fallback, ensure the real connection is provided in replay mode."
-                )
+        # Call the factory on every fallback so it can both lazily open the
+        # real connection (first call) and top up any test tables that this
+        # test ensured but earlier fallbacks didn't yet materialize in the
+        # real DB. The factory is responsible for being idempotent across
+        # repeated invocations.
+        if self._fallback_connection_factory is not None:
+            self._real = self._fallback_connection_factory()
+        elif self._real is None:
+            raise RuntimeError(
+                "Cannot fall back to real DB — no real connection available.\n"
+                "  To enable fallback, ensure the real connection is provided in replay mode."
+            )
 
         # Cascade fallback to linked snapshot first (insource mode).
         # The linked source snapshot must re-execute its operations to create
