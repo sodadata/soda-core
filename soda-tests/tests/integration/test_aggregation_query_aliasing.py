@@ -319,3 +319,48 @@ def test_invalid_percent_does_not_leak_nulls_when_aggregation_fails(
         assert (
             diagnostics.get(field) is not None
         ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+
+
+def test_byte_identical_aggregation_metrics_emitted_only_once(
+    data_source_test_helper: DataSourceTestHelper,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DTL-1778: two metrics that render to identical SQL (MissingCount resolved
+    by both MissingCheckImpl and InvalidCheckImpl on the same column) must be
+    deduped so the warehouse computes the aggregate once. Each consuming check
+    still receives its measurement via the alias-id map."""
+    test_table = data_source_test_helper.ensure_test_table(_test_table_specification)
+    captured_sql = _capture_executed_sql(data_source_test_helper, monkeypatch)
+
+    contract_verification_result = data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str="""
+            columns:
+              - name: id
+                checks:
+                  - missing:
+                  - invalid:
+                      valid_values: ['1', '2', '3']
+            """,
+    )
+
+    aggregation_sql = _find_aggregation_sql(captured_sql)
+    fields = _extract_select_field_lines(aggregation_sql)
+
+    # Strip the per-position alias (`<expr> AS "m_<n>"`) to compare raw expressions.
+    # The dedup invariant: no two raw expressions are byte-identical.
+    raw_exprs = [field.rsplit(" AS ", 1)[0] for field in fields]
+    duplicates = {expr for expr in raw_exprs if raw_exprs.count(expr) > 1}
+    assert not duplicates, (
+        f"Aggregation query has duplicate raw expressions {duplicates!r}. "
+        f"Full SELECT list:\n  " + "\n  ".join(fields) + f"\n\nFull SQL:\n{aggregation_sql}"
+    )
+
+    # Both the missing and invalid checks must still produce real measurements;
+    # they share a measurement via the alias-id map.
+    missing_results = [r for r in contract_verification_result.check_results if r.check.type == "missing"]
+    invalid_results = [r for r in contract_verification_result.check_results if r.check.type == "invalid"]
+    assert missing_results and invalid_results
+    # Neither should be NOT_EVALUATED — both should have real numeric diagnostics.
+    for r in missing_results + invalid_results:
+        assert r.outcome != CheckOutcome.NOT_EVALUATED, f"{r.check.name} should have been evaluated; got {r.outcome}"
