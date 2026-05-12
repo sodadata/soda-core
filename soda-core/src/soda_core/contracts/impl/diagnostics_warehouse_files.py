@@ -15,14 +15,16 @@ class DiagnosticsWarehouseFiles:
         rows (currently check_results) is written here in addition to the
         primary target. When None, behavior is identical to the
         single-target era.
-    metadata_schema:
-        Optional schema name where the metadata DWH tables are created. When None,
-        the metadata DWH's default schema is used.
+
+    The metadata DWH schema name is intentionally NOT carried here — it is
+    org-level configuration that soda-extensions fetches from Soda Cloud
+    alongside the per-dataset DWH configuration (see
+    DiagnosticsWarehouseConfiguration.metadata_dwh_configuration). This file
+    bundle only carries launch-time file paths.
     """
 
     primary_path: Optional[str] = None
     metadata_path: Optional[str] = None
-    metadata_schema: Optional[str] = None
 
     @classmethod
     def normalize(

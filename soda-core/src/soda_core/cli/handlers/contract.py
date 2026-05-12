@@ -32,7 +32,6 @@ def handle_verify_contract(
     check_selectors: Optional[list[CheckSelector]] = None,
     diagnostics_warehouse_file_path: Optional[str] = None,
     metadata_diagnostics_warehouse_file_path: Optional[str] = None,
-    metadata_diagnostics_warehouse_schema: Optional[str] = None,
     **kwargs,
 ) -> ExitCode:
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
@@ -44,15 +43,10 @@ def handle_verify_contract(
         check_selectors = []
     try:
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None
-        if (
-            diagnostics_warehouse_file_path
-            or metadata_diagnostics_warehouse_file_path
-            or metadata_diagnostics_warehouse_schema
-        ):
+        if diagnostics_warehouse_file_path or metadata_diagnostics_warehouse_file_path:
             dwh_files = DiagnosticsWarehouseFiles(
                 primary_path=diagnostics_warehouse_file_path,
                 metadata_path=metadata_diagnostics_warehouse_file_path,
-                metadata_schema=metadata_diagnostics_warehouse_schema,
             )
 
         contract_verification_result = verify_contract(
