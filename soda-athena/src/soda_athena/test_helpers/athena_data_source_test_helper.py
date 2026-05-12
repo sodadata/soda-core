@@ -53,36 +53,47 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         return f"{self.s3_test_dir}/staging-dir/{ATHENA_CATALOG}/{schema_name}"
 
     def reset_table_for_fallback_retry(self, real_connection, table_name: str) -> None:
-        """Athena needs an extra S3 cleanup step the base implementation can't
-        deliver during snapshot fallback recovery.
+        """Reset an Athena table so the snapshot fallback recovery can retry
+        ``CREATE EXTERNAL TABLE`` against an empty LOCATION.
 
-        AthenaDataSourceImpl.execute_update intercepts ``DROP TABLE`` to also
-        ``_delete_s3_files`` the underlying location — that's the path used by
-        regular test cleanup. We can't reuse it here because the fallback
+        We can't reuse ``AthenaDataSourceImpl.execute_update``'s built-in
+        ``DROP TABLE`` → ``_delete_s3_files`` hook here because the fallback
         recovery loop runs INSIDE ``SnapshotDataSourceConnection._activate_fallback``,
         and routing the DROP through ``data_source_impl.execute_update`` would
-        bounce back into the snapshot we're currently inside (the snapshot's
+        bounce back into the snapshot we're currently inside (its
         ``_fallback_active`` flag isn't set until after the recovery loop
         finishes, so the call would attempt a replay match, fail, and recurse
         into ``_activate_fallback`` again).
 
-        So we replicate the two-step cleanup explicitly:
+        Three explicit steps:
 
-        1. ``DROP TABLE`` on the real connection → removes the Glue catalog
-           entry. On Athena this does NOT remove the table's S3 files because
-           we're talking to the connection directly, bypassing the Impl hook.
-        2. Manual ``_delete_s3_files`` against the same path that
-           ``AthenaDataSourceImpl.execute_update`` would have used. Otherwise
-           the subsequent ``CREATE EXTERNAL TABLE`` re-attaches to the
-           previous LOCATION's stale Parquet files and the snapshot's INSERT
-           doubles the data.
+        1. ``DROP TABLE`` on the real connection — removes the Glue catalog
+           entry only. On EXTERNAL tables Athena leaves the underlying
+           Parquet files in S3, so step 2 is required to avoid the
+           subsequent ``CREATE EXTERNAL TABLE`` re-attaching to stale data
+           (which would let the snapshot's ``INSERT INTO`` double the rows).
+        2. List the table's S3 prefix.
+        3. Delete each object via ``s3_client.delete_object`` (singular).
+
+        The batched ``s3_client.delete_objects`` endpoint returns
+        ``{"Errors": [...]}`` with ``Deleted`` absent when every key fails,
+        which the existing ``AthenaDataSourceImpl._delete_s3_files`` parser
+        silently swallows as ``"Deleted Unknown aws delete objects
+        response"`` — that's a latent bug we don't want to fix in
+        production code from a test path, so this helper does its own
+        per-object loop. ``delete_object`` raises ``ClientError``
+        synchronously on failure, which surfaces any real permission /
+        policy issue instead of letting the test pass with stale data.
         """
         real_connection.execute_update(f"DROP TABLE {table_name}", log_query=False)
-        # table_s3_location is public; _delete_s3_files is "private" by naming
-        # convention but already used externally by drop_test_schema_if_exists
-        # for the same reason — there isn't a public equivalent.
-        table_location: str = self.data_source_impl.table_s3_location(table_name, lowercase=True)
-        self.data_source_impl._delete_s3_files(table_location)
+        impl = self.data_source_impl
+        table_location: str = impl.table_s3_location(table_name, lowercase=True)
+        bucket: str = impl._extract_s3_bucket(table_location)
+        prefix: str = impl._extract_s3_folder(table_location)
+        s3_client = impl._create_s3_client()
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+        for item in response.get("Contents") or []:
+            s3_client.delete_object(Bucket=bucket, Key=item["Key"])
 
     def drop_test_schema_if_exists(self) -> str:
         super().drop_test_schema_if_exists()
