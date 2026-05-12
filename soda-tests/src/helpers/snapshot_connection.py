@@ -63,6 +63,24 @@ def reset_fallback_test_record() -> None:
     _FALLBACK_TEST_RECORD.clear()
 
 
+# Setup-DDL prefixes safe to pre-execute on the dependent's real DB during a
+# cascade-triggered fallback. Restricted to idempotent / table-state-only
+# statements: the dependent's framework setup (CREATE SCHEMA IF NOT EXISTS,
+# CREATE TABLE IF NOT EXISTS, DROP … IF EXISTS, CREATE VIEW) needs to exist
+# before subsequent live ops can run, but pre-executing data DML would double
+# rows when the test re-issues the same INSERTs live.
+_CASCADE_DDL_PREFIXES = ("CREATE ", "DROP ", "ALTER ", "TRUNCATE ")
+
+
+def _is_setup_ddl(entry: "SnapshotEntry") -> bool:
+    """Return True if the entry is a structural DDL update safe to pre-execute
+    during a cascade-triggered fallback (CREATE/DROP/ALTER/TRUNCATE)."""
+    if entry.op_type != "update":
+        return False
+    sql_upper = entry.sql.lstrip().upper()
+    return any(sql_upper.startswith(prefix) for prefix in _CASCADE_DDL_PREFIXES)
+
+
 class FakeCursor:
     """A minimal cursor-like object that replays cached rows.
 
@@ -665,7 +683,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 and not self._fallback_active
                 and (self._fallback_connection_factory is not None or self._real is not None)
             ):
-                self._activate_fallback(reason="Upstream snapshot already in fallback at test boundary")
+                # cascade_full_replay=True: the dependent typically hasn't
+                # consumed any of its replay data yet at this boundary, so
+                # the entire recorded sequence (setup + data) must be
+                # materialized on the real DB. See _activate_fallback's
+                # docstring for the doubling-prevention reasoning.
+                self._activate_fallback(
+                    reason="Upstream snapshot already in fallback at test boundary",
+                    cascade_full_replay=True,
+                )
         elif self._mode == "record":
             self._recording = []
             logger.info(f"SNAPSHOT: Recording SQL for {test_id}")
@@ -754,12 +780,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     "  The connection was closed and no factory exists to re-create it."
                 )
 
-    def _activate_fallback(self, reason: str = "") -> None:
+    def _activate_fallback(self, reason: str = "", cascade_full_replay: bool = False) -> None:
         """Fall back to real DB for the current test.
 
-        Re-executes all previously replayed operations against the real DB to
-        set up database state (tables, inserts), then switches to passthrough
-        mode for all remaining operations in this test.
+        Re-executes previously replayed operations against the real DB to set
+        up database state (tables, inserts), then switches to passthrough mode
+        for all remaining operations in this test.
+
+        When ``cascade_full_replay`` is True, the recovery loop re-executes
+        the ENTIRE ``_replay_data`` rather than just the prefix already
+        consumed (``_replay_index``). Used for cascade-triggered fallbacks
+        (push from upstream, or pull at the dependent's test boundary) where
+        the dependent often hasn't started consuming its snapshot yet — its
+        recorded setup ops (CREATE SCHEMA / CREATE TABLE / INSERT) are
+        framework-issued and will NOT be re-issued by test code, so they must
+        be materialized on the real DB up front. Otherwise subsequent live
+        ops on the dependent (e.g. SELECTs from rows_diff) crash with
+        ``Dataset/Schema not found`` against an empty real DB.
         """
         if not self._allow_fallback:
             raise SnapshotMismatchError(
@@ -795,7 +832,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             if not linked._fallback_active and linked._mode == "replay":
                 linked._activate_fallback(reason=f"Cascaded from linked snapshot fallback ({reason})")
 
-        ops_to_replay = self._replay_index
+        if cascade_full_replay and self._replay_data is not None:
+            ops_to_replay = len(self._replay_data)
+        else:
+            ops_to_replay = self._replay_index
         logger.warning(
             f"SNAPSHOT: Falling back to real DB for {self._current_test_id}\n"
             f"  Reason: {reason}\n"
@@ -821,6 +861,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._recording = []
         for i in range(ops_to_replay):
             entry = self._denormalize_from_snapshot(self._replay_data[i])
+            # In cascade_full_replay mode, only setup DDL is materialized on
+            # the real DB. Skip DML (INSERT/UPDATE/DELETE/MERGE) and read ops
+            # because the dependent's test code hasn't consumed any of them
+            # yet — it will re-issue them live via the fallback path and any
+            # DML we pre-execute here would land twice. DDL (CREATE/DROP/
+            # ALTER/TRUNCATE) on the dependent is framework-issued setup and
+            # safely idempotent (CREATE … IF NOT EXISTS, DROP … IF EXISTS).
+            if cascade_full_replay and not _is_setup_ddl(entry):
+                continue
             if entry.op_type == "update":
                 try:
                     self._real.execute_update(entry.sql, log_query=False)
@@ -892,7 +941,29 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 continue
             if dependent._fallback_connection_factory is None and dependent._real is None:
                 continue
-            dependent._activate_fallback(reason=f"Cascaded from upstream snapshot fallback ({reason})")
+            # Ensure the dependent's _replay_data is loaded for the current
+            # test before cascading. Without this, a dependent that hasn't
+            # been touched yet in this test has _current_test_id=None and
+            # _replay_data=None — _activate_fallback would then re-execute
+            # zero ops and leave the dependent's real DB without the recorded
+            # setup (CREATE SCHEMA / CREATE TABLE / INSERT). _handle_test_boundary
+            # may itself trigger the pull-side cascade (since we just set our
+            # own _fallback_active=True), which activates the dependent's
+            # fallback for us — in that case the explicit call below is
+            # skipped via the _fallback_active guard.
+            try:
+                dependent._handle_test_boundary()
+            except SnapshotNotFoundError:
+                # Dependent has no snapshot for this test and fallback isn't
+                # enabled for missing-snapshot auto-record — nothing to
+                # materialize, leave it untouched.
+                continue
+            if dependent._fallback_active:
+                continue
+            dependent._activate_fallback(
+                reason=f"Cascaded from upstream snapshot fallback ({reason})",
+                cascade_full_replay=True,
+            )
 
     def _reset_table_via_callback_or_default(self, table_name: str) -> None:
         """Reset a table so a re-CREATE during fallback re-execution lands clean.
