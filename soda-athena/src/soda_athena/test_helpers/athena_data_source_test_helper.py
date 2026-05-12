@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 
 import boto3
 from helpers.data_source_test_helper import DataSourceTestHelper
@@ -53,99 +54,102 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         return f"{self.s3_test_dir}/staging-dir/{ATHENA_CATALOG}/{schema_name}"
 
     def reset_table_for_fallback_retry(self, real_connection, table_name: str) -> None:
-        """Reset an Athena table so the snapshot fallback recovery can retry
-        ``CREATE EXTERNAL TABLE`` against an empty LOCATION.
+        """Athena-specific fallback-recovery strategy: drop the Glue catalog
+        entry and **skip** the snapshot's ``INSERT INTO`` for this table.
 
-        Uses the Glue catalog API + per-object S3 deletion — the same
-        proven-working pattern ``drop_schema_if_exists`` uses for table
-        cleanup. We deliberately avoid SQL ``DROP TABLE`` here:
+        Why this differs from the generic DROP+re-CREATE flow other DBs use:
 
-        * The fallback recovery loop runs INSIDE
-          ``SnapshotDataSourceConnection._activate_fallback``, so routing
-          the SQL through ``data_source_impl.execute_update`` would bounce
-          back into the snapshot (whose ``_fallback_active`` flag isn't set
-          yet during the recovery loop).
-        * The previous attempt at running ``DROP TABLE`` straight through
-          the real connection plus the existing ``_delete_s3_files`` left
-          stale Parquet files behind: the batched ``delete_objects`` call
-          there returns ``{"Errors": [...]}`` (with ``Deleted`` absent) when
-          every key fails, and the existing parser silently swallows that
-          as ``"Deleted Unknown aws delete objects response"`` so the caller
-          continues as if the cleanup had worked. The subsequent
-          ``CREATE EXTERNAL TABLE`` then re-attached to the stale LOCATION
-          and the snapshot's ``INSERT INTO`` doubled the data.
+        * Repeated CI runs showed that clearing the table's S3 LOCATION
+          between the failed ``CREATE EXTERNAL TABLE`` and the snapshot's
+          ``INSERT INTO`` is unreliable on Athena — both the batched
+          ``_delete_s3_files`` path (silently swallows AWS ``Errors``-only
+          responses as "Unknown") and per-object ``delete_object`` left
+          stale Parquet files behind. End result was consistently 2× the
+          expected row count.
+        * ``_LazyRealConnectionFactory._materialize_pending_tables`` has
+          already CREATE+INSERTed the test table on the real DB using the
+          **exact** same ``test_table_specification`` that produced the
+          snapshot's recorded ops. By the time the recovery loop hits the
+          recorded CREATE, the table is *already in the correct test state*
+          — the snapshot's recorded INSERT just duplicates the rows the
+          factory already wrote.
 
-        Two steps, each using its own AWS service:
+        Approach:
 
-        1. ``glue_client.delete_table`` — removes the Glue catalog entry
-           without involving any pyathena session state.
-        2. ``s3_client.delete_object`` per key — singular delete raises
-           ``ClientError`` synchronously on failure, so a real permission
-           or policy issue surfaces as an exception rather than letting
-           the test pass with stale data behind it.
+        1. Glue ``delete_table`` removes the catalog entry cleanly via a
+           non-pyathena boto3 client (so the snapshot recovery loop's retry
+           ``CREATE EXTERNAL TABLE`` succeeds rather than raising
+           ``AlreadyExistsException``). Best-effort: if Glue rejects the
+           call we log and continue — the INSERT-skip step still prevents
+           data doubling.
+        2. We deliberately **do not touch S3**. The factory's Parquet files
+           at the LOCATION are the correct test state; we want the
+           re-attached EXTERNAL TABLE to read them.
+        3. Monkey-patch ``real_connection.execute_update`` so the snapshot
+           recovery loop's next ``INSERT INTO`` targeting this specific
+           table is a no-op. The patch self-restores after the intercepted
+           INSERT so subsequent operations (the same loop's other ops, or
+           later real-DB calls) run normally.
+
+        Other data sources keep their existing DROP+re-CREATE+INSERT
+        recovery — they don't have the S3 unreliability issue, and atomic
+        DROP+CREATE works fine for them.
         """
-        impl = self.data_source_impl
-
-        # Parse the FQN ``catalog`.`schema`.`table`` so we can talk to Glue.
-        # Glue identifiers are stored lowercase (Athena/Hive normalises on
-        # write), and the catalog name maps to the AWS account default for
-        # this connection — we only need DatabaseName + table Name.
         cleaned = table_name.replace("`", "").replace('"', "")
         parts = cleaned.split(".")
         if len(parts) < 2:
-            logger.info(
-                f"ATHENA-RESET: skip — FQN {table_name!r} has fewer than 2 parts; " "no Glue / S3 cleanup possible"
-            )
+            logger.info(f"ATHENA-RESET: skip — FQN {table_name!r} has fewer than 2 parts; no-op")
             return
         glue_schema = parts[-2].lower()
         glue_table = parts[-1].lower()
+        cleaned_target = cleaned.lower()
+        logger.info(
+            f"ATHENA-RESET: handling fallback CREATE failure for {cleaned_target} via "
+            "Glue catalog drop + INSERT-skip (Athena-specific to avoid S3 doubling)"
+        )
 
-        # Step 1: drop the Glue catalog entry.
+        # Step 1: drop the Glue catalog entry so the recovery loop's retry
+        # CREATE EXTERNAL TABLE succeeds. Glue API bypasses pyathena entirely.
         glue_client = self._create_glue_client()
         try:
             glue_client.delete_table(DatabaseName=glue_schema, Name=glue_table)
             logger.info(f"ATHENA-RESET: glue.delete_table OK — DatabaseName={glue_schema} Name={glue_table}")
         except glue_client.exceptions.EntityNotFoundException:
-            # Table already gone — fine, S3 cleanup still runs below.
             logger.info(
                 f"ATHENA-RESET: glue.delete_table EntityNotFoundException (already gone) — "
                 f"DatabaseName={glue_schema} Name={glue_table}"
             )
         except Exception as glue_exc:
-            # Log and re-raise — surfacing real Glue errors is the point.
+            # Best-effort — if Glue delete fails, the snapshot's retry CREATE
+            # will raise AlreadyExists (logged as a warning), then our
+            # INSERT-skip below still prevents data doubling.
             logger.warning(
-                f"ATHENA-RESET: glue.delete_table FAILED — DatabaseName={glue_schema} "
-                f"Name={glue_table}: {type(glue_exc).__name__}: {glue_exc}"
+                f"ATHENA-RESET: glue.delete_table FAILED (continuing with INSERT-skip) — "
+                f"DatabaseName={glue_schema} Name={glue_table}: {type(glue_exc).__name__}: {glue_exc}"
             )
-            raise
 
-        # Step 2: clear the LOCATION's Parquet files so a subsequent
-        # CREATE EXTERNAL TABLE attaches to an empty prefix.
-        table_location: str = impl.table_s3_location(table_name, lowercase=True)
-        bucket: str = impl._extract_s3_bucket(table_location)
-        prefix: str = impl._extract_s3_folder(table_location)
-        logger.info(
-            f"ATHENA-RESET: s3 list+delete — bucket={bucket} prefix={prefix} "
-            f"(derived from table_name={table_name!r}, table_location={table_location})"
-        )
-        s3_client = impl._create_s3_client()
-        listed = 0
-        deleted = 0
-        paginator = s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-            page_keys = [item["Key"] for item in (page.get("Contents") or [])]
-            listed += len(page_keys)
-            for key in page_keys:
-                try:
-                    s3_client.delete_object(Bucket=bucket, Key=key)
-                    deleted += 1
-                    logger.info(f"ATHENA-RESET: s3.delete_object OK — Key={key}")
-                except Exception as s3_exc:
-                    logger.warning(
-                        f"ATHENA-RESET: s3.delete_object FAILED — Key={key}: " f"{type(s3_exc).__name__}: {s3_exc}"
+        # Step 2: patch real_connection.execute_update so the snapshot's
+        # next INSERT into this specific table is a no-op. The patch
+        # self-restores after the intercepted call.
+        original_execute_update = real_connection.execute_update
+
+        def _patched_execute_update(sql: str, log_query: bool = True) -> int:
+            sql_upper = sql.lstrip().upper()
+            if sql_upper.startswith("INSERT INTO "):
+                # CREATE uses backticks (DDL), INSERT uses double quotes
+                # (DML); both normalise to the same cleaned string.
+                cleaned_sql = sql.replace("`", "").replace('"', "").lower()
+                match = re.match(r"\s*insert\s+into\s+([^\s(]+)", cleaned_sql)
+                if match is not None and match.group(1) == cleaned_target:
+                    logger.info(
+                        f"ATHENA-RESET: intercepted snapshot INSERT INTO {cleaned_target} — "
+                        "skipping (lazy factory already populated this table)"
                     )
-                    raise
-        logger.info(f"ATHENA-RESET: done — listed={listed} deleted={deleted} bucket={bucket} prefix={prefix}")
+                    real_connection.execute_update = original_execute_update
+                    return 0
+            return original_execute_update(sql, log_query=log_query)
+
+        real_connection.execute_update = _patched_execute_update
 
     def drop_test_schema_if_exists(self) -> str:
         super().drop_test_schema_if_exists()
