@@ -13,6 +13,7 @@ Regression tests for two linked bugs surfaced on Databricks (DBR 18.2 / Spark 4.
    guard `valid_count - distinct_count` against None.
 """
 
+import pytest
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
@@ -38,8 +39,13 @@ _test_table_specification = (
 )
 
 
-def _capture_executed_sql(data_source_test_helper: DataSourceTestHelper) -> list[str]:
-    """Monkeypatch the active data source connection to record every SQL it executes."""
+def _capture_executed_sql(data_source_test_helper: DataSourceTestHelper, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Patch the active data source connection to record every SQL it executes.
+
+    Uses pytest's `monkeypatch` so the wrap is auto-undone at test teardown — important
+    because the data source connection is session-scoped and the wrap would otherwise
+    leak into every subsequent test.
+    """
     captured: list[str] = []
     connection = data_source_test_helper.data_source_impl.data_source_connection
     original = connection.execute_query
@@ -48,7 +54,7 @@ def _capture_executed_sql(data_source_test_helper: DataSourceTestHelper) -> list
         captured.append(sql)
         return original(sql, log_query)
 
-    connection.execute_query = _wrapped  # type: ignore[assignment]
+    monkeypatch.setattr(connection, "execute_query", _wrapped)
     return captured
 
 
@@ -90,11 +96,12 @@ def _extract_select_field_lines(aggregation_sql: str) -> list[str]:
 
 def test_missing_and_invalid_on_same_column_produces_unique_aggregation_aliases(
     data_source_test_helper: DataSourceTestHelper,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Issue #1: missing + invalid on the same column must not emit byte-identical
     aggregation expressions (which become duplicate output column names on Spark 4.x)."""
     test_table = data_source_test_helper.ensure_test_table(_test_table_specification)
-    captured_sql = _capture_executed_sql(data_source_test_helper)
+    captured_sql = _capture_executed_sql(data_source_test_helper, monkeypatch)
 
     data_source_test_helper.assert_contract_fail(
         test_table=test_table,
