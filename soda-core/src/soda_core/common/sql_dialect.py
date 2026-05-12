@@ -840,8 +840,7 @@ class SqlDialect:
         column_sql: str = self.build_expression_sql(
             column.name
         )  # If column.name is a SqlExpression, it will be compiled; if a string, it will be quoted
-        field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
-        return f"{table_alias_sql}{column_sql}{field_alias_sql}"
+        return f"{table_alias_sql}{column_sql}"
 
     def _build_or_sql(self, or_expr: OR) -> str:
         if isinstance(or_expr.clauses, list) and len(or_expr.clauses) == 1:
@@ -1020,10 +1019,7 @@ class SqlDialect:
             return "*"
 
     def _build_count_sql(self, count: COUNT) -> str:
-        count_sql = f"COUNT({self.build_expression_sql(count.expression)})"
-        if count.field_alias:
-            count_sql = f"{count_sql} AS {self.quote_default(count.field_alias)}"
-        return count_sql
+        return f"COUNT({self.build_expression_sql(count.expression)})"
 
     def _build_distinct_sql(self, distinct: DISTINCT) -> str:
         expressions: list[SqlExpression] = (
