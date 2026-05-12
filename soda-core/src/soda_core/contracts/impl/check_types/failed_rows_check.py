@@ -161,14 +161,18 @@ class FailedRowsCheckImpl(CheckImpl):
         self, failed_rows_count: Optional[int], measurement_values: MeasurementValues
     ) -> tuple[Optional[float], dict[str, float]]:
         check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
-        failed_rows_percent: Optional[float] = None
+        # Default to 0 for diagnostics so consumers don't see null where they used to
+        # see 0. `threshold_value` carries the "is this real" signal: it stays None
+        # when dependencies are unmeasured, so evaluate_threshold → NOT_EVALUATED.
+        failed_rows_percent: float = 0
+        threshold_value: Optional[Number]
         if measurement_values.all_measured(self.failed_rows_count_metric_impl, self.check_rows_tested_metric_impl):
             failed_rows_percent = failed_rows_count * 100 / check_rows_tested if check_rows_tested > 0 else 0
-
-        if self.failed_rows_check_yaml.metric == "percent":
-            threshold_value = failed_rows_percent
+            threshold_value = (
+                failed_rows_percent if self.failed_rows_check_yaml.metric == "percent" else failed_rows_count
+            )
         else:
-            threshold_value = failed_rows_count
+            threshold_value = None if self.failed_rows_check_yaml.metric == "percent" else failed_rows_count
 
         diagnostic_metric_values = {
             "failed_rows_count": failed_rows_count,

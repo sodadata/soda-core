@@ -1811,8 +1811,12 @@ class AggregationQuery(Query):
         self.logs: Logs = logs
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
-        sql_expression: SqlExpression = aggregation_metric_impl.sql_expression()
-        sql_expression_str: str = self.data_source_impl.sql_dialect.build_expression_sql(sql_expression)
+        # Measure the SQL as it will actually be emitted, including the per-position
+        # ALIAS wrapper that build_field_expressions adds (`<expr> AS "m_<n>"`).
+        # Without this, the splitter under-estimates SQL length and large contracts
+        # can exceed get_max_sql_statement_length() at execute time.
+        aliased = ALIAS(aggregation_metric_impl.sql_expression(), f"m_{len(self.aggregation_metrics)}")
+        sql_expression_str: str = self.data_source_impl.sql_dialect.build_expression_sql(aliased)
         max_query_length: int = self.data_source_impl.sql_dialect.get_max_sql_statement_length()
         return self.query_size + len(sql_expression_str) < max_query_length
 

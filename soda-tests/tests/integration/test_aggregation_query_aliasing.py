@@ -169,6 +169,12 @@ def test_duplicate_check_survives_failed_aggregation_query(
         f"failed upstream; got {duplicate_result.outcome}"
     )
 
+    # NOT_EVALUATED must NOT propagate nulls into the diagnostics dict for fields that
+    # historically defaulted to 0 — consumers (Soda Cloud) depend on these being numeric.
+    diagnostics = duplicate_result.diagnostic_metric_values or {}
+    assert diagnostics.get("duplicate_count") == 0, f"duplicate_count must default to 0, got {diagnostics!r}"
+    assert diagnostics.get("duplicate_percent") == 0, f"duplicate_percent must default to 0, got {diagnostics!r}"
+
 
 def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
     data_source_test_helper: DataSourceTestHelper,
@@ -209,6 +215,14 @@ def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
         f"Expected NOT_EVALUATED when the failed_rows aggregation query failed; "
         f"got {failed_rows_result.outcome} (this is the falsely-PASSED regression)"
     )
+
+    # failed_rows_percent must remain a numeric default (0), not null — consumers
+    # depend on this. The threshold gating happens via threshold_value, not by
+    # nulling out the diagnostic.
+    diagnostics = failed_rows_result.diagnostic_metric_values or {}
+    assert (
+        diagnostics.get("failed_rows_percent") == 0
+    ), f"failed_rows_percent must default to 0, not None; got {diagnostics!r}"
 
 
 def test_missing_percent_does_not_falsely_pass_when_aggregation_fails(

@@ -136,15 +136,19 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             self.distinct_count_metric_impl,
         ):
             duplicate_count = check_rows_tested_count - missing_count - distinct_count
-            diagnostic_metric_values["duplicate_count"] = duplicate_count
 
             non_missing_total: int = check_rows_tested_count - missing_count
             if non_missing_total > 0:
                 duplicate_percent = duplicate_count * 100 / non_missing_total
-            diagnostic_metric_values["duplicate_percent"] = duplicate_percent
 
             threshold_value = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
             outcome = self.evaluate_threshold(threshold_value)
+
+        # Always populate the duplicate diagnostics so consumers don't see nulls — they
+        # default to 0 if upstream measurements were unavailable. NOT_EVALUATED outcome
+        # already signals that the values aren't real measurements.
+        diagnostic_metric_values["duplicate_count"] = duplicate_count
+        diagnostic_metric_values["duplicate_percent"] = duplicate_percent
 
         return CheckResult(
             check=self._build_check_info(),
