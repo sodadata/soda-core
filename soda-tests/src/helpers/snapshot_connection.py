@@ -144,8 +144,13 @@ class _SnapshotCursor:
 
         # Record mode OR replay-with-active-fallback: run against the real DB and capture.
         if self._owner._mode == "record" or stream._fallback_active:
+            # When the cursor's owner is a secondary snapshot (linked via
+            # primary_snapshot), its own `_real` is independent of the primary's
+            # and must be ensured separately — otherwise stream._activate_fallback()
+            # would only open the primary's real connection, leaving the secondary's
+            # _real as None and crashing on .connection.cursor().
             if self._owner._real is None:
-                stream._ensure_real_connection()
+                self._owner._ensure_real_connection()
             if self._real_cursor is None:
                 self._real_cursor = self._owner._real.connection.cursor()
             self._real_cursor.execute(sql)
@@ -161,6 +166,10 @@ class _SnapshotCursor:
             entry = stream._next_replay_entry(self._OP_TYPE, sql)
         except SnapshotMismatchError as e:
             stream._activate_fallback(reason=str(e))
+            # Same reasoning as above: ensure the owner's own _real, not just
+            # the primary's via the stream's activate_fallback.
+            if self._owner._real is None:
+                self._owner._ensure_real_connection()
             if self._real_cursor is None:
                 self._real_cursor = self._owner._real.connection.cursor()
             self._real_cursor.execute(sql)

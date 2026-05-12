@@ -291,6 +291,45 @@ def test_replay_mismatch_without_fallback_raises(tmp_path) -> None:
         cur.execute("SELECT 2")  # different SQL
 
 
+def test_secondary_in_fallback_opens_its_own_real_connection(tmp_path) -> None:
+    """Regression: when the primary falls back to real DB mid-replay, a
+    cursor on a *secondary* (linked via primary_snapshot) must open the
+    secondary's own _real, not just rely on the primary's. Otherwise
+    self._owner._real stays None and cursor() crashes with
+    'NoneType' object has no attribute 'connection'."""
+    # Pre-condition: primary is in replay mode with fallback already active
+    # (mimicking the auto-record-on-missing-snapshot path that CI hits when a
+    # new test has no cached snapshot yet).
+    primary_real_dbapi = _FakeDbapiConnection(cursors=[_FakeDbapiCursor(rows=[(99,)], description=(("v", "int"),))])
+    primary_real = _FakeRealConnection(primary_real_dbapi)
+    primary = _make_replay_snapshot(tmp_path, fallback_real=primary_real)
+    primary._fallback_active = True  # simulate active fallback on the primary stream
+    primary._real = primary_real  # primary already opened its real
+
+    # Secondary is created in replay mode with _real=None and a lazy factory
+    # (this is exactly what the patched create_additional_connection produces).
+    secondary_real_dbapi = _FakeDbapiConnection(cursors=[_FakeDbapiCursor(rows=[(7,)], description=(("v", "int"),))])
+    secondary_real = _FakeRealConnection(secondary_real_dbapi)
+    secondary = SnapshotDataSourceConnection(
+        real_connection=None,
+        snapshot_manager=primary._snapshot_manager,
+        mode="replay",
+        fallback_connection_factory=lambda: secondary_real,
+        allow_fallback=True,
+        primary_snapshot=primary,
+    )
+    assert secondary._real is None
+
+    # Act: execute via the secondary's cursor. Without the fix this crashes
+    # with AttributeError("'NoneType' object has no attribute 'connection'").
+    secondary.connection.cursor().execute("SELECT v FROM t")
+
+    # The secondary opened its OWN real connection lazily.
+    assert secondary._real is secondary_real
+    # And drove it once.
+    assert secondary_real_dbapi.cursors_returned[0].executed_sql == ["SELECT v FROM t"]
+
+
 # ---------------------------------------------------------------------------
 # primary_snapshot delegation
 # ---------------------------------------------------------------------------
