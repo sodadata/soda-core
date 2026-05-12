@@ -31,19 +31,13 @@ def handle_verify_contract(
     check_selectors: list[CheckSelector],
     diagnostics_warehouse_file_path: Optional[str],
     metadata_diagnostics_warehouse_file_path: Optional[str] = None,
-    metadata_diagnostics_warehouse_schema: Optional[str] = None,
 ) -> ExitCode:
     try:
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None
-        if (
-            diagnostics_warehouse_file_path
-            or metadata_diagnostics_warehouse_file_path
-            or metadata_diagnostics_warehouse_schema
-        ):
+        if diagnostics_warehouse_file_path or metadata_diagnostics_warehouse_file_path:
             dwh_files = DiagnosticsWarehouseFiles(
                 primary_path=diagnostics_warehouse_file_path,
                 metadata_path=metadata_diagnostics_warehouse_file_path,
-                metadata_schema=metadata_diagnostics_warehouse_schema,
             )
 
         contract_verification_result = verify_contract(

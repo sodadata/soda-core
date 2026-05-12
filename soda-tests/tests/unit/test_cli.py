@@ -49,7 +49,6 @@ from soda_core.common.logs import Logs
                 [],
                 None,
                 None,
-                None,
             ],
         ),
         (
@@ -85,7 +84,6 @@ from soda_core.common.logs import Logs
                 [],
                 None,
                 None,
-                None,
             ],
         ),
         (
@@ -100,7 +98,7 @@ from soda_core.common.logs import Logs
                 "-sc",
                 "cloud.yaml",
             ],
-            [None, "some-dataset", ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None, [], None, None, None],
+            [None, "some-dataset", ["ds.yaml"], "cloud.yaml", {}, False, False, False, 60, None, [], None, None],
         ),
         (
             [
@@ -129,7 +127,6 @@ from soda_core.common.logs import Logs
                 None,
                 [],
                 "diagnostics_warehouse.yaml",
-                None,
                 None,
             ],
         ),
@@ -148,8 +145,6 @@ from soda_core.common.logs import Logs
                 "diagnostics_warehouse.yaml",
                 "-mdw",
                 "metadata_diagnostics_warehouse.yaml",
-                "-mds",
-                "metadata_schema",
             ],
             [
                 None,
@@ -165,7 +160,6 @@ from soda_core.common.logs import Logs
                 [],
                 "diagnostics_warehouse.yaml",
                 "metadata_diagnostics_warehouse.yaml",
-                "metadata_schema",
             ],
         ),
         (
@@ -195,7 +189,6 @@ from soda_core.common.logs import Logs
                 60,
                 ["check.path.one", "check.path.two"],
                 [],
-                None,
                 None,
                 None,
             ],

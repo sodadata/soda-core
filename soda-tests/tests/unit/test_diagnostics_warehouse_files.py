@@ -26,11 +26,3 @@ def test_is_empty():
     assert DiagnosticsWarehouseFiles().is_empty is True
     assert DiagnosticsWarehouseFiles(primary_path="/p").is_empty is False
     assert DiagnosticsWarehouseFiles(metadata_path="/m").is_empty is False
-
-
-def test_metadata_schema_optional_and_independent():
-    files = DiagnosticsWarehouseFiles(metadata_path="/m.yaml", metadata_schema="custom_schema")
-    assert files.metadata_path == "/m.yaml"
-    assert files.metadata_schema == "custom_schema"
-    # Default when not specified
-    assert DiagnosticsWarehouseFiles().metadata_schema is None
