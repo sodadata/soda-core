@@ -516,6 +516,10 @@ class DataSourceTestHelper:
             allow_fallback=allow_fallback,
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
+        # Wire the data-source-specific table-reset hook used during fallback
+        # re-execution when CREATE TABLE fails because connection_factory had
+        # already created the table. Bound method, so subclass overrides apply.
+        snap_conn._fallback_reset_table_callback = self.reset_table_for_fallback_retry
         # Propagate connection_properties from the data source model so that
         # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
         # works without a real DB connection.
@@ -847,6 +851,37 @@ class DataSourceTestHelper:
 
     def _cascade_drop_table(self) -> bool:
         return True
+
+    def reset_table_for_fallback_retry(self, real_connection, table_name: str) -> None:
+        """Reset a table so the snapshot's fallback re-execution can retry a
+        CREATE TABLE that initially failed because connection_factory had
+        already created the table.
+
+        Default: emit a plain ``DROP TABLE <table_name>`` against the real
+        connection. ``table_name`` is the fully qualified name as it appeared
+        in the snapshot's CREATE statement — which means it's already DDL-quoted
+        (e.g. backticks on Athena, brackets on SqlServer, double quotes on
+        Postgres). We deliberately do NOT route through
+        ``sql_dialect.build_drop_table_sql`` here because its ``_convert_fqn_for_ddl``
+        path expects DML-quoted input and would corrupt a DDL-quoted name on
+        dialects where the two quote styles differ (Athena: would re-wrap
+        ``\\`a\\``` as ``\\`\\`a\\`\\```, breaking the DROP).
+
+        No IF EXISTS clause is needed: this is only called after a CREATE
+        failed with "already exists", so the table is known to exist. That also
+        keeps the SQL portable across dialects that don't support
+        ``DROP TABLE IF EXISTS`` (e.g. older SqlServer, Oracle).
+
+        Data sources whose ``execute_update`` hooks ``DROP TABLE`` for
+        side-effects get correct behaviour for free — Athena's
+        ``AthenaDataSource.execute_update`` matches the ``DROP TABLE`` prefix
+        and deletes the underlying S3 files so the subsequent ``CREATE EXTERNAL
+        TABLE`` re-attaches to an empty location.
+
+        Override in subclasses for data sources that need a different SQL form
+        or extra non-SQL cleanup beyond what ``execute_update`` already does.
+        """
+        real_connection.execute_update(f"DROP TABLE {table_name}", log_query=False)
 
     def _snapshot_passthrough_queries(self) -> dict:
         """Return a dict mapping exact SQL strings to mock QueryResult objects.

@@ -303,6 +303,19 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._upstream_snapshot: Optional[SnapshotDataSourceConnection] = None
         self._finalized: bool = False
 
+        # Data-source-specific cleanup hook used by _activate_fallback when a
+        # CREATE TABLE re-execution fails because connection_factory already
+        # created the table. The hook receives (real_connection, table_name)
+        # and is responsible for resetting the table to an empty state so the
+        # subsequent INSERT lands clean. Default behaviour (None) emits a plain
+        # DROP TABLE — that works for Postgres, BigQuery, Snowflake, SqlServer,
+        # Databricks, AND Athena (whose AthenaDataSource.execute_update
+        # intercepts DROP TABLE to also clean up the underlying S3 files).
+        # DataSourceTestHelper.reset_table_for_fallback_retry is wired here by
+        # _start_test_session_replay; subclasses can override that method for
+        # any data source that needs extra steps.
+        self._fallback_reset_table_callback: Optional[Callable[[DataSourceConnection, str], None]] = None
+
         # When set, this is a secondary snapshot wrapper that shares the primary's
         # per-test recording stream. Used to wrap connections returned by
         # DataSourceImpl.create_additional_connection() so that interleaved cursor
@@ -799,18 +812,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         logger.warning(
                             f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
                         )
-                        # DROP+retry-CREATE so a subsequent INSERT lands in an empty
-                        # table. If the failure was for CREATE SCHEMA / VIEW (no table
-                        # name extractable), skip — those don't have data-doubling
-                        # consequences and re-creating them isn't worth the risk.
+                        # Reset table + retry CREATE so a subsequent INSERT lands in
+                        # an empty table. If the failure was for CREATE SCHEMA / VIEW
+                        # (no table name extractable), skip — those don't have
+                        # data-doubling consequences and re-creating them isn't worth
+                        # the risk.
                         table_name = self._extract_table_name_from_create(entry.sql)
                         if table_name:
-                            with contextlib.suppress(Exception):
-                                self._real.execute_update(f"DROP TABLE {table_name}", log_query=False)
+                            self._reset_table_via_callback_or_default(table_name)
                             try:
                                 self._real.execute_update(entry.sql, log_query=False)
                                 logger.info(
-                                    f"SNAPSHOT: Recreated {table_name} after dropping the pre-existing copy "
+                                    f"SNAPSHOT: Recreated {table_name} after resetting the pre-existing copy "
                                     "to prevent data doubling during fallback"
                                 )
                             except Exception as recreate_exc:
@@ -857,23 +870,44 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 continue
             dependent._activate_fallback(reason=f"Cascaded from upstream snapshot fallback ({reason})")
 
+    def _reset_table_via_callback_or_default(self, table_name: str) -> None:
+        """Reset a table so a re-CREATE during fallback re-execution lands clean.
+
+        Prefers the data-source-specific hook installed by
+        DataSourceTestHelper.reset_table_for_fallback_retry; falls back to a
+        plain DROP TABLE on the real connection. Both paths are wrapped in
+        suppress(Exception) because the only goal is to clear the previous
+        state — the retry CREATE that follows is the operation we care about,
+        and the caller will already log/warn if that fails.
+        """
+        callback = self._fallback_reset_table_callback
+        try:
+            if callback is not None:
+                callback(self._real, table_name)
+            else:
+                self._real.execute_update(f"DROP TABLE {table_name}", log_query=False)
+        except Exception:
+            with contextlib.suppress(Exception):
+                self._real.rollback()
+
     @staticmethod
     def _extract_table_name_from_create(sql: str) -> Optional[str]:
         """Extract the table name from a CREATE TABLE statement.
 
         Returns None for non-TABLE CREATE statements (CREATE SCHEMA, CREATE VIEW, etc.).
-        Handles optional TEMP/TEMPORARY keyword and IF NOT EXISTS clause, and the
-        various identifier-quoting styles used by Soda's supported datasources:
+        Handles optional TEMP/TEMPORARY and EXTERNAL keywords (the latter is
+        emitted by Athena/Hive), optional IF NOT EXISTS clause, and the various
+        identifier-quoting styles used by Soda's supported datasources:
         unquoted, "double-quoted" (Postgres/Snowflake/Oracle/Athena),
         [bracket-quoted] (SqlServer/Synapse/Fabric), and `backtick-quoted`
-        (BigQuery/Databricks/MySQL). Returns the fully qualified name as written.
+        (BigQuery/Databricks/MySQL/Athena). Returns the fully qualified name as written.
         """
         # Use [^\s(]+ rather than a reluctant \S+? — the character class
         # explicitly stops at whitespace or "(", which avoids the lazy
         # quantifier and is equivalent for all CREATE TABLE shapes Soda emits
         # ("CREATE TABLE <name> (...)" or "CREATE TABLE <name>(...)").
         match = re.match(
-            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)",
+            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+|EXTERNAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)",
             sql,
             re.IGNORECASE,
         )

@@ -2636,3 +2636,156 @@ class TestDependentSnapshotCascade:
 
         assert source_conn._fallback_active is False
         assert dwh_conn._fallback_active is False
+
+
+class TestExtractTableNameFromCreate:
+    """Regex coverage for the various CREATE TABLE shapes Soda emits across
+    supported datasources. Important for fallback re-execution recovery —
+    a missed match leaves the data-doubling problem unfixed."""
+
+    def test_extracts_plain_create_table(self):
+        assert SnapshotDataSourceConnection._extract_table_name_from_create("CREATE TABLE t (id INT)") == "t"
+
+    def test_extracts_qualified_double_quoted_name(self):
+        sql = 'CREATE TABLE "schema"."table" (id INT)'
+        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == '"schema"."table"'
+
+    def test_extracts_temp_table(self):
+        sql = "CREATE TEMP TABLE t (id INT)"
+        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == "t"
+
+    def test_extracts_temporary_table(self):
+        sql = "CREATE TEMPORARY TABLE t (id INT)"
+        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == "t"
+
+    def test_extracts_external_table_athena(self):
+        # Athena/Hive uses CREATE EXTERNAL TABLE with backtick-quoted names.
+        sql = "CREATE EXTERNAL TABLE  `awsdatacatalog`.`schema`.`tbl` (id int) STORED AS PARQUET LOCATION 's3://x/y/'"
+        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == "`awsdatacatalog`.`schema`.`tbl`"
+
+    def test_extracts_external_table_if_not_exists(self):
+        sql = "CREATE EXTERNAL TABLE IF NOT EXISTS `awsdatacatalog`.`schema`.`tbl` (id int)"
+        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == "`awsdatacatalog`.`schema`.`tbl`"
+
+    def test_returns_none_for_create_schema(self):
+        assert SnapshotDataSourceConnection._extract_table_name_from_create("CREATE SCHEMA myschema") is None
+
+    def test_returns_none_for_create_view(self):
+        assert SnapshotDataSourceConnection._extract_table_name_from_create("CREATE VIEW v AS SELECT 1") is None
+
+
+class TestFallbackResetTableCallback:
+    """The _fallback_reset_table_callback hook (default: emit DROP TABLE on the
+    real connection) lets DataSourceTestHelper subclasses override the cleanup
+    step when fallback re-execution hits a pre-existing table — e.g. Athena
+    relies on AthenaDataSource.execute_update intercepting DROP TABLE to also
+    remove S3 files. The hook keeps snapshot_connection itself data-source
+    agnostic."""
+
+    def test_default_path_emits_drop_table(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_default_drop"
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", 'CREATE TABLE "s"."t" (id INT)', None),
+                SnapshotEntry("update", 'INSERT INTO "s"."t" VALUES (1)', None),
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+        real = _make_mock_connection()
+        real.execute_update.side_effect = [
+            Exception("already exists"),  # CREATE TABLE
+            None,  # DROP TABLE (default callback)
+            None,  # CREATE TABLE (retry)
+            None,  # INSERT
+        ]
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update('CREATE TABLE "s"."t" (id INT)')
+            conn.execute_update('INSERT INTO "s"."t" VALUES (1)')
+            conn.execute_query("SELECT 2")
+
+        assert real.execute_update.call_args_list[1][0][0] == 'DROP TABLE "s"."t"'
+
+    def test_callback_overrides_default(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_callback"
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
+                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+        real = _make_mock_connection()
+        # CREATE fails, then no DROP from default path because callback handles cleanup;
+        # then retry CREATE + INSERT succeed.
+        real.execute_update.side_effect = [
+            Exception("already exists"),  # CREATE TABLE
+            None,  # CREATE TABLE (retry)
+            None,  # INSERT
+        ]
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        callback_invocations: list[tuple[str, Any]] = []
+
+        def custom_callback(real_conn, table_name):
+            callback_invocations.append((table_name, real_conn))
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        conn._fallback_reset_table_callback = custom_callback
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("CREATE TABLE t (id INT)")
+            conn.execute_update("INSERT INTO t VALUES (1)")
+            conn.execute_query("SELECT 2")
+
+        assert callback_invocations == [("t", real)]
+        # No DROP TABLE emitted by the default path when callback is installed.
+        assert real.execute_update.call_count == 3  # failed CREATE + retry CREATE + INSERT
+        assert real.execute_update.call_args_list[1][0][0] == "CREATE TABLE t (id INT)"
+
+    def test_callback_exception_does_not_break_fallback(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_callback_exc"
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
+                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
+                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
+            ],
+        )
+        real = _make_mock_connection()
+        real.execute_update.side_effect = [
+            Exception("already exists"),  # CREATE TABLE
+            None,  # CREATE TABLE retry
+            None,  # INSERT
+        ]
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+
+        def broken_callback(real_conn, table_name):
+            raise RuntimeError("cleanup blew up")
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        conn._fallback_reset_table_callback = broken_callback
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("CREATE TABLE t (id INT)")
+            conn.execute_update("INSERT INTO t VALUES (1)")
+            # Should still complete: callback failure is swallowed (rollback only),
+            # retry CREATE proceeds, fallback completes.
+            conn.execute_query("SELECT 2")
+
+        assert conn._fallback_active is True
