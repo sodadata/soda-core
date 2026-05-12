@@ -93,6 +93,9 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         cleaned = table_name.replace("`", "").replace('"', "")
         parts = cleaned.split(".")
         if len(parts) < 2:
+            logger.info(
+                f"ATHENA-RESET: skip — FQN {table_name!r} has fewer than 2 parts; " "no Glue / S3 cleanup possible"
+            )
             return
         glue_schema = parts[-2].lower()
         glue_table = parts[-1].lower()
@@ -101,20 +104,48 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         glue_client = self._create_glue_client()
         try:
             glue_client.delete_table(DatabaseName=glue_schema, Name=glue_table)
+            logger.info(f"ATHENA-RESET: glue.delete_table OK — DatabaseName={glue_schema} Name={glue_table}")
         except glue_client.exceptions.EntityNotFoundException:
             # Table already gone — fine, S3 cleanup still runs below.
-            pass
+            logger.info(
+                f"ATHENA-RESET: glue.delete_table EntityNotFoundException (already gone) — "
+                f"DatabaseName={glue_schema} Name={glue_table}"
+            )
+        except Exception as glue_exc:
+            # Log and re-raise — surfacing real Glue errors is the point.
+            logger.warning(
+                f"ATHENA-RESET: glue.delete_table FAILED — DatabaseName={glue_schema} "
+                f"Name={glue_table}: {type(glue_exc).__name__}: {glue_exc}"
+            )
+            raise
 
         # Step 2: clear the LOCATION's Parquet files so a subsequent
         # CREATE EXTERNAL TABLE attaches to an empty prefix.
         table_location: str = impl.table_s3_location(table_name, lowercase=True)
         bucket: str = impl._extract_s3_bucket(table_location)
         prefix: str = impl._extract_s3_folder(table_location)
+        logger.info(
+            f"ATHENA-RESET: s3 list+delete — bucket={bucket} prefix={prefix} "
+            f"(derived from table_name={table_name!r}, table_location={table_location})"
+        )
         s3_client = impl._create_s3_client()
+        listed = 0
+        deleted = 0
         paginator = s3_client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-            for item in page.get("Contents") or []:
-                s3_client.delete_object(Bucket=bucket, Key=item["Key"])
+            page_keys = [item["Key"] for item in (page.get("Contents") or [])]
+            listed += len(page_keys)
+            for key in page_keys:
+                try:
+                    s3_client.delete_object(Bucket=bucket, Key=key)
+                    deleted += 1
+                    logger.info(f"ATHENA-RESET: s3.delete_object OK — Key={key}")
+                except Exception as s3_exc:
+                    logger.warning(
+                        f"ATHENA-RESET: s3.delete_object FAILED — Key={key}: " f"{type(s3_exc).__name__}: {s3_exc}"
+                    )
+                    raise
+        logger.info(f"ATHENA-RESET: done — listed={listed} deleted={deleted} bucket={bucket} prefix={prefix}")
 
     def drop_test_schema_if_exists(self) -> str:
         super().drop_test_schema_if_exists()
