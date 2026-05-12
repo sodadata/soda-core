@@ -41,6 +41,16 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
             ]  # soda_diagnostics_0db10c31_20251119_093446
             # Only drop the schema if it has a date
             must_have_date = True
+            # Fallback for the cross-source variant: soda_diagnostics_<datasource>_<YYYYMMDD>_<8hex>
+            # Variable-length datasource names shift the date off the fixed offset above,
+            # so the substring above won't be a date. Only kick in when the fixed-offset
+            # extraction didn't produce an 8-digit string AND the name has the exact
+            # 5-underscore-part shape with parts[3] being 8 digits — otherwise behavior
+            # for all other schema names is unchanged.
+            if not (len(potential_date_string) == 8 and potential_date_string.isdigit()):
+                parts = schema_name.split("_")
+                if len(parts) == 5 and len(parts[3]) == 8 and parts[3].isdigit():
+                    potential_date_string = parts[3]
         elif schema_name.upper().startswith("ALTERNATE_DWH_"):
             potential_date_string: str = schema_name[len("ALTERNATE_DWH_") + 9 :]  # ALTERNATE_DWH_0db10c31_20251119
         elif schema_name.lower().startswith("ci_"):

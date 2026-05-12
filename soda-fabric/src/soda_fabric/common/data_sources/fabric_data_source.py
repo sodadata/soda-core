@@ -76,8 +76,17 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
             return "datetime2(6)"
         elif create_table_column.type.name == "time" and create_table_column.type.datetime_precision is None:
             return "time(6)"
-        else:
-            return create_table_column.type.get_sql_data_type_str_with_parameters()
+        # Clamp datetime precision to Fabric's max (0..6, lower than SQL Server's 0..7).
+        # Cross-source flows from sources with higher native precision (e.g. Snowflake's
+        # TIMESTAMP_NTZ defaults to 9) would otherwise produce e.g. `datetime2(9)` and
+        # fail CREATE TABLE with "precision value between 0 and 6 must be specified".
+        if create_table_column.type.name.lower() in ("datetime2", "datetimeoffset", "time"):
+            if (
+                create_table_column.type.datetime_precision is not None
+                and create_table_column.type.datetime_precision > 6
+            ):
+                create_table_column.type.datetime_precision = 6
+        return create_table_column.type.get_sql_data_type_str_with_parameters()
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         types = super().get_sql_data_type_name_by_soda_data_type_names()
