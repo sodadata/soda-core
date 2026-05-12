@@ -2661,6 +2661,438 @@ class TestDependentSnapshotCascade:
         assert dwh_conn._fallback_active is False
 
 
+class TestSnapshotSequence:
+    """Cross-connection monotonic seq counter shared between related snapshots.
+
+    The seq mechanism is the foundation of the precise cascade-on-fallback
+    path: every op recorded by source + dependent shares one ordered stream,
+    so on upstream mismatch we can compute exactly which dependent ops ran
+    before the mismatch in the original recording and materialize precisely
+    that prefix on the dependent's real DB."""
+
+    def test_sequence_counter_starts_at_zero_and_increments_monotonically(self):
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        seq = _SnapshotSequence()
+        assert seq.counter == 0
+        assert seq.next() == 1
+        assert seq.next() == 2
+        assert seq.next() == 3
+        assert seq.counter == 3
+
+    def test_transition_to_test_resets_counter_once_per_test_id(self):
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        seq = _SnapshotSequence()
+        seq.transition_to_test("test_a")
+        assert seq.next() == 1
+        assert seq.next() == 2
+
+        # Same test id again — no reset.
+        seq.transition_to_test("test_a")
+        assert seq.next() == 3
+
+        # New test id — counter resets.
+        seq.transition_to_test("test_b")
+        assert seq.next() == 1
+
+    def test_observe_advances_counter_past_existing_seq(self):
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        seq = _SnapshotSequence()
+        seq.observe(10)
+        # Subsequent next() picks up from 10.
+        assert seq.next() == 11
+
+    def test_observe_does_not_decrement(self):
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        seq = _SnapshotSequence()
+        seq.next()  # → 1
+        seq.next()  # → 2
+        seq.observe(1)  # smaller; should not decrement
+        assert seq.next() == 3
+
+    def test_record_mode_tags_entries_with_monotonic_seq(self, tmp_path):
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_record_seq"
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+        real.execute_update.return_value = None
+        conn = SnapshotDataSourceConnection(real_connection=real, snapshot_manager=manager, mode="record")
+        conn._sequence = _SnapshotSequence()
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("CREATE TABLE t (id INT)")
+            conn.execute_update("INSERT INTO t VALUES (1)")
+            conn.execute_query("SELECT * FROM t")
+            conn.finalize()
+
+        loaded = manager.load(test_id)
+        assert len(loaded) == 3
+        assert [e.seq for e in loaded] == [1, 2, 3]
+
+    def test_record_mode_works_without_sequence_attached_backward_compat(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_record_no_seq"
+        real = _make_mock_connection()
+        real.execute_update.return_value = None
+        conn = SnapshotDataSourceConnection(real_connection=real, snapshot_manager=manager, mode="record")
+        # No _sequence wired — should still work (just no seq numbers).
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_update("CREATE TABLE t (id INT)")
+            conn.finalize()
+
+        loaded = manager.load(test_id)
+        assert len(loaded) == 1
+        assert loaded[0].seq is None
+
+    def test_shared_sequence_orders_source_and_dwh_into_single_stream(self, tmp_path):
+        """Source + DWH sharing a _SnapshotSequence get one interleaved order.
+
+        This is the critical property the precise cascade depends on: the seq
+        on a DWH entry tells the cascade exactly where it falls relative to
+        the source's mismatching op."""
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        source_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        test_id = "tests/test_x.py::test_shared_order"
+
+        source_real = _make_mock_connection()
+        source_real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+        source_real.execute_update.return_value = None
+        dwh_real = _make_mock_connection()
+        dwh_real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+        dwh_real.execute_update.return_value = None
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=source_real, snapshot_manager=source_mgr, mode="record"
+        )
+        dwh_conn = SnapshotDataSourceConnection(real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="record")
+        # Wire them with a single shared sequence (mirrors dwh_setup.py).
+        shared_seq = _SnapshotSequence()
+        source_conn._sequence = shared_seq
+        dwh_conn._sequence = shared_seq
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_update("CREATE TABLE src (id INT)")  # seq=1
+            dwh_conn.execute_update("CREATE TABLE dwh_t (id INT)")  # seq=2
+            source_conn.execute_update("INSERT INTO src VALUES (1)")  # seq=3
+            dwh_conn.execute_update("INSERT INTO dwh_t VALUES (1)")  # seq=4
+            source_conn.execute_query("SELECT * FROM src")  # seq=5
+            source_conn.finalize()
+            dwh_conn.finalize()
+
+        source_entries = source_mgr.load(test_id)
+        dwh_entries = dwh_mgr.load(test_id)
+        assert [e.seq for e in source_entries] == [1, 3, 5]
+        assert [e.seq for e in dwh_entries] == [2, 4]
+
+
+class TestPreciseSequenceBasedCascade:
+    """The cascade-on-fallback path uses each entry's recorded seq to compute
+    exactly which dependent ops ran before the upstream's mismatch in the
+    original recording. The dependent's real DB then gets materialised to
+    that exact prefix — no more (which would inject unrequested state), no
+    less (which would leave subsequent live ops without their setup)."""
+
+    def _make_seq_recording(self, mgr: SnapshotManager, test_id: str, entries_with_seq: list[tuple]):
+        """entries_with_seq is a list of (op_type, sql, result, seq) tuples."""
+        entries = [SnapshotEntry(op_type=op, sql=sql, result=res, seq=seq) for (op, sql, res, seq) in entries_with_seq]
+        mgr.save(test_id, entries)
+
+    def test_cascade_replays_exact_seq_prefix_on_dependent(self, tmp_path):
+        """Source mismatches at seq=5. DWH has entries at seqs [2, 4, 6, 8].
+        Cascade should re-execute the 2 DWH entries with seq<5 (i.e. at
+        seqs 2 and 4); NOT the entries with seq>=5."""
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        source_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        test_id = "tests/test_x.py::test_precise_cascade"
+
+        # Source recording: 2 ops at seqs 1 and 5; the seq=5 op is the
+        # one whose SQL will mismatch in this run.
+        source_mgr.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE TABLE src (id INT)", None, seq=1),
+                SnapshotEntry("query", "SELECT OLD FROM src", QueryResult(rows=[(1,)], columns=None), seq=5),
+            ],
+        )
+        # DWH recording: 4 ops at seqs 2, 4, 6, 8.
+        dwh_mgr.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE SCHEMA dwh", None, seq=2),
+                SnapshotEntry("update", "CREATE TABLE dwh.t (id INT)", None, seq=4),
+                SnapshotEntry("update", "INSERT INTO dwh.t VALUES (1)", None, seq=6),
+                SnapshotEntry("update", "DROP TABLE dwh.t", None, seq=8),
+            ],
+        )
+
+        source_real = _make_mock_connection()
+        source_real.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+        source_real.execute_update.return_value = None
+        dwh_real = _make_mock_connection()
+        dwh_real.execute_update.return_value = None
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=source_real, snapshot_manager=source_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        # Share the sequence so the cascade uses precise mode.
+        shared_seq = _SnapshotSequence()
+        source_conn._sequence = shared_seq
+        dwh_conn._sequence = shared_seq
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_update("CREATE TABLE src (id INT)")  # matches seq=1
+            # Now mismatch on seq=5
+            source_conn.execute_query("SELECT NEW FROM src")  # mismatch → fallback → cascade
+
+        # Source fell back.
+        assert source_conn._fallback_active is True
+        # DWH was cascaded into fallback.
+        assert dwh_conn._fallback_active is True
+        # Precise cascade should have re-executed exactly the DWH ops with
+        # seq < 5: CREATE SCHEMA (seq=2) and CREATE TABLE (seq=4).
+        # The INSERT (seq=6) and DROP TABLE (seq=8) must NOT have been
+        # re-executed — those happened AFTER source's mismatch in the
+        # recording, so injecting them now would corrupt state the test
+        # is about to produce live.
+        dwh_update_sqls = [call.args[0] for call in dwh_real.execute_update.call_args_list]
+        assert "CREATE SCHEMA dwh" in dwh_update_sqls
+        assert "CREATE TABLE dwh.t (id INT)" in dwh_update_sqls
+        assert "INSERT INTO dwh.t VALUES (1)" not in dwh_update_sqls
+        assert "DROP TABLE dwh.t" not in dwh_update_sqls
+
+    def test_cascade_replays_all_dependent_ops_when_upstream_exhausted(self, tmp_path):
+        """Upstream ran past the end of its recording (mismatch_seq=None) —
+        cascade should replay ALL dependent ops since the upstream proved
+        it needed state beyond what the recording captured."""
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        source_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        test_id = "tests/test_x.py::test_cascade_exhausted"
+
+        # Source recording: only 1 op. The test will issue a SECOND op which
+        # has no cached counterpart → "snapshot exhausted" mismatch.
+        source_mgr.save(test_id, [SnapshotEntry("update", "CREATE TABLE src (id INT)", None, seq=1)])
+        dwh_mgr.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE SCHEMA dwh", None, seq=2),
+                SnapshotEntry("update", "CREATE TABLE dwh.t (id INT)", None, seq=3),
+            ],
+        )
+
+        source_real = _make_mock_connection()
+        source_real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+        source_real.execute_update.return_value = None
+        dwh_real = _make_mock_connection()
+        dwh_real.execute_update.return_value = None
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=source_real, snapshot_manager=source_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        shared_seq = _SnapshotSequence()
+        source_conn._sequence = shared_seq
+        dwh_conn._sequence = shared_seq
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_update("CREATE TABLE src (id INT)")  # matches
+            # Recording exhausted; next call must fallback → cascade.
+            source_conn.execute_query("SELECT * FROM src")
+
+        assert source_conn._fallback_active is True
+        assert dwh_conn._fallback_active is True
+        # Both DWH ops should have been re-executed (no upper bound).
+        dwh_update_sqls = [call.args[0] for call in dwh_real.execute_update.call_args_list]
+        assert "CREATE SCHEMA dwh" in dwh_update_sqls
+        assert "CREATE TABLE dwh.t (id INT)" in dwh_update_sqls
+
+    def test_cascade_does_not_fire_when_no_dependent_ops_before_mismatch(self, tmp_path):
+        """Source mismatches at seq=2. DWH has entries at seqs [5, 6]. None
+        of them precede the mismatch → cascade should NOT activate DWH
+        fallback. DWH stays in pure replay so its cached results continue
+        to serve subsequent ops (matching what the recording captured)."""
+        from helpers.snapshot_connection import _SnapshotSequence
+
+        source_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        test_id = "tests/test_x.py::test_no_cascade_when_no_prefix"
+
+        source_mgr.save(test_id, [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None), seq=2)])
+        dwh_mgr.save(
+            test_id,
+            [
+                SnapshotEntry("update", "INSERT INTO dwh.late VALUES (1)", None, seq=5),
+                SnapshotEntry("update", "INSERT INTO dwh.late VALUES (2)", None, seq=6),
+            ],
+        )
+
+        source_real = _make_mock_connection()
+        source_real.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+        dwh_real = _make_mock_connection()
+        dwh_real.execute_update.return_value = None
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=source_real, snapshot_manager=source_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        shared_seq = _SnapshotSequence()
+        source_conn._sequence = shared_seq
+        dwh_conn._sequence = shared_seq
+        source_conn._dependent_snapshots.append(dwh_conn)
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            source_conn.execute_query("SELECT NEW")  # mismatch at seq=2 → fallback
+
+        assert source_conn._fallback_active is True
+        # No DWH ops have seq < 2, so cascade leaves DWH in pure replay.
+        assert dwh_conn._fallback_active is False
+        dwh_real.execute_update.assert_not_called()
+
+    def test_cascade_falls_back_to_replay_index_when_seqs_are_absent(self, tmp_path):
+        """Backward compat: old snapshots have entry.seq=None. Cascade
+        should fall back to the coarser "_replay_index" heuristic (no
+        precise cut-off available)."""
+        source_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        test_id = "tests/test_x.py::test_legacy_no_seq"
+
+        source_mgr.save(test_id, [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))])
+        # DWH entries WITHOUT seq (None) — simulates legacy snapshot.
+        dwh_mgr.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE TABLE dwh.t (id INT)", None),
+                SnapshotEntry("update", "INSERT INTO dwh.t VALUES (1)", None),
+            ],
+        )
+
+        source_real = _make_mock_connection()
+        source_real.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+        dwh_real = _make_mock_connection()
+        dwh_real.execute_update.return_value = None
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=source_real, snapshot_manager=source_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        source_conn._dependent_snapshots.append(dwh_conn)
+        # Note: no _sequence wired and no seq on entries — legacy path.
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # Consume one DWH op via cache so _replay_index moves.
+            dwh_conn.execute_update("CREATE TABLE dwh.t (id INT)")
+            assert dwh_conn._replay_index == 1
+
+            source_conn.execute_query("SELECT NEW")  # mismatch → cascade
+
+        assert source_conn._fallback_active is True
+        # Legacy heuristic: cascade re-executes _replay_index=1 ops, i.e.
+        # only the CREATE TABLE that has been "consumed".
+        assert dwh_conn._fallback_active is True
+        dwh_update_sqls = [call.args[0] for call in dwh_real.execute_update.call_args_list]
+        assert "CREATE TABLE dwh.t (id INT)" in dwh_update_sqls
+        assert "INSERT INTO dwh.t VALUES (1)" not in dwh_update_sqls
+
+    def test_count_dependent_ops_before_helper(self, tmp_path):
+        """Direct test of the seq-prefix counting helper used by cascade."""
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        dwh_real = _make_mock_connection()
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn._replay_data = [
+            SnapshotEntry("update", "CREATE SCHEMA dwh", None, seq=2),
+            SnapshotEntry("update", "CREATE TABLE dwh.t (id INT)", None, seq=4),
+            SnapshotEntry("update", "INSERT INTO dwh.t VALUES (1)", None, seq=6),
+        ]
+
+        # mismatch_seq=5: 2 ops have seq < 5
+        assert SnapshotDataSourceConnection._count_dependent_ops_before(dwh_conn, 5) == 2
+        # mismatch_seq=1: 0 ops
+        assert SnapshotDataSourceConnection._count_dependent_ops_before(dwh_conn, 1) == 0
+        # mismatch_seq=100: all 3 ops
+        assert SnapshotDataSourceConnection._count_dependent_ops_before(dwh_conn, 100) == 3
+        # mismatch_seq=None (upstream exhausted): all ops
+        assert SnapshotDataSourceConnection._count_dependent_ops_before(dwh_conn, None) == 3
+
+    def test_count_dependent_ops_before_handles_legacy_entries(self, tmp_path):
+        """If entries lack seq, the helper falls back to _replay_index."""
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        dwh_real = _make_mock_connection()
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        # Legacy entries: seq=None
+        dwh_conn._replay_data = [
+            SnapshotEntry("update", "A", None),
+            SnapshotEntry("update", "B", None),
+            SnapshotEntry("update", "C", None),
+        ]
+        dwh_conn._replay_index = 2
+
+        assert SnapshotDataSourceConnection._count_dependent_ops_before(dwh_conn, 100) == 2
+
+    def test_mismatch_seq_is_captured_on_replay_mismatch(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_mismatch_seq"
+        manager.save(
+            test_id,
+            [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None), seq=7)],
+        )
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT NEW")
+
+        # The mismatching entry had seq=7 — _mismatch_seq must reflect that.
+        assert conn._mismatch_seq == 7
+
+    def test_mismatch_seq_is_none_on_snapshot_exhausted(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
+        test_id = "tests/test_x.py::test_exhausted_seq"
+        manager.save(test_id, [SnapshotEntry("query", "SELECT A", QueryResult(rows=[(1,)], columns=None), seq=1)])
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT A")  # matches, consumes the one entry
+            # Now snapshot is exhausted — next call triggers SnapshotMismatchError → fallback
+            conn.execute_query("SELECT B")
+
+        assert conn._mismatch_seq is None  # exhausted → no cap
+
+
 class TestFallbackTestRecord:
     """The module-level fallback registry that snapshot_pytest_plugin consumes
     to surface fallback events in pytest output. The recorder MUST capture the

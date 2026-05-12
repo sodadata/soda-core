@@ -63,6 +63,43 @@ def reset_fallback_test_record() -> None:
     _FALLBACK_TEST_RECORD.clear()
 
 
+class _SnapshotSequence:
+    """Per-test-scope monotonic counter shared across related snapshot connections.
+
+    Lets a source snapshot and its DWH dependent tag every recorded op with a
+    sequence number that orders ops across BOTH streams (not just within one
+    snapshot). On replay-time fallback we use this to compute precisely how
+    many dependent ops happened before the upstream's mismatch point in the
+    original recording, so the dependent's real DB can be materialised to the
+    exact state the upstream's subsequent live ops expect to see.
+
+    Reset semantics: ``transition_to_test`` resets the counter the FIRST
+    time a new test_id is observed. Subsequent calls for the same test_id
+    are no-ops, so two snapshots both calling ``transition_to_test`` at
+    their own ``_handle_test_boundary`` only reset once per test.
+    """
+
+    def __init__(self) -> None:
+        self.counter: int = 0
+        self.current_test_id: Optional[str] = None
+
+    def next(self) -> int:
+        self.counter += 1
+        return self.counter
+
+    def observe(self, seq: int) -> None:
+        """Advance the counter past ``seq`` if it's ahead. Used in replay
+        mode so that any subsequent record (e.g. during fallback recovery)
+        starts numbering after the highest stored seq we've seen."""
+        if seq > self.counter:
+            self.counter = seq
+
+    def transition_to_test(self, test_id: Optional[str]) -> None:
+        if test_id != self.current_test_id:
+            self.counter = 0
+            self.current_test_id = test_id
+
+
 class FakeCursor:
     """A minimal cursor-like object that replays cached rows.
 
@@ -340,6 +377,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # executes (e.g. rows_diff's merge-join) appear in one ordered snapshot.
         self._primary_snapshot: Optional["SnapshotDataSourceConnection"] = primary_snapshot
 
+        # Cross-connection monotonic sequence counter shared with related
+        # snapshots (source + DWH dependent + secondaries) so every recorded
+        # op gets a position in a single test-scoped order. Used to make
+        # cascade-on-fallback precise: when upstream mismatches at seq=S,
+        # the cascade replays only the dependent ops with seq<S on its real
+        # DB. ``None`` here means "no precise cascade" — backward compatible
+        # for old snapshots whose entries lack ``seq``.
+        self._sequence: Optional[_SnapshotSequence] = None
+
+        # When fallback fires due to a snapshot mismatch, ``_mismatch_seq``
+        # holds the recorded ``seq`` of the entry the test failed to match.
+        # Cascade-to-dependents reads it to compute precise cut-offs.
+        self._mismatch_seq: Optional[int] = None
+
         # Install the DBAPI proxy in place of the sentinel passed to super().__init__.
         # Production code that does data_source.connection.connection.cursor() will
         # now receive a recording/replaying _SnapshotCursor.
@@ -552,7 +603,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         for placeholder, real_value in self.extra_replacements.items():
             sql = self._normalize_value(sql, real_value, placeholder)
             result = self._normalize_value(result, real_value, placeholder) if result is not None else None
-        return SnapshotEntry(entry.op_type, sql, result)
+        return SnapshotEntry(entry.op_type, sql, result, seq=entry.seq)
 
     def _denormalize_from_snapshot(self, entry: SnapshotEntry) -> SnapshotEntry:
         """Replace lowercase placeholders with real values when loading from snapshot."""
@@ -571,7 +622,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         for placeholder, real_value in self.extra_replacements.items():
             sql = self._denormalize_value(sql, placeholder, real_value)
             result = self._denormalize_value(result, placeholder, real_value) if result is not None else None
-        return SnapshotEntry(entry.op_type, sql, result)
+        return SnapshotEntry(entry.op_type, sql, result, seq=entry.seq)
 
     # -------------------------------------------------------------------------
     # Test boundary detection via PYTEST_CURRENT_TEST
@@ -601,6 +652,14 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._finalized:
             return
         test_id = self._get_current_test_id()
+        # Always notify the shared sequence of the current test so the
+        # counter resets at most once per test, regardless of which
+        # snapshot in the cohort observes the boundary first. This is
+        # idempotent for the same test_id, so calling it on every
+        # _handle_test_boundary (including the early-return cases below)
+        # is safe.
+        if self._sequence is not None:
+            self._sequence.transition_to_test(test_id)
         if test_id == self._current_test_id:
             return  # Same test, nothing to do
 
@@ -617,6 +676,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         # Start tracking the new test
         self._current_test_id = test_id
+        self._mismatch_seq = None
         if test_id is None:
             return
 
@@ -652,6 +712,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ..."
                     )
             self._replay_index = 0
+            # If the loaded snapshot has seq numbers, prime the shared counter
+            # so any new ops added by fallback recovery continue past the
+            # highest stored value (avoids seq-collisions when the snapshot
+            # is partially re-recorded after a mismatch).
+            if self._sequence is not None and self._replay_data:
+                max_seq = max((e.seq for e in self._replay_data if e.seq is not None), default=0)
+                self._sequence.observe(max_seq)
             logger.info(f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}")
             # NOTE: no pull-side cascade here. If our upstream is already in
             # fallback, we deliberately stay in pure replay until our own
@@ -679,6 +746,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # ordered recording stream.
             self._primary_snapshot._record_entry(entry)
             return
+        # Tag the entry with the next position in the shared cross-connection
+        # order. Done here (rather than at execute_query / execute_update
+        # call sites) so every code path that funnels through _record_entry
+        # — record mode, fallback re-execution, auto-record — gets
+        # consistent sequence numbering.
+        if entry.seq is None and self._sequence is not None:
+            entry.seq = self._sequence.next()
         self._recording.append(self._normalize_for_snapshot(entry))
 
     def _finalize_current_test(self) -> None:
@@ -751,12 +825,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     "  The connection was closed and no factory exists to re-create it."
                 )
 
-    def _activate_fallback(self, reason: str = "") -> None:
+    def _activate_fallback(self, reason: str = "", ops_to_replay_override: Optional[int] = None) -> None:
         """Fall back to real DB for the current test.
 
-        Re-executes all previously replayed operations against the real DB to
+        Re-executes previously replayed operations against the real DB to
         set up database state (tables, inserts), then switches to passthrough
         mode for all remaining operations in this test.
+
+        ``ops_to_replay_override``: when set, re-execute exactly this many
+        prefix entries of ``_replay_data`` instead of using the default
+        ``_replay_index``. Used by the cascade path so that a dependent
+        snapshot can materialise the prefix of its recording that ran
+        BEFORE the upstream's mismatch point in the original recording —
+        even if the dependent has consumed fewer (or more) ops in the
+        current replay than the recording shows it had by that point.
         """
         if not self._allow_fallback:
             raise SnapshotMismatchError(
@@ -792,7 +874,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             if not linked._fallback_active and linked._mode == "replay":
                 linked._activate_fallback(reason=f"Cascaded from linked snapshot fallback ({reason})")
 
-        ops_to_replay = self._replay_index
+        if ops_to_replay_override is not None:
+            ops_to_replay = max(ops_to_replay_override, self._replay_index)
+        else:
+            ops_to_replay = self._replay_index
         logger.warning(
             f"SNAPSHOT: Falling back to real DB for {self._current_test_id}\n"
             f"  Reason: {reason}\n"
@@ -871,34 +956,86 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         self._fallback_active = True
 
-        # Cascade fallback to dependent snapshots (e.g. a DWH snapshot
-        # registered against this source snapshot) ONLY when the dependent
-        # has already consumed some of its own snapshot (_replay_index > 0).
-        # In that case the dependent's recorded prefix needs to be
-        # materialized on the real DB so its own subsequent live ops have
-        # state to work against (same partial-recovery contract as a
-        # self-triggered fallback).
+        # Precise sequence-based cascade to dependent snapshots (e.g. a DWH
+        # snapshot registered against this source snapshot). The mismatching
+        # entry's recorded ``seq`` (captured in _next_replay_entry as
+        # ``self._mismatch_seq``) defines a global cut-off across the
+        # source+dependent recordings: dependent ops with seq < mismatch_seq
+        # ran BEFORE the upstream's mismatch in the original recording, so
+        # those — and only those — are the ones the dependent's real DB
+        # needs to be primed with for the upstream's subsequent live ops to
+        # see the state the recording captured. Re-executing dependent ops
+        # with seq >= mismatch_seq would inject "future" state the test
+        # hasn't yet caused, which is exactly what produced the snowflake/
+        # bigquery "9 tables initial" regression and the doubling failures.
         #
-        # If the dependent has not started consuming yet (_replay_index = 0,
-        # or _replay_data is None), we do NOT activate its fallback. Doing
-        # so would either (a) pre-execute setup DDL on the real DB, which —
-        # combined with the DwhTestSetup convention of skipping
-        # delete_dwh_objects in replay mode — leaves persistent real-DB
-        # state that breaks subsequent tests' empty-DWH assumptions, or
-        # (b) leave the dependent in fallback without materialized state,
-        # making the next live op crash with "table/dataset not found".
-        # Letting the dependent stay in pure replay returns cached results
-        # as long as its own SQL hasn't drifted; if it has, the dependent
-        # will hit its own mismatch and run normal partial recovery with a
-        # correct _replay_index.
+        # Backward compat: if seqs are absent (old snapshots), fall back to
+        # the coarser "only if the dependent has consumed something"
+        # heuristic — same as before the seq mechanism existed.
+        mismatch_seq = self._mismatch_seq
         for dependent in self._dependent_snapshots:
             if dependent._fallback_active or dependent._mode != "replay":
                 continue
             if dependent._fallback_connection_factory is None and dependent._real is None:
                 continue
-            if dependent._replay_index == 0 or dependent._replay_data is None:
+            # Ensure the dependent's _replay_data is loaded for the current
+            # test. If the dependent hasn't been touched yet,
+            # _handle_test_boundary lazily loads its snapshot so we can
+            # compute the seq-based cut-off. (The pull-side cascade was
+            # removed earlier; this call now only loads data, it does NOT
+            # auto-activate fallback.)
+            try:
+                dependent._handle_test_boundary()
+            except SnapshotNotFoundError:
+                # No snapshot for this test on the dependent; nothing to
+                # materialise. Skip.
                 continue
-            dependent._activate_fallback(reason=f"Cascaded from upstream snapshot fallback ({reason})")
+            if dependent._fallback_active:
+                # Auto-record path activated fallback during boundary
+                # handling (missing snapshot, factory available). Nothing
+                # for the cascade to add.
+                continue
+            if dependent._replay_data is None:
+                continue
+            dep_ops_to_replay = self._count_dependent_ops_before(dependent, mismatch_seq)
+            if dep_ops_to_replay == 0 and dependent._replay_index == 0:
+                # Nothing to materialise and dependent hasn't been used —
+                # safest to leave it in pure replay.
+                continue
+            dependent._activate_fallback(
+                reason=f"Cascaded from upstream snapshot fallback ({reason})",
+                ops_to_replay_override=dep_ops_to_replay,
+            )
+
+    @staticmethod
+    def _count_dependent_ops_before(dependent: "SnapshotDataSourceConnection", mismatch_seq: Optional[int]) -> int:
+        """Return the count of dependent ops whose recorded seq < mismatch_seq.
+
+        Used by the cascade path to compute exactly how many dependent ops
+        ran before the upstream's mismatch point in the original recording.
+        Special cases:
+        - Entries without ``seq`` (legacy snapshots) fall back to the prefix
+          the test has already consumed (``_replay_index``), since precise
+          ordering info is unavailable.
+        - ``mismatch_seq=None`` with seq-tagged entries means "no upper
+          bound" (upstream ran past end of its recording) — replay the
+          dependent's entire recording.
+        """
+        data = dependent._replay_data or []
+        has_seqs = any(e.seq is not None for e in data)
+        if not has_seqs:
+            # Legacy entries: no precise info → coarse heuristic.
+            return dependent._replay_index
+        if mismatch_seq is None:
+            # Upstream had no upper bound; with seqs present we can safely
+            # materialise everything the dependent recorded.
+            return len(data)
+        # Seqs are monotonic by construction at record time, so the first
+        # entry with seq >= mismatch_seq marks the cut-off.
+        for i, entry in enumerate(data):
+            if entry.seq is None or entry.seq >= mismatch_seq:
+                return i
+        return len(data)
 
     def _reset_table_via_callback_or_default(self, table_name: str) -> None:
         """Reset a table so a re-CREATE during fallback re-execution lands clean.
@@ -973,6 +1110,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # the primary's single ordered replay stream.
             return self._primary_snapshot._next_replay_entry(expected_type, expected_sql)
         if self._replay_data is None or self._replay_index >= len(self._replay_data):
+            # No upper bound on the cascade — the upstream ran past the end
+            # of its recording, so dependents should replay everything they
+            # have. ``None`` mismatch_seq means "no cap" in the cascade.
+            self._mismatch_seq = None
             raise SnapshotMismatchError(
                 f"Snapshot exhausted for test {self._current_test_id}.\n"
                 f"  No more operations in snapshot (had {len(self._replay_data or [])}).\n"
@@ -985,6 +1126,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if stored_entry.op_type != incoming_normalized.op_type or not self._sql_matches(
             stored_entry.sql, incoming_normalized.sql
         ):
+            # Capture the recorded seq of the mismatching entry so the
+            # cascade (in _activate_fallback) can replay only the dependent
+            # ops that happened BEFORE this point in the original recording.
+            self._mismatch_seq = stored_entry.seq
             # Show denormalized forms in error for readability
             denormalized = self._denormalize_from_snapshot(stored_entry)
             raise SnapshotMismatchError(
