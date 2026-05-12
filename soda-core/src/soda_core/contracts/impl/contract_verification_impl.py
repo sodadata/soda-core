@@ -1811,17 +1811,22 @@ class AggregationQuery(Query):
         self.logs: Logs = logs
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
-        # Measure the SQL as it will actually be emitted, including the per-position
-        # ALIAS wrapper that build_field_expressions adds (`<expr> AS "m_<n>"`).
-        # Without this, the splitter under-estimates SQL length and large contracts
-        # can exceed get_max_sql_statement_length() at execute time.
-        aliased = ALIAS(aggregation_metric_impl.sql_expression(), f"m_{len(self.aggregation_metrics)}")
-        sql_expression_str: str = self.data_source_impl.sql_dialect.build_expression_sql(aliased)
         max_query_length: int = self.data_source_impl.sql_dialect.get_max_sql_statement_length()
-        return self.query_size + len(sql_expression_str) < max_query_length
+        return self.query_size + self._estimate_metric_sql_length(aggregation_metric_impl) < max_query_length
 
     def append_aggregation_metric(self, aggregation_metric_impl: AggregationMetricImpl) -> None:
+        # Track cumulative SQL size as metrics are added — `self.query_size` was
+        # otherwise frozen at the constructor's `COUNT(*)`-only estimate, so the
+        # splitter under-estimated for every metric past the first and could exceed
+        # get_max_sql_statement_length() at execute time on large contracts.
+        self.query_size += self._estimate_metric_sql_length(aggregation_metric_impl)
         self.aggregation_metrics.append(aggregation_metric_impl)
+
+    def _estimate_metric_sql_length(self, aggregation_metric_impl: AggregationMetricImpl) -> int:
+        # Measure the SQL as it will actually be emitted, including the per-position
+        # ALIAS wrapper that build_field_expressions adds (`<expr> AS "m_<n>"`).
+        aliased = ALIAS(aggregation_metric_impl.sql_expression(), f"m_{len(self.aggregation_metrics)}")
+        return len(self.data_source_impl.sql_dialect.build_expression_sql(aliased))
 
     def build_sql(self) -> str:
         field_expressions: list[SqlExpression] = self.build_field_expressions()

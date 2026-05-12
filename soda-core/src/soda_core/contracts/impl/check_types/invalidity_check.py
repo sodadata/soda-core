@@ -130,24 +130,23 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
-        row_count: int = measurement_values.get_value(self.row_count_metric)
-        invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
-
-        diagnostic_metric_values: dict[str, float] = {
-            "invalid_count": invalid_count,
-            "invalid_percent": invalid_percent,
-            "check_rows_tested": row_count,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-        }
-
-        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
-        if isinstance(missing_count, Number):
-            diagnostic_metric_values["missing_count"] = missing_count
+        invalid_count = measurement_values.get_value(self.invalid_count_metric_impl)
+        row_count = measurement_values.get_value(self.row_count_metric)
+        invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
+        missing_count = measurement_values.get_value(self.missing_count_metric_impl)
 
         threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
-
         outcome = self.evaluate_threshold(threshold_value)
+
+        # Diagnostics must remain numeric for Soda Cloud DTO compliance — coalesce
+        # unmeasured fields to 0. NOT_EVALUATED outcome signals "not real".
+        diagnostic_metric_values: dict[str, float] = {
+            "invalid_count": invalid_count if invalid_count is not None else 0,
+            "invalid_percent": invalid_percent if invalid_percent is not None else 0,
+            "check_rows_tested": row_count if row_count is not None else 0,
+            "missing_count": missing_count if missing_count is not None else 0,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         return CheckResult(
             check=self._build_check_info(),

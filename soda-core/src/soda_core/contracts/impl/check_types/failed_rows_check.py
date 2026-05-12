@@ -126,8 +126,8 @@ class FailedRowsCheckImpl(CheckImpl):
 
         failed_rows_count: Optional[int] = measurement_values.get_value(self.failed_rows_count_metric_impl)
 
-        diagnostic_metric_values: dict[str, float] = {}
-        threshold_value: Optional[float] = None
+        diagnostic_metric_values: dict[str, Optional[Number]] = {}
+        threshold_value: Optional[Number] = None
 
         if self.failed_rows_check_yaml.expression:
             threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
@@ -143,7 +143,10 @@ class FailedRowsCheckImpl(CheckImpl):
                 threshold_value = failed_rows_count
 
                 diagnostic_metric_values = {
-                    "failed_rows_count": failed_rows_count,
+                    # `failedRowsCount` is @NotNull in the FailedRows DTO — coalesce to 0
+                    # in failure mode. `check_rows_tested` is nullable for this branch
+                    # (no rows_tested_query specified).
+                    "failed_rows_count": failed_rows_count if failed_rows_count is not None else 0,
                     "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
                     "check_rows_tested": None,
                 }
@@ -159,7 +162,7 @@ class FailedRowsCheckImpl(CheckImpl):
 
     def _evaluate_with_rows_tested(
         self, failed_rows_count: Optional[int], measurement_values: MeasurementValues
-    ) -> tuple[Optional[float], dict[str, float]]:
+    ) -> tuple[Optional[Number], dict[str, Optional[Number]]]:
         check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
         # Default to 0 for diagnostics so consumers don't see null where they used to
         # see 0. `threshold_value` carries the "is this real" signal: it stays None
@@ -174,8 +177,10 @@ class FailedRowsCheckImpl(CheckImpl):
         else:
             threshold_value = None if self.failed_rows_check_yaml.metric == "percent" else failed_rows_count
 
-        diagnostic_metric_values = {
-            "failed_rows_count": failed_rows_count,
+        diagnostic_metric_values: dict[str, Optional[Number]] = {
+            # `failedRowsCount` is @NotNull in the FailedRows DTO — coalesce to 0
+            # in failure mode. `check_rows_tested` is nullable per DTO.
+            "failed_rows_count": failed_rows_count if failed_rows_count is not None else 0,
             "failed_rows_percent": failed_rows_percent,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
             "check_rows_tested": check_rows_tested,

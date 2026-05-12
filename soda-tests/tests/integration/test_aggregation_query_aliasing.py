@@ -172,8 +172,11 @@ def test_duplicate_check_survives_failed_aggregation_query(
     # NOT_EVALUATED must NOT propagate nulls into the diagnostics dict for fields that
     # historically defaulted to 0 — consumers (Soda Cloud) depend on these being numeric.
     diagnostics = duplicate_result.diagnostic_metric_values or {}
-    assert diagnostics.get("duplicate_count") == 0, f"duplicate_count must default to 0, got {diagnostics!r}"
-    assert diagnostics.get("duplicate_percent") == 0, f"duplicate_percent must default to 0, got {diagnostics!r}"
+    # All Duplicate DTO fields are @NotNull — assert none of them leak null in failure mode.
+    for field in ("duplicate_count", "duplicate_percent", "check_rows_tested", "missing_count"):
+        assert (
+            diagnostics.get(field) is not None
+        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
 
 
 def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
@@ -220,9 +223,11 @@ def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
     # depend on this. The threshold gating happens via threshold_value, not by
     # nulling out the diagnostic.
     diagnostics = failed_rows_result.diagnostic_metric_values or {}
-    assert (
-        diagnostics.get("failed_rows_percent") == 0
-    ), f"failed_rows_percent must default to 0, not None; got {diagnostics!r}"
+    # `failed_rows_count` and `failed_rows_percent` are required by the FailedRows DTO.
+    for field in ("failed_rows_count", "failed_rows_percent"):
+        assert (
+            diagnostics.get(field) is not None
+        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
 
 
 def test_missing_percent_does_not_falsely_pass_when_aggregation_fails(
@@ -264,3 +269,53 @@ def test_missing_percent_does_not_falsely_pass_when_aggregation_fails(
         f"Expected NOT_EVALUATED when the missing_count aggregation query failed; "
         f"got {missing_result.outcome} (this is the DerivedPercentageMetricImpl falsely-PASSED regression)"
     )
+
+    diagnostics = missing_result.diagnostic_metric_values or {}
+    # All Missing DTO fields are @NotNull — assert none of them leak null in failure mode.
+    for field in ("missing_count", "missing_percent", "check_rows_tested"):
+        assert (
+            diagnostics.get(field) is not None
+        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+
+
+def test_invalid_percent_does_not_leak_nulls_when_aggregation_fails(
+    data_source_test_helper: DataSourceTestHelper,
+) -> None:
+    """Mirror of missing-percent test for the invalid check, exercising
+    InvalidityCheckImpl.evaluate's diagnostic coalesce path."""
+    test_table = data_source_test_helper.ensure_test_table(_test_table_specification)
+
+    session_result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - failed_rows:
+                  name: poison the aggregation query
+                  expression: "definitely_not_a_column IS NULL"
+            columns:
+              - name: id
+                checks:
+                  - invalid:
+                      name: id invalid percent
+                      valid_values: ['1', '2', '3']
+                      threshold:
+                        metric: percent
+                        must_be_less_than_or_equal: 0
+            """,
+    )
+
+    assert session_result is not None
+    assert session_result.contract_verification_results
+    result = session_result.contract_verification_results[0]
+    invalid_results = [r for r in result.check_results if r.check.name == "id invalid percent"]
+    assert invalid_results, "Expected the invalid check to produce a result"
+    invalid_result: CheckResult = invalid_results[0]
+
+    assert invalid_result.outcome == CheckOutcome.NOT_EVALUATED
+
+    diagnostics = invalid_result.diagnostic_metric_values or {}
+    # All Invalid DTO fields are @NotNull (including missing_count) — assert no nulls.
+    for field in ("invalid_count", "invalid_percent", "check_rows_tested", "missing_count"):
+        assert (
+            diagnostics.get(field) is not None
+        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"

@@ -115,17 +115,9 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
-
-        distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
-
-        check_rows_tested_count: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
-        if isinstance(check_rows_tested_count, Number):
-            diagnostic_metric_values["check_rows_tested"] = check_rows_tested_count
-
-        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
-        if isinstance(missing_count, Number):
-            diagnostic_metric_values["missing_count"] = missing_count
+        distinct_count = measurement_values.get_value(self.distinct_count_metric_impl)
+        check_rows_tested_count = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        missing_count = measurement_values.get_value(self.missing_count_metric_impl)
 
         duplicate_count: int = 0
         duplicate_percent: float = 0
@@ -144,11 +136,15 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             threshold_value = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
             outcome = self.evaluate_threshold(threshold_value)
 
-        # Always populate the duplicate diagnostics so consumers don't see nulls — they
-        # default to 0 if upstream measurements were unavailable. NOT_EVALUATED outcome
-        # already signals that the values aren't real measurements.
-        diagnostic_metric_values["duplicate_count"] = duplicate_count
-        diagnostic_metric_values["duplicate_percent"] = duplicate_percent
+        # Diagnostics must remain numeric for Soda Cloud DTO compliance — coalesce
+        # unmeasured fields to 0. NOT_EVALUATED outcome signals "not real".
+        diagnostic_metric_values: dict[str, float] = {
+            "duplicate_count": duplicate_count,
+            "duplicate_percent": duplicate_percent,
+            "check_rows_tested": check_rows_tested_count if check_rows_tested_count is not None else 0,
+            "missing_count": missing_count if missing_count is not None else 0,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         return CheckResult(
             check=self._build_check_info(),
@@ -306,7 +302,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         diagnostic_metric_values: dict[str, float] = {
             "duplicate_count": duplicate_count,
             "duplicate_percent": duplicate_percent,
-            "check_rows_tested": row_count,
+            "check_rows_tested": row_count if row_count is not None else 0,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
 
