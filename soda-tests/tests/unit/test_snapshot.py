@@ -2529,10 +2529,20 @@ class TestDependentSnapshotCascade:
         real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
         return manager, real
 
-    def test_push_cascade_when_dependent_factory_present(self, tmp_path):
-        """Source falls back first → dependent DWH (with factory installed) is cascaded
-        immediately via `_dependent_snapshots`."""
-        test_id = "tests/test_x.py::test_push_cascade"
+    def test_push_cascade_skips_dependent_that_has_not_started_consuming(self, tmp_path):
+        """Source falls back first → push-cascade DOES NOT activate the
+        dependent when the dependent hasn't consumed any of its own
+        snapshot yet (``_replay_index == 0``).
+
+        Pre-activating fallback here is unsafe: the dependent has no
+        recorded prefix to materialize on the real DB, so any subsequent
+        live op crashes with "table/dataset not found"; and if we DID
+        pre-execute the dependent's full setup DDL the real DWH would
+        accumulate persistent state across tests (DwhTestSetup skips
+        delete_dwh_objects in replay mode) and break later tests that
+        observe an empty DWH baseline. Leaving the dependent in pure
+        replay lets cached results serve until its own SQL drifts."""
+        test_id = "tests/test_x.py::test_push_skip_unconsumed"
         src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
         dwh_mgr, dwh_real = self._make_dwh(tmp_path, test_id)
 
@@ -2546,15 +2556,60 @@ class TestDependentSnapshotCascade:
         dwh_conn._upstream_snapshot = source_conn
 
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # Source query mismatches → triggers source fallback → pushes to DWH
+            source_conn.execute_query("SELECT NEW_SOURCE")
+
+        assert source_conn._fallback_active is True
+        # DWH stays in pure replay; nothing was pre-executed on its real DB.
+        assert dwh_conn._fallback_active is False
+        dwh_real.execute_update.assert_not_called()
+
+    def test_push_cascade_when_dependent_has_been_consuming(self, tmp_path):
+        """When the dependent has already consumed at least one op
+        (``_replay_index > 0``), push-cascade DOES activate its fallback so
+        the consumed prefix gets materialized on the real DB. Subsequent
+        live ops on the dependent then have the state they expect."""
+        test_id = "tests/test_x.py::test_push_partial_use"
+        src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
+
+        # Two DWH ops so the dependent can consume one before source fires.
+        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
+        dwh_mgr.save(
+            test_id,
+            [
+                SnapshotEntry("update", "CREATE TABLE dwh.t (id INT)", None),
+                SnapshotEntry("update", "INSERT INTO dwh.t VALUES (1)", None),
+            ],
+        )
+        dwh_real = _make_mock_connection()
+        dwh_real.execute_update.return_value = None
+
+        source_conn = SnapshotDataSourceConnection(
+            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
+        )
+        dwh_conn = SnapshotDataSourceConnection(
+            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
+        )
+        source_conn._dependent_snapshots.append(dwh_conn)
+        dwh_conn._upstream_snapshot = source_conn
+
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            # DWH consumes its first op via pure replay (cache hit).
+            dwh_conn.execute_update("CREATE TABLE dwh.t (id INT)")
+            assert dwh_conn._replay_index == 1
+            assert dwh_conn._fallback_active is False
+
+            # Source mismatches → push-cascade with dependent partially consumed.
             source_conn.execute_query("SELECT NEW_SOURCE")
 
         assert source_conn._fallback_active is True
         assert dwh_conn._fallback_active is True
+        # Partial recovery re-executed the consumed prefix (1 op) on real DB.
+        dwh_update_sqls = [call.args[0] for call in dwh_real.execute_update.call_args_list]
+        assert "CREATE TABLE dwh.t (id INT)" in dwh_update_sqls
 
     def test_push_cascade_skips_dependent_without_factory_or_real(self, tmp_path):
         """If the dependent has no factory and no real connection yet (DWH not opened),
-        the push cascade quietly skips it — the pull side will catch up later."""
+        the push cascade quietly skips it."""
         test_id = "tests/test_x.py::test_push_skips"
         src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
         dwh_mgr, _dwh_real_unused = self._make_dwh(tmp_path, test_id)
@@ -2575,42 +2630,10 @@ class TestDependentSnapshotCascade:
         assert source_conn._fallback_active is True
         assert dwh_conn._fallback_active is False
 
-    def test_pull_cascade_activates_at_dependent_test_boundary(self, tmp_path):
-        """If the DWH gets its factory installed AFTER source already fell back, then
-        at the DWH's first test-boundary it must detect the upstream's fallback and
-        follow via `_upstream_snapshot`."""
-        test_id = "tests/test_x.py::test_pull_cascade"
-        src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
-        dwh_mgr, dwh_real = self._make_dwh(tmp_path, test_id)
-
-        source_conn = SnapshotDataSourceConnection(
-            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
-        )
-        # DWH has no factory yet at the moment source falls back.
-        dwh_conn = SnapshotDataSourceConnection(
-            real_connection=None, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
-        )
-        source_conn._dependent_snapshots.append(dwh_conn)
-        dwh_conn._upstream_snapshot = source_conn
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            source_conn.execute_query("SELECT NEW_SOURCE")
-            assert source_conn._fallback_active is True
-            assert dwh_conn._fallback_active is False
-
-            # Now install the factory (simulates DwhSnapshotInterceptor opening the
-            # DWH connection later in the same test), then run a DWH op. The DWH
-            # snapshot's test-boundary check should activate fallback via upstream.
-            dwh_conn._fallback_connection_factory = lambda: dwh_real
-            dwh_conn.execute_update("INSERT INTO dwh VALUES (1)")
-
-        assert dwh_conn._fallback_active is True
-        # The DWH's fallback factory must have been invoked.
-        assert dwh_conn._real is dwh_real
-
-    def test_pull_cascade_no_op_when_upstream_not_in_fallback(self, tmp_path):
-        """If upstream is healthy, the pull-side check at the DWH test boundary
-        does NOT activate fallback."""
+    def test_dependent_handles_own_mismatch_independently(self, tmp_path):
+        """The cascade no longer pre-activates an unconsumed dependent's
+        fallback. The dependent must instead detect its own SQL drift and
+        run normal partial recovery when its replay stream mismatches."""
         test_id = "tests/test_x.py::test_pull_noop"
         # Source snapshot matches its replay query so it stays in pure replay.
         src_mgr = SnapshotManager("postgres", str(tmp_path / "src"))
@@ -2636,56 +2659,6 @@ class TestDependentSnapshotCascade:
 
         assert source_conn._fallback_active is False
         assert dwh_conn._fallback_active is False
-
-    def test_push_cascade_full_replay_materializes_dependent_ddl_only(self, tmp_path):
-        """When push-cascade fires and the dependent hasn't been touched yet
-        (``_replay_index == 0``), the dependent's recorded structural DDL
-        (CREATE SCHEMA / CREATE TABLE / CREATE VIEW / DROP / ALTER /
-        TRUNCATE) must be pre-executed on the real DB so subsequent live ops
-        find the tables they need. DML (INSERT/UPDATE/DELETE) must be
-        SKIPPED — the test code will re-issue those same ops live via the
-        fallback path, and pre-executing them too would double the data."""
-        test_id = "tests/test_x.py::test_push_full_replay"
-        src_mgr, src_real = self._make_source_with_mismatch(tmp_path, test_id)
-
-        # DWH snapshot has a mix of DDL setup ops and a data INSERT.
-        dwh_mgr = SnapshotManager("postgres", str(tmp_path / "dwh"))
-        dwh_mgr.save(
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE SCHEMA dwh", None),
-                SnapshotEntry("update", "CREATE TABLE dwh.t (id INT)", None),
-                SnapshotEntry("update", "INSERT INTO dwh.t VALUES (1)", None),
-                SnapshotEntry("update", "DROP VIEW IF EXISTS dwh.v", None),
-                SnapshotEntry("update", "CREATE VIEW dwh.v AS SELECT * FROM dwh.t", None),
-            ],
-        )
-        dwh_real = _make_mock_connection()
-        dwh_real.execute_update.return_value = None
-
-        source_conn = SnapshotDataSourceConnection(
-            real_connection=src_real, snapshot_manager=src_mgr, mode="replay", allow_fallback=True
-        )
-        dwh_conn = SnapshotDataSourceConnection(
-            real_connection=dwh_real, snapshot_manager=dwh_mgr, mode="replay", allow_fallback=True
-        )
-        source_conn._dependent_snapshots.append(dwh_conn)
-        dwh_conn._upstream_snapshot = source_conn
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # Source query mismatches → triggers push-cascade to DWH.
-            # DWH has NOT been touched yet in this test (replay_index = 0).
-            source_conn.execute_query("SELECT NEW_SOURCE")
-
-        # DWH fallback active, structural DDL pre-executed on real DB.
-        assert dwh_conn._fallback_active is True
-        dwh_update_sqls = [call.args[0] for call in dwh_real.execute_update.call_args_list]
-        assert "CREATE SCHEMA dwh" in dwh_update_sqls
-        assert "CREATE TABLE dwh.t (id INT)" in dwh_update_sqls
-        assert "DROP VIEW IF EXISTS dwh.v" in dwh_update_sqls
-        assert "CREATE VIEW dwh.v AS SELECT * FROM dwh.t" in dwh_update_sqls
-        # The INSERT must NOT have been pre-executed (doubling guard).
-        assert "INSERT INTO dwh.t VALUES (1)" not in dwh_update_sqls
 
 
 class TestFallbackTestRecord:
