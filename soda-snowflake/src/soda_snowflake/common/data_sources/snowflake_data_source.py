@@ -6,7 +6,11 @@ from soda_core.common.data_source_connection import DataSourceConnection
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.metadata_types import ColumnMetadata, SamplerType, SodaDataTypeName
+from soda_core.common.metadata_types import (
+    ColumnMetadata,
+    SamplerType,
+    SodaDataTypeName,
+)
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, RANDOM, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.contracts.impl.contract_verification_impl import ContractImpl
