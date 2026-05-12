@@ -56,44 +56,65 @@ class AthenaDataSourceTestHelper(DataSourceTestHelper):
         """Reset an Athena table so the snapshot fallback recovery can retry
         ``CREATE EXTERNAL TABLE`` against an empty LOCATION.
 
-        We can't reuse ``AthenaDataSourceImpl.execute_update``'s built-in
-        ``DROP TABLE`` → ``_delete_s3_files`` hook here because the fallback
-        recovery loop runs INSIDE ``SnapshotDataSourceConnection._activate_fallback``,
-        and routing the DROP through ``data_source_impl.execute_update`` would
-        bounce back into the snapshot we're currently inside (its
-        ``_fallback_active`` flag isn't set until after the recovery loop
-        finishes, so the call would attempt a replay match, fail, and recurse
-        into ``_activate_fallback`` again).
+        Uses the Glue catalog API + per-object S3 deletion — the same
+        proven-working pattern ``drop_schema_if_exists`` uses for table
+        cleanup. We deliberately avoid SQL ``DROP TABLE`` here:
 
-        Three explicit steps:
+        * The fallback recovery loop runs INSIDE
+          ``SnapshotDataSourceConnection._activate_fallback``, so routing
+          the SQL through ``data_source_impl.execute_update`` would bounce
+          back into the snapshot (whose ``_fallback_active`` flag isn't set
+          yet during the recovery loop).
+        * The previous attempt at running ``DROP TABLE`` straight through
+          the real connection plus the existing ``_delete_s3_files`` left
+          stale Parquet files behind: the batched ``delete_objects`` call
+          there returns ``{"Errors": [...]}`` (with ``Deleted`` absent) when
+          every key fails, and the existing parser silently swallows that
+          as ``"Deleted Unknown aws delete objects response"`` so the caller
+          continues as if the cleanup had worked. The subsequent
+          ``CREATE EXTERNAL TABLE`` then re-attached to the stale LOCATION
+          and the snapshot's ``INSERT INTO`` doubled the data.
 
-        1. ``DROP TABLE`` on the real connection — removes the Glue catalog
-           entry only. On EXTERNAL tables Athena leaves the underlying
-           Parquet files in S3, so step 2 is required to avoid the
-           subsequent ``CREATE EXTERNAL TABLE`` re-attaching to stale data
-           (which would let the snapshot's ``INSERT INTO`` double the rows).
-        2. List the table's S3 prefix.
-        3. Delete each object via ``s3_client.delete_object`` (singular).
+        Two steps, each using its own AWS service:
 
-        The batched ``s3_client.delete_objects`` endpoint returns
-        ``{"Errors": [...]}`` with ``Deleted`` absent when every key fails,
-        which the existing ``AthenaDataSourceImpl._delete_s3_files`` parser
-        silently swallows as ``"Deleted Unknown aws delete objects
-        response"`` — that's a latent bug we don't want to fix in
-        production code from a test path, so this helper does its own
-        per-object loop. ``delete_object`` raises ``ClientError``
-        synchronously on failure, which surfaces any real permission /
-        policy issue instead of letting the test pass with stale data.
+        1. ``glue_client.delete_table`` — removes the Glue catalog entry
+           without involving any pyathena session state.
+        2. ``s3_client.delete_object`` per key — singular delete raises
+           ``ClientError`` synchronously on failure, so a real permission
+           or policy issue surfaces as an exception rather than letting
+           the test pass with stale data behind it.
         """
-        real_connection.execute_update(f"DROP TABLE {table_name}", log_query=False)
         impl = self.data_source_impl
+
+        # Parse the FQN ``catalog`.`schema`.`table`` so we can talk to Glue.
+        # Glue identifiers are stored lowercase (Athena/Hive normalises on
+        # write), and the catalog name maps to the AWS account default for
+        # this connection — we only need DatabaseName + table Name.
+        cleaned = table_name.replace("`", "").replace('"', "")
+        parts = cleaned.split(".")
+        if len(parts) < 2:
+            return
+        glue_schema = parts[-2].lower()
+        glue_table = parts[-1].lower()
+
+        # Step 1: drop the Glue catalog entry.
+        glue_client = self._create_glue_client()
+        try:
+            glue_client.delete_table(DatabaseName=glue_schema, Name=glue_table)
+        except glue_client.exceptions.EntityNotFoundException:
+            # Table already gone — fine, S3 cleanup still runs below.
+            pass
+
+        # Step 2: clear the LOCATION's Parquet files so a subsequent
+        # CREATE EXTERNAL TABLE attaches to an empty prefix.
         table_location: str = impl.table_s3_location(table_name, lowercase=True)
         bucket: str = impl._extract_s3_bucket(table_location)
         prefix: str = impl._extract_s3_folder(table_location)
         s3_client = impl._create_s3_client()
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        for item in response.get("Contents") or []:
-            s3_client.delete_object(Bucket=bucket, Key=item["Key"])
+        paginator = s3_client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for item in page.get("Contents") or []:
+                s3_client.delete_object(Bucket=bucket, Key=item["Key"])
 
     def drop_test_schema_if_exists(self) -> str:
         super().drop_test_schema_if_exists()
