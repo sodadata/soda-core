@@ -319,3 +319,52 @@ def test_invalid_percent_does_not_leak_nulls_when_aggregation_fails(
         assert (
             diagnostics.get(field) is not None
         ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+
+
+def test_framework_short_circuits_to_not_evaluated_when_required_metric_missing(
+    data_source_test_helper: DataSourceTestHelper,
+) -> None:
+    """DTL-1779: when a check declares required metrics via get_required_metric_impls
+    and any of them is unmeasured, the framework dispatch loop should short-circuit
+    to NOT_EVALUATED with numeric diagnostic defaults — without calling evaluate().
+
+    Mirrors test_duplicate_check_survives_failed_aggregation_query, but asserts the
+    behavior independent of any specific check's evaluate() body."""
+    test_table = data_source_test_helper.ensure_test_table(_test_table_specification)
+
+    session_result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - failed_rows:
+                  name: poison the aggregation query
+                  expression: "definitely_not_a_column IS NULL"
+            columns:
+              - name: id
+                checks:
+                  - missing:
+                      name: id missing count
+                      threshold:
+                        metric: count
+                        must_be: 0
+            """,
+    )
+
+    assert session_result is not None
+    assert session_result.contract_verification_results
+    result = session_result.contract_verification_results[0]
+    missing_results = [r for r in result.check_results if r.check.name == "id missing count"]
+    assert missing_results, "Expected the missing check to produce a result"
+    missing_result: CheckResult = missing_results[0]
+
+    # Required missing_count metric is unmeasured (aggregation query failed) →
+    # framework should short-circuit, not call evaluate.
+    assert (
+        missing_result.outcome == CheckOutcome.NOT_EVALUATED
+    ), f"Expected NOT_EVALUATED from framework gating; got {missing_result.outcome}"
+    diagnostics = missing_result.diagnostic_metric_values or {}
+    # Diagnostic defaults from get_diagnostic_defaults() must be present and numeric.
+    for field in ("missing_count", "missing_percent", "check_rows_tested"):
+        assert (
+            diagnostics.get(field) == 0
+        ), f"{field} must be the get_diagnostic_defaults() value (0); got {diagnostics!r}"

@@ -5,7 +5,7 @@ import logging
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
+from soda_core.contracts.contract_verification import CheckResult
 from soda_core.contracts.impl.check_types.duplicate_check_yaml import (
     ColumnDuplicateCheckYaml,
     MultiColumnDuplicateCheckYaml,
@@ -112,37 +112,35 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
-        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+    def get_required_metric_impls(self) -> list[MetricImpl]:
+        return [
+            self.check_rows_tested_metric_impl,
+            self.missing_count_metric_impl,
+            self.distinct_count_metric_impl,
+        ]
 
+    def get_diagnostic_defaults(self) -> dict[str, Number]:
+        return {"duplicate_count": 0, "duplicate_percent": 0, "check_rows_tested": 0, "missing_count": 0}
+
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         distinct_count = measurement_values.get_value(self.distinct_count_metric_impl)
         check_rows_tested_count = measurement_values.get_value(self.check_rows_tested_metric_impl)
         missing_count = measurement_values.get_value(self.missing_count_metric_impl)
 
-        duplicate_count: int = 0
+        duplicate_count: int = check_rows_tested_count - missing_count - distinct_count
         duplicate_percent: float = 0
-        threshold_value: Optional[Number] = None
-        if measurement_values.all_measured(
-            self.check_rows_tested_metric_impl,
-            self.missing_count_metric_impl,
-            self.distinct_count_metric_impl,
-        ):
-            duplicate_count = check_rows_tested_count - missing_count - distinct_count
+        non_missing_total: int = check_rows_tested_count - missing_count
+        if non_missing_total > 0:
+            duplicate_percent = duplicate_count * 100 / non_missing_total
 
-            non_missing_total: int = check_rows_tested_count - missing_count
-            if non_missing_total > 0:
-                duplicate_percent = duplicate_count * 100 / non_missing_total
+        threshold_value: Number = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
+        outcome = self.evaluate_threshold(threshold_value)
 
-            threshold_value = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
-            outcome = self.evaluate_threshold(threshold_value)
-
-        # Diagnostics must remain numeric for Soda Cloud DTO compliance — coalesce
-        # unmeasured fields to 0. NOT_EVALUATED outcome signals "not real".
         diagnostic_metric_values: dict[str, float] = {
             "duplicate_count": duplicate_count,
             "duplicate_percent": duplicate_percent,
-            "check_rows_tested": check_rows_tested_count if check_rows_tested_count is not None else 0,
-            "missing_count": missing_count if missing_count is not None else 0,
+            "check_rows_tested": check_rows_tested_count,
+            "missing_count": missing_count,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
 
@@ -282,27 +280,26 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         #     )
         # )
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
-        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+    def get_required_metric_impls(self) -> list[MetricImpl]:
+        return [self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl]
 
+    def get_diagnostic_defaults(self) -> dict[str, Number]:
+        return {"duplicate_count": 0, "duplicate_percent": 0, "check_rows_tested": 0}
+
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
-        duplicate_count: int = 0
-        duplicate_percent: float = 0
-        threshold_value: Optional[Number] = None
 
-        if measurement_values.all_measured(self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl):
-            duplicate_count = row_count - distinct_count
-            if row_count > 0:
-                duplicate_percent = duplicate_count * 100 / row_count
+        duplicate_count: int = row_count - distinct_count
+        duplicate_percent: float = duplicate_count * 100 / row_count if row_count > 0 else 0
 
-            threshold_value = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
-            outcome = self.evaluate_threshold(threshold_value)
+        threshold_value: Number = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
+        outcome = self.evaluate_threshold(threshold_value)
 
         diagnostic_metric_values: dict[str, float] = {
             "duplicate_count": duplicate_count,
             "duplicate_percent": duplicate_percent,
-            "check_rows_tested": row_count if row_count is not None else 0,
+            "check_rows_tested": row_count,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
 
