@@ -2392,7 +2392,7 @@ class TestLinkedSnapshotFallback:
         assert real.execute_update.call_count == 3
         # Verify the DELETE was called to prevent data doubling
         delete_call = real.execute_update.call_args_list[1]
-        assert delete_call[0][0] == "DELETE FROM t"
+        assert delete_call[0][0] == "DELETE FROM t WHERE 1=1"
         # Query was run against real DB after fallback
         assert real.execute_query.call_count == 1
 
@@ -2431,7 +2431,7 @@ class TestLinkedSnapshotFallback:
             conn.execute_query("SELECT 2")  # mismatch triggers fallback
 
         delete_call = real.execute_update.call_args_list[1]
-        assert delete_call[0][0] == 'DELETE FROM "myschema"."mytable"'
+        assert delete_call[0][0] == 'DELETE FROM "myschema"."mytable" WHERE 1=1'
 
     def test_fallback_create_schema_does_not_trigger_delete(self, tmp_path):
         """CREATE SCHEMA errors are suppressed but don't trigger a DELETE (only CREATE TABLE does)."""

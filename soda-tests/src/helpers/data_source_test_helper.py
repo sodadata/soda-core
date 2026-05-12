@@ -464,13 +464,33 @@ class DataSourceTestHelper:
                 if self._ensured_test_tables:
                     import contextlib
 
-                    for test_table in self._ensured_test_tables.values():
-                        # Drop is best-effort: the table may not exist yet (no prior
-                        # test in this run created it). Swallow drop errors so a
-                        # clean DB still works.
+                    # _ensured_test_tables accumulates across every test on this
+                    # session-scoped helper, so by the time a later test triggers
+                    # fallback the dict may contain tables from earlier tests that
+                    # this fallback doesn't actually need. Recreate each in its own
+                    # try/except so a failure on a stale entry (e.g. a MV-backed
+                    # TestTable whose CREATE TABLE doesn't match reality) doesn't
+                    # abort the loop and leave the CURRENT test's table missing.
+                    # Drop is best-effort; rollback after any DDL failure so the
+                    # next iteration starts from a clean transaction (Postgres
+                    # aborts the entire transaction on a single failed DDL).
+                    def _rollback_after_ddl_failure():
                         with contextlib.suppress(Exception):
+                            self.data_source_impl.data_source_connection.rollback()
+
+                    for test_table in self._ensured_test_tables.values():
+                        try:
                             self._drop_test_table(table_name=test_table.unique_name)
-                        self._create_and_insert_test_table(test_table=test_table)
+                        except Exception:
+                            _rollback_after_ddl_failure()
+                        try:
+                            self._create_and_insert_test_table(test_table=test_table)
+                        except Exception as recreate_exc:
+                            _rollback_after_ddl_failure()
+                            logger.warning(
+                                f"SNAPSHOT: connection_factory could not recreate "
+                                f"{test_table.unique_name} during fallback: {recreate_exc}"
+                            )
                     self.data_source_impl.data_source_connection.commit()
                 real_conn = self.data_source_impl.data_source_connection
                 self.data_source_impl.data_source_connection = snap_conn

@@ -764,10 +764,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         # If a CREATE TABLE failed, the table was already created by
                         # connection_factory (with data).  Clear the factory-inserted
                         # rows so the subsequent INSERT from snapshot ops doesn't double.
+                        # Use `WHERE 1=1` — BigQuery rejects unqualified DELETE FROM
+                        # ("DELETE must have a WHERE clause"); 1=1 is portable across
+                        # Postgres / SqlServer / Snowflake / Databricks / BigQuery.
                         table_name = self._extract_table_name_from_create(entry.sql)
                         if table_name:
                             with contextlib.suppress(Exception):
-                                self._real.execute_update(f"DELETE FROM {table_name}", log_query=False)
+                                self._real.execute_update(f"DELETE FROM {table_name} WHERE 1=1", log_query=False)
                                 logger.info(
                                     f"SNAPSHOT: Cleared data from {table_name} to prevent doubling during fallback"
                                 )
