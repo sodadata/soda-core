@@ -12,6 +12,7 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ALIAS,
     AND,
     CAST,
     COLUMN,
@@ -264,11 +265,11 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
 
         select_columns = []
         if include_table_name_column:
-            select_columns.append(COLUMN("relname", table_alias="c", field_alias="table_name"))
+            select_columns.append(COLUMN("relname", table_alias="c").AS("table_name"))
 
         select_columns.extend(
             [
-                COLUMN("attname", table_alias="a", field_alias="column_name"),
+                COLUMN("attname", table_alias="a").AS("column_name"),
                 # Normalize data type into information_schema.columns style.
                 RAW_SQL(
                     """CASE
@@ -345,9 +346,9 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                     END AS "datetime_precision"
                 """
                 ),
-                COLUMN(current_database_expression, field_alias="table_catalog"),
-                COLUMN("nspname", table_alias="n", field_alias="table_schema"),
-                COLUMN("relname", table_alias="c", field_alias="table_name"),
+                ALIAS(current_database_expression, "table_catalog"),
+                COLUMN("nspname", table_alias="n").AS("table_schema"),
+                COLUMN("relname", table_alias="c").AS("table_name"),
                 RAW_SQL(self.relkind_table_type_sql_expression()),
             ]
         )
