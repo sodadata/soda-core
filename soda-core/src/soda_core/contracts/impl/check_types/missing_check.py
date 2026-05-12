@@ -79,20 +79,24 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
-        row_count: int = measurement_values.get_value(self.row_count_metric_impl)
-        missing_percent: float = measurement_values.get_value(self.missing_percent_metric_impl)
+        missing_count = measurement_values.get_value(self.missing_count_metric_impl)
+        row_count = measurement_values.get_value(self.row_count_metric_impl)
+        missing_percent = measurement_values.get_value(self.missing_percent_metric_impl)
 
+        # `threshold_value` carries the "is this real" signal — stays None when an
+        # upstream metric is unmeasured so evaluate_threshold returns NOT_EVALUATED.
+        threshold_value: Optional[Number] = missing_percent if self.metric_name == "missing_percent" else missing_count
+        outcome = self.evaluate_threshold(threshold_value)
+
+        # Diagnostics must remain numeric for Soda Cloud DTO compliance (all four
+        # fields are @NotNull). Coalesce to 0 when upstream metrics are unmeasured —
+        # the NOT_EVALUATED outcome already signals these aren't real measurements.
         diagnostic_metric_values: dict[str, float] = {
-            "missing_count": missing_count,
-            "missing_percent": missing_percent,
-            "check_rows_tested": row_count,
+            "missing_count": missing_count if missing_count is not None else 0,
+            "missing_percent": missing_percent if missing_percent is not None else 0,
+            "check_rows_tested": row_count if row_count is not None else 0,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
-
-        threshold_value: Optional[Number] = missing_percent if self.metric_name == "missing_percent" else missing_count
-
-        outcome = self.evaluate_threshold(threshold_value)
 
         return CheckResult(
             check=self._build_check_info(),

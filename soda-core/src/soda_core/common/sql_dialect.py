@@ -22,6 +22,7 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ALIAS,
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
@@ -820,6 +821,8 @@ class SqlDialect:
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
             return self._build_distinct_sql(expression)
+        elif isinstance(expression, ALIAS):
+            return f"{self.build_expression_sql(expression.expression)} AS {self.quote_default(expression.alias)}"
         elif isinstance(expression, SqlExpressionStr):
             return f"({expression.expression_str})"
         elif isinstance(expression, ORDINAL_POSITION):

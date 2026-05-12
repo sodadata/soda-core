@@ -115,38 +115,36 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
 
-        diagnostic_metric_values: dict[str, float] = {"dataset_rows_tested": self.contract_impl.dataset_rows_tested}
-
-        distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
-
-        check_rows_tested_count: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
-        if isinstance(check_rows_tested_count, Number):
-            diagnostic_metric_values["check_rows_tested"] = check_rows_tested_count
-
-        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
-        if isinstance(missing_count, Number):
-            diagnostic_metric_values["missing_count"] = missing_count
+        distinct_count = measurement_values.get_value(self.distinct_count_metric_impl)
+        check_rows_tested_count = measurement_values.get_value(self.check_rows_tested_metric_impl)
+        missing_count = measurement_values.get_value(self.missing_count_metric_impl)
 
         duplicate_count: int = 0
         duplicate_percent: float = 0
-        if (
-            isinstance(check_rows_tested_count, Number)
-            and isinstance(missing_count, Number)
-            and isinstance(distinct_count, Number)
+        threshold_value: Optional[Number] = None
+        if measurement_values.all_measured(
+            self.check_rows_tested_metric_impl,
+            self.missing_count_metric_impl,
+            self.distinct_count_metric_impl,
         ):
-            duplicate_count: int = check_rows_tested_count - missing_count - distinct_count
-            diagnostic_metric_values["duplicate_count"] = duplicate_count
+            duplicate_count = check_rows_tested_count - missing_count - distinct_count
 
             non_missing_total: int = check_rows_tested_count - missing_count
             if non_missing_total > 0:
-                duplicate_percent: float = duplicate_count * 100 / non_missing_total
-            diagnostic_metric_values["duplicate_percent"] = duplicate_percent
+                duplicate_percent = duplicate_count * 100 / non_missing_total
 
-        threshold_value: Optional[Number] = (
-            duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
-        )
+            threshold_value = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
+            outcome = self.evaluate_threshold(threshold_value)
 
-        outcome = self.evaluate_threshold(threshold_value)
+        # Diagnostics must remain numeric for Soda Cloud DTO compliance — coalesce
+        # unmeasured fields to 0. NOT_EVALUATED outcome signals "not real".
+        diagnostic_metric_values: dict[str, float] = {
+            "duplicate_count": duplicate_count,
+            "duplicate_percent": duplicate_percent,
+            "check_rows_tested": check_rows_tested_count if check_rows_tested_count is not None else 0,
+            "missing_count": missing_count if missing_count is not None else 0,
+            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+        }
 
         return CheckResult(
             check=self._build_check_info(),
@@ -220,9 +218,11 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
     def get_metric_dependencies(self) -> list[MetricImpl]:
         return [self.distinct_count_metric_impl, self.valid_count_metric_impl]
 
-    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
-        distinct_count: int = measurement_values.get_value(self.distinct_count_metric_impl)
-        valid_count: int = measurement_values.get_value(self.valid_count_metric_impl)
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
+        values = self.gather_dependency_values(measurement_values)
+        if values is None:
+            return None
+        distinct_count, valid_count = values
         return valid_count - distinct_count
 
 
@@ -289,24 +289,22 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
         duplicate_count: int = 0
         duplicate_percent: float = 0
+        threshold_value: Optional[Number] = None
 
-        if isinstance(row_count, Number) and isinstance(distinct_count, Number):
+        if measurement_values.all_measured(self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl):
             duplicate_count = row_count - distinct_count
             if row_count > 0:
                 duplicate_percent = duplicate_count * 100 / row_count
 
+            threshold_value = duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
+            outcome = self.evaluate_threshold(threshold_value)
+
         diagnostic_metric_values: dict[str, float] = {
             "duplicate_count": duplicate_count,
             "duplicate_percent": duplicate_percent,
-            "check_rows_tested": row_count,
+            "check_rows_tested": row_count if row_count is not None else 0,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
-
-        threshold_value: Optional[Number] = (
-            duplicate_percent if self.metric_name == "duplicate_percent" else duplicate_count
-        )
-
-        outcome = self.evaluate_threshold(threshold_value)
 
         return CheckResult(
             check=self._build_check_info(),
@@ -375,7 +373,9 @@ class MultiColumnDuplicateCountMetricImpl(DerivedMetricImpl):
     def get_metric_dependencies(self) -> list[MetricImpl]:
         return [self.multi_column_distinct_count_metric_impl, self.row_count_metric_impl]
 
-    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
-        distinct_count: int = measurement_values.get_value(self.multi_column_distinct_count_metric_impl)
-        row_count: int = measurement_values.get_value(self.row_count_metric_impl)
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
+        values = self.gather_dependency_values(measurement_values)
+        if values is None:
+            return None
+        distinct_count, row_count = values
         return row_count - distinct_count

@@ -224,6 +224,18 @@ class RANDOM(SqlExpression):
 
 
 @dataclass
+class ALIAS(SqlExpression):
+    """Wraps any expression so it is emitted with `<expr> AS <alias>`."""
+
+    expression: SqlExpression | str
+    alias: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
 class SqlExpressionStr(SqlExpression):
     expression_str: str
 

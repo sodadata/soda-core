@@ -918,6 +918,21 @@ class MeasurementValues:
     def get_value(self, metric_impl: MetricImpl) -> any:
         return self.metric_values_by_id.get(metric_impl.id)
 
+    def all_measured(self, *metric_impls: "MetricImpl") -> bool:
+        """True iff every metric has a non-None measurement.
+
+        Intent: gate threshold-value construction in `evaluate()`. If any dependency
+        is unmeasured (upstream aggregation query failed), callers must keep
+        `threshold_value=None` so `evaluate_threshold(None)` returns NOT_EVALUATED
+        — defaulting it to a Number (e.g. 0) would falsely PASS against thresholds
+        like `must_be: 0`.
+
+        Note: this is `is not None`, not `isinstance(Number)`. Diagnostic-dict
+        population in `evaluate()` already gates on `isinstance(Number)` for type
+        narrowing — that's a different concern and stays as-is.
+        """
+        return all(self.get_value(m) is not None for m in metric_impls)
+
     def derive_value(self, derived_metric_impl: DerivedMetricImpl) -> None:
         if derived_metric_impl.id not in self.metric_values_by_id:
             if derived_metric_impl.id in self.metric_ids_being_derived:
@@ -1685,8 +1700,19 @@ class DerivedMetricImpl(MetricImpl, ABC):
         pass
 
     @abstractmethod
-    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
         pass
+
+    def gather_dependency_values(self, measurement_values: MeasurementValues) -> Optional[list]:
+        """Return the dependency values in declaration order, or None if any is unmeasured.
+
+        Use at the top of `compute_derived_value` to short-circuit when an upstream
+        aggregation query failed: returning None from the derived metric causes the
+        consuming check to evaluate to NOT_EVALUATED, not crash on None arithmetic
+        and not falsely PASS against a 0 default.
+        """
+        values = [measurement_values.get_value(d) for d in self.get_metric_dependencies()]
+        return None if any(v is None for v in values) else values
 
     def _get_id_properties(self) -> dict[str, any]:
         id_properties: dict[str, any] = super()._get_id_properties()
@@ -1710,11 +1736,11 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
     def get_metric_dependencies(self) -> list[MetricImpl]:
         return [self.fraction_metric_impl, self.total_metric_impl]
 
-    def compute_derived_value(self, measurement_values: MeasurementValues) -> Number:
-        fraction: int = measurement_values.get_value(self.fraction_metric_impl)
-        if fraction is None:
-            return 0
-        total: int = measurement_values.get_value(self.total_metric_impl)
+    def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
+        values = self.gather_dependency_values(measurement_values)
+        if values is None:
+            return None
+        fraction, total = values
         return (fraction * 100 / total) if total != 0 else 0
 
 
@@ -1785,13 +1811,22 @@ class AggregationQuery(Query):
         self.logs: Logs = logs
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
-        sql_expression: SqlExpression = aggregation_metric_impl.sql_expression()
-        sql_expression_str: str = self.data_source_impl.sql_dialect.build_expression_sql(sql_expression)
         max_query_length: int = self.data_source_impl.sql_dialect.get_max_sql_statement_length()
-        return self.query_size + len(sql_expression_str) < max_query_length
+        return self.query_size + self._estimate_metric_sql_length(aggregation_metric_impl) < max_query_length
 
     def append_aggregation_metric(self, aggregation_metric_impl: AggregationMetricImpl) -> None:
+        # Track cumulative SQL size as metrics are added — `self.query_size` was
+        # otherwise frozen at the constructor's `COUNT(*)`-only estimate, so the
+        # splitter under-estimated for every metric past the first and could exceed
+        # get_max_sql_statement_length() at execute time on large contracts.
+        self.query_size += self._estimate_metric_sql_length(aggregation_metric_impl)
         self.aggregation_metrics.append(aggregation_metric_impl)
+
+    def _estimate_metric_sql_length(self, aggregation_metric_impl: AggregationMetricImpl) -> int:
+        # Measure the SQL as it will actually be emitted, including the per-position
+        # ALIAS wrapper that build_field_expressions adds (`<expr> AS "m_<n>"`).
+        aliased = ALIAS(aggregation_metric_impl.sql_expression(), f"m_{len(self.aggregation_metrics)}")
+        return len(self.data_source_impl.sql_dialect.build_expression_sql(aliased))
 
     def build_sql(self) -> str:
         field_expressions: list[SqlExpression] = self.build_field_expressions()
@@ -1807,7 +1842,16 @@ class AggregationQuery(Query):
         if len(self.aggregation_metrics) == 0:
             # This is to get the initial query length in the constructor
             return [COUNT(STAR())]
-        return [aggregation_metric.sql_expression() for aggregation_metric in self.aggregation_metrics]
+        # Wrap each aggregation expression with a per-position alias so the result
+        # schema always has unique column names. Two metrics may render to byte-identical
+        # SQL (e.g. MissingCheckImpl and InvalidCheckImpl both resolve a MissingCount
+        # metric that produces the same SUM(CASE WHEN col IS NULL ...) expression);
+        # without aliases Spark 4.x rejects the query with "Can't unify schema with
+        # duplicate field names". Positional row access in execute() is unaffected.
+        return [
+            ALIAS(aggregation_metric.sql_expression(), f"m_{i}")
+            for i, aggregation_metric in enumerate(self.aggregation_metrics)
+        ]
 
     def execute(self) -> list[Measurement]:
         sql = self.build_sql()

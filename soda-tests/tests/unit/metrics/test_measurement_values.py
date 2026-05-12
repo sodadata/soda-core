@@ -196,3 +196,51 @@ def test_measurement_values_derive_with_empty_dependencies():
 
     # Should compute sum of empty list = 0
     assert mv.get_value(derived) == 0
+
+
+def test_all_measured_no_args_is_true():
+    """Vacuous truth: with no metrics to check, all_measured is True."""
+    mv = MeasurementValues([])
+    assert mv.all_measured() is True
+
+
+def test_all_measured_with_all_present():
+    """all_measured returns True when every metric has a measurement."""
+    m1, m2 = SimpleMockMetric("m1"), SimpleMockMetric("m2")
+    mv = MeasurementValues(
+        [
+            Measurement(metric_id="m1", value=42, metric_name="n"),
+            Measurement(metric_id="m2", value=1.0, metric_name="p"),
+        ]
+    )
+    assert mv.all_measured(m1, m2) is True
+
+
+def test_all_measured_with_one_missing():
+    """all_measured returns False if any metric has no measurement at all."""
+    m1, m2 = SimpleMockMetric("m1"), SimpleMockMetric("m2")
+    mv = MeasurementValues([Measurement(metric_id="m1", value=42, metric_name="n")])
+    assert mv.all_measured(m1, m2) is False
+
+
+def test_all_measured_with_explicit_none_value():
+    """A recorded measurement with value=None counts as unmeasured."""
+    m1 = SimpleMockMetric("m1")
+    mv = MeasurementValues([Measurement(metric_id="m1", value=None, metric_name="n")])
+    assert mv.all_measured(m1) is False
+
+
+def test_all_measured_with_zero_value_is_true():
+    """Boundary: 0 is a real measurement, not a stand-in for unmeasured. Must be True."""
+    m1, m2 = SimpleMockMetric("m1"), SimpleMockMetric("m2")
+    mv = MeasurementValues(
+        [Measurement(metric_id="m1", value=0, metric_name="n"), Measurement(metric_id="m2", value=0.0, metric_name="p")]
+    )
+    assert mv.all_measured(m1, m2) is True
+
+
+def test_all_measured_with_non_numeric_value_is_true():
+    """`all_measured` is `is not None`, not `isinstance(Number)`. A string measurement counts as measured."""
+    m1 = SimpleMockMetric("m1")
+    mv = MeasurementValues([Measurement(metric_id="m1", value="ok", metric_name="s")])
+    assert mv.all_measured(m1) is True
