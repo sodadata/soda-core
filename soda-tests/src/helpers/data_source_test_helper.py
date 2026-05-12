@@ -448,6 +448,12 @@ class DataSourceTestHelper:
                 When tests share tables (test A creates, test B reuses), test B's snapshot
                 has no CREATE TABLE/INSERT ops. Without recreating them here, fallback
                 would fail on queries that reference those tables.
+
+                Drop-then-create is idempotent against stale state — a prior test in
+                the same suite may have already created the table during its own
+                fallback. Without the drop, the CREATE here raises "already exists"
+                and (on Postgres) aborts the transaction, breaking the rest of the
+                fallback flow with cryptic cascading errors.
                 """
                 snap_conn = self.data_source_impl.data_source_connection
                 self.start_test_session_open_connection()
@@ -456,7 +462,14 @@ class DataSourceTestHelper:
                 # _ensured_test_tables is populated by ensure_test_table() calls that
                 # happened before fallback was triggered.
                 if self._ensured_test_tables:
+                    import contextlib
+
                     for test_table in self._ensured_test_tables.values():
+                        # Drop is best-effort: the table may not exist yet (no prior
+                        # test in this run created it). Swallow drop errors so a
+                        # clean DB still works.
+                        with contextlib.suppress(Exception):
+                            self._drop_test_table(table_name=test_table.unique_name)
                         self._create_and_insert_test_table(test_table=test_table)
                     self.data_source_impl.data_source_connection.commit()
                 real_conn = self.data_source_impl.data_source_connection

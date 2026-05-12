@@ -751,6 +751,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     self._real.execute_update(entry.sql, log_query=False)
                 except Exception as exc:
                     if entry.sql.lstrip().upper().startswith("CREATE "):
+                        # Postgres (and other DBs with strict transaction semantics)
+                        # aborts the surrounding transaction on a failed DDL, so every
+                        # subsequent execute_update on the same connection then fails
+                        # with the original error message. Rolling back here clears
+                        # that state. On DBs that don't need it, rollback is a no-op.
+                        with contextlib.suppress(Exception):
+                            self._real.rollback()
                         logger.warning(
                             f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
                         )
@@ -784,10 +791,14 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         """Extract the table name from a CREATE TABLE statement.
 
         Returns None for non-TABLE CREATE statements (CREATE SCHEMA, CREATE VIEW, etc.).
-        Handles optional TEMP/TEMPORARY keyword and IF NOT EXISTS clause.
+        Handles optional TEMP/TEMPORARY keyword and IF NOT EXISTS clause, and the
+        various identifier-quoting styles used by Soda's supported datasources:
+        unquoted, "double-quoted" (Postgres/Snowflake/Oracle/Athena),
+        [bracket-quoted] (SqlServer/Synapse/Fabric), and `backtick-quoted`
+        (BigQuery/Databricks/MySQL). Returns the fully qualified name as written.
         """
         match = re.match(
-            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\"]+)",
+            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\S+?)(?=[\s(]|$)",
             sql,
             re.IGNORECASE,
         )
