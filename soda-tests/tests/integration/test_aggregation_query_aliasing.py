@@ -202,3 +202,44 @@ def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
         f"Expected NOT_EVALUATED when the failed_rows aggregation query failed; "
         f"got {failed_rows_result.outcome} (this is the falsely-PASSED regression)"
     )
+
+
+def test_missing_percent_does_not_falsely_pass_when_aggregation_fails(
+    data_source_test_helper: DataSourceTestHelper,
+) -> None:
+    """Regression: a `missing:` check with `metric: percent` and `must_be: 0`
+    threshold must not falsely PASS when its underlying missing_count aggregation
+    query fails. The bug was in `DerivedPercentageMetricImpl.compute_derived_value`
+    defaulting to 0 when `fraction is None` — same shape as the failed_rows bug,
+    powering missing_percent / invalid_percent / duplicate_percent."""
+    test_table = data_source_test_helper.ensure_test_table(_test_table_specification)
+
+    session_result = data_source_test_helper.verify_contract(
+        test_table=test_table,
+        contract_yaml_str="""
+            checks:
+              - failed_rows:
+                  name: poison the aggregation query
+                  expression: "definitely_not_a_column IS NULL"
+            columns:
+              - name: id
+                checks:
+                  - missing:
+                      name: id missing percent
+                      threshold:
+                        metric: percent
+                        must_be_less_than_or_equal: 0
+            """,
+    )
+
+    assert session_result is not None
+    assert session_result.contract_verification_results
+    result = session_result.contract_verification_results[0]
+    missing_results = [r for r in result.check_results if r.check.name == "id missing percent"]
+    assert missing_results, "Expected the missing check to produce a result"
+    missing_result: CheckResult = missing_results[0]
+
+    assert missing_result.outcome == CheckOutcome.NOT_EVALUATED, (
+        f"Expected NOT_EVALUATED when the missing_count aggregation query failed; "
+        f"got {missing_result.outcome} (this is the DerivedPercentageMetricImpl falsely-PASSED regression)"
+    )

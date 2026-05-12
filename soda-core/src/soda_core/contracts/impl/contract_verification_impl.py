@@ -1723,14 +1723,13 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
         return [self.fraction_metric_impl, self.total_metric_impl]
 
     def compute_derived_value(self, measurement_values: MeasurementValues) -> Optional[Number]:
+        # Propagate None when either dependency is unmeasured. Returning 0 here would
+        # falsely PASS percent checks with a `must_be: 0` threshold against a value
+        # we never actually measured (this powers missing_percent / invalid_percent /
+        # duplicate_percent).
         fraction = measurement_values.get_value(self.fraction_metric_impl)
-        if fraction is None:
-            return 0
         total = measurement_values.get_value(self.total_metric_impl)
-        if total is None:
-            # fraction came back but total did not (e.g. its aggregation query was in a
-            # different bundle that failed). Surface None so the check goes to
-            # NOT_EVALUATED rather than crashing on `fraction * 100 / None`.
+        if fraction is None or total is None:
             return None
         return (fraction * 100 / total) if total != 0 else 0
 
