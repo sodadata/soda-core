@@ -41,6 +41,7 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -203,7 +204,7 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             contract_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
-            dwh_data_source_file_path: Optional[str] = None,
+            dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         ):
             """
             not needed for this test
@@ -273,7 +274,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
             contract_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
-            dwh_data_source_file_path: Optional[str] = None,
+            dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         ):
             raise RuntimeError("Intentional failure for testing")
 

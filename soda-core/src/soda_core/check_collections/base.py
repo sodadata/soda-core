@@ -50,6 +50,7 @@ from soda_core.contracts.contract_verification import (
     ScanTokenUsage,
     YamlFileContentInfo,
 )
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 
 logger: logging.Logger = soda_logger
 
@@ -334,7 +335,7 @@ class CheckCollectionImpl:
         execution_timestamp: Optional[datetime] = None,
         data_timestamp: Optional[datetime] = None,
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
@@ -468,7 +469,7 @@ class CheckCollectionImpl:
         if data_source_impl:
             self.queries = self._build_queries()
 
-        self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+        self.dwh_files: Optional[DiagnosticsWarehouseFiles] = dwh_files
 
     @property
     def is_test_verification_on_runner(self) -> bool:
@@ -804,7 +805,7 @@ class CheckCollectionImpl:
                     contract_verification_result=verification_result,
                     soda_cloud=self.soda_cloud,
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
-                    dwh_data_source_file_path=self.dwh_data_source_file_path,
+                    dwh_files=self.dwh_files,
                 )
             except Exception as e:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)

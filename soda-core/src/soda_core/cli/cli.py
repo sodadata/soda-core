@@ -225,6 +225,23 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         nargs="?",
         help="Specify the path to the diagnostics warehouse configuration file. ",
     )
+    verify_parser.add_argument(
+        "-mdw",
+        "--metadata-diagnostics-warehouse",
+        type=str,
+        nargs="?",
+        help="Optional path to an org-wide metadata diagnostics warehouse configuration file. "
+        "When provided, a copy of selected metadata rows (currently check_results) is written "
+        "to this target in addition to the primary diagnostics warehouse.",
+    )
+    verify_parser.add_argument(
+        "-mds",
+        "--metadata-diagnostics-warehouse-schema",
+        type=str,
+        nargs="?",
+        help="Optional schema name in the metadata diagnostics warehouse where mirrored tables "
+        "are created. Defaults to the metadata warehouse's default schema.",
+    )
 
     def handle(args):
         contract_file_path = args.contract
@@ -245,6 +262,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             use_runner = use_runner or args.use_agent_deprecated
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
+        metadata_diagnostics_warehouse_file_path = args.metadata_diagnostics_warehouse
+        metadata_diagnostics_warehouse_schema = args.metadata_diagnostics_warehouse_schema
 
         # Parse --check-filter expressions
         try:
@@ -266,6 +285,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             args.check_paths,
             check_selectors,
             diagnostics_warehouse_file_path,
+            metadata_diagnostics_warehouse_file_path,
+            metadata_diagnostics_warehouse_schema,
         )
 
         exit_with_code(exit_code)

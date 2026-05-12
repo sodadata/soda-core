@@ -32,6 +32,7 @@ from soda_core.contracts.contract_verification import (
     Threshold,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -55,7 +56,7 @@ class ContractVerificationHandler(ABC):
         contract_verification_result: ContractVerificationResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         pass
 
@@ -92,7 +93,7 @@ class ContractVerificationSessionImpl:
     @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
     @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
     @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
-    @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
+    @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
     @classmethod
@@ -110,7 +111,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_verbose: bool = False,
         soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         **kwargs,
     ):
         # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
@@ -202,7 +203,7 @@ class ContractVerificationSessionImpl:
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 check_selectors=check_selectors,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -219,7 +220,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
@@ -263,7 +264,7 @@ class ContractVerificationSessionImpl:
                 data_timestamp=data_timestamp,
                 all_data_source_impls=data_source_impls_by_name,
                 check_selectors=check_selectors,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
                 abort_on_first_error=(len(contract_yaml_sources) == 1),
                 logs=logs,
                 primary_data_source_impl=primary_data_source_impl,
@@ -441,7 +442,7 @@ class ContractImpl(CheckCollectionImpl):
         execution_timestamp: Optional[datetime] = None,
         publish_results: bool = False,
         check_selectors: Optional[list[CheckSelector]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         # Universal kwargs from ``CheckCollectionImpl`` — the session
         # executor passes these and they are the canonical names. The
         # legacy contract-specific aliases (``contract_yaml=`` /
@@ -480,7 +481,7 @@ class ContractImpl(CheckCollectionImpl):
             execution_timestamp=execution_timestamp,
             data_timestamp=data_timestamp,
             all_data_source_impls=resolved_all_data_source_impls,
-            dwh_data_source_file_path=dwh_data_source_file_path,
+            dwh_files=dwh_files,
             logs=logs,
         )
 
