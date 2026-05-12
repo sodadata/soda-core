@@ -45,6 +45,7 @@ from soda_core.contracts.contract_verification import (
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -69,7 +70,7 @@ class ContractVerificationHandler(ABC):
         contract_verification_result: ContractVerificationResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         pass
 
@@ -106,7 +107,7 @@ class ContractVerificationSessionImpl:
     @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
     @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
     @param soda_cloud_use_agent_blocking_timeout_in_minutes: The timeout for the Soda Cloud agent.
-    @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
+    @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
     @classmethod
@@ -124,7 +125,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         check_selectors: Optional[list[CheckSelector]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         logs: Logs = Logs()
 
@@ -196,7 +197,7 @@ class ContractVerificationSessionImpl:
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 check_selectors=check_selectors,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -213,7 +214,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies a Contract locally."
         contract_verification_results: list[ContractVerificationResult] = []
@@ -253,7 +254,7 @@ class ContractVerificationSessionImpl:
                         publish_results=soda_cloud_publish_results,
                         logs=logs,
                         check_selectors=check_selectors,
-                        dwh_data_source_file_path=dwh_data_source_file_path,
+                        dwh_files=dwh_files,
                     )
                     contract_verification_result: ContractVerificationResult = contract_impl.verify()
                     contract_verification_results.append(contract_verification_result)
@@ -377,7 +378,7 @@ class ContractImpl:
         soda_cloud: Optional[SodaCloud],
         publish_results: bool,
         check_selectors: list[CheckSelector] = [],
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         self.logs: Logs = logs
         self.contract_yaml: ContractYaml = contract_yaml
@@ -512,7 +513,7 @@ class ContractImpl:
         if data_source_impl:
             self.queries = self._build_queries()
 
-        self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+        self.dwh_files: Optional[DiagnosticsWarehouseFiles] = dwh_files
 
     @property
     def is_test_verification_on_agent(self) -> bool:
@@ -780,7 +781,7 @@ class ContractImpl:
                     contract_verification_result=contract_verification_result,
                     soda_cloud=self.soda_cloud,
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
-                    dwh_data_source_file_path=self.dwh_data_source_file_path,
+                    dwh_files=self.dwh_files,
                 )
             except Exception as e:
                 logger.error(f"Error in contract verification handler: {e}", exc_info=True)
