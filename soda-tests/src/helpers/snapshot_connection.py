@@ -101,6 +101,39 @@ def is_rerun_mode_enabled() -> bool:
     return os.getenv("SODA_TEST_SNAPSHOT_RERUN", "").lower() == "true"
 
 
+# When the rerun plugin is between the failed first attempt and the re-run
+# of ``test_id``, this dict holds (test_id → record_flag). Any wrapper
+# constructed during the re-run (e.g. a DWH or recon-secondary that didn't
+# exist on the first attempt) checks this at __init__ time and pre-arms its
+# own passthrough flags so its first SQL op routes to the real DB.
+#
+# Stored as a dict rather than a single (test_id, record_flag) tuple so the
+# plugin can handle the edge where a nested DwhTestSetup is created in test
+# teardown that should not re-arm: we look up by test_id exactly. With
+# pytest-xdist each worker process has its own copy.
+_RERUN_IN_PROGRESS: dict[str, bool] = {}
+
+
+def begin_rerun_in_progress(test_id: str, *, record: bool) -> None:
+    """Plugin hook: mark a rerun-in-progress for ``test_id``.
+
+    Any wrapper constructed after this call (e.g. DWH interceptor's snapshot
+    connection created inside the rerun's test body) auto-enters passthrough
+    for the same test_id, so the rerun doesn't see "fresh" snapshots loaded.
+    """
+    _RERUN_IN_PROGRESS[test_id] = record
+
+
+def end_rerun_in_progress(test_id: str) -> None:
+    """Plugin hook: clear the rerun-in-progress marker for ``test_id``."""
+    _RERUN_IN_PROGRESS.pop(test_id, None)
+
+
+def get_rerun_in_progress_record() -> dict[str, bool]:
+    """Return the currently-active (test_id → record_flag) rerun map."""
+    return _RERUN_IN_PROGRESS
+
+
 class _SnapshotSequence:
     """Per-test-scope monotonic counter shared across related snapshot connections.
 
@@ -457,6 +490,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._passthrough_for_rerun: bool = False
         self._passthrough_record_for_rerun: bool = False
         self._partial_consumption_warned: bool = False
+
+        # If a rerun is in progress for the current pytest test, pre-arm
+        # passthrough on this wrapper so its first SQL op goes straight to
+        # the real DB. Covers wrappers constructed inside the rerun's test
+        # body (DwhSnapshotInterceptor's DWH wrapper, recon secondaries
+        # created via patched create_additional_connection, etc.).
+        if _RERUN_IN_PROGRESS:
+            current = os.environ.get("PYTEST_CURRENT_TEST", "")
+            current_test_id = current.rsplit(" ", 1)[0] if " " in current else current
+            if current_test_id in _RERUN_IN_PROGRESS:
+                self._passthrough_for_rerun = True
+                self._passthrough_record_for_rerun = _RERUN_IN_PROGRESS[current_test_id]
 
         # Install the DBAPI proxy in place of the sentinel passed to super().__init__.
         # Production code that does data_source.connection.connection.cursor() will

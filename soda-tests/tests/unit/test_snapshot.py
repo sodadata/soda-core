@@ -3560,6 +3560,44 @@ class TestRerunModelWrapper:
             conn.mark_test_for_rerun(test_id, record=False)
         assert any("discards 1 already-consumed" in rec.message for rec in caplog.records)
 
+    def test_rerun_in_progress_prearms_new_wrappers(self, rerun_env, tmp_path):
+        """Wrappers constructed inside the rerun's test body (e.g. DwhSnapshot
+        for the DWH interceptor, or a recon secondary) must pre-arm passthrough
+        from the rerun-in-progress marker — otherwise their first SQL op would
+        attempt to load a stale snapshot for the same test_id.
+        """
+        from helpers.snapshot_connection import (
+            begin_rerun_in_progress,
+            end_rerun_in_progress,
+        )
+
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_prearm"
+        # Simulate the plugin being in the rerun phase for this test.
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            begin_rerun_in_progress(test_id, record=True)
+            try:
+                new_wrapper = SnapshotDataSourceConnection(
+                    real_connection=_make_mock_connection(),
+                    snapshot_manager=manager,
+                    mode="replay",
+                    allow_fallback=True,
+                )
+                assert new_wrapper._passthrough_for_rerun is True
+                assert new_wrapper._passthrough_record_for_rerun is True
+            finally:
+                end_rerun_in_progress(test_id)
+
+        # After end_rerun_in_progress, new wrappers no longer pre-arm.
+        another = SnapshotDataSourceConnection(
+            real_connection=_make_mock_connection(),
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        assert another._passthrough_for_rerun is False
+        assert another._passthrough_record_for_rerun is False
+
     def test_rerun_mode_disabled_keeps_legacy_path(self, tmp_path, monkeypatch):
         monkeypatch.delenv("SODA_TEST_SNAPSHOT_RERUN", raising=False)
         manager = SnapshotManager("postgres", str(tmp_path / "s"))

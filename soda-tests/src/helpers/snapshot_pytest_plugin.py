@@ -171,12 +171,24 @@ def pytest_runtest_protocol(item, nextitem):  # noqa: D401
     logger.info(f"SNAPSHOT: re-running {item.nodeid} against real DB; reason: {rerun_reason}")
     import os as _os
 
+    from helpers.snapshot_connection import (
+        begin_rerun_in_progress,
+        end_rerun_in_progress,
+    )
+
     rerecord = _os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
     _deactivate_lingering_dwh_interceptor()
     _mark_all_wrappers_for_rerun(item.nodeid, record=rerecord)
+    # Pre-arm any wrappers constructed *during* the rerun (DWH interceptor's
+    # SnapshotDataSourceConnection, recon secondaries) so their first SQL
+    # op routes to the real DB without needing a second mark-pass.
+    begin_rerun_in_progress(item.nodeid, record=rerecord)
     _reset_per_test_rerun_state()  # clear queue before the second attempt
 
-    second_reports = runtestprotocol(item, nextitem=nextitem, log=False)
+    try:
+        second_reports = runtestprotocol(item, nextitem=nextitem, log=False)
+    finally:
+        end_rerun_in_progress(item.nodeid)
     # If the rerun also signalled another rerun, that's a hard failure —
     # the user asked for at most one re-run.
     leftover = _pop_rerun_reason(item.nodeid)
