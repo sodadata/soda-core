@@ -235,6 +235,23 @@ class _SnapshotCursor:
         stream = self._stream()
         stream._handle_test_boundary()
 
+        # Rerun-mode passthrough: stream + owner (which may be a secondary
+        # linked to the primary) are both flagged. Route to real cursor and
+        # only record if the plugin asked us to.
+        if self._owner._passthrough_for_rerun or stream._passthrough_for_rerun:
+            if self._owner._real is None:
+                self._owner._ensure_real_connection()
+            if self._real_cursor is None:
+                self._real_cursor = self._owner._real.connection.cursor()
+            self._real_cursor.execute(sql)
+            self._description = self._real_cursor.description
+            self._rows = [tuple(row) for row in self._real_cursor.fetchall()]
+            self._row_index = 0
+            if stream._passthrough_record_for_rerun:
+                normalized_desc = SnapshotDataSourceConnection._normalize_description(self._description)
+                stream._record_entry(SnapshotEntry(self._OP_TYPE, sql, (list(self._rows), normalized_desc)))
+            return
+
         # Record mode OR replay-with-active-fallback: run against the real DB and capture.
         if self._owner._mode == "record" or stream._fallback_active:
             # When the cursor's owner is a secondary snapshot (linked via
@@ -258,6 +275,8 @@ class _SnapshotCursor:
         try:
             entry = stream._next_replay_entry(self._OP_TYPE, sql)
         except SnapshotMismatchError as e:
+            if is_rerun_mode_enabled():
+                stream._handle_replay_error_for_rerun(e)
             stream._activate_fallback(reason=str(e))
             # Same reasoning as above: ensure the owner's own _real, not just
             # the primary's via the stream's activate_fallback.
@@ -733,6 +752,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if test_id is None:
             return
 
+        # Rerun-mode passthrough: the pytest plugin has marked this wrapper
+        # for a re-run of ``test_id`` against the real DB. Skip the snapshot
+        # load entirely and record fresh ops into ``_recording`` if asked.
+        if self._passthrough_for_rerun:
+            self._replay_data = None
+            self._replay_index = 0
+            self._recording = []
+            return
+
         if self._mode == "replay":
             raw = self._snapshot_manager.load(test_id)
             # Store raw (normalized) data; denormalization happens lazily in
@@ -746,6 +774,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                         f"  Expected at: {snapshot_path}\n"
                         f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
                         f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
+                    )
+                # Rerun model: a missing snapshot is the same signal as a
+                # mismatch — surface it, let the plugin re-run the test in
+                # passthrough+record mode. No partial state synthesised here.
+                if is_rerun_mode_enabled():
+                    reason = f"No snapshot found at {snapshot_path}"
+                    _PENDING_RERUN.setdefault(test_id, reason)
+                    raise SnapshotNotFoundError(
+                        f"No snapshot found for test: {test_id}\n"
+                        f"  Expected at: {snapshot_path}\n"
+                        f"  Rerun will record a fresh snapshot."
                     )
                 if self._real is not None or self._fallback_connection_factory is not None:
                     if self._real is None:
@@ -811,23 +850,31 @@ class SnapshotDataSourceConnection(DataSourceConnection):
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
         if self._current_test_id is not None and self._recording:
-            # In record mode, always save.  In replay+fallback for a missing
-            # snapshot, save too (creating a new snapshot, not overwriting).
-            # For mismatch fallback, only save when SODA_TEST_SNAPSHOT_RERECORD=true
-            # — otherwise fallback re-recording silently overwrites the
-            # nightly-recorded snapshot, which can corrupt it.
-            should_save = (
-                self._mode == "record"
-                or self._fallback_is_auto_record
-                or os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
-            )
-            if should_save:
-                self._snapshot_manager.save(self._current_test_id, self._recording)
-            elif self._fallback_active:
-                logger.info(
-                    f"SNAPSHOT: Skipping re-record for {self._current_test_id} "
-                    f"(set SODA_TEST_SNAPSHOT_RERECORD=true to overwrite)"
+            # Rerun-mode passthrough+record: the plugin decides whether to
+            # save (via ``finalize_test_rerun``) based on test outcome and
+            # the SODA_TEST_SNAPSHOT_RERECORD env var. Auto-saving here
+            # would persist recordings from failing re-runs, which we never
+            # want.
+            if self._passthrough_record_for_rerun:
+                pass
+            else:
+                # In record mode, always save.  In replay+fallback for a missing
+                # snapshot, save too (creating a new snapshot, not overwriting).
+                # For mismatch fallback, only save when SODA_TEST_SNAPSHOT_RERECORD=true
+                # — otherwise fallback re-recording silently overwrites the
+                # nightly-recorded snapshot, which can corrupt it.
+                should_save = (
+                    self._mode == "record"
+                    or self._fallback_is_auto_record
+                    or os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
                 )
+                if should_save:
+                    self._snapshot_manager.save(self._current_test_id, self._recording)
+                elif self._fallback_active:
+                    logger.info(
+                        f"SNAPSHOT: Skipping re-record for {self._current_test_id} "
+                        f"(set SODA_TEST_SNAPSHOT_RERECORD=true to overwrite)"
+                    )
 
         # Check for unconsumed snapshot entries before resetting state.
         # We capture the error first and always reset state to prevent cascade failures
@@ -1272,6 +1319,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         """Return a mock result if this SQL is a registered passthrough query, else None."""
         return self.passthrough_queries.get(sql.strip())
 
+    def _handle_replay_error_for_rerun(self, exc: SnapshotReplayError) -> None:
+        """Stash the test id + reason and re-raise so the pytest plugin can catch.
+
+        Only called in rerun mode. Populates ``_PENDING_RERUN`` once per test
+        (first reason wins, like the existing fallback registry) and re-raises
+        the exception so it bubbles out of the test body.
+        """
+        test_id = self._current_test_id
+        if test_id is not None:
+            _PENDING_RERUN.setdefault(test_id, str(exc))
+        raise exc
+
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         self._handle_test_boundary()
 
@@ -1283,6 +1342,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         passthrough_result = self._get_passthrough_result(sql)
         if passthrough_result is not None:
             return passthrough_result
+
+        if self._passthrough_for_rerun:
+            self._ensure_real_connection()
+            result = self._real.execute_query(sql, log_query=log_query)
+            if self._passthrough_record_for_rerun:
+                self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
+            return result
 
         if self._mode == "record":
             # Check record-mode cache before hitting the real DB
@@ -1310,6 +1376,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     )
                 return entry.result
             except SnapshotMismatchError as e:
+                if is_rerun_mode_enabled():
+                    self._handle_replay_error_for_rerun(e)
                 self._activate_fallback(reason=str(e))
                 result = self._real.execute_query(sql, log_query=log_query)
                 self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
@@ -1320,6 +1388,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         if self._current_test_id is None:
             return self._passthrough_or_fail("execute_update", sql, log_query=log_query)
+
+        if self._passthrough_for_rerun:
+            self._ensure_real_connection()
+            result = self._real.execute_update(sql, log_query=log_query)
+            if self._passthrough_record_for_rerun:
+                self._record_entry(SnapshotEntry("update", sql, None))
+            return result
 
         if self._mode == "record":
             result = self._real.execute_update(sql, log_query=log_query)
@@ -1338,6 +1413,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 sql_logger.debug(f"SNAPSHOT: captured update: {sql[:50]}...")
                 return 0
             except SnapshotMismatchError as e:
+                if is_rerun_mode_enabled():
+                    self._handle_replay_error_for_rerun(e)
                 self._activate_fallback(reason=str(e))
                 result = self._real.execute_update(sql, log_query=log_query)
                 self._record_entry(SnapshotEntry("update", sql, None))
@@ -1356,6 +1433,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             if self._real is not None:
                 return self._real.execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
             raise RuntimeError("No real connection and no test context for snapshot")
+
+        if self._passthrough_for_rerun:
+            self._ensure_real_connection()
+            captured_rows = []
+
+            def passthrough_callback(row, description):
+                captured_rows.append(tuple(row))
+                row_callback(row, description)
+
+            description = self._real.execute_query_one_by_one(
+                sql, passthrough_callback, log_query=log_query, row_limit=row_limit
+            )
+            if self._passthrough_record_for_rerun:
+                self._record_entry(
+                    SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
+                )
+            return description
 
         if self._mode == "record":
             captured_rows = []
@@ -1398,6 +1492,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     row_callback(row, description)
                 return description
             except SnapshotMismatchError as e:
+                if is_rerun_mode_enabled():
+                    self._handle_replay_error_for_rerun(e)
                 self._activate_fallback(reason=str(e))
                 captured_rows = []
 
@@ -1423,6 +1519,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     yield iterator
                 return
             raise RuntimeError("No real connection and no test context for snapshot")
+
+        if self._passthrough_for_rerun:
+            self._ensure_real_connection()
+            with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
+                cursor_description = real_iter._cursor.description
+                rows = [tuple(row) for row in real_iter]
+            if self._passthrough_record_for_rerun:
+                normalized_desc = self._normalize_description(cursor_description)
+                self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
+            try:
+                yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
+            finally:
+                logger.debug("SNAPSHOT: rerun-passthrough query_iterate generator closed")
+            return
 
         if self._mode == "record":
             # Eagerly consume all rows from the real connection so we can cache them.
@@ -1457,6 +1567,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 finally:
                     logger.debug("SNAPSHOT: replay query_iterate generator closed")
             except SnapshotMismatchError as e:
+                if is_rerun_mode_enabled():
+                    self._handle_replay_error_for_rerun(e)
                 self._activate_fallback(reason=str(e))
                 with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
                     cursor_description = real_iter._cursor.description
@@ -1549,3 +1661,36 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._passthrough_for_rerun = False
         self._passthrough_record_for_rerun = False
         self._partial_consumption_warned = False
+
+    def finalize_test_rerun(self, test_id: str, *, success: bool) -> None:
+        """Save the rerun's recording when the rerun passed and rerecord is on.
+
+        Called by the pytest plugin after the second attempt completes. Saves
+        the fresh recording only if (a) the test passed end-to-end and (b)
+        ``SODA_TEST_SNAPSHOT_RERECORD=true``. Always clears the passthrough
+        flags so the next test starts clean.
+
+        Secondaries delegate to the primary which owns the recording.
+        """
+        if self._primary_snapshot is not None:
+            self._primary_snapshot.finalize_test_rerun(test_id, success=success)
+            self.clear_test_rerun_marker()
+            return
+        rerecord = os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
+        if (
+            success
+            and rerecord
+            and self._passthrough_record_for_rerun
+            and self._recording
+            and self._current_test_id == test_id
+        ):
+            self._snapshot_manager.save(test_id, self._recording)
+            logger.info(
+                f"SNAPSHOT: Saved fresh recording from successful rerun of {test_id} "
+                f"({len(self._recording)} operations)"
+            )
+        elif self._passthrough_record_for_rerun and not success:
+            logger.info(f"SNAPSHOT: Discarding rerun recording for {test_id} (test did not pass)")
+        # Always drop the per-test buffer + flags so the next test is clean.
+        self._recording = []
+        self.clear_test_rerun_marker()
