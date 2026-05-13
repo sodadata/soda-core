@@ -3323,3 +3323,256 @@ class TestFallbackResetTableCallback:
             conn.execute_query("SELECT 2")
 
         assert conn._fallback_active is True
+
+
+# ---------------------------------------------------------------------------
+# Rerun model (SODA_TEST_SNAPSHOT_RERUN=true)
+#
+# These tests exercise the wrapper-level half of the rerun design: replay
+# errors bubble out, the plugin marks the wrapper for passthrough, and a
+# fresh recording is saved only on a green rerun with rerecord on.
+# ---------------------------------------------------------------------------
+
+
+class TestRerunModelWrapper:
+    @pytest.fixture
+    def rerun_env(self, monkeypatch):
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+        # Make sure pending state from earlier tests doesn't leak.
+        from helpers.snapshot_connection import reset_pending_rerun_record
+
+        reset_pending_rerun_record()
+        yield
+        reset_pending_rerun_record()
+
+    def _save_simple_snapshot(self, manager, test_id):
+        manager.save(
+            test_id,
+            [SnapshotEntry("query", "SELECT old", QueryResult(rows=[(1,)], columns=None))],
+        )
+
+    def test_mismatch_raises_under_rerun_flag(self, rerun_env, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_mismatch"
+        self._save_simple_snapshot(manager, test_id)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            with pytest.raises(SnapshotMismatchError):
+                conn.execute_query("SELECT new")
+
+        from helpers.snapshot_connection import get_pending_rerun_record
+
+        assert test_id in get_pending_rerun_record()
+
+    def test_missing_snapshot_raises_under_rerun_flag_with_fallback(self, rerun_env, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_missing"
+
+        # Even WITH allow_fallback and a factory, rerun mode raises so the
+        # plugin can re-run rather than silently synthesising state mid-test.
+        factory_called = []
+
+        def factory():
+            factory_called.append(True)
+            return _make_mock_connection()
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+            fallback_connection_factory=factory,
+        )
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            with pytest.raises(SnapshotNotFoundError):
+                conn.execute_query("SELECT 1")
+
+        # Factory must NOT have been called — that's the auto-record path
+        # we're explicitly bypassing under the rerun model.
+        assert factory_called == []
+        from helpers.snapshot_connection import get_pending_rerun_record
+
+        assert test_id in get_pending_rerun_record()
+
+    def test_mark_test_for_rerun_routes_to_real(self, rerun_env, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_routes"
+        self._save_simple_snapshot(manager, test_id)
+
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(2,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        conn.mark_test_for_rerun(test_id, record=False)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("SELECT anything")
+        # The real connection received the call exactly once with the live SQL.
+        real.execute_query.assert_called_once()
+        assert result.rows == [(2,)]
+        # And nothing was recorded — record=False.
+        assert conn._recording == []
+
+    def test_mark_test_for_rerun_records_when_asked(self, rerun_env, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_records"
+        self._save_simple_snapshot(manager, test_id)
+
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(7,)], columns=None)
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        conn.mark_test_for_rerun(test_id, record=True)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT live")
+        assert len(conn._recording) == 1
+        assert conn._recording[0].sql == "SELECT live"
+
+    def test_finalize_test_rerun_saves_only_on_green_with_rerecord(self, rerun_env, tmp_path, monkeypatch):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_save"
+        self._save_simple_snapshot(manager, test_id)
+
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(3,)], columns=None)
+
+        # No rerecord: no save even on green.
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        conn.mark_test_for_rerun(test_id, record=True)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT fresh")
+        original_sql = [e.sql for e in manager.load(test_id)]
+        conn.finalize_test_rerun(test_id, success=True)
+        # Original snapshot is preserved (no rerecord on).
+        assert [e.sql for e in manager.load(test_id)] == original_sql
+        assert conn._passthrough_for_rerun is False  # flags cleared
+
+        # With rerecord on, green rerun overwrites the snapshot.
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERECORD", "true")
+        conn2 = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        conn2.mark_test_for_rerun(test_id, record=True)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn2.execute_query("SELECT fresh")
+        conn2.finalize_test_rerun(test_id, success=True)
+        new_entries = manager.load(test_id)
+        assert new_entries[0].sql == "SELECT fresh"
+
+    def test_finalize_test_rerun_discards_on_failure_even_with_rerecord(self, rerun_env, tmp_path, monkeypatch):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_failed_no_save"
+        self._save_simple_snapshot(manager, test_id)
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERECORD", "true")
+
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(9,)], columns=None)
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        conn.mark_test_for_rerun(test_id, record=True)
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT junk")
+        before = [e.sql for e in manager.load(test_id)]
+        conn.finalize_test_rerun(test_id, success=False)
+        # Failing rerun never overwrites the snapshot (sql unchanged).
+        assert [e.sql for e in manager.load(test_id)] == before
+
+    def test_live_wrapper_registry_tracks_instances(self, rerun_env, tmp_path):
+        from helpers.snapshot_connection import get_live_snapshot_wrappers
+
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        before = set(get_live_snapshot_wrappers())
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        assert conn in set(get_live_snapshot_wrappers())
+        # Weak ref: deleting the wrapper drops it from the registry on GC.
+        del conn
+        import gc
+
+        gc.collect()
+        after = set(get_live_snapshot_wrappers())
+        assert after == before
+
+    def test_secondary_wrapper_delegates_rerun_to_primary(self, rerun_env, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_secondary"
+        self._save_simple_snapshot(manager, test_id)
+
+        primary_real = _make_mock_connection()
+        primary = SnapshotDataSourceConnection(
+            real_connection=primary_real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        secondary_real = _make_mock_connection()
+        secondary = SnapshotDataSourceConnection(
+            real_connection=secondary_real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+            primary_snapshot=primary,
+        )
+
+        # Marking the secondary delegates to primary AND sets the secondary's
+        # own passthrough flag so its execute path routes to real.
+        secondary.mark_test_for_rerun(test_id, record=True)
+        assert primary._passthrough_for_rerun is True
+        assert secondary._passthrough_for_rerun is True
+        assert primary._passthrough_record_for_rerun is True
+        assert secondary._passthrough_record_for_rerun is True
+
+    def test_partial_consumption_warning_logged(self, rerun_env, tmp_path, caplog):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_partial"
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("query", "SELECT old1", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT old2", QueryResult(rows=[(2,)], columns=None)),
+            ],
+        )
+        real = _make_mock_connection()
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        # Consume the first op normally, then mismatch — the wrapper has
+        # _replay_index=1 when we mark for rerun, so the warning should fire.
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT old1")
+        # The bubble-up path would happen via execute_query failure normally;
+        # here we exercise mark_test_for_rerun's partial-consumption logic.
+        with caplog.at_level("WARNING", logger="helpers.snapshot_connection"):
+            conn.mark_test_for_rerun(test_id, record=False)
+        assert any("discards 1 already-consumed" in rec.message for rec in caplog.records)
+
+    def test_rerun_mode_disabled_keeps_legacy_path(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SODA_TEST_SNAPSHOT_RERUN", raising=False)
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_legacy"
+        manager.save(test_id, [SnapshotEntry("query", "SELECT old", QueryResult(rows=[(1,)], columns=None))])
+        real = _make_mock_connection()
+        real.execute_query.return_value = QueryResult(rows=[(2,)], columns=None)
+        conn = SnapshotDataSourceConnection(
+            real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
+        )
+        # Without the flag, mismatch still triggers the legacy partial fallback
+        # rather than raising up to the plugin.
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            result = conn.execute_query("SELECT new")
+        assert result.rows == [(2,)]
+        assert conn._fallback_active is True
