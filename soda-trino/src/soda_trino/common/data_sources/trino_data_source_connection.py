@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import logging
+from datetime import timezone, tzinfo
 from decimal import Decimal
 from typing import Literal, Optional, Union
 
 import requests
 import trino
 from pydantic import BaseModel, Field, IPvAnyAddress, SecretStr
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.logging_constants import soda_logger
 from soda_core.model.data_source.data_source import DataSourceBase
 from soda_core.model.data_source.data_source_connection_properties import (
@@ -100,6 +104,14 @@ class TrinoDataSourceConnection(DataSourceConnection):
 
     def _format_row(self, row: tuple) -> tuple:
         return tuple(float(v) if isinstance(v, Decimal) else v for v in row)
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT current_timezone()")
+            row = cursor.fetchone()
+        if not row:
+            return timezone.utc
+        return parse_session_timezone(row[0])
 
     def _create_connection(
         self,

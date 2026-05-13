@@ -1,8 +1,12 @@
 from collections import namedtuple
+from datetime import timezone, tzinfo
 from pathlib import Path
 
 from duckdb import DuckDBPyConnection
-from soda_core.common.data_source_connection import DataSourceConnection
+from soda_core.common.data_source_connection import (
+    DataSourceConnection,
+    parse_session_timezone,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import DataSourceConnectionException
 from soda_core.common.metadata_types import DataSourceNamespace, SodaDataTypeName
@@ -39,6 +43,21 @@ class DuckDBCursor:
         # because a duckdb cursor is actually the current connection,
         # we don't want to close it
         pass
+
+    def __enter__(self):
+        # ``__enter__`` / ``__exit__`` need to live on the type itself, not
+        # be reached via ``__getattr__`` — Python looks up dunder methods on
+        # the class, not the instance. Without these explicit definitions,
+        # ``with self.connection.cursor() as cursor:`` raises ``TypeError:
+        # ... does not support the context manager protocol``. ``close`` is a
+        # no-op for DuckDB (the cursor IS the connection), so __exit__ does
+        # nothing observable; the methods exist just to keep DuckDBCursor a
+        # drop-in for vendors that DO use ``with cursor`` semantics.
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return None
 
     @property
     def description(self):
@@ -252,6 +271,14 @@ class DuckDBDataSourceConnection(DataSourceConnection):
 
         except Exception as e:
             raise DataSourceConnectionException(e)
+
+    def _fetch_session_timezone(self) -> tzinfo:
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT current_setting('TimeZone')")
+            row = cursor.fetchone()
+        if not row:
+            return timezone.utc
+        return parse_session_timezone(row[0])
 
     def extract_format(self, config: DuckDBStandardConnectionProperties) -> str:
         return Path(config.database).suffix
