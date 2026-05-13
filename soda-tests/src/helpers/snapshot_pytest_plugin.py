@@ -2,20 +2,17 @@
 
 When ``SODA_TEST_SNAPSHOT=replay`` + ``SODA_TEST_SNAPSHOT_FALLBACK=true`` is
 active, a test whose recorded SQL no longer matches the production SQL falls
-back to the real DB transparently. The test still passes (assuming the new SQL
-is correct), so it would silently mask SQL drift in the snapshot recordings.
+back to the real DB. Two models coexist:
 
-This plugin makes fallback visible while preserving the test's real outcome:
-
-* progress char: standard ``.`` / ``F`` (passed / failed) but coloured yellow
-  for any test that fell back, so fallback rows stand out without losing the
-  pass-vs-fail signal
-* verbose status: ``FALLBACK: PASSED`` or ``FALLBACK: FAILED`` instead of the
-  plain ``PASSED`` / ``FAILED`` — the original outcome is preserved so the
-  exit code and pytest summary counts stay correct
-* end-of-session "snapshot fallback summary" section listing every test that
-  fell back, with the first triggering reason
-* an exit hint reminding the user to re-record snapshots
+* **Legacy partial fallback** (default): the wrapper continues the test in a
+  partial-replay + live-tail hybrid. Visibility provided by yellow
+  ``FALLBACK: PASSED`` / ``FALLBACK: FAILED`` markers + an end-of-session
+  summary so the SQL drift doesn't get silently masked.
+* **Rerun model** (``SODA_TEST_SNAPSHOT_RERUN=true``): a replay error bubbles
+  out of the first attempt; the plugin re-runs the test end-to-end against
+  the real DB and reports ``RERAN: PASSED`` / ``RERAN: FAILED`` instead. A
+  fresh snapshot is saved only on a green rerun AND with
+  ``SODA_TEST_SNAPSHOT_RERECORD=true``.
 
 Registered via ``pytest_plugins = ["helpers.snapshot_pytest_plugin"]`` in each
 repo's ``conftest.py`` so it works for soda-core, soda-extensions, and any
@@ -24,7 +21,12 @@ downstream repo that consumes soda-tests.
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
+
+import pytest
+
+logger = logging.getLogger(__name__)
 
 
 def pytest_configure(config) -> None:  # noqa: D401
@@ -34,9 +36,166 @@ def pytest_configure(config) -> None:  # noqa: D401
     ``pytest --pdb-trace`` style workflows that reuse the interpreter. Clearing
     on configure makes each session start with a clean slate.
     """
-    from helpers.snapshot_connection import reset_fallback_test_record
+    from helpers.snapshot_connection import (
+        reset_fallback_test_record,
+        reset_pending_rerun_record,
+    )
 
     reset_fallback_test_record()
+    reset_pending_rerun_record()
+
+
+# ---------------------------------------------------------------------------
+# Rerun model: pytest_runtest_protocol
+# ---------------------------------------------------------------------------
+
+
+# Process-local record of tests that triggered a re-run, mapping test_id →
+# reason. Mirrors _FALLBACK_TEST_RECORD in shape so reporting paths can use the
+# same machinery. Populated by ``pytest_runtest_protocol`` after a successful
+# re-run; ``pytest_report_teststatus`` reads it to label the test.
+_RERAN_TEST_RECORD: dict[str, str] = {}
+
+
+def _rerun_mode_enabled() -> bool:
+    from helpers.snapshot_connection import is_rerun_mode_enabled
+
+    return is_rerun_mode_enabled()
+
+
+def _reset_per_test_rerun_state() -> None:
+    """Clear the pending-rerun queue before each test attempt."""
+    from helpers.snapshot_connection import reset_pending_rerun_record
+
+    reset_pending_rerun_record()
+
+
+def _pop_rerun_reason(test_id: str) -> Optional[str]:
+    """Pop and return the rerun reason for ``test_id`` if any was queued."""
+    from helpers.snapshot_connection import get_pending_rerun_record
+
+    return get_pending_rerun_record().pop(test_id, None)
+
+
+def _mark_all_wrappers_for_rerun(test_id: str, *, record: bool) -> None:
+    """Switch every live snapshot wrapper into passthrough for ``test_id``.
+
+    Walks the process-wide weak set populated by
+    ``SnapshotDataSourceConnection.__init__``. Captures primary, DWH, and
+    any reconciliation secondaries in one pass without needing explicit
+    bookkeeping per test type.
+    """
+    from helpers.snapshot_connection import get_live_snapshot_wrappers
+
+    for wrapper in list(get_live_snapshot_wrappers()):
+        try:
+            wrapper.mark_test_for_rerun(test_id, record=record)
+        except Exception as exc:
+            logger.warning(f"SNAPSHOT: failed to mark wrapper for rerun ({test_id}): {exc!r}")
+
+
+def _finalize_all_wrappers_rerun(test_id: str, *, success: bool) -> None:
+    """Save (on green) / discard rerun recording and clear passthrough flags."""
+    from helpers.snapshot_connection import get_live_snapshot_wrappers
+
+    for wrapper in list(get_live_snapshot_wrappers()):
+        try:
+            wrapper.finalize_test_rerun(test_id, success=success)
+        except Exception as exc:
+            logger.warning(f"SNAPSHOT: failed to finalize rerun for wrapper ({test_id}): {exc!r}")
+
+
+def _deactivate_lingering_dwh_interceptor() -> None:
+    """If a DWH interceptor outlived the failed attempt, deactivate it.
+
+    soda-extensions ships ``DwhSnapshotInterceptor``; its ``_active_instance``
+    class attribute points at any live interceptor. We deactivate before the
+    re-run so the next attempt re-installs cleanly. Import is lazy + best-
+    effort so soda-core (which has no DWH module) doesn't break.
+    """
+    try:
+        from test_helpers.dwh_setup import DwhSnapshotInterceptor  # type: ignore
+    except Exception:
+        return
+    inst = getattr(DwhSnapshotInterceptor, "_active_instance", None)
+    if inst is not None:
+        try:
+            inst.deactivate()
+        except Exception as exc:
+            logger.warning(f"SNAPSHOT: failed to deactivate lingering DWH interceptor: {exc!r}")
+
+
+def _reports_contain_rerun_signal(reports: list, test_id: str) -> Optional[str]:
+    """If any report indicates the test asked for a re-run, return the reason.
+
+    A re-run is triggered when:
+      - the test's call phase raised a SnapshotReplayError (the wrapper
+        populated _PENDING_RERUN before re-raising), AND
+      - setup + teardown phases all succeeded (per user requirement: the
+        whole lifecycle must be valid for a re-run to make sense).
+    """
+    # Setup or teardown failures: no re-run.
+    for r in reports:
+        if r.when in ("setup", "teardown") and r.failed:
+            return None
+    return _pop_rerun_reason(test_id)
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_protocol(item, nextitem):  # noqa: D401
+    """Run the test once. If it signalled a rerun, run it once more against real DB.
+
+    Only intercepts when ``SODA_TEST_SNAPSHOT_RERUN=true``. Returns ``True``
+    to tell pytest "I handled this test". The hook is opt-in to keep the
+    legacy fallback path unaffected for callers that haven't migrated.
+
+    A single re-run is the maximum: if the rerun itself raises another
+    SnapshotReplayError, that bubbles up as a hard test failure (per the spec
+    decision — "single rerun, if that fails, error out").
+    """
+    if not _rerun_mode_enabled():
+        return None
+    from _pytest.runner import runtestprotocol
+
+    _reset_per_test_rerun_state()
+
+    first_reports = runtestprotocol(item, nextitem=nextitem, log=False)
+    rerun_reason = _reports_contain_rerun_signal(first_reports, item.nodeid)
+    if rerun_reason is None:
+        for r in first_reports:
+            item.ihook.pytest_runtest_logreport(report=r)
+        return True
+
+    # First attempt asked for a re-run. Drain any straggler reports without
+    # publishing them (the test outcome will come from the second attempt).
+    logger.info(f"SNAPSHOT: re-running {item.nodeid} against real DB; reason: {rerun_reason}")
+    import os as _os
+
+    rerecord = _os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
+    _deactivate_lingering_dwh_interceptor()
+    _mark_all_wrappers_for_rerun(item.nodeid, record=rerecord)
+    _reset_per_test_rerun_state()  # clear queue before the second attempt
+
+    second_reports = runtestprotocol(item, nextitem=nextitem, log=False)
+    # If the rerun also signalled another rerun, that's a hard failure —
+    # the user asked for at most one re-run.
+    leftover = _pop_rerun_reason(item.nodeid)
+    if leftover is not None:
+        logger.error(
+            f"SNAPSHOT: re-run of {item.nodeid} also produced a replay error ({leftover}); "
+            "not retrying again. Surfacing the second attempt's outcome as the test result."
+        )
+
+    rerun_succeeded = all(r.passed for r in second_reports if r.when == "call") and not any(
+        r.failed for r in second_reports
+    )
+    _finalize_all_wrappers_rerun(item.nodeid, success=rerun_succeeded)
+
+    # Stash so pytest_report_teststatus can label the call-phase report as RERAN: …
+    _RERAN_TEST_RECORD[item.nodeid] = rerun_reason
+    for r in second_reports:
+        item.ihook.pytest_runtest_logreport(report=r)
+    return True
 
 
 def pytest_runtest_makereport(item, call) -> None:
@@ -61,9 +220,11 @@ def pytest_runtest_makereport(item, call) -> None:
 
 
 def pytest_report_teststatus(report, config):  # noqa: D401
-    """Annotate the call-phase status for tests that fell back, preserving
-    pass/fail. The pytest summary line still shows the test under ``passed=``
-    or ``failed=`` — only the verbose label changes.
+    """Annotate the call-phase status for tests that re-ran or fell back.
+
+    Two paths share this hook because their reporting intent is the same:
+    surface the unusual state in the per-test status line while preserving
+    pytest's pass/fail accounting for the exit code and summary counts.
 
     The short progress char stays a plain ASCII string. Pytest concatenates
     those into a buffer and later calls ``.rsplit`` on the result, so a
@@ -73,6 +234,15 @@ def pytest_report_teststatus(report, config):  # noqa: D401
     write path.
     """
     if report.when != "call":
+        return None
+    # Rerun model takes precedence — if the test was reran, the partial-
+    # fallback registry would never have been populated anyway.
+    reran_reason = _RERAN_TEST_RECORD.get(report.nodeid)
+    if reran_reason is not None:
+        if report.outcome == "passed":
+            return "passed", ".", _yellow("RERAN: PASSED")
+        if report.outcome == "failed":
+            return "failed", "F", _yellow("RERAN: FAILED")
         return None
     reason = _read_report_fallback_reason(report)
     if reason is None:
@@ -91,8 +261,22 @@ def pytest_report_teststatus(report, config):  # noqa: D401
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:  # noqa: D401
-    """Print a clear section listing every test that triggered fallback."""
+    """Print clear sections listing tests that fell back or were re-run."""
     from helpers.snapshot_connection import get_fallback_test_record
+
+    if _RERAN_TEST_RECORD:
+        terminalreporter.section("snapshot drift — tests re-run against real DB", sep="=", yellow=True)
+        for test_id in sorted(_RERAN_TEST_RECORD):
+            terminalreporter.write_line(f"  {test_id}")
+            for line in str(_RERAN_TEST_RECORD[test_id]).splitlines():
+                terminalreporter.write_line(f"      {line}")
+        terminalreporter.write_line("")
+        terminalreporter.write_line(
+            f"{len(_RERAN_TEST_RECORD)} test(s) re-ran end-to-end against the real DB "
+            "because their recorded SQL no longer matches production. Re-record with "
+            "SODA_TEST_SNAPSHOT=record (or set SODA_TEST_SNAPSHOT_RERECORD=true on a "
+            "rerun-mode replay run) to refresh the snapshots."
+        )
 
     record = get_fallback_test_record()
     if not record:
