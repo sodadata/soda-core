@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import re
+import weakref
 from collections import namedtuple
 from collections.abc import Iterator
 from typing import Any, Callable, Optional
@@ -52,6 +53,18 @@ _SODA_TEMP_PLACEHOLDER = "__soda_temp___$$__SODA_UUID__$$__"
 # on the master via the test-report path so summaries still come out correct.
 _FALLBACK_TEST_RECORD: dict[str, str] = {}
 
+# Process-local registry of (test_id → reason) populated when a snapshot replay
+# raises SnapshotReplayError under the rerun model. The pytest plugin
+# (`pytest_runtest_protocol`) reads this map after the first test attempt to
+# decide whether a re-run against the real DB is needed.
+_PENDING_RERUN: dict[str, str] = {}
+
+# Weak registry of every live SnapshotDataSourceConnection in this process.
+# The rerun plugin walks this set to mark all wrappers for passthrough on
+# re-run (primary, DWH, recon secondaries) without needing to know about them
+# individually. Weakref so wrappers GC normally when their helper goes away.
+_LIVE_SNAPSHOT_WRAPPERS: "weakref.WeakSet[SnapshotDataSourceConnection]" = weakref.WeakSet()
+
 
 def get_fallback_test_record() -> dict[str, str]:
     """Return the (test_id → reason) map of tests that triggered fallback in this process."""
@@ -61,6 +74,31 @@ def get_fallback_test_record() -> dict[str, str]:
 def reset_fallback_test_record() -> None:
     """Clear the fallback registry. Intended for unit tests that need a clean slate."""
     _FALLBACK_TEST_RECORD.clear()
+
+
+def get_pending_rerun_record() -> dict[str, str]:
+    """Return (test_id → reason) for tests that asked the plugin to re-run."""
+    return _PENDING_RERUN
+
+
+def reset_pending_rerun_record() -> None:
+    """Clear the pending-rerun registry. Used by the plugin between phases."""
+    _PENDING_RERUN.clear()
+
+
+def get_live_snapshot_wrappers() -> "weakref.WeakSet[SnapshotDataSourceConnection]":
+    """Return the weak set of all live SnapshotDataSourceConnection instances."""
+    return _LIVE_SNAPSHOT_WRAPPERS
+
+
+def is_rerun_mode_enabled() -> bool:
+    """Whether the rerun-on-mismatch model is active for this process.
+
+    Off by default during migration. When false, the legacy partial-replay
+    fallback path runs unchanged. When true, replay errors bubble out so the
+    pytest plugin can re-run the test against the real DB.
+    """
+    return os.getenv("SODA_TEST_SNAPSHOT_RERUN", "").lower() == "true"
 
 
 class _SnapshotSequence:
@@ -391,10 +429,25 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Cascade-to-dependents reads it to compute precise cut-offs.
         self._mismatch_seq: Optional[int] = None
 
+        # Per-test override flag set by the pytest rerun plugin between
+        # attempts. When True for the current test_id, this wrapper bypasses
+        # replay/record state entirely and routes every op straight to the
+        # real connection — recording fresh results too if
+        # ``_passthrough_record_for_rerun`` is also True. Cleared at the next
+        # test boundary.
+        self._passthrough_for_rerun: bool = False
+        self._passthrough_record_for_rerun: bool = False
+        self._partial_consumption_warned: bool = False
+
         # Install the DBAPI proxy in place of the sentinel passed to super().__init__.
         # Production code that does data_source.connection.connection.cursor() will
         # now receive a recording/replaying _SnapshotCursor.
         self.connection = _SnapshotDbapiProxy(owner=self)
+
+        # Register in the process-wide live-wrappers set so the rerun plugin
+        # can find every wrapper (primary, DWH, recon secondaries) and mark
+        # them in lockstep when a test asks to re-run.
+        _LIVE_SNAPSHOT_WRAPPERS.add(self)
 
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
@@ -1443,3 +1496,56 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._real is not None:
             return self._real.format_rows(rows)
         return rows
+
+    # -------------------------------------------------------------------------
+    # Rerun-on-mismatch hooks (used by snapshot_pytest_plugin between attempts)
+    # -------------------------------------------------------------------------
+
+    def mark_test_for_rerun(self, test_id: str, *, record: bool) -> None:
+        """Switch this wrapper into passthrough mode for ``test_id``.
+
+        Called by the pytest plugin between the failed first attempt and the
+        re-run. Drops any partially-consumed replay state for the named test,
+        ensures the real connection is open, and sets the per-test passthrough
+        flag. The next ``_handle_test_boundary`` for ``test_id`` will refuse
+        to load a snapshot and route every op to ``_real`` instead.
+
+        ``record=True`` additionally captures results so a successful re-run
+        can produce a fresh snapshot (only persisted when
+        ``SODA_TEST_SNAPSHOT_RERECORD=true`` — saving is decided in the
+        plugin / ``_finalize_current_test``).
+        """
+        if self._primary_snapshot is not None:
+            # Secondaries delegate: the primary already owns the recording
+            # stream and the test-id state.
+            self._primary_snapshot.mark_test_for_rerun(test_id, record=record)
+            self._passthrough_for_rerun = True
+            self._passthrough_record_for_rerun = record
+            return
+        # Open the real connection if it isn't already — the rerun needs to
+        # talk to the live DB.
+        self._ensure_real_connection()
+        self._passthrough_for_rerun = True
+        self._passthrough_record_for_rerun = record
+        # If we already started consuming a snapshot for this test, surface
+        # that so the rerun output makes the partial-consumption obvious.
+        if self._replay_data is not None and self._replay_index > 0 and not self._partial_consumption_warned:
+            logger.warning(
+                f"SNAPSHOT: re-run for {test_id} discards {self._replay_index} "
+                f"already-consumed snapshot operation(s); the test will be "
+                "re-executed end-to-end against the real DB."
+            )
+            self._partial_consumption_warned = True
+        # Drop any partial replay state so the rerun starts cleanly.
+        self._replay_data = None
+        self._replay_index = 0
+        self._recording = []
+        # Reset the test-id so _handle_test_boundary observes the rerun as a
+        # fresh transition and walks through the passthrough branch.
+        self._current_test_id = None
+
+    def clear_test_rerun_marker(self) -> None:
+        """Clear the per-test passthrough flags. Called once the rerun is done."""
+        self._passthrough_for_rerun = False
+        self._passthrough_record_for_rerun = False
+        self._partial_consumption_warned = False
