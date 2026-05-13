@@ -401,18 +401,20 @@ class TestSnapshotConnectionReplay:
 
     def test_sql_mismatch_raises_by_default(self, setup):
         conn, _, test_id = setup
-        # Fallback is disabled by default → mismatch raises SnapshotMismatchError
+        # Under the rerun model (default), mismatch raises SnapshotMismatchError
+        # straight up so the pytest plugin can re-run the test.
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            with pytest.raises(SnapshotMismatchError, match="fallback is disabled"):
+            with pytest.raises(SnapshotMismatchError, match="Snapshot mismatch"):
                 conn.execute_query("SELECT WRONG_SQL")
 
     def test_snapshot_exhaustion_raises_by_default(self, setup):
         conn, _, test_id = setup
-        # Fallback is disabled by default → exhaustion raises SnapshotMismatchError
+        # Under the rerun model (default), running past the end of a recorded
+        # snapshot raises SnapshotMismatchError.
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn.execute_query("SELECT COUNT(*)")
             conn.execute_update("INSERT INTO t VALUES (1)")
-            with pytest.raises(SnapshotMismatchError, match="fallback is disabled"):
+            with pytest.raises(SnapshotMismatchError, match="Snapshot exhausted"):
                 conn.execute_query("SELECT extra")
 
     def test_missing_snapshot_raises(self, tmp_path):
@@ -528,7 +530,23 @@ class TestSnapshotTestBoundaries:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture
+def _legacy_fallback_env(monkeypatch):
+    """Opt these tests out of the default rerun model.
+
+    The classes below exercise the legacy partial-replay fallback path
+    (cascade, sequence counter, reset-table callback, etc.). Rerun mode is on
+    by default now; these tests keep the legacy path covered until that code
+    is deleted in a follow-up.
+    """
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "false")
+
+
 class TestSnapshotFallback:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """Tests that snapshot mismatches fall back to the real DB transparently.
 
     When replay detects a SQL mismatch, exhaustion, or missing snapshot, it
@@ -916,6 +934,10 @@ class TestSnapshotFallback:
 
 
 class TestSnapshotLazyConnection:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """Tests that the fallback_connection_factory is used lazily.
 
     When replay mode is started without a real connection, the factory should
@@ -1528,6 +1550,10 @@ class TestTimestampNormalization:
 
 
 class TestUnconsumedEntries:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """Tests for detection of unconsumed snapshot entries."""
 
     def test_finalize_raises_on_unconsumed_entries(self, tmp_path):
@@ -1813,6 +1839,10 @@ class TestConnectionLifecycle:
 
 
 class TestFallbackIterateAndOneByOne:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """Tests for fallback in iterate and one_by_one modes."""
 
     def test_iterate_fallback_on_mismatch(self, tmp_path):
@@ -2137,6 +2167,10 @@ class TestFinalizedState:
 
 
 class TestLinkedSnapshotFallback:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """Tests for linked snapshot fallback (DWH → source cascade).
 
     In in-source mode, the DWH snapshot is linked to the source snapshot.
@@ -2502,6 +2536,10 @@ class TestLinkedSnapshotFallback:
 
 
 class TestDependentSnapshotCascade:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """Source→DWH cascade: when an upstream snapshot enters fallback, its
     dependent snapshot must follow, both via the push side (`_dependent_snapshots`,
     fired at `_activate_fallback`) and the pull side (`_upstream_snapshot`,
@@ -2794,6 +2832,10 @@ class TestSnapshotSequence:
 
 
 class TestPreciseSequenceBasedCascade:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """The cascade-on-fallback path uses each entry's recorded seq to compute
     exactly which dependent ops ran before the upstream's mismatch in the
     original recording. The dependent's real DB then gets materialised to
@@ -3094,6 +3136,10 @@ class TestPreciseSequenceBasedCascade:
 
 
 class TestFallbackTestRecord:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """The module-level fallback registry that snapshot_pytest_plugin consumes
     to surface fallback events in pytest output. The recorder MUST capture the
     test id and first-seen reason whenever _activate_fallback fires under an
@@ -3209,6 +3255,10 @@ class TestExtractTableNameFromCreate:
 
 
 class TestFallbackResetTableCallback:
+    @pytest.fixture(autouse=True)
+    def _disable_rerun(self, _legacy_fallback_env):
+        pass
+
     """The _fallback_reset_table_callback hook (default: emit DROP TABLE on the
     real connection) lets DataSourceTestHelper subclasses override the cleanup
     step when fallback re-execution hits a pre-existing table — e.g. Athena
@@ -3638,7 +3688,10 @@ class TestRerunModelWrapper:
         assert conn._replay_index == 0
 
     def test_rerun_mode_disabled_keeps_legacy_path(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("SODA_TEST_SNAPSHOT_RERUN", raising=False)
+        # Rerun mode is the default now; explicitly opt OUT to verify the
+        # legacy partial-fallback path is still reachable for callers that
+        # haven't migrated yet.
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "false")
         manager = SnapshotManager("postgres", str(tmp_path / "s"))
         test_id = "tests/test_rerun.py::test_legacy"
         manager.save(test_id, [SnapshotEntry("query", "SELECT old", QueryResult(rows=[(1,)], columns=None))])
@@ -3647,8 +3700,8 @@ class TestRerunModelWrapper:
         conn = SnapshotDataSourceConnection(
             real_connection=real, snapshot_manager=manager, mode="replay", allow_fallback=True
         )
-        # Without the flag, mismatch still triggers the legacy partial fallback
-        # rather than raising up to the plugin.
+        # With the flag explicitly off, mismatch still triggers the legacy
+        # partial fallback rather than raising up to the plugin.
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             result = conn.execute_query("SELECT new")
         assert result.rows == [(2,)]

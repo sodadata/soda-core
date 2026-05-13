@@ -221,9 +221,9 @@ def test_broken():
 
 
 def test_rerun_protocol_does_not_fire_when_flag_off(pytester, _reset_rerun_registry, monkeypatch):
-    """With the rerun flag off, a SnapshotMismatchError bubbles up as a normal
-    failure — no rerun, no RERAN label."""
-    monkeypatch.delenv("SODA_TEST_SNAPSHOT_RERUN", raising=False)
+    """With the rerun flag explicitly off, a SnapshotMismatchError bubbles up
+    as a normal failure — no rerun, no RERAN label."""
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "false")
     pytester.makeconftest(_conftest_text())
     pytester.makepyfile(
         test_no_rerun="""

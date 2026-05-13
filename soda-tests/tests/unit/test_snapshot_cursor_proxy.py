@@ -18,6 +18,21 @@ from helpers.snapshot_connection import (
 )
 from helpers.snapshot_manager import SnapshotManager, SnapshotMismatchError
 
+
+@pytest.fixture(autouse=True)
+def _disable_rerun(monkeypatch):
+    """Opt these tests out of the default rerun model.
+
+    These tests exercise the raw-cursor record/replay primitives and use
+    ``pytest.raises(SnapshotMismatchError)`` to assert the legacy "raise on
+    mismatch" contract. Under the rerun model the plugin would re-run the
+    failing case against a fake real connection (which doesn't raise), so
+    those assertions would spuriously fail. Pure unit tests — no plugin
+    rerun should kick in here.
+    """
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "false")
+
+
 # ---------------------------------------------------------------------------
 # Fake DBAPI plumbing
 # ---------------------------------------------------------------------------

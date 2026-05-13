@@ -94,11 +94,13 @@ def get_live_snapshot_wrappers() -> "weakref.WeakSet[SnapshotDataSourceConnectio
 def is_rerun_mode_enabled() -> bool:
     """Whether the rerun-on-mismatch model is active for this process.
 
-    Off by default during migration. When false, the legacy partial-replay
-    fallback path runs unchanged. When true, replay errors bubble out so the
-    pytest plugin can re-run the test against the real DB.
+    Default ON — replay errors bubble out so the pytest plugin can re-run
+    the test against the real DB. Set ``SODA_TEST_SNAPSHOT_RERUN=false`` to
+    revert to the legacy partial-replay fallback path (kept available during
+    the migration window; will be removed once we've burned in the new
+    behaviour across all CI lanes).
     """
-    return os.getenv("SODA_TEST_SNAPSHOT_RERUN", "").lower() == "true"
+    return os.getenv("SODA_TEST_SNAPSHOT_RERUN", "true").lower() == "true"
 
 
 # When the rerun plugin is between the failed first attempt and the re-run
