@@ -928,6 +928,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if (
             self._mode == "replay"
             and not self._fallback_active
+            and not self._passthrough_for_rerun
             and self._replay_data is not None
             and self._replay_index < len(self._replay_data)
         ):
@@ -947,6 +948,16 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._fallback_is_auto_record = False
 
         if unconsumed_error:
+            # In rerun mode an unconsumed-snapshot at teardown means an
+            # earlier mid-test mismatch was swallowed by user code (e.g. the
+            # contract verification handler). We don't want teardown to fail
+            # — that would block the plugin from running the rerun. Instead,
+            # queue the rerun signal and log a warning. The plugin reads
+            # _PENDING_RERUN to decide whether to re-run.
+            if is_rerun_mode_enabled() and self._current_test_id is not None:
+                _PENDING_RERUN.setdefault(self._current_test_id, str(unconsumed_error))
+                logger.warning(f"SNAPSHOT: {unconsumed_error}")
+                return
             raise unconsumed_error
 
     def finalize(self) -> None:

@@ -3598,6 +3598,45 @@ class TestRerunModelWrapper:
         assert another._passthrough_for_rerun is False
         assert another._passthrough_record_for_rerun is False
 
+    def test_unconsumed_entries_in_teardown_queue_rerun_instead_of_raising(self, rerun_env, tmp_path):
+        """When the call phase mismatches mid-test but user code swallows the
+        exception (e.g. the contract verification handler), the per-test
+        teardown still calls _finalize_current_test. Under rerun mode it must
+        NOT raise — that would fail the teardown phase and block the plugin
+        from running the rerun. Instead it queues another rerun signal.
+        """
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_unconsumed"
+        manager.save(
+            test_id,
+            [
+                SnapshotEntry("query", "SELECT a", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT b", QueryResult(rows=[(2,)], columns=None)),
+                SnapshotEntry("query", "SELECT c", QueryResult(rows=[(3,)], columns=None)),
+            ],
+        )
+        conn = SnapshotDataSourceConnection(
+            real_connection=_make_mock_connection(),
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT a")  # consume entry 0
+            # Simulate a mid-test mismatch that user code swallows: directly
+            # populate _PENDING_RERUN to mirror what _handle_replay_error_for_rerun
+            # would have done before its raise was caught.
+            from helpers.snapshot_connection import _PENDING_RERUN
+
+            # _PENDING_RERUN starts empty for this test (rerun_env fixture).
+            # Teardown finalize fires for the test:
+            conn._finalize_current_test()
+        # Should NOT have raised. Should have queued the rerun signal.
+        assert test_id in _PENDING_RERUN
+        # State reset so the next test starts clean.
+        assert conn._replay_data is None
+        assert conn._replay_index == 0
+
     def test_rerun_mode_disabled_keeps_legacy_path(self, tmp_path, monkeypatch):
         monkeypatch.delenv("SODA_TEST_SNAPSHOT_RERUN", raising=False)
         manager = SnapshotManager("postgres", str(tmp_path / "s"))
