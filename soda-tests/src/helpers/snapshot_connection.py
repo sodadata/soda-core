@@ -802,10 +802,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Rerun-mode passthrough: the pytest plugin has marked this wrapper
         # for a re-run of ``test_id`` against the real DB. Skip the snapshot
         # load entirely and record fresh ops into ``_recording`` if asked.
+        # Only reset _recording when STARTING a new test — re-entering the
+        # same test (e.g. inside a long test body) keeps accumulating ops.
         if self._passthrough_for_rerun:
             self._replay_data = None
             self._replay_index = 0
-            self._recording = []
             return
 
         if self._mode == "replay":
@@ -825,6 +826,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 # Rerun model: a missing snapshot is the same signal as a
                 # mismatch — surface it, let the plugin re-run the test in
                 # passthrough+record mode. No partial state synthesised here.
+                # ``allow_fallback`` already gates this path; if it's False
+                # we never reach here (the earlier branch raised).
                 if is_rerun_mode_enabled():
                     reason = f"No snapshot found at {snapshot_path}"
                     _PENDING_RERUN.setdefault(test_id, reason)
@@ -895,7 +898,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._recording.append(self._normalize_for_snapshot(entry))
 
     def _finalize_current_test(self) -> None:
-        """Save the current test's recording (if any) and reset per-test state."""
+        """Save the current test's recording (if any) and reset per-test state.
+
+        When ``_passthrough_record_for_rerun`` is set, the plugin owns the
+        recording buffer and decides whether to save (via
+        ``finalize_test_rerun``). Bail out without resetting state so the
+        plugin still sees the buffered ops when it runs after teardown.
+        """
+        if self._passthrough_record_for_rerun and self._recording:
+            return
         if self._current_test_id is not None and self._recording:
             # Rerun-mode passthrough+record: the plugin decides whether to
             # save (via ``finalize_test_rerun``) based on test outcome and
@@ -955,8 +966,9 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # contract verification handler). We don't want teardown to fail
             # — that would block the plugin from running the rerun. Instead,
             # queue the rerun signal and log a warning. The plugin reads
-            # _PENDING_RERUN to decide whether to re-run.
-            if is_rerun_mode_enabled() and self._current_test_id is not None:
+            # _PENDING_RERUN to decide whether to re-run. Gate on
+            # ``allow_fallback`` so a FALLBACK=false replay still fails hard.
+            if is_rerun_mode_enabled() and self._allow_fallback and self._current_test_id is not None:
                 _PENDING_RERUN.setdefault(self._current_test_id, str(unconsumed_error))
                 logger.warning(f"SNAPSHOT: {unconsumed_error}")
                 return
@@ -1383,9 +1395,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         Only called in rerun mode. Populates ``_PENDING_RERUN`` once per test
         (first reason wins, like the existing fallback registry) and re-raises
         the exception so it bubbles out of the test body.
+
+        Only signals a rerun when ``allow_fallback`` is set — i.e.
+        ``SODA_TEST_SNAPSHOT_FALLBACK=true``. With fallback disabled, the
+        spec calls for a hard fail on mismatch (no rerun), so we re-raise
+        without registering — the plugin then sees no pending rerun and
+        lets the failure bubble up normally.
         """
         test_id = self._current_test_id
-        if test_id is not None:
+        if test_id is not None and self._allow_fallback:
             _PENDING_RERUN.setdefault(test_id, str(exc))
         raise exc
 
@@ -1735,13 +1753,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             self.clear_test_rerun_marker()
             return
         rerecord = os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
-        if (
-            success
-            and rerecord
-            and self._passthrough_record_for_rerun
-            and self._recording
-            and self._current_test_id == test_id
-        ):
+        # _current_test_id may have been nulled by an interim finalize() call
+        # (session fixture teardown runs before the plugin's hook), so we
+        # don't gate on it — the test_id parameter is the authoritative key.
+        if success and rerecord and self._passthrough_record_for_rerun and self._recording:
             self._snapshot_manager.save(test_id, self._recording)
             logger.info(
                 f"SNAPSHOT: Saved fresh recording from successful rerun of {test_id} "
