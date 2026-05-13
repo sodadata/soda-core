@@ -3687,6 +3687,80 @@ class TestRerunModelWrapper:
         assert conn._replay_data is None
         assert conn._replay_index == 0
 
+    def test_mark_test_for_rerun_sets_flag_before_ensure_real_connection(self, rerun_env, tmp_path):
+        """Regression: a flaky factory call must not leave the wrapper in
+        legacy replay mode.
+
+        In the CI scenario that motivated this test, a long-running session
+        had accumulated many ensured test tables. When ``mark_test_for_rerun``
+        eagerly called ``_ensure_real_connection`` → factory → schema-ensure +
+        materialize-pending-tables, the materialise step occasionally failed
+        on a transient real-DB issue. The plugin's outer try/except caught
+        the exception — but ``_passthrough_for_rerun`` was set AFTER
+        ``_ensure_real_connection``, so the wrapper stayed in legacy replay
+        mode and the rerun's second attempt hit the original mismatch again.
+
+        The fix: set ``_passthrough_for_rerun=True`` BEFORE
+        ``_ensure_real_connection``. Even if the factory raises, the rerun
+        path is still active and the lazy ``_ensure_real_connection`` on
+        the first SQL op retries.
+        """
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_flaky_factory"
+        manager.save(test_id, [SnapshotEntry("query", "SELECT old", QueryResult(rows=[(1,)], columns=None))])
+
+        def failing_factory():
+            raise RuntimeError("simulated transient DB issue during table materialisation")
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+            fallback_connection_factory=failing_factory,
+        )
+        # The factory raise should be swallowed; the flag should still be set.
+        conn.mark_test_for_rerun(test_id, record=False)
+        assert conn._passthrough_for_rerun is True, "passthrough flag must be set even if _ensure_real_connection fails"
+
+    def test_factory_skips_materialization_in_rerun_mode(self, rerun_env, tmp_path):
+        """The lazy real-connection factory should NOT pre-materialise tables
+        when the wrapper is in rerun-passthrough mode.
+
+        The rerun's test body will call ``ensure_test_table`` for its own
+        table — pre-materialising every session-accumulated table is wasted
+        work and a source of failures in long sessions (the O(N) drop+create
+        churn dominates runtime and is more likely to hit transient errors).
+        """
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+
+        # Simulate a factory that tracks whether materialization was attempted.
+        materialize_calls = []
+
+        class FakeFactory:
+            def __call__(self_factory):
+                # Mimic _LazyRealConnectionFactory's behaviour: check the
+                # wrapper's passthrough flag and skip materialisation if set.
+                if getattr(conn, "_passthrough_for_rerun", False):
+                    materialize_calls.append("SKIPPED")
+                else:
+                    materialize_calls.append("MATERIALIZED")
+                return _make_mock_connection()
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+            fallback_connection_factory=FakeFactory(),
+        )
+        # Marking should run the factory, which sees passthrough flag set first
+        # and skips materialisation.
+        conn.mark_test_for_rerun("tests/test_rerun.py::test_skip_materialize", record=False)
+        assert materialize_calls == ["SKIPPED"], (
+            f"Factory should detect passthrough mode and skip materialization; " f"got: {materialize_calls}"
+        )
+
     def test_rerun_mode_disabled_keeps_legacy_path(self, tmp_path, monkeypatch):
         # Rerun mode is the default now; explicitly opt OUT to verify the
         # legacy partial-fallback path is still reachable for callers that
