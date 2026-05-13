@@ -136,3 +136,131 @@ def test_c():
     assert any(
         "2 test(s) triggered snapshot fallback" in line for line in result.outlines
     ), "Expected fallback count of 2 in summary; got:\n" + "\n".join(result.outlines)
+
+
+# ---------------------------------------------------------------------------
+# Rerun model (pytest_runtest_protocol)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _reset_rerun_registry():
+    """Each rerun-mode pytester run starts with a clean rerun registry."""
+    from helpers.snapshot_connection import reset_pending_rerun_record
+
+    reset_pending_rerun_record()
+    yield
+    reset_pending_rerun_record()
+
+
+def test_rerun_protocol_intercepts_first_attempt_replay_error(pytester, _reset_rerun_registry, monkeypatch):
+    """Under SODA_TEST_SNAPSHOT_RERUN=true a test that raises SnapshotMismatchError
+    on its first attempt is automatically re-run; the second attempt sees the
+    test passing and the protocol reports it as RERAN: PASSED.
+    """
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+    pytester.makeconftest(_conftest_text())
+    # Inner test: first attempt populates _PENDING_RERUN and raises a
+    # SnapshotMismatchError; the plugin re-runs and on the second attempt
+    # (state="second") the test passes cleanly.
+    pytester.makepyfile(
+        test_rerun="""
+import os
+from helpers.snapshot_connection import (
+    _PENDING_RERUN, get_live_snapshot_wrappers,
+)
+from helpers.snapshot_manager import SnapshotMismatchError
+
+_STATE = {"attempt": 0}
+
+def test_target():
+    _STATE["attempt"] += 1
+    if _STATE["attempt"] == 1:
+        _PENDING_RERUN["test_rerun.py::test_target"] = "simulated mismatch"
+        raise SnapshotMismatchError("simulated mismatch")
+    # Second attempt passes.
+    assert _STATE["attempt"] == 2
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1)
+    assert any(
+        "RERAN: PASSED" in line for line in result.outlines
+    ), "Expected 'RERAN: PASSED' label; got:\n" + "\n".join(result.outlines)
+    assert any(
+        "snapshot drift" in line for line in result.outlines
+    ), "Expected rerun summary section; got:\n" + "\n".join(result.outlines)
+
+
+def test_rerun_protocol_reports_failure_when_rerun_also_fails(pytester, _reset_rerun_registry, monkeypatch):
+    """If both first attempt and rerun fail, the test counts as FAILED and the
+    label is RERAN: FAILED — we don't try a third time."""
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_rerun_fail="""
+from helpers.snapshot_connection import _PENDING_RERUN
+from helpers.snapshot_manager import SnapshotMismatchError
+
+_STATE = {"attempt": 0}
+
+def test_broken():
+    _STATE["attempt"] += 1
+    if _STATE["attempt"] == 1:
+        _PENDING_RERUN["test_rerun_fail.py::test_broken"] = "simulated mismatch"
+        raise SnapshotMismatchError("simulated mismatch")
+    # Second attempt: a real test failure (not another replay error).
+    assert False, "real failure on rerun"
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(failed=1)
+    assert any("RERAN: FAILED" in line for line in result.outlines), "\n".join(result.outlines)
+
+
+def test_rerun_protocol_does_not_fire_when_flag_off(pytester, _reset_rerun_registry, monkeypatch):
+    """With the rerun flag off, a SnapshotMismatchError bubbles up as a normal
+    failure — no rerun, no RERAN label."""
+    monkeypatch.delenv("SODA_TEST_SNAPSHOT_RERUN", raising=False)
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_no_rerun="""
+from helpers.snapshot_connection import _PENDING_RERUN
+from helpers.snapshot_manager import SnapshotMismatchError
+
+def test_target():
+    _PENDING_RERUN["test_no_rerun.py::test_target"] = "ignored"
+    raise SnapshotMismatchError("not re-runnable when flag is off")
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(failed=1)
+    assert not any("RERAN" in line for line in result.outlines)
+
+
+def test_rerun_skipped_when_setup_fails(pytester, _reset_rerun_registry, monkeypatch):
+    """Even if a test queues itself for rerun, a setup-phase failure means
+    no rerun is attempted — the test must pass setup/teardown for a rerun
+    to make sense (per the design spec)."""
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_setup_fails="""
+import pytest
+from helpers.snapshot_connection import _PENDING_RERUN
+
+@pytest.fixture
+def broken_fixture():
+    raise RuntimeError("setup blew up")
+
+def test_with_broken_setup(broken_fixture):
+    _PENDING_RERUN["test_setup_fails.py::test_with_broken_setup"] = "should not be used"
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(errors=1)
+    assert not any("RERAN" in line for line in result.outlines)
