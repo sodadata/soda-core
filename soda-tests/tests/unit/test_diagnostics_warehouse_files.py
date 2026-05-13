@@ -1,4 +1,6 @@
-from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 
 def test_normalize_none_returns_none():
