@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 
 import pytest
 from dateutil.parser import parse
@@ -23,11 +24,16 @@ DATASOURCES_TO_RUN = [
     "redshift",
     "oracle",
     "databricks",
+    "dremio",
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
 # Schema's starting with these prefixes are exempt from being dropped.
 LIST_OF_EXEMPTIONS = ["soda_diagnostics_dev_"]
+
+
+def _dry_run() -> bool:
+    return os.getenv("SODA_SCHEMA_CLEANUP_DRY_RUN", "false").lower() in ("1", "true", "yes")
 
 
 def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
@@ -77,6 +83,41 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
         )  # Only drop the schema if it should not have a date. E.g. we don't want to drop the schema if it's a soda_diagnostics_my_dwh_test schema.
 
 
+def _list_dremio_candidate_schemas(data_source_test_helper: DataSourceTestHelper) -> list[tuple[str, str]]:
+    """For Dremio, schemas are nested folder paths exposed via INFORMATION_SCHEMA."SCHEMATA"
+    as fully dotted SCHEMA_NAME strings (e.g. 'nas.bucket.host.my_dwh_20260410_dremio_abc').
+
+    We scope the cleanup to schemas under the configured test-root path (everything in
+    dataset_prefix except the leaf) to avoid touching unrelated folders, and we match
+    LIST_OF_PREFIXES_TO_DROP against the trailing dotted component.
+
+    Returns a list of (full_dotted_schema_name, leaf_component_for_matching) tuples.
+    """
+    dataset_prefix: list[str] = data_source_test_helper.dataset_prefix
+    if not dataset_prefix or len(dataset_prefix) < 2:
+        logger.warning(f"Dremio dataset_prefix is too short to derive test root: {dataset_prefix}")
+        return []
+    test_root_components: list[str] = dataset_prefix[:-1]
+    test_root_dotted: str = ".".join(test_root_components)
+    test_root_prefix: str = test_root_dotted + "."
+
+    sql: str = 'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA."SCHEMATA"'
+    query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(sql)
+
+    candidates: list[tuple[str, str]] = []
+    for row in query_result.rows:
+        full_name: str = row[0]
+        if not full_name or not full_name.startswith(test_root_prefix):
+            continue
+        leaf: str = full_name.rsplit(".", 1)[-1]
+        candidates.append((full_name, leaf))
+    logger.info(
+        f"Dremio: found {len(candidates)} schemas under test root '{test_root_dotted}' "
+        f"(out of total schemas in INFORMATION_SCHEMA)"
+    )
+    return candidates
+
+
 def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
     if data_source_test_helper.data_source_impl.type_name not in DATASOURCES_TO_RUN:
         pytest.skip(
@@ -89,33 +130,47 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
                 f"Skipping test for {data_source_test_helper.data_source_impl.type_name} because it is a hive catalog"
             )
 
-    dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
-    # First get the list of all the schema's in the database.
-    table_namespace, schema_name = data_source_test_helper.data_source_impl._build_table_namespace_for_schema_query(
-        data_source_test_helper.dataset_prefix
-    )
-    schemas_query_sql = dialect.build_schemas_metadata_query_str(table_namespace=table_namespace)
-    query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(schemas_query_sql)
-    schema_names: list[str] = [row[0] for row in query_result.rows]
+    dry_run: bool = _dry_run()
+    if dry_run:
+        logger.info("SODA_SCHEMA_CLEANUP_DRY_RUN is set — will log targets but not execute DROP statements.")
+
+    type_name: str = data_source_test_helper.data_source_impl.type_name
+
+    # Build the list of (drop_target, match_name) pairs. For Dremio, drop_target is the full
+    # dotted folder path and match_name is the trailing component. For other DSes they're the same.
+    candidates: list[tuple[str, str]]
+    if type_name == "dremio":
+        candidates = _list_dremio_candidate_schemas(data_source_test_helper)
+    else:
+        dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
+        table_namespace, _ = data_source_test_helper.data_source_impl._build_table_namespace_for_schema_query(
+            data_source_test_helper.dataset_prefix
+        )
+        schemas_query_sql = dialect.build_schemas_metadata_query_str(table_namespace=table_namespace)
+        query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(schemas_query_sql)
+        candidates = [(row[0], row[0]) for row in query_result.rows if row[0]]
+
+    num_matched_schemas: int = 0
     num_deleted_schemas: int = 0
-    for schema_name in schema_names:
-        if any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
-            if not any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
-                if determine_if_schema_needs_to_be_dropped(schema_name):
-                    logger.info(f"Dropping schema name: {schema_name}")
+    for drop_target, match_name in candidates:
+        if any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
+            if not any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
+                if determine_if_schema_needs_to_be_dropped(match_name):
+                    num_matched_schemas += 1
+                    if dry_run:
+                        logger.info(f"[DRY RUN] Would drop schema: {drop_target}")
+                        continue
+                    logger.info(f"Dropping schema name: {drop_target}")
                     try:
-                        data_source_test_helper.drop_schema_if_exists(schema_name)
+                        data_source_test_helper.drop_schema_if_exists(drop_target)
                         num_deleted_schemas += 1
-                        # Old code, don't just create the SQL, but use the data source test helper to drop the schema.
-                        # data_source_test_helper.data_source_impl.execute_update(
-                        #     data_source_test_helper.drop_schema_if_exists_sql(
-                        #         schema_name
-                        #     )  # Use if exists because we may have multiple CI runs at the same time, removing the same schema.
-                        # )
                     except (
                         Exception
                     ) as e:  # We catch any exception, because we don't want the CI itself to fail because of this.
                         logger.error(f"Error dropping schema: {e}")
                 else:
-                    logger.info(f"Schema name: {schema_name} is not old enough to be dropped or is an exemption")
-    logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
+                    logger.info(f"Schema name: {match_name} is not old enough to be dropped or is an exemption")
+    if dry_run:
+        logger.info(f"[DRY RUN] Number of schemas that would be deleted: {num_matched_schemas}")
+    else:
+        logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
