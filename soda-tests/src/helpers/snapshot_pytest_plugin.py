@@ -205,9 +205,21 @@ def pytest_runtest_protocol(item, nextitem):  # noqa: D401
 
     # Stash so pytest_report_teststatus can label the call-phase report as RERAN: …
     _RERAN_TEST_RECORD[item.nodeid] = rerun_reason
+    # Also attach to the call-phase report's user_properties so the rerun
+    # reason propagates through pytest-xdist to the master (which doesn't
+    # share the worker's _RERAN_TEST_RECORD dict).
+    for r in second_reports:
+        if r.when == "call":
+            r.user_properties = list(r.user_properties or []) + [
+                (_RERAN_USER_PROPERTY_KEY, rerun_reason),
+            ]
     for r in second_reports:
         item.ihook.pytest_runtest_logreport(report=r)
     return True
+
+
+# Key used to ferry the rerun reason through xdist via report.user_properties.
+_RERAN_USER_PROPERTY_KEY = "_soda_snapshot_reran_reason"
 
 
 def pytest_runtest_makereport(item, call) -> None:
@@ -248,9 +260,12 @@ def pytest_report_teststatus(report, config):  # noqa: D401
     if report.when != "call":
         return None
     # Rerun model takes precedence — if the test was reran, the partial-
-    # fallback registry would never have been populated anyway.
-    reran_reason = _RERAN_TEST_RECORD.get(report.nodeid)
+    # fallback registry would never have been populated anyway. Source the
+    # reason from user_properties (propagated through xdist) and fall back
+    # to the master-process registry for non-xdist runs.
+    reran_reason = _read_reran_reason_from_report(report)
     if reran_reason is not None:
+        _RERAN_TEST_RECORD.setdefault(report.nodeid, reran_reason)
         if report.outcome == "passed":
             return "passed", ".", _yellow("RERAN: PASSED")
         if report.outcome == "failed":
@@ -328,6 +343,20 @@ def _read_report_fallback_reason(report) -> Optional[str]:
     from helpers.snapshot_connection import get_fallback_test_record
 
     return get_fallback_test_record().get(report.nodeid)
+
+
+def _read_reran_reason_from_report(report) -> Optional[str]:
+    """Pull the rerun reason off ``report.user_properties`` if present.
+
+    Falls back to the master-process registry so non-xdist runs still work.
+    Under xdist the user_properties are serialised across the worker→master
+    boundary, which is why we attach the reason there in
+    ``pytest_runtest_protocol``.
+    """
+    for key, value in report.user_properties or []:
+        if key == _RERAN_USER_PROPERTY_KEY:
+            return value
+    return _RERAN_TEST_RECORD.get(report.nodeid)
 
 
 def _yellow(text: str) -> tuple:
