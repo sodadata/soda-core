@@ -1710,9 +1710,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             self._passthrough_for_rerun = True
             self._passthrough_record_for_rerun = record
             return
-        # Open the real connection if it isn't already — the rerun needs to
-        # talk to the live DB.
-        self._ensure_real_connection()
+        # Set the passthrough flags FIRST so that:
+        #   1. Any real-DB work done lazily later (in `_ensure_real_connection`
+        #      → factory) sees the wrapper is in rerun mode and skips
+        #      legacy-fallback bookkeeping like `_materialize_pending_tables`.
+        #   2. If anything later raises (factory failure, etc.), the wrapper
+        #      is still in a useful state — `_passthrough_for_rerun=True` —
+        #      so the rerun's actual SQL goes through passthrough.
         self._passthrough_for_rerun = True
         self._passthrough_record_for_rerun = record
         # If we already started consuming a snapshot for this test, surface
@@ -1731,6 +1735,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Reset the test-id so _handle_test_boundary observes the rerun as a
         # fresh transition and walks through the passthrough branch.
         self._current_test_id = None
+        # Open the real connection now if it isn't already — most reruns need
+        # it, and opening eagerly gives us a clean error here rather than
+        # during the rerun's first SQL op. We don't *require* this to succeed:
+        # if it fails (e.g. transient DB issue), the flag is already set, so
+        # the rerun's lazy `_ensure_real_connection` will retry.
+        try:
+            self._ensure_real_connection()
+        except Exception as exc:
+            logger.warning(
+                f"SNAPSHOT: eager real-connection open during mark_test_for_rerun "
+                f"failed ({exc!r}); rerun will retry lazily on first SQL"
+            )
 
     def clear_test_rerun_marker(self) -> None:
         """Clear the per-test passthrough flags. Called once the rerun is done."""

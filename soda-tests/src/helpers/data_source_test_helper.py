@@ -68,6 +68,13 @@ class _LazyRealConnectionFactory:
     Every call: drops+recreates the test tables that the current test ensured
     but have not yet been materialized in the real DB. Idempotent across
     repeated fallbacks on the same helper session.
+
+    Rerun-mode passthrough (the default under
+    ``SODA_TEST_SNAPSHOT_RERUN=true``) skips the table-materialisation step:
+    the rerun's test body runs end-to-end, so its own ``ensure_test_table``
+    call will create the table it needs. Materialising every session-
+    accumulated table here is wasted work — and on long test sessions, the
+    O(N) drop+create churn can dominate runtime.
     """
 
     def __init__(self, helper: "DataSourceTestHelper") -> None:
@@ -86,7 +93,11 @@ class _LazyRealConnectionFactory:
             real_conn = existing_real
             helper.data_source_impl.data_source_connection = real_conn
 
-        self._materialize_pending_tables()
+        # In rerun-passthrough mode, the test's own ensure_test_table call
+        # will create whatever table it actually needs — no need to pre-
+        # materialise every table the session has touched.
+        if not getattr(snap_conn, "_passthrough_for_rerun", False):
+            self._materialize_pending_tables()
         helper.data_source_impl.data_source_connection = snap_conn
         return real_conn
 
