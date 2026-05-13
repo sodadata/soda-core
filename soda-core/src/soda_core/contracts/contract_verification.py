@@ -13,7 +13,9 @@ from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_interfaces import Loggable
-from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 

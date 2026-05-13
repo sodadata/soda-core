@@ -45,7 +45,6 @@ from soda_core.contracts.contract_verification import (
     YamlFileContentInfo,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
-from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -55,6 +54,9 @@ from soda_core.contracts.impl.contract_yaml import (
     RegexFormat,
     ThresholdYaml,
     ValidReferenceDataYaml,
+)
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
 )
 from tabulate import tabulate
 

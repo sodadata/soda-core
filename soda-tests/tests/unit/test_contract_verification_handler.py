@@ -14,7 +14,9 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandler,
     ContractVerificationHandlerRegistry,
 )
-from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 test_table_specification = (
     TestTableSpecification.builder()

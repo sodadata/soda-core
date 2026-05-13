@@ -15,7 +15,9 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
-from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 
