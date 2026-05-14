@@ -118,13 +118,21 @@ class FailedRowsCheckImpl(CheckImpl):
                 self.queries.append(rows_tested_query)
 
     def get_required_metric_impls(self) -> list[MetricImpl]:
-        # Always require failed_rows_count — it's the threshold value for the count
-        # metric and the numerator for the percent metric. check_rows_tested is the
-        # denominator for percent; for the count metric it's a nullable diagnostic
-        # (the rows_tested_query may legitimately return NULL), so we do NOT require
-        # it there. Keeps the count-metric path evaluable even if rows_tested_query
-        # returns NULL.
-        required: list[MetricImpl] = [self.failed_rows_count_metric_impl]
+        # failed_rows_count is the threshold value for `metric: count` and the
+        # numerator for `metric: percent`. check_rows_tested is the denominator for
+        # percent; for count it's a nullable diagnostic (rows_tested_query may
+        # legitimately return NULL), so we do NOT require it on that path.
+        #
+        # Both metric impls are Optional — setup_metrics only creates them when the
+        # YAML provides `expression` or `query` (or `rows_tested_query`). If the
+        # YAML provides none (malformed config the parser warned about but accepted),
+        # we return an empty list so the framework skips gating; evaluate() then
+        # produces a None threshold_value via its bare-query fallback, and
+        # evaluate_threshold(None) drives NOT_EVALUATED — no `all_measured(None)`
+        # crash on `get_value(None).id`.
+        required: list[MetricImpl] = []
+        if self.failed_rows_count_metric_impl is not None:
+            required.append(self.failed_rows_count_metric_impl)
         if self.failed_rows_check_yaml.metric == "percent" and self.check_rows_tested_metric_impl is not None:
             required.append(self.check_rows_tested_metric_impl)
         return required
