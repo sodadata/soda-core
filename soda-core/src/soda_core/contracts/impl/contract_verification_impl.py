@@ -589,8 +589,12 @@ class ContractImpl:
         # convert their DB value differently (`int` vs `float` vs identity).
         canonical_metrics: list[AggregationMetricImpl] = []
         canonical_by_sql: dict[tuple[type, str], AggregationMetricImpl] = {}
-        # canonical_metric.id -> [aliased_metric.id, ...] for measurement emission.
-        metric_aliases: dict[str, list[str]] = {}
+        # canonical_metric.id -> [aliased_metric, ...]. We keep the full metric impls
+        # (not just ids) so AggregationQuery.execute can emit each Measurement under
+        # the aliased metric's own get_short_description() — two deduped metrics may
+        # belong to different check types (e.g. missing vs invalid) and have different
+        # metric_name semantics for downstream consumers.
+        metric_aliases: dict[str, list[AggregationMetricImpl]] = {}
         if self.data_source_impl is not None:
             sql_dialect = self.data_source_impl.sql_dialect
             for metric in aggregation_metrics:
@@ -600,7 +604,7 @@ class ContractImpl:
                     canonical_by_sql[key] = metric
                     canonical_metrics.append(metric)
                 else:
-                    metric_aliases.setdefault(canonical.id, []).append(metric.id)
+                    metric_aliases.setdefault(canonical.id, []).append(metric)
         else:
             canonical_metrics = aggregation_metrics
 
@@ -1824,7 +1828,7 @@ class AggregationQuery(Query):
         dataset_name: str,
         data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
-        metric_aliases: Optional[dict[str, list[str]]] = None,
+        metric_aliases: Optional[dict[str, list["AggregationMetricImpl"]]] = None,
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
         self.cte: CTE = cte
@@ -1834,11 +1838,13 @@ class AggregationQuery(Query):
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.query_size: int = len(self.build_sql())
         self.logs: Logs = logs
-        # canonical_metric.id -> [aliased_metric.id, ...]. After execute() computes
+        # canonical_metric.id -> [aliased_metric, ...]. After execute() computes
         # a Measurement for a canonical metric, it also emits Measurements with the
-        # same value for every aliased metric id (those metrics were deduped out
-        # of the SQL but still need values for downstream check evaluation).
-        self.metric_aliases: dict[str, list[str]] = metric_aliases or {}
+        # same value for every aliased metric (those metrics were deduped out of
+        # the SQL but still need values for downstream check evaluation). We keep
+        # the full metric impls so each Measurement uses the aliased metric's own
+        # get_short_description() — two deduped metrics may have different names.
+        self.metric_aliases: dict[str, list[AggregationMetricImpl]] = metric_aliases or {}
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
         max_query_length: int = self.data_source_impl.sql_dialect.get_max_sql_statement_length()
@@ -1901,9 +1907,17 @@ class AggregationQuery(Query):
             measurements.append(
                 Measurement(metric_id=aggregation_metric_impl.id, value=measurement_value, metric_name=metric_name)
             )
-            # Mirror the value onto every aliased metric id that was deduped out
+            # Mirror the value onto every aliased metric that was deduped out
             # of this query. Each consumer (check.evaluate) looks up its metric by
-            # id; they all need to find a Measurement.
-            for aliased_id in self.metric_aliases.get(aggregation_metric_impl.id, ()):
-                measurements.append(Measurement(metric_id=aliased_id, value=measurement_value, metric_name=metric_name))
+            # id; they all need to find a Measurement. Use each aliased metric's own
+            # get_short_description() so metric_name reflects the consuming metric,
+            # not the canonical one we happened to keep in the SQL.
+            for aliased_metric in self.metric_aliases.get(aggregation_metric_impl.id, ()):
+                measurements.append(
+                    Measurement(
+                        metric_id=aliased_metric.id,
+                        value=measurement_value,
+                        metric_name=aliased_metric.get_short_description(),
+                    )
+                )
         return measurements

@@ -364,3 +364,30 @@ def test_byte_identical_aggregation_metrics_emitted_only_once(
     # Neither should be NOT_EVALUATED — both should have real numeric diagnostics.
     for r in missing_results + invalid_results:
         assert r.outcome != CheckOutcome.NOT_EVALUATED, f"{r.check.name} should have been evaluated; got {r.outcome}"
+
+    # The alias-id map is the load-bearing piece — without it, two Measurements
+    # would NOT be emitted under different metric ids and the invalid check would
+    # see missing_count as unmeasured. Assert the actual values flow through:
+    #   - test data is 4 rows, one with id=None → missing_count == 1
+    #   - missing check's missing_count diagnostic comes from its own MissingCountMetricImpl
+    #   - invalid check's missing_count diagnostic comes from the aliased one (same value)
+    # If alias emission were removed, the invalid check would coalesce missing_count
+    # to 0 via the framework default — so asserting on `missing_count == 1` here
+    # specifically covers the alias path.
+    invalid_diag = invalid_results[0].diagnostic_metric_values or {}
+    assert invalid_diag.get("missing_count") == 1, (
+        f"Invalid check's missing_count diagnostic must come from the aliased MissingCount "
+        f"measurement, not the 0 default. Got {invalid_diag!r}"
+    )
+    missing_diag = missing_results[0].diagnostic_metric_values or {}
+    assert missing_diag.get("missing_count") == 1, f"Missing check missing_count expected 1, got {missing_diag!r}"
+
+    # Each Measurement must use its own metric's name, not the canonical's.
+    # When MissingCount metrics from two check types dedup, get_short_description()
+    # returns the check type ("missing" vs "invalid"); both names must appear in
+    # the measurements collection.
+    measurement_names = {m.metric_name for m in contract_verification_result.measurements}
+    assert "missing" in measurement_names and "invalid" in measurement_names, (
+        f"Aliased Measurement must carry the aliased metric's get_short_description(), "
+        f"not the canonical's. Names present: {measurement_names}"
+    )
