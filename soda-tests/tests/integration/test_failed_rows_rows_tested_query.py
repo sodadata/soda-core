@@ -278,6 +278,66 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
     assert "checkRowsTested" not in v4
 
 
+def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    """DTL-1776: a failed_rows check's rows_tested_query must not overwrite the
+    contract-wide dataset_rows_tested.
+
+    Before the fix, the RowCountMetricImpl created to hold the rows_tested_query
+    result collided on identity hash with the contract's dataset row_count
+    metric. The RowsTestedQuery's measurement overwrote the aggregation query's
+    measurement, leaking the custom count into every check's datasetRowsTested
+    diagnostic (and also corrupting any row_count check threshold).
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    # Table has 3 rows. The rows_tested_query returns 999 — clearly different
+    # from the dataset's actual row count, so any leak is visible.
+    data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - row_count:
+                  threshold:
+                    must_be: 3
+              - failed_rows:
+                  query: |
+                    SELECT *
+                    FROM {test_table.qualified_name}
+                    WHERE ({end_quoted} - {start_quoted}) > 5
+                  rows_tested_query: |
+                    SELECT 999
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    checks = soda_core_insert_scan_results_command["checks"]
+    row_count_check = next(c for c in checks if c["checkType"] == "row_count")
+    failed_rows_check = next(c for c in checks if c["checkType"] == "failed_rows")
+
+    # The row_count check must see the ACTUAL dataset row count (3), not the
+    # rows_tested_query's 999. checkRowsTested for row_count is the threshold
+    # value the check evaluates on — leakage here would also flip the outcome.
+    assert row_count_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
+    assert row_count_check["diagnostics"]["v4"]["checkRowsTested"] == 3
+    assert row_count_check["outcome"] == "pass"
+
+    # The failed_rows check sees the dataset_rows_tested as the dataset's real
+    # count (3) and its own check_rows_tested as the custom query's result.
+    assert failed_rows_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
+    assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 999
+
+
 def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source_test_helper: DataSourceTestHelper):
     """rows_tested_query with expression mode (no query) should emit a warning."""
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
