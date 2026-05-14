@@ -522,8 +522,26 @@ class DataSourceTestHelper:
 
     def _start_test_session_replay(self) -> None:
         """Replay mode: defer real DB connection + schema creation until a
-        fallback is actually triggered (lazy initialization)."""
-        from helpers.snapshot_connection import SnapshotDataSourceConnection
+        fallback is actually triggered (lazy initialization).
+
+        Rerun-aware bypass: if the pytest rerun plugin re-evaluates the
+        session-scoped helper fixture mid-rerun (which it does because
+        ``runtestprotocol`` is called twice for the same item), skip the
+        snapshot wrapper and open a real connection directly — matching
+        the off-mode behaviour the rerun is meant to mimic. Without this,
+        the freshly-created wrapper would intercept SQL in the rerun's
+        test body and re-raise ``SnapshotNotFoundError`` / ``SnapshotMismatchError``.
+        """
+        from helpers.snapshot_connection import (
+            SnapshotDataSourceConnection,
+            get_rerun_in_progress_record,
+        )
+
+        if get_rerun_in_progress_record():
+            # Mid-rerun: behave like ``SODA_TEST_SNAPSHOT=off``.
+            self.start_test_session_open_connection()
+            self.start_test_session_ensure_schema()
+            return
 
         allow_fallback = os.getenv("SODA_TEST_SNAPSHOT_FALLBACK", "").lower() == "true"
         snap_conn = SnapshotDataSourceConnection(
@@ -547,8 +565,21 @@ class DataSourceTestHelper:
         self._install_create_additional_connection_patch()
 
     def _start_test_session_record(self) -> None:
-        """Record mode: wrap the already-opened real connection with a recording snapshot wrapper."""
-        from helpers.snapshot_connection import SnapshotDataSourceConnection
+        """Record mode: wrap the already-opened real connection with a recording snapshot wrapper.
+
+        Rerun-aware bypass: if a rerun is in progress when pytest re-evaluates
+        the session fixture, skip wrapping — the rerun must run against a
+        plain real connection.
+        """
+        from helpers.snapshot_connection import (
+            SnapshotDataSourceConnection,
+            get_rerun_in_progress_record,
+        )
+
+        if get_rerun_in_progress_record():
+            # Real connection is already open from the caller's
+            # ``start_test_session_open_connection`` call; leave it alone.
+            return
 
         snap_conn = SnapshotDataSourceConnection(
             real_connection=self.data_source_impl.data_source_connection,
