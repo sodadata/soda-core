@@ -655,15 +655,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             self._replay_data = raw if raw else None
             if self._replay_data is None:
                 snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
-                # Missing snapshot — register a rerun signal (if fallback is
-                # allowed) and raise. The pytest plugin will rerun the test
-                # end-to-end against the real DB.
+                # Missing snapshot — always register a rerun signal, regardless
+                # of ``_allow_fallback``. There's literally no recording to
+                # replay, so the only way to know if the test passes is to
+                # run it against the real DB. The pytest plugin then decides:
+                # rerun (default) or hard fail (strict mode).
                 exc = SnapshotNotFoundError(
                     f"No snapshot found for test: {test_id}\n"
                     f"  Expected at: {snapshot_path}\n"
                     f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ..."
                 )
-                self._signal_rerun_or_fail(exc)
+                _PENDING_RERUN.setdefault(test_id, str(exc))
+                raise exc
             self._replay_index = 0
             logger.info(f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}")
         elif self._mode == "record":

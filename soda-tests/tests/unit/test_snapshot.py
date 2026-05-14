@@ -399,11 +399,16 @@ class TestSnapshotConnectionReplay:
                 conn.execute_query("SELECT extra")
 
     def test_missing_snapshot_raises(self, tmp_path):
+        from helpers.snapshot_connection import reset_pending_rerun_record
+
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "tests/test_missing.py::test_gone (call)"}):
             with pytest.raises(SnapshotNotFoundError, match="No snapshot found"):
                 conn.execute_query("SELECT 1")
+        # The wrapper queues a rerun signal so the plugin can let the rerun
+        # decide the outcome; clean it up so it doesn't leak into other tests.
+        reset_pending_rerun_record()
 
 
 class TestSnapshotConnectionQueryIterate:
@@ -1499,7 +1504,7 @@ class TestRerunSignalling:
         assert test_id in get_pending_rerun_record()
 
     def test_mismatch_without_fallback_raises_without_registering(self, tmp_path):
-        """``allow_fallback=False`` means: hard fail, no rerun signal."""
+        """``allow_fallback=False`` means: hard fail on mismatch, no rerun signal."""
         manager = SnapshotManager("postgres", str(tmp_path / "s"))
         test_id = "tests/test_rerun.py::test_no_fallback"
         self._save_simple_snapshot(manager, test_id)
@@ -1517,6 +1522,29 @@ class TestRerunSignalling:
         from helpers.snapshot_connection import get_pending_rerun_record
 
         assert test_id not in get_pending_rerun_record()
+
+    def test_missing_snapshot_registers_rerun_even_without_fallback(self, tmp_path):
+        """A missing snapshot ALWAYS registers a rerun signal, regardless of
+        ``allow_fallback``. There's no recording to replay — only the real DB
+        can tell us if the test passes. The plugin then decides whether to
+        actually rerun (default) or hard fail (strict mode)."""
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_never_recorded"
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=False,  # explicitly off — mismatches would NOT signal
+        )
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            with pytest.raises(SnapshotNotFoundError):
+                conn.execute_query("SELECT 1")
+
+        # Despite allow_fallback=False, the missing snapshot still queues a rerun.
+        from helpers.snapshot_connection import get_pending_rerun_record
+
+        assert test_id in get_pending_rerun_record()
 
     def test_live_wrapper_registry_tracks_instances(self, tmp_path):
         from helpers.snapshot_connection import get_live_snapshot_wrappers
