@@ -135,16 +135,17 @@ class FailedRowsCheckImpl(CheckImpl):
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         failed_rows_count: int = measurement_values.get_value(self.failed_rows_count_metric_impl)
 
-        if self.failed_rows_check_yaml.expression:
-            threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
-                failed_rows_count, measurement_values
-            )
-        elif self.failed_rows_check_yaml.rows_tested_query:
+        # Use `check_rows_tested_metric_impl is not None` rather than reading
+        # `rows_tested_query` directly: the YAML parser only *warns* (not rejects)
+        # when rows_tested_query is supplied without a query, so the YAML field can
+        # be truthy with no corresponding metric. Gating on the metric impl avoids
+        # a `get_value(None) -> AttributeError` crash in that pathological config.
+        if self.check_rows_tested_metric_impl is not None:
             threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
                 failed_rows_count, measurement_values
             )
         else:
-            # Query-only branch: no rows_tested_query, so check_rows_tested is unknown.
+            # Bare query branch: no rows_tested_query, so check_rows_tested is unknown.
             threshold_value = failed_rows_count
             diagnostic_metric_values = {
                 "failed_rows_count": failed_rows_count,

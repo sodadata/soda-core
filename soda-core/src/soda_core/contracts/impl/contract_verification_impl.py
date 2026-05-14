@@ -677,13 +677,16 @@ class ContractImpl:
                         # call all_measured() and coalesce None → 0 in its dict.
                         required = check_impl.get_required_metric_impls()
                         if required and not measurement_values.all_measured(*required):
+                            # Merge order: defaults first, dataset_rows_tested last,
+                            # so a check that accidentally puts `dataset_rows_tested`
+                            # in its defaults can't override the real dataset value.
                             check_result: CheckResult = CheckResult(
                                 check=check_impl._build_check_info(),
                                 outcome=CheckOutcome.NOT_EVALUATED,
                                 threshold_value=None,
                                 diagnostic_metric_values={
-                                    "dataset_rows_tested": self.dataset_rows_tested,
                                     **check_impl.get_diagnostic_defaults(),
+                                    "dataset_rows_tested": self.dataset_rows_tested,
                                 },
                             )
                         else:

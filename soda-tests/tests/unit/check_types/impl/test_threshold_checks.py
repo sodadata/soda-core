@@ -386,13 +386,16 @@ def _evaluate_check(
 
     required = check.get_required_metric_impls()
     if required and not mv.all_measured(*required):
+        # Merge order matches the framework dispatch: defaults first, then
+        # dataset_rows_tested last, so a defaults dict that accidentally includes
+        # `dataset_rows_tested` cannot override the real value.
         return CheckResult(
             check=check._build_check_info(),
             outcome=CheckOutcome.NOT_EVALUATED,
             threshold_value=None,
             diagnostic_metric_values={
-                "dataset_rows_tested": dataset_rows_tested,
                 **check.get_diagnostic_defaults(),
+                "dataset_rows_tested": dataset_rows_tested,
             },
         )
     return check.evaluate(mv)
