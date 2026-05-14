@@ -459,6 +459,10 @@ class DataSourceTestHelper:
                 # test, bypass the snapshot wrapping entirely so the rerun
                 # behaves identically to SODA_TEST_SNAPSHOT=off mode.
                 if get_rerun_in_progress_record():
+                    logger.info(
+                        "SNAPSHOT: patched create_additional_connection BYPASS — "
+                        f"rerun in progress, returning real additional connection for ds_self={ds_self!r}"
+                    )
                     return cls._orig_create_additional_connection(ds_self)
 
                 if primary._mode == "replay":
@@ -539,6 +543,10 @@ class DataSourceTestHelper:
 
         if get_rerun_in_progress_record():
             # Mid-rerun: behave like ``SODA_TEST_SNAPSHOT=off``.
+            logger.info(
+                f"SNAPSHOT: _start_test_session_replay BYPASS — rerun in progress, "
+                f"opening real connection instead of installing wrapper (helper={self.name!r})"
+            )
             self.start_test_session_open_connection()
             self.start_test_session_ensure_schema()
             return
@@ -579,6 +587,10 @@ class DataSourceTestHelper:
         if get_rerun_in_progress_record():
             # Real connection is already open from the caller's
             # ``start_test_session_open_connection`` call; leave it alone.
+            logger.info(
+                f"SNAPSHOT: _start_test_session_record BYPASS — rerun in progress, "
+                f"leaving real connection in place (helper={self.name!r})"
+            )
             return
 
         snap_conn = SnapshotDataSourceConnection(

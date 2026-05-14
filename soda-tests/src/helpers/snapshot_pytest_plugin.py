@@ -87,13 +87,27 @@ def _swap_all_wrappers_to_real(test_id: str) -> list:
     """
     from helpers.snapshot_connection import get_live_snapshot_wrappers
 
+    all_wrappers = list(get_live_snapshot_wrappers())
+    logger.info(f"SNAPSHOT: rerun swap for {test_id} — {len(all_wrappers)} live wrapper(s) to consider")
     swapped: list = []
-    for wrapper in list(get_live_snapshot_wrappers()):
+    for wrapper in all_wrappers:
         try:
             if wrapper.swap_to_real_for_rerun():
                 swapped.append(wrapper)
+                logger.info(
+                    f"SNAPSHOT: rerun swap SUCCESS for {test_id} — wrapper id={id(wrapper)} "
+                    f"detached from data_source_impl; data_source_connection is now real"
+                )
+            else:
+                logger.info(
+                    f"SNAPSHOT: rerun swap SKIPPED for {test_id} — wrapper id={id(wrapper)} "
+                    f"(secondary, no back-ref, or no real connection available)"
+                )
         except Exception as exc:
-            logger.warning(f"SNAPSHOT: failed to swap wrapper to real for rerun ({test_id}): {exc!r}")
+            logger.warning(f"SNAPSHOT: rerun swap FAILED for {test_id} — wrapper id={id(wrapper)}: {exc!r}")
+    logger.info(
+        f"SNAPSHOT: rerun swap for {test_id} — {len(swapped)} of {len(all_wrappers)} wrapper(s) swapped to real"
+    )
     return swapped
 
 
@@ -179,14 +193,17 @@ def pytest_runtest_protocol(item, nextitem):  # noqa: D401
     # (DwhSnapshotInterceptor's wrapper, recon secondaries) take the
     # bypass path and don't wrap anything.
     begin_rerun_in_progress(item.nodeid)
+    logger.info(f"SNAPSHOT: rerun ENTER — _RERUN_IN_PROGRESS set for {item.nodeid}")
     swapped = _swap_all_wrappers_to_real(item.nodeid)
     _reset_per_test_rerun_state()  # clear queue before the second attempt
 
     try:
+        logger.info(f"SNAPSHOT: rerun CALL runtestprotocol(attempt=2) for {item.nodeid}")
         second_reports = runtestprotocol(item, nextitem=nextitem, log=False)
     finally:
         _restore_all_swapped_wrappers(swapped)
         end_rerun_in_progress(item.nodeid)
+        logger.info(f"SNAPSHOT: rerun EXIT — _RERUN_IN_PROGRESS cleared for {item.nodeid}")
     # If the rerun also signalled another rerun, that's a hard failure —
     # the user asked for at most one rerun.
     leftover = _pop_rerun_reason(item.nodeid)

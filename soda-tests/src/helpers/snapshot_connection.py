@@ -668,10 +668,14 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 _PENDING_RERUN.setdefault(test_id, str(exc))
                 raise exc
             self._replay_index = 0
-            logger.info(f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}")
+            rerun_marker = " [INSIDE-RERUN]" if _RERUN_IN_PROGRESS else ""
+            logger.info(
+                f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}"
+                f" (wrapper id={id(self)}){rerun_marker}"
+            )
         elif self._mode == "record":
             self._recording = []
-            logger.info(f"SNAPSHOT: Recording SQL for {test_id}")
+            logger.info(f"SNAPSHOT: Recording SQL for {test_id} (wrapper id={id(self)})")
 
     def _record_entry(self, entry: SnapshotEntry) -> None:
         """Append an entry to the recording, normalizing with current replacements.
@@ -883,6 +887,11 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         test_id = self._current_test_id
         if test_id is not None and self._allow_fallback:
             _PENDING_RERUN.setdefault(test_id, str(exc))
+            logger.info(
+                f"SNAPSHOT: queued rerun for {test_id} — wrapper id={id(self)} "
+                f"primary_snapshot={'yes' if self._primary_snapshot else 'no'} "
+                f"reason={type(exc).__name__}"
+            )
         raise exc
 
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
