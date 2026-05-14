@@ -338,6 +338,63 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
     assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 999
 
 
+def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    """DTL-1776 — percent variant: the existing percent test uses
+    `SELECT COUNT(*)` returning 3, which coincidentally matches the dataset's
+    real row count and so hides any identity-collision regression on the
+    percent path. This test forces a divergent value to lock that down.
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - row_count:
+                  threshold:
+                    must_be: 3
+              - failed_rows:
+                  query: |
+                    SELECT *
+                    FROM {test_table.qualified_name}
+                    WHERE ({end_quoted} - {start_quoted}) > 5
+                  rows_tested_query: |
+                    SELECT 4
+                  threshold:
+                    metric: percent
+                    must_be_less_than: 10
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    checks = soda_core_insert_scan_results_command["checks"]
+    row_count_check = next(c for c in checks if c["checkType"] == "row_count")
+    failed_rows_check = next(c for c in checks if c["checkType"] == "failed_rows")
+
+    # row_count must see the real dataset count, not the rows_tested_query's 4.
+    assert row_count_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
+    assert row_count_check["diagnostics"]["v4"]["checkRowsTested"] == 3
+    assert row_count_check["outcome"] == "pass"
+
+    # failed_rows percent is 2/4 = 50% > 10% threshold → fails. The check's
+    # own check_rows_tested is the user's 4 (intentional), while the contract
+    # dataset_rows_tested stays at 3.
+    assert failed_rows_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
+    assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 4
+    assert failed_rows_check["diagnostics"]["v4"]["failedRowsPercent"] == 50.0
+
+
 def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source_test_helper: DataSourceTestHelper):
     """rows_tested_query with expression mode (no query) should emit a warning."""
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
