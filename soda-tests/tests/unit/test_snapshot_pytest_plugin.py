@@ -15,135 +15,6 @@ pytest_plugins = ["pytester"]
 
 
 @pytest.fixture
-def _reset_fallback_registry():
-    """Each inner pytest run starts with a clean registry. Outer test relies on
-    the plugin's pytest_configure to clear it, but we belt-and-braces here so
-    interleaved tests don't pollute each other."""
-    from helpers.snapshot_connection import reset_fallback_test_record
-
-    reset_fallback_test_record()
-    yield
-    reset_fallback_test_record()
-
-
-def _conftest_text() -> str:
-    return 'pytest_plugins = ["helpers.snapshot_pytest_plugin"]\n'
-
-
-def _inner_test_recording_fallback(test_id: str, reason: str = "mismatch on op #3") -> str:
-    """Return source for a test that registers a fallback entry then passes.
-
-    The plugin's reporting path only cares about the registry — it doesn't need
-    a real SnapshotDataSourceConnection. By driving the registry directly we
-    keep the test fast and free of DB setup.
-    """
-    # Note: the inner test runs in its own pytest invocation. PYTEST_CURRENT_TEST
-    # is set automatically by pytest there.
-    return f"""
-from helpers.snapshot_connection import _FALLBACK_TEST_RECORD
-
-def test_target():
-    # Simulate snapshot fallback being triggered for THIS test's nodeid.
-    _FALLBACK_TEST_RECORD["{test_id}"] = "{reason}"
-"""
-
-
-def test_passing_test_with_fallback_is_displayed_as_fallback(pytester, _reset_fallback_registry):
-    """A passing test that triggered fallback should show ``FALLBACK`` (not ``PASSED``)
-    in verbose output, and contribute to a fallback summary section."""
-    pytester.makeconftest(_conftest_text())
-    test_id = "test_passing_fallback.py::test_target"
-    pytester.makepyfile(test_passing_fallback=_inner_test_recording_fallback(test_id))
-
-    result = pytester.runpytest("-v")
-
-    # Real outcome is preserved: the test counts as passed.
-    result.assert_outcomes(passed=1)
-    # Verbose output shows "FALLBACK: PASSED" in place of plain "PASSED".
-    assert any(
-        "FALLBACK: PASSED" in line for line in result.outlines
-    ), "Expected 'FALLBACK: PASSED' verbose label; got:\n" + "\n".join(result.outlines)
-    # End-of-session section lists the test and its reason.
-    assert any(
-        "snapshot fallback triggered" in line for line in result.outlines
-    ), "Expected fallback summary section; got:\n" + "\n".join(result.outlines)
-    assert any(test_id in line for line in result.outlines)
-    assert any("mismatch on op #3" in line for line in result.outlines)
-
-
-def test_failing_test_with_fallback_is_displayed_as_fallback_failed(pytester, _reset_fallback_registry):
-    """A failing test that also triggered fallback should still count as failed
-    (exit code, summary), but the verbose label and short-char colour flag the
-    fallback so the reader sees both signals."""
-    pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_failing_fallback="""
-from helpers.snapshot_connection import _FALLBACK_TEST_RECORD
-
-def test_target():
-    _FALLBACK_TEST_RECORD["test_failing_fallback.py::test_target"] = "mismatch reason"
-    assert False, "intentional"
-"""
-    )
-
-    result = pytester.runpytest("-v")
-    # Real outcome is preserved: counts as failed.
-    result.assert_outcomes(failed=1)
-    assert result.ret != 0
-    assert any(
-        "FALLBACK: FAILED" in line for line in result.outlines
-    ), "Expected 'FALLBACK: FAILED' verbose label; got:\n" + "\n".join(result.outlines)
-    # Summary section still lists this test.
-    assert any("snapshot fallback triggered" in line for line in result.outlines)
-
-
-def test_no_summary_section_when_no_fallback(pytester, _reset_fallback_registry):
-    """Sessions with no fallback events should not print the summary section."""
-    pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_plain="""
-def test_plain():
-    assert True
-"""
-    )
-
-    result = pytester.runpytest("-v")
-    result.assert_outcomes(passed=1)
-    assert not any("snapshot fallback triggered" in line for line in result.outlines)
-
-
-def test_fallback_test_count_in_summary_message(pytester, _reset_fallback_registry):
-    """Summary line should report the correct fallback count."""
-    pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_multi="""
-from helpers.snapshot_connection import _FALLBACK_TEST_RECORD
-
-def test_a():
-    _FALLBACK_TEST_RECORD["test_multi.py::test_a"] = "reason A"
-
-def test_b():
-    _FALLBACK_TEST_RECORD["test_multi.py::test_b"] = "reason B"
-
-def test_c():
-    pass  # no fallback
-"""
-    )
-
-    result = pytester.runpytest("-v")
-    # All 3 still count as passed (categories preserved).
-    result.assert_outcomes(passed=3)
-    assert any(
-        "2 test(s) triggered snapshot fallback" in line for line in result.outlines
-    ), "Expected fallback count of 2 in summary; got:\n" + "\n".join(result.outlines)
-
-
-# ---------------------------------------------------------------------------
-# Rerun model (pytest_runtest_protocol)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
 def _reset_rerun_registry():
     """Each rerun-mode pytester run starts with a clean rerun registry."""
     from helpers.snapshot_connection import reset_pending_rerun_record
@@ -153,22 +24,19 @@ def _reset_rerun_registry():
     reset_pending_rerun_record()
 
 
-def test_rerun_protocol_intercepts_first_attempt_replay_error(pytester, _reset_rerun_registry, monkeypatch):
-    """Under SODA_TEST_SNAPSHOT_RERUN=true a test that raises SnapshotMismatchError
-    on its first attempt is automatically re-run; the second attempt sees the
-    test passing and the protocol reports it as RERAN: PASSED.
-    """
-    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+def _conftest_text() -> str:
+    return 'pytest_plugins = ["helpers.snapshot_pytest_plugin"]\n'
+
+
+def test_rerun_protocol_intercepts_first_attempt_replay_error(pytester, _reset_rerun_registry):
+    """A test that raises SnapshotMismatchError on its first attempt is
+    automatically re-run; the second attempt sees the test passing and the
+    protocol reports it as RERAN: PASSED."""
     pytester.makeconftest(_conftest_text())
-    # Inner test: first attempt populates _PENDING_RERUN and raises a
-    # SnapshotMismatchError; the plugin re-runs and on the second attempt
-    # (state="second") the test passes cleanly.
     pytester.makepyfile(
         test_rerun="""
 import os
-from helpers.snapshot_connection import (
-    _PENDING_RERUN, get_live_snapshot_wrappers,
-)
+from helpers.snapshot_connection import _PENDING_RERUN
 from helpers.snapshot_manager import SnapshotMismatchError
 
 _STATE = {"attempt": 0}
@@ -193,10 +61,9 @@ def test_target():
     ), "Expected rerun summary section; got:\n" + "\n".join(result.outlines)
 
 
-def test_rerun_protocol_reports_failure_when_rerun_also_fails(pytester, _reset_rerun_registry, monkeypatch):
+def test_rerun_protocol_reports_failure_when_rerun_also_fails(pytester, _reset_rerun_registry):
     """If both first attempt and rerun fail, the test counts as FAILED and the
     label is RERAN: FAILED — we don't try a third time."""
-    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
     pytester.makeconftest(_conftest_text())
     pytester.makepyfile(
         test_rerun_fail="""
@@ -220,10 +87,11 @@ def test_broken():
     assert any("RERAN: FAILED" in line for line in result.outlines), "\n".join(result.outlines)
 
 
-def test_rerun_protocol_does_not_fire_when_flag_off(pytester, _reset_rerun_registry, monkeypatch):
-    """With the rerun flag explicitly off, a SnapshotMismatchError bubbles up
-    as a normal failure — no rerun, no RERAN label."""
-    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "false")
+def test_rerun_protocol_does_not_fire_in_strict_mode(pytester, _reset_rerun_registry, monkeypatch):
+    """With SODA_TEST_SNAPSHOT_STRICT=true a SnapshotMismatchError bubbles up
+    as a normal failure — no rerun, no RERAN label. Used for nightly post-
+    record verification to catch non-deterministic SQL."""
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
     pytester.makeconftest(_conftest_text())
     pytester.makepyfile(
         test_no_rerun="""
@@ -232,7 +100,7 @@ from helpers.snapshot_manager import SnapshotMismatchError
 
 def test_target():
     _PENDING_RERUN["test_no_rerun.py::test_target"] = "ignored"
-    raise SnapshotMismatchError("not re-runnable when flag is off")
+    raise SnapshotMismatchError("not re-runnable under strict mode")
 """
     )
 
@@ -241,11 +109,10 @@ def test_target():
     assert not any("RERAN" in line for line in result.outlines)
 
 
-def test_rerun_skipped_when_setup_fails(pytester, _reset_rerun_registry, monkeypatch):
+def test_rerun_skipped_when_setup_fails(pytester, _reset_rerun_registry):
     """Even if a test queues itself for rerun, a setup-phase failure means
     no rerun is attempted — the test must pass setup/teardown for a rerun
     to make sense (per the design spec)."""
-    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
     pytester.makeconftest(_conftest_text())
     pytester.makepyfile(
         test_setup_fails="""
@@ -264,3 +131,22 @@ def test_with_broken_setup(broken_fixture):
     result = pytester.runpytest("-v")
     result.assert_outcomes(errors=1)
     assert not any("RERAN" in line for line in result.outlines)
+
+
+def test_strict_mode_banner_in_terminal_summary(pytester, _reset_rerun_registry, monkeypatch):
+    """In strict mode the terminal summary shows a banner so the user knows
+    snapshot mismatches will fail hard rather than rerun."""
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
+    pytester.makeconftest(_conftest_text())
+    pytester.makepyfile(
+        test_plain="""
+def test_plain():
+    assert True
+"""
+    )
+
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1)
+    assert any(
+        "SODA_TEST_SNAPSHOT_STRICT=true" in line for line in result.outlines
+    ), "Expected strict-mode banner in output; got:\n" + "\n".join(result.outlines)

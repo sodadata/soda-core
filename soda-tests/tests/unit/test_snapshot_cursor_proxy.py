@@ -21,16 +21,14 @@ from helpers.snapshot_manager import SnapshotManager, SnapshotMismatchError
 
 @pytest.fixture(autouse=True)
 def _disable_rerun(monkeypatch):
-    """Opt these tests out of the default rerun model.
+    """Opt these tests out of the plugin's rerun hook.
 
     These tests exercise the raw-cursor record/replay primitives and use
-    ``pytest.raises(SnapshotMismatchError)`` to assert the legacy "raise on
-    mismatch" contract. Under the rerun model the plugin would re-run the
-    failing case against a fake real connection (which doesn't raise), so
-    those assertions would spuriously fail. Pure unit tests — no plugin
-    rerun should kick in here.
+    ``pytest.raises(SnapshotMismatchError)`` to assert the wrapper's "raise
+    on mismatch" contract. Strict mode short-circuits the rerun plugin so
+    those assertions land cleanly.
     """
-    monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "false")
+    monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
 
 
 # ---------------------------------------------------------------------------
@@ -307,46 +305,6 @@ def test_replay_mismatch_without_fallback_raises(tmp_path) -> None:
         cur.execute("SELECT 2")  # different SQL
 
 
-def test_secondary_in_fallback_opens_its_own_real_connection(tmp_path) -> None:
-    """Regression: when the primary falls back to real DB mid-replay, a
-    cursor on a *secondary* (linked via primary_snapshot) must open the
-    secondary's own _real, not just rely on the primary's. Otherwise
-    self._owner._real stays None and cursor() crashes with
-    'NoneType' object has no attribute 'connection'."""
-    # Pre-condition: primary is in replay mode with fallback already active
-    # (mimicking the auto-record-on-missing-snapshot path that CI hits when a
-    # new test has no cached snapshot yet).
-    primary_real_dbapi = _FakeDbapiConnection(cursors=[_FakeDbapiCursor(rows=[(99,)], description=(("v", "int"),))])
-    primary_real = _FakeRealConnection(primary_real_dbapi)
-    primary = _make_replay_snapshot(tmp_path, fallback_real=primary_real)
-    primary._fallback_active = True  # simulate active fallback on the primary stream
-    primary._real = primary_real  # primary already opened its real
-
-    # Secondary is created in replay mode with _real=None and a lazy factory
-    # (this is exactly what the patched create_additional_connection produces).
-    secondary_real_dbapi = _FakeDbapiConnection(cursors=[_FakeDbapiCursor(rows=[(7,)], description=(("v", "int"),))])
-    secondary_real = _FakeRealConnection(secondary_real_dbapi)
-    secondary = SnapshotDataSourceConnection(
-        real_connection=None,
-        snapshot_manager=primary._snapshot_manager,
-        mode="replay",
-        fallback_connection_factory=lambda: secondary_real,
-        allow_fallback=True,
-        primary_snapshot=primary,
-    )
-    assert secondary._real is None
-
-    # Act: execute via the secondary's cursor. Without the fix this crashes
-    # with AttributeError("'NoneType' object has no attribute 'connection'").
-    secondary.connection.cursor().execute("SELECT v FROM t")
-
-    # The secondary opened its OWN real connection lazily.
-    assert secondary._real is secondary_real
-    # And drove it once.
-    assert len(secondary_real_dbapi.cursors_returned) == 1
-    assert secondary_real_dbapi.cursors_returned[0].executed_sql == ["SELECT v FROM t"]
-
-
 # ---------------------------------------------------------------------------
 # primary_snapshot delegation
 # ---------------------------------------------------------------------------
@@ -407,63 +365,3 @@ def test_secondary_replay_pulls_from_primary_stream(tmp_path) -> None:
     s_cur.execute("SELECT 2 FROM target")
     assert p_cur.fetchmany(1) == primary_rows
     assert s_cur.fetchmany(1) == secondary_rows
-
-
-# ---------------------------------------------------------------------------
-# _activate_fallback handling for cursor_execute entries
-# ---------------------------------------------------------------------------
-
-
-def test_activate_fallback_preserves_cursor_execute_entries_without_re_execution(tmp_path) -> None:
-    """When fallback kicks in mid-replay, already-consumed cursor_execute entries
-    must be preserved as-is (they're read-only and tied to live cursor state)."""
-    # Record three ops: two queries (results come from _Real._results) and a
-    # cursor_execute in between (served from the real DBAPI cursor).
-    real_cur = _FakeDbapiCursor(rows=[(9,)], description=(("v", "int"),))
-    dbapi = _FakeDbapiConnection(cursors=[real_cur])
-    # We need both execute_query (via real_connection) and a cursor: build a
-    # custom _FakeRealConnection where execute_query returns a QueryResult.
-    from soda_core.common.data_source_results import QueryResult
-
-    class _Real(_FakeRealConnection):
-        def __init__(self, dbapi_):
-            super().__init__(dbapi_)
-            self._results = iter(
-                [
-                    QueryResult(rows=[(7,)], columns=(("v", "int"),)),
-                    QueryResult(rows=[(8,)], columns=(("v", "int"),)),
-                ]
-            )
-
-        def execute_query(self, sql, log_query=True):
-            return next(self._results)
-
-    real = _Real(dbapi)
-    manager = SnapshotManager(datasource_type="unit", snapshot_dir=str(tmp_path))
-    rec = SnapshotDataSourceConnection(
-        real_connection=real,
-        snapshot_manager=manager,
-        mode="record",
-    )
-    rec.execute_query("SELECT 7")
-    rec.connection.cursor().execute("SELECT v FROM cursor_path")
-    rec.execute_query("SELECT 8")
-    rec.finalize()
-
-    # Replay; trigger a mismatch on op #2 (the second execute_query) so fallback runs.
-    fallback_real = _Real(dbapi)
-    rep = _make_replay_snapshot(tmp_path, fallback_real=fallback_real)
-    # Consume op #0 normally.
-    res0 = rep.execute_query("SELECT 7")
-    assert res0.rows == [(7,)]
-    # Consume op #1 (cursor_execute) — replayed from snapshot.
-    cur = rep.connection.cursor()
-    cur.execute("SELECT v FROM cursor_path")
-    assert cur.fetchmany(1) == [(9,)]
-    # Now force a mismatch on op #2 → triggers _activate_fallback.
-    # The fallback path re-executes prior ops to rebuild the recording; the
-    # cursor_execute at index 1 must be preserved verbatim, not re-executed.
-    rep.execute_query("SELECT 99")  # mismatch vs recorded "SELECT 8"
-    cursor_entries = [e for e in rep._recording if e.op_type == _SnapshotCursor._OP_TYPE]
-    assert len(cursor_entries) == 1
-    assert cursor_entries[0].sql == "SELECT v FROM cursor_path"
