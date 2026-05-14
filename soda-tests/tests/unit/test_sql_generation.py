@@ -281,3 +281,65 @@ def test_sql_ast_union_all():
     assert (
         my_union_statement == '(\nSELECT "name"\nFROM "customers"\n)\nUNION ALL\n(\nSELECT "age"\nFROM "customers"\n);'
     )
+
+
+# ---------------------------------------------------------------------------
+# ALIAS — DTL-1780 consolidation
+# ---------------------------------------------------------------------------
+
+
+def test_alias_renders_expression_with_quoted_alias():
+    """Baseline: ALIAS(<expr>, name) emits `<expr> AS "<name>"`."""
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(ALIAS(COLUMN("name"), "n")) == '"name" AS "n"'
+
+
+def test_alias_wraps_arbitrary_expression():
+    """ALIAS must wrap any SqlExpression (LITERAL, COUNT, COMBINED_HASH, etc.) — the
+    pre-DTL-1780 per-class field_alias mechanism only worked on COLUMN and COUNT."""
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(ALIAS(LITERAL(None), "database_name")) == 'NULL AS "database_name"'
+    assert sql_dialect.build_expression_sql(ALIAS(COUNT(STAR()), "n_count")) == 'COUNT(*) AS "n_count"'
+
+
+def test_column_AS_returns_alias_node():
+    """`COLUMN(...).AS("x")` is the legacy fluent API for aliasing. Post-DTL-1780 it
+    must return an ALIAS wrapper (not a mutated COLUMN with field_alias) so that
+    consumers can inspect the alias as `.alias` instead of `.field_alias`."""
+    aliased = COLUMN("name").AS("output")
+    assert isinstance(aliased, ALIAS), f"COLUMN.AS must return ALIAS; got {type(aliased).__name__}"
+    assert aliased.alias == "output"
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(aliased) == '"name" AS "output"'
+
+
+def test_column_no_longer_accepts_field_alias_kwarg():
+    """Regression guard: a re-introduction of `field_alias` on COLUMN would silently
+    revive the deprecated per-class aliasing path."""
+    import pytest
+
+    with pytest.raises(TypeError):
+        COLUMN("name", field_alias="x")  # type: ignore[call-arg]
+
+
+def test_count_no_longer_accepts_field_alias_kwarg():
+    """Same guard for COUNT."""
+    import pytest
+
+    with pytest.raises(TypeError):
+        COUNT(STAR(), field_alias="x")  # type: ignore[call-arg]
+
+
+def test_alias_in_select_list_emits_in_sql():
+    """End-to-end: ALIAS inside SELECT emits the `AS` clause in the rendered SQL.
+    Load-bearing case for metadata queries that synthesize literal-backed output
+    columns (e.g. `NULL AS "database_name"`)."""
+    sql_dialect: SqlDialect = SqlDialect()
+    sql = sql_dialect.build_select_sql(
+        [
+            SELECT([ALIAS(LITERAL(None), "database_name"), ALIAS(COLUMN("name"), "table_name")]),
+            FROM("information_schema.tables"),
+        ]
+    )
+    assert 'NULL AS "database_name"' in sql
+    assert '"name" AS "table_name"' in sql
