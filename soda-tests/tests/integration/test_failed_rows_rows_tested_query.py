@@ -325,6 +325,10 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
 
     assert failed_rows_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
     assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 999
+    # 2 failing rows vs. default must_be=0 → fail. Pinned so a regression in
+    # threshold evaluation (the metric is the threshold value) shows up here
+    # rather than only via assert_contract_fail (any-check-fail wildcard).
+    assert failed_rows_check["outcome"] == "fail"
 
 
 def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
@@ -378,6 +382,7 @@ def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
     assert failed_rows_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
     assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 4
     assert failed_rows_check["diagnostics"]["v4"]["failedRowsPercent"] == pytest.approx(50.0)
+    assert failed_rows_check["outcome"] == "fail"
 
 
 def test_two_failed_rows_checks_resolve_to_distinct_metrics(
@@ -439,6 +444,12 @@ def test_two_failed_rows_checks_resolve_to_distinct_metrics(
     # RowsTestedQueryMetricImpl ids collided.
     assert over_5["diagnostics"]["v4"]["checkRowsTested"] == 100
     assert over_8["diagnostics"]["v4"]["checkRowsTested"] == 200
+
+    # Both have > 0 failing rows vs default must_be=0 → both fail. Pinned per
+    # check so a wrong outcome on either side doesn't hide behind the other
+    # via assert_contract_fail (any-check-fail wildcard).
+    assert over_5["outcome"] == "fail"
+    assert over_8["outcome"] == "fail"
 
 
 def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source_test_helper: DataSourceTestHelper):
