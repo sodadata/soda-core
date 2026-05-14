@@ -281,14 +281,9 @@ def test_failed_rows_rows_tested_query_returns_null(data_source_test_helper: Dat
 def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
     data_source_test_helper: DataSourceTestHelper,
 ):
-    """DTL-1776: a failed_rows check's rows_tested_query must not overwrite the
-    contract-wide dataset_rows_tested.
-
-    Before the fix, the RowCountMetricImpl created to hold the rows_tested_query
-    result collided on identity hash with the contract's dataset row_count
-    metric. The RowsTestedQuery's measurement overwrote the aggregation query's
-    measurement, leaking the custom count into every check's datasetRowsTested
-    diagnostic (and also corrupting any row_count check threshold).
+    """A failed_rows rows_tested_query must not overwrite the contract's
+    dataset_rows_tested. Regression for an identity-hash collision between
+    the per-check rows-tested metric and the contract row_count metric.
     """
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -301,8 +296,7 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
         ]
     )
 
-    # Table has 3 rows. The rows_tested_query returns 999 — clearly different
-    # from the dataset's actual row count, so any leak is visible.
+    # rows_tested_query returns 999 vs. actual 3 — any leak is visible.
     data_source_test_helper.assert_contract_fail(
         test_table=test_table,
         contract_yaml_str=f"""
@@ -325,15 +319,10 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
     row_count_check = next(c for c in checks if c["checkType"] == "row_count")
     failed_rows_check = next(c for c in checks if c["checkType"] == "failed_rows")
 
-    # The row_count check must see the ACTUAL dataset row count (3), not the
-    # rows_tested_query's 999. checkRowsTested for row_count is the threshold
-    # value the check evaluates on — leakage here would also flip the outcome.
     assert row_count_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
     assert row_count_check["diagnostics"]["v4"]["checkRowsTested"] == 3
     assert row_count_check["outcome"] == "pass"
 
-    # The failed_rows check sees the dataset_rows_tested as the dataset's real
-    # count (3) and its own check_rows_tested as the custom query's result.
     assert failed_rows_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
     assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 999
 
@@ -341,10 +330,9 @@ def test_failed_rows_rows_tested_query_does_not_leak_to_other_checks(
 def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
     data_source_test_helper: DataSourceTestHelper,
 ):
-    """DTL-1776 — percent variant: the existing percent test uses
-    `SELECT COUNT(*)` returning 3, which coincidentally matches the dataset's
-    real row count and so hides any identity-collision regression on the
-    percent path. This test forces a divergent value to lock that down.
+    """Percent-path regression. The sibling percent test happens to use a
+    rows_tested_query that returns the real dataset count, which masks any
+    identity-collision regression. This forces a divergent value.
     """
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
@@ -382,17 +370,75 @@ def test_failed_rows_rows_tested_query_percent_does_not_leak_to_other_checks(
     row_count_check = next(c for c in checks if c["checkType"] == "row_count")
     failed_rows_check = next(c for c in checks if c["checkType"] == "failed_rows")
 
-    # row_count must see the real dataset count, not the rows_tested_query's 4.
     assert row_count_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
     assert row_count_check["diagnostics"]["v4"]["checkRowsTested"] == 3
     assert row_count_check["outcome"] == "pass"
 
-    # failed_rows percent is 2/4 = 50% > 10% threshold → fails. The check's
-    # own check_rows_tested is the user's 4 (intentional), while the contract
-    # dataset_rows_tested stays at 3.
+    # 2 failing rows / 4 reported by rows_tested_query → 50% > 10% threshold.
     assert failed_rows_check["diagnostics"]["v4"]["datasetRowsTested"] == 3
     assert failed_rows_check["diagnostics"]["v4"]["checkRowsTested"] == 4
-    assert failed_rows_check["diagnostics"]["v4"]["failedRowsPercent"] == 50.0
+    assert failed_rows_check["diagnostics"]["v4"]["failedRowsPercent"] == pytest.approx(50.0)
+
+
+def test_two_failed_rows_checks_resolve_to_distinct_metrics(
+    data_source_test_helper: DataSourceTestHelper,
+):
+    """Two failed_rows checks with different `query` (and different
+    `rows_tested_query`) must produce independent measurements — both the
+    failed_rows_count metric and the rows_tested_query metric must include
+    their SQL in the identity hash so they don't share an id.
+    """
+    test_table = data_source_test_helper.ensure_test_table(test_table_specification)
+
+    end_quoted = data_source_test_helper.quote_column("end")
+    start_quoted = data_source_test_helper.quote_column("start")
+
+    data_source_test_helper.enable_soda_cloud_mock(
+        [
+            MockResponse(status_code=200, json_object={"fileId": "a81bc81b-dead-4e5d-abff-90865d1e13b1"}),
+        ]
+    )
+
+    # Rows are (0,4), (10,20), (10,17). end-start = 4, 10, 7.
+    #   > 5 selects 2 rows; > 8 selects 1 row. Distinct counts.
+    data_source_test_helper.assert_contract_fail(
+        test_table=test_table,
+        contract_yaml_str=f"""
+            checks:
+              - failed_rows:
+                  qualifier: gap_over_5
+                  query: |
+                    SELECT *
+                    FROM {test_table.qualified_name}
+                    WHERE ({end_quoted} - {start_quoted}) > 5
+                  rows_tested_query: |
+                    SELECT 100
+              - failed_rows:
+                  qualifier: gap_over_8
+                  query: |
+                    SELECT *
+                    FROM {test_table.qualified_name}
+                    WHERE ({end_quoted} - {start_quoted}) > 8
+                  rows_tested_query: |
+                    SELECT 200
+        """,
+    )
+
+    soda_core_insert_scan_results_command = data_source_test_helper.soda_cloud.requests[1].json
+    checks = soda_core_insert_scan_results_command["checks"]
+    check_by_path = {c["checkPath"]: c for c in checks}
+    over_5 = next(c for path, c in check_by_path.items() if path.endswith("gap_over_5"))
+    over_8 = next(c for path, c in check_by_path.items() if path.endswith("gap_over_8"))
+
+    # Distinct failed_rows_count per check — would collapse to one value if
+    # FailedRowsQueryMetricImpl ids collided.
+    assert over_5["diagnostics"]["v4"]["failedRowsCount"] == 2
+    assert over_8["diagnostics"]["v4"]["failedRowsCount"] == 1
+
+    # Distinct check_rows_tested per check — would collapse if
+    # RowsTestedQueryMetricImpl ids collided.
+    assert over_5["diagnostics"]["v4"]["checkRowsTested"] == 100
+    assert over_8["diagnostics"]["v4"]["checkRowsTested"] == 200
 
 
 def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source_test_helper: DataSourceTestHelper):

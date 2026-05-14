@@ -104,17 +104,11 @@ class FailedRowsCheckImpl(CheckImpl):
                 self.queries.append(failed_rows_count_query)
 
             if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
-                # DTL-1776: must NOT share identity with the contract-wide row_count
-                # metric. A plain RowCountMetricImpl with no filter hashes identical
-                # to ContractImpl.row_count_metric_impl, so RowsTestedQuery's
-                # measurement would overwrite dataset_rows_tested and leak this
-                # check's custom count into every other check's diagnostics.
+                # Must NOT use RowCountMetricImpl here — its identity hash
+                # would match the contract-wide row_count metric and the
+                # custom-query measurement would clobber dataset_rows_tested.
                 self.check_rows_tested_metric_impl = self._resolve_metric(
-                    RowsTestedQueryMetricImpl(
-                        contract_impl=contract_impl,
-                        check_impl=self,
-                        rows_tested_query=self.failed_rows_check_yaml.rows_tested_query,
-                    )
+                    RowsTestedQueryMetricImpl(contract_impl=contract_impl, check_impl=self)
                 )
                 rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
                 if contract_impl.should_apply_sampling:
@@ -241,26 +235,14 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
 
 
 class RowsTestedQueryMetricImpl(MetricImpl):
-    """Holds the row count returned by a user-provided rows_tested_query.
-
-    Why: a plain `RowCountMetricImpl` would collide on identity with the
-    contract's dataset-wide row_count metric (same type, dataset, no filter),
-    causing the RowsTestedQuery's measurement to overwrite
-    `dataset_rows_tested` and leak into every other check's diagnostics
-    (DTL-1776). This subclass keeps the SQL in its identity hash so two
-    failed_rows checks with the same rows_tested_query may still share a
-    metric, while different queries — and the contract row_count metric — get
-    distinct ids. It is intentionally NOT an AggregationMetricImpl: the value
-    comes from the user's query, not the dataset COUNT(*) aggregation.
+    """Row count from a user-provided rows_tested_query. SQL is part of the
+    identity so it can't collide with the contract row_count metric, and two
+    checks with the same SQL still share one measurement. Not an
+    AggregationMetricImpl: the value comes from the user's query, not COUNT(*).
     """
 
-    def __init__(
-        self,
-        contract_impl: ContractImpl,
-        check_impl: FailedRowsCheckImpl,
-        rows_tested_query: str,
-    ):
-        self.rows_tested_query: str = rows_tested_query
+    def __init__(self, contract_impl: ContractImpl, check_impl: FailedRowsCheckImpl):
+        self.rows_tested_query: str = check_impl.failed_rows_check_yaml.rows_tested_query
         super().__init__(
             contract_impl=contract_impl,
             metric_type="rows_tested_query",
