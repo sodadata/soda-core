@@ -2,6 +2,7 @@ from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.test_functions import get_diagnostic_value
 from helpers.test_table import TestTableSpecification
 from soda_core.contracts.contract_verification import (
+    CheckOutcome,
     CheckResult,
     ContractVerificationResult,
 )
@@ -182,8 +183,16 @@ def test_two_invalid_reference_checks_with_different_filters_resolve_to_distinct
     )
 
     check_by_qualifier = {cr.check.qualifier: cr for cr in contract_verification_result.check_results}
-    assert get_diagnostic_value(check_by_qualifier["low_ids"], "invalid_count") == 1
-    assert get_diagnostic_value(check_by_qualifier["high_ids"], "invalid_count") == 2
+    low_ids = check_by_qualifier["low_ids"]
+    high_ids = check_by_qualifier["high_ids"]
+
+    assert get_diagnostic_value(low_ids, "invalid_count") == 1
+    assert get_diagnostic_value(high_ids, "invalid_count") == 2
+
+    # Both have > 0 invalid vs default must_be=0 → both fail. Pinned so a
+    # wrong outcome doesn't hide behind assert_contract_fail (any-check-fail).
+    assert low_ids.outcome == CheckOutcome.FAILED
+    assert high_ids.outcome == CheckOutcome.FAILED
 
 
 def test_invalid_count_excl_missing(data_source_test_helper: DataSourceTestHelper):
