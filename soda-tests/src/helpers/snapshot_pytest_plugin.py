@@ -23,20 +23,39 @@ import logging
 from typing import Optional
 
 import pytest
+from helpers.snapshot_connection import (
+    begin_rerun_in_progress,
+    end_rerun_in_progress,
+    get_live_snapshot_wrappers,
+    get_pending_rerun_record,
+    is_strict_mode_enabled,
+    reset_pending_rerun_record,
+    set_pytest_plugin_active,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def pytest_configure(config) -> None:  # noqa: D401
-    """Reset the per-process pending-rerun registry at session start.
+# Key used to ferry the rerun reason through xdist via report.user_properties.
+# JUnit XML schema requires attribute names matching [A-Za-z][A-Za-z0-9._-]*,
+# so this key cannot start with an underscore (F11).
+_RERAN_USER_PROPERTY_KEY = "soda_snapshot_reran_reason"
+
+
+def pytest_configure(config) -> None:
+    """Reset per-process state at session start and signal plugin presence.
 
     Stale entries can leak across pytest invocations when running under
     ``pytest --pdb-trace`` style workflows that reuse the interpreter. Clearing
     on configure makes each session start with a clean slate.
-    """
-    from helpers.snapshot_connection import reset_pending_rerun_record
 
+    No matching ``pytest_unconfigure`` hook — the active flag is process-wide,
+    and our own unit tests spin up nested ``pytester`` sessions that would
+    otherwise clear it for the outer process when they tear down.
+    """
     reset_pending_rerun_record()
+    _RERAN_TEST_RECORD.clear()
+    set_pytest_plugin_active(True)
 
 
 # ---------------------------------------------------------------------------
@@ -56,22 +75,16 @@ def _rerun_mode_enabled() -> bool:
     False when strict mode is active — then pytest runs each test once and
     surfaces any ``SnapshotReplayError`` as a hard failure.
     """
-    from helpers.snapshot_connection import is_strict_mode_enabled
-
     return not is_strict_mode_enabled()
 
 
 def _reset_per_test_rerun_state() -> None:
     """Clear the pending-rerun queue before each test attempt."""
-    from helpers.snapshot_connection import reset_pending_rerun_record
-
     reset_pending_rerun_record()
 
 
 def _pop_rerun_reason(test_id: str) -> Optional[str]:
     """Pop and return the rerun reason for ``test_id`` if any was queued."""
-    from helpers.snapshot_connection import get_pending_rerun_record
-
     return get_pending_rerun_record().pop(test_id, None)
 
 
@@ -85,8 +98,6 @@ def _swap_all_wrappers_to_real(test_id: str) -> list:
     Returns the list of wrappers that were successfully swapped so the
     plugin can restore them in a ``finally`` block.
     """
-    from helpers.snapshot_connection import get_live_snapshot_wrappers
-
     all_wrappers = list(get_live_snapshot_wrappers())
     logger.info(f"SNAPSHOT: rerun swap for {test_id} — {len(all_wrappers)} live wrapper(s) to consider")
     swapped: list = []
@@ -143,35 +154,74 @@ def _deactivate_lingering_dwh_interceptor() -> None:
 def _reports_contain_rerun_signal(reports: list, test_id: str) -> Optional[str]:
     """If any report indicates the test asked for a rerun, return the reason.
 
-    A rerun is triggered when:
-      - the test's call phase raised a SnapshotReplayError (the wrapper
-        populated _PENDING_RERUN before re-raising), AND
-      - setup + teardown phases all succeeded (per user requirement: the
-        whole lifecycle must be valid for a rerun to make sense).
+    A rerun is triggered when the wrapper queued an entry in ``_PENDING_RERUN``
+    for this test_id. The queue entry takes priority over per-phase pass/fail:
+    when a fixture (e.g. ``ensure_test_table``) is the first caller into the
+    wrapper for a new test, a missing-snapshot error fires during *setup*,
+    not *call*, but it still means "no recording — re-run against the real
+    DB". An empty queue + any non-rerun failure (real bug in setup or
+    teardown) returns None so the test stands as it ran.
     """
-    # Setup or teardown failures: no rerun.
-    for r in reports:
-        if r.when in ("setup", "teardown") and r.failed:
-            return None
     return _pop_rerun_reason(test_id)
 
 
+def _is_xdist_controller(config) -> bool:
+    """True if running under pytest-xdist on the controller process AND xdist is
+    actively distributing (``-n`` / ``--dist`` is set).
+
+    Workers have ``workerinput`` set; the controller doesn't. xdist may be
+    installed and registered as a plugin but inert when ``-n`` is not
+    specified (``config.option.dist`` is then ``"no"``), in which case the
+    controller is just the test runner and our hook should fire normally.
+    """
+    if hasattr(config, "workerinput"):
+        return False
+    if not config.pluginmanager.hasplugin("xdist"):
+        return False
+    dist = getattr(config.option, "dist", "no")
+    return dist != "no"
+
+
+def _runtestprotocol(item, nextitem):
+    """Indirection around the pytest runner so the private import is local.
+
+    F12: ``_pytest.runner.runtestprotocol`` is private API. Importing here
+    raises a clear error on incompatible pytest versions rather than at
+    plugin load time, and keeps the import out of the module's public
+    surface.
+    """
+    try:
+        from _pytest.runner import runtestprotocol
+    except ImportError as exc:  # pragma: no cover — defensive for future pytest
+        raise RuntimeError(
+            "snapshot_pytest_plugin requires _pytest.runner.runtestprotocol "
+            f"(pytest internals). Pin a compatible pytest version. Original: {exc!r}"
+        ) from exc
+    return runtestprotocol(item, nextitem=nextitem, log=False)
+
+
 @pytest.hookimpl(tryfirst=True)
-def pytest_runtest_protocol(item, nextitem):  # noqa: D401
+def pytest_runtest_protocol(item, nextitem):
     """Run the test once. If it signalled a rerun, run it once more against real DB.
 
+    F7: when running under pytest-xdist as the controller, return ``None``
+    so xdist's own protocol hook dispatches the test to a worker. The
+    rerun logic re-runs on the worker, which is where snapshot wrappers
+    actually live.
+
     Skips entirely in strict mode so the first attempt's failure stands.
-    Returns ``True`` to tell pytest "I handled this test". A single rerun
-    is the maximum: if the rerun itself raises another SnapshotReplayError,
-    that bubbles up as a hard test failure.
+    A single rerun is the maximum: if the rerun itself raises another
+    SnapshotReplayError, that bubbles up as a hard test failure.
     """
     if not _rerun_mode_enabled():
         return None
-    from _pytest.runner import runtestprotocol
+    if _is_xdist_controller(item.config):
+        # Controller only dispatches; the rerun fires on the worker where
+        # snapshot wrappers actually live.
+        return None
 
     _reset_per_test_rerun_state()
-
-    first_reports = runtestprotocol(item, nextitem=nextitem, log=False)
+    first_reports = _runtestprotocol(item, nextitem)
     rerun_reason = _reports_contain_rerun_signal(first_reports, item.nodeid)
     if rerun_reason is None:
         for r in first_reports:
@@ -183,29 +233,23 @@ def pytest_runtest_protocol(item, nextitem):  # noqa: D401
     # rerun's behaviour is identical to SODA_TEST_SNAPSHOT=off.
     logger.warning(f"SNAPSHOT: re-running {item.nodeid} against real DB; reason: {rerun_reason}")
 
-    from helpers.snapshot_connection import (
-        begin_rerun_in_progress,
-        end_rerun_in_progress,
-    )
-
     _deactivate_lingering_dwh_interceptor()
-    # Track the rerun BEFORE swapping so that wrappers built mid-rerun
-    # (DwhSnapshotInterceptor's wrapper, recon secondaries) take the
-    # bypass path and don't wrap anything.
-    begin_rerun_in_progress(item.nodeid)
-    logger.info(f"SNAPSHOT: rerun ENTER — _RERUN_IN_PROGRESS set for {item.nodeid}")
-    swapped = _swap_all_wrappers_to_real(item.nodeid)
-    _reset_per_test_rerun_state()  # clear queue before the second attempt
-
+    swapped: list = []
+    # F10: begin_rerun_in_progress and swap both happen inside try/finally so
+    # an exception during swap can't leak the global rerun flag.
     try:
+        begin_rerun_in_progress(item.nodeid)
+        logger.info(f"SNAPSHOT: rerun ENTER — _RERUN_IN_PROGRESS set for {item.nodeid}")
+        swapped = _swap_all_wrappers_to_real(item.nodeid)
+        _reset_per_test_rerun_state()  # clear queue before the second attempt
+
         logger.info(f"SNAPSHOT: rerun CALL runtestprotocol(attempt=2) for {item.nodeid}")
-        second_reports = runtestprotocol(item, nextitem=nextitem, log=False)
+        second_reports = _runtestprotocol(item, nextitem)
     finally:
         _restore_all_swapped_wrappers(swapped)
         end_rerun_in_progress(item.nodeid)
         logger.info(f"SNAPSHOT: rerun EXIT — _RERUN_IN_PROGRESS cleared for {item.nodeid}")
-    # If the rerun also signalled another rerun, that's a hard failure —
-    # the user asked for at most one rerun.
+
     leftover = _pop_rerun_reason(item.nodeid)
     if leftover is not None:
         logger.error(
@@ -213,15 +257,10 @@ def pytest_runtest_protocol(item, nextitem):  # noqa: D401
             "not retrying again. Surfacing the second attempt's outcome as the test result."
         )
 
-    rerun_succeeded = all(r.passed for r in second_reports if r.when == "call") and not any(
-        r.failed for r in second_reports
-    )
-
     # Stash so pytest_report_teststatus can label the call-phase report as RERAN: …
     _RERAN_TEST_RECORD[item.nodeid] = rerun_reason
     # Also attach to the call-phase report's user_properties so the rerun
-    # reason propagates through pytest-xdist to the master (which doesn't
-    # share the worker's _RERAN_TEST_RECORD dict).
+    # reason propagates through pytest-xdist to the master.
     for r in second_reports:
         if r.when == "call":
             r.user_properties = list(r.user_properties or []) + [
@@ -232,11 +271,7 @@ def pytest_runtest_protocol(item, nextitem):  # noqa: D401
     return True
 
 
-# Key used to ferry the rerun reason through xdist via report.user_properties.
-_RERAN_USER_PROPERTY_KEY = "_soda_snapshot_reran_reason"
-
-
-def pytest_report_teststatus(report, config):  # noqa: D401
+def pytest_report_teststatus(report, config):
     """Annotate the call-phase status for tests that re-ran.
 
     The short progress char stays a plain ASCII string. Pytest concatenates
@@ -259,10 +294,8 @@ def pytest_report_teststatus(report, config):  # noqa: D401
     return None
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:  # noqa: D401
+def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     """Print a section listing tests that re-ran against the real DB."""
-    from helpers.snapshot_connection import is_strict_mode_enabled
-
     if is_strict_mode_enabled():
         terminalreporter.write_sep(
             "=",

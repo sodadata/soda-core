@@ -57,12 +57,28 @@ _PENDING_RERUN: dict[str, str] = {}
 _LIVE_SNAPSHOT_WRAPPERS: "weakref.WeakSet[SnapshotDataSourceConnection]" = weakref.WeakSet()
 
 # When the rerun plugin is between the failed first attempt and the rerun of
-# ``test_id``, this dict holds the active test id. Any wrapping path that
+# ``test_id``, this set holds the active test id. Any wrapping path that
 # would otherwise install a snapshot wrapper (DWH interceptor's
 # patched_open_connection, patched create_additional_connection) checks this
 # and bypasses, returning a plain real connection — so the rerun behaves
 # identically to SODA_TEST_SNAPSHOT=off.
-_RERUN_IN_PROGRESS: dict[str, bool] = {}
+_RERUN_IN_PROGRESS: set[str] = set()
+
+# Set to True by snapshot_pytest_plugin.pytest_configure so that
+# _finalize_current_test can distinguish "plugin is wired up, downgrade
+# unconsumed-error to a queued rerun" from "no plugin, raise as before".
+_PYTEST_PLUGIN_ACTIVE: bool = False
+
+
+def set_pytest_plugin_active(active: bool) -> None:
+    """Toggle the plugin-active flag. Called from snapshot_pytest_plugin."""
+    global _PYTEST_PLUGIN_ACTIVE
+    _PYTEST_PLUGIN_ACTIVE = active
+
+
+def is_pytest_plugin_active() -> bool:
+    """Whether the snapshot rerun plugin is wired up in this process."""
+    return _PYTEST_PLUGIN_ACTIVE
 
 
 def get_pending_rerun_record() -> dict[str, str]:
@@ -92,28 +108,23 @@ def is_strict_mode_enabled() -> bool:
     return os.getenv("SODA_TEST_SNAPSHOT_STRICT", "false").lower() == "true"
 
 
-def begin_rerun_in_progress(test_id: str, *, record: bool = False) -> None:
+def begin_rerun_in_progress(test_id: str) -> None:
     """Plugin hook: mark a rerun-in-progress for ``test_id``.
 
     Wrapping paths (DwhSnapshotInterceptor.patched_open_connection, patched
     create_additional_connection) check this and bypass — returning a plain
-    real connection so the rerun matches off-mode exactly. The ``record``
-    parameter is preserved for API compatibility but is no longer meaningful:
-    automatic re-recording of mismatched snapshots is not supported in the
-    swap-based model (the wrapper is detached during the rerun, so there is
-    nowhere to record). To refresh a snapshot, run with
-    ``SODA_TEST_SNAPSHOT=record``.
+    real connection so the rerun matches off-mode exactly.
     """
-    _RERUN_IN_PROGRESS[test_id] = record
+    _RERUN_IN_PROGRESS.add(test_id)
 
 
 def end_rerun_in_progress(test_id: str) -> None:
     """Plugin hook: clear the rerun-in-progress marker for ``test_id``."""
-    _RERUN_IN_PROGRESS.pop(test_id, None)
+    _RERUN_IN_PROGRESS.discard(test_id)
 
 
-def get_rerun_in_progress_record() -> dict[str, bool]:
-    """Return the currently-active (test_id → record_flag) rerun map."""
+def get_rerun_in_progress_record() -> set[str]:
+    """Return the set of test_ids currently in rerun-in-progress state."""
     return _RERUN_IN_PROGRESS
 
 
@@ -732,7 +743,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # swallowed by user code (e.g. the contract verification handler).
             # Queue the rerun signal and log a warning rather than raising —
             # raising here would block the plugin from running the rerun.
-            if self._allow_fallback and self._current_test_id is not None:
+            # F9: only downgrade when the rerun plugin is actually wired up.
+            # Without the plugin, _PENDING_RERUN is read by nobody and the
+            # original test failure would silently disappear.
+            if self._allow_fallback and self._current_test_id is not None and is_pytest_plugin_active():
                 _PENDING_RERUN.setdefault(self._current_test_id, str(unconsumed_error))
                 logger.warning(f"SNAPSHOT: {unconsumed_error}")
                 return
