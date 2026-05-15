@@ -34,15 +34,28 @@ from soda_core.common.data_source_impl import DataSourceImpl
 _TRULY_ORIGINAL_CREATE_ADDITIONAL_CONNECTION = DataSourceImpl.create_additional_connection
 
 
-@pytest.fixture
-def reset_patch_state():
-    """Always restore DataSourceImpl.create_additional_connection to the truly
-    original method and zero the class-level ref counter after each test. This
-    cleans up tests that install the patch without an explicit uninstall."""
-    yield
+def _restore_truly_original() -> None:
     DataSourceImpl.create_additional_connection = _TRULY_ORIGINAL_CREATE_ADDITIONAL_CONNECTION
     DataSourceTestHelper._create_additional_connection_patch_refs = 0
     DataSourceTestHelper._orig_create_additional_connection = None
+
+
+@pytest.fixture
+def reset_patch_state():
+    """Restore DataSourceImpl.create_additional_connection to the truly original
+    method and zero the class-level ref counter both before AND after the test.
+
+    Cleanup-before-test matters because a session-scoped data_source_test_helper
+    fixture from another test file may already have installed the patch in the
+    same pytest session. Since the patched function is a module-level constant
+    (same identity on every install), tests that rely on ``is not`` comparisons
+    to detect "the method was replaced" would otherwise see the same function
+    both before and after install. Resetting on both sides guarantees a clean
+    starting point regardless of prior session state.
+    """
+    _restore_truly_original()
+    yield
+    _restore_truly_original()
 
 
 class _FakeDbapi:
