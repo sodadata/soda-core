@@ -94,7 +94,7 @@ class CheckCollectionVerificationHandler(ABC):
         self,
         contract_impl: ContractImpl,
         data_source_impl: Optional[DataSourceImpl],
-        contract_verification_result: "CheckCollectionResult",
+        contract_verification_result: CheckCollectionResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
         dwh_data_source_file_path: Optional[str] = None,
@@ -163,8 +163,8 @@ class CheckCollectionVerificationSessionImpl:
     # remains usable directly. This makes the structural seam polymorphic — a
     # subclass that sets the four hooks gets its own types constructed and returned
     # without re-implementing orchestration.
-    _YAML_CLASS: Optional[type["CheckCollectionYaml"]] = None
-    _IMPL_CLASS: Optional[type["CheckCollectionImpl"]] = None
+    _YAML_CLASS: Optional[type[CheckCollectionYaml]] = None
+    _IMPL_CLASS: Optional[type[CheckCollectionImpl]] = None
     _SESSION_RESULT_CLASS: Optional[type] = None
 
     @classmethod
@@ -280,7 +280,7 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
-    ) -> list["CheckCollectionResult"]:
+    ) -> list[CheckCollectionResult]:
         "Verifies a check collection locally."
         yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
         impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS or _default_impl_cls()
@@ -393,7 +393,7 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
-    ) -> list["CheckCollectionResult"]:
+    ) -> list[CheckCollectionResult]:
         "Verifies check collections on the Soda Cloud agent."
         yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
 
@@ -418,13 +418,13 @@ class CheckCollectionVerificationSessionImpl:
 
 
 class CheckCollectionImplExtension(Protocol):
-    def __init__(self, check_collection_impl: "CheckCollectionImpl"):
-        self.check_collection_impl: "CheckCollectionImpl" = check_collection_impl
+    def __init__(self, check_collection_impl: CheckCollectionImpl):
+        self.check_collection_impl: CheckCollectionImpl = check_collection_impl
 
-    def parse_checks(self, check_collection_impl: "CheckCollectionImpl") -> list[CheckImpl]:
+    def parse_checks(self, check_collection_impl: CheckCollectionImpl) -> list[CheckImpl]:
         return []
 
-    def build_queries(self, check_collection_impl: "CheckCollectionImpl") -> list[Query]:
+    def build_queries(self, check_collection_impl: CheckCollectionImpl) -> list[Query]:
         return []
 
 
@@ -691,7 +691,7 @@ class CheckCollectionImpl:
                     columns.append(column)
         return columns
 
-    def verify(self) -> "CheckCollectionResult":
+    def verify(self) -> CheckCollectionResult:
         # Resolve the concrete result class via the subtype hook. The Contract*
         # path sets ``_RESULT_CLASS = ContractVerificationResult``; a future
         # DataStandard* subtype sets it to its own result class and gets that
@@ -1004,7 +1004,7 @@ class MeasurementValues:
     def get_value(self, metric_impl: MetricImpl) -> any:
         return self.metric_values_by_id.get(metric_impl.id)
 
-    def all_measured(self, *metric_impls: "MetricImpl") -> bool:
+    def all_measured(self, *metric_impls: MetricImpl) -> bool:
         """True iff every metric has a non-None measurement.
 
         Intent: gate threshold-value construction in `evaluate()`. If any dependency
@@ -1034,7 +1034,7 @@ class MeasurementValues:
 
 
 class ColumnImpl:
-    def __init__(self, check_collection_impl: "CheckCollectionImpl", column_yaml: ColumnYaml):
+    def __init__(self, check_collection_impl: CheckCollectionImpl, column_yaml: ColumnYaml):
         self.column_yaml: ColumnYaml = column_yaml
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=column_yaml)
         self.check_impls: list[CheckImpl] = []
@@ -1414,7 +1414,7 @@ class CheckParser(ABC):
     @abstractmethod
     def parse_check(
         self,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
     ) -> Optional[CheckImpl]:
@@ -1436,7 +1436,7 @@ class CheckImpl:
     @classmethod
     def parse_check(
         cls,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         check_yaml: CheckYaml,
         column_impl: Optional[ColumnImpl] = None,
     ) -> Optional[CheckImpl]:
@@ -1462,14 +1462,14 @@ class CheckImpl:
 
     def __init__(
         self,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         self.logs: Logs = contract_impl.logs
 
-        self.contract_impl: "ContractImpl" = contract_impl
+        self.contract_impl: ContractImpl = contract_impl
         self.check_yaml: CheckYaml = check_yaml
         self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1546,7 +1546,7 @@ class CheckImpl:
     @abstractmethod
     def setup_metrics(
         self,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
     ) -> None:
@@ -1575,7 +1575,7 @@ class CheckImpl:
     @classmethod
     def _build_identity(
         cls,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_type: str,
         qualifier: Optional[str],
@@ -1650,7 +1650,7 @@ class CheckImpl:
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: MissingAncValidityCheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
@@ -1663,7 +1663,7 @@ class MissingAndValidityCheckImpl(CheckImpl):
 class MetricImpl:
     def __init__(
         self,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
@@ -1675,7 +1675,7 @@ class MetricImpl:
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
-        self.contract_impl: "ContractImpl" = contract_impl
+        self.contract_impl: ContractImpl = contract_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
         self.check_filter: Optional[str] = check_filter
@@ -1746,7 +1746,7 @@ class MetricImpl:
 class AggregationMetricImpl(MetricImpl):
     def __init__(
         self,
-        contract_impl: "ContractImpl",
+        contract_impl: ContractImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
@@ -1836,7 +1836,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
 class ValidCountMetric(AggregationMetricImpl):
     """TODO -- 3/10/2025: this metric is not used anywhere in the codebase, it's not clear if it's needed."""
 
-    def __init__(self, contract_impl: "ContractImpl", column_impl: ColumnImpl, check_impl: MissingAndValidityCheckImpl):
+    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_impl: MissingAndValidityCheckImpl):
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,

@@ -28,7 +28,7 @@ from soda_core.common.yaml import (
 logger: logging.Logger = soda_logger
 
 
-def _default_yaml_cls() -> type["CheckCollectionYaml"]:
+def _default_yaml_cls() -> type[CheckCollectionYaml]:
     """Lazy-resolve the default concrete CheckCollectionYaml subclass.
 
     Used as the fallback when CheckCollectionYaml.parse() is called on the base
@@ -42,7 +42,7 @@ def _default_yaml_cls() -> type["CheckCollectionYaml"]:
 
 class CheckCollectionYamlExtension(Protocol):
     # Extend the check-collection YAML object. Can modify the state of the YAML.
-    def extend(self, check_collection_yaml: "CheckCollectionYaml") -> None:
+    def extend(self, check_collection_yaml: CheckCollectionYaml) -> None:
         ...
 
 
@@ -64,7 +64,7 @@ class CheckCollectionYaml:
     # at module level to themselves, so calling CheckCollectionYaml.parse(...) on the
     # base resolves to the concrete subclass. None means "use the default" which is
     # lazy-resolved to ContractYaml for backwards-compatibility.
-    _YAML_CLASS: Optional[type["CheckCollectionYaml"]] = None
+    _YAML_CLASS: Optional[type[CheckCollectionYaml]] = None
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:

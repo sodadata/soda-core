@@ -30,16 +30,16 @@ class CheckCollectionVerificationSession:
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
-        data_source_impls: Optional[list["DataSourceImpl"]] = None,
+        data_source_impls: Optional[list[DataSourceImpl]] = None,
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
-        soda_cloud_impl: Optional["SodaCloud"] = None,
+        soda_cloud_impl: Optional[SodaCloud] = None,
         soda_cloud_publish_results: bool = False,
         soda_cloud_use_agent: bool = False,
         soda_cloud_verbose: bool = False,
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
-        check_selectors: Optional[list["CheckSelector"]] = None,
+        check_selectors: Optional[list[CheckSelector]] = None,
     ) -> CheckCollectionSessionResult:
         """Execute a check-collection verification session.
 
@@ -205,9 +205,9 @@ class SodaException(Exception):
     def __init__(
         self,
         message: Optional[str] = None,
-        contract_verification_result: Optional["CheckCollectionSessionResult"] = None,
+        contract_verification_result: Optional[CheckCollectionSessionResult] = None,
     ):
-        self.contract_verification_result: Optional["CheckCollectionSessionResult"] = contract_verification_result
+        self.contract_verification_result: Optional[CheckCollectionSessionResult] = contract_verification_result
         super().__init__(message)
 
 
