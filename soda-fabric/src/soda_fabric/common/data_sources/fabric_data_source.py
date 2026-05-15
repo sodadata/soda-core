@@ -74,7 +74,10 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
         assert isinstance(create_table_column.type, SqlDataType)
         # Default Fabric datetime precision to 6 when the source omits it. Done before
         # the clamp/super-delegation so the rendered DDL emits `datetime2(6)`/`time(6)`.
-        if create_table_column.type.name in ("datetime2", "time") and create_table_column.type.datetime_precision is None:
+        if (
+            create_table_column.type.name in ("datetime2", "time")
+            and create_table_column.type.datetime_precision is None
+        ):
             create_table_column.type.datetime_precision = 6
         # Clamp datetime precision to Fabric's max (0..6, lower than SQL Server's 0..7).
         # Cross-source flows from sources with higher native precision (e.g. Snowflake's
