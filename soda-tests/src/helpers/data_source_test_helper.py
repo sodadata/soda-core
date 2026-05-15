@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 import logging
 import os
@@ -12,6 +13,10 @@ from typing import Optional
 
 import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
+from helpers.snapshot_connection import (
+    SnapshotDataSourceConnection,
+    get_rerun_in_progress_record,
+)
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -60,21 +65,65 @@ logger = logging.getLogger(__name__)
 SNAPSHOT_SCHEMA_PLACEHOLDER = "__$$__SODA_TEST_SCHEMA__$$__"
 
 
+def _patched_create_additional_connection(ds_self: "DataSourceImpl"):
+    """Replacement for ``DataSourceImpl.create_additional_connection`` used while
+    the snapshot patch is installed.
+
+    - If snapshot is not active on this DataSourceImpl, passthrough.
+    - If the rerun plugin is mid-rerun, passthrough (off-mode equivalent).
+    - Otherwise wrap the additional connection in a secondary
+      ``SnapshotDataSourceConnection`` linked to the primary so interleaved
+      cursor executes share one ordered snapshot stream.
+    """
+    orig = DataSourceTestHelper._orig_create_additional_connection
+    # getattr (not direct attribute access) so the patch stays safe
+    # if it leaks into a test that mocks DataSourceImpl without an
+    # explicit data_source_connection attribute.
+    primary = getattr(ds_self, "data_source_connection", None)
+    if not isinstance(primary, SnapshotDataSourceConnection):
+        return orig(ds_self)
+
+    if get_rerun_in_progress_record():
+        logger.info(
+            "SNAPSHOT: patched create_additional_connection BYPASS — "
+            f"rerun in progress, returning real additional connection for ds_self={ds_self!r}"
+        )
+        return orig(ds_self)
+
+    if primary._mode == "replay":
+        secondary = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=primary._snapshot_manager,
+            mode="replay",
+            fallback_connection_factory=lambda: orig(ds_self),
+            schema_placeholder=primary._schema_placeholder,
+            real_schema_name=primary._real_schema_name,
+            allow_fallback=primary._allow_fallback,
+            primary_snapshot=primary,
+        )
+    else:
+        real_conn = orig(ds_self)
+        secondary = SnapshotDataSourceConnection(
+            real_connection=real_conn,
+            snapshot_manager=primary._snapshot_manager,
+            mode="record",
+            schema_placeholder=primary._schema_placeholder,
+            real_schema_name=primary._real_schema_name,
+            allow_fallback=primary._allow_fallback,
+            primary_snapshot=primary,
+        )
+    secondary.connection_properties = primary.connection_properties
+    return secondary
+
+
 class _LazyRealConnectionFactory:
     """Callable used by replay-mode SnapshotDataSourceConnection as its
     `_fallback_connection_factory`.
 
     First call: opens a fresh real DB connection and ensures the test schema.
-    Every call: drops+recreates the test tables that the current test ensured
-    but have not yet been materialized in the real DB. Idempotent across
+    Subsequent calls: drop+create test tables that the current test ensured
+    but haven't been materialised yet on the real DB. Idempotent across
     repeated fallbacks on the same helper session.
-
-    Rerun-mode passthrough (the default under
-    ``SODA_TEST_SNAPSHOT_RERUN=true``) skips the table-materialisation step:
-    the rerun's test body runs end-to-end, so its own ``ensure_test_table``
-    call will create the table it needs. Materialising every session-
-    accumulated table here is wasted work — and on long test sessions, the
-    O(N) drop+create churn can dominate runtime.
     """
 
     def __init__(self, helper: "DataSourceTestHelper") -> None:
@@ -84,7 +133,14 @@ class _LazyRealConnectionFactory:
     def __call__(self):
         helper = self._helper
         snap_conn = helper.data_source_impl.data_source_connection
-        existing_real = getattr(snap_conn, "_real", None)
+        # F6: if the rerun plugin already swapped the wrapper out for the
+        # real connection, the slot no longer holds a SnapshotDataSourceConnection.
+        # Any further fallback attempts must NOT re-open the real connection
+        # (it's already live) or shuffle the slot.
+        if not isinstance(snap_conn, SnapshotDataSourceConnection):
+            return snap_conn
+
+        existing_real = snap_conn._real
         if existing_real is None:
             helper.start_test_session_open_connection()
             helper.start_test_session_ensure_schema()
@@ -93,11 +149,7 @@ class _LazyRealConnectionFactory:
             real_conn = existing_real
             helper.data_source_impl.data_source_connection = real_conn
 
-        # In rerun-passthrough mode, the test's own ensure_test_table call
-        # will create whatever table it actually needs — no need to pre-
-        # materialise every table the session has touched.
-        if not getattr(snap_conn, "_passthrough_for_rerun", False):
-            self._materialize_pending_tables()
+        self._materialize_pending_tables()
         helper.data_source_impl.data_source_connection = snap_conn
         return real_conn
 
@@ -122,8 +174,6 @@ class _LazyRealConnectionFactory:
         helper.data_source_impl.data_source_connection.commit()
 
     def _rollback_silent(self) -> None:
-        import contextlib
-
         with contextlib.suppress(Exception):
             self._helper.data_source_impl.data_source_connection.rollback()
 
@@ -233,6 +283,12 @@ class DataSourceTestHelper:
         # Snapshot mode must be set before _create_dataset_prefix() because
         # _create_schema_name() uses it to produce a deterministic schema name.
         self._snapshot_mode: str = os.getenv("SODA_TEST_SNAPSHOT", "off")
+
+        # F4: per-instance flag tracking whether this helper bumped the
+        # class-level create_additional_connection patch refcount. Only when
+        # True will end_test_session decrement it — bypassed rerun sessions
+        # and snapshot=off sessions skip the install AND skip the uninstall.
+        self._patch_installed: bool = False
 
         # Compute and cache the base schema name BEFORE _create_dataset_prefix(),
         # so that _create_schema_name() returns a consistent value (timestamps
@@ -431,88 +487,33 @@ class DataSourceTestHelper:
     _create_additional_connection_patch_refs: int = 0
     _orig_create_additional_connection = None
 
-    @classmethod
-    def _install_create_additional_connection_patch(cls) -> None:
+    @staticmethod
+    def _install_create_additional_connection_patch() -> None:
         """Patch DataSourceImpl.create_additional_connection so the returned
         DataSourceConnection is snapshot-aware when the primary connection on that
         DataSourceImpl is a SnapshotDataSourceConnection. Reference counted so
         multiple helpers can call it without colliding.
+
+        F13: state is bound explicitly to the DataSourceTestHelper base class so
+        subclass lookups via MRO can't end up pointing at a stale per-subclass
+        original.
         """
-        if cls._create_additional_connection_patch_refs == 0:
-            from helpers.snapshot_connection import (
-                SnapshotDataSourceConnection,
-                get_rerun_in_progress_record,
-            )
+        if DataSourceTestHelper._create_additional_connection_patch_refs == 0:
+            DataSourceTestHelper._orig_create_additional_connection = DataSourceImpl.create_additional_connection
+            DataSourceImpl.create_additional_connection = _patched_create_additional_connection
+        DataSourceTestHelper._create_additional_connection_patch_refs += 1
 
-            cls._orig_create_additional_connection = DataSourceImpl.create_additional_connection
-
-            def patched(ds_self: "DataSourceImpl"):
-                # getattr (not direct attribute access) so the patch stays safe
-                # if it leaks into a test that mocks DataSourceImpl without an
-                # explicit data_source_connection attribute (e.g. MagicMock(spec=...)).
-                primary = getattr(ds_self, "data_source_connection", None)
-                if not isinstance(primary, SnapshotDataSourceConnection):
-                    # Snapshot is not active for this DataSourceImpl — passthrough.
-                    return cls._orig_create_additional_connection(ds_self)
-
-                # If the pytest rerun plugin is mid-rerun for the current
-                # test, bypass the snapshot wrapping entirely so the rerun
-                # behaves identically to SODA_TEST_SNAPSHOT=off mode.
-                if get_rerun_in_progress_record():
-                    logger.info(
-                        "SNAPSHOT: patched create_additional_connection BYPASS — "
-                        f"rerun in progress, returning real additional connection for ds_self={ds_self!r}"
-                    )
-                    return cls._orig_create_additional_connection(ds_self)
-
-                if primary._mode == "replay":
-                    # In replay mode, do not open a real DBAPI connection up-front.
-                    # The secondary's cursor reads from the primary's recording stream
-                    # via _SnapshotCursor; a real connection is only opened lazily if
-                    # fallback activates.
-                    captured_ds_self = ds_self
-
-                    def lazy_factory():
-                        return cls._orig_create_additional_connection(captured_ds_self)
-
-                    secondary = SnapshotDataSourceConnection(
-                        real_connection=None,
-                        snapshot_manager=primary._snapshot_manager,
-                        mode="replay",
-                        fallback_connection_factory=lazy_factory,
-                        schema_placeholder=primary._schema_placeholder,
-                        real_schema_name=primary._real_schema_name,
-                        allow_fallback=primary._allow_fallback,
-                        primary_snapshot=primary,
-                    )
-                else:
-                    # Record mode — open the real additional connection and wrap.
-                    real_conn = cls._orig_create_additional_connection(ds_self)
-                    secondary = SnapshotDataSourceConnection(
-                        real_connection=real_conn,
-                        snapshot_manager=primary._snapshot_manager,
-                        mode="record",
-                        schema_placeholder=primary._schema_placeholder,
-                        real_schema_name=primary._real_schema_name,
-                        allow_fallback=primary._allow_fallback,
-                        primary_snapshot=primary,
-                    )
-                # Mirror connection_properties so callers that read them work in
-                # both modes without needing a live real connection.
-                secondary.connection_properties = primary.connection_properties
-                return secondary
-
-            DataSourceImpl.create_additional_connection = patched
-        cls._create_additional_connection_patch_refs += 1
-
-    @classmethod
-    def _uninstall_create_additional_connection_patch(cls) -> None:
-        if cls._create_additional_connection_patch_refs == 0:
+    @staticmethod
+    def _uninstall_create_additional_connection_patch() -> None:
+        if DataSourceTestHelper._create_additional_connection_patch_refs == 0:
             return
-        cls._create_additional_connection_patch_refs -= 1
-        if cls._create_additional_connection_patch_refs == 0 and cls._orig_create_additional_connection is not None:
-            DataSourceImpl.create_additional_connection = cls._orig_create_additional_connection
-            cls._orig_create_additional_connection = None
+        DataSourceTestHelper._create_additional_connection_patch_refs -= 1
+        if (
+            DataSourceTestHelper._create_additional_connection_patch_refs == 0
+            and DataSourceTestHelper._orig_create_additional_connection is not None
+        ):
+            DataSourceImpl.create_additional_connection = DataSourceTestHelper._orig_create_additional_connection
+            DataSourceTestHelper._orig_create_additional_connection = None
 
     def start_test_session(self) -> None:
         if self._snapshot_mode == "replay":
@@ -529,20 +530,11 @@ class DataSourceTestHelper:
         fallback is actually triggered (lazy initialization).
 
         Rerun-aware bypass: if the pytest rerun plugin re-evaluates the
-        session-scoped helper fixture mid-rerun (which it does because
-        ``runtestprotocol`` is called twice for the same item), skip the
-        snapshot wrapper and open a real connection directly — matching
-        the off-mode behaviour the rerun is meant to mimic. Without this,
-        the freshly-created wrapper would intercept SQL in the rerun's
-        test body and re-raise ``SnapshotNotFoundError`` / ``SnapshotMismatchError``.
+        session-scoped helper fixture mid-rerun, skip the snapshot wrapper
+        and open a real connection directly — matching the off-mode
+        behaviour the rerun is meant to mimic.
         """
-        from helpers.snapshot_connection import (
-            SnapshotDataSourceConnection,
-            get_rerun_in_progress_record,
-        )
-
         if get_rerun_in_progress_record():
-            # Mid-rerun: behave like ``SODA_TEST_SNAPSHOT=off``.
             logger.info(
                 f"SNAPSHOT: _start_test_session_replay BYPASS — rerun in progress, "
                 f"opening real connection instead of installing wrapper (helper={self.name!r})"
@@ -562,37 +554,16 @@ class DataSourceTestHelper:
             allow_fallback=allow_fallback,
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
-        # Propagate connection_properties from the data source model so that
-        # code accessing connection.connection_properties (e.g. build_dwh_prefixes)
-        # works without a real DB connection.
         snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
-        self.data_source_impl.data_source_connection = snap_conn
-        # Back-ref so the snapshot pytest plugin can swap this wrapper out
-        # for a real connection during a rerun (rerun = off-mode equivalent).
         snap_conn._data_source_impl = self.data_source_impl
-        self._install_create_additional_connection_patch()
+        # Install the patch BEFORE publishing the wrapper so any exception
+        # leaves global patch state untouched. F5.
+        DataSourceTestHelper._install_create_additional_connection_patch()
+        self._patch_installed = True
+        self.data_source_impl.data_source_connection = snap_conn
 
     def _start_test_session_record(self) -> None:
-        """Record mode: wrap the already-opened real connection with a recording snapshot wrapper.
-
-        Rerun-aware bypass: if a rerun is in progress when pytest re-evaluates
-        the session fixture, skip wrapping — the rerun must run against a
-        plain real connection.
-        """
-        from helpers.snapshot_connection import (
-            SnapshotDataSourceConnection,
-            get_rerun_in_progress_record,
-        )
-
-        if get_rerun_in_progress_record():
-            # Real connection is already open from the caller's
-            # ``start_test_session_open_connection`` call; leave it alone.
-            logger.info(
-                f"SNAPSHOT: _start_test_session_record BYPASS — rerun in progress, "
-                f"leaving real connection in place (helper={self.name!r})"
-            )
-            return
-
+        """Record mode: wrap the already-opened real connection with a recording snapshot wrapper."""
         snap_conn = SnapshotDataSourceConnection(
             real_connection=self.data_source_impl.data_source_connection,
             snapshot_manager=self._snapshot_manager,
@@ -601,9 +572,12 @@ class DataSourceTestHelper:
             real_schema_name=self._snapshot_schema_name(),
         )
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
-        self.data_source_impl.data_source_connection = snap_conn
         snap_conn._data_source_impl = self.data_source_impl
-        self._install_create_additional_connection_patch()
+        # Install the patch BEFORE publishing the wrapper so any exception
+        # leaves the global patch state untouched. F5.
+        DataSourceTestHelper._install_create_additional_connection_patch()
+        self._patch_installed = True
+        self.data_source_impl.data_source_connection = snap_conn
 
     def start_test_session_open_connection(self) -> None:
         logs: Logs = Logs()
@@ -618,14 +592,16 @@ class DataSourceTestHelper:
         self.create_test_schema_if_not_exists()
 
     def end_test_session(self, exception: Optional[Exception]) -> None:
-        # Finalize any in-progress snapshot recording before teardown
-        if self._snapshot_mode != "off" and hasattr(self.data_source_impl.data_source_connection, "finalize"):
-            self.data_source_impl.data_source_connection.finalize()
-
-        # Restore DataSourceImpl.create_additional_connection if this helper
-        # installed the patch (no-op in snapshot=off mode).
-        if self._snapshot_mode != "off":
-            self._uninstall_create_additional_connection_patch()
+        # F4: always uninstall in finally so a finalize() exception doesn't
+        # leak the global patch state. The flag guards against
+        # double-uninstall in bypassed/off sessions that never installed.
+        try:
+            if self._snapshot_mode != "off" and hasattr(self.data_source_impl.data_source_connection, "finalize"):
+                self.data_source_impl.data_source_connection.finalize()
+        finally:
+            if self._patch_installed:
+                DataSourceTestHelper._uninstall_create_additional_connection_patch()
+                self._patch_installed = False
 
         # In replay mode with lazy connection, skip DB teardown if no fallback
         # was triggered — there's no real connection or schema to clean up.
