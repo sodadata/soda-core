@@ -2,11 +2,63 @@
 
 Dense reference for coding agents implementing a new Soda Core data source or
 check type. Pair with [`CONTRIBUTING-DATA-SOURCE.md`](CONTRIBUTING-DATA-SOURCE.md)
-for context. Every symbol mentioned here is real and resolvable in this
-repository as of writing.
+for context. This document is intentionally written so a coding agent can
+drive the implementation end-to-end with a human reviewing — the human guide
+gives the *why*, this one gives the *what* (every override, every signature,
+every failure mode).
+
+Every symbol mentioned here is real and resolvable in this repository as of
+writing.
 
 > **Source of truth ordering:** when this guide and the actual code disagree,
 > the code wins. Re-read the base classes; this document may have drifted.
+
+## Contents
+
+- §0 Operating contract
+- §1 Base classes (read these before coding)
+- §2 Adding a data source — step by step
+- §3 Adding a check type — step by step
+- §4 SQL-AST builders cheat sheet
+- §5 Plugin discovery — how it actually works
+- §6 Verification
+- §7 Common failure modes
+- §8 What you do **not** need to do
+- §9 Pointers to canonical examples
+
+## Runtime flow (orientation)
+
+```
+$ soda contract verify -ds ds.yml -c contract.yml
+        │
+        ▼
+  cli.py  ──►  load_plugins()
+                  │
+                  │  iterates entry_points() under soda.plugins.*
+                  │  each ep.load() imports the target class
+                  │  importing a *DataSourceImpl class triggers
+                  │  DataSourceImpl.__init_subclass__(model_class=...)
+                  │  which registers it keyed by model_class.get_class_type()
+                  ▼
+  parse YAML (data source + contract)
+        │
+        ▼
+  DataSourceImpl.from_yaml_source(yaml)
+        │   reads `type:` from YAML, looks up registered impl class,
+        │   instantiates {Name}DataSourceImpl(data_source_model=...)
+        ▼
+  {Name}DataSourceImpl.__init__
+        ├── _create_sql_dialect()           → {Name}SqlDialect()
+        └── _create_data_source_connection() → {Name}DataSourceConnection(...)
+        │
+        ▼
+  ContractVerification.execute()
+        │   sql_ast builders + dialect.build_*_sql(...) → SQL string
+        │   connection.execute_query(sql) → rows + cursor.description
+        │   native types canonicalised via dialect's type-name dicts
+        ▼
+  CheckImpl.evaluate(measurement_values) → CheckResult
+```
 
 ---
 
@@ -23,8 +75,8 @@ You will:
    declare a task done unless tests actually pass.
 
 If you are blocked on a single override (e.g. how this dialect spells regex),
-**read another dialect implementation** before guessing. There are 11 working
-examples in this monorepo.
+**read another dialect implementation** before guessing. There are a dozen
+existing dialect packages in this monorepo to compare against.
 
 ---
 
@@ -38,7 +90,7 @@ examples in this monorepo.
 | `DataSourceBase` | `soda-core/src/soda_core/model/data_source/data_source.py` | Pydantic `BaseModel` + `ConfigDict(frozen=True, extra="forbid")`. `type: Literal["{name}"]` is what the plugin loader matches against. |
 | `DataSourceConnectionProperties` | `soda-core/src/soda_core/model/data_source/data_source_connection_properties.py` | Base for your YAML connection schema. |
 | `CheckParser`, `CheckImpl`, `CheckYamlParser`, `CheckYaml` | `contracts/impl/contract_yaml.py` + `contract_verification_impl.py` | Two register-by-classmethod pairs. |
-| `MetricImpl`, `AggregationMetricImpl`, `DerivedMetricImpl` | `contract_verification_impl.py` lines 1559–1715 | `AggregationMetricImpl.sql_expression()` returns a `SqlExpression` from `sql_ast`. |
+| `MetricImpl`, `AggregationMetricImpl`, `DerivedMetricImpl` | `contract_verification_impl.py` (grep `^class MetricImpl` to locate) | `AggregationMetricImpl.sql_expression()` returns a `SqlExpression` from `sql_ast`. |
 | `Plugin` (Protocol) | `soda-core/src/soda_core/plugins.py` | `setup_cli(parser)` + `load()` classmethods. Discovered via `entry_points()` under `soda.plugins.*`. |
 | `DataSourceTestHelper` | `soda-tests/src/helpers/data_source_test_helper.py` | Override `_create_data_source_yaml_str` (required) + database/schema name methods (often). |
 
@@ -86,9 +138,15 @@ class {Name}ConnectionPropertiesBase({Name}ConnectionProperties, ABC):
     port: int = Field(..., ge=1, le=65535)
     # ... your fields with pydantic Field(..., description=...)
 
-# One concrete subclass per auth method:
+# One concrete subclass per auth method — most real engines have 2-3:
+class {Name}ConnectionString({Name}ConnectionProperties):
+    connection_string: SecretStr = Field(..., description="...")
+
 class {Name}ConnectionPassword({Name}ConnectionPropertiesBase):
     password: SecretStr = Field(..., description="...")
+
+class {Name}ConnectionPasswordFile({Name}ConnectionPropertiesBase):
+    password_file: str = Field(..., description="path to file holding the password")
 
 class {Name}DataSource(DataSourceBase, ABC):
     type: Literal["{name}"] = Field("{name}")
@@ -99,13 +157,22 @@ class {Name}DataSource(DataSourceBase, ABC):
     @field_validator("connection_properties", mode="before")
     def infer_connection_type(cls, value):
         # discriminate between auth variants based on present keys
+        if "connection_string" in value:
+            return {Name}ConnectionString(**value)
+        if "password_file" in value:
+            return {Name}ConnectionPasswordFile(**value)
         if "password" in value:
             return {Name}ConnectionPassword(**value)
         raise ValueError("Unknown connection structure")
 ```
 
-The `type` literal **must** match the entry-point group suffix and the
-`type:` value users will write in YAML.
+See `soda-postgres/src/soda_postgres/common/data_sources/postgres_data_source_connection.py`
+for the canonical three-variant pattern.
+
+The `type` literal is the load-bearing match — the user's YAML `type:` field
+is looked up against the registry keyed by this `Literal[...]` default. The
+entry-point group's suffix should match by convention, but doesn't have to
+(see §5).
 
 ### 2.3. `DataSourceConnection` subclass
 
@@ -140,6 +207,12 @@ class {Name}SqlDialect(SqlDialect, sqlglot_dialect="{sqlglot_name}"):
 
 The `sqlglot_dialect=` kwarg is **required** by `__init_subclass__`. Pick the
 matching dialect from sqlglot, or `"postgres"` as a generic fallback.
+
+`SodaDataTypeName` is the canonical Soda type-name enum defined in
+`soda_core/common/metadata_types.py`. `python -c "from soda_core.common.metadata_types
+import SodaDataTypeName; print([m.name for m in SodaDataTypeName])"` enumerates
+the full set — your two required type-name dicts must round-trip every member
+your engine can produce.
 
 **Required overrides:**
 
@@ -237,11 +310,19 @@ build-backend = "setuptools.build_meta"
 package-dir = {"" = "src"}
 ```
 
-The entry-point group `soda.plugins.data_source.{name}` is mandatory and
-the `{name}` segment **must** equal the `Literal[...]` `type` field on your
-`DataSourceBase` subclass. The plugin loader uses the entry-point name to
-register, then matches via `model_fields["type"].default` at YAML parse time
-(see `DataSourceImpl.from_yaml_source`).
+The entry-point group `soda.plugins.data_source.{name}` is what makes your
+package discoverable. By convention the `{name}` suffix matches the
+`Literal[...]` `type` field on your `DataSourceBase` subclass, but the loader
+does **not** read the entry-point name to match — `ep.load()` is just an import
+trigger that fires `DataSourceImpl.__init_subclass__(model_class=...)`, which
+registers the impl class keyed by `model_class.get_class_type()` (i.e. the
+`Literal[...]` default). The actual lookup at YAML parse time uses the `type:`
+field in user YAML against that registry. See `DataSourceImpl.from_yaml_source`
+and `__init_subclass__` in `data_source_impl.py`.
+
+Keep the entry-point suffix, the `Literal[...]` value, and the `type:` field
+in YAML aligned for sanity — but the load-bearing match is YAML-`type:` ↔
+`Literal[...]`.
 
 ### 2.7. Workspace registration
 
@@ -329,9 +410,16 @@ class {Type}CheckYaml(ThresholdCheckYaml):  # or CheckYaml / MissingAncValidityC
 
 Pick the right base:
 
-- `CheckYaml` — bare check, no threshold (e.g. schema check).
+- `CheckYaml` — bare check, no threshold (e.g. schema check). **Do not** use
+  if you have a `threshold:` block — pick `ThresholdCheckYaml` instead.
 - `ThresholdCheckYaml` — has a `threshold:` block (most metric-style checks).
+  **Do not** use for checks that have no user-tunable threshold; you'll get
+  spurious validation errors.
 - `MissingAncValidityCheckYaml` — adds `missing_*` and `valid_*` fields.
+  **Do not** use unless you actually parse those fields; otherwise pick
+  `ThresholdCheckYaml`. (Yes — `Anc` is a typo carried forward from current
+  code. The corresponding impl base is correctly spelled
+  `MissingAndValidityCheckImpl`. The names will be unified in a separate PR.)
 
 Use `check_yaml_object.read_string` / `read_string_opt` / `read_number_opt` /
 `read_bool_opt` / `read_object_opt` for typed parsing with location-aware
@@ -458,7 +546,7 @@ All importable from `soda_core.common.sql_ast`:
 |---|---|
 | Selection | `SELECT`, `FROM`, `WHERE`, `AND`, `OR`, `NOT`, `JOIN`, `LEFT_INNER_JOIN`, `ORDER_BY_ASC`, `LIMIT`, `OFFSET` |
 | Columns / values | `COLUMN`, `STAR`, `LITERAL`, `RAW_SQL`, `CAST` |
-| Aggregation | `COUNT`, `SUM`, `AVG`/`AVERAGE`, `MIN`, `MAX`, `DISTINCT` |
+| Aggregation | `COUNT`, `SUM`, `AVERAGE`, `MIN`, `MAX`, `DISTINCT` |
 | Conditions | `EQ`, `GT`, `LT`, `GTE`, `LTE`, `IN`, `IS_NULL`, `IS_NOT_NULL`, `LIKE`, `NOT_LIKE`, `REGEX_LIKE`, `EXISTS` |
 | Functions | `LOWER`, `LENGTH`, `COALESCE`, `CASE_WHEN`, `CONCAT`, `CONCAT_WS` |
 | DDL/DML | `CREATE_TABLE`, `CREATE_TABLE_COLUMN`, `CREATE_VIEW`, `CREATE_MATERIALIZED_VIEW`, `DROP_TABLE`, `INSERT_INTO`, `VALUES`, `VALUES_ROW` |

@@ -55,7 +55,7 @@ A data source is wired up by implementing three classes plus a pydantic connecti
 | `{Name}SqlDialect` | `SqlDialect` | Tells Soda how to render SQL for your engine — type names, regex, casing, metadata queries. |
 | `{Name}DataSourceImpl` | `DataSourceImpl` | The entry-point class. Wires the connection and dialect together. Two abstract methods. |
 
-Plus a pydantic schema — `{Name}DataSource(DataSourceBase)` and one or more `{Name}ConnectionProperties` variants (typically one per authentication method) — that defines the YAML users will write in their `data-source.yml`. Look at `PostgresConnectionPropertiesBase` and its `password` / `password_file` variants for the canonical pattern.
+Plus a pydantic schema — `{Name}DataSource(DataSourceBase)` and one or more `{Name}ConnectionProperties` variants (typically one per authentication method) — that defines the YAML users will write in their `data-source.yml`. Look at `PostgresConnectionPropertiesBase` and the three concrete variants (`PostgresConnectionString`, `PostgresConnectionPassword`, `PostgresConnectionPasswordFile`) for the canonical multi-auth pattern.
 
 The `type: Literal["{name}"]` field on your `DataSourceBase` subclass is the value users put in YAML *and* the suffix of your entry-point group. They must match.
 
@@ -144,7 +144,7 @@ build-backend = "setuptools.build_meta"
 package-dir = {"" = "src"}
 ```
 
-The entry-point group `soda.plugins.data_source.{name}` **is** the registration — there is no central registry. The `{name}` suffix must equal the `Literal[...]` `type` field on your `DataSourceBase` subclass. The `DataSourceImpl` subclass auto-registers via `__init_subclass__(model_class=...)` when the entry point is loaded.
+The entry-point group `soda.plugins.data_source.{name}` is what makes your package discoverable — there is no central registry. Loading an entry point triggers `DataSourceImpl.__init_subclass__(model_class=...)`, which registers the impl class keyed by the `Literal[...]` default on your `DataSourceBase` subclass. At runtime, Soda matches the `type:` field in the user's YAML against that registry. By convention the entry-point `{name}` suffix matches the `Literal[...]` value, but the load-bearing match is YAML `type:` ↔ `Literal[...]` — not the entry-point name. Keep all three aligned for sanity.
 
 Then add `soda-{name}` to the workspace `pyproject.toml` (`[tool.uv.workspace] members`) and your `tests/` path to `pytest.ini` (`testpaths` and `pythonpath`).
 

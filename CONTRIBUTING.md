@@ -58,11 +58,12 @@ uv sync --all-packages --group dev
 
 This installs every package in the workspace (`soda-core`, `soda-tests`, all data source packages) in editable mode with their development dependencies.
 
-Pip equivalent (if you don't have UV):
+Pip equivalent (if you don't have UV). Unlike `uv sync --all-packages`, this only installs the packages you list — add `-e soda-{name}` for every driver you need:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e soda-core -e soda-tests -e soda-postgres
+pip install -e soda-core -e soda-tests \
+            -e soda-postgres   # add -e soda-snowflake / soda-bigquery / ... as needed
 pip install pytest pre-commit pydantic python-dotenv freezegun
 ```
 
@@ -80,6 +81,22 @@ TEST_DATASOURCE=postgres uv run pytest soda-tests/tests
 ```
 
 Credentials for cloud-only data sources go in a `.env` file at the repo root — see `.env_example`. The file is gitignored.
+
+### What not to commit
+
+- **No credentials anywhere in tracked files.** `.env` is gitignored — keep it that way. Service-account JSON, API tokens, and passwords belong in `.env` (locally) or in CI secrets (in CI), never in code, YAML, or markdown.
+- **No real credentials in `docker-compose.yml`.** Use placeholder values that are obviously placeholders (`POSTGRES_PASSWORD: postgres`). Reviewers will reject anything that looks like a real secret.
+- **No personal absolute paths** (e.g. `/Users/you/...`) in committed code or docs. Use repo-relative paths.
+
+### Matching the soda-core version
+
+A new data source package must pin `soda-core` to the current workspace version. Find it with:
+
+```bash
+grep -m1 '^version' soda-core/pyproject.toml
+```
+
+Use that exact string in your `pyproject.toml` dependencies and in your own `version` field.
 
 ### Pre-commit checks
 
@@ -109,7 +126,7 @@ Enforced automatically by pre-commit:
 Beyond formatting:
 
 - Write SQL via the `sql_ast` builders in `soda_core.common.sql_ast`, not by string concatenation. The builders go through dialect rules; raw strings bypass them.
-- Use pydantic models with `ConfigDict(frozen=True, extra="forbid")` for YAML-facing data shapes. This is the convention in `soda_core/model/`.
+- Use frozen pydantic models for YAML-facing data shapes — see `soda_core/model/`. Top-level model classes (e.g. `DataSourceBase`) use `extra="forbid"`; connection-properties subclasses use `extra="allow"` so unknown driver kwargs flow through unchanged.
 - Type-hint public functions. The codebase is gradually moving toward stricter typing.
 - Keep comments for *why*, not *what*. Code reviewers will push back on commentary that restates the code.
 
