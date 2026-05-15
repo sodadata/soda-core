@@ -633,7 +633,7 @@ source.
 
 | Symptom | Likely cause |
 |---|---|
-| `Data source type 'X' not available. Make sure to install the required plugin` | Entry-point name suffix doesn't match `Literal["X"]` on `DataSourceBase` subclass; or `model_class=` was omitted from the `DataSourceImpl` subclass declaration. |
+| `Data source type 'X' not available. Make sure to install the required plugin` | Nothing registered the type. Causes, in rough order: (1) the package isn't installed at all (no entry point to load); (2) the entry point exists but `ep.load()` raised silently during import — run `python -c "import soda_{name}.common.data_sources.{name}_data_source"` to surface the real error; (3) `model_class=` was omitted from the `DataSourceImpl` subclass declaration, so `__init_subclass__` never fired and the registry stayed empty; (4) the `Literal[...]` default on `DataSourceBase` doesn't match the `type:` value in the user's YAML (typo on either side). The entry-point name is never read — don't chase it. |
 | Schema check passes locally but fails in cross-DS suite | Type-name mappings are incomplete. Run a `SELECT * FROM information_schema.columns` against your test schema and ensure every type the suite creates round-trips through your two type dicts. |
 | `Unknown check type 'X'` after registering | The package's `Plugin.load()` classmethod isn't being called — ensure your entry-point group starts with `soda.plugins.` and the class implements both `setup_cli` and `load` classmethods. |
 | Regex / LIKE / sample tests fail with SQL syntax error | Override `_build_regex_like_sql`, `_build_like_sql`, or `_build_sample_sql`. Defaults are Postgres-flavoured. |
