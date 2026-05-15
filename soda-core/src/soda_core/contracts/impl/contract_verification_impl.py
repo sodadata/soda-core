@@ -137,11 +137,11 @@ class ContractImpl(CheckCollectionImpl):
 # Wire the polymorphism hooks on the Contract* subtypes. The base classes
 # (CheckCollectionVerificationSessionImpl, CheckCollectionImpl) read these at
 # construction sites and route to the concrete classes. A future
-# DataStandard* subtype would subclass these and set its own _YAML_CLASS /
-# _IMPL_CLASS / _RESULT_CLASS / _SESSION_RESULT_CLASS to its own types.
+# DataStandard* subtype would subclass these and set its own _YAML_CLASS,
+# _IMPL_CLASS, _SESSION_RESULT_CLASS (on the session impl) and _RESULT_CLASS
+# (on the impl, read inside verify() via type(self)._RESULT_CLASS).
 ContractVerificationSessionImpl._YAML_CLASS = ContractYaml
 ContractVerificationSessionImpl._IMPL_CLASS = ContractImpl
-ContractVerificationSessionImpl._RESULT_CLASS = ContractVerificationResult
 ContractVerificationSessionImpl._SESSION_RESULT_CLASS = ContractVerificationSessionResult
 
 ContractImpl._RESULT_CLASS = ContractVerificationResult

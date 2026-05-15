@@ -18,7 +18,7 @@ from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import (
-    ContractYamlSource,
+    CheckCollectionYamlSource,
     VariableResolver,
     YamlList,
     YamlObject,
@@ -73,7 +73,7 @@ class CheckCollectionYaml:
     @classmethod
     def parse(
         cls,
-        check_collection_yaml_source: ContractYamlSource,
+        check_collection_yaml_source: CheckCollectionYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
@@ -90,12 +90,12 @@ class CheckCollectionYaml:
 
     def __init__(
         self,
-        check_collection_yaml_source: ContractYamlSource,
+        check_collection_yaml_source: CheckCollectionYamlSource,
         provided_variable_values: Optional[dict[str, str]],
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ):
-        self.check_collection_yaml_source: ContractYamlSource = check_collection_yaml_source
+        self.check_collection_yaml_source: CheckCollectionYamlSource = check_collection_yaml_source
         self.check_collection_yaml_object: YamlObject = check_collection_yaml_source.parse()
         self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
         # Cache the dialect's native→canonical data type mapping once — dialects construct this dict fresh on every call.

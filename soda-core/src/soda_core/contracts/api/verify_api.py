@@ -251,7 +251,7 @@ def verify_contract(
 
         if len(contract_yaml_sources) == 0:
             soda_logger.debug("No contracts given. Exiting.")
-            return ContractVerificationSessionResult(contract_verification_results=[])
+            return ContractVerificationSessionResult(check_collection_results=[])
 
         data_source_yaml_sources: list[DataSourceYamlSource] = []
         if data_source_file_paths:

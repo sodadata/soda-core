@@ -165,7 +165,6 @@ class CheckCollectionVerificationSessionImpl:
     # without re-implementing orchestration.
     _YAML_CLASS: Optional[type["CheckCollectionYaml"]] = None
     _IMPL_CLASS: Optional[type["CheckCollectionImpl"]] = None
-    _RESULT_CLASS: Optional[type] = None
     _SESSION_RESULT_CLASS: Optional[type] = None
 
     @classmethod

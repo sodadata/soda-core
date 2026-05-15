@@ -51,11 +51,15 @@ class _SentinelImpl(CheckCollectionImpl):
 
 
 class _SentinelSessionImpl(CheckCollectionVerificationSessionImpl):
-    """Sentinel session-impl subclass — wires all four hooks to sentinel types."""
+    """Sentinel session-impl subclass — wires the three session-level hooks.
+
+    The per-collection ``_RESULT_CLASS`` is wired on ``_SentinelImpl`` (the impl
+    subclass), not here — that's where ``CheckCollectionImpl.verify()`` reads it
+    via ``type(self)._RESULT_CLASS``.
+    """
 
     _YAML_CLASS = _SentinelYaml
     _IMPL_CLASS = _SentinelImpl
-    _RESULT_CLASS = _SentinelResult
     _SESSION_RESULT_CLASS = _SentinelSessionResult
 
 
