@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 _RERAN_USER_PROPERTY_KEY = "soda_snapshot_reran_reason"
 
 
-def pytest_configure(config) -> None:
+def pytest_configure() -> None:
     """Reset per-process state at session start and signal plugin presence.
 
     Stale entries can leak across pytest invocations when running under
@@ -145,7 +145,7 @@ def _deactivate_lingering_interceptors() -> None:
     deactivate_all_registered_interceptors()
 
 
-def _reports_contain_rerun_signal(reports: list, test_id: str) -> Optional[str]:
+def _reports_contain_rerun_signal(test_id: str) -> Optional[str]:
     """If any report indicates the test asked for a rerun, return the reason.
 
     A rerun is triggered when the wrapper queued an entry in ``_PENDING_RERUN``
@@ -216,7 +216,7 @@ def pytest_runtest_protocol(item, nextitem):
 
     _reset_per_test_rerun_state()
     first_reports = _runtestprotocol(item, nextitem)
-    rerun_reason = _reports_contain_rerun_signal(first_reports, item.nodeid)
+    rerun_reason = _reports_contain_rerun_signal(item.nodeid)
     if rerun_reason is None:
         for r in first_reports:
             item.ihook.pytest_runtest_logreport(report=r)
@@ -265,7 +265,7 @@ def pytest_runtest_protocol(item, nextitem):
     return True
 
 
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report):
     """Annotate the call-phase status for tests that re-ran.
 
     The short progress char stays a plain ASCII string. Pytest concatenates
@@ -288,7 +288,7 @@ def pytest_report_teststatus(report, config):
     return None
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
+def pytest_terminal_summary(terminalreporter) -> None:
     """Print sections listing snapshot drift events: reran tests and tests
     whose unconsumed-snapshot errors were silently discarded."""
     if is_strict_mode_enabled():

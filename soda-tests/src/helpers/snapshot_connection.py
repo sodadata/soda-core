@@ -1028,7 +1028,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         row_callback: Callable[[tuple, tuple[tuple]], None],
         log_query: bool = True,
         row_limit: Optional[int] = None,
-    ) -> tuple[tuple]:
+    ) -> Optional[tuple[tuple]]:
         self._handle_test_boundary()
 
         if self._current_test_id is None:

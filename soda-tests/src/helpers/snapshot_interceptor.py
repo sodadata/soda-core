@@ -86,9 +86,11 @@ def deactivate_all_registered_interceptors() -> None:
     Each deactivate is wrapped in its own try/except — a misbehaving
     interceptor cannot prevent others from being deactivated.
     """
-    # Materialise to a list first so deactivate() implementations that
-    # unregister themselves don't mutate the set while we're iterating.
-    for interceptor in list(_REGISTERED_INTERCEPTORS):
+    # Snapshot to a tuple first: deactivate() implementations typically
+    # call unregister_snapshot_interceptor(self), which mutates the
+    # underlying WeakSet — iterating it directly while doing so would
+    # raise RuntimeError.
+    for interceptor in tuple(_REGISTERED_INTERCEPTORS):
         try:
             interceptor.deactivate()
         except Exception as exc:
