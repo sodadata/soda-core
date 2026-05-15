@@ -26,19 +26,22 @@ import pytest
 from helpers.snapshot_connection import (
     begin_rerun_in_progress,
     end_rerun_in_progress,
+    get_discarded_unconsumed_record,
     get_live_snapshot_wrappers,
     get_pending_rerun_record,
     is_strict_mode_enabled,
+    reset_discarded_unconsumed_record,
     reset_pending_rerun_record,
     set_pytest_plugin_active,
 )
+from helpers.snapshot_interceptor import deactivate_all_registered_interceptors
 
 logger = logging.getLogger(__name__)
 
 
 # Key used to ferry the rerun reason through xdist via report.user_properties.
 # JUnit XML schema requires attribute names matching [A-Za-z][A-Za-z0-9._-]*,
-# so this key cannot start with an underscore (F11).
+# so this key cannot start with an underscore.
 _RERAN_USER_PROPERTY_KEY = "soda_snapshot_reran_reason"
 
 
@@ -54,6 +57,7 @@ def pytest_configure(config) -> None:
     otherwise clear it for the outer process when they tear down.
     """
     reset_pending_rerun_record()
+    reset_discarded_unconsumed_record()
     _RERAN_TEST_RECORD.clear()
     set_pytest_plugin_active(True)
 
@@ -131,24 +135,14 @@ def _restore_all_swapped_wrappers(swapped: list) -> None:
             logger.warning(f"SNAPSHOT: failed to restore wrapper after rerun: {exc!r}")
 
 
-def _deactivate_lingering_dwh_interceptor() -> None:
-    """If a DWH interceptor outlived the failed attempt, deactivate it.
-
-    soda-extensions ships ``DwhSnapshotInterceptor``; its ``_active_instance``
-    class attribute points at any live interceptor. We deactivate before the
-    rerun so the next attempt re-installs cleanly. Import is lazy + best-
-    effort so soda-core (which has no DWH module) doesn't break.
+def _deactivate_lingering_interceptors() -> None:
+    """Best-effort: deactivate every registered snapshot interceptor before
+    firing the rerun, so no stale wrapping survives into the rerun's test
+    body. Walks the process-wide registry maintained by
+    ``snapshot_interceptor`` — no reflection on a specific class, so any
+    extension that registers itself is handled the same way.
     """
-    try:
-        from test_helpers.dwh_setup import DwhSnapshotInterceptor  # type: ignore
-    except Exception:
-        return
-    inst = getattr(DwhSnapshotInterceptor, "_active_instance", None)
-    if inst is not None:
-        try:
-            inst.deactivate()
-        except Exception as exc:
-            logger.warning(f"SNAPSHOT: failed to deactivate lingering DWH interceptor: {exc!r}")
+    deactivate_all_registered_interceptors()
 
 
 def _reports_contain_rerun_signal(reports: list, test_id: str) -> Optional[str]:
@@ -185,7 +179,7 @@ def _is_xdist_controller(config) -> bool:
 def _runtestprotocol(item, nextitem):
     """Indirection around the pytest runner so the private import is local.
 
-    F12: ``_pytest.runner.runtestprotocol`` is private API. Importing here
+    ``_pytest.runner.runtestprotocol`` is private API. Importing here
     raises a clear error on incompatible pytest versions rather than at
     plugin load time, and keeps the import out of the module's public
     surface.
@@ -204,7 +198,7 @@ def _runtestprotocol(item, nextitem):
 def pytest_runtest_protocol(item, nextitem):
     """Run the test once. If it signalled a rerun, run it once more against real DB.
 
-    F7: when running under pytest-xdist as the controller, return ``None``
+    When running under pytest-xdist as the controller, return ``None``
     so xdist's own protocol hook dispatches the test to a worker. The
     rerun logic re-runs on the worker, which is where snapshot wrappers
     actually live.
@@ -233,9 +227,9 @@ def pytest_runtest_protocol(item, nextitem):
     # rerun's behaviour is identical to SODA_TEST_SNAPSHOT=off.
     logger.warning(f"SNAPSHOT: re-running {item.nodeid} against real DB; reason: {rerun_reason}")
 
-    _deactivate_lingering_dwh_interceptor()
+    _deactivate_lingering_interceptors()
     swapped: list = []
-    # F10: begin_rerun_in_progress and swap both happen inside try/finally so
+    # begin_rerun_in_progress and swap both happen inside try/finally so
     # an exception during swap can't leak the global rerun flag.
     try:
         begin_rerun_in_progress(item.nodeid)
@@ -295,7 +289,8 @@ def pytest_report_teststatus(report, config):
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
-    """Print a section listing tests that re-ran against the real DB."""
+    """Print sections listing snapshot drift events: reran tests and tests
+    whose unconsumed-snapshot errors were silently discarded."""
     if is_strict_mode_enabled():
         terminalreporter.write_sep(
             "=",
@@ -304,19 +299,43 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
             bold=True,
         )
 
-    if not _RERAN_TEST_RECORD:
-        return
-    terminalreporter.section("snapshot drift — tests re-run against real DB", sep="=", yellow=True)
-    for test_id in sorted(_RERAN_TEST_RECORD):
-        terminalreporter.write_line(f"  {test_id}")
-        for line in str(_RERAN_TEST_RECORD[test_id]).splitlines():
-            terminalreporter.write_line(f"      {line}")
-    terminalreporter.write_line("")
-    terminalreporter.write_line(
-        f"{len(_RERAN_TEST_RECORD)} test(s) re-ran end-to-end against the real DB "
-        "because their recorded SQL no longer matches production. Re-record with "
-        "SODA_TEST_SNAPSHOT=record to refresh the snapshots."
-    )
+    if _RERAN_TEST_RECORD:
+        terminalreporter.section("snapshot drift — tests re-run against real DB", sep="=", yellow=True)
+        for test_id in sorted(_RERAN_TEST_RECORD):
+            terminalreporter.write_line(f"  {test_id}")
+            for line in str(_RERAN_TEST_RECORD[test_id]).splitlines():
+                terminalreporter.write_line(f"      {line}")
+        terminalreporter.write_line("")
+        terminalreporter.write_line(
+            f"{len(_RERAN_TEST_RECORD)} test(s) re-ran end-to-end against the real DB "
+            "because their recorded SQL no longer matches production. Re-record with "
+            "SODA_TEST_SNAPSHOT=record to refresh the snapshots."
+        )
+
+    # Unconsumed-snapshot drifts that were downgraded silently because
+    # they were detected after the owning test's reports had already been
+    # emitted (the boundary handler fires from the *next* test's first
+    # execute_query). The rerun queue cannot reach those tests anymore, so
+    # surface them here. Re-recording is the only way to clear them.
+    discarded = get_discarded_unconsumed_record()
+    if discarded:
+        terminalreporter.section(
+            "snapshot drift — unconsumed entries discarded (no rerun fired)",
+            sep="=",
+            yellow=True,
+        )
+        for test_id in sorted(discarded):
+            terminalreporter.write_line(f"  {test_id}")
+            for line in str(discarded[test_id]).splitlines():
+                terminalreporter.write_line(f"      {line}")
+        terminalreporter.write_line("")
+        terminalreporter.write_line(
+            f"{len(discarded)} test(s) had snapshot drift that was downgraded to a warning "
+            "because the test had already reported by the time the discrepancy was detected "
+            "(typically: an in-test mismatch was swallowed by user code, and the next test's "
+            "first execute_query surfaced it). The plugin could not run these against the real "
+            "DB. Re-record with SODA_TEST_SNAPSHOT=record to refresh the snapshots."
+        )
 
 
 # ---------------------------------------------------------------------------

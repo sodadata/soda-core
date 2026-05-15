@@ -36,23 +36,11 @@ def _serialize_tzinfo(tz: tzinfo) -> str:
 
 @dataclass
 class SnapshotEntry:
-    """A single recorded SQL operation with its result.
-
-    ``seq`` is a monotonic sequence number assigned at record time by a
-    test-scoped counter shared across related snapshot connections (e.g.
-    a source snapshot and its DWH dependent). It lets the cascade-on-
-    fallback path compute exactly which dependent ops happened BEFORE the
-    upstream's mismatch point in the original recording, so the dependent's
-    real DB can be materialised to the matching state — no more, no less —
-    when the upstream falls back mid-test. ``seq=None`` on a loaded entry
-    means it predates the seq mechanism; cascade falls back to the
-    coarser "only-if-consumed" heuristic in that case.
-    """
+    """A single recorded SQL operation with its result."""
 
     op_type: str  # "query", "update", "query_one_by_one", "query_iterate"
     sql: str
     result: Any = None  # QueryResult, (description, rows), etc.
-    seq: Optional[int] = None
 
 
 class SnapshotReplayError(Exception):
@@ -111,10 +99,7 @@ class SnapshotManager:
             "datasource_type": self.datasource_type,
             "test_id": test_id,
             "operation_count": len(recording),
-            "operations": [
-                {"index": i, "seq": entry.seq, "type": entry.op_type, "sql": entry.sql}
-                for i, entry in enumerate(recording)
-            ],
+            "operations": [{"index": i, "type": entry.op_type, "sql": entry.sql} for i, entry in enumerate(recording)],
         }
         with open(json_path, "w") as f:
             json.dump(json_data, f, indent=2)

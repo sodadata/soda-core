@@ -69,6 +69,16 @@ _RERUN_IN_PROGRESS: set[str] = set()
 # unconsumed-error to a queued rerun" from "no plugin, raise as before".
 _PYTEST_PLUGIN_ACTIVE: bool = False
 
+# Test boundary discards: when _finalize_current_test detects unconsumed
+# snapshot entries for a test that's *already finished* (the next test's
+# first execute_query triggered the boundary handler), the rerun queue
+# entry would be keyed to the wrong test id — the plugin can no longer
+# act on it. Rather than crash the next test, we downgrade those
+# unconsumed-entry errors to a warning AND record them here. The plugin's
+# pytest_terminal_summary surfaces a dedicated section so the SQL drift
+# doesn't silently disappear across many runs.
+_DISCARDED_UNCONSUMED_RECORD: dict[str, str] = {}
+
 
 def set_pytest_plugin_active(active: bool) -> None:
     """Toggle the plugin-active flag. Called from snapshot_pytest_plugin."""
@@ -94,6 +104,20 @@ def reset_pending_rerun_record() -> None:
 def get_live_snapshot_wrappers() -> "weakref.WeakSet[SnapshotDataSourceConnection]":
     """Return the weak set of all live SnapshotDataSourceConnection instances."""
     return _LIVE_SNAPSHOT_WRAPPERS
+
+
+def get_discarded_unconsumed_record() -> dict[str, str]:
+    """Return (test_id → reason) for tests whose teardown silently swallowed
+    unconsumed-snapshot errors because the test boundary had already passed.
+    The plugin's terminal summary reads this so the drift is visible.
+    """
+    return _DISCARDED_UNCONSUMED_RECORD
+
+
+def reset_discarded_unconsumed_record() -> None:
+    """Clear the discarded-unconsumed registry. Used by the plugin at
+    session start so each session begins with a clean slate."""
+    _DISCARDED_UNCONSUMED_RECORD.clear()
 
 
 def is_strict_mode_enabled() -> bool:
@@ -123,9 +147,15 @@ def end_rerun_in_progress(test_id: str) -> None:
     _RERUN_IN_PROGRESS.discard(test_id)
 
 
-def get_rerun_in_progress_record() -> set[str]:
-    """Return the set of test_ids currently in rerun-in-progress state."""
-    return _RERUN_IN_PROGRESS
+def is_any_rerun_in_progress() -> bool:
+    """Whether the rerun plugin is between the failed first attempt and the
+    rerun of any test in this process.
+
+    Wrapping paths (DwhSnapshotInterceptor.patched_open_connection, the
+    patched create_additional_connection) check this and bypass — returning
+    a plain real connection so the rerun matches off-mode exactly.
+    """
+    return bool(_RERUN_IN_PROGRESS)
 
 
 class FakeCursor:
@@ -231,7 +261,7 @@ class _SnapshotCursor:
                 self._owner._ensure_real_connection()
             if self._real_cursor is None:
                 self._real_cursor = self._owner._real.connection.cursor()
-            # F3: if the drain (execute/fetchall/description) raises, close the
+            # If the drain (execute/fetchall/description) raises, close the
             # real cursor and propagate WITHOUT recording — a half-recorded
             # entry would desync the snapshot stream for the rest of the test.
             try:
@@ -244,7 +274,7 @@ class _SnapshotCursor:
                 self._real_cursor = None
                 raise
             normalized_desc = SnapshotDataSourceConnection._normalize_description(raw_description)
-            # F1: store the normalized description so .description has the same
+            # Store the normalized description so .description has the same
             # shape (PicklableColumn) in record and replay mode.
             self._description = normalized_desc
             self._rows = rows
@@ -312,6 +342,12 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
     Test boundaries are detected automatically via the PYTEST_CURRENT_TEST environment
     variable, so no changes to test code or fixtures are required.
+
+    Invariant for the rerun swap window: between ``swap_to_real_for_rerun`` and
+    ``restore_from_rerun`` the wrapper is detached from its ``DataSourceImpl``
+    and ``_current_test_id`` is ``None``. Anything reading the wrapper during
+    that window observes "no test in progress on this wrapper" rather than a
+    stale id.
     """
 
     def __init__(
@@ -604,7 +640,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         for placeholder, real_value in self.extra_replacements.items():
             sql = self._normalize_value(sql, real_value, placeholder)
             result = self._normalize_value(result, real_value, placeholder) if result is not None else None
-        return SnapshotEntry(entry.op_type, sql, result, seq=entry.seq)
+        return SnapshotEntry(entry.op_type, sql, result)
 
     def _denormalize_from_snapshot(self, entry: SnapshotEntry) -> SnapshotEntry:
         """Replace lowercase placeholders with real values when loading from snapshot."""
@@ -623,7 +659,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         for placeholder, real_value in self.extra_replacements.items():
             sql = self._denormalize_value(sql, placeholder, real_value)
             result = self._denormalize_value(result, placeholder, real_value) if result is not None else None
-        return SnapshotEntry(entry.op_type, sql, result, seq=entry.seq)
+        return SnapshotEntry(entry.op_type, sql, result)
 
     # -------------------------------------------------------------------------
     # Test boundary detection via PYTEST_CURRENT_TEST
@@ -743,11 +779,19 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # swallowed by user code (e.g. the contract verification handler).
             # Queue the rerun signal and log a warning rather than raising —
             # raising here would block the plugin from running the rerun.
-            # F9: only downgrade when the rerun plugin is actually wired up.
+            # Only downgrade when the rerun plugin is actually wired up.
             # Without the plugin, _PENDING_RERUN is read by nobody and the
             # original test failure would silently disappear.
             if self._allow_fallback and self._current_test_id is not None and is_pytest_plugin_active():
                 _PENDING_RERUN.setdefault(self._current_test_id, str(unconsumed_error))
+                # Also record the drift in the discarded registry. The
+                # rerun queue may not actually be acted on — when this branch
+                # fires from _handle_test_boundary, the *previous* test's
+                # reports are already emitted and the plugin's per-test
+                # _pop_rerun_reason lookup can't match the previous test_id.
+                # Recording here guarantees the drift is surfaced in the
+                # terminal summary even if no rerun ever runs against it.
+                _DISCARDED_UNCONSUMED_RECORD.setdefault(self._current_test_id, str(unconsumed_error))
                 logger.warning(f"SNAPSHOT: {unconsumed_error}")
                 return
             raise unconsumed_error
@@ -1122,6 +1166,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         # Drop any partial replay state so we don't leak it on restore.
         self._replay_data = None
         self._replay_index = 0
+        # Clear the current-test pointer for the duration of the rerun so
+        # that any caller still holding a wrapper reference (e.g. via
+        # _LIVE_SNAPSHOT_WRAPPERS or a leaked __getattr__) observes a wrapper
+        # that's clearly detached, not one still claiming to be inside the
+        # test that's now running off-mode. restore_from_rerun re-attaches by
+        # putting the wrapper back on the impl and clearing this again.
+        self._current_test_id = None
         # Detach: data_source_impl now points at the real connection directly.
         # The wrapper instance is still alive (held by the plugin's swap list
         # + _LIVE_SNAPSHOT_WRAPPERS), but no longer in the call chain.

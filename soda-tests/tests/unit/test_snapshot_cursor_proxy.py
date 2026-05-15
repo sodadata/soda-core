@@ -193,7 +193,7 @@ def test_cursor_fetchmany_default_arraysize_is_one(tmp_path) -> None:
 
 
 def test_cursor_description_is_normalized_in_record_mode(tmp_path) -> None:
-    """F1: record and replay must expose `description` as the same shape
+    """Record and replay must expose `description` as the same shape
     (PicklableColumn), so callers like rows_diff that read `.name` / `[0]`
     behave identically across modes.
     """
@@ -210,7 +210,7 @@ def test_cursor_description_is_normalized_in_record_mode(tmp_path) -> None:
 
 
 def test_cursor_description_matches_between_record_and_replay(tmp_path) -> None:
-    """F1: round-trip description through record then replay; the public shape
+    """Round-trip description through record then replay; the public shape
     must be identical (both PicklableColumn tuples).
     """
     real_cursor = _FakeDbapiCursor(rows=[(1,)], description=(("id", "int4"), ("v", "text")))
@@ -392,7 +392,7 @@ def test_secondary_replay_pulls_from_primary_stream(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Cross-environment normalization (F2) + drain safety (F3)
+# Cross-environment normalization + drain safety
 # ---------------------------------------------------------------------------
 
 
@@ -421,7 +421,7 @@ def _make_replay_snapshot_with_schema(tmp_path, *, real_schema: str) -> Snapshot
 
 
 def test_cursor_sql_normalized_with_schema_placeholder(tmp_path) -> None:
-    """F2: record on schema A, replay on schema B — cursor SQL containing the
+    """Record on schema A, replay on schema B — cursor SQL containing the
     schema-qualified table name must match because both sides normalize via
     `schema_placeholder`. This locks in cross-environment snapshot reuse
     for the raw-cursor path.
@@ -457,7 +457,7 @@ class _ExplodingCursor(_FakeDbapiCursor):
 
 
 def test_cursor_execute_drain_failure_does_not_record_or_leak_cursor(tmp_path) -> None:
-    """F3: if fetchall() raises mid-drain in record mode, the snapshot
+    """If fetchall() raises mid-drain in record mode, the snapshot
     must NOT receive a half-recorded entry, and the real cursor must be
     closed so the driver doesn't leak it for the rest of the test.
     """

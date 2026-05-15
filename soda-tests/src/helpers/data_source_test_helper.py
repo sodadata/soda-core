@@ -15,7 +15,7 @@ import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from helpers.snapshot_connection import (
     SnapshotDataSourceConnection,
-    get_rerun_in_progress_record,
+    is_any_rerun_in_progress,
 )
 from helpers.test_table import TestColumn, TestTable, TestTableSpecification
 from soda_core.common.data_source_impl import DataSourceImpl
@@ -83,7 +83,7 @@ def _patched_create_additional_connection(ds_self: "DataSourceImpl"):
     if not isinstance(primary, SnapshotDataSourceConnection):
         return orig(ds_self)
 
-    if get_rerun_in_progress_record():
+    if is_any_rerun_in_progress():
         logger.info(
             "SNAPSHOT: patched create_additional_connection BYPASS — "
             f"rerun in progress, returning real additional connection for ds_self={ds_self!r}"
@@ -133,7 +133,7 @@ class _LazyRealConnectionFactory:
     def __call__(self):
         helper = self._helper
         snap_conn = helper.data_source_impl.data_source_connection
-        # F6: if the rerun plugin already swapped the wrapper out for the
+        # If the rerun plugin already swapped the wrapper out for the
         # real connection, the slot no longer holds a SnapshotDataSourceConnection.
         # Any further fallback attempts must NOT re-open the real connection
         # (it's already live) or shuffle the slot.
@@ -284,7 +284,7 @@ class DataSourceTestHelper:
         # _create_schema_name() uses it to produce a deterministic schema name.
         self._snapshot_mode: str = os.getenv("SODA_TEST_SNAPSHOT", "off")
 
-        # F4: per-instance flag tracking whether this helper bumped the
+        # Per-instance flag tracking whether this helper bumped the
         # class-level create_additional_connection patch refcount. Only when
         # True will end_test_session decrement it — bypassed rerun sessions
         # and snapshot=off sessions skip the install AND skip the uninstall.
@@ -494,7 +494,7 @@ class DataSourceTestHelper:
         DataSourceImpl is a SnapshotDataSourceConnection. Reference counted so
         multiple helpers can call it without colliding.
 
-        F13: state is bound explicitly to the DataSourceTestHelper base class so
+        State is bound explicitly to the DataSourceTestHelper base class so
         subclass lookups via MRO can't end up pointing at a stale per-subclass
         original.
         """
@@ -534,7 +534,7 @@ class DataSourceTestHelper:
         and open a real connection directly — matching the off-mode
         behaviour the rerun is meant to mimic.
         """
-        if get_rerun_in_progress_record():
+        if is_any_rerun_in_progress():
             logger.info(
                 f"SNAPSHOT: _start_test_session_replay BYPASS — rerun in progress, "
                 f"opening real connection instead of installing wrapper (helper={self.name!r})"
@@ -557,7 +557,7 @@ class DataSourceTestHelper:
         snap_conn.connection_properties = self.data_source_impl.data_source_model.connection_properties
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
-        # leaves global patch state untouched. F5.
+        # leaves global patch state untouched.
         DataSourceTestHelper._install_create_additional_connection_patch()
         self._patch_installed = True
         self.data_source_impl.data_source_connection = snap_conn
@@ -574,7 +574,7 @@ class DataSourceTestHelper:
         snap_conn.passthrough_queries = self._snapshot_passthrough_queries()
         snap_conn._data_source_impl = self.data_source_impl
         # Install the patch BEFORE publishing the wrapper so any exception
-        # leaves the global patch state untouched. F5.
+        # leaves the global patch state untouched.
         DataSourceTestHelper._install_create_additional_connection_patch()
         self._patch_installed = True
         self.data_source_impl.data_source_connection = snap_conn
@@ -592,7 +592,7 @@ class DataSourceTestHelper:
         self.create_test_schema_if_not_exists()
 
     def end_test_session(self, exception: Optional[Exception]) -> None:
-        # F4: always uninstall in finally so a finalize() exception doesn't
+        # Always uninstall in finally so a finalize() exception doesn't
         # leak the global patch state. The flag guards against
         # double-uninstall in bypassed/off sessions that never installed.
         try:
