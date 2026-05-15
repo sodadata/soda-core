@@ -190,6 +190,13 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     # precision/scale) carry the correct decimal scale through; otherwise a
     # `numeric` column on the target defaults to scale 0 and silently truncates
     # the fractional part of every value.
+    #
+    # Note: these overrides intentionally bypass the base layer's
+    # `data_type_has_parameter_numeric_*` / `supports_data_type_numeric_*` gates
+    # (both return False for BigQuery in the CREATE TABLE path). The asymmetry
+    # is source-vs-target: BigQuery-as-source needs to *carry* the precision so
+    # downstream target dialects that do require it can render correctly, even
+    # though BigQuery-as-target would never render it itself.
     _BIGQUERY_NUMERIC_PRECISION = 38
     _BIGQUERY_NUMERIC_SCALE = 9
     _BIGQUERY_BIGNUMERIC_PRECISION = 76

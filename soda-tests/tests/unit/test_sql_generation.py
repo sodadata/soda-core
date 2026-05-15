@@ -139,6 +139,29 @@ def test_sql_ast_create_table_if_not_exists():
     )
 
 
+def test_sql_ast_create_table_strips_inapplicable_precision_fields():
+    """Regression for the postgres → athena/oracle/redshift leak: a timestamp
+    column carrying a stray numeric_precision (e.g. from psycopg's polymorphic
+    column.precision) used to render as `timestamp(2)` because
+    get_sql_data_type_str_with_parameters picked the first non-None field.
+    The base _build_create_table_column_type now strips fields the column's
+    data type doesn't actually support before rendering."""
+    sql_dialect: SqlDialect = SqlDialect()
+
+    leaked_timestamp = CREATE_TABLE_COLUMN(
+        name="ts",
+        # numeric_precision is inapplicable to timestamp — must not leak into DDL.
+        type=SqlDataType(name="timestamp", numeric_precision=2),
+    )
+    statement = sql_dialect.build_create_table_sql(
+        CREATE_TABLE_IF_NOT_EXISTS(fully_qualified_table_name='"t"', columns=[leaked_timestamp])
+    )
+    assert '"ts" timestamp\n' in statement
+    assert "timestamp(2)" not in statement
+    # Defensive copy: rendering must not have mutated the caller's SqlDataType.
+    assert leaked_timestamp.type.numeric_precision == 2
+
+
 def test_sql_ast_insert_into_with_columns():
     sql_dialect: SqlDialect = SqlDialect()
 

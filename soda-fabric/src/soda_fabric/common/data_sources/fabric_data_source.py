@@ -72,10 +72,10 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
 
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
-        if create_table_column.type.name == "datetime2" and create_table_column.type.datetime_precision is None:
-            return "datetime2(6)"
-        elif create_table_column.type.name == "time" and create_table_column.type.datetime_precision is None:
-            return "time(6)"
+        # Default Fabric datetime precision to 6 when the source omits it. Done before
+        # the clamp/super-delegation so the rendered DDL emits `datetime2(6)`/`time(6)`.
+        if create_table_column.type.name in ("datetime2", "time") and create_table_column.type.datetime_precision is None:
+            create_table_column.type.datetime_precision = 6
         # Clamp datetime precision to Fabric's max (0..6, lower than SQL Server's 0..7).
         # Cross-source flows from sources with higher native precision (e.g. Snowflake's
         # TIMESTAMP_NTZ defaults to 9) would otherwise produce e.g. `datetime2(9)` and
@@ -86,7 +86,9 @@ class FabricSqlDialect(SqlServerSqlDialect, sqlglot_dialect="fabric"):
                 and create_table_column.type.datetime_precision > 6
             ):
                 create_table_column.type.datetime_precision = 6
-        return create_table_column.type.get_sql_data_type_str_with_parameters()
+        # Delegate to super() so the base-layer strip pass + the SQL Server clamp
+        # both apply (mirrors Athena/SQL Server overrides).
+        return super()._build_create_table_column_type(create_table_column)
 
     def get_sql_data_type_name_by_soda_data_type_names(self) -> dict[str, str]:
         types = super().get_sql_data_type_name_by_soda_data_type_names()
