@@ -94,7 +94,7 @@ class CheckCollectionVerificationHandler(ABC):
         self,
         contract_impl: ContractImpl,
         data_source_impl: Optional[DataSourceImpl],
-        contract_verification_result: "ContractVerificationResult",
+        contract_verification_result: "CheckCollectionResult",
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
         dwh_data_source_file_path: Optional[str] = None,
@@ -280,15 +280,8 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
-    ) -> list["ContractVerificationResult"]:
+    ) -> list["CheckCollectionResult"]:
         "Verifies a check collection locally."
-        # Type-only deferred import — kept resolvable for the return annotation
-        # without forcing a module-load-time circular dependency. Construction
-        # routes through the ``cls._RESULT_CLASS`` hook via ``impl.verify()``.
-        from soda_core.contracts.contract_verification import (  # noqa: F401
-            ContractVerificationResult,
-        )
-
         yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
         impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS or _default_impl_cls()
 
@@ -400,13 +393,8 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
-    ) -> list["ContractVerificationResult"]:
+    ) -> list["CheckCollectionResult"]:
         "Verifies check collections on the Soda Cloud agent."
-        # Type-only deferred import — see ``_execute_locally`` for the rationale.
-        from soda_core.contracts.contract_verification import (  # noqa: F401
-            ContractVerificationResult,
-        )
-
         yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
 
         contract_verification_results: list = []
@@ -703,7 +691,7 @@ class CheckCollectionImpl:
                     columns.append(column)
         return columns
 
-    def verify(self) -> "ContractVerificationResult":
+    def verify(self) -> "CheckCollectionResult":
         # Resolve the concrete result class via the subtype hook. The Contract*
         # path sets ``_RESULT_CLASS = ContractVerificationResult``; a future
         # DataStandard* subtype sets it to its own result class and gets that

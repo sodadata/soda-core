@@ -205,9 +205,9 @@ class SodaException(Exception):
     def __init__(
         self,
         message: Optional[str] = None,
-        contract_verification_result: Optional["ContractVerificationSessionResult"] = None,
+        contract_verification_result: Optional["CheckCollectionSessionResult"] = None,
     ):
-        self.contract_verification_result: Optional["ContractVerificationSessionResult"] = contract_verification_result
+        self.contract_verification_result: Optional["CheckCollectionSessionResult"] = contract_verification_result
         super().__init__(message)
 
 
