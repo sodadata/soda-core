@@ -276,25 +276,6 @@ class TestNormalization:
         restored = pickle.loads(pickle.dumps(result))
         assert restored.rows == [(1, "x"), (2, "y")]
 
-    @pytest.mark.parametrize(
-        "sql, expected",
-        [
-            ("CREATE TABLE t (id INT)", "t"),
-            ("CREATE TABLE myschema.mytable (id INT)", "myschema.mytable"),
-            ('CREATE TABLE "myschema"."mytable" (id INT)', '"myschema"."mytable"'),
-            ("CREATE TABLE IF NOT EXISTS t (id INT)", "t"),
-            ("CREATE TEMP TABLE t (id INT)", "t"),
-            ("CREATE TEMPORARY TABLE t (id INT)", "t"),
-            ("  CREATE TABLE t (id INT)", "t"),
-            # Non-TABLE CREATE statements return None
-            ("CREATE SCHEMA myschema", None),
-            ("CREATE VIEW myview AS SELECT 1", None),
-            ("CREATE INDEX idx ON t (id)", None),
-        ],
-    )
-    def test_extract_table_name_from_create(self, sql, expected):
-        assert SnapshotDataSourceConnection._extract_table_name_from_create(sql) == expected
-
 
 # ---------------------------------------------------------------------------
 # SnapshotDataSourceConnection — record and replay
@@ -401,26 +382,33 @@ class TestSnapshotConnectionReplay:
 
     def test_sql_mismatch_raises_by_default(self, setup):
         conn, _, test_id = setup
-        # Fallback is disabled by default → mismatch raises SnapshotMismatchError
+        # Under the rerun model (default), mismatch raises SnapshotMismatchError
+        # straight up so the pytest plugin can re-run the test.
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            with pytest.raises(SnapshotMismatchError, match="fallback is disabled"):
+            with pytest.raises(SnapshotMismatchError, match="Snapshot mismatch"):
                 conn.execute_query("SELECT WRONG_SQL")
 
     def test_snapshot_exhaustion_raises_by_default(self, setup):
         conn, _, test_id = setup
-        # Fallback is disabled by default → exhaustion raises SnapshotMismatchError
+        # Under the rerun model (default), running past the end of a recorded
+        # snapshot raises SnapshotMismatchError.
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
             conn.execute_query("SELECT COUNT(*)")
             conn.execute_update("INSERT INTO t VALUES (1)")
-            with pytest.raises(SnapshotMismatchError, match="fallback is disabled"):
+            with pytest.raises(SnapshotMismatchError, match="Snapshot exhausted"):
                 conn.execute_query("SELECT extra")
 
     def test_missing_snapshot_raises(self, tmp_path):
+        from helpers.snapshot_connection import reset_pending_rerun_record
+
         manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
         conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "tests/test_missing.py::test_gone (call)"}):
             with pytest.raises(SnapshotNotFoundError, match="No snapshot found"):
                 conn.execute_query("SELECT 1")
+        # The wrapper queues a rerun signal so the plugin can let the rerun
+        # decide the outcome; clean it up so it doesn't leak into other tests.
+        reset_pending_rerun_record()
 
 
 class TestSnapshotConnectionQueryIterate:
@@ -521,529 +509,6 @@ class TestSnapshotTestBoundaries:
         assert loaded_1[0].sql == "SELECT 1"
         assert len(loaded_2) == 1
         assert loaded_2[0].sql == "SELECT 2"
-
-
-# ---------------------------------------------------------------------------
-# Fallback: replay mismatch → transparent switch to real DB
-# ---------------------------------------------------------------------------
-
-
-class TestSnapshotFallback:
-    """Tests that snapshot mismatches fall back to the real DB transparently.
-
-    When replay detects a SQL mismatch, exhaustion, or missing snapshot, it
-    re-executes previously replayed operations against the real DB to set up
-    state, then continues in passthrough mode for the rest of that test.
-    """
-
-    def _save_snapshot(self, manager, test_id, entries):
-        manager.save(test_id, entries)
-
-    def test_sql_mismatch_falls_back_to_real_db(self, tmp_path):
-        """When a query doesn't match the snapshot, fall back to real DB."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_fallback_mismatch"
-
-        # Snapshot has: UPDATE, then "SELECT COUNT(*)"
-        self._save_snapshot(
-            manager,
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
-                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
-                SnapshotEntry(
-                    "query",
-                    "SELECT COUNT(*) FROM t",
-                    QueryResult(rows=[(1,)], columns=None),
-                ),
-            ],
-        )
-
-        # Real connection that will be used for fallback
-        real_conn = _make_mock_connection()
-        real_conn.execute_update.return_value = None
-        real_conn.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # First two operations match the snapshot → replayed from cache
-            conn.execute_update("CREATE TABLE t (id INT)")
-            conn.execute_update("INSERT INTO t VALUES (1)")
-
-            # Third operation: SQL changed → triggers fallback
-            result = conn.execute_query("SELECT COUNT(*) FROM t WHERE id > 0")
-
-        # The fallback should have:
-        # 1. Re-executed the 2 previous UPDATEs against the real DB
-        # 2. Executed the mismatched query against the real DB
-        assert result.rows == [(42,)]
-
-        # Verify the 2 UPDATEs were re-executed (for DB state setup)
-        update_calls = real_conn.execute_update.call_args_list
-        assert len(update_calls) == 2
-        assert update_calls[0].args[0] == "CREATE TABLE t (id INT)"
-        assert update_calls[1].args[0] == "INSERT INTO t VALUES (1)"
-
-        # Verify the mismatched query was executed against real DB
-        real_conn.execute_query.assert_called_once_with("SELECT COUNT(*) FROM t WHERE id > 0", log_query=True)
-
-    def test_fallback_continues_in_passthrough(self, tmp_path):
-        """After fallback, all subsequent operations go to the real DB."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_fallback_passthrough"
-
-        self._save_snapshot(
-            manager,
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
-                SnapshotEntry(
-                    "query",
-                    "SELECT 1",
-                    QueryResult(rows=[(1,)], columns=None),
-                ),
-            ],
-        )
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_update.return_value = None
-        real_conn.execute_query.side_effect = [
-            # First call: the mismatched query that triggers fallback
-            QueryResult(rows=[(100,)], columns=None),
-            # Second call: subsequent query in passthrough mode
-            QueryResult(rows=[(200,)], columns=None),
-        ]
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_update("CREATE TABLE t (id INT)")  # matches snapshot
-
-            # Mismatch → triggers fallback
-            r1 = conn.execute_query("SELECT CHANGED_SQL")
-
-            # Subsequent operations go straight to real DB (passthrough)
-            r2 = conn.execute_query("SELECT ANOTHER_QUERY")
-
-        assert r1.rows == [(100,)]
-        assert r2.rows == [(200,)]
-
-    def test_snapshot_exhaustion_falls_back(self, tmp_path):
-        """When the test has more operations than the snapshot, fall back."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_fallback_exhausted"
-
-        # Snapshot has only 1 operation
-        self._save_snapshot(
-            manager,
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
-            ],
-        )
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_update.return_value = None
-        real_conn.execute_query.return_value = QueryResult(rows=[(5,)], columns=None)
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_update("CREATE TABLE t (id INT)")  # matches, replayed
-
-            # Extra operation not in snapshot → fallback
-            result = conn.execute_query("SELECT COUNT(*) FROM t")
-
-        assert result.rows == [(5,)]
-
-        # The 1 previous UPDATE should have been re-executed
-        real_conn.execute_update.assert_called_once_with("CREATE TABLE t (id INT)", log_query=False)
-
-    def test_missing_snapshot_falls_back(self, tmp_path):
-        """When no snapshot exists for a test, fall back to real DB entirely."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        # No snapshot saved for this test
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_update.return_value = None
-        real_conn.execute_query.return_value = QueryResult(rows=[(7,)], columns=None)
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        test_id = "tests/test_x.py::test_no_snapshot"
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_update("CREATE TABLE t (id INT)")
-            result = conn.execute_query("SELECT COUNT(*) FROM t")
-
-        assert result.rows == [(7,)]
-        real_conn.execute_update.assert_called_once()
-        real_conn.execute_query.assert_called_once()
-
-    def test_missing_snapshot_without_real_conn_raises(self, tmp_path):
-        """Without a real connection, missing snapshot still raises."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "tests/test_x.py::test_gone (call)"}):
-            with pytest.raises(SnapshotNotFoundError):
-                conn.execute_query("SELECT 1")
-
-    def test_missing_snapshot_auto_records_with_real_conn(self, tmp_path):
-        """With a real connection and fallback enabled, missing snapshot auto-records instead of raising."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(rows=[(42,)], columns=None)
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        test_id = "tests/test_x.py::test_auto_record"
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            result = conn.execute_query("SELECT 42")
-
-        assert result.rows == [(42,)]
-        real_conn.execute_query.assert_called_once()
-
-    def test_missing_snapshot_raises_with_real_conn_when_fallback_disabled(self, tmp_path):
-        """With a real connection but fallback disabled, missing snapshot raises."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        real_conn = _make_mock_connection()
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=False)
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "tests/test_x.py::test_strict (call)"}):
-            with pytest.raises(SnapshotNotFoundError, match="No snapshot found"):
-                conn.execute_query("SELECT 1")
-
-    def test_missing_snapshot_auto_records_then_next_test_replays(self, tmp_path):
-        """First test auto-records (no snapshot), second test replays from cache."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id_1 = "tests/test_x.py::test_auto_records"
-        test_id_2 = "tests/test_x.py::test_replays"
-
-        # Only second test has a snapshot
-        manager.save(
-            test_id_2,
-            [SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None))],
-        )
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        # First test: no snapshot → auto-record against real DB
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
-            result1 = conn.execute_query("SELECT 1")
-        assert result1.rows == [(1,)]
-        real_conn.execute_query.assert_called_once()
-
-        # Second test: snapshot exists → replay from cache (no real DB calls)
-        real_conn.reset_mock()
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
-            result2 = conn.execute_query("SELECT 2")
-        assert result2.rows == [(2,)]
-        real_conn.execute_query.assert_not_called()
-
-    def test_mismatch_without_fallback_raises(self, tmp_path):
-        """Without fallback enabled, mismatch raises SnapshotMismatchError."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_no_real"
-
-        manager.save(
-            test_id,
-            [SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))],
-        )
-
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            with pytest.raises(SnapshotMismatchError, match="fallback is disabled"):
-                conn.execute_query("SELECT DIFFERENT")
-
-    def test_fallback_resets_for_next_test(self, tmp_path):
-        """Fallback in one test doesn't affect the next test's replay."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id_1 = "tests/test_x.py::test_falls_back"
-        test_id_2 = "tests/test_x.py::test_replays_fine"
-
-        # First test: snapshot will mismatch
-        manager.save(
-            test_id_1,
-            [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))],
-        )
-        # Second test: snapshot will match
-        manager.save(
-            test_id_2,
-            [SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None))],
-        )
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(rows=[(99,)], columns=None)
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        # First test: mismatch → fallback to real DB
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
-            r1 = conn.execute_query("SELECT NEW")
-        assert r1.rows == [(99,)]  # from real DB
-
-        # Second test: should replay from snapshot (NOT still in fallback)
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
-            r2 = conn.execute_query("SELECT 2")
-        assert r2.rows == [(2,)]  # from snapshot, not real DB
-
-    def test_fallback_re_records_snapshot_when_rerecord_enabled(self, tmp_path):
-        """Fallback overwrites the snapshot when SODA_TEST_SNAPSHOT_RERECORD=true."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_rerecord"
-
-        # Old snapshot with outdated SQL
-        self._save_snapshot(
-            manager,
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
-                SnapshotEntry(
-                    "query",
-                    "SELECT OLD_SQL",
-                    QueryResult(rows=[(1,)], columns=None),
-                ),
-            ],
-        )
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_update.return_value = None
-        real_conn.execute_query.side_effect = [
-            # Re-execution of the UPDATE's preceding query (none here)
-            # Re-execution of "CREATE TABLE" is an update, handled separately
-            # The mismatched query
-            QueryResult(rows=[(42,)], columns=(PicklableColumn("n", 23, None, None, None, None, None),)),
-            # A subsequent query
-            QueryResult(rows=[(99,)], columns=(PicklableColumn("m", 23, None, None, None, None, None),)),
-        ]
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        with patch.dict(
-            os.environ,
-            {"PYTEST_CURRENT_TEST": f"{test_id} (call)", "SODA_TEST_SNAPSHOT_RERECORD": "true"},
-        ):
-            conn.execute_update("CREATE TABLE t (id INT)")  # matches
-            conn.execute_query("SELECT NEW_SQL")  # mismatch → fallback + re-record
-            conn.execute_query("SELECT EXTRA")  # passthrough + record
-
-            conn.finalize()
-
-        # Verify the snapshot was overwritten with the new SQL and results
-        loaded = manager.load(test_id)
-        assert loaded is not None
-        assert len(loaded) == 3  # UPDATE + 2 queries (was 2 before)
-        assert loaded[0].op_type == "update"
-        assert loaded[0].sql == "CREATE TABLE t (id INT)"
-        assert loaded[1].op_type == "query"
-        assert loaded[1].sql == "SELECT NEW_SQL"
-        assert loaded[1].result.rows == [(42,)]
-        assert loaded[2].op_type == "query"
-        assert loaded[2].sql == "SELECT EXTRA"
-        assert loaded[2].result.rows == [(99,)]
-
-    def test_fallback_does_not_re_record_by_default(self, tmp_path):
-        """Fallback does NOT overwrite the snapshot unless SODA_TEST_SNAPSHOT_RERECORD=true."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_no_rerecord"
-
-        # Old snapshot
-        self._save_snapshot(
-            manager,
-            test_id,
-            [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))],
-        )
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(rows=[(99,)], columns=None)
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}, clear=False):
-            os.environ.pop("SODA_TEST_SNAPSHOT_RERECORD", None)
-            conn.execute_query("SELECT NEW")  # mismatch → fallback
-
-        conn.finalize()
-
-        # Snapshot should still have the OLD data (not overwritten)
-        loaded = manager.load(test_id)
-        assert loaded is not None
-        assert len(loaded) == 1
-        assert loaded[0].sql == "SELECT OLD"
-
-    def test_re_recorded_snapshot_replays_on_next_run(self, tmp_path):
-        """After fallback re-records, the next replay run uses the updated snapshot."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_self_heal"
-
-        # Old snapshot
-        self._save_snapshot(
-            manager,
-            test_id,
-            [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))],
-        )
-
-        # --- First run: fallback + re-record ---
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(
-            rows=[(77,)], columns=(PicklableColumn("v", 23, None, None, None, None, None),)
-        )
-
-        conn1 = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-        with patch.dict(
-            os.environ,
-            {"PYTEST_CURRENT_TEST": f"{test_id} (call)", "SODA_TEST_SNAPSHOT_RERECORD": "true"},
-        ):
-            conn1.execute_query("SELECT NEW")  # mismatch → fallback + re-record
-            conn1.finalize()
-
-        # --- Second run: pure replay from updated snapshot ---
-        conn2 = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            result = conn2.execute_query("SELECT NEW")  # should match now
-
-        assert result.rows == [(77,)]  # from the re-recorded snapshot
-        assert result.columns[0].name == "v"
-
-
-# ---------------------------------------------------------------------------
-# Lazy connection factory: real DB connection created only on fallback
-# ---------------------------------------------------------------------------
-
-
-class TestSnapshotLazyConnection:
-    """Tests that the fallback_connection_factory is used lazily.
-
-    When replay mode is started without a real connection, the factory should
-    only be invoked when a fallback is actually needed (mismatch or missing
-    snapshot). Successful replays should never call the factory.
-    """
-
-    def test_factory_called_on_missing_snapshot(self, tmp_path):
-        """Factory is invoked lazily when no snapshot exists."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        factory_calls = []
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_update.return_value = None
-        real_conn.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
-        def factory():
-            factory_calls.append(True)
-            return real_conn
-
-        conn = SnapshotDataSourceConnection(
-            real_connection=None,
-            snapshot_manager=manager,
-            mode="replay",
-            fallback_connection_factory=factory,
-            allow_fallback=True,
-        )
-
-        test_id = "tests/test_x.py::test_lazy_missing"
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            result = conn.execute_query("SELECT 1")
-
-        assert len(factory_calls) == 1
-        assert result.rows == [(1,)]
-
-    def test_factory_called_on_mismatch(self, tmp_path):
-        """Factory is invoked lazily when SQL mismatch triggers fallback."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_lazy_mismatch"
-
-        manager.save(
-            test_id,
-            [SnapshotEntry("query", "SELECT OLD", QueryResult(rows=[(1,)], columns=None))],
-        )
-
-        factory_calls = []
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(rows=[(99,)], columns=None)
-
-        def factory():
-            factory_calls.append(True)
-            return real_conn
-
-        conn = SnapshotDataSourceConnection(
-            real_connection=None,
-            snapshot_manager=manager,
-            mode="replay",
-            fallback_connection_factory=factory,
-            allow_fallback=True,
-        )
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            result = conn.execute_query("SELECT NEW")
-
-        assert len(factory_calls) == 1
-        assert result.rows == [(99,)]
-
-    def test_factory_not_called_on_successful_replay(self, tmp_path):
-        """Factory is NOT invoked when replay matches perfectly."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_lazy_match"
-
-        manager.save(
-            test_id,
-            [SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None))],
-        )
-
-        factory_calls = []
-
-        def factory():
-            factory_calls.append(True)
-            return _make_mock_connection()
-
-        conn = SnapshotDataSourceConnection(
-            real_connection=None,
-            snapshot_manager=manager,
-            mode="replay",
-            fallback_connection_factory=factory,
-        )
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            result = conn.execute_query("SELECT 1")
-
-        assert len(factory_calls) == 0
-        assert result.rows == [(1,)]
-
-    def test_factory_called_once_across_multiple_tests(self, tmp_path):
-        """Factory is invoked at most once, even with multiple missing snapshots."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        factory_calls = []
-
-        real_conn = _make_mock_connection()
-        real_conn.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
-        def factory():
-            factory_calls.append(True)
-            return real_conn
-
-        conn = SnapshotDataSourceConnection(
-            real_connection=None,
-            snapshot_manager=manager,
-            mode="replay",
-            fallback_connection_factory=factory,
-            allow_fallback=True,
-        )
-
-        # First test: missing snapshot → factory called
-        test_id_1 = "tests/test_x.py::test_lazy_first"
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
-            conn.execute_query("SELECT 1")
-
-        # Second test: also missing snapshot, but _real is already set
-        test_id_2 = "tests/test_x.py::test_lazy_second"
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
-            conn.execute_query("SELECT 2")
-
-        # Factory was only called once (for the first test)
-        assert len(factory_calls) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1527,102 +992,6 @@ class TestTimestampNormalization:
 # ---------------------------------------------------------------------------
 
 
-class TestUnconsumedEntries:
-    """Tests for detection of unconsumed snapshot entries."""
-
-    def test_finalize_raises_on_unconsumed_entries(self, tmp_path):
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_unconsumed"
-
-        # Snapshot has 2 entries
-        manager.save(
-            test_id,
-            [
-                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
-                SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None)),
-            ],
-        )
-
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_query("SELECT 1")  # consume only the first entry
-            # Second entry is unconsumed
-
-        # finalize() should raise because of unconsumed entries
-        with pytest.raises(SnapshotMismatchError, match="unconsumed"):
-            conn.finalize()
-
-    def test_boundary_transition_logs_warning_for_unconsumed(self, tmp_path):
-        """When transitioning to a new test, unconsumed entries are logged (not raised)."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id_1 = "tests/test_x.py::test_has_unconsumed"
-        test_id_2 = "tests/test_x.py::test_next"
-
-        manager.save(
-            test_id_1,
-            [
-                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
-                SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None)),
-            ],
-        )
-        manager.save(
-            test_id_2,
-            [SnapshotEntry("query", "SELECT 3", QueryResult(rows=[(3,)], columns=None))],
-        )
-
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
-            conn.execute_query("SELECT 1")  # consume only 1 of 2
-
-        # Transition to next test — unconsumed entry should be logged, not raised
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
-            result = conn.execute_query("SELECT 3")
-
-        assert result.rows == [(3,)]
-
-    def test_unconsumed_does_not_affect_next_test(self, tmp_path):
-        """After logging unconsumed entries, next test replays normally."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id_1 = "tests/test_x.py::test_incomplete"
-        test_id_2 = "tests/test_x.py::test_complete"
-
-        manager.save(
-            test_id_1,
-            [
-                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
-                SnapshotEntry("query", "SELECT 2", QueryResult(rows=[(2,)], columns=None)),
-            ],
-        )
-        manager.save(
-            test_id_2,
-            [
-                SnapshotEntry("query", "SELECT A", QueryResult(rows=[("a",)], columns=None)),
-                SnapshotEntry("query", "SELECT B", QueryResult(rows=[("b",)], columns=None)),
-            ],
-        )
-
-        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
-
-        # First test: consume only 1 entry (leaves 1 unconsumed)
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_1} (call)"}):
-            conn.execute_query("SELECT 1")
-
-        # Second test: should replay its own snapshot fully
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id_2} (call)"}):
-            r1 = conn.execute_query("SELECT A")
-            r2 = conn.execute_query("SELECT B")
-
-        assert r1.rows == [("a",)]
-        assert r2.rows == [("b",)]
-
-
-# ---------------------------------------------------------------------------
-# __getattr__ proxy
-# ---------------------------------------------------------------------------
-
-
 class TestGetattr:
     """Tests for __getattr__ attribute proxying to real connection."""
 
@@ -1809,75 +1178,6 @@ class TestConnectionLifecycle:
 
 # ---------------------------------------------------------------------------
 # Fallback for execute_query_iterate and execute_query_one_by_one
-# ---------------------------------------------------------------------------
-
-
-class TestFallbackIterateAndOneByOne:
-    """Tests for fallback in iterate and one_by_one modes."""
-
-    def test_iterate_fallback_on_mismatch(self, tmp_path):
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_iterate_fallback"
-
-        desc = (PicklableColumn("val", 23, None, None, None, None, None),)
-        # Snapshot has iterate with old SQL
-        manager.save(
-            test_id,
-            [SnapshotEntry("query_iterate", "SELECT old FROM t", ([(1,), (2,)], desc))],
-        )
-
-        real_conn = _make_mock_connection()
-        # Set up real connection to return data via execute_query_iterate
-        from contextlib import contextmanager
-
-        fake_cursor = FakeCursor([(10,), (20,), (30,)], description=desc, rowcount=3)
-        real_iter = QueryResultIterator(fake_cursor, format_row=tuple)
-
-        @contextmanager
-        def mock_iterate(sql, log_query=True):
-            yield real_iter
-
-        real_conn.execute_query_iterate = mock_iterate
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            with conn.execute_query_iterate("SELECT new FROM t") as it:
-                rows = list(it)
-
-        assert rows == [(10,), (20,), (30,)]
-
-    def test_one_by_one_fallback_on_mismatch(self, tmp_path):
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_obo_fallback"
-
-        desc = (PicklableColumn("id", 23, None, None, None, None, None),)
-        # Snapshot has one_by_one with old SQL
-        manager.save(
-            test_id,
-            [SnapshotEntry("query_one_by_one", "SELECT old FROM t", (desc, [(1,), (2,)]))],
-        )
-
-        real_conn = _make_mock_connection()
-
-        def mock_one_by_one(sql, row_callback, log_query=True, row_limit=None):
-            for row in [(100,), (200,)]:
-                row_callback(row, desc)
-            return desc
-
-        real_conn.execute_query_one_by_one = mock_one_by_one
-
-        conn = SnapshotDataSourceConnection(real_conn, manager, mode="replay", allow_fallback=True)
-
-        captured = []
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_query_one_by_one("SELECT new FROM t", lambda row, desc: captured.append(row))
-
-        assert captured == [(100,), (200,)]
-
-
-# ---------------------------------------------------------------------------
-# Session-level operations (no PYTEST_CURRENT_TEST)
 # ---------------------------------------------------------------------------
 
 
@@ -2136,363 +1436,298 @@ class TestFinalizedState:
 # ---------------------------------------------------------------------------
 
 
-class TestLinkedSnapshotFallback:
-    """Tests for linked snapshot fallback (DWH → source cascade).
+class TestRerunSignalling:
+    """The wrapper signals a rerun by registering in ``_PENDING_RERUN`` and
+    re-raising. The pytest plugin then runs the test once more against the
+    real DB with the wrapper swapped out."""
 
-    In in-source mode, the DWH snapshot is linked to the source snapshot.
-    When the DWH snapshot triggers fallback, it cascades to the source snapshot
-    first, so source tables exist before DWH operations re-execute.
-    """
+    @pytest.fixture(autouse=True)
+    def _clean_rerun_state(self):
+        from helpers.snapshot_connection import reset_pending_rerun_record
 
-    def test_linked_fallback_cascades_to_source(self, tmp_path):
-        """DWH mismatch cascades fallback to the linked source snapshot."""
-        source_manager = SnapshotManager("postgres", str(tmp_path / "source_snaps"))
-        dwh_manager = SnapshotManager("postgres", str(tmp_path / "dwh_snaps"))
-        test_id = "tests/test_x.py::test_linked_cascade"
+        reset_pending_rerun_record()
+        yield
+        reset_pending_rerun_record()
 
-        # Source snapshot: CREATE TABLE + INSERT + SELECT COUNT
-        source_manager.save(
+    def _save_simple_snapshot(self, manager, test_id):
+        manager.save(
             test_id,
-            [
-                SnapshotEntry("update", "CREATE TABLE src (id INT)", None),
-                SnapshotEntry("update", "INSERT INTO src VALUES (1)", None),
-                SnapshotEntry("query", "SELECT COUNT(*) FROM src", QueryResult(rows=[(1,)], columns=None)),
-            ],
+            [SnapshotEntry("query", "SELECT old", QueryResult(rows=[(1,)], columns=None))],
         )
 
-        # DWH snapshot: CREATE SCHEMA + mismatch at INSERT INTO CHECK_RESULTS
-        dwh_manager.save(
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE SCHEMA IF NOT EXISTS dwh", None),
-                SnapshotEntry("update", "INSERT INTO CHECK_RESULTS VALUES ('old_sql')", None),
-            ],
-        )
+    def test_mismatch_raises_and_registers_rerun(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_mismatch"
+        self._save_simple_snapshot(manager, test_id)
 
-        # Source real connection
-        source_real = _make_mock_connection()
-        source_real.execute_update.return_value = None
-        source_real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
-        # DWH real connection
-        dwh_real = _make_mock_connection()
-        dwh_real.execute_update.return_value = None
-        dwh_real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
-        # Set up source snapshot connection
-        source_conn = SnapshotDataSourceConnection(
-            real_connection=source_real,
-            snapshot_manager=source_manager,
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
             mode="replay",
             allow_fallback=True,
         )
-
-        # Set up DWH snapshot connection with linked source
-        dwh_conn = SnapshotDataSourceConnection(
-            real_connection=dwh_real,
-            snapshot_manager=dwh_manager,
-            mode="replay",
-            allow_fallback=True,
-        )
-        dwh_conn._linked_snapshot = source_conn
-
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # Source operations replay successfully
-            source_conn.execute_update("CREATE TABLE src (id INT)")
-            source_conn.execute_update("INSERT INTO src VALUES (1)")
-            source_conn.execute_query("SELECT COUNT(*) FROM src")
+            with pytest.raises(SnapshotMismatchError):
+                conn.execute_query("SELECT new")
 
-            # DWH: first op matches
-            dwh_conn.execute_update("CREATE SCHEMA IF NOT EXISTS dwh")
+        from helpers.snapshot_connection import get_pending_rerun_record
 
-            # DWH: second op mismatches → triggers fallback → cascades to source
-            dwh_conn.execute_update("INSERT INTO CHECK_RESULTS VALUES ('new_sql')")
+        assert test_id in get_pending_rerun_record()
 
-        # Source should have been cascaded to fallback and re-executed its 3 ops
-        assert source_conn._fallback_active is True
-        source_update_calls = source_real.execute_update.call_args_list
-        assert len(source_update_calls) == 2  # CREATE TABLE + INSERT
-        assert "CREATE TABLE src" in source_update_calls[0].args[0]
-        assert "INSERT INTO src" in source_update_calls[1].args[0]
+    def test_missing_snapshot_raises_and_registers_rerun(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_missing"
 
-        # DWH should have re-executed its 1 previous op + the mismatched one
-        dwh_update_calls = dwh_real.execute_update.call_args_list
-        assert len(dwh_update_calls) == 2  # re-executed CREATE SCHEMA + mismatched INSERT
-        assert "CREATE SCHEMA" in dwh_update_calls[0].args[0]
-        assert "new_sql" in dwh_update_calls[1].args[0]
+        # Even with allow_fallback and a factory, the wrapper raises so the
+        # plugin can rerun rather than silently synthesising state mid-test.
+        factory_called = []
 
-    def test_linked_fallback_source_without_ddl_fails(self, tmp_path):
-        """When source snapshot has no DDL (table created by prior test), fallback
-        re-executes read-only ops that reference a non-existent table.
+        def factory():
+            factory_called.append(True)
+            return _make_mock_connection()
 
-        This simulates the cross-test table sharing scenario where test B reuses
-        a table created by test A. Test B's source snapshot has no CREATE TABLE.
-        """
-        source_manager = SnapshotManager("postgres", str(tmp_path / "source_snaps"))
-        dwh_manager = SnapshotManager("postgres", str(tmp_path / "dwh_snaps"))
-        test_id = "tests/test_x.py::test_no_ddl_source"
-
-        # Source snapshot for test B: only read ops (table was created by test A)
-        source_manager.save(
-            test_id,
-            [
-                SnapshotEntry(
-                    "query",
-                    "SELECT COUNT(*) FROM shared_table",
-                    QueryResult(rows=[(5,)], columns=None),
-                ),
-            ],
-        )
-
-        # DWH snapshot with a mismatch
-        dwh_manager.save(
-            test_id,
-            [
-                SnapshotEntry("update", "INSERT INTO CHECK_RESULTS VALUES ('old')", None),
-            ],
-        )
-
-        # Source real connection — SELECT COUNT will fail because table doesn't exist
-        source_real = _make_mock_connection()
-        source_real.execute_query.side_effect = Exception("Table 'shared_table' does not exist")
-        source_real.execute_update.return_value = None
-
-        dwh_real = _make_mock_connection()
-        dwh_real.execute_update.return_value = None
-
-        source_conn = SnapshotDataSourceConnection(
-            real_connection=source_real,
-            snapshot_manager=source_manager,
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
             mode="replay",
             allow_fallback=True,
+            fallback_connection_factory=factory,
         )
-
-        dwh_conn = SnapshotDataSourceConnection(
-            real_connection=dwh_real,
-            snapshot_manager=dwh_manager,
-            mode="replay",
-            allow_fallback=True,
-        )
-        dwh_conn._linked_snapshot = source_conn
-
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # Source: replay the COUNT (succeeds from snapshot)
-            source_conn.execute_query("SELECT COUNT(*) FROM shared_table")
+            with pytest.raises(SnapshotNotFoundError):
+                conn.execute_query("SELECT 1")
 
-            # DWH: mismatch triggers fallback → cascades to source
-            # Source fallback tries to re-execute COUNT against real DB → fails
-            with pytest.raises(Exception, match="does not exist"):
-                dwh_conn.execute_update("INSERT INTO CHECK_RESULTS VALUES ('new')")
+        # Factory must NOT have been called — no auto-record on missing snapshot.
+        assert factory_called == []
+        from helpers.snapshot_connection import get_pending_rerun_record
 
-    def test_linked_fallback_does_not_cascade_when_already_active(self, tmp_path):
-        """If source is already in fallback, DWH fallback does not re-cascade."""
-        source_manager = SnapshotManager("postgres", str(tmp_path / "source_snaps"))
-        dwh_manager = SnapshotManager("postgres", str(tmp_path / "dwh_snaps"))
-        test_id = "tests/test_x.py::test_no_double_cascade"
+        assert test_id in get_pending_rerun_record()
 
-        # Source snapshot with mismatch
-        source_manager.save(
-            test_id,
-            [SnapshotEntry("query", "SELECT OLD_SOURCE", QueryResult(rows=[(1,)], columns=None))],
-        )
+    def test_mismatch_without_fallback_raises_without_registering(self, tmp_path):
+        """``allow_fallback=False`` means: hard fail on mismatch, no rerun signal."""
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_no_fallback"
+        self._save_simple_snapshot(manager, test_id)
 
-        # DWH snapshot with mismatch
-        dwh_manager.save(
-            test_id,
-            [SnapshotEntry("update", "INSERT INTO dwh VALUES ('old')", None)],
-        )
-
-        source_real = _make_mock_connection()
-        source_real.execute_query.return_value = QueryResult(rows=[(99,)], columns=None)
-        source_real.execute_update.return_value = None
-
-        dwh_real = _make_mock_connection()
-        dwh_real.execute_update.return_value = None
-
-        source_conn = SnapshotDataSourceConnection(
-            real_connection=source_real,
-            snapshot_manager=source_manager,
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
             mode="replay",
-            allow_fallback=True,
+            allow_fallback=False,
         )
-
-        dwh_conn = SnapshotDataSourceConnection(
-            real_connection=dwh_real,
-            snapshot_manager=dwh_manager,
-            mode="replay",
-            allow_fallback=True,
-        )
-        dwh_conn._linked_snapshot = source_conn
-
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # Source: mismatch → already in fallback
-            source_conn.execute_query("SELECT NEW_SOURCE")
-            assert source_conn._fallback_active is True
+            with pytest.raises(SnapshotMismatchError):
+                conn.execute_query("SELECT new")
 
-            # Reset mock call tracking so we can verify no re-cascade
-            source_real.reset_mock()
+        from helpers.snapshot_connection import get_pending_rerun_record
 
-            # DWH: mismatch → triggers fallback, but source already active
-            dwh_conn.execute_update("INSERT INTO dwh VALUES ('new')")
+        assert test_id not in get_pending_rerun_record()
 
-        # Source should NOT have been re-cascaded (no additional execute calls)
-        source_real.execute_update.assert_not_called()
-        source_real.execute_query.assert_not_called()
+    def test_missing_snapshot_registers_rerun_even_without_fallback(self, tmp_path):
+        """A missing snapshot ALWAYS registers a rerun signal, regardless of
+        ``allow_fallback``. There's no recording to replay — only the real DB
+        can tell us if the test passes. The plugin then decides whether to
+        actually rerun (default) or hard fail (strict mode)."""
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_never_recorded"
 
-    def test_fallback_re_execution_ignores_create_errors(self, tmp_path):
-        """When fallback re-executes CREATE ops, 'already exists' errors are ignored.
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=False,  # explicitly off — mismatches would NOT signal
+        )
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            with pytest.raises(SnapshotNotFoundError):
+                conn.execute_query("SELECT 1")
 
-        This happens when connection_factory already created tables (via
-        _ensured_test_tables) and then _activate_fallback tries to re-execute
-        the same CREATE TABLE from the snapshot.
+        # Despite allow_fallback=False, the missing snapshot still queues a rerun.
+        from helpers.snapshot_connection import get_pending_rerun_record
 
-        When a CREATE TABLE is suppressed, the table's data is cleared (DELETE FROM)
-        to prevent doubling when the subsequent INSERT re-executes.
-        """
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_ignore_create_errors"
+        assert test_id in get_pending_rerun_record()
 
-        # Snapshot: CREATE TABLE + INSERT + query that will mismatch
+    def test_live_wrapper_registry_tracks_instances(self, tmp_path):
+        from helpers.snapshot_connection import get_live_snapshot_wrappers
+
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        before = set(get_live_snapshot_wrappers())
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        assert conn in set(get_live_snapshot_wrappers())
+        # Weak ref: deleting the wrapper drops it from the registry on GC.
+        del conn
+        import gc
+
+        gc.collect()
+        after = set(get_live_snapshot_wrappers())
+        assert after == before
+
+    def test_unconsumed_entries_in_teardown_queue_rerun_instead_of_raising(self, tmp_path):
+        """If a mid-test mismatch is swallowed by user code, the per-test
+        teardown still calls ``_finalize_current_test``. It must NOT raise —
+        that would fail the teardown phase and block the plugin from running
+        the rerun. Instead it queues another rerun signal."""
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        test_id = "tests/test_rerun.py::test_unconsumed"
         manager.save(
             test_id,
             [
-                SnapshotEntry("update", "CREATE TABLE t (id INT)", None),
-                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
-                SnapshotEntry("query", "SELECT * FROM t", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT a", QueryResult(rows=[(1,)], columns=None)),
+                SnapshotEntry("query", "SELECT b", QueryResult(rows=[(2,)], columns=None)),
             ],
         )
+        conn = SnapshotDataSourceConnection(
+            real_connection=_make_mock_connection(),
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
+            conn.execute_query("SELECT a")  # consume entry 0, leave entry 1
+            conn._finalize_current_test()
+        from helpers.snapshot_connection import get_pending_rerun_record
 
+        assert test_id in get_pending_rerun_record()
+        assert conn._replay_data is None
+        assert conn._replay_index == 0
+
+
+class TestSwapBasedRerun:
+    """The swap-based rerun model: between attempts, the plugin replaces
+    ``data_source_impl.data_source_connection`` with the real connection so
+    the rerun behaves identically to ``SODA_TEST_SNAPSHOT=off``."""
+
+    def test_swap_detaches_wrapper_from_data_source_impl(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
         real = _make_mock_connection()
-        # CREATE TABLE fails (already exists), DELETE clears data, INSERT succeeds
-        real.execute_update.side_effect = [
-            Exception("Object 't' already exists"),  # CREATE TABLE during re-execution
-            None,  # DELETE FROM t (clear factory data)
-            None,  # INSERT during re-execution
-            None,  # mismatched query's passthrough (not used — query goes through execute_query)
-        ]
-        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
         conn = SnapshotDataSourceConnection(
             real_connection=real,
             snapshot_manager=manager,
             mode="replay",
             allow_fallback=True,
         )
+        fake_ds_impl = MagicMock()
+        fake_ds_impl.data_source_connection = conn
+        conn._data_source_impl = fake_ds_impl
 
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            # Replay first two ops successfully
-            conn.execute_update("CREATE TABLE t (id INT)")
-            conn.execute_update("INSERT INTO t VALUES (1)")
-            # Third op mismatches → triggers fallback → re-executes 2 updates
-            # CREATE TABLE fails but is ignored + data cleared, INSERT succeeds
-            conn.execute_query("SELECT * FROM t WHERE id = 2")
+        assert conn.swap_to_real_for_rerun() is True
+        # After swap, the data source's connection is the real one, not the wrapper.
+        assert fake_ds_impl.data_source_connection is real
 
-        assert conn._fallback_active is True
-        # 3 update calls: CREATE TABLE (failed), DELETE FROM t (clear data), INSERT
-        assert real.execute_update.call_count == 3
-        # Verify the DELETE was called to prevent data doubling
-        delete_call = real.execute_update.call_args_list[1]
-        assert delete_call[0][0] == "DELETE FROM t"
-        # Query was run against real DB after fallback
-        assert real.execute_query.call_count == 1
-
-    def test_fallback_re_execution_clears_qualified_table(self, tmp_path):
-        """When CREATE TABLE with qualified name is suppressed, DELETE uses the same qualified name."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_clear_qualified_table"
-
-        manager.save(
-            test_id,
-            [
-                SnapshotEntry("update", 'CREATE TABLE "myschema"."mytable" (id INT)', None),
-                SnapshotEntry("update", 'INSERT INTO "myschema"."mytable" VALUES (1)', None),
-                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
-            ],
-        )
-
+    def test_restore_reattaches_wrapper(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
         real = _make_mock_connection()
-        real.execute_update.side_effect = [
-            Exception("already exists"),  # CREATE TABLE
-            None,  # DELETE FROM (clear data)
-            None,  # INSERT
-        ]
-        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
-
         conn = SnapshotDataSourceConnection(
             real_connection=real,
             snapshot_manager=manager,
             mode="replay",
             allow_fallback=True,
         )
+        fake_ds_impl = MagicMock()
+        fake_ds_impl.data_source_connection = conn
+        conn._data_source_impl = fake_ds_impl
 
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_update('CREATE TABLE "myschema"."mytable" (id INT)')
-            conn.execute_update('INSERT INTO "myschema"."mytable" VALUES (1)')
-            conn.execute_query("SELECT 2")  # mismatch triggers fallback
+        conn.swap_to_real_for_rerun()
+        assert fake_ds_impl.data_source_connection is real
 
-        delete_call = real.execute_update.call_args_list[1]
-        assert delete_call[0][0] == 'DELETE FROM "myschema"."mytable"'
+        conn.restore_from_rerun()
+        assert fake_ds_impl.data_source_connection is conn
 
-    def test_fallback_create_schema_does_not_trigger_delete(self, tmp_path):
-        """CREATE SCHEMA errors are suppressed but don't trigger a DELETE (only CREATE TABLE does)."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_create_schema_no_delete"
-
-        manager.save(
-            test_id,
-            [
-                SnapshotEntry("update", "CREATE SCHEMA myschema", None),
-                SnapshotEntry("query", "SELECT 1", QueryResult(rows=[(1,)], columns=None)),
-            ],
-        )
-
+    def test_swap_opens_real_via_factory_if_needed(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        factory_calls = []
         real = _make_mock_connection()
-        real.execute_update.side_effect = [
-            Exception("schema already exists"),  # CREATE SCHEMA
-        ]
-        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
 
+        def factory():
+            factory_calls.append(True)
+            return real
+
+        conn = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+            fallback_connection_factory=factory,
+        )
+        fake_ds_impl = MagicMock()
+        fake_ds_impl.data_source_connection = conn
+        conn._data_source_impl = fake_ds_impl
+
+        assert conn.swap_to_real_for_rerun() is True
+        assert factory_calls == [True]
+        assert fake_ds_impl.data_source_connection is real
+
+    def test_swap_returns_false_for_secondary_wrapper(self, tmp_path):
+        """Secondaries aren't installed on a DataSourceImpl — they're returned
+        by patched create_additional_connection. The plugin's patch bypasses
+        them entirely during a rerun, so the wrapper has nothing to swap."""
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        real = _make_mock_connection()
+        primary = SnapshotDataSourceConnection(
+            real_connection=real,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+        )
+        secondary = SnapshotDataSourceConnection(
+            real_connection=None,
+            snapshot_manager=manager,
+            mode="replay",
+            allow_fallback=True,
+            primary_snapshot=primary,
+        )
+        assert secondary.swap_to_real_for_rerun() is False
+
+    def test_swap_returns_false_when_no_back_ref(self, tmp_path):
+        manager = SnapshotManager("postgres", str(tmp_path / "s"))
+        real = _make_mock_connection()
         conn = SnapshotDataSourceConnection(
             real_connection=real,
             snapshot_manager=manager,
             mode="replay",
             allow_fallback=True,
         )
+        # No _data_source_impl back-ref set — plugin can't swap.
+        assert conn.swap_to_real_for_rerun() is False
 
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_update("CREATE SCHEMA myschema")
-            conn.execute_query("SELECT 2")  # mismatch triggers fallback
 
-        # Only 1 update call: CREATE SCHEMA (failed). No DELETE issued.
-        assert real.execute_update.call_count == 1
+class TestStrictMode:
+    """``SODA_TEST_SNAPSHOT_STRICT=true`` makes snapshot mismatches fail the
+    test instead of triggering a rerun. Used for nightly post-record runs
+    that need to verify the freshly-recorded snapshots replay correctly."""
 
-    def test_fallback_re_execution_raises_non_create_errors(self, tmp_path):
-        """When fallback re-executes non-CREATE ops, errors are NOT suppressed."""
-        manager = SnapshotManager("postgres", str(tmp_path / "snaps"))
-        test_id = "tests/test_x.py::test_raise_non_create_errors"
+    def test_is_strict_mode_enabled_default_false(self, monkeypatch):
+        from helpers.snapshot_connection import is_strict_mode_enabled
 
-        # Snapshot: INSERT + query that will mismatch
-        manager.save(
-            test_id,
-            [
-                SnapshotEntry("update", "INSERT INTO t VALUES (1)", None),
-                SnapshotEntry("query", "SELECT * FROM t", QueryResult(rows=[(1,)], columns=None)),
-            ],
-        )
+        monkeypatch.delenv("SODA_TEST_SNAPSHOT_STRICT", raising=False)
+        assert is_strict_mode_enabled() is False
 
-        real = _make_mock_connection()
-        real.execute_update.side_effect = Exception("relation 't' does not exist")
-        real.execute_query.return_value = QueryResult(rows=[(1,)], columns=None)
+    def test_is_strict_mode_enabled_when_set(self, monkeypatch):
+        from helpers.snapshot_connection import is_strict_mode_enabled
 
-        conn = SnapshotDataSourceConnection(
-            real_connection=real,
-            snapshot_manager=manager,
-            mode="replay",
-            allow_fallback=True,
-        )
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
+        assert is_strict_mode_enabled() is True
 
-        with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": f"{test_id} (call)"}):
-            conn.execute_update("INSERT INTO t VALUES (1)")
-            # Mismatch triggers fallback → re-executes INSERT → fails → re-raised
-            with pytest.raises(Exception, match="does not exist"):
-                conn.execute_query("SELECT * FROM t WHERE id = 2")
+    def test_is_strict_mode_case_insensitive(self, monkeypatch):
+        from helpers.snapshot_connection import is_strict_mode_enabled
+
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "TRUE")
+        assert is_strict_mode_enabled() is True
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "True")
+        assert is_strict_mode_enabled() is True
+
+    def test_plugin_rerun_disabled_in_strict_mode(self, monkeypatch):
+        """In strict mode the plugin's pytest_runtest_protocol no-ops so
+        pytest runs the test once and surfaces the SnapshotReplayError as a
+        hard failure."""
+        from helpers.snapshot_pytest_plugin import _rerun_mode_enabled
+
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
+        assert _rerun_mode_enabled() is False
+
+    def test_plugin_rerun_enabled_when_strict_off(self, monkeypatch):
+        from helpers.snapshot_pytest_plugin import _rerun_mode_enabled
+
+        monkeypatch.setenv("SODA_TEST_SNAPSHOT_RERUN", "true")
+        monkeypatch.delenv("SODA_TEST_SNAPSHOT_STRICT", raising=False)
+        assert _rerun_mode_enabled() is True

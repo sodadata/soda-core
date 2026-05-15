@@ -43,11 +43,22 @@ class SnapshotEntry:
     result: Any = None  # QueryResult, (description, rows), etc.
 
 
-class SnapshotNotFoundError(Exception):
+class SnapshotReplayError(Exception):
+    """Base class for replay-time failures that the pytest rerun plugin recognises.
+
+    A raised SnapshotReplayError bubbling out of a test (or a test boundary
+    transition) is the signal for "this test cannot be served from the
+    snapshot — re-run it against the real DB". Two concrete subclasses cover
+    the two ways replay can fail: a missing snapshot file, and a stored
+    operation that no longer matches what the test now emits.
+    """
+
+
+class SnapshotNotFoundError(SnapshotReplayError):
     pass
 
 
-class SnapshotMismatchError(Exception):
+class SnapshotMismatchError(SnapshotReplayError):
     pass
 
 

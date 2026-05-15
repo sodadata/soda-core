@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import re
+import weakref
 from collections import namedtuple
 from collections.abc import Iterator
 from typing import Any, Callable, Optional
@@ -44,6 +45,118 @@ _TIMESTAMP_PLACEHOLDER = "'__$$__SODA_TIMESTAMP__$$__'"
 _SODA_TEMP_RE = re.compile(r"__soda_temp_[0-9a-f]{32}", re.IGNORECASE)
 _SODA_TEMP_PLACEHOLDER = "__soda_temp___$$__SODA_UUID__$$__"
 
+# Process-local registry of (test_id → reason) populated when a snapshot replay
+# raises SnapshotReplayError. The pytest plugin reads this map after the first
+# test attempt to decide whether a rerun against the real DB is needed.
+_PENDING_RERUN: dict[str, str] = {}
+
+# Weak registry of every live SnapshotDataSourceConnection in this process.
+# The rerun plugin walks this set to swap every wrapper (primary + DWH) out
+# for its real connection between the failed first attempt and the rerun.
+# Weakref so wrappers GC normally when their helper goes away.
+_LIVE_SNAPSHOT_WRAPPERS: "weakref.WeakSet[SnapshotDataSourceConnection]" = weakref.WeakSet()
+
+# When the rerun plugin is between the failed first attempt and the rerun of
+# ``test_id``, this set holds the active test id. Any wrapping path that
+# would otherwise install a snapshot wrapper (DWH interceptor's
+# patched_open_connection, patched create_additional_connection) checks this
+# and bypasses, returning a plain real connection — so the rerun behaves
+# identically to SODA_TEST_SNAPSHOT=off.
+_RERUN_IN_PROGRESS: set[str] = set()
+
+# Set to True by snapshot_pytest_plugin.pytest_configure so that
+# _finalize_current_test can distinguish "plugin is wired up, downgrade
+# unconsumed-error to a queued rerun" from "no plugin, raise as before".
+_PYTEST_PLUGIN_ACTIVE: bool = False
+
+# Test boundary discards: when _finalize_current_test detects unconsumed
+# snapshot entries for a test that's *already finished* (the next test's
+# first execute_query triggered the boundary handler), the rerun queue
+# entry would be keyed to the wrong test id — the plugin can no longer
+# act on it. Rather than crash the next test, we downgrade those
+# unconsumed-entry errors to a warning AND record them here. The plugin's
+# pytest_terminal_summary surfaces a dedicated section so the SQL drift
+# doesn't silently disappear across many runs.
+_DISCARDED_UNCONSUMED_RECORD: dict[str, str] = {}
+
+
+def set_pytest_plugin_active(active: bool) -> None:
+    """Toggle the plugin-active flag. Called from snapshot_pytest_plugin."""
+    global _PYTEST_PLUGIN_ACTIVE
+    _PYTEST_PLUGIN_ACTIVE = active
+
+
+def is_pytest_plugin_active() -> bool:
+    """Whether the snapshot rerun plugin is wired up in this process."""
+    return _PYTEST_PLUGIN_ACTIVE
+
+
+def get_pending_rerun_record() -> dict[str, str]:
+    """Return (test_id → reason) for tests that asked the plugin to rerun."""
+    return _PENDING_RERUN
+
+
+def reset_pending_rerun_record() -> None:
+    """Clear the pending-rerun registry. Used by the plugin between phases."""
+    _PENDING_RERUN.clear()
+
+
+def get_live_snapshot_wrappers() -> "weakref.WeakSet[SnapshotDataSourceConnection]":
+    """Return the weak set of all live SnapshotDataSourceConnection instances."""
+    return _LIVE_SNAPSHOT_WRAPPERS
+
+
+def get_discarded_unconsumed_record() -> dict[str, str]:
+    """Return (test_id → reason) for tests whose teardown silently swallowed
+    unconsumed-snapshot errors because the test boundary had already passed.
+    The plugin's terminal summary reads this so the drift is visible.
+    """
+    return _DISCARDED_UNCONSUMED_RECORD
+
+
+def reset_discarded_unconsumed_record() -> None:
+    """Clear the discarded-unconsumed registry. Used by the plugin at
+    session start so each session begins with a clean slate."""
+    _DISCARDED_UNCONSUMED_RECORD.clear()
+
+
+def is_strict_mode_enabled() -> bool:
+    """Whether strict mode is active: snapshot mismatches fail the test instead of rerunning.
+
+    Default OFF. Set ``SODA_TEST_SNAPSHOT_STRICT=true`` to verify that just-
+    recorded snapshots replay correctly without falling through to the real
+    DB — useful right after a nightly record run to flag any
+    non-deterministic SQL that would otherwise be silently papered over by
+    a successful rerun.
+    """
+    return os.getenv("SODA_TEST_SNAPSHOT_STRICT", "false").lower() == "true"
+
+
+def begin_rerun_in_progress(test_id: str) -> None:
+    """Plugin hook: mark a rerun-in-progress for ``test_id``.
+
+    Wrapping paths (DwhSnapshotInterceptor.patched_open_connection, patched
+    create_additional_connection) check this and bypass — returning a plain
+    real connection so the rerun matches off-mode exactly.
+    """
+    _RERUN_IN_PROGRESS.add(test_id)
+
+
+def end_rerun_in_progress(test_id: str) -> None:
+    """Plugin hook: clear the rerun-in-progress marker for ``test_id``."""
+    _RERUN_IN_PROGRESS.discard(test_id)
+
+
+def is_any_rerun_in_progress() -> bool:
+    """Whether the rerun plugin is between the failed first attempt and the
+    rerun of any test in this process.
+
+    Wrapping paths (DwhSnapshotInterceptor.patched_open_connection, the
+    patched create_additional_connection) check this and bypass — returning
+    a plain real connection so the rerun matches off-mode exactly.
+    """
+    return bool(_RERUN_IN_PROGRESS)
+
 
 class FakeCursor:
     """A minimal cursor-like object that replays cached rows.
@@ -74,14 +187,167 @@ class FakeCursor:
         pass
 
 
+class _SnapshotDbapiProxy:
+    """Proxy installed as ``self.connection`` on a SnapshotDataSourceConnection.
+
+    Production code that bypasses the high-level execute_query family (notably the
+    rows_diff reconciliation check, which does ``data_source.connection.connection.cursor()``)
+    reaches the raw DBAPI through this proxy. The only DBAPI surface exposed is
+    ``cursor()``. Every other attribute raises AttributeError so the existing
+    production fallback paths (e.g. ``_optimized_insert`` falling back to
+    ``execute_update``) keep working unchanged.
+    """
+
+    def __init__(self, owner: "SnapshotDataSourceConnection"):
+        self._owner = owner
+
+    def cursor(self) -> "_SnapshotCursor":
+        return _SnapshotCursor(owner=self._owner)
+
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(
+            f"_SnapshotDbapiProxy: '{name}' is not supported by the snapshot wrapper. "
+            f"Only cursor() is exposed; use the high-level execute_query / execute_update "
+            f"methods on DataSourceConnection so the operation is recorded."
+        )
+
+
+class _SnapshotCursor:
+    """Records or replays raw DBAPI cursor operations at the ``execute()`` boundary.
+
+    The supported surface mirrors what rows_diff needs and nothing else:
+    ``execute(sql)`` (single argument, no params), ``fetchmany(size)``,
+    ``description``, ``close()``. Any other attribute raises AttributeError so
+    callers that need more functionality keep falling back to the high-level
+    snapshot-aware methods.
+
+    Recording is eager: at ``execute()`` time the full result set is drained via
+    ``fetchall()`` on the real cursor and stored in the snapshot. Subsequent
+    ``fetchmany()`` calls are served from the in-memory buffer. For test
+    workloads (recon datasets are small) this is simpler and avoids interleaving
+    record/replay state across cursor calls.
+
+    When the owner has a ``_primary_snapshot`` (i.e. it is a secondary
+    connection wrapping a ``create_additional_connection()`` result), test
+    boundary detection, recording, and replay all delegate to the primary so
+    interleaved cursor executes share a single ordered snapshot stream.
+    """
+
+    _OP_TYPE = "cursor_execute"
+
+    def __init__(self, owner: "SnapshotDataSourceConnection"):
+        self._owner = owner
+        self._real_cursor: Optional[Any] = None
+        self._rows: Optional[list[tuple]] = None
+        self._row_index: int = 0
+        self._description: Any = None
+        self._closed: bool = False
+
+    def _stream(self) -> "SnapshotDataSourceConnection":
+        """Return the snapshot connection that owns the per-test recording stream."""
+        return self._owner._primary_snapshot or self._owner
+
+    def execute(self, sql: str, params: Any = None) -> None:
+        if params is not None:
+            raise AttributeError(
+                "_SnapshotCursor: parameterized execute is not supported. Pass a fully-formatted SQL string."
+            )
+        stream = self._stream()
+        stream._handle_test_boundary()
+
+        # Record mode: run against the real DB and capture.
+        if self._owner._mode == "record":
+            if self._owner._real is None:
+                self._owner._ensure_real_connection()
+            if self._real_cursor is None:
+                self._real_cursor = self._owner._real.connection.cursor()
+            # If the drain (execute/fetchall/description) raises, close the
+            # real cursor and propagate WITHOUT recording — a half-recorded
+            # entry would desync the snapshot stream for the rest of the test.
+            try:
+                self._real_cursor.execute(sql)
+                raw_description = self._real_cursor.description
+                rows = [tuple(row) for row in self._real_cursor.fetchall()]
+            except Exception:
+                with contextlib.suppress(Exception):
+                    self._real_cursor.close()
+                self._real_cursor = None
+                raise
+            normalized_desc = SnapshotDataSourceConnection._normalize_description(raw_description)
+            # Store the normalized description so .description has the same
+            # shape (PicklableColumn) in record and replay mode.
+            self._description = normalized_desc
+            self._rows = rows
+            self._row_index = 0
+            stream._record_entry(SnapshotEntry(self._OP_TYPE, sql, (list(rows), normalized_desc)))
+            return
+
+        # Pure replay
+        try:
+            entry = stream._next_replay_entry(self._OP_TYPE, sql)
+        except SnapshotMismatchError as e:
+            stream._signal_rerun_or_fail(e)
+            # _signal_rerun_or_fail always raises; this line is for the type checker.
+            return  # pragma: no cover
+
+        rows, description = entry.result
+        self._rows = list(rows)
+        self._description = description
+        self._row_index = 0
+
+    def fetchmany(self, size: Optional[int] = None) -> list[tuple]:
+        if self._rows is None:
+            return []
+        if size is None:
+            size = 1  # DBAPI default arraysize
+        start = self._row_index
+        end = min(start + size, len(self._rows))
+        self._row_index = end
+        return self._rows[start:end]
+
+    @property
+    def description(self) -> Any:
+        return self._description
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        if self._real_cursor is not None:
+            try:
+                self._real_cursor.close()
+            except Exception:
+                logger.warning("Failed to close real cursor in _SnapshotCursor", exc_info=True)
+            self._real_cursor = None
+
+    def __getattr__(self, name: str) -> Any:
+        raise AttributeError(
+            f"_SnapshotCursor: '{name}' is not supported by the snapshot wrapper. "
+            f"Only execute(sql), fetchmany(size), description, close() are exposed."
+        )
+
+
 class SnapshotDataSourceConnection(DataSourceConnection):
     """A DataSourceConnection wrapper that records or replays SQL operations.
 
     In record mode: delegates to the real connection and captures all SQL + results.
     In replay mode: returns cached results without any database interaction.
 
+    On a mismatch (or missing snapshot), the wrapper raises a
+    ``SnapshotReplayError`` and registers the test in ``_PENDING_RERUN`` so
+    the pytest plugin can rerun the test end-to-end against the real DB.
+    Between attempts the plugin swaps this wrapper out of the
+    ``DataSourceImpl.data_source_connection`` slot — the rerun behaves
+    identically to ``SODA_TEST_SNAPSHOT=off``.
+
     Test boundaries are detected automatically via the PYTEST_CURRENT_TEST environment
     variable, so no changes to test code or fixtures are required.
+
+    Invariant for the rerun swap window: between ``swap_to_real_for_rerun`` and
+    ``restore_from_rerun`` the wrapper is detached from its ``DataSourceImpl``
+    and ``_current_test_id`` is ``None``. Anything reading the wrapper during
+    that window observes "no test in progress on this wrapper" rather than a
+    stale id.
     """
 
     def __init__(
@@ -93,12 +359,15 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         schema_placeholder: Optional[str] = None,
         real_schema_name: Optional[str] = None,
         allow_fallback: bool = False,
+        primary_snapshot: Optional["SnapshotDataSourceConnection"] = None,
     ):
-        # Always use _SENTINEL so that open_connection() is a no-op (skips when
-        # self.connection is not None) AND so that code accessing the raw DBAPI
-        # connection (e.g. _optimized_insert) fails gracefully and falls back to
-        # execute_update, which the snapshot intercepts.  The snapshot's own
-        # execute_query / execute_update use self._real, not self.connection.
+        # Pass _SENTINEL during super().__init__ so the base open_connection()
+        # is a no-op (skips when self.connection is not None). Immediately after,
+        # we replace self.connection with a _SnapshotDbapiProxy so that callers
+        # which reach for the raw DBAPI (e.g. rows_diff: connection.connection.cursor())
+        # get a recording/replaying cursor instead of an AttributeError.
+        # The snapshot's own execute_query / execute_update still use self._real,
+        # not self.connection.
         conn_props = real_connection.connection_properties if real_connection else {}
         super().__init__(name="snapshot", connection_properties=conn_props, connection=_SENTINEL)
 
@@ -134,11 +403,38 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._recording: list[SnapshotEntry] = []
         self._replay_data: Optional[list[SnapshotEntry]] = None
         self._replay_index: int = 0
-        self._fallback_active: bool = False
-        self._fallback_is_auto_record: bool = False  # True when fallback is for a missing snapshot (new recording)
+        # When True, a snapshot mismatch (or missing snapshot) registers a
+        # rerun signal in _PENDING_RERUN before re-raising; when False, the
+        # exception propagates as a plain test failure. Gated by
+        # SODA_TEST_SNAPSHOT_FALLBACK=true at the helper level.
         self._allow_fallback: bool = allow_fallback
-        self._linked_snapshot: Optional[SnapshotDataSourceConnection] = None
         self._finalized: bool = False
+
+        # When set, this is a secondary snapshot wrapper that shares the primary's
+        # per-test recording stream. Used to wrap connections returned by
+        # DataSourceImpl.create_additional_connection() so that interleaved cursor
+        # executes (e.g. rows_diff's merge-join) appear in one ordered snapshot.
+        self._primary_snapshot: Optional["SnapshotDataSourceConnection"] = primary_snapshot
+
+        # Back-reference to the DataSourceImpl that owns this wrapper. Used
+        # by the pytest rerun plugin to swap the wrapper out for a real
+        # DataSourceConnection during the rerun, so the rerun's test body
+        # runs identically to SODA_TEST_SNAPSHOT=off mode. Set by the code
+        # that installs the wrapper (start_test_session_replay/record,
+        # DwhSnapshotInterceptor.patched_open_connection). ``None`` means
+        # we don't know which DataSourceImpl this wrapper belongs to — the
+        # plugin can't swap.
+        self._data_source_impl: Optional[Any] = None
+
+        # Install the DBAPI proxy in place of the sentinel passed to super().__init__.
+        # Production code that does data_source.connection.connection.cursor() will
+        # now receive a recording/replaying _SnapshotCursor.
+        self.connection = _SnapshotDbapiProxy(owner=self)
+
+        # Register in the process-wide live-wrappers set so the rerun plugin
+        # can find every wrapper (primary, DWH) and swap them in lockstep
+        # when a test asks to rerun.
+        _LIVE_SNAPSHOT_WRAPPERS.add(self)
 
     def __getattr__(self, name: str) -> Any:
         """Proxy unknown attributes to the real connection.
@@ -184,20 +480,17 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         explicitly through the SnapshotManager's sidecar file.
 
         Behavior:
-        * **Record mode** (or auto-record fallback during replay) — delegate to
-          the real connection's ``_fetch_session_timezone`` and persist the
-          result via ``snapshot_manager.save_session_timezone``. Subsequent
-          calls within the same connection lifetime are cached by the base
-          class so the real query runs once.
+        * **Record mode** — delegate to the real connection's
+          ``_fetch_session_timezone`` and persist the result via
+          ``snapshot_manager.save_session_timezone``. Subsequent calls within
+          the same connection lifetime are cached by the base class so the
+          real query runs once.
         * **Replay mode with a parseable sidecar** — load the recorded string
           and route through ``parse_session_timezone`` so an IANA name like
           ``"America/Los_Angeles"`` returns a real DST-aware ``ZoneInfo``.
         * **Replay mode with an unparseable or missing sidecar** — fall back
-          to the real connection (auto-record on success). If the real
-          connection is also unreachable, raise — DON'T silently default to
-          UTC. The caller can't tell UTC-by-record from UTC-by-fabrication, so
-          fabricating UTC here would corrupt the engine's wallclock
-          canonicalization for any non-UTC source. The upstream
+          to the real connection. If the real connection is also unreachable,
+          raise — DON'T silently default to UTC. The upstream
           ``get_session_timezone`` wrapper catches the raised exception,
           produces a single warning + UTC fallback, and the failure is
           visible in the operator's logs rather than embedded in wrong data.
@@ -206,7 +499,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         # Record mode: the real connection is the source of truth. Persist the
         # query result so subsequent replay runs find it.
-        if self._mode == "record" or self._fallback_is_auto_record:
+        if self._mode == "record":
             return self._fetch_and_record_real_session_timezone(reason="record mode")
 
         # Replay mode.
@@ -386,6 +679,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
     def _handle_test_boundary(self) -> None:
         """Detect when the current test changes and handle recording/replay transitions."""
+        if self._primary_snapshot is not None:
+            # Secondary wrapper: delegate to primary, then mirror the test id so
+            # inherited methods (execute_query, etc.) that gate on _current_test_id
+            # see the same value as the primary.
+            self._primary_snapshot._handle_test_boundary()
+            self._current_test_id = self._primary_snapshot._current_test_id
+            return
         if self._finalized:
             return
         test_id = self._get_current_test_id()
@@ -415,35 +715,27 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             self._replay_data = raw if raw else None
             if self._replay_data is None:
                 snapshot_path = self._snapshot_manager._snapshot_path(test_id, "pickle")
-                if not self._allow_fallback:
-                    raise SnapshotNotFoundError(
-                        f"No snapshot found for test: {test_id}\n"
-                        f"  Expected at: {snapshot_path}\n"
-                        f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
-                        f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
-                    )
-                if self._real is not None or self._fallback_connection_factory is not None:
-                    if self._real is None:
-                        self._real = self._fallback_connection_factory()
-                    logger.info(
-                        f"SNAPSHOT: Auto-recording for {test_id}\n"
-                        f"  Reason: No snapshot found (expected at: {snapshot_path})\n"
-                        f"  Running all operations against real DB. A new snapshot will be recorded."
-                    )
-                    self._fallback_active = True
-                    self._fallback_is_auto_record = True
-                    self._recording = []
-                else:
-                    raise SnapshotNotFoundError(
-                        f"No snapshot found for test: {test_id}\n"
-                        f"  Expected at: {snapshot_path}\n"
-                        f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ..."
-                    )
+                # Missing snapshot — always register a rerun signal, regardless
+                # of ``_allow_fallback``. There's literally no recording to
+                # replay, so the only way to know if the test passes is to
+                # run it against the real DB. The pytest plugin then decides:
+                # rerun (default) or hard fail (strict mode).
+                exc = SnapshotNotFoundError(
+                    f"No snapshot found for test: {test_id}\n"
+                    f"  Expected at: {snapshot_path}\n"
+                    f"  To record snapshots, run: SODA_TEST_SNAPSHOT=record pytest ..."
+                )
+                _PENDING_RERUN.setdefault(test_id, str(exc))
+                raise exc
             self._replay_index = 0
-            logger.info(f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}")
+            rerun_marker = " [INSIDE-RERUN]" if _RERUN_IN_PROGRESS else ""
+            logger.info(
+                f"SNAPSHOT: Replaying {len(self._replay_data or [])} operations for {test_id}"
+                f" (wrapper id={id(self)}){rerun_marker}"
+            )
         elif self._mode == "record":
             self._recording = []
-            logger.info(f"SNAPSHOT: Recording SQL for {test_id}")
+            logger.info(f"SNAPSHOT: Recording SQL for {test_id} (wrapper id={id(self)})")
 
     def _record_entry(self, entry: SnapshotEntry) -> None:
         """Append an entry to the recording, normalizing with current replacements.
@@ -452,39 +744,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         extra_replacements values active when the SQL was executed are used.
         This matters when values like scan_id change mid-test.
         """
+        if self._primary_snapshot is not None:
+            # Secondary wrapper: delegate so all entries land in the primary's
+            # ordered recording stream.
+            self._primary_snapshot._record_entry(entry)
+            return
         self._recording.append(self._normalize_for_snapshot(entry))
 
     def _finalize_current_test(self) -> None:
         """Save the current test's recording (if any) and reset per-test state."""
-        if self._current_test_id is not None and self._recording:
-            # In record mode, always save.  In replay+fallback for a missing
-            # snapshot, save too (creating a new snapshot, not overwriting).
-            # For mismatch fallback, only save when SODA_TEST_SNAPSHOT_RERECORD=true
-            # — otherwise fallback re-recording silently overwrites the
-            # nightly-recorded snapshot, which can corrupt it.
-            should_save = (
-                self._mode == "record"
-                or self._fallback_is_auto_record
-                or os.getenv("SODA_TEST_SNAPSHOT_RERECORD", "").lower() == "true"
-            )
-            if should_save:
-                self._snapshot_manager.save(self._current_test_id, self._recording)
-            elif self._fallback_active:
-                logger.info(
-                    f"SNAPSHOT: Skipping re-record for {self._current_test_id} "
-                    f"(set SODA_TEST_SNAPSHOT_RERECORD=true to overwrite)"
-                )
+        if self._current_test_id is not None and self._recording and self._mode == "record":
+            self._snapshot_manager.save(self._current_test_id, self._recording)
 
         # Check for unconsumed snapshot entries before resetting state.
         # We capture the error first and always reset state to prevent cascade failures
         # where one test's unconsumed operations block all subsequent tests.
         unconsumed_error = None
-        if (
-            self._mode == "replay"
-            and not self._fallback_active
-            and self._replay_data is not None
-            and self._replay_index < len(self._replay_data)
-        ):
+        if self._mode == "replay" and self._replay_data is not None and self._replay_index < len(self._replay_data):
             remaining = len(self._replay_data) - self._replay_index
             next_entry = self._replay_data[self._replay_index]
             unconsumed_error = SnapshotMismatchError(
@@ -497,10 +773,27 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         self._recording = []
         self._replay_data = None
         self._replay_index = 0
-        self._fallback_active = False
-        self._fallback_is_auto_record = False
 
         if unconsumed_error:
+            # Unconsumed entries at teardown mean an earlier mid-test mismatch was
+            # swallowed by user code (e.g. the contract verification handler).
+            # Queue the rerun signal and log a warning rather than raising —
+            # raising here would block the plugin from running the rerun.
+            # Only downgrade when the rerun plugin is actually wired up.
+            # Without the plugin, _PENDING_RERUN is read by nobody and the
+            # original test failure would silently disappear.
+            if self._allow_fallback and self._current_test_id is not None and is_pytest_plugin_active():
+                _PENDING_RERUN.setdefault(self._current_test_id, str(unconsumed_error))
+                # Also record the drift in the discarded registry. The
+                # rerun queue may not actually be acted on — when this branch
+                # fires from _handle_test_boundary, the *previous* test's
+                # reports are already emitted and the plugin's per-test
+                # _pop_rerun_reason lookup can't match the previous test_id.
+                # Recording here guarantees the drift is surfaced in the
+                # terminal summary even if no rerun ever runs against it.
+                _DISCARDED_UNCONSUMED_RECORD.setdefault(self._current_test_id, str(unconsumed_error))
+                logger.warning(f"SNAPSHOT: {unconsumed_error}")
+                return
             raise unconsumed_error
 
     def finalize(self) -> None:
@@ -523,100 +816,6 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                     "Cannot use real DB — no real connection available.\n"
                     "  The connection was closed and no factory exists to re-create it."
                 )
-
-    def _activate_fallback(self, reason: str = "") -> None:
-        """Fall back to real DB for the current test.
-
-        Re-executes all previously replayed operations against the real DB to
-        set up database state (tables, inserts), then switches to passthrough
-        mode for all remaining operations in this test.
-        """
-        if not self._allow_fallback:
-            raise SnapshotMismatchError(
-                f"Snapshot mismatch for test {self._current_test_id} and fallback is disabled.\n"
-                f"  Reason: {reason}\n"
-                f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ...\n"
-                f"  To enable fallback, set: SODA_TEST_SNAPSHOT_FALLBACK=true"
-            )
-        if self._real is None:
-            if self._fallback_connection_factory is not None:
-                self._real = self._fallback_connection_factory()
-            else:
-                raise RuntimeError(
-                    "Cannot fall back to real DB — no real connection available.\n"
-                    "  To enable fallback, ensure the real connection is provided in replay mode."
-                )
-
-        # Cascade fallback to linked snapshot first (insource mode).
-        # The linked source snapshot must re-execute its operations to create
-        # real tables before the DWH snapshot can re-execute CTAS statements.
-        if self._linked_snapshot is not None:
-            linked = self._linked_snapshot
-            if not linked._fallback_active and linked._mode == "replay":
-                linked._activate_fallback(reason=f"Cascaded from linked snapshot fallback ({reason})")
-
-        ops_to_replay = self._replay_index
-        logger.warning(
-            f"SNAPSHOT: Falling back to real DB for {self._current_test_id}\n"
-            f"  Reason: {reason}\n"
-            f"  Re-executing {ops_to_replay} previous operations, then continuing against real DB.\n"
-            f"  The snapshot will be re-recorded with the new SQL."
-        )
-
-        # Re-execute all previously replayed operations to set up DB state
-        # and record fresh results so the snapshot can be updated.
-        # CREATE statements may fail with "already exists" when connection_factory
-        # already created tables/schemas (via _ensured_test_tables) before this
-        # re-execution runs. Only those errors are suppressed; other update
-        # failures (INSERT, DROP, etc.) are re-raised.
-        #
-        # When a CREATE TABLE fails because the connection_factory already created
-        # and populated the table, the subsequent INSERT in the snapshot ops would
-        # double the data. To prevent this, we clear the table data (DELETE FROM)
-        # when a CREATE TABLE is suppressed, so the INSERT starts fresh.
-        self._recording = []
-        for i in range(ops_to_replay):
-            entry = self._denormalize_from_snapshot(self._replay_data[i])
-            if entry.op_type == "update":
-                try:
-                    self._real.execute_update(entry.sql, log_query=False)
-                except Exception as exc:
-                    if entry.sql.lstrip().upper().startswith("CREATE "):
-                        logger.warning(
-                            f"SNAPSHOT: Ignoring error during fallback re-execution of CREATE op #{i}: {exc}"
-                        )
-                        # If a CREATE TABLE failed, the table was already created by
-                        # connection_factory (with data).  Clear the factory-inserted
-                        # rows so the subsequent INSERT from snapshot ops doesn't double.
-                        table_name = self._extract_table_name_from_create(entry.sql)
-                        if table_name:
-                            with contextlib.suppress(Exception):
-                                self._real.execute_update(f"DELETE FROM {table_name}", log_query=False)
-                                logger.info(
-                                    f"SNAPSHOT: Cleared data from {table_name} to prevent doubling during fallback"
-                                )
-                    else:
-                        raise
-                self._record_entry(SnapshotEntry("update", entry.sql, None))
-            else:
-                result = self._real.execute_query(entry.sql, log_query=False)
-                self._record_entry(SnapshotEntry(entry.op_type, entry.sql, self._normalize_query_result(result)))
-
-        self._fallback_active = True
-
-    @staticmethod
-    def _extract_table_name_from_create(sql: str) -> Optional[str]:
-        """Extract the table name from a CREATE TABLE statement.
-
-        Returns None for non-TABLE CREATE statements (CREATE SCHEMA, CREATE VIEW, etc.).
-        Handles optional TEMP/TEMPORARY keyword and IF NOT EXISTS clause.
-        """
-        match = re.match(
-            r"\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\"]+)",
-            sql,
-            re.IGNORECASE,
-        )
-        return match.group(1) if match else None
 
     @staticmethod
     def _normalize_dynamic_values(sql: str) -> str:
@@ -643,6 +842,10 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         from databases that uppercase identifiers (e.g. Snowflake uppercases hex
         scan IDs in table names, but denormalization can only produce one case).
         """
+        if self._primary_snapshot is not None:
+            # Secondary wrapper: delegate so all cursor executes are matched against
+            # the primary's single ordered replay stream.
+            return self._primary_snapshot._next_replay_entry(expected_type, expected_sql)
         if self._replay_data is None or self._replay_index >= len(self._replay_data):
             raise SnapshotMismatchError(
                 f"Snapshot exhausted for test {self._current_test_id}.\n"
@@ -745,6 +948,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         """Return a mock result if this SQL is a registered passthrough query, else None."""
         return self.passthrough_queries.get(sql.strip())
 
+    def _signal_rerun_or_fail(self, exc: Exception) -> None:
+        """Register a rerun signal (if allow_fallback) and re-raise.
+
+        The pytest plugin reads ``_PENDING_RERUN`` between attempts. If the
+        wrapper's ``_allow_fallback`` is False (no SODA_TEST_SNAPSHOT_FALLBACK)
+        the exception propagates as a plain test failure.
+        """
+        test_id = self._current_test_id
+        if test_id is not None and self._allow_fallback:
+            _PENDING_RERUN.setdefault(test_id, str(exc))
+            logger.info(
+                f"SNAPSHOT: queued rerun for {test_id} — wrapper id={id(self)} "
+                f"primary_snapshot={'yes' if self._primary_snapshot else 'no'} "
+                f"reason={type(exc).__name__}"
+            )
+        raise exc
+
     def execute_query(self, sql: str, log_query: bool = True) -> QueryResult:
         self._handle_test_boundary()
 
@@ -767,26 +987,19 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # Store a normalized copy (picklable), return original to caller
             self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
             return result
-        else:  # replay
-            if self._fallback_active:
-                self._ensure_real_connection()
-                result = self._real.execute_query(sql, log_query=log_query)
-                self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
-                return result
-            try:
-                entry = self._next_replay_entry("query", sql)
-                if log_query:
-                    sql_logger.debug("SNAPSHOT: replaying logs for query:")
-                    sql_logger.debug(
-                        f"SQL query fetchall in datasource {self.name} "
-                        f"(first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
-                    )
-                return entry.result
-            except SnapshotMismatchError as e:
-                self._activate_fallback(reason=str(e))
-                result = self._real.execute_query(sql, log_query=log_query)
-                self._record_entry(SnapshotEntry("query", sql, self._normalize_query_result(result)))
-                return result
+        # replay
+        try:
+            entry = self._next_replay_entry("query", sql)
+        except SnapshotMismatchError as e:
+            self._signal_rerun_or_fail(e)
+            return None  # pragma: no cover (signal always raises)
+        if log_query:
+            sql_logger.debug("SNAPSHOT: replaying logs for query:")
+            sql_logger.debug(
+                f"SQL query fetchall in datasource {self.name} "
+                f"(first {self.MAX_CHARS_PER_SQL} chars): \n{self.truncate_sql(sql)}"
+            )
+        return entry.result
 
     def execute_update(self, sql: str, log_query: bool = True) -> int:
         self._handle_test_boundary()
@@ -800,21 +1013,14 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             # (e.g. psycopg3 returns the cursor itself) and rarely used by callers.
             self._record_entry(SnapshotEntry("update", sql, None))
             return result
-        else:  # replay
-            if self._fallback_active:
-                self._ensure_real_connection()
-                result = self._real.execute_update(sql, log_query=log_query)
-                self._record_entry(SnapshotEntry("update", sql, None))
-                return result
-            try:
-                self._next_replay_entry("update", sql)
-                sql_logger.debug(f"SNAPSHOT: captured update: {sql[:50]}...")
-                return 0
-            except SnapshotMismatchError as e:
-                self._activate_fallback(reason=str(e))
-                result = self._real.execute_update(sql, log_query=log_query)
-                self._record_entry(SnapshotEntry("update", sql, None))
-                return result
+        # replay
+        try:
+            self._next_replay_entry("update", sql)
+        except SnapshotMismatchError as e:
+            self._signal_rerun_or_fail(e)
+            return 0  # pragma: no cover
+        sql_logger.debug(f"SNAPSHOT: captured update: {sql[:50]}...")
+        return 0
 
     def execute_query_one_by_one(
         self,
@@ -822,7 +1028,7 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         row_callback: Callable[[tuple, tuple[tuple]], None],
         log_query: bool = True,
         row_limit: Optional[int] = None,
-    ) -> tuple[tuple]:
+    ) -> Optional[tuple[tuple]]:
         self._handle_test_boundary()
 
         if self._current_test_id is None:
@@ -844,47 +1050,20 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
             )
             return description
-        else:  # replay
-            if self._fallback_active:
-                self._ensure_real_connection()
-                captured_rows = []
-
-                def capturing_callback(row, description):
-                    captured_rows.append(tuple(row))
-                    row_callback(row, description)
-
-                description = self._real.execute_query_one_by_one(
-                    sql, capturing_callback, log_query=log_query, row_limit=row_limit
-                )
-                self._record_entry(
-                    SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
-                )
-                return description
-            try:
-                entry = self._next_replay_entry("query_one_by_one", sql)
-                description, rows = entry.result
-                rows_processed = 0
-                for row in rows:
-                    if row_limit is not None and rows_processed >= row_limit:
-                        break
-                    rows_processed += 1
-                    row_callback(row, description)
-                return description
-            except SnapshotMismatchError as e:
-                self._activate_fallback(reason=str(e))
-                captured_rows = []
-
-                def capturing_callback_fb(row, description):
-                    captured_rows.append(tuple(row))
-                    row_callback(row, description)
-
-                description = self._real.execute_query_one_by_one(
-                    sql, capturing_callback_fb, log_query=log_query, row_limit=row_limit
-                )
-                self._record_entry(
-                    SnapshotEntry("query_one_by_one", sql, (self._normalize_description(description), captured_rows))
-                )
-                return description
+        # replay
+        try:
+            entry = self._next_replay_entry("query_one_by_one", sql)
+        except SnapshotMismatchError as e:
+            self._signal_rerun_or_fail(e)
+            return None  # pragma: no cover
+        description, rows = entry.result
+        rows_processed = 0
+        for row in rows:
+            if row_limit is not None and rows_processed >= row_limit:
+                break
+            rows_processed += 1
+            row_callback(row, description)
+        return description
 
     @contextlib.contextmanager
     def execute_query_iterate(self, sql: str, log_query: bool = True) -> Iterator[QueryResultIterator]:
@@ -909,37 +1088,18 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
             finally:
                 logger.debug("SNAPSHOT: record query_iterate generator closed")
-        else:  # replay
-            if self._fallback_active:
-                self._ensure_real_connection()
-                with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
-                    cursor_description = real_iter._cursor.description
-                    rows = [tuple(row) for row in real_iter]
-                normalized_desc = self._normalize_description(cursor_description)
-                self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
-                try:
-                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
-                finally:
-                    logger.debug("SNAPSHOT: fallback query_iterate generator closed")
-                return
-            try:
-                entry = self._next_replay_entry("query_iterate", sql)
-                rows, cursor_description = entry.result
-                try:
-                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
-                finally:
-                    logger.debug("SNAPSHOT: replay query_iterate generator closed")
-            except SnapshotMismatchError as e:
-                self._activate_fallback(reason=str(e))
-                with self._real.execute_query_iterate(sql, log_query=log_query) as real_iter:
-                    cursor_description = real_iter._cursor.description
-                    rows = [tuple(row) for row in real_iter]
-                normalized_desc = self._normalize_description(cursor_description)
-                self._record_entry(SnapshotEntry("query_iterate", sql, (rows, normalized_desc)))
-                try:
-                    yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
-                finally:
-                    logger.debug("SNAPSHOT: mismatch-fallback query_iterate generator closed")
+            return
+        # replay
+        try:
+            entry = self._next_replay_entry("query_iterate", sql)
+        except SnapshotMismatchError as e:
+            self._signal_rerun_or_fail(e)
+            return  # pragma: no cover
+        rows, cursor_description = entry.result
+        try:
+            yield QueryResultIterator(FakeCursor(rows, cursor_description, len(rows)), format_row=tuple)
+        finally:
+            logger.debug("SNAPSHOT: replay query_iterate generator closed")
 
     # -------------------------------------------------------------------------
     # Transaction and connection lifecycle — pass through or no-op
@@ -969,3 +1129,69 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         if self._real is not None:
             return self._real.format_rows(rows)
         return rows
+
+    # -------------------------------------------------------------------------
+    # Swap hooks (used by snapshot_pytest_plugin between attempts)
+    # -------------------------------------------------------------------------
+
+    def swap_to_real_for_rerun(self) -> bool:
+        """Detach the wrapper from its DataSourceImpl, replacing it with the real connection.
+
+        The pytest rerun plugin calls this between the failed first attempt
+        and the rerun. After this swap, ``data_source_impl.data_source_connection``
+        is a plain ``DataSourceConnection`` — exactly what the test would see
+        in ``SODA_TEST_SNAPSHOT=off`` mode. The rerun's SQL goes straight to
+        the real DB; no snapshot wrapper, no boundary handler, no recording.
+
+        Returns ``True`` if the swap happened (caller must call
+        ``restore_from_rerun`` afterwards), ``False`` if there's nothing to
+        swap (secondary wrapper, missing back-ref, or no real connection
+        available).
+        """
+        # Secondaries aren't installed on a DataSourceImpl — they're returned
+        # by patched create_additional_connection for direct caller use.
+        # During the rerun, the patched method bypasses entirely and returns
+        # a real connection, so any pre-existing secondary is harmlessly
+        # orphaned. Nothing to swap here.
+        if self._primary_snapshot is not None:
+            return False
+        if self._data_source_impl is None:
+            return False
+        try:
+            self._ensure_real_connection()
+        except Exception:
+            return False
+        if self._real is None:
+            return False
+        # Drop any partial replay state so we don't leak it on restore.
+        self._replay_data = None
+        self._replay_index = 0
+        # Clear the current-test pointer for the duration of the rerun so
+        # that any caller still holding a wrapper reference (e.g. via
+        # _LIVE_SNAPSHOT_WRAPPERS or a leaked __getattr__) observes a wrapper
+        # that's clearly detached, not one still claiming to be inside the
+        # test that's now running off-mode. restore_from_rerun re-attaches by
+        # putting the wrapper back on the impl and clearing this again.
+        self._current_test_id = None
+        # Detach: data_source_impl now points at the real connection directly.
+        # The wrapper instance is still alive (held by the plugin's swap list
+        # + _LIVE_SNAPSHOT_WRAPPERS), but no longer in the call chain.
+        self._data_source_impl.data_source_connection = self._real
+        return True
+
+    def restore_from_rerun(self) -> None:
+        """Re-attach the wrapper to its DataSourceImpl after the rerun completes.
+
+        Pair with ``swap_to_real_for_rerun``. Putting the wrapper back means
+        subsequent tests (on the same session) keep replaying snapshots
+        normally.
+        """
+        if self._data_source_impl is None:
+            return
+        # The data_source_impl currently points at the real connection (or
+        # None if the test body explicitly closed it). Restore it to the
+        # wrapper regardless — the wrapper still holds ``self._real`` and
+        # will continue to use it for the next test's potential rerun.
+        self._data_source_impl.data_source_connection = self
+        # Reset boundary state so the next test loads a fresh snapshot.
+        self._current_test_id = None
