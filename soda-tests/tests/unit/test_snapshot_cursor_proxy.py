@@ -12,6 +12,7 @@ from typing import Any, Optional
 
 import pytest
 from helpers.snapshot_connection import (
+    PicklableColumn,
     SnapshotDataSourceConnection,
     _SnapshotCursor,
     _SnapshotDbapiProxy,
@@ -191,7 +192,11 @@ def test_cursor_fetchmany_default_arraysize_is_one(tmp_path) -> None:
     assert cursor.fetchmany() == []
 
 
-def test_cursor_description_exposes_normalized_description(tmp_path) -> None:
+def test_cursor_description_is_normalized_in_record_mode(tmp_path) -> None:
+    """F1: record and replay must expose `description` as the same shape
+    (PicklableColumn), so callers like rows_diff that read `.name` / `[0]`
+    behave identically across modes.
+    """
     real_cursor = _FakeDbapiCursor(rows=[(1,)], description=(("id", "int4"),))
     dbapi = _FakeDbapiConnection(cursors=[real_cursor])
     snap = _make_record_snapshot(tmp_path, dbapi)
@@ -199,8 +204,27 @@ def test_cursor_description_exposes_normalized_description(tmp_path) -> None:
     cursor = snap.connection.cursor()
     cursor.execute("SELECT id FROM t")
 
-    # description is propagated from the real cursor (used by callers like rows_diff).
-    assert cursor.description == real_cursor.description
+    assert cursor.description is not None
+    assert all(isinstance(col, PicklableColumn) for col in cursor.description)
+    assert cursor.description[0].name == "id"
+
+
+def test_cursor_description_matches_between_record_and_replay(tmp_path) -> None:
+    """F1: round-trip description through record then replay; the public shape
+    must be identical (both PicklableColumn tuples).
+    """
+    real_cursor = _FakeDbapiCursor(rows=[(1,)], description=(("id", "int4"), ("v", "text")))
+    dbapi = _FakeDbapiConnection(cursors=[real_cursor])
+    rec = _make_record_snapshot(tmp_path, dbapi)
+    rec_cur = rec.connection.cursor()
+    rec_cur.execute("SELECT id, v FROM t")
+    record_desc = rec_cur.description
+    rec.finalize()
+
+    rep = _make_replay_snapshot(tmp_path)
+    rep_cur = rep.connection.cursor()
+    rep_cur.execute("SELECT id, v FROM t")
+    assert rep_cur.description == record_desc
 
 
 def test_cursor_close_closes_real_cursor_and_is_idempotent(tmp_path) -> None:
@@ -365,3 +389,85 @@ def test_secondary_replay_pulls_from_primary_stream(tmp_path) -> None:
     s_cur.execute("SELECT 2 FROM target")
     assert p_cur.fetchmany(1) == primary_rows
     assert s_cur.fetchmany(1) == secondary_rows
+
+
+# ---------------------------------------------------------------------------
+# Cross-environment normalization (F2) + drain safety (F3)
+# ---------------------------------------------------------------------------
+
+
+def _make_record_snapshot_with_schema(
+    tmp_path, real_dbapi: _FakeDbapiConnection, *, real_schema: str
+) -> SnapshotDataSourceConnection:
+    manager = SnapshotManager(datasource_type="unit", snapshot_dir=str(tmp_path))
+    return SnapshotDataSourceConnection(
+        real_connection=_FakeRealConnection(real_dbapi),
+        snapshot_manager=manager,
+        mode="record",
+        schema_placeholder="__$$__SCHEMA__$$__",
+        real_schema_name=real_schema,
+    )
+
+
+def _make_replay_snapshot_with_schema(tmp_path, *, real_schema: str) -> SnapshotDataSourceConnection:
+    manager = SnapshotManager(datasource_type="unit", snapshot_dir=str(tmp_path))
+    return SnapshotDataSourceConnection(
+        real_connection=None,
+        snapshot_manager=manager,
+        mode="replay",
+        schema_placeholder="__$$__SCHEMA__$$__",
+        real_schema_name=real_schema,
+    )
+
+
+def test_cursor_sql_normalized_with_schema_placeholder(tmp_path) -> None:
+    """F2: record on schema A, replay on schema B — cursor SQL containing the
+    schema-qualified table name must match because both sides normalize via
+    `schema_placeholder`. This locks in cross-environment snapshot reuse
+    for the raw-cursor path.
+    """
+    rows = [(1, "a")]
+    real_cursor = _FakeDbapiCursor(rows=rows, description=(("id", "int"),))
+    dbapi = _FakeDbapiConnection(cursors=[real_cursor])
+    rec = _make_record_snapshot_with_schema(tmp_path, dbapi, real_schema="dev_schema")
+
+    cur = rec.connection.cursor()
+    cur.execute('SELECT id FROM "dev_schema"."t"')
+    rec.finalize()
+
+    # Stored SQL has the placeholder, not the literal real schema.
+    stored = rec._snapshot_manager.load(os.environ["PYTEST_CURRENT_TEST"].rsplit(" ", 1)[0])
+    assert stored is not None
+    assert "dev_schema" not in stored[0].sql
+    assert "__$$__schema__$$__" in stored[0].sql or "__$$__SCHEMA__$$__" in stored[0].sql
+
+    # Replay with a DIFFERENT real schema — must still match because the
+    # incoming SQL is also normalized through the placeholder.
+    rep = _make_replay_snapshot_with_schema(tmp_path, real_schema="ci_schema")
+    cur2 = rep.connection.cursor()
+    cur2.execute('SELECT id FROM "ci_schema"."t"')  # different real schema, same logical SQL
+    assert cur2.fetchmany(1) == rows
+
+
+class _ExplodingCursor(_FakeDbapiCursor):
+    """Real cursor whose fetchall() raises; used to test drain safety."""
+
+    def fetchall(self) -> list[tuple]:
+        raise RuntimeError("simulated driver failure during fetchall")
+
+
+def test_cursor_execute_drain_failure_does_not_record_or_leak_cursor(tmp_path) -> None:
+    """F3: if fetchall() raises mid-drain in record mode, the snapshot
+    must NOT receive a half-recorded entry, and the real cursor must be
+    closed so the driver doesn't leak it for the rest of the test.
+    """
+    real_cursor = _ExplodingCursor()
+    dbapi = _FakeDbapiConnection(cursors=[real_cursor])
+    snap = _make_record_snapshot(tmp_path, dbapi)
+
+    cur = snap.connection.cursor()
+    with pytest.raises(RuntimeError, match="simulated driver failure"):
+        cur.execute("SELECT 1")
+
+    assert snap._recording == [], "no entry should be appended on drain failure"
+    assert real_cursor.closed is True, "real cursor must be closed when drain fails"

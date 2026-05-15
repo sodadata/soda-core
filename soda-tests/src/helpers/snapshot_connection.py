@@ -220,12 +220,25 @@ class _SnapshotCursor:
                 self._owner._ensure_real_connection()
             if self._real_cursor is None:
                 self._real_cursor = self._owner._real.connection.cursor()
-            self._real_cursor.execute(sql)
-            self._description = self._real_cursor.description
-            self._rows = [tuple(row) for row in self._real_cursor.fetchall()]
+            # F3: if the drain (execute/fetchall/description) raises, close the
+            # real cursor and propagate WITHOUT recording — a half-recorded
+            # entry would desync the snapshot stream for the rest of the test.
+            try:
+                self._real_cursor.execute(sql)
+                raw_description = self._real_cursor.description
+                rows = [tuple(row) for row in self._real_cursor.fetchall()]
+            except Exception:
+                with contextlib.suppress(Exception):
+                    self._real_cursor.close()
+                self._real_cursor = None
+                raise
+            normalized_desc = SnapshotDataSourceConnection._normalize_description(raw_description)
+            # F1: store the normalized description so .description has the same
+            # shape (PicklableColumn) in record and replay mode.
+            self._description = normalized_desc
+            self._rows = rows
             self._row_index = 0
-            normalized_desc = SnapshotDataSourceConnection._normalize_description(self._description)
-            stream._record_entry(SnapshotEntry(self._OP_TYPE, sql, (list(self._rows), normalized_desc)))
+            stream._record_entry(SnapshotEntry(self._OP_TYPE, sql, (list(rows), normalized_desc)))
             return
 
         # Pure replay
