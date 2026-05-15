@@ -183,6 +183,41 @@ class BigQuerySqlDialect(SqlDialect, sqlglot_dialect="bigquery"):
     def supports_data_type_datetime_precision(self) -> bool:
         return False
 
+    # BigQuery's NUMERIC / BIGNUMERIC are fixed-precision (no per-column tuning),
+    # so INFORMATION_SCHEMA.COLUMNS doesn't expose NUMERIC_PRECISION / NUMERIC_SCALE.
+    # Hard-code BigQuery's documented values so consumers of the column metadata
+    # (e.g. cross-source CREATE TABLE on dialects that *do* require explicit
+    # precision/scale) carry the correct decimal scale through; otherwise a
+    # `numeric` column on the target defaults to scale 0 and silently truncates
+    # the fractional part of every value.
+    #
+    # Note: these overrides intentionally bypass the base layer's
+    # `data_type_has_parameter_numeric_*` / `supports_data_type_numeric_*` gates
+    # (both return False for BigQuery in the CREATE TABLE path). The asymmetry
+    # is source-vs-target: BigQuery-as-source needs to *carry* the precision so
+    # downstream target dialects that do require it can render correctly, even
+    # though BigQuery-as-target would never render it itself.
+    _BIGQUERY_NUMERIC_PRECISION = 38
+    _BIGQUERY_NUMERIC_SCALE = 9
+    _BIGQUERY_BIGNUMERIC_PRECISION = 76
+    _BIGQUERY_BIGNUMERIC_SCALE = 38
+
+    def extract_numeric_precision(self, row, columns) -> Optional[int]:
+        data_type_name: str = self.extract_data_type_name(row, columns).lower()
+        if data_type_name == "numeric":
+            return self._BIGQUERY_NUMERIC_PRECISION
+        if data_type_name == "bignumeric":
+            return self._BIGQUERY_BIGNUMERIC_PRECISION
+        return super().extract_numeric_precision(row, columns)
+
+    def extract_numeric_scale(self, row, columns) -> Optional[int]:
+        data_type_name: str = self.extract_data_type_name(row, columns).lower()
+        if data_type_name == "numeric":
+            return self._BIGQUERY_NUMERIC_SCALE
+        if data_type_name == "bignumeric":
+            return self._BIGQUERY_BIGNUMERIC_SCALE
+        return super().extract_numeric_scale(row, columns)
+
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"timestamp('{datetime_in_iso8601}')"
 
