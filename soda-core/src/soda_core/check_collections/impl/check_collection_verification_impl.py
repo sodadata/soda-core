@@ -171,9 +171,9 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         dwh_data_source_file_path: Optional[str] = None,
     ):
         # Resolve concrete classes via the subtype hooks. Construction of the
-        # session result goes through ``cls._SESSION_RESULT_CLASS`` (or the
-        # default ContractVerificationSessionResult); construction of per-
-        # contract YAMLs and impls happens in ``_execute_locally`` /
+        # session result goes through ``cls._SESSION_RESULT_CLASS``, which
+        # concrete subtypes wire via ``__init_subclass__``; construction of
+        # per-contract YAMLs and impls happens in ``_execute_locally`` /
         # ``_execute_on_agent`` via the corresponding hooks.
         session_result_cls: type = cls._SESSION_RESULT_CLASS
 
