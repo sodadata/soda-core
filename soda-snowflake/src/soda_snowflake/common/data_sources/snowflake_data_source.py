@@ -41,20 +41,21 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
 
     def switch_warehouse(self, warehouse: str, check_collection_impl: CheckCollectionImpl) -> None:
         dataset_label = check_collection_impl.dataset_identifier.to_string()
+        display_name = type(check_collection_impl)._DISPLAY_NAME
         if warehouse and check_collection_impl.datasource_warehouse != warehouse:
             if check_collection_impl.datasource_warehouse is None:
                 logger.info(
-                    f"Setting warehouse to '{warehouse}' for check-collection verification of dataset '{dataset_label}'"
+                    f"Setting warehouse to '{warehouse}' for {display_name} verification of dataset '{dataset_label}'"
                 )
             else:
                 logger.info(
                     f"Switching warehouse from '{check_collection_impl.datasource_warehouse}' to '{warehouse}' "
-                    f"for check-collection verification of dataset '{dataset_label}'"
+                    f"for {display_name} verification of dataset '{dataset_label}'"
                 )
             self._execute_switch_warehouse(warehouse)
         else:
             logger.info(
-                f"Using warehouse '{check_collection_impl.datasource_warehouse}' for check-collection verification "
+                f"Using warehouse '{check_collection_impl.datasource_warehouse}' for {display_name} verification "
                 f"of dataset '{dataset_label}'"
             )
 
