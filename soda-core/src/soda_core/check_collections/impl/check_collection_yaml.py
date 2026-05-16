@@ -74,7 +74,14 @@ class CheckCollectionYaml:
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ) -> Optional[_SelfYamlT]:
+    ) -> _SelfYamlT:
+        """Construct a YAML model of the calling subclass.
+
+        Always returns an instance; parse-level errors are recorded on the
+        instance and surfaced through ``logger.error``, not by returning
+        ``None``. The classmethod dispatch via ``cls(...)`` ensures subtypes
+        like ``ContractYaml`` get back their own type without overriding this.
+        """
         return cls(
             check_collection_yaml_source=check_collection_yaml_source,
             provided_variable_values=provided_variable_values,
@@ -152,7 +159,7 @@ class CheckCollectionYaml:
                 extension.extend(self)
             except Exception as e:
                 logger.error(
-                    f"Error extending check-collection YAML with extension {extension_cls.__name__}: {e}",
+                    f"Error extending YAML with extension {extension_cls.__name__}: {e}",
                 )
 
     def _parse_variable_yamls(self, check_collection_yaml_source, variables) -> list[VariableYaml]:

@@ -68,7 +68,7 @@ def test_failure_in_contract_verification_handler_does_not_fail_scan(
 
     assert any(
         [
-            "Error in check-collection verification handler: Simulated failure in ContractVerificationHandler"
+            "Error in verification handler: Simulated failure in ContractVerificationHandler"
             in record.message
             for record in caplog.records
         ]

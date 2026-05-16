@@ -87,7 +87,7 @@ class CheckCollectionVerificationHandlerRegistry(ABC):
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
             if stage_name in cls.post_processing_stages:
-                logger.warning(f"Overriding existing check-collection verification handler for check type {stage_name}")
+                logger.warning(f"Overriding existing verification handler for check type {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
 
 
@@ -864,7 +864,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
                     dwh_data_source_file_path=self.dwh_data_source_file_path,
                 )
             except Exception as e:
-                logger.error(f"Error in check-collection verification handler: {e}", exc_info=True)
+                logger.error(f"Error in verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(
                     scan_id=scan_id, exc=e, check_collection_verification_handler=check_collection_verification_handler
                 )

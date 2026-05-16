@@ -28,6 +28,22 @@ logger: logging.Logger = soda_logger
 class ContractYaml(CheckCollectionYaml):
     _DISPLAY_NAME = "contract"
 
+    @staticmethod
+    def _resolve_yaml_source(
+        contract_yaml_source: Optional[ContractYamlSource],
+        check_collection_yaml_source: Optional[ContractYamlSource],
+    ) -> Optional[ContractYamlSource]:
+        """Normalize the legacy and current source kwargs to a single value.
+
+        ``contract_yaml_source`` is the historical public-API name and remains
+        supported for backwards compatibility; ``check_collection_yaml_source``
+        is the parent-class name used by the abstract base. Exactly one (or
+        neither) must be passed.
+        """
+        if contract_yaml_source is not None and check_collection_yaml_source is not None:
+            raise TypeError("Pass either contract_yaml_source (legacy) or check_collection_yaml_source, not both")
+        return contract_yaml_source if contract_yaml_source is not None else check_collection_yaml_source
+
     @classmethod
     def parse(
         cls,
@@ -36,12 +52,9 @@ class ContractYaml(CheckCollectionYaml):
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
         check_collection_yaml_source: Optional[ContractYamlSource] = None,
-    ) -> Optional["ContractYaml"]:
-        if contract_yaml_source is not None and check_collection_yaml_source is not None:
-            raise TypeError("Pass either contract_yaml_source (legacy) or check_collection_yaml_source, not both")
-        source = contract_yaml_source if contract_yaml_source is not None else check_collection_yaml_source
+    ) -> "ContractYaml":
         return super().parse(
-            check_collection_yaml_source=source,
+            check_collection_yaml_source=cls._resolve_yaml_source(contract_yaml_source, check_collection_yaml_source),
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
@@ -55,11 +68,8 @@ class ContractYaml(CheckCollectionYaml):
         primary_data_source_impl: Optional[DataSourceImpl] = None,
         check_collection_yaml_source: Optional[ContractYamlSource] = None,
     ):
-        if contract_yaml_source is not None and check_collection_yaml_source is not None:
-            raise TypeError("Pass either contract_yaml_source (legacy) or check_collection_yaml_source, not both")
-        source = contract_yaml_source if contract_yaml_source is not None else check_collection_yaml_source
         super().__init__(
-            check_collection_yaml_source=source,
+            check_collection_yaml_source=self._resolve_yaml_source(contract_yaml_source, check_collection_yaml_source),
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
