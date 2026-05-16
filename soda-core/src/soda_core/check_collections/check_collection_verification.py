@@ -93,8 +93,8 @@ class CheckCollectionSessionResult:
 
     def get_logs(self) -> list[str]:
         logs: list[str] = []
-        for contract_verification_result in self.check_collection_results:
-            logs.extend(contract_verification_result.get_logs())
+        for check_collection_result in self.check_collection_results:
+            logs.extend(check_collection_result.get_logs())
         return logs
 
     def get_logs_str(self) -> str:
@@ -102,36 +102,33 @@ class CheckCollectionSessionResult:
 
     def get_errors(self) -> list[str]:
         errors: list[str] = []
-        for contract_verification_result in self.check_collection_results:
-            errors.extend(contract_verification_result.get_errors())
+        for check_collection_result in self.check_collection_results:
+            errors.extend(check_collection_result.get_errors())
         return errors
 
     @property
     def number_of_checks(self) -> int:
         return sum(
-            contract_verification_result.number_of_checks
-            for contract_verification_result in self.check_collection_results
+            check_collection_result.number_of_checks for check_collection_result in self.check_collection_results
         )
 
     @property
     def number_of_checks_passed(self) -> int:
         return sum(
-            contract_verification_result.number_of_checks_passed
-            for contract_verification_result in self.check_collection_results
+            check_collection_result.number_of_checks_passed for check_collection_result in self.check_collection_results
         )
 
     @property
     def number_of_checks_failed(self) -> int:
         return sum(
-            contract_verification_result.number_of_checks_failed
-            for contract_verification_result in self.check_collection_results
+            check_collection_result.number_of_checks_failed for check_collection_result in self.check_collection_results
         )
 
     @property
     def number_of_checks_excluded(self) -> int:
         return sum(
-            contract_verification_result.number_of_checks_excluded
-            for contract_verification_result in self.check_collection_results
+            check_collection_result.number_of_checks_excluded
+            for check_collection_result in self.check_collection_results
         )
 
     def get_errors_str(self) -> str:
@@ -139,9 +136,7 @@ class CheckCollectionSessionResult:
 
     @property
     def has_errors(self) -> bool:
-        return any(
-            contract_verification_result.has_errors for contract_verification_result in self.check_collection_results
-        )
+        return any(check_collection_result.has_errors for check_collection_result in self.check_collection_results)
 
     @property
     def is_failed(self) -> bool:
@@ -151,9 +146,7 @@ class CheckCollectionSessionResult:
         Only looks at check results.
         Ignores execution errors in the logs.
         """
-        return any(
-            contract_verification_result.is_failed for contract_verification_result in self.check_collection_results
-        )
+        return any(check_collection_result.is_failed for check_collection_result in self.check_collection_results)
 
     @property
     def is_warned(self) -> bool:
@@ -163,9 +156,7 @@ class CheckCollectionSessionResult:
         Only looks at check results.
         Ignores execution errors in the logs.
         """
-        return any(
-            contract_verification_result.is_warned for contract_verification_result in self.check_collection_results
-        )
+        return any(check_collection_result.is_warned for check_collection_result in self.check_collection_results)
 
     @property
     def is_passed(self) -> bool:
@@ -173,9 +164,7 @@ class CheckCollectionSessionResult:
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
-        return all(
-            contract_verification_result.is_passed for contract_verification_result in self.check_collection_results
-        )
+        return all(check_collection_result.is_passed for check_collection_result in self.check_collection_results)
 
     @property
     def has_excluded(self) -> bool:
@@ -183,13 +172,11 @@ class CheckCollectionSessionResult:
         Returns true if there are checks that have been excluded.
         Ignores execution errors in the logs.
         """
-        return any(
-            contract_verification_result.has_excluded for contract_verification_result in self.check_collection_results
-        )
+        return any(check_collection_result.has_excluded for check_collection_result in self.check_collection_results)
 
     @property
     def is_ok(self) -> bool:
-        return all(contract_verification_result.is_ok for contract_verification_result in self.check_collection_results)
+        return all(check_collection_result.is_ok for check_collection_result in self.check_collection_results)
 
     def assert_ok(self) -> CheckCollectionSessionResult:
         if not self.is_ok:

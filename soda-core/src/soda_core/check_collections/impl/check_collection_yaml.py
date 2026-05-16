@@ -146,7 +146,7 @@ class CheckCollectionYaml:
                 extension.extend(self)
             except Exception as e:
                 logger.error(
-                    f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
+                    f"Error extending check-collection YAML with extension {extension_cls.__name__}: {e}",
                 )
 
     def _parse_variable_yamls(self, check_collection_yaml_source, variables) -> list[VariableYaml]:

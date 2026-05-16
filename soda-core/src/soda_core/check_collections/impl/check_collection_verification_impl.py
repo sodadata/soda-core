@@ -87,7 +87,7 @@ class CheckCollectionVerificationHandlerRegistry(ABC):
         for stage in verification_handler.provides_post_processing_stages():
             stage_name = stage.name
             if stage_name in cls.post_processing_stages:
-                logger.warning(f"Overriding existing contract verification handler for check type {stage_name}")
+                logger.warning(f"Overriding existing check-collection verification handler for check type {stage_name}")
             cls.post_processing_stages[stage_name] = verification_handler
 
 
@@ -162,7 +162,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         # Resolve concrete classes via the subtype hooks. Construction of the
         # session result goes through ``cls._SESSION_RESULT_CLASS``, which
         # concrete subtypes wire via ``__init_subclass__``; construction of
-        # per-contract YAMLs and impls happens in ``_execute_locally`` /
+        # per-check-collection YAMLs and impls happens in ``_execute_locally`` /
         # ``_execute_on_agent`` via the corresponding hooks.
         session_result_cls: type = cls._SESSION_RESULT_CLASS
 
@@ -216,7 +216,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
             check_selectors = []
 
         if soda_cloud_use_agent:
-            contract_verification_results: list = cls._execute_on_agent(
+            check_collection_results: list = cls._execute_on_agent(
                 check_collection_yaml_sources=check_collection_yaml_sources,
                 variables=variables,
                 soda_cloud_impl=soda_cloud_impl,
@@ -226,7 +226,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
             )
 
         else:
-            contract_verification_results: list = cls._execute_locally(
+            check_collection_results: list = cls._execute_locally(
                 logs=logs,
                 check_collection_yaml_sources=check_collection_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
@@ -239,7 +239,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                 check_selectors=check_selectors,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
-        return session_result_cls(check_collection_results=contract_verification_results)
+        return session_result_cls(check_collection_results=check_collection_results)
 
     @classmethod
     def _execute_locally(
@@ -260,7 +260,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS
         impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS
 
-        contract_verification_results: list = []
+        check_collection_results: list = []
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
             data_source_impls=data_source_impls,
@@ -300,12 +300,12 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                     check_selectors=check_selectors,
                     dwh_data_source_file_path=dwh_data_source_file_path,
                 )
-                contract_verification_result = check_collection_impl.verify()
-                contract_verification_results.append(contract_verification_result)
+                check_collection_result = check_collection_impl.verify()
+                check_collection_results.append(check_collection_result)
         finally:
             for data_source_impl in opened_data_sources:
                 data_source_impl.close_connection()
-        return contract_verification_results
+        return check_collection_results
 
     @classmethod
     def _build_data_source_impls_by_name(
@@ -372,24 +372,24 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         "Verifies check collections on the Soda Cloud agent."
         yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS
 
-        contract_verification_results: list = []
+        check_collection_results: list = []
 
         for check_collection_yaml_source in check_collection_yaml_sources:
             try:
                 check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
                     check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
                 )
-                contract_verification_result = soda_cloud_impl.verify_contract_on_agent(
+                check_collection_result = soda_cloud_impl.verify_contract_on_agent(
                     contract_yaml=check_collection_yaml,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
                 )
-                contract_verification_results.append(contract_verification_result)
+                check_collection_results.append(check_collection_result)
             except:
-                logger.error(msg=f"Could not verify contract {check_collection_yaml_source}", exc_info=True)
-        return contract_verification_results
+                logger.error(msg=f"Could not verify check collection {check_collection_yaml_source}", exc_info=True)
+        return check_collection_results
 
 
 class CheckCollectionImplExtension(Protocol):
@@ -568,7 +568,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
                 self.extensions.append(extension)
             except Exception as e:
                 logger.error(
-                    f"Error extending contract implementation with extension {extension_cls.__name__}: {e}",
+                    f"Error extending check-collection implementation with extension {extension_cls.__name__}: {e}",
                 )
 
         self.column_impls: list[ColumnImpl] = self._parse_columns(check_collection_yaml=check_collection_yaml)
@@ -607,9 +607,9 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
-        contract_keys: list[str] = self.check_collection_yaml.check_collection_yaml_object.keys()
-        if "checks" in contract_keys and "columns" in contract_keys:
-            return contract_keys.index("checks") < contract_keys.index("columns")
+        check_collection_keys: list[str] = self.check_collection_yaml.check_collection_yaml_object.keys()
+        if "checks" in check_collection_keys and "columns" in check_collection_keys:
+            return check_collection_keys.index("checks") < check_collection_keys.index("columns")
         return None
 
     def _get_data_timestamp(
@@ -712,7 +712,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
-            f"{verb} contract {Emoticons.SCROLL} "
+            f"{verb} check collection {Emoticons.SCROLL} "
             f"{self.check_collection_yaml.check_collection_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
@@ -769,24 +769,28 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
         soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
-        contract_yaml_source_str_original = self.check_collection_yaml.check_collection_yaml_source.yaml_str_original
+        check_collection_yaml_source_str_original = (
+            self.check_collection_yaml.check_collection_yaml_source.yaml_str_original
+        )
         soda_cloud_response_json: Optional[dict] = None
 
         if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
+            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(check_collection_yaml_source_str_original)
 
         post_processing_stages: list[PostProcessingStage] = []
-        for contract_verification_handler in CheckCollectionVerificationHandlerRegistry.post_processing_stages.values():
-            post_processing_stages += contract_verification_handler.provides_post_processing_stages()
+        for (
+            check_collection_verification_handler
+        ) in CheckCollectionVerificationHandlerRegistry.post_processing_stages.values():
+            post_processing_stages += check_collection_verification_handler.provides_post_processing_stages()
 
-        contract_verification_result = result_cls(
+        check_collection_result = result_cls(
             contract=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
                 dataset_prefix=self.dataset_prefix,
                 dataset_name=self.dataset_name,
                 soda_qualified_dataset_name=self.soda_qualified_dataset_name,
                 source=YamlFileContentInfo(
-                    source_content_str=contract_yaml_source_str_original,
+                    source_content_str=check_collection_yaml_source_str_original,
                     local_file_path=self.check_collection_yaml.check_collection_yaml_source.file_path,
                     soda_cloud_file_id=soda_cloud_file_id,
                 ),
@@ -809,45 +813,45 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             if data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
-                    f"Data source not found. Check that the data source name in the contract's "
+                    f"Data source not found. Check that the data source name in the check collection's "
                     f"'dataset' field matches the name in your data source configuration."
                 )
                 sending_results_to_soda_cloud_failed = True
-                contract_verification_result.sending_results_to_soda_cloud_failed = True
+                check_collection_result.sending_results_to_soda_cloud_failed = True
             else:
                 # send_contract_result will use contract.source.soda_cloud_file_id
-                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
+                soda_cloud_response_json = self.soda_cloud.send_contract_result(check_collection_result)
                 scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
                 if not scan_id:
-                    contract_verification_result.sending_results_to_soda_cloud_failed = True
+                    check_collection_result.sending_results_to_soda_cloud_failed = True
                 else:
-                    contract_verification_result.scan_id = scan_id
+                    check_collection_result.scan_id = scan_id
                     # Put the dataset id in the contract object
-                    contract_verification_result.contract.dataset_id = self.__get_dataset_id(
+                    check_collection_result.contract.dataset_id = self.__get_dataset_id(
                         soda_cloud_response_json, self.soda_qualified_dataset_name
                     )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
         for (
-            contract_verification_handler
+            check_collection_verification_handler
         ) in CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers:
             try:
-                contract_verification_handler.handle(
+                check_collection_verification_handler.handle(
                     check_collection_impl=self,
                     data_source_impl=self.data_source_impl,
-                    check_collection_verification_result=contract_verification_result,
+                    check_collection_verification_result=check_collection_result,
                     soda_cloud=self.soda_cloud,
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
                     dwh_data_source_file_path=self.dwh_data_source_file_path,
                 )
             except Exception as e:
-                logger.error(f"Error in contract verification handler: {e}", exc_info=True)
+                logger.error(f"Error in check-collection verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(
-                    scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
+                    scan_id=scan_id, exc=e, check_collection_verification_handler=check_collection_verification_handler
                 )
 
-        return contract_verification_result
+        return check_collection_result
 
     def __get_dataset_id(self, soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
         # Find the dataset id for the given qualified dataset name
@@ -912,7 +916,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
-        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
+        summary_lines.append(f"\n### Check collection results for {soda_qualified_dataset_name}")
         summary_lines.append(self.build_summary_table(check_results))
 
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
@@ -965,7 +969,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         self,
         scan_id: Optional[str],
         exc: Exception,
-        contract_verification_handler: CheckCollectionVerificationHandler,
+        check_collection_verification_handler: CheckCollectionVerificationHandler,
     ):
         if scan_id is None:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no scan ID")
@@ -973,7 +977,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         if self.soda_cloud is None:
             logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
             return
-        for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
+        for post_processing_stage in check_collection_verification_handler.provides_post_processing_stages():
             self.soda_cloud.post_processing_update(
                 stage=post_processing_stage.name,
                 scan_id=scan_id,
@@ -1671,9 +1675,9 @@ class MetricImpl:
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
         missing_and_validity: Optional[MissingAndValidity] = None,
-        # Associate metric with a non-contract data source if needed. Build queries accordingly.
+        # Associate metric with a non-check-collection data source if needed. Build queries accordingly.
         data_source_impl: Optional[DataSourceImpl] = None,
-        # Associate metric with a non-contract dataset if needed. Build queries accordingly.
+        # Associate metric with a non-check-collection dataset if needed. Build queries accordingly.
         dataset_identifier: Optional[DatasetIdentifier] = None,
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
@@ -1915,7 +1919,7 @@ class AggregationQuery(Query):
         # Track cumulative SQL size as metrics are added — `self.query_size` was
         # otherwise frozen at the constructor's `COUNT(*)`-only estimate, so the
         # splitter under-estimated for every metric past the first and could exceed
-        # get_max_sql_statement_length() at execute time on large contracts.
+        # get_max_sql_statement_length() at execute time on large check collections.
         self.query_size += self._estimate_metric_sql_length(aggregation_metric_impl)
         self.aggregation_metrics.append(aggregation_metric_impl)
 
