@@ -143,6 +143,7 @@ CheckCollectionVerificationHandlerRegistry.contract_verification_handlers = (
 YamlT = TypeVar("YamlT", bound=CheckCollectionYaml)
 ImplT = TypeVar("ImplT", bound="CheckCollectionImpl")
 SessionResultT = TypeVar("SessionResultT", bound=CheckCollectionSessionResult)
+ResultT = TypeVar("ResultT", bound="CheckCollectionResult")
 
 
 class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResultT]):
@@ -443,14 +444,38 @@ class CheckCollectionImplExtension(Protocol):
         return []
 
 
-class CheckCollectionImpl:
+class CheckCollectionImpl(Generic[YamlT, ResultT]):
+    """Implements the check-collection runtime.
+
+    Concrete subtypes pass their result type via ``__init_subclass__`` at
+    class-declaration time:
+
+        class ContractImpl(
+            CheckCollectionImpl[ContractYaml, ContractVerificationResult],
+            result_type=ContractVerificationResult,
+        ):
+            pass
+
+    ``YamlT`` is a phantom type parameter — used for static typing only so
+    subscribers (and the symmetric session impl) can carry the concrete YAML
+    type without the impl class reading a runtime ``_YAML_CLASS``. The
+    runtime result class is read by ``verify()`` via
+    ``type(self)._RESULT_CLASS``.
+    """
+
     check_collection_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
-    # Subtype hook: subclasses (e.g. ContractImpl, a future DataStandardImpl) set this
-    # at module level to the concrete result class they want ``verify()`` to construct
-    # and return. ``None`` falls back to ContractVerificationResult for backwards
-    # compatibility.
-    _RESULT_CLASS: Optional[type] = None
+    _RESULT_CLASS: ClassVar[type[CheckCollectionResult]]
+
+    def __init_subclass__(
+        cls,
+        *,
+        result_type: Optional[type[CheckCollectionResult]] = None,
+        **kwargs,
+    ) -> None:
+        super().__init_subclass__(**kwargs)
+        if result_type is not None:
+            cls._RESULT_CLASS = result_type
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:
