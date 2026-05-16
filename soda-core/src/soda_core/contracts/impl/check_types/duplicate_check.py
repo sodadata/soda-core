@@ -63,7 +63,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
         check_yaml: ColumnDuplicateCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -162,7 +162,7 @@ class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
         check_impl: MissingAndValidityCheckImpl,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
@@ -208,7 +208,7 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
         self.valid_count_metric_impl: MetricImpl = valid_count_metric_impl
         # Mind the ordering as the self._build_id() must come last
         super().__init__(
-            contract_impl=distinct_count_metric_impl.contract_impl,
+            check_collection_impl=distinct_count_metric_impl.contract_impl,
             column_impl=distinct_count_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=check_filter,
@@ -233,7 +233,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
         check_yaml: MultiColumnDuplicateCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=None,
             check_yaml=check_yaml,
         )
@@ -325,7 +325,7 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
     ):
         self.column_expressions: list[COLUMN | SqlExpressionStr] = column_expressions
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,
@@ -364,7 +364,7 @@ class MultiColumnDuplicateCountMetricImpl(DerivedMetricImpl):
         self.row_count_metric_impl: MetricImpl = row_count_metric_impl
         # Mind the ordering as the self._build_id() must come last
         super().__init__(
-            contract_impl=multi_column_distinct_count_metric_impl.contract_impl,
+            check_collection_impl=multi_column_distinct_count_metric_impl.contract_impl,
             column_impl=multi_column_distinct_count_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=check_filter,

@@ -53,7 +53,7 @@ class MetricCheckImpl(CheckImpl):
         check_yaml: MetricCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -129,7 +129,7 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
     ):
         self.expression: str = expression or check_impl.check_yaml.expression
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
@@ -161,7 +161,7 @@ class MetricQueryMetricImpl(MetricImpl):
     ):
         self.query: str = query or check_impl.check_yaml.query
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,

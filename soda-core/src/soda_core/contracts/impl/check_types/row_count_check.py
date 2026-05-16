@@ -41,7 +41,7 @@ class RowCountCheckImpl(CheckImpl):
         check_yaml: RowCountCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -95,7 +95,7 @@ class RowCountMetricImpl(AggregationMetricImpl):
     ):
         check_filter = filter if filter else check_impl.check_yaml.filter if check_impl else None
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             metric_type="row_count",
             check_filter=check_filter,
             missing_and_validity=None,

@@ -349,14 +349,14 @@ def test_extra_properties_order_independent():
     from soda_core.contracts.impl.contract_verification_impl import CheckImpl
 
     hash_ab = CheckImpl._build_identity(
-        contract_impl=_stub_contract_impl(),
+        check_collection_impl=_stub_contract_impl(),
         column_impl=None,
         check_type="row_count",
         qualifier=None,
         extra_identity_properties={"alpha": "a", "beta": "b"},
     )
     hash_ba = CheckImpl._build_identity(
-        contract_impl=_stub_contract_impl(),
+        check_collection_impl=_stub_contract_impl(),
         column_impl=None,
         check_type="row_count",
         qualifier=None,
@@ -370,13 +370,13 @@ def test_build_identity_extra_none_preserves_hash():
     from soda_core.contracts.impl.contract_verification_impl import CheckImpl
 
     hash_without = CheckImpl._build_identity(
-        contract_impl=_stub_contract_impl(),
+        check_collection_impl=_stub_contract_impl(),
         column_impl=None,
         check_type="row_count",
         qualifier=None,
     )
     hash_with_none = CheckImpl._build_identity(
-        contract_impl=_stub_contract_impl(),
+        check_collection_impl=_stub_contract_impl(),
         column_impl=None,
         check_type="row_count",
         qualifier=None,
@@ -390,13 +390,13 @@ def test_build_identity_extra_value_changes_hash():
     from soda_core.contracts.impl.contract_verification_impl import CheckImpl
 
     hash_without = CheckImpl._build_identity(
-        contract_impl=_stub_contract_impl(),
+        check_collection_impl=_stub_contract_impl(),
         column_impl=None,
         check_type="row_count",
         qualifier=None,
     )
     hash_with = CheckImpl._build_identity(
-        contract_impl=_stub_contract_impl(),
+        check_collection_impl=_stub_contract_impl(),
         column_impl=None,
         check_type="row_count",
         qualifier=None,

@@ -44,7 +44,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         check_yaml: MissingCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -118,7 +118,7 @@ class MissingCountMetricImpl(AggregationMetricImpl):
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,

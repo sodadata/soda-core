@@ -87,7 +87,7 @@ class SchemaCheckImpl(CheckImpl):
         check_yaml: SchemaCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=None,
             check_yaml=check_yaml,
         )
@@ -267,7 +267,7 @@ class SchemaMetricImpl(MetricImpl):
         self,
         contract_impl: ContractImpl,
     ):
-        super().__init__(contract_impl=contract_impl, metric_type="schema")
+        super().__init__(check_collection_impl=contract_impl, metric_type="schema")
 
 
 class SchemaQuery(Query):

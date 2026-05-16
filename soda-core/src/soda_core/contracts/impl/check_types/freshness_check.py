@@ -52,7 +52,7 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
         extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
             extra_identity_properties=extra_identity_properties,
@@ -252,7 +252,7 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         self.now_variable: Optional[str] = now_variable
         self.unit: Optional[str] = unit
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=contract_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,

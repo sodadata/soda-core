@@ -1472,20 +1472,20 @@ class CheckImpl:
 
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
     ):
-        self.logs: Logs = contract_impl.logs
+        self.logs: Logs = check_collection_impl.logs
 
-        self.contract_impl: ContractImpl = contract_impl
+        self.contract_impl: ContractImpl = check_collection_impl
         self.check_yaml: CheckYaml = check_yaml
         self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = check_yaml.type_name
         self.identity: str = self._build_identity(
-            contract_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_type=check_yaml.type_name,
             qualifier=check_yaml.qualifier,
@@ -1497,10 +1497,10 @@ class CheckImpl:
         self.queries: list[Query] = []
 
         # Merge attributes before filtering (selectors may query them)
-        self.attributes: dict[str, any] = {**contract_impl.check_attributes, **check_yaml.attributes}
+        self.attributes: dict[str, any] = {**check_collection_impl.check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
-        self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+        self.skip: bool = not CheckSelector.all_match(check_collection_impl.check_selectors, self)
 
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
@@ -1585,17 +1585,17 @@ class CheckImpl:
     @classmethod
     def _build_identity(
         cls,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_type: str,
         qualifier: Optional[str],
         extra_identity_properties: Optional[dict[str, object]] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
-        if contract_impl.data_source_impl:
-            identity_hash_builder.add_property("dso", contract_impl.data_source_impl.name)
-        identity_hash_builder.add_property("pr", contract_impl.dataset_prefix)
-        identity_hash_builder.add_property("ds", contract_impl.dataset_name)
+        if check_collection_impl.data_source_impl:
+            identity_hash_builder.add_property("dso", check_collection_impl.data_source_impl.name)
+        identity_hash_builder.add_property("pr", check_collection_impl.dataset_prefix)
+        identity_hash_builder.add_property("ds", check_collection_impl.dataset_name)
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
@@ -1660,12 +1660,14 @@ class CheckImpl:
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: MissingAncValidityCheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
     ):
-        super().__init__(contract_impl, column_impl, check_yaml, extra_identity_properties=extra_identity_properties)
+        super().__init__(
+            check_collection_impl, column_impl, check_yaml, extra_identity_properties=extra_identity_properties
+        )
         self.missing_and_validity: MissingAndValidity = MissingAndValidity(missing_and_validity_yaml=check_yaml)
         self.missing_and_validity.apply_column_defaults(column_impl)
 
@@ -1673,7 +1675,7 @@ class MissingAndValidityCheckImpl(CheckImpl):
 class MetricImpl:
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
@@ -1685,12 +1687,12 @@ class MetricImpl:
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
-        self.contract_impl: ContractImpl = contract_impl
+        self.contract_impl: ContractImpl = check_collection_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
         self.check_filter: Optional[str] = check_filter
         self.missing_and_validity: Optional[MissingAndValidity] = missing_and_validity
-        self.dataset_identifier = dataset_identifier or contract_impl.dataset_identifier
+        self.dataset_identifier = dataset_identifier or check_collection_impl.dataset_identifier
 
         self.data_source_impl: Optional[DataSourceImpl] = None
         if self.contract_impl.data_source_impl:
@@ -1756,7 +1758,7 @@ class MetricImpl:
 class AggregationMetricImpl(MetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
@@ -1766,7 +1768,7 @@ class AggregationMetricImpl(MetricImpl):
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             metric_type=metric_type,
             column_impl=column_impl,
             check_filter=check_filter,
@@ -1826,7 +1828,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
         self.total_metric_impl: MetricImpl = total_metric_impl
         # Mind the ordering as the self._build_id() must come last
         super().__init__(
-            contract_impl=fraction_metric_impl.contract_impl,
+            check_collection_impl=fraction_metric_impl.contract_impl,
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=None,
@@ -1846,9 +1848,14 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
 class ValidCountMetric(AggregationMetricImpl):
     """TODO -- 3/10/2025: this metric is not used anywhere in the codebase, it's not clear if it's needed."""
 
-    def __init__(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_impl: MissingAndValidityCheckImpl):
+    def __init__(
+        self,
+        check_collection_impl: ContractImpl,
+        column_impl: ColumnImpl,
+        check_impl: MissingAndValidityCheckImpl,
+    ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type="valid_count",
             check_filter=check_impl.check_yaml.filter,
