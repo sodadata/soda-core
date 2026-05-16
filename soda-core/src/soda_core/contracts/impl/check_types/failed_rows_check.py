@@ -21,7 +21,6 @@ from soda_core.contracts.impl.contract_verification_impl import (
     CheckImpl,
     CheckParser,
     ColumnImpl,
-    ContractImpl,
     MeasurementValues,
     MetricImpl,
     Query,
