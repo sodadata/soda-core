@@ -36,9 +36,9 @@ def test_failure_in_contract_verification_handler_does_not_fail_scan(
     class DummyHandler(ContractVerificationHandler):
         def handle(
             self,
-            contract_impl: ContractImpl,
+            check_collection_impl: ContractImpl,
             data_source_impl: Optional[DataSourceImpl],
-            contract_verification_result: ContractVerificationResult,
+            check_collection_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
             dwh_data_source_file_path: Optional[str] = None,

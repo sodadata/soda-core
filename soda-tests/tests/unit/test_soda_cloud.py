@@ -198,9 +198,9 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
     class DummyHandler(ContractVerificationHandler):
         def handle(
             self,
-            contract_impl: ContractImpl,
+            check_collection_impl: ContractImpl,
             data_source_impl: Optional[DataSourceImpl],
-            contract_verification_result: ContractVerificationResult,
+            check_collection_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
             dwh_data_source_file_path: Optional[str] = None,
@@ -268,9 +268,9 @@ def test_soda_cloud_results_with_post_processing_with_failure(
     class DummyHandler(ContractVerificationHandler):
         def handle(
             self,
-            contract_impl: ContractImpl,
+            check_collection_impl: ContractImpl,
             data_source_impl: Optional[DataSourceImpl],
-            contract_verification_result: ContractVerificationResult,
+            check_collection_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
             dwh_data_source_file_path: Optional[str] = None,

@@ -63,19 +63,13 @@ class CheckCollectionVerificationHandler(ABC):
     @abstractmethod
     def handle(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         data_source_impl: Optional[DataSourceImpl],
-        contract_verification_result: CheckCollectionResult,
+        check_collection_verification_result: CheckCollectionResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
         dwh_data_source_file_path: Optional[str] = None,
     ):
-        # NOTE: handle()'s parameter names intentionally remain `contract_impl` and
-        # `contract_verification_result` for backwards-compatibility. External handler
-        # implementations (e.g. FailedRowsExtractor) expect these as keyword-argument
-        # names from the registry's call site. Renaming requires lockstep updates of
-        # all handler subclasses across repos and is out of scope for the base layer
-        # rename to CheckCollectionVerificationHandler.
         pass
 
     @abstractmethod
@@ -840,9 +834,9 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         ) in CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers:
             try:
                 contract_verification_handler.handle(
-                    contract_impl=self,
+                    check_collection_impl=self,
                     data_source_impl=self.data_source_impl,
-                    contract_verification_result=contract_verification_result,
+                    check_collection_verification_result=contract_verification_result,
                     soda_cloud=self.soda_cloud,
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
                     dwh_data_source_file_path=self.dwh_data_source_file_path,
