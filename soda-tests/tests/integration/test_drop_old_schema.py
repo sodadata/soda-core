@@ -23,6 +23,7 @@ DATASOURCES_TO_RUN = [
     "redshift",
     "oracle",
     "databricks",
+    "hana",
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
