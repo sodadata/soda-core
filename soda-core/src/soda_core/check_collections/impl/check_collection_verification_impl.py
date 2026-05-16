@@ -163,14 +163,14 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
     """
 
     _YAML_CLASS: ClassVar[type[CheckCollectionYaml]]
-    _IMPL_CLASS: ClassVar[type["CheckCollectionImpl"]]
+    _IMPL_CLASS: ClassVar[type[CheckCollectionImpl]]
     _SESSION_RESULT_CLASS: ClassVar[type[CheckCollectionSessionResult]]
 
     def __init_subclass__(
         cls,
         *,
         yaml_type: Optional[type[CheckCollectionYaml]] = None,
-        impl_type: Optional[type["CheckCollectionImpl"]] = None,
+        impl_type: Optional[type[CheckCollectionImpl]] = None,
         session_result_type: Optional[type[CheckCollectionSessionResult]] = None,
         **kwargs,
     ) -> None:
