@@ -48,6 +48,8 @@ logger: logging.Logger = soda_logger
 # session impl binds its Generic args at class-creation time (not via a
 # deferred annotation).
 class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
+    _DISPLAY_NAME = "contract"
+
     @property
     def contract_yaml(self) -> ContractYaml:
         return self.check_collection_yaml

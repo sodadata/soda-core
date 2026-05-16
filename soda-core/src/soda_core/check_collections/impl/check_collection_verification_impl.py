@@ -388,7 +388,10 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                 )
                 check_collection_results.append(check_collection_result)
             except:
-                logger.error(msg=f"Could not verify contract {check_collection_yaml_source}", exc_info=True)
+                logger.error(
+                    msg=f"Could not verify {cls._IMPL_CLASS._DISPLAY_NAME} {check_collection_yaml_source}",
+                    exc_info=True,
+                )
         return check_collection_results
 
 
@@ -422,6 +425,14 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
     check_collection_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     _RESULT_CLASS: ClassVar[type[CheckCollectionResult]]
+
+    # User-facing display name for this check-collection subtype. Used in INFO /
+    # error logs and the summary report header so the user sees the term that
+    # matches their CLI command (e.g. ``soda contract verify`` → "Verifying
+    # contract …", a future ``soda data_standard verify`` → "Verifying data
+    # standard …"). Concrete subtypes override this; the base default is the
+    # abstract term so a bare-base call still produces a readable message.
+    _DISPLAY_NAME: ClassVar[str] = "check collection"
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -712,7 +723,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
-            f"{verb} contract {Emoticons.SCROLL} "
+            f"{verb} {type(self)._DISPLAY_NAME} {Emoticons.SCROLL} "
             f"{self.check_collection_yaml.check_collection_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
@@ -813,7 +824,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             if data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
-                    f"Data source not found. Check that the data source name in the contract's "
+                    f"Data source not found. Check that the data source name in the {type(self)._DISPLAY_NAME}'s "
                     f"'dataset' field matches the name in your data source configuration."
                 )
                 sending_results_to_soda_cloud_failed = True
@@ -916,7 +927,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
-        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
+        summary_lines.append(f"\n### {type(self)._DISPLAY_NAME.capitalize()} results for {soda_qualified_dataset_name}")
         summary_lines.append(self.build_summary_table(check_results))
 
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
