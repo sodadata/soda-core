@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from numbers import Number
-from typing import Optional, Protocol, TypeVar
+from typing import ClassVar, Optional, Protocol, TypeVar
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
@@ -56,6 +56,12 @@ class CheckCollectionYaml:
     """
 
     check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
+
+    # User-facing display name. Mirrors ``CheckCollectionImpl._DISPLAY_NAME`` so
+    # base-layer error messages emitted from this class read naturally for each
+    # concrete YAML subtype (``ContractYaml`` → "contract", a future
+    # ``DataStandardYaml`` → "data standard").
+    _DISPLAY_NAME: ClassVar[str] = "check collection"
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:
@@ -265,7 +271,7 @@ class CheckCollectionYaml:
             column_yaml_objects: Optional[YamlList] = check_collection_yaml_object.read_list_of_objects_opt("columns")
             if not column_yaml_objects:
                 raise ContractParserException(
-                    "The contract is missing the required 'columns' property",
+                    f"The {type(self)._DISPLAY_NAME} is missing the required 'columns' property",
                     str(check_collection_yaml_object.location),
                 )
             if isinstance(column_yaml_objects, YamlList):

@@ -26,6 +26,8 @@ logger: logging.Logger = soda_logger
 
 
 class ContractYaml(CheckCollectionYaml):
+    _DISPLAY_NAME = "contract"
+
     @classmethod
     def parse(
         cls,
