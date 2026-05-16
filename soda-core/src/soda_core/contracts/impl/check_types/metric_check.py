@@ -15,6 +15,7 @@ from soda_core.contracts.impl.check_types.metric_check_yaml import MetricCheckYa
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -34,12 +35,12 @@ class MetricCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: MetricCheckYaml,
     ) -> Optional[CheckImpl]:
         return MetricCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -64,33 +65,35 @@ class MetricCheckImpl(CheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: MetricCheckYaml,
     ):
         self.numeric_metric_impl: Optional[MetricImpl] = None
         if self.metric_check_yaml.expression:
             self.numeric_metric_impl = self._resolve_metric(
-                MetricExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                MetricExpressionMetricImpl(
+                    contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                )
             )
             self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
-                RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
             )
 
         elif self.metric_check_yaml.query:
             sql = self.metric_check_yaml.query
 
-            if contract_impl.should_apply_sampling:
-                sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
-                    sql, contract_impl.sampler_limit, sampler_type=contract_impl.sampler_type
+            if check_collection_impl.should_apply_sampling:
+                sql = check_collection_impl.data_source_impl.sql_dialect.apply_sampling(
+                    sql, check_collection_impl.sampler_limit, sampler_type=check_collection_impl.sampler_type
                 )
 
             self.numeric_metric_impl = self._resolve_metric(
-                MetricQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                MetricQueryMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
             )
-            if contract_impl.data_source_impl:
+            if check_collection_impl.data_source_impl:
                 metric_query: Query = MetricQuery(
-                    data_source_impl=contract_impl.data_source_impl,
+                    data_source_impl=check_collection_impl.data_source_impl,
                     metrics=[self.numeric_metric_impl],
                     sql=sql,
                 )

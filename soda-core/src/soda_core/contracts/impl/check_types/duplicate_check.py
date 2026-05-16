@@ -15,6 +15,7 @@ from soda_core.contracts.impl.check_types.missing_check import MissingCountMetri
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -38,19 +39,19 @@ class DuplicateCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: InvalidCheckYaml,
     ) -> Optional[CheckImpl]:
         if column_impl:
             return ColumnDuplicateCheckImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
                 column_impl=column_impl,
                 check_yaml=check_yaml,
             )
         else:
             return MultiColumnDuplicateCheckImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
                 check_yaml=check_yaml,
             )
 
@@ -75,23 +76,23 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: ColumnDuplicateCheckYaml,
     ):
         self.distinct_count_metric_impl: MetricImpl = self._resolve_metric(
-            ColumnDistinctCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            ColumnDistinctCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.check_rows_tested_metric_impl = self._resolve_metric(
             RowCountMetricImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
                 check_impl=self,
             )
         )
 
         self.missing_count_metric_impl = self._resolve_metric(
-            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.duplicate_count_metric_impl = self._resolve_metric(
@@ -244,7 +245,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: MultiColumnDuplicateCheckYaml,
     ):
@@ -252,7 +253,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
         self.multi_column_distinct_count_metric_impl: MetricImpl = self._resolve_metric(
             MultiColumnDistinctCountMetricImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
                 check_impl=self,
                 column_expressions=[COLUMN(column) for column in check_yaml.columns],
             )
@@ -260,7 +261,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
         self.row_count_metric_impl = self._resolve_metric(
             RowCountMetricImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
                 check_impl=self,
             )
         )

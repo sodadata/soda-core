@@ -623,7 +623,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         if check_collection_yaml.checks:
             for check_yaml in check_collection_yaml.checks:
                 if check_yaml:
-                    check = CheckImpl.parse_check(contract_impl=self, check_yaml=check_yaml)
+                    check = CheckImpl.parse_check(check_collection_impl=self, check_yaml=check_yaml)
                     check_impls.append(check)
 
         for extension in self.extensions:
@@ -1045,11 +1045,8 @@ class ColumnImpl:
         if column_yaml.check_yamls:
             for check_yaml in column_yaml.check_yamls:
                 if check_yaml:
-                    # NOTE: kwarg name stays `contract_impl` to match CheckImpl.parse_check's
-                    # parameter name, whose subclasses (in contracts/impl/check_types/, out of
-                    # scope for this rename) override `parse_check(contract_impl=...)`.
                     check = CheckImpl.parse_check(
-                        contract_impl=check_collection_impl,
+                        check_collection_impl=check_collection_impl,
                         column_impl=self,
                         check_yaml=check_yaml,
                     )
@@ -1418,7 +1415,7 @@ class CheckParser(ABC):
     @abstractmethod
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
     ) -> Optional[CheckImpl]:
@@ -1440,7 +1437,7 @@ class CheckImpl:
     @classmethod
     def parse_check(
         cls,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         check_yaml: CheckYaml,
         column_impl: Optional[ColumnImpl] = None,
     ) -> Optional[CheckImpl]:
@@ -1448,14 +1445,14 @@ class CheckImpl:
             check_parser: Optional[CheckParser] = cls.check_parsers.get(check_yaml.type_name)
             if check_parser:
                 check_impl = check_parser.parse_check(
-                    contract_impl=contract_impl,
+                    check_collection_impl=check_collection_impl,
                     column_impl=column_impl,
                     check_yaml=check_yaml,
                 )
 
                 if not check_impl.skip:
                     check_impl.setup_metrics(
-                        contract_impl=contract_impl,
+                        check_collection_impl=check_collection_impl,
                         column_impl=column_impl,
                         check_yaml=check_yaml,
                     )
@@ -1550,7 +1547,7 @@ class CheckImpl:
     @abstractmethod
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
     ) -> None:

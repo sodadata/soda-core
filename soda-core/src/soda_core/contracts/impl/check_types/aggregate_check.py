@@ -10,6 +10,7 @@ from soda_core.contracts.impl.check_types.aggregate_check_yaml import AggregateC
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -28,12 +29,12 @@ class AggregateCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: AggregateCheckYaml,
     ) -> Optional[CheckImpl]:
         return AggregateCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -72,18 +73,18 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: AggregateCheckYaml,
     ):
         self.aggregate_metric = self._resolve_metric(
             AggregateFunctionMetricImpl(
-                contract_impl=contract_impl, column_impl=column_impl, check_impl=self, function=self.function
+                contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self, function=self.function
             )
         )
 
         self.check_rows_tested_metric = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:

@@ -14,6 +14,7 @@ from soda_core.contracts.impl.check_types.freshness_check_yaml import FreshnessC
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -32,12 +33,12 @@ class FreshnessCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
     ) -> Optional[CheckImpl]:
         return FreshnessCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -170,13 +171,13 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
     ):
         self.max_timestamp_metric = self._resolve_metric(
             MaxTimestampMetricImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
                 column_expression=self.column_expression,
                 check_impl=self,
                 now_variable=self.now_variable,
@@ -184,7 +185,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             )
         )
         self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:

@@ -18,6 +18,7 @@ from soda_core.contracts.contract_verification import (
 )
 from soda_core.contracts.impl.check_types.schema_check_yaml import SchemaCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -37,12 +38,12 @@ class SchemaCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: SchemaCheckYaml,
     ) -> Optional[CheckImpl]:
         return SchemaCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             check_yaml=check_yaml,
         )
 
@@ -117,22 +118,22 @@ class SchemaCheckImpl(CheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: SchemaCheckYaml,
     ):
         self.schema_metric = self._resolve_metric(
             SchemaMetricImpl(
-                contract_impl=contract_impl,
+                contract_impl=check_collection_impl,
             )
         )
 
-        if contract_impl.data_source_impl:
+        if check_collection_impl.data_source_impl:
             schema_query: Query = SchemaQuery(
-                dataset_prefixes=contract_impl.dataset_prefix,
-                dataset_name=contract_impl.dataset_name,
+                dataset_prefixes=check_collection_impl.dataset_prefix,
+                dataset_name=check_collection_impl.dataset_name,
                 schema_metric_impl=self.schema_metric,
-                data_source_impl=contract_impl.data_source_impl,
+                data_source_impl=check_collection_impl.data_source_impl,
             )
             self.queries.append(schema_query)
 

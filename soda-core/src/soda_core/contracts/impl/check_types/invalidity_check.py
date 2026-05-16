@@ -18,6 +18,7 @@ from soda_core.contracts.impl.check_types.missing_check import MissingCountMetri
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -42,12 +43,12 @@ class InvalidCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: InvalidCheckYaml,
     ) -> Optional[CheckImpl]:
         return InvalidCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -78,11 +79,13 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 },
             )
 
-    def setup_metrics(self, contract_impl: ContractImpl, column_impl: ColumnImpl, check_yaml: InvalidCheckYaml):
+    def setup_metrics(
+        self, check_collection_impl: CheckCollectionImpl, column_impl: ColumnImpl, check_yaml: InvalidCheckYaml
+    ):
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
 
         self.missing_count_metric_impl = self._resolve_metric(
-            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.invalid_count_metric_impl: Optional[MetricImpl] = None
@@ -90,7 +93,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # noinspection PyTypeChecker
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidReferenceCountMetricImpl(
-                    contract_impl=contract_impl,
+                    contract_impl=check_collection_impl,
                     column_impl=column_impl,
                     missing_and_validity=self.missing_and_validity,
                     column_expression=self.column_expression,
@@ -100,24 +103,26 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # Only build the reference query when a data source is available.
             # In validation-only / dry-run mode (e.g. `soda contract test`),
             # data_source_impl is None and SQL cannot be generated.
-            if contract_impl.data_source_impl is not None:
+            if check_collection_impl.data_source_impl is not None:
                 self.ref_query = InvalidReferenceCountQuery(
-                    cte=contract_impl.cte,
-                    sampler_type=contract_impl.sampler_type,
-                    sampler_limit=contract_impl.sampler_limit,
-                    apply_sampling=contract_impl.should_apply_sampling,
+                    cte=check_collection_impl.cte,
+                    sampler_type=check_collection_impl.sampler_type,
+                    sampler_limit=check_collection_impl.sampler_limit,
+                    apply_sampling=check_collection_impl.should_apply_sampling,
                     metric_impl=self.invalid_count_metric_impl,
                     dataset_filter=self.contract_impl.filter,
                     check_filter=self.check_yaml.filter,
-                    data_source_impl=contract_impl.data_source_impl,
+                    data_source_impl=check_collection_impl.data_source_impl,
                 )
                 self.queries.append(self.ref_query)
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
-                InvalidCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                InvalidCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
             )
 
-        self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
+        self.row_count_metric = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+        )
 
         self.invalid_percent_metric = self._resolve_metric(
             DerivedPercentageMetricImpl(

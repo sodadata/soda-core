@@ -6,6 +6,7 @@ from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
 from soda_core.contracts.impl.check_types.row_count_check_yaml import RowCountCheckYaml
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -22,12 +23,12 @@ class RowCountCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: RowCountCheckYaml,
     ) -> Optional[CheckImpl]:
         return RowCountCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -59,11 +60,13 @@ class RowCountCheckImpl(CheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: RowCountCheckYaml,
     ):
-        self.row_count_metric = self._resolve_metric(RowCountMetricImpl(contract_impl=contract_impl, check_impl=self))
+        self.row_count_metric = self._resolve_metric(
+            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+        )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED

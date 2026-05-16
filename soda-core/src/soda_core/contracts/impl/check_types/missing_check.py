@@ -6,6 +6,7 @@ from soda_core.contracts.impl.check_types.missing_check_yaml import MissingCheck
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -25,12 +26,12 @@ class MissingCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: MissingCheckYaml,
     ) -> Optional[CheckImpl]:
         return MissingCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -56,16 +57,16 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: MissingCheckYaml,
     ):
         self.missing_count_metric_impl = self._resolve_metric(
-            MissingCountMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
         )
 
         self.row_count_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
         )
 
         self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(

@@ -17,6 +17,7 @@ from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
 from soda_core.contracts.impl.contract_verification_impl import (
     AggregationMetricImpl,
+    CheckCollectionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -37,12 +38,12 @@ class FailedRowsCheckParser(CheckParser):
 
     def parse_check(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FailedRowsCheckYaml,
     ) -> Optional[CheckImpl]:
         return FailedRowsCheckImpl(
-            contract_impl=contract_impl,
+            contract_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -68,7 +69,7 @@ class FailedRowsCheckImpl(CheckImpl):
 
     def setup_metrics(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: FailedRowsCheckYaml,
     ):
@@ -76,46 +77,48 @@ class FailedRowsCheckImpl(CheckImpl):
         self.check_rows_tested_metric_impl: Optional[MetricImpl] = None
         if self.is_expression_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
-                FailedRowsExpressionMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                FailedRowsExpressionMetricImpl(
+                    contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                )
             )
             self.check_rows_tested_metric_impl = self._resolve_metric(
-                RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
             )
 
         elif self.is_query_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
-                FailedRowsQueryMetricImpl(contract_impl=contract_impl, column_impl=column_impl, check_impl=self)
+                FailedRowsQueryMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
             )
 
             sql = self.failed_rows_check_yaml.query
 
-            if contract_impl.should_apply_sampling:
-                sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
+            if check_collection_impl.should_apply_sampling:
+                sql = check_collection_impl.data_source_impl.sql_dialect.apply_sampling(
                     sql=sql,
-                    sampler_limit=contract_impl.sampler_limit,
-                    sampler_type=contract_impl.sampler_type,
+                    sampler_limit=check_collection_impl.sampler_limit,
+                    sampler_type=check_collection_impl.sampler_type,
                 )
-            if contract_impl.data_source_impl:
+            if check_collection_impl.data_source_impl:
                 failed_rows_count_query: Query = FailedRowsCountQuery(
-                    data_source_impl=contract_impl.data_source_impl,
+                    data_source_impl=check_collection_impl.data_source_impl,
                     metrics=[self.failed_rows_count_metric_impl],
                     failed_rows_query=sql,
                 )
                 self.queries.append(failed_rows_count_query)
 
-            if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
+            if self.failed_rows_check_yaml.rows_tested_query and check_collection_impl.data_source_impl:
                 self.check_rows_tested_metric_impl = self._resolve_metric(
-                    RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                    RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
                 )
                 rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
-                if contract_impl.should_apply_sampling:
-                    rows_tested_sql = contract_impl.data_source_impl.sql_dialect.apply_sampling(
+                if check_collection_impl.should_apply_sampling:
+                    rows_tested_sql = check_collection_impl.data_source_impl.sql_dialect.apply_sampling(
                         sql=rows_tested_sql,
-                        sampler_limit=contract_impl.sampler_limit,
-                        sampler_type=contract_impl.sampler_type,
+                        sampler_limit=check_collection_impl.sampler_limit,
+                        sampler_type=check_collection_impl.sampler_type,
                     )
                 rows_tested_query: Query = RowsTestedQuery(
-                    data_source_impl=contract_impl.data_source_impl,
+                    data_source_impl=check_collection_impl.data_source_impl,
                     metrics=[self.check_rows_tested_metric_impl],
                     rows_tested_sql=rows_tested_sql,
                 )
