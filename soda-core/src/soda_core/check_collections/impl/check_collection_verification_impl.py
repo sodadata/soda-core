@@ -59,36 +59,6 @@ from tabulate import tabulate
 logger: logging.Logger = soda_logger
 
 
-def _default_yaml_cls():
-    """Lazy-resolve the default concrete CheckCollectionYaml subclass."""
-    from soda_core.contracts.impl.contract_yaml import ContractYaml
-
-    return ContractYaml
-
-
-def _default_impl_cls():
-    """Lazy-resolve the default concrete CheckCollectionImpl subclass."""
-    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
-
-    return ContractImpl
-
-
-def _default_result_cls():
-    """Lazy-resolve the default concrete CheckCollectionResult subclass."""
-    from soda_core.contracts.contract_verification import ContractVerificationResult
-
-    return ContractVerificationResult
-
-
-def _default_session_result_cls():
-    """Lazy-resolve the default concrete CheckCollectionSessionResult subclass."""
-    from soda_core.contracts.contract_verification import (
-        ContractVerificationSessionResult,
-    )
-
-    return ContractVerificationSessionResult
-
-
 class CheckCollectionVerificationHandler(ABC):
     @abstractmethod
     def handle(
@@ -205,7 +175,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         # default ContractVerificationSessionResult); construction of per-
         # contract YAMLs and impls happens in ``_execute_locally`` /
         # ``_execute_on_agent`` via the corresponding hooks.
-        session_result_cls: type = cls._SESSION_RESULT_CLASS or _default_session_result_cls()
+        session_result_cls: type = cls._SESSION_RESULT_CLASS
 
         logs: Logs = Logs()
 
@@ -298,8 +268,8 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[CheckCollectionResult]:
         "Verifies a check collection locally."
-        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
-        impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS or _default_impl_cls()
+        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS
+        impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS
 
         contract_verification_results: list = []
 
@@ -411,7 +381,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         soda_cloud_verbose: bool,
     ) -> list[CheckCollectionResult]:
         "Verifies check collections on the Soda Cloud agent."
-        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
+        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS
 
         contract_verification_results: list = []
 
@@ -736,7 +706,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         # path sets ``_RESULT_CLASS = ContractVerificationResult``; a future
         # DataStandard* subtype sets it to its own result class and gets that
         # back from ``verify()`` with no other change to this method.
-        result_cls: type = type(self)._RESULT_CLASS or _default_result_cls()
+        result_cls: type = type(self)._RESULT_CLASS
 
         if self.data_source_impl and self.soda_config.is_running_on_agent:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
