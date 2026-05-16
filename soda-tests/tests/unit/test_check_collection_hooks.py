@@ -1,15 +1,17 @@
 """Test that the CheckCollection seam routes to subclass-provided types.
 
-Concrete subtypes subscribe ``Generic[…]`` and pass ``yaml_type=`` / ``impl_type=`` /
-``session_result_type=`` (on the session impl) and ``result_type=`` (on the impl)
-via ``__init_subclass__`` at class-declaration time. The YAML side uses Python's
-classmethod dispatch — ``CheckCollectionYaml.parse()`` does ``return cls(...)`` —
-so the yaml subclass needs no special wiring.
+Concrete subtypes wire their YAML / impl / result / session-result types
+via ``Generic[…]`` subscription at class-declaration time. The base classes'
+``__init_subclass__`` derives the ClassVar hooks (``_YAML_CLASS``,
+``_IMPL_CLASS``, ``_SESSION_RESULT_CLASS``, ``_RESULT_CLASS``) from
+``cls.__orig_bases__`` via ``get_args``. The YAML side uses Python's
+classmethod dispatch (``CheckCollectionYaml.parse()`` returns ``cls(...)``)
+and needs no hook.
 
-Sentinel subclasses below wire these hooks to a DIFFERENT set of types than the
+Sentinel subclasses below subscribe the base with DIFFERENT types than the
 Contract* defaults, then assert that ``execute()`` and ``parse()`` return
-instances of the sentinel types. This documents the extension recipe for future
-check-collection subtypes (data-standards, check-suites, etc.).
+instances of those sentinel types. This documents the extension recipe for
+future check-collection subtypes (data-standards, check-suites, etc.).
 """
 
 from soda_core.check_collections.check_collection_verification import (
@@ -36,20 +38,14 @@ class _SentinelSessionResult(CheckCollectionSessionResult):
     """Sentinel session result."""
 
 
-class _SentinelImpl(
-    CheckCollectionImpl[_SentinelYaml, _SentinelResult],
-    result_type=_SentinelResult,
-):
-    """Sentinel impl — wires _RESULT_CLASS via __init_subclass__."""
+class _SentinelImpl(CheckCollectionImpl[_SentinelYaml, _SentinelResult]):
+    """Sentinel impl — wires _RESULT_CLASS via Generic[] subscription."""
 
 
 class _SentinelSessionImpl(
-    CheckCollectionVerificationSessionImpl[_SentinelYaml, _SentinelImpl, _SentinelSessionResult],
-    yaml_type=_SentinelYaml,
-    impl_type=_SentinelImpl,
-    session_result_type=_SentinelSessionResult,
+    CheckCollectionVerificationSessionImpl[_SentinelYaml, _SentinelImpl, _SentinelSessionResult]
 ):
-    """Sentinel session impl — wires three hooks via __init_subclass__ kwargs."""
+    """Sentinel session impl — wires three hooks via Generic[] subscription."""
 
 
 _MINIMAL_YAML = """\
@@ -78,8 +74,8 @@ def test_session_impl_hooks_route_to_subclass_types():
 
     Exercises all four hook slots on ``CheckCollectionVerificationSessionImpl`` and
     ``CheckCollectionImpl`` end-to-end. The sentinel subclasses wire them via
-    ``__init_subclass__`` kwargs (``yaml_type=`` / ``impl_type=`` /
-    ``session_result_type=`` on the session impl; ``result_type=`` on the impl).
+    ``Generic[…]`` subscription; ``__init_subclass__`` derives the ClassVars from
+    ``cls.__orig_bases__``.
     Resolution paths:
     - ``_SESSION_RESULT_CLASS`` — session_result_cls(...) in execute()
     - ``_YAML_CLASS`` — yaml_cls.parse(...) in _execute_locally()

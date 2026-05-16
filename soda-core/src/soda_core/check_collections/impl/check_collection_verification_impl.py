@@ -5,7 +5,7 @@ from datetime import timezone
 from enum import Enum
 from io import StringIO
 from logging import LogRecord
-from typing import ClassVar, Generic, Protocol, TypeVar
+from typing import ClassVar, Generic, Protocol, TypeVar, get_args, get_origin
 
 from ruamel.yaml import YAML
 from soda_core.check_collections.check_collection_verification import (
@@ -100,14 +100,11 @@ ResultT = TypeVar("ResultT", bound="CheckCollectionResult")
 class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResultT]):
     """Implements the check-collection verification session.
 
-    Concrete subtypes pass their YAML / impl / session-result types via
-    ``__init_subclass__`` kwargs at class-declaration time:
+    Concrete subtypes wire their YAML / impl / session-result types via
+    ``Generic[…]`` subscription at class-declaration time:
 
         class ContractVerificationSessionImpl(
             CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult],
-            yaml_type=ContractYaml,
-            impl_type=ContractImpl,
-            session_result_type=ContractVerificationSessionResult,
         ):
             pass
 
@@ -118,21 +115,32 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
     _IMPL_CLASS: ClassVar[type[CheckCollectionImpl]]
     _SESSION_RESULT_CLASS: ClassVar[type[CheckCollectionSessionResult]]
 
-    def __init_subclass__(
-        cls,
-        *,
-        yaml_type: Optional[type[CheckCollectionYaml]] = None,
-        impl_type: Optional[type[CheckCollectionImpl]] = None,
-        session_result_type: Optional[type[CheckCollectionSessionResult]] = None,
-        **kwargs,
-    ) -> None:
+    def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        if yaml_type is not None:
-            cls._YAML_CLASS = yaml_type
-        if impl_type is not None:
-            cls._IMPL_CLASS = impl_type
-        if session_result_type is not None:
-            cls._SESSION_RESULT_CLASS = session_result_type
+        # Derive ClassVar hooks from ``Generic[…]`` subscription. Each concrete
+        # subtype wires by subscribing the base with three concrete types, e.g.
+        # ``class ContractVerificationSessionImpl(
+        #     CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult],
+        # ): ...``
+        # Intermediate abstract subtypes that subscribe with TypeVars are skipped
+        # (TypeVar instances are not ``type`` and don't set ClassVars).
+        for base in getattr(cls, "__orig_bases__", ()):
+            origin = get_origin(base)
+            if origin is None or not isinstance(origin, type):
+                continue
+            if not issubclass(origin, CheckCollectionVerificationSessionImpl):
+                continue
+            args = get_args(base)
+            if len(args) != 3:
+                continue
+            yaml_type, impl_type, session_result_type = args
+            if isinstance(yaml_type, type):
+                cls._YAML_CLASS = yaml_type
+            if isinstance(impl_type, type):
+                cls._IMPL_CLASS = impl_type
+            if isinstance(session_result_type, type):
+                cls._SESSION_RESULT_CLASS = session_result_type
+            break
 
     @classmethod
     def execute(
@@ -398,13 +406,10 @@ class CheckCollectionImplExtension(Protocol):
 class CheckCollectionImpl(Generic[YamlT, ResultT]):
     """Implements the check-collection runtime.
 
-    Concrete subtypes pass their result type via ``__init_subclass__`` at
+    Concrete subtypes wire their result type via ``Generic[…]`` subscription at
     class-declaration time:
 
-        class ContractImpl(
-            CheckCollectionImpl[ContractYaml, ContractVerificationResult],
-            result_type=ContractVerificationResult,
-        ):
+        class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
             pass
 
     ``YamlT`` is a phantom type parameter — used for static typing only so
@@ -418,15 +423,23 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
     _RESULT_CLASS: ClassVar[type[CheckCollectionResult]]
 
-    def __init_subclass__(
-        cls,
-        *,
-        result_type: Optional[type[CheckCollectionResult]] = None,
-        **kwargs,
-    ) -> None:
+    def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        if result_type is not None:
-            cls._RESULT_CLASS = result_type
+        # Derive _RESULT_CLASS from Generic[YamlT, ResultT] subscription.
+        # YamlT is phantom on this class; ResultT is the runtime hook.
+        for base in getattr(cls, "__orig_bases__", ()):
+            origin = get_origin(base)
+            if origin is None or not isinstance(origin, type):
+                continue
+            if not issubclass(origin, CheckCollectionImpl):
+                continue
+            args = get_args(base)
+            if len(args) != 2:
+                continue
+            _yaml_type, result_type = args
+            if isinstance(result_type, type):
+                cls._RESULT_CLASS = result_type
+            break
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:

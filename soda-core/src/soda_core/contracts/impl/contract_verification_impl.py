@@ -45,22 +45,16 @@ logger: logging.Logger = soda_logger
 
 
 # ContractImpl is declared before ContractVerificationSessionImpl because the
-# session impl binds ``impl_type=ContractImpl`` at class-creation time (not via
-# a deferred annotation).
-class ContractImpl(
-    CheckCollectionImpl[ContractYaml, ContractVerificationResult],
-    result_type=ContractVerificationResult,
-):
+# session impl binds its Generic args at class-creation time (not via a
+# deferred annotation).
+class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
     @property
     def contract_yaml(self) -> ContractYaml:
         return self.check_collection_yaml
 
 
 class ContractVerificationSessionImpl(
-    CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult],
-    yaml_type=ContractYaml,
-    impl_type=ContractImpl,
-    session_result_type=ContractVerificationSessionResult,
+    CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult]
 ):
     pass
 
