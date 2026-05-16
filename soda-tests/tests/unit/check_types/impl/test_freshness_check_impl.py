@@ -52,7 +52,7 @@ def _evaluate_freshness(contract_impl, check, max_ts, rows=100):
 
 
 def _data_timestamp(check: FreshnessCheckImpl) -> datetime:
-    return check.contract_impl.contract_yaml.data_timestamp or datetime.now(tz=timezone.utc)
+    return check.check_collection_impl.check_collection_yaml.data_timestamp or datetime.now(tz=timezone.utc)
 
 
 def test_freshness_passes_when_within_threshold():

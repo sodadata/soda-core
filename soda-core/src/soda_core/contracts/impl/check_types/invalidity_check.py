@@ -48,7 +48,7 @@ class InvalidCheckParser(CheckParser):
         check_yaml: InvalidCheckYaml,
     ) -> Optional[CheckImpl]:
         return InvalidCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -57,12 +57,12 @@ class InvalidCheckParser(CheckParser):
 class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: InvalidCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -85,7 +85,9 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
         self.metric_name = "invalid_percent" if check_yaml.metric == "percent" else "invalid_count"
 
         self.missing_count_metric_impl = self._resolve_metric(
-            MissingCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(
+                check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+            )
         )
 
         self.invalid_count_metric_impl: Optional[MetricImpl] = None
@@ -93,7 +95,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             # noinspection PyTypeChecker
             self.invalid_count_metric_impl = self._resolve_metric(
                 InvalidReferenceCountMetricImpl(
-                    contract_impl=check_collection_impl,
+                    check_collection_impl=check_collection_impl,
                     column_impl=column_impl,
                     missing_and_validity=self.missing_and_validity,
                     column_expression=self.column_expression,
@@ -110,18 +112,20 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                     sampler_limit=check_collection_impl.sampler_limit,
                     apply_sampling=check_collection_impl.should_apply_sampling,
                     metric_impl=self.invalid_count_metric_impl,
-                    dataset_filter=self.contract_impl.filter,
+                    dataset_filter=self.check_collection_impl.filter,
                     check_filter=self.check_yaml.filter,
                     data_source_impl=check_collection_impl.data_source_impl,
                 )
                 self.queries.append(self.ref_query)
         else:
             self.invalid_count_metric_impl = self._resolve_metric(
-                InvalidCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+                InvalidCountMetricImpl(
+                    check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                )
             )
 
         self.row_count_metric = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+            RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
         )
 
         self.invalid_percent_metric = self._resolve_metric(
@@ -150,7 +154,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             "invalid_percent": invalid_percent if invalid_percent is not None else 0,
             "check_rows_tested": row_count if row_count is not None else 0,
             "missing_count": missing_count if missing_count is not None else 0,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
         }
 
         return CheckResult(
@@ -167,13 +171,13 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
 class InvalidCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type="invalid_count",
             check_filter=check_impl.check_yaml.filter,
@@ -203,13 +207,13 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 class InvalidReferenceCountMetricImpl(MetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         missing_and_validity: MissingAndValidity,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             metric_type="invalid_count",
             column_impl=column_impl,
             missing_and_validity=missing_and_validity,

@@ -43,7 +43,7 @@ class SchemaCheckParser(CheckParser):
         check_yaml: SchemaCheckYaml,
     ) -> Optional[CheckImpl]:
         return SchemaCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             check_yaml=check_yaml,
         )
 
@@ -84,16 +84,16 @@ class ColumnDataTypeMismatch:
 class SchemaCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         check_yaml: SchemaCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=None,
             check_yaml=check_yaml,
         )
 
-        logger.info(f"Found {len(contract_impl.column_impls)} columns in contract.")
+        logger.info(f"Found {len(check_collection_impl.column_impls)} columns in contract.")
 
         self.expected_columns: list[ColumnMetadata] = [
             ColumnMetadata(
@@ -110,7 +110,7 @@ class SchemaCheckImpl(CheckImpl):
                     else None
                 ),
             )
-            for column_impl in contract_impl.column_impls
+            for column_impl in check_collection_impl.column_impls
         ]
         logger.info(f"Built {len(self.expected_columns)} expected columns from contract.")
         self.allow_extra_columns: bool = bool(check_yaml.allow_extra_columns)
@@ -124,7 +124,7 @@ class SchemaCheckImpl(CheckImpl):
     ):
         self.schema_metric = self._resolve_metric(
             SchemaMetricImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
             )
         )
 
@@ -192,7 +192,7 @@ class SchemaCheckImpl(CheckImpl):
                 try:
                     if actual_column_metadata and expected_column.sql_data_type:
                         is_same_data_type: bool = (
-                            self.contract_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
+                            self.check_collection_impl.data_source_impl.sql_dialect.is_same_data_type_for_schema_check(
                                 expected=expected_column.sql_data_type,
                                 actual=actual_column_metadata.sql_data_type,
                             )
@@ -266,9 +266,9 @@ class SchemaCheckImpl(CheckImpl):
 class SchemaMetricImpl(MetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
     ):
-        super().__init__(check_collection_impl=contract_impl, metric_type="schema")
+        super().__init__(check_collection_impl=check_collection_impl, metric_type="schema")
 
 
 class SchemaQuery(Query):

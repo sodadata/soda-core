@@ -34,7 +34,7 @@ class AggregateCheckParser(CheckParser):
         check_yaml: AggregateCheckYaml,
     ) -> Optional[CheckImpl]:
         return AggregateCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -43,12 +43,12 @@ class AggregateCheckParser(CheckParser):
 class AggregateCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: AggregateCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -61,12 +61,12 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
         # Check if the function is supported by the data source, if data source is available. It is not during `soda contract test`.
         if (
             self.function
-            and self.contract_impl.data_source_impl
-            and not contract_impl.data_source_impl.sql_dialect.supports_function(self.function)
+            and self.check_collection_impl.data_source_impl
+            and not check_collection_impl.data_source_impl.sql_dialect.supports_function(self.function)
         ):
             logger.error(
                 msg=f"Aggregate function '{check_yaml.function}' is not supported on "
-                f"'{contract_impl.data_source_impl.type_name}'",
+                f"'{check_collection_impl.data_source_impl.type_name}'",
                 extra={ExtraKeys.LOCATION: check_yaml.check_yaml_object.create_location_from_yaml_dict_key("function")},
             )
             self.function = None
@@ -79,12 +79,15 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
     ):
         self.aggregate_metric = self._resolve_metric(
             AggregateFunctionMetricImpl(
-                contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self, function=self.function
+                check_collection_impl=check_collection_impl,
+                column_impl=column_impl,
+                check_impl=self,
+                function=self.function,
             )
         )
 
         self.check_rows_tested_metric = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+            RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
@@ -94,7 +97,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
         check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric)
 
         diagnostic_metric_values: dict[str, float] = {
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
             "check_rows_tested": check_rows_tested,
         }
 
@@ -114,7 +117,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
 class AggregateFunctionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_impl: MissingAndValidityCheckImpl,
         function: Optional[str],
@@ -124,7 +127,7 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
     ):
         self.function: Optional[str] = function
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,

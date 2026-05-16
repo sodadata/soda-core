@@ -43,7 +43,7 @@ class FailedRowsCheckParser(CheckParser):
         check_yaml: FailedRowsCheckYaml,
     ) -> Optional[CheckImpl]:
         return FailedRowsCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -52,12 +52,12 @@ class FailedRowsCheckParser(CheckParser):
 class FailedRowsCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: FailedRowsCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -78,16 +78,18 @@ class FailedRowsCheckImpl(CheckImpl):
         if self.is_expression_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
                 FailedRowsExpressionMetricImpl(
-                    contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                    check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
                 )
             )
             self.check_rows_tested_metric_impl = self._resolve_metric(
-                RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+                RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
             )
 
         elif self.is_query_check():
             self.failed_rows_count_metric_impl = self._resolve_metric(
-                FailedRowsQueryMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+                FailedRowsQueryMetricImpl(
+                    check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                )
             )
 
             sql = self.failed_rows_check_yaml.query
@@ -108,7 +110,7 @@ class FailedRowsCheckImpl(CheckImpl):
 
             if self.failed_rows_check_yaml.rows_tested_query and check_collection_impl.data_source_impl:
                 self.check_rows_tested_metric_impl = self._resolve_metric(
-                    RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+                    RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
                 )
                 rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
                 if check_collection_impl.should_apply_sampling:
@@ -150,7 +152,7 @@ class FailedRowsCheckImpl(CheckImpl):
                     # in failure mode. `check_rows_tested` is nullable for this branch
                     # (no rows_tested_query specified).
                     "failed_rows_count": failed_rows_count if failed_rows_count is not None else 0,
-                    "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                    "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
                     "check_rows_tested": None,
                 }
 
@@ -185,7 +187,7 @@ class FailedRowsCheckImpl(CheckImpl):
             # in failure mode. `check_rows_tested` is nullable per DTO.
             "failed_rows_count": failed_rows_count if failed_rows_count is not None else 0,
             "failed_rows_percent": failed_rows_percent,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
             "check_rows_tested": check_rows_tested,
         }
         return threshold_value, diagnostic_metric_values
@@ -203,7 +205,7 @@ class FailedRowsCheckImpl(CheckImpl):
 class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,
@@ -211,7 +213,7 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
     ):
         self.expression: str = check_impl.check_yaml.expression
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
@@ -237,7 +239,7 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
 class FailedRowsQueryMetricImpl(MetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,
@@ -245,7 +247,7 @@ class FailedRowsQueryMetricImpl(MetricImpl):
     ):
         self.query: str = check_impl.check_yaml.query
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,

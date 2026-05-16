@@ -45,13 +45,13 @@ class DuplicateCheckParser(CheckParser):
     ) -> Optional[CheckImpl]:
         if column_impl:
             return ColumnDuplicateCheckImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
                 column_impl=column_impl,
                 check_yaml=check_yaml,
             )
         else:
             return MultiColumnDuplicateCheckImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
                 check_yaml=check_yaml,
             )
 
@@ -59,12 +59,12 @@ class DuplicateCheckParser(CheckParser):
 class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: ColumnDuplicateCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -81,18 +81,22 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
         check_yaml: ColumnDuplicateCheckYaml,
     ):
         self.distinct_count_metric_impl: MetricImpl = self._resolve_metric(
-            ColumnDistinctCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+            ColumnDistinctCountMetricImpl(
+                check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+            )
         )
 
         self.check_rows_tested_metric_impl = self._resolve_metric(
             RowCountMetricImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
                 check_impl=self,
             )
         )
 
         self.missing_count_metric_impl = self._resolve_metric(
-            MissingCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(
+                check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+            )
         )
 
         self.duplicate_count_metric_impl = self._resolve_metric(
@@ -144,7 +148,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             "duplicate_percent": duplicate_percent,
             "check_rows_tested": check_rows_tested_count if check_rows_tested_count is not None else 0,
             "missing_count": missing_count if missing_count is not None else 0,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
         }
 
         return CheckResult(
@@ -158,12 +162,12 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
 class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
@@ -209,7 +213,7 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
         self.valid_count_metric_impl: MetricImpl = valid_count_metric_impl
         # Mind the ordering as the self._build_id() must come last
         super().__init__(
-            check_collection_impl=distinct_count_metric_impl.contract_impl,
+            check_collection_impl=distinct_count_metric_impl.check_collection_impl,
             column_impl=distinct_count_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=check_filter,
@@ -230,11 +234,11 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
 class MultiColumnDuplicateCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         check_yaml: MultiColumnDuplicateCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=None,
             check_yaml=check_yaml,
         )
@@ -253,7 +257,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
         self.multi_column_distinct_count_metric_impl: MetricImpl = self._resolve_metric(
             MultiColumnDistinctCountMetricImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
                 check_impl=self,
                 column_expressions=[COLUMN(column) for column in check_yaml.columns],
             )
@@ -261,7 +265,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
         self.row_count_metric_impl = self._resolve_metric(
             RowCountMetricImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
                 check_impl=self,
             )
         )
@@ -304,7 +308,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
             "duplicate_count": duplicate_count,
             "duplicate_percent": duplicate_percent,
             "check_rows_tested": row_count if row_count is not None else 0,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
         }
 
         return CheckResult(
@@ -318,7 +322,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         check_impl: MultiColumnDuplicateCheckImpl,
         column_expressions: list[COLUMN | SqlExpressionStr],
         data_source_impl: Optional[DataSourceImpl] = None,
@@ -326,7 +330,7 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
     ):
         self.column_expressions: list[COLUMN | SqlExpressionStr] = column_expressions
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             metric_type="distinct_count",
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,
@@ -365,7 +369,7 @@ class MultiColumnDuplicateCountMetricImpl(DerivedMetricImpl):
         self.row_count_metric_impl: MetricImpl = row_count_metric_impl
         # Mind the ordering as the self._build_id() must come last
         super().__init__(
-            check_collection_impl=multi_column_distinct_count_metric_impl.contract_impl,
+            check_collection_impl=multi_column_distinct_count_metric_impl.check_collection_impl,
             column_impl=multi_column_distinct_count_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=check_filter,

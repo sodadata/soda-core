@@ -28,7 +28,7 @@ class RowCountCheckParser(CheckParser):
         check_yaml: RowCountCheckYaml,
     ) -> Optional[CheckImpl]:
         return RowCountCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -37,12 +37,12 @@ class RowCountCheckParser(CheckParser):
 class RowCountCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: RowCountCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -65,7 +65,7 @@ class RowCountCheckImpl(CheckImpl):
         check_yaml: RowCountCheckYaml,
     ):
         self.row_count_metric = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+            RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
@@ -76,7 +76,7 @@ class RowCountCheckImpl(CheckImpl):
 
         diagnostic_metric_values: dict[str, float] = {
             "check_rows_tested": row_count,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
         }
 
         return CheckResult(
@@ -90,7 +90,7 @@ class RowCountCheckImpl(CheckImpl):
 class RowCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         check_impl: Optional[CheckImpl] = None,
         filter: Optional[str] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
@@ -98,7 +98,7 @@ class RowCountMetricImpl(AggregationMetricImpl):
     ):
         check_filter = filter if filter else check_impl.check_yaml.filter if check_impl else None
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             metric_type="row_count",
             check_filter=check_filter,
             missing_and_validity=None,

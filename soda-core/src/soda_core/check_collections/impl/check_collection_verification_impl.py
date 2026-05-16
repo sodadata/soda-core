@@ -515,7 +515,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         )
 
         self.row_count_metric_impl: MetricImpl = self.metrics_resolver.resolve_metric(
-            RowCountMetricImpl(contract_impl=self)
+            RowCountMetricImpl(check_collection_impl=self)
         )
         self.dataset_rows_tested: Optional[int] = None
 
@@ -1470,7 +1470,7 @@ class CheckImpl:
     ):
         self.logs: Logs = check_collection_impl.logs
 
-        self.contract_impl: ContractImpl = check_collection_impl
+        self.check_collection_impl: ContractImpl = check_collection_impl
         self.check_yaml: CheckYaml = check_yaml
         self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1540,7 +1540,7 @@ class CheckImpl:
         return check_yaml.type_name
 
     def _resolve_metric(self, metric_impl: MetricImpl) -> MetricImpl:
-        resolved_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(metric_impl)
+        resolved_metric_impl: MetricImpl = self.check_collection_impl.metrics_resolver.resolve_metric(metric_impl)
         self.metrics.append(resolved_metric_impl)
         return resolved_metric_impl
 
@@ -1598,7 +1598,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.check_collection_yaml.check_collection_yaml_source.file_path,
+            self.check_collection_impl.check_collection_yaml.check_collection_yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,
@@ -1608,8 +1608,8 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        if self.contract_impl.check_collection_yaml.filter:
-            contract_dict["filter"] = self.contract_impl.check_collection_yaml.filter
+        if self.check_collection_impl.check_collection_yaml.filter:
+            contract_dict["filter"] = self.check_collection_impl.check_collection_yaml.filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 
@@ -1678,7 +1678,7 @@ class MetricImpl:
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
-        self.contract_impl: ContractImpl = check_collection_impl
+        self.check_collection_impl: ContractImpl = check_collection_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
         self.check_filter: Optional[str] = check_filter
@@ -1686,8 +1686,8 @@ class MetricImpl:
         self.dataset_identifier = dataset_identifier or check_collection_impl.dataset_identifier
 
         self.data_source_impl: Optional[DataSourceImpl] = None
-        if self.contract_impl.data_source_impl:
-            self.data_source_impl = self.contract_impl.data_source_impl
+        if self.check_collection_impl.data_source_impl:
+            self.data_source_impl = self.check_collection_impl.data_source_impl
         if data_source_impl:
             self.data_source_impl = data_source_impl
 
@@ -1819,7 +1819,7 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
         self.total_metric_impl: MetricImpl = total_metric_impl
         # Mind the ordering as the self._build_id() must come last
         super().__init__(
-            check_collection_impl=fraction_metric_impl.contract_impl,
+            check_collection_impl=fraction_metric_impl.check_collection_impl,
             column_impl=fraction_metric_impl.column_impl,
             metric_type=metric_type,
             check_filter=None,

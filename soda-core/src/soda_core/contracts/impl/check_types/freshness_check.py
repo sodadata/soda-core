@@ -38,7 +38,7 @@ class FreshnessCheckParser(CheckParser):
         check_yaml: FreshnessCheckYaml,
     ) -> Optional[CheckImpl]:
         return FreshnessCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -47,13 +47,13 @@ class FreshnessCheckParser(CheckParser):
 class FreshnessCheckImplBase(CheckImpl, ABC):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
             extra_identity_properties=extra_identity_properties,
@@ -61,9 +61,9 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
 
         self.now_variable: Optional[str] = check_yaml.now_variable
         self.unit: str = check_yaml.unit if check_yaml.unit else "hour"
-        self.resolved_variable_values = contract_impl.check_collection_yaml.resolved_variable_values
+        self.resolved_variable_values = check_collection_impl.check_collection_yaml.resolved_variable_values
         self.soda_variable_values = (
-            contract_impl.check_collection_yaml.check_collection_yaml_source.resolve_on_read_soda_variable_values
+            check_collection_impl.check_collection_yaml.check_collection_yaml_source.resolve_on_read_soda_variable_values
         )
 
     def _calculate_freshness(self, max_timestamp: datetime, data_timestamp: datetime) -> timedelta:
@@ -118,7 +118,7 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
 
     def _get_now_timestamp(self) -> Optional[datetime]:
         if self.now_variable is None:
-            return self.contract_impl.check_collection_yaml.data_timestamp
+            return self.check_collection_impl.check_collection_yaml.data_timestamp
         else:
             now_timestamp_str: str = self.resolved_variable_values.get(self.now_variable)
             if now_timestamp_str is None:
@@ -148,12 +148,12 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
 class FreshnessCheckImpl(FreshnessCheckImplBase):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
     ):
         super().__init__(
-            contract_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -177,7 +177,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
     ):
         self.max_timestamp_metric = self._resolve_metric(
             MaxTimestampMetricImpl(
-                contract_impl=check_collection_impl,
+                check_collection_impl=check_collection_impl,
                 column_expression=self.column_expression,
                 check_impl=self,
                 now_variable=self.now_variable,
@@ -185,7 +185,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
             )
         )
         self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+            RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
         )
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
@@ -200,7 +200,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
 
         check_rows_tested: int = measurement_values.get_value(self.check_rows_tested_metric_impl)
         diagnostic_metric_values: dict[str, float] = {
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
             "check_rows_tested": check_rows_tested,
         }
         freshness: Optional[timedelta] = None
@@ -242,7 +242,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
 class MaxTimestampMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         check_impl: FreshnessCheckImpl,
         now_variable: Optional[str],
         unit: Optional[str],
@@ -253,7 +253,7 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
         self.now_variable: Optional[str] = now_variable
         self.unit: Optional[str] = unit
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
             data_source_impl=data_source_impl,

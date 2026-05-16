@@ -31,7 +31,7 @@ class MissingCheckParser(CheckParser):
         check_yaml: MissingCheckYaml,
     ) -> Optional[CheckImpl]:
         return MissingCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -40,12 +40,12 @@ class MissingCheckParser(CheckParser):
 class MissingCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: MissingCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -62,14 +62,16 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
         check_yaml: MissingCheckYaml,
     ):
         self.missing_count_metric_impl = self._resolve_metric(
-            MissingCountMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+            MissingCountMetricImpl(
+                check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+            )
         )
 
         self.row_count_metric_impl: MetricImpl = self._resolve_metric(
-            RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+            RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
         )
 
-        self.missing_percent_metric_impl: MetricImpl = self.contract_impl.metrics_resolver.resolve_metric(
+        self.missing_percent_metric_impl: MetricImpl = self.check_collection_impl.metrics_resolver.resolve_metric(
             DerivedPercentageMetricImpl(
                 metric_type="missing_percent",
                 fraction_metric_impl=self.missing_count_metric_impl,
@@ -96,7 +98,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
             "missing_count": missing_count if missing_count is not None else 0,
             "missing_percent": missing_percent if missing_percent is not None else 0,
             "check_rows_tested": row_count if row_count is not None else 0,
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
         }
 
         return CheckResult(
@@ -113,13 +115,13 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
 class MissingCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,

@@ -40,7 +40,7 @@ class MetricCheckParser(CheckParser):
         check_yaml: MetricCheckYaml,
     ) -> Optional[CheckImpl]:
         return MetricCheckImpl(
-            contract_impl=check_collection_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -49,12 +49,12 @@ class MetricCheckParser(CheckParser):
 class MetricCheckImpl(CheckImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_yaml: MetricCheckYaml,
     ):
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             check_yaml=check_yaml,
         )
@@ -73,11 +73,11 @@ class MetricCheckImpl(CheckImpl):
         if self.metric_check_yaml.expression:
             self.numeric_metric_impl = self._resolve_metric(
                 MetricExpressionMetricImpl(
-                    contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                    check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
                 )
             )
             self.check_rows_tested_metric_impl: MetricImpl = self._resolve_metric(
-                RowCountMetricImpl(contract_impl=check_collection_impl, check_impl=self)
+                RowCountMetricImpl(check_collection_impl=check_collection_impl, check_impl=self)
             )
 
         elif self.metric_check_yaml.query:
@@ -89,7 +89,9 @@ class MetricCheckImpl(CheckImpl):
                 )
 
             self.numeric_metric_impl = self._resolve_metric(
-                MetricQueryMetricImpl(contract_impl=check_collection_impl, column_impl=column_impl, check_impl=self)
+                MetricQueryMetricImpl(
+                    check_collection_impl=check_collection_impl, column_impl=column_impl, check_impl=self
+                )
             )
             if check_collection_impl.data_source_impl:
                 metric_query: Query = MetricQuery(
@@ -107,7 +109,7 @@ class MetricCheckImpl(CheckImpl):
         diagnostic_metric_values: dict[str, float] = {}
 
         diagnostic_metric_values: dict[str, float] = {
-            "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+            "dataset_rows_tested": self.check_collection_impl.dataset_rows_tested,
         }
 
         outcome = self.evaluate_threshold(numeric_metric_value)
@@ -123,7 +125,7 @@ class MetricCheckImpl(CheckImpl):
 class MetricExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MetricCheckImpl,
         expression: str | None = None,
@@ -132,7 +134,7 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
     ):
         self.expression: str = expression or check_impl.check_yaml.expression
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
@@ -155,7 +157,7 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
 class MetricQueryMetricImpl(MetricImpl):
     def __init__(
         self,
-        contract_impl: ContractImpl,
+        check_collection_impl: ContractImpl,
         column_impl: ColumnImpl,
         check_impl: MetricCheckImpl,
         query: Optional[str] = None,
@@ -164,7 +166,7 @@ class MetricQueryMetricImpl(MetricImpl):
     ):
         self.query: str = query or check_impl.check_yaml.query
         super().__init__(
-            check_collection_impl=contract_impl,
+            check_collection_impl=check_collection_impl,
             column_impl=column_impl,
             metric_type=check_impl.type,
             check_filter=check_impl.check_yaml.filter,
