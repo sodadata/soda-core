@@ -46,6 +46,9 @@ from soda_core.contracts.impl.contract_yaml import (
 logger: logging.Logger = soda_logger
 
 
+# ContractImpl is declared before ContractVerificationSessionImpl because the
+# session impl binds ``impl_type=ContractImpl`` at class-creation time (not via
+# a deferred annotation).
 class ContractImpl(
     CheckCollectionImpl[ContractYaml, ContractVerificationResult],
     result_type=ContractVerificationResult,
