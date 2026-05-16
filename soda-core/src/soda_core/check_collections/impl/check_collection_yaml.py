@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from numbers import Number
-from typing import Optional, Protocol
+from typing import Optional, Protocol, TypeVar
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
@@ -28,16 +28,7 @@ from soda_core.common.yaml import (
 logger: logging.Logger = soda_logger
 
 
-def _default_yaml_cls() -> type[CheckCollectionYaml]:
-    """Lazy-resolve the default concrete CheckCollectionYaml subclass.
-
-    Used as the fallback when CheckCollectionYaml.parse() is called on the base
-    directly (or on a subclass that has not set ``_YAML_CLASS``). Lazy import to
-    avoid a circular dependency between this module and contract_yaml.
-    """
-    from soda_core.contracts.impl.contract_yaml import ContractYaml
-
-    return ContractYaml
+_SelfYamlT = TypeVar("_SelfYamlT", bound="CheckCollectionYaml")
 
 
 class CheckCollectionYamlExtension(Protocol):
@@ -50,21 +41,21 @@ class CheckCollectionYaml:
     """
     Represents YAML as close as possible.
     None means the key was not present.
-    If property value types do not match the schema, None value will be in the model
+    If property value types do not match the schema, None value will be in the model.
     List properties will have a None value if the property is not present or the content was not a list, a list
-    otherwise
+    otherwise.
+
+    Concrete subtypes (``ContractYaml``, future ``DataStandardYaml``) subclass this
+    class directly. ``parse()`` uses ``cls(...)`` so Python's classmethod dispatch
+    routes ``ContractYaml.parse(...)`` to construct a ``ContractYaml`` — no class-
+    attribute hook needed.
 
     Extensions can manipulate the check-collection YAML object.
-    Extensions can be registered using the `register_extension` method, and they will be automatically applied.
+    Extensions can be registered using the ``register_extension`` method, and they
+    will be automatically applied.
     """
 
     check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
-
-    # Subtype hook: subclasses (e.g. ContractYaml, a future DataStandardYaml) set this
-    # at module level to themselves, so calling CheckCollectionYaml.parse(...) on the
-    # base resolves to the concrete subclass. None means "use the default" which is
-    # lazy-resolved to ContractYaml for backwards-compatibility.
-    _YAML_CLASS: Optional[type[CheckCollectionYaml]] = None
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:
@@ -72,21 +63,18 @@ class CheckCollectionYaml:
 
     @classmethod
     def parse(
-        cls,
+        cls: type[_SelfYamlT],
         check_collection_yaml_source: CheckCollectionYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ) -> Optional[CheckCollectionYaml]:
-        target_cls: type[CheckCollectionYaml] = cls._YAML_CLASS or _default_yaml_cls()
-
-        check_collection_yaml = target_cls(
+    ) -> Optional[_SelfYamlT]:
+        return cls(
             check_collection_yaml_source=check_collection_yaml_source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
-        return check_collection_yaml
 
     def __init__(
         self,
