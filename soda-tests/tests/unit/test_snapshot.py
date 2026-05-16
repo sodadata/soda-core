@@ -907,6 +907,27 @@ class TestTimestampNormalization:
         assert "'__$$__SODA_TIMESTAMP__$$__'" in result
         assert "2026-03-18" not in result
 
+    def test_normalize_db2_dashed_dotted_timestamp_with_microseconds(self):
+        sql = "INSERT INTO t VALUES (TIMESTAMP '2026-05-15-21.09.16.123456')"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "'__$$__SODA_TIMESTAMP__$$__'" in result
+        assert "2026-05-15" not in result
+
+    def test_normalize_db2_dashed_dotted_timestamp_without_microseconds(self):
+        sql = "INSERT INTO t VALUES (TIMESTAMP '2026-05-15-21.09.16')"
+        result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
+        assert "'__$$__SODA_TIMESTAMP__$$__'" in result
+        assert "2026-05-15" not in result
+
+    def test_sql_matches_db2_timestamps_with_different_values(self):
+        manager = SnapshotManager("db2", ".test_snapshots_temp")
+        conn = SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+        conn.normalize_timestamps = True
+
+        stored = "INSERT INTO t VALUES (TIMESTAMP '2026-05-15-21.09.16.123456')"
+        incoming = "INSERT INTO t VALUES (TIMESTAMP '2026-06-01-08.30.45.000000')"
+        assert conn._sql_matches(stored, incoming)
+
     def test_normalize_timestamp_with_timezone(self):
         sql = "INSERT INTO t VALUES ('2026-03-16T17:24:35+00:00')"
         result = SnapshotDataSourceConnection._normalize_dynamic_values(sql)
