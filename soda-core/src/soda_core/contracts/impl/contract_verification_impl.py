@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Optional
 
 from soda_core.check_collections.impl.check_collection_verification_impl import (
     AggregationMetricImpl,
@@ -29,20 +27,11 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
     ValidCountMetric,
     ValidReferenceData,
 )
-from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.logs import Logs
-from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import (
-    CheckCollectionYamlSource,
-    ContractYamlSource,
-    DataSourceYamlSource,
-)
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     ContractVerificationSessionResult,
 )
-from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
