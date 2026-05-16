@@ -27,7 +27,9 @@ from soda_core.model.data_source.data_source import DataSourceBase
 logger: logging.Logger = soda_logger
 
 if TYPE_CHECKING:
-    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+    from soda_core.check_collections.impl.check_collection_verification_impl import (
+        CheckCollectionImpl,
+    )
 
 
 class DataSourceImpl(ABC):
@@ -400,7 +402,7 @@ class DataSourceImpl(ABC):
         )
         return fully_qualified_object_names
 
-    def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
+    def switch_warehouse(self, warehouse: str, check_collection_impl: CheckCollectionImpl) -> None:
         # Noop by default, only some data sources need to implement this
         pass
 

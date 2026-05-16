@@ -703,7 +703,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         result_cls: type = type(self)._RESULT_CLASS
 
         if self.data_source_impl and self.soda_config.is_running_on_agent:
-            self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
+            self.data_source_impl.switch_warehouse(self.compute_warehouse, check_collection_impl=self)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []

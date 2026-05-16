@@ -8,7 +8,6 @@ from soda_core.common.logging_constants import soda_logger
 from soda_core.common.metadata_types import SamplerType, SodaDataTypeName
 from soda_core.common.sql_ast import COLUMN, COUNT, DISTINCT, RANDOM, TUPLE, VALUES
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_snowflake.common.data_sources.snowflake_data_source_connection import (
     SnowflakeDataSource as SnowflakeDataSourceModel,
 )
@@ -19,7 +18,9 @@ from soda_snowflake.common.data_sources.snowflake_data_source_connection import 
 logger: Logger = soda_logger
 
 if TYPE_CHECKING:
-    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+    from soda_core.check_collections.impl.check_collection_verification_impl import (
+        CheckCollectionImpl,
+    )
 
 TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone"
 TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone"
@@ -38,20 +39,23 @@ class SnowflakeDataSourceImpl(DataSourceImpl, model_class=SnowflakeDataSourceMod
             name=self.data_source_model.name, connection_properties=self.data_source_model.connection_properties
         )
 
-    def switch_warehouse(self, warehouse: str, contract_impl: ContractImpl) -> None:
-        if warehouse and contract_impl.datasource_warehouse != warehouse:
-            if contract_impl.datasource_warehouse is None:
+    def switch_warehouse(self, warehouse: str, check_collection_impl: CheckCollectionImpl) -> None:
+        dataset_label = check_collection_impl.dataset_identifier.to_string()
+        if warehouse and check_collection_impl.datasource_warehouse != warehouse:
+            if check_collection_impl.datasource_warehouse is None:
                 logger.info(
-                    f"Setting warehouse to '{warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                    f"Setting warehouse to '{warehouse}' for check-collection verification of dataset '{dataset_label}'"
                 )
             else:
                 logger.info(
-                    f"Switching warehouse from '{contract_impl.datasource_warehouse}' to '{warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                    f"Switching warehouse from '{check_collection_impl.datasource_warehouse}' to '{warehouse}' "
+                    f"for check-collection verification of dataset '{dataset_label}'"
                 )
             self._execute_switch_warehouse(warehouse)
         else:
             logger.info(
-                f"Using warehouse '{contract_impl.datasource_warehouse}' for Contract verification of dataset '{contract_impl.dataset_identifier.to_string()}'"
+                f"Using warehouse '{check_collection_impl.datasource_warehouse}' for check-collection verification "
+                f"of dataset '{dataset_label}'"
             )
 
     def _execute_switch_warehouse(self, warehouse: str) -> None:
