@@ -1,17 +1,15 @@
-"""Test that the CheckCollection* polymorphism hooks route to subclass-provided
-types when a subclass wires them.
+"""Test that the CheckCollection seam routes to subclass-provided types.
 
-This addresses F7 from the Phase 1 review (commit 60126325). The four
-class-attribute hooks (``_YAML_CLASS``, ``_IMPL_CLASS``, ``_RESULT_CLASS``,
-``_SESSION_RESULT_CLASS``) defaulted to ``Contract*`` types so the existing
-suite passes unchanged; that same suite cannot distinguish "the hooks route
-to subclass types" from "the code hard-codes Contract* types" because the
-Contract* path sets the hooks to itself. The tests below define sentinel
-subclasses that wire the hooks to a DIFFERENT set of types and assert that
-execute() / parse() return instances of those sentinel types.
+Concrete subtypes subscribe ``Generic[…]`` and pass ``yaml_type=`` / ``impl_type=`` /
+``session_result_type=`` (on the session impl) and ``result_type=`` (on the impl)
+via ``__init_subclass__`` at class-declaration time. The YAML side uses Python's
+classmethod dispatch — ``CheckCollectionYaml.parse()`` does ``return cls(...)`` —
+so the yaml subclass needs no special wiring.
 
-Documents the extension recipe for future check-collection subtypes
-(data-standards, check-suites, etc.).
+Sentinel subclasses below wire these hooks to a DIFFERENT set of types than the
+Contract* defaults, then assert that ``execute()`` and ``parse()`` return
+instances of the sentinel types. This documents the extension recipe for future
+check-collection subtypes (data-standards, check-suites, etc.).
 """
 
 from soda_core.check_collections.check_collection_verification import (
@@ -27,47 +25,31 @@ from soda_core.common.yaml import CheckCollectionYamlSource
 
 
 class _SentinelYaml(CheckCollectionYaml):
-    """Sentinel YAML subclass — proves _YAML_CLASS routing."""
+    """Plain inheritance — parse() dispatches via cls."""
 
 
 class _SentinelResult(CheckCollectionResult):
-    """Sentinel per-collection result subclass — proves _RESULT_CLASS routing."""
+    """Sentinel per-collection result."""
 
 
 class _SentinelSessionResult(CheckCollectionSessionResult):
-    """Sentinel session-result subclass — proves _SESSION_RESULT_CLASS routing."""
+    """Sentinel session result."""
 
 
-class _SentinelImpl(CheckCollectionImpl):
-    """Sentinel impl subclass — proves _IMPL_CLASS routing.
-
-    ``_RESULT_CLASS`` on the impl drives what ``verify()`` constructs for the
-    per-collection result. We point it at ``_SentinelResult`` so the
-    per-collection assertion in the session test can distinguish sentinel
-    routing from the default ContractVerificationResult fallback.
-    """
-
-    _RESULT_CLASS = _SentinelResult
+class _SentinelImpl(
+    CheckCollectionImpl[_SentinelYaml, _SentinelResult],
+    result_type=_SentinelResult,
+):
+    """Sentinel impl — wires _RESULT_CLASS via __init_subclass__."""
 
 
-class _SentinelSessionImpl(CheckCollectionVerificationSessionImpl):
-    """Sentinel session-impl subclass — wires the three session-level hooks.
-
-    The per-collection ``_RESULT_CLASS`` is wired on ``_SentinelImpl`` (the impl
-    subclass), not here — that's where ``CheckCollectionImpl.verify()`` reads it
-    via ``type(self)._RESULT_CLASS``.
-    """
-
-    _YAML_CLASS = _SentinelYaml
-    _IMPL_CLASS = _SentinelImpl
-    _SESSION_RESULT_CLASS = _SentinelSessionResult
-
-
-# Wire the YAML class hook on the sentinel YAML subclass itself, mirroring how
-# ``ContractYaml._YAML_CLASS = ContractYaml`` is wired in contract_yaml.py.
-# Without this, ``_SentinelYaml.parse(...)`` would fall through to the default
-# (ContractYaml) instead of constructing a _SentinelYaml.
-_SentinelYaml._YAML_CLASS = _SentinelYaml
+class _SentinelSessionImpl(
+    CheckCollectionVerificationSessionImpl[_SentinelYaml, _SentinelImpl, _SentinelSessionResult],
+    yaml_type=_SentinelYaml,
+    impl_type=_SentinelImpl,
+    session_result_type=_SentinelSessionResult,
+):
+    """Sentinel session impl — wires three hooks via __init_subclass__ kwargs."""
 
 
 _MINIMAL_YAML = """\
@@ -79,13 +61,12 @@ columns:
 """
 
 
-def test_yaml_class_hook_routes_to_subclass():
-    """``CheckCollectionYaml.parse()`` called via the sentinel subclass returns the sentinel type.
+def test_yaml_class_dispatch_routes_to_subclass():
+    """``CheckCollectionYaml.parse()`` returns the calling subclass's type.
 
-    Proves the ``_YAML_CLASS`` hook on ``CheckCollectionYaml`` itself routes to
-    the subclass type. The Contract* path sets the hook to ContractYaml; a
-    sentinel subclass that sets the hook to itself must receive its own type
-    from ``parse()``, not the default ContractYaml.
+    With Phase 2's ``cls(...)`` dispatch, calling ``_SentinelYaml.parse(...)``
+    constructs a ``_SentinelYaml``. No class-attribute hook is needed; Python's
+    classmethod dispatch handles routing.
     """
     source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
     instance = _SentinelYaml.parse(check_collection_yaml_source=source)
@@ -95,7 +76,11 @@ def test_yaml_class_hook_routes_to_subclass():
 def test_session_impl_hooks_route_to_subclass_types():
     """Sentinel session impl returns sentinel session result with sentinel per-collection results.
 
-    Exercises all four hooks on ``CheckCollectionVerificationSessionImpl`` end-to-end:
+    Exercises all four hook slots on ``CheckCollectionVerificationSessionImpl`` and
+    ``CheckCollectionImpl`` end-to-end. The sentinel subclasses wire them via
+    ``__init_subclass__`` kwargs (``yaml_type=`` / ``impl_type=`` /
+    ``session_result_type=`` on the session impl; ``result_type=`` on the impl).
+    Resolution paths:
     - ``_SESSION_RESULT_CLASS`` — session_result_cls(...) in execute()
     - ``_YAML_CLASS`` — yaml_cls.parse(...) in _execute_locally()
     - ``_IMPL_CLASS`` — impl_cls(...) in _execute_locally()
