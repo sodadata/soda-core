@@ -64,7 +64,7 @@ def build_contract_impl(
     try:
         contract_impl = ContractImpl(
             logs=logs,
-            contract_yaml=contract_yaml,
+            check_collection_yaml=contract_yaml,
             only_validate_without_execute=True,
             data_source_impl=None,
             all_data_source_impls={},
