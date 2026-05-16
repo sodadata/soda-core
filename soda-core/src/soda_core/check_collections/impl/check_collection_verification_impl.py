@@ -388,7 +388,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                 )
                 check_collection_results.append(check_collection_result)
             except:
-                logger.error(msg=f"Could not verify check collection {check_collection_yaml_source}", exc_info=True)
+                logger.error(msg=f"Could not verify contract {check_collection_yaml_source}", exc_info=True)
         return check_collection_results
 
 
@@ -712,7 +712,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
-            f"{verb} check collection {Emoticons.SCROLL} "
+            f"{verb} contract {Emoticons.SCROLL} "
             f"{self.check_collection_yaml.check_collection_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
@@ -813,7 +813,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             if data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
-                    f"Data source not found. Check that the data source name in the check collection's "
+                    f"Data source not found. Check that the data source name in the contract's "
                     f"'dataset' field matches the name in your data source configuration."
                 )
                 sending_results_to_soda_cloud_failed = True
@@ -916,7 +916,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         else:
             table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
 
-        summary_lines.append(f"\n### Check collection results for {soda_qualified_dataset_name}")
+        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
         summary_lines.append(self.build_summary_table(check_results))
 
         overview_table = tabulate(table_lines, tablefmt="github", stralign="left")

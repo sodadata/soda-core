@@ -34,7 +34,7 @@ def test_split_log_lines(data_source_test_helper: DataSourceTestHelper):
     log_lines = contract_verification_result.get_logs()
 
     expected = [
-        "Verifying check collection 📜 None 🤞",
+        "Verifying contract 📜 None 🤞",
         # some (many) non-deterministic log lines are skipped, we just need to make sure table is correctly split over multiple lines
         "+-----------------+------------------------------------+-------------+-----------+--------------+------------+------------------------+",
         "| Column          | Check                              | Threshold   | Outcome   | Check Type   | Identity   | Diagnostics            |",
