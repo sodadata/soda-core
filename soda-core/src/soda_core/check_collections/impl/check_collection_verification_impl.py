@@ -169,7 +169,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
-    ):
+    ) -> SessionResultT:
         # Resolve concrete classes via the subtype hooks. Construction of the
         # session result goes through ``cls._SESSION_RESULT_CLASS``, which
         # concrete subtypes wire via ``__init_subclass__``; construction of
@@ -701,7 +701,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
                     columns.append(column)
         return columns
 
-    def verify(self) -> CheckCollectionResult:
+    def verify(self) -> ResultT:
         # Resolve the concrete result class via the subtype hook. The Contract*
         # path sets ``_RESULT_CLASS = ContractVerificationResult``; a future
         # DataStandard* subtype sets it to its own result class and gets that
