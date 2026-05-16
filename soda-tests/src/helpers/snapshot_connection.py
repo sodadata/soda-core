@@ -35,9 +35,11 @@ PicklableColumn = namedtuple(
 _SENTINEL = object()
 
 # Regex matching timestamps that appear as SQL string literals.
-# Matches ISO 8601 ('2026-03-16T18:24:35.151223', '2026-03-16T17:24:35+00:00')
-# and Oracle-style TIMESTAMP literals (TIMESTAMP '2026-03-18 14:09:40').
-_TIMESTAMP_RE = re.compile(r"(?:TIMESTAMP\s+)?'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.+\-]\S+)?'")
+# Matches ISO 8601 ('2026-03-16T18:24:35.151223', '2026-03-16T17:24:35+00:00'),
+# Oracle-style TIMESTAMP literals (TIMESTAMP '2026-03-18 14:09:40'), and the
+# DB2 dashed-dotted format (TIMESTAMP '2026-03-18-14.09.40.123456') where the
+# date-time separator is a dash and H/M/S are dot-separated.
+_TIMESTAMP_RE = re.compile(r"(?:TIMESTAMP\s+)?'\d{4}-\d{2}-\d{2}[T\- ]\d{2}[:.]\d{2}[:.]\d{2}(?:[.+\-]\S+)?'")
 _TIMESTAMP_PLACEHOLDER = "'__$$__SODA_TIMESTAMP__$$__'"
 
 # Regex matching __soda_temp_<uuid-hex> table names that use uuid4().hex.
