@@ -607,7 +607,14 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
     @property
     def is_test_verification_on_agent(self) -> bool:
-        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
+        """True iff this run is a test-mode verification on the Soda agent.
+
+        Concrete subtypes override to define their own scan-definition-type
+        predicate (e.g. ``ContractImpl`` checks ``is_contract_test_scan_definition_type``;
+        a future ``DataStandardImpl`` would check its own equivalent). The
+        abstract base returns ``False`` — it has no test-mode opinion.
+        """
+        return False
 
     @property
     def is_sampling_enabled(self) -> bool:

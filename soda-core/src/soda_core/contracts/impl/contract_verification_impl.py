@@ -51,6 +51,10 @@ class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]
     _DISPLAY_NAME = "contract"
 
     @property
+    def is_test_verification_on_agent(self) -> bool:
+        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
+
+    @property
     def contract_yaml(self) -> ContractYaml:
         return self.check_collection_yaml
 
