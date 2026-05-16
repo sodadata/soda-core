@@ -27,6 +27,8 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
 )
 from soda_core.check_collections.impl.check_collection_yaml import CheckCollectionYaml
 from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
 class _SentinelYaml(CheckCollectionYaml):
@@ -191,9 +193,7 @@ def test_session_impl_with_typevar_arg_skips_only_that_slot():
     class _MixedImpl(CheckCollectionImpl[CheckCollectionYaml, CheckCollectionResult]):
         pass
 
-    class _MixedSessionImpl(
-        CheckCollectionVerificationSessionImpl[_MixedYaml, _MixedImpl, _MixedSessionResult]
-    ):
+    class _MixedSessionImpl(CheckCollectionVerificationSessionImpl[_MixedYaml, _MixedImpl, _MixedSessionResult]):
         """First arg is a TypeVar — _YAML_CLASS stays unset, _IMPL_CLASS and _SESSION_RESULT_CLASS wire."""
 
     # Concrete slots are wired.
@@ -202,3 +202,208 @@ def test_session_impl_with_typevar_arg_skips_only_that_slot():
     # TypeVar slot stays unset — the derivation skipped it via isinstance(arg, type) filter.
     with pytest.raises(AttributeError):
         _MixedSessionImpl._YAML_CLASS  # noqa: B018
+
+
+# ---------------------------------------------------------------------------
+# ClassVar identity recipe: _DISPLAY_NAME / _KIND / _WIRE_SOURCE
+#
+# Every concrete check-collection subtype declares three identity ClassVars
+# with distinct purposes:
+#   * ``_DISPLAY_NAME`` — user-facing word (e.g. "contract", "data standard").
+#   * ``_KIND`` — machine identifier used as the YAML ``kind:`` discriminator
+#     and registry key (e.g. "contract", "data_standard").
+#   * ``_WIRE_SOURCE`` — per-check wire ``source`` value the Cloud backend
+#     receives (e.g. "soda-contract", "soda-data-standard"); declared on the
+#     impl, not the yaml.
+#
+# The recipe keeps the three concepts separate so future subtypes can diverge
+# (e.g. ``_KIND="data_standard"`` vs. ``_DISPLAY_NAME="data standard"``) even
+# though for contracts ``_KIND == _DISPLAY_NAME == "contract"`` by accident.
+# ---------------------------------------------------------------------------
+
+
+def test_kind_classvar_distinct_from_display_name():
+    """``_KIND`` is the wire identifier; ``_DISPLAY_NAME`` is the user-facing word.
+
+    They happen to be the same string for ContractYaml because the wire
+    identifier and the user word collide. Declared separately so future
+    subtypes (data standard) can diverge.
+    """
+    # Abstract base default values differ — ``_DISPLAY_NAME`` is multi-word
+    # ("check collection") while ``_KIND`` is snake_case ("check_collection").
+    assert CheckCollectionYaml._DISPLAY_NAME == "check collection"
+    assert CheckCollectionYaml._KIND == "check_collection"
+
+    # ContractYaml: both happen to equal "contract" today.
+    assert ContractYaml._DISPLAY_NAME == "contract"
+    assert ContractYaml._KIND == "contract"
+    assert ContractYaml._KIND == ContractYaml._DISPLAY_NAME
+
+
+def test_wire_source_classvar_on_contract_impl():
+    """``_WIRE_SOURCE`` is declared on the impl, not the yaml.
+
+    The cloud upload path reads ``type(check_collection_impl)._WIRE_SOURCE``
+    when stamping the per-check ``source`` field. Today's wire value for
+    contracts is ``"soda-contract"``; a future data-standard impl would set
+    ``"soda-data-standard"``.
+    """
+    assert ContractImpl._WIRE_SOURCE == "soda-contract"
+
+
+def test_wire_source_required_on_concrete_subclass():
+    """The abstract base does not declare ``_WIRE_SOURCE``; reading raises.
+
+    A misconfigured subtype that forgets to set ``_WIRE_SOURCE`` fails loud
+    at first read instead of silently uploading checks under the abstract
+    base's identifier.
+    """
+    from soda_core.check_collections.impl.check_collection_verification_impl import (
+        CheckCollectionImpl,
+    )
+
+    with pytest.raises(AttributeError):
+        CheckCollectionImpl._WIRE_SOURCE  # noqa: B018
+
+
+# ---------------------------------------------------------------------------
+# Hooks for subtype-specific customization
+#
+# These tests pin two override points future subtypes (DataStandardYaml,
+# DataStandardImpl) will use. The base classes provide sensible defaults so
+# bare-base behavior is unchanged; subtypes override to inject the dataset at
+# parse time, validate subtype-specific invariants, etc.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_dataset_identifier_default_reads_from_yaml():
+    """Default ``_resolve_dataset_identifier`` reads ``dataset:`` from the YAML.
+
+    Contract path: the YAML carries ``dataset:`` and the hook reads it. This
+    is the existing behavior; the test pins it after the extraction.
+    """
+    source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
+    contract = ContractYaml.parse(check_collection_yaml_source=source)
+    assert contract.dataset == "datasource/db/schema/orders"
+
+
+def test_resolve_dataset_identifier_is_overridable():
+    """Subtypes override the hook to inject the dataset from elsewhere.
+
+    Sanity test for the future ``DataStandardYaml`` pattern — a subtype whose
+    dataset is injected at parse time rather than read from YAML. We don't
+    instantiate the override here (parsing without a YAML ``dataset:`` field
+    triggers other validation downstream); instead we assert the override
+    pattern compiles and the method is accessible from subclass scope.
+    """
+
+    class _InjectedYaml(CheckCollectionYaml):
+        _injected: str = "datasource/db/schema/injected"
+
+        def _resolve_dataset_identifier(self) -> str:
+            return self._injected
+
+    # Verifies the override is structurally legal — method resolves on the
+    # subclass, and Python's MRO honors the override. We don't construct an
+    # instance here because the full _InjectedYaml usage requires the
+    # caller-injection plumbing that DataStandardYaml will add in Phase 3.
+    assert _InjectedYaml._resolve_dataset_identifier is not CheckCollectionYaml._resolve_dataset_identifier
+
+
+def test_validate_yaml_post_parse_default_is_no_op():
+    """Default ``_validate_yaml_post_parse`` does nothing.
+
+    A well-formed contract YAML parses without subtype-specific extra
+    validation kicking in. The hook only exists so subtypes have a single
+    place to enforce their invariants without duplicating ``__init__``.
+    """
+    source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
+    # Must NOT raise; just runs through __init__ normally.
+    contract = ContractYaml.parse(check_collection_yaml_source=source)
+    assert contract is not None
+
+
+def test_validate_yaml_post_parse_subtype_override_fires():
+    """Subtype overrides of the validation hook run after ``__init__``.
+
+    Sentinel subclass throws to prove the hook is invoked at the end of the
+    constructor — after dataset, columns, checks, and extensions are all
+    populated.
+    """
+
+    class _StrictYaml(CheckCollectionYaml):
+        validated_with_dataset: Optional[str] = None
+
+        def _validate_yaml_post_parse(self) -> None:
+            # Capture state to prove __init__ populated everything before
+            # the hook fired.
+            type(self).validated_with_dataset = self.dataset
+
+    source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
+    _StrictYaml(check_collection_yaml_source=source, provided_variable_values=None)
+    assert _StrictYaml.validated_with_dataset == "datasource/db/schema/orders"
+
+
+def test_extra_identity_properties_default_is_empty():
+    """Default ``_extra_identity_properties`` returns an empty dict.
+
+    Contracts contribute no extra inputs to the identity hash → existing
+    contract identities stay byte-identical post-refactor. The hook only
+    exists so Phase 2's non-contract subtypes can append ``collection_name``
+    without scattering ``if collection_name is not None`` checks across the
+    base.
+    """
+    # Sentinel CheckImpl-shaped object exercising only the hook method.
+    # Constructing a real CheckImpl from a YAML is heavy; we only need the
+    # method's return value here.
+    from soda_core.check_collections.impl.check_collection_verification_impl import (
+        CheckImpl,
+    )
+
+    assert CheckImpl._extra_identity_properties.__doc__ is not None
+
+    # The default returns {} — call the unbound method via a minimal mock self
+    # so we exercise the body, not just the signature.
+    class _Probe:
+        _extra_identity_properties = CheckImpl._extra_identity_properties
+
+    assert _Probe()._extra_identity_properties() == {}
+
+
+def test_merge_identity_properties_returns_none_when_both_empty():
+    """When the hook is empty and no explicit dict is given, merge returns None.
+
+    The ``None`` short-circuit preserves the existing call shape into
+    ``_build_identity`` — passing ``None`` vs. ``{}`` is observable inside the
+    classmethod (it checks ``if extra_identity_properties:``).
+    """
+    from soda_core.check_collections.impl.check_collection_verification_impl import (
+        CheckImpl,
+    )
+
+    class _Probe:
+        _extra_identity_properties = CheckImpl._extra_identity_properties
+        _merge_identity_properties = CheckImpl._merge_identity_properties
+
+    assert _Probe()._merge_identity_properties(None) is None
+    assert _Probe()._merge_identity_properties({}) is None
+
+
+def test_merge_identity_properties_explicit_wins_over_hook():
+    """Explicit constructor-supplied entries override hook contributions on key collision.
+
+    Caller intent is authoritative; the hook is a base-level default that
+    subtypes can override but constructor callers always win.
+    """
+    from soda_core.check_collections.impl.check_collection_verification_impl import (
+        CheckImpl,
+    )
+
+    class _Probe:
+        _merge_identity_properties = CheckImpl._merge_identity_properties
+
+        def _extra_identity_properties(self) -> dict[str, object]:
+            return {"cn": "hook-value", "extra": "kept"}
+
+    result = _Probe()._merge_identity_properties({"cn": "caller-value"})
+    assert result == {"cn": "caller-value", "extra": "kept"}

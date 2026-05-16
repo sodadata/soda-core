@@ -38,21 +38,58 @@ class CheckCollectionYamlExtension(Protocol):
 
 
 class CheckCollectionYaml:
-    """
-    Represents YAML as close as possible.
-    None means the key was not present.
-    If property value types do not match the schema, None value will be in the model.
-    List properties will have a None value if the property is not present or the content was not a list, a list
-    otherwise.
+    """Represents YAML as close as possible.
 
-    Concrete subtypes (``ContractYaml``, future ``DataStandardYaml``) subclass this
-    class directly. ``parse()`` uses ``cls(...)`` so Python's classmethod dispatch
-    routes ``ContractYaml.parse(...)`` to construct a ``ContractYaml`` — no class-
-    attribute hook needed.
+    None means the key was not present. If property value types do not match
+    the schema, None value will be in the model. List properties will have a
+    None value if the property is not present or the content was not a list,
+    a list otherwise.
 
-    Extensions can manipulate the check-collection YAML object.
-    Extensions can be registered using the ``register_extension`` method, and they
-    will be automatically applied.
+    Concrete subtypes (``ContractYaml``, future ``DataStandardYaml``) subclass
+    this class directly. ``parse()`` uses ``cls(...)`` so Python's classmethod
+    dispatch routes ``ContractYaml.parse(...)`` to construct a ``ContractYaml``
+    — no class-attribute hook needed.
+
+    Extensions can manipulate the check-collection YAML object. Extensions can
+    be registered using the ``register_extension`` method, and they will be
+    automatically applied.
+
+    Declaring a new subtype
+    -----------------------
+
+    A concrete check-collection-yaml subtype sets two identity ClassVars (the
+    third, ``_WIRE_SOURCE``, lives on the paired ``CheckCollectionImpl`` subclass
+    since wire upload is an impl concern):
+
+    1. ``_KIND`` — the machine identifier carried by the YAML ``kind:``
+       discriminator field. Lowercase, snake_case if multi-word. Examples:
+       ``"contract"``, ``"data_standard"``.
+
+    2. ``_DISPLAY_NAME`` — the user-facing word in INFO / error logs.
+       Examples: ``"contract"``, ``"data standard"``.
+
+    Optional hooks the subtype may override (each documented inline):
+
+    - :meth:`_resolve_dataset_identifier` — where the dataset comes from
+      (base: read ``dataset:`` from YAML). Overridden by subtypes that
+      receive the dataset from the caller at runtime instead.
+    - :meth:`_validate_yaml_post_parse` — subtype-specific YAML invariants,
+      run after ``__init__`` populates all fields (base: no-op).
+
+    Example::
+
+        class DataStandardYaml(CheckCollectionYaml):
+            _KIND = "data_standard"
+            _DISPLAY_NAME = "data standard"
+
+            def _resolve_dataset_identifier(self) -> str:
+                return self._injected_dataset_identifier
+
+            def _validate_yaml_post_parse(self) -> None:
+                if self.check_collection_yaml_object.has_key("dataset"):
+                    raise ContractParserException(
+                        "DataStandardYaml must not bind 'dataset:' in YAML"
+                    )
     """
 
     check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
@@ -62,6 +99,15 @@ class CheckCollectionYaml:
     # concrete YAML subtype (``ContractYaml`` → "contract", a future
     # ``DataStandardYaml`` → "data standard").
     _DISPLAY_NAME: ClassVar[str] = "check collection"
+
+    # Wire identifier — the value of the YAML ``kind:`` discriminator field for
+    # this subtype. Distinct from ``_DISPLAY_NAME``: ``_KIND`` is the machine-
+    # readable token used by ``CheckCollectionYaml.parse`` to dispatch to the
+    # registered parser, and surfaces on the wire and in registries; the display
+    # name is the user-facing word. For ``ContractYaml`` both happen to be
+    # ``"contract"`` today; for a future ``DataStandardYaml`` they diverge
+    # (``_KIND="data_standard"``, ``_DISPLAY_NAME="data standard"``).
+    _KIND: ClassVar[str] = "check_collection"
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionYamlExtension]) -> None:
@@ -140,7 +186,7 @@ class CheckCollectionYaml:
             resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
         )
 
-        self.dataset = self.check_collection_yaml_object.read_dataset_identifier("dataset")
+        self.dataset: Optional[str] = self._resolve_dataset_identifier()
 
         self.check_attributes = self.check_collection_yaml_object.read_object_opt(
             "check_attributes", default_value={}
@@ -161,6 +207,37 @@ class CheckCollectionYaml:
                 logger.error(
                     f"Error extending YAML with extension {extension_cls.__name__}: {e}",
                 )
+
+        self._validate_yaml_post_parse()
+
+    def _validate_yaml_post_parse(self) -> None:
+        """Hook for subtype-specific YAML invariants, called at end of ``__init__``.
+
+        Default implementation is a no-op. Subtypes override to enforce
+        invariants that depend on the fully-populated YAML model — for
+        example, ``ContractYaml`` could reject YAMLs declaring ``kind:`` other
+        than ``"contract"``; a future ``DataStandardYaml`` rejects YAMLs that
+        bind ``dataset:`` directly (the dataset is caller-injected).
+
+        Failures should raise ``ContractParserException`` or log a
+        ``logger.error``; the base ``__init__`` does not check the return
+        value.
+        """
+
+    def _resolve_dataset_identifier(self) -> Optional[str]:
+        """Return the dataset qualified name this check collection targets.
+
+        Default implementation reads the ``dataset:`` field from the YAML
+        object — the contract path. Subtypes that bind the dataset externally
+        override this hook. For example, ``DataStandardYaml`` will receive the
+        dataset from the caller at runtime (the YAML itself has no
+        ``dataset:`` field), so its override returns the injected value
+        instead of reading the YAML.
+
+        Returning ``None`` means the dataset could not be resolved; the YAML
+        layer surfaces this as a validation error downstream.
+        """
+        return self.check_collection_yaml_object.read_dataset_identifier("dataset")
 
     def _parse_variable_yamls(self, check_collection_yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []

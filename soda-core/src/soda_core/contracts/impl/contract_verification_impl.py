@@ -49,6 +49,7 @@ logger: logging.Logger = soda_logger
 # deferred annotation).
 class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
     _DISPLAY_NAME = "contract"
+    _WIRE_SOURCE = "soda-contract"
 
     @property
     def is_test_verification_on_agent(self) -> bool:

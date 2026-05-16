@@ -27,6 +27,7 @@ logger: logging.Logger = soda_logger
 
 class ContractYaml(CheckCollectionYaml):
     _DISPLAY_NAME = "contract"
+    _KIND = "contract"
 
     @staticmethod
     def _resolve_yaml_source(
