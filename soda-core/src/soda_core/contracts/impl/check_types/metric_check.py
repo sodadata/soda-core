@@ -49,7 +49,7 @@ class MetricCheckParser(CheckParser):
 class MetricCheckImpl(CheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: MetricCheckYaml,
     ):
@@ -125,7 +125,7 @@ class MetricCheckImpl(CheckImpl):
 class MetricExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: MetricCheckImpl,
         expression: str | None = None,
@@ -157,7 +157,7 @@ class MetricExpressionMetricImpl(AggregationMetricImpl):
 class MetricQueryMetricImpl(MetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: MetricCheckImpl,
         query: Optional[str] = None,

@@ -47,7 +47,7 @@ class FreshnessCheckParser(CheckParser):
 class FreshnessCheckImplBase(CheckImpl, ABC):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
@@ -148,7 +148,7 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
 class FreshnessCheckImpl(FreshnessCheckImplBase):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: FreshnessCheckYaml,
     ):
@@ -242,7 +242,7 @@ class FreshnessCheckImpl(FreshnessCheckImplBase):
 class MaxTimestampMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         check_impl: FreshnessCheckImpl,
         now_variable: Optional[str],
         unit: Optional[str],

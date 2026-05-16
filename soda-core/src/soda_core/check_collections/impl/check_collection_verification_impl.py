@@ -1463,14 +1463,14 @@ class CheckImpl:
 
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: CheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
     ):
         self.logs: Logs = check_collection_impl.logs
 
-        self.check_collection_impl: ContractImpl = check_collection_impl
+        self.check_collection_impl: CheckCollectionImpl = check_collection_impl
         self.check_yaml: CheckYaml = check_yaml
         self.name: str = self._get_name_with_default(check_yaml)
         self.column_impl: Optional[ColumnImpl] = column_impl
@@ -1576,7 +1576,7 @@ class CheckImpl:
     @classmethod
     def _build_identity(
         cls,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_type: str,
         qualifier: Optional[str],
@@ -1651,7 +1651,7 @@ class CheckImpl:
 class MissingAndValidityCheckImpl(CheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: MissingAncValidityCheckYaml,
         extra_identity_properties: Optional[dict[str, object]] = None,
@@ -1666,7 +1666,7 @@ class MissingAndValidityCheckImpl(CheckImpl):
 class MetricImpl:
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
@@ -1678,7 +1678,7 @@ class MetricImpl:
         # Support user-provided column expression for type casting and structured data support.
         column_expression: Optional[SqlExpressionStr | COLUMN] = None,
     ):
-        self.check_collection_impl: ContractImpl = check_collection_impl
+        self.check_collection_impl: CheckCollectionImpl = check_collection_impl
         self.column_impl: Optional[ColumnImpl] = column_impl
         self.type: str = metric_type
         self.check_filter: Optional[str] = check_filter
@@ -1749,7 +1749,7 @@ class MetricImpl:
 class AggregationMetricImpl(MetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         metric_type: str,
         column_impl: Optional[ColumnImpl] = None,
         check_filter: Optional[str] = None,
@@ -1841,7 +1841,7 @@ class ValidCountMetric(AggregationMetricImpl):
 
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
     ):

@@ -40,7 +40,7 @@ class MissingCheckParser(CheckParser):
 class MissingCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: MissingCheckYaml,
     ):
@@ -115,7 +115,7 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
 class MissingCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,

@@ -84,7 +84,7 @@ class ColumnDataTypeMismatch:
 class SchemaCheckImpl(CheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         check_yaml: SchemaCheckYaml,
     ):
         super().__init__(
@@ -266,7 +266,7 @@ class SchemaCheckImpl(CheckImpl):
 class SchemaMetricImpl(MetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
     ):
         super().__init__(check_collection_impl=check_collection_impl, metric_type="schema")
 

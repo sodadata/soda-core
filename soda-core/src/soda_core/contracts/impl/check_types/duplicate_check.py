@@ -59,7 +59,7 @@ class DuplicateCheckParser(CheckParser):
 class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: ColumnDuplicateCheckYaml,
     ):
@@ -162,7 +162,7 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
 class ColumnDistinctCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
     ):
@@ -234,7 +234,7 @@ class DuplicateCountMetricImpl(DerivedMetricImpl):
 class MultiColumnDuplicateCheckImpl(CheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         check_yaml: MultiColumnDuplicateCheckYaml,
     ):
         super().__init__(
@@ -322,7 +322,7 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         check_impl: MultiColumnDuplicateCheckImpl,
         column_expressions: list[COLUMN | SqlExpressionStr],
         data_source_impl: Optional[DataSourceImpl] = None,

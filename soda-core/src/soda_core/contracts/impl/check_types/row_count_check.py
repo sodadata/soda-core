@@ -37,7 +37,7 @@ class RowCountCheckParser(CheckParser):
 class RowCountCheckImpl(CheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_yaml: RowCountCheckYaml,
     ):
@@ -90,7 +90,7 @@ class RowCountCheckImpl(CheckImpl):
 class RowCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         check_impl: Optional[CheckImpl] = None,
         filter: Optional[str] = None,
         data_source_impl: Optional[DataSourceImpl] = None,

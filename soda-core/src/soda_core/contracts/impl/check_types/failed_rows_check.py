@@ -52,7 +52,7 @@ class FailedRowsCheckParser(CheckParser):
 class FailedRowsCheckImpl(CheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: FailedRowsCheckYaml,
     ):
@@ -205,7 +205,7 @@ class FailedRowsCheckImpl(CheckImpl):
 class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,
@@ -239,7 +239,7 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
 class FailedRowsQueryMetricImpl(MetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: FailedRowsCheckImpl,
         data_source_impl: Optional[DataSourceImpl] = None,

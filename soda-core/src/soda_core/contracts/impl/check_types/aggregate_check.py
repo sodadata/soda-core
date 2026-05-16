@@ -43,7 +43,7 @@ class AggregateCheckParser(CheckParser):
 class AggregateCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: AggregateCheckYaml,
     ):
@@ -117,7 +117,7 @@ class AggregateCheckImpl(MissingAndValidityCheckImpl):
 class AggregateFunctionMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: Optional[ColumnImpl],
         check_impl: MissingAndValidityCheckImpl,
         function: Optional[str],

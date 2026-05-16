@@ -57,7 +57,7 @@ class InvalidCheckParser(CheckParser):
 class InvalidCheckImpl(MissingAndValidityCheckImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_yaml: InvalidCheckYaml,
     ):
@@ -171,7 +171,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
 class InvalidCountMetricImpl(AggregationMetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         check_impl: MissingAndValidityCheckImpl,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
@@ -207,7 +207,7 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 class InvalidReferenceCountMetricImpl(MetricImpl):
     def __init__(
         self,
-        check_collection_impl: ContractImpl,
+        check_collection_impl: CheckCollectionImpl,
         column_impl: ColumnImpl,
         missing_and_validity: MissingAndValidity,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
