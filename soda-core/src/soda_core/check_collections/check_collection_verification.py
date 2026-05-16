@@ -85,11 +85,11 @@ class CheckCollectionSessionResult:
 
     Provides overview of logs, errors, and the status of the verification process over all of the verified check collections.
 
-    @param check_collection_results: The list of check-collection verification results.
+    @param check_collection_results: The list of check-collection verification results. Defaults to an empty list when omitted.
     """
 
-    def __init__(self, check_collection_results: list[CheckCollectionResult]):
-        self.check_collection_results: list[CheckCollectionResult] = check_collection_results
+    def __init__(self, check_collection_results: Optional[list[CheckCollectionResult]] = None):
+        self.check_collection_results: list[CheckCollectionResult] = check_collection_results or []
 
     def get_logs(self) -> list[str]:
         logs: list[str] = []

@@ -73,11 +73,13 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
 
 
 class ContractVerificationSessionResult(CheckCollectionSessionResult):
-    def __init__(
-        self,
-        check_collection_results: Optional[list[CheckCollectionResult]] = None,
-    ):
-        super().__init__(check_collection_results=check_collection_results)
+    """Public per-session result type.
+
+    Inherits ``__init__`` from :class:`CheckCollectionSessionResult`; the only addition
+    is the ``contract_verification_results`` property, a stable BC alias for callers
+    iterating per-contract results before the abstraction renamed it to
+    ``check_collection_results``.
+    """
 
     @property
     def contract_verification_results(self) -> list["ContractVerificationResult"]:
