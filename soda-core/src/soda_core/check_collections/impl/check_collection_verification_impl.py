@@ -5,11 +5,12 @@ from datetime import timezone
 from enum import Enum
 from io import StringIO
 from logging import LogRecord
-from typing import Protocol
+from typing import ClassVar, Generic, Protocol, TypeVar
 
 from ruamel.yaml import YAML
 from soda_core.check_collections.check_collection_verification import (
     Check,
+    CheckCollectionSessionResult,
     CheckOutcome,
     CheckResult,
     Contract,
@@ -139,33 +140,47 @@ CheckCollectionVerificationHandlerRegistry.contract_verification_handlers = (
 )
 
 
-class CheckCollectionVerificationSessionImpl:
+YamlT = TypeVar("YamlT", bound=CheckCollectionYaml)
+ImplT = TypeVar("ImplT", bound="CheckCollectionImpl")
+SessionResultT = TypeVar("SessionResultT", bound=CheckCollectionSessionResult)
+
+
+class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResultT]):
     """Implements the check-collection verification session.
 
-    @param check_collection_yaml_sources: The list of check-collection YAML sources to verify.
-    @param only_validate_without_execute: If True, only validate without executing.
-    @param variables: The variables to use in the queries.
-    @param data_timestamp: The timestamp of the data to use for the verification.
-    @param data_source_impls: The data source implementations to use for the verification.
-    @param data_source_yaml_sources: The data source YAML sources to use for the verification.
-    @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
-    @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
-    @param soda_cloud_use_agent_blocking_timeout_in_minutes: The timeout for the Soda Cloud agent.
-    @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
+    Concrete subtypes pass their YAML / impl / session-result types via
+    ``__init_subclass__`` kwargs at class-declaration time:
+
+        class ContractVerificationSessionImpl(
+            CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult],
+            yaml_type=ContractYaml,
+            impl_type=ContractImpl,
+            session_result_type=ContractVerificationSessionResult,
+        ):
+            pass
+
+    Calling the base directly is unsupported — construct a concrete subclass.
     """
 
-    # Subtype hooks: subclasses (e.g. ContractVerificationSessionImpl, a future
-    # DataStandardVerificationSessionImpl) set these to their concrete YAML / impl /
-    # result / session-result classes. Resolved at use sites in execute() and its
-    # helpers; ``None`` falls back to the default Contract* types so the base layer
-    # remains usable directly. This makes the structural seam polymorphic — a
-    # subclass that sets the four hooks gets its own types constructed and returned
-    # without re-implementing orchestration.
-    _YAML_CLASS: Optional[type[CheckCollectionYaml]] = None
-    _IMPL_CLASS: Optional[type[CheckCollectionImpl]] = None
-    _SESSION_RESULT_CLASS: Optional[type] = None
+    _YAML_CLASS: ClassVar[type[CheckCollectionYaml]]
+    _IMPL_CLASS: ClassVar[type["CheckCollectionImpl"]]
+    _SESSION_RESULT_CLASS: ClassVar[type[CheckCollectionSessionResult]]
+
+    def __init_subclass__(
+        cls,
+        *,
+        yaml_type: Optional[type[CheckCollectionYaml]] = None,
+        impl_type: Optional[type["CheckCollectionImpl"]] = None,
+        session_result_type: Optional[type[CheckCollectionSessionResult]] = None,
+        **kwargs,
+    ) -> None:
+        super().__init_subclass__(**kwargs)
+        if yaml_type is not None:
+            cls._YAML_CLASS = yaml_type
+        if impl_type is not None:
+            cls._IMPL_CLASS = impl_type
+        if session_result_type is not None:
+            cls._SESSION_RESULT_CLASS = session_result_type
 
     @classmethod
     def execute(
