@@ -941,7 +941,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         return tabulate(overview_table_data, headers="keys", tablefmt="grid")
 
     @classmethod
-    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl]):
+    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl]) -> None:
         checks_by_identity: dict[str, CheckImpl] = {}
         for check_impl in all_check_impls:
             existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
@@ -1740,8 +1740,8 @@ class MetricImpl:
 
         return id_properties
 
-    def __eq__(self, other):
-        if type(other) != type(self):
+    def __eq__(self, other: object) -> bool:
+        if type(other) is not type(self):
             return False
         return self.id == other.id
 

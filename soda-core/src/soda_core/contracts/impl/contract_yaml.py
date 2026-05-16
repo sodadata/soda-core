@@ -20,7 +20,7 @@ from soda_core.check_collections.impl.check_collection_yaml import (
 )
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.yaml import ContractYamlSource
+from soda_core.common.yaml import ContractYamlSource, YamlObject
 
 logger: logging.Logger = soda_logger
 
@@ -64,12 +64,12 @@ class ContractYaml(CheckCollectionYaml):
         )
 
     @property
-    def contract_yaml_source(self):
+    def contract_yaml_source(self) -> ContractYamlSource:
         """Backwards-compatible alias for self.check_collection_yaml_source."""
         return self.check_collection_yaml_source
 
     @property
-    def contract_yaml_object(self):
+    def contract_yaml_object(self) -> YamlObject:
         """Backwards-compatible alias for self.check_collection_yaml_object."""
         return self.check_collection_yaml_object
 
