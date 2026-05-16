@@ -12,7 +12,7 @@ logger = soda_logger
 class StreamingOrchestrator:
     """Module-level registry of streaming consumers (class-level mutable state).
 
-    Same shape as `ContractVerificationHandlerRegistry`: consumers register at plugin-load
+    Same shape as `CheckCollectionVerificationHandlerRegistry`: consumers register at plugin-load
     time and stay registered for the process lifetime; producers ask the orchestrator to
     initialize an action and receive a handle that dispatches data to all matching consumers.
 

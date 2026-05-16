@@ -91,19 +91,6 @@ class CheckCollectionVerificationHandlerRegistry(ABC):
             cls.post_processing_stages[stage_name] = verification_handler
 
 
-# Backwards-compat aliases — external handler implementations (e.g. FailedRowsExtractor in
-# soda-extensions) subclass `ContractVerificationHandler` and access
-# `ContractVerificationHandlerRegistry.contract_verification_handlers` directly. These aliases
-# preserve compatibility until all such consumers migrate to the new names.
-ContractVerificationHandler = CheckCollectionVerificationHandler
-ContractVerificationHandlerRegistry = CheckCollectionVerificationHandlerRegistry
-# Expose the classvar under its legacy name as a reference to the same underlying list,
-# so existing `.contract_verification_handlers.clear()` / `.append(...)` calls keep working.
-CheckCollectionVerificationHandlerRegistry.contract_verification_handlers = (
-    CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers
-)
-
-
 YamlT = TypeVar("YamlT", bound=CheckCollectionYaml)
 ImplT = TypeVar("ImplT", bound="CheckCollectionImpl")
 SessionResultT = TypeVar("SessionResultT", bound=CheckCollectionSessionResult)

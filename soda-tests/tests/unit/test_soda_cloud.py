@@ -13,6 +13,10 @@ from helpers.mock_soda_cloud import (
     MockSodaCloud,
 )
 from helpers.test_table import TestTableSpecification
+from soda_core.check_collections.impl.check_collection_verification_impl import (
+    CheckCollectionVerificationHandler,
+    CheckCollectionVerificationHandlerRegistry,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str
@@ -35,11 +39,7 @@ from soda_core.contracts.contract_verification import (
     PostProcessingStageState,
     ScanTokenUsage,
 )
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractImpl,
-    ContractVerificationHandler,
-    ContractVerificationHandlerRegistry,
-)
+from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 test_table_specification = (
@@ -195,7 +195,7 @@ def test_soda_cloud_results(data_source_test_helper: DataSourceTestHelper, env_v
 def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSourceTestHelper, env_vars: dict):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    class DummyHandler(ContractVerificationHandler):
+    class DummyHandler(CheckCollectionVerificationHandler):
         def handle(
             self,
             check_collection_impl: ContractImpl,
@@ -212,7 +212,7 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
 
-    ContractVerificationHandlerRegistry.register(DummyHandler())
+    CheckCollectionVerificationHandlerRegistry.register(DummyHandler())
 
     env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
 
@@ -265,7 +265,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
 ):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
-    class DummyHandler(ContractVerificationHandler):
+    class DummyHandler(CheckCollectionVerificationHandler):
         def handle(
             self,
             check_collection_impl: ContractImpl,
@@ -280,7 +280,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return [PostProcessingStage("testStage", PostProcessingStageState.ONGOING)]
 
-    ContractVerificationHandlerRegistry.register(DummyHandler())
+    CheckCollectionVerificationHandlerRegistry.register(DummyHandler())
 
     env_vars["SODA_SCAN_ID"] = "env_var_scan_id"
 

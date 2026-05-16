@@ -3,17 +3,17 @@ from typing import Optional
 from helpers.data_source_test_helper import DataSourceTestHelper
 from helpers.mock_soda_cloud import MockResponse
 from helpers.test_table import TestTableSpecification
+from soda_core.check_collections.impl.check_collection_verification_impl import (
+    CheckCollectionVerificationHandler,
+    CheckCollectionVerificationHandlerRegistry,
+)
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.contracts.contract_verification import (
     ContractVerificationResult,
     PostProcessingStage,
 )
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractImpl,
-    ContractVerificationHandler,
-    ContractVerificationHandlerRegistry,
-)
+from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -33,7 +33,7 @@ test_table_specification = (
 def test_failure_in_contract_verification_handler_does_not_fail_scan(
     data_source_test_helper: DataSourceTestHelper, caplog
 ):
-    class DummyHandler(ContractVerificationHandler):
+    class DummyHandler(CheckCollectionVerificationHandler):
         def handle(
             self,
             check_collection_impl: ContractImpl,
@@ -48,7 +48,7 @@ def test_failure_in_contract_verification_handler_does_not_fail_scan(
         def provides_post_processing_stages(self) -> list[PostProcessingStage]:
             return []
 
-    ContractVerificationHandlerRegistry.register(DummyHandler())
+    CheckCollectionVerificationHandlerRegistry.register(DummyHandler())
 
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 

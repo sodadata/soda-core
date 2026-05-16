@@ -3,11 +3,11 @@ import os
 import freezegun
 import pytest
 from helpers.test_fixtures import *  # noqa: F401
+from soda_core.check_collections.impl.check_collection_verification_impl import (
+    CheckCollectionVerificationHandlerRegistry,
+)
 from soda_core.common.logging_configuration import configure_logging
 from soda_core.common.streaming import StreamingOrchestrator
-from soda_core.contracts.impl.contract_verification_impl import (
-    ContractVerificationHandlerRegistry,
-)
 
 
 def pytest_configure(config) -> None:
@@ -82,11 +82,11 @@ freeze_time = freezegun.freeze_time
 
 @pytest.fixture(autouse=True)
 def clear_contract_verification_handlers():
-    ContractVerificationHandlerRegistry.contract_verification_handlers.clear()
-    ContractVerificationHandlerRegistry.post_processing_stages.clear()
+    CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers.clear()
+    CheckCollectionVerificationHandlerRegistry.post_processing_stages.clear()
     yield
-    ContractVerificationHandlerRegistry.contract_verification_handlers.clear()
-    ContractVerificationHandlerRegistry.post_processing_stages.clear()
+    CheckCollectionVerificationHandlerRegistry.check_collection_verification_handlers.clear()
+    CheckCollectionVerificationHandlerRegistry.post_processing_stages.clear()
 
 
 @pytest.fixture(autouse=True)

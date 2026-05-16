@@ -75,15 +75,9 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
 class ContractVerificationSessionResult(CheckCollectionSessionResult):
     def __init__(
         self,
-        contract_verification_results: Optional[list["ContractVerificationResult"]] = None,
         check_collection_results: Optional[list[CheckCollectionResult]] = None,
     ):
-        if contract_verification_results is not None and check_collection_results is not None:
-            raise TypeError("Pass either contract_verification_results (legacy) or check_collection_results, not both")
-        results = (
-            contract_verification_results if contract_verification_results is not None else check_collection_results
-        )
-        super().__init__(check_collection_results=results)
+        super().__init__(check_collection_results=check_collection_results)
 
     @property
     def contract_verification_results(self) -> list["ContractVerificationResult"]:
