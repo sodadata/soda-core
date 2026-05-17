@@ -453,7 +453,7 @@ def _build_error_result(
     ``status=ContractVerificationStatus.ERROR``, no check results, and a single
     ERROR-level log record whose message names the spec's kind plus the
     exception's class and message. The originating exception is stored on a
-    private ``_internal_exception`` attribute so the contract-typed facade
+    public ``originating_exception`` attribute so the contract-typed facade
     (``ContractVerificationSession.execute``) can re-raise it for legacy
     single-input callers that ``pytest.raises(SodaCoreException)``.
 
@@ -501,22 +501,16 @@ def _build_error_result(
         level=logging.ERROR,
         pathname="",
         lineno=0,
-        msg=(f"Could not verify {display_name} " f"(spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}"),
+        msg=f"Could not verify {display_name} (spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}",
         args=(),
         exc_info=None,
     )
-    return result_cls(
+    return result_cls.error_placeholder(
         contract=contract,
-        data_source=None,
-        data_timestamp=None,
+        log_record=log_record,
+        originating_exception=exception,
         started_timestamp=now,
         ended_timestamp=now,
-        status=ContractVerificationStatus.ERROR,
-        measurements=[],
-        check_results=[],
-        sending_results_to_soda_cloud_failed=False,
-        log_records=[log_record],
-        _internal_exception=exception,
     )
 
 

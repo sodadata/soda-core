@@ -153,7 +153,7 @@ def test_unknown_kind_isolates_as_error_placeholder_with_known_kinds_list():
     assert len(result.check_collection_results) == 1
     error_result = result.check_collection_results[0]
     assert error_result.status is ContractVerificationStatus.ERROR
-    exc = error_result._internal_exception
+    exc = error_result.originating_exception
     assert isinstance(exc, KeyError)
     message = str(exc)
     assert "unregistered" in message
@@ -185,7 +185,7 @@ def test_agent_path_with_on_agent_verifier_none_isolates_as_error_placeholder():
     assert len(result.check_collection_results) == 1
     error_result = result.check_collection_results[0]
     assert error_result.status is ContractVerificationStatus.ERROR
-    exc = error_result._internal_exception
+    exc = error_result.originating_exception
     assert isinstance(exc, NotImplementedError)
     message = str(exc)
     assert "sentinel-a" in message
@@ -294,7 +294,7 @@ def test_per_spec_error_isolation_in_local_execute():
     assert error_result.has_errors is True
     # The originating exception is stored privately on the placeholder so the
     # contract-typed facade can re-raise it for legacy single-input callers.
-    assert isinstance(error_result._internal_exception, RuntimeError)
+    assert isinstance(error_result.originating_exception, RuntimeError)
     assert isinstance(result.check_collection_results[2], _SentinelAResult)
 
 
@@ -344,7 +344,7 @@ def test_soda_core_exception_is_isolated_at_impl_level():
     error_result = result.check_collection_results[0]
     assert isinstance(error_result, CheckCollectionResult)
     assert error_result.status is ContractVerificationStatus.ERROR
-    assert isinstance(error_result._internal_exception, SodaCoreException)
+    assert isinstance(error_result.originating_exception, SodaCoreException)
 
 
 def test_per_spec_error_isolation_in_agent_execute():
@@ -396,5 +396,5 @@ def test_per_spec_error_isolation_in_agent_execute():
     error_result = result.check_collection_results[1]
     assert isinstance(error_result, CheckCollectionResult)
     assert error_result.status is ContractVerificationStatus.ERROR
-    assert isinstance(error_result._internal_exception, RuntimeError)
+    assert isinstance(error_result.originating_exception, RuntimeError)
     assert isinstance(result.check_collection_results[2], _SentinelAResult)

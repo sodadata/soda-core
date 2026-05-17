@@ -98,7 +98,7 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
         # (``CheckCollectionVerificationSession.execute``) never re-raises.
         results = base_result.check_collection_results
         if len(results) == 1:
-            exc = getattr(results[0], "_internal_exception", None)
+            exc = getattr(results[0], "originating_exception", None)
             if isinstance(exc, SodaCoreException):
                 raise exc
 

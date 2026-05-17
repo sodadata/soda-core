@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from logging import ERROR, WARNING, LogRecord
 from numbers import Number
@@ -495,32 +495,37 @@ class CheckCollectionResult:
     @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
     @param log_records: The log records generated during the verification.
     @param post_processing_stages: The post processing stages of the verification.
+    @param originating_exception: The exception that caused this result if the
+        spec failed before producing real output. ``None`` on success-path
+        results. Read by the contract-typed facade
+        (``ContractVerificationSession.execute``) to re-raise for legacy
+        single-input callers that ``pytest.raises(SodaCoreException)``.
 
     """
 
     def __init__(
         self,
-        contract: Optional[Contract] = None,
-        data_source: Optional[DataSource] = None,
-        data_timestamp: Optional[datetime] = None,
-        started_timestamp: Optional[datetime] = None,
-        ended_timestamp: Optional[datetime] = None,
-        status: ContractVerificationStatus = ContractVerificationStatus.UNKNOWN,
-        measurements: Optional[list[Measurement]] = None,
-        check_results: Optional[list[CheckResult]] = None,
-        sending_results_to_soda_cloud_failed: bool = False,
+        contract: Contract,
+        data_source: Optional[DataSource],
+        data_timestamp: Optional[datetime],
+        started_timestamp: datetime,
+        ended_timestamp: datetime,
+        status: ContractVerificationStatus,
+        measurements: list[Measurement],
+        check_results: list[CheckResult],
+        sending_results_to_soda_cloud_failed: bool,
         log_records: Optional[list[LogRecord]] = None,
         post_processing_stages: Optional[list[PostProcessingStage]] = None,
         token_usage: Optional[list[ScanTokenUsage]] = None,
-        _internal_exception: Optional[BaseException] = None,
+        originating_exception: Optional[BaseException] = None,
     ):
-        self.contract: Optional[Contract] = contract
+        self.contract: Contract = contract
         self.data_source: Optional[DataSource] = data_source
         self.data_timestamp: Optional[datetime] = data_timestamp
-        self.started_timestamp: Optional[datetime] = started_timestamp
-        self.ended_timestamp: Optional[datetime] = ended_timestamp
-        self.measurements: list[Measurement] = measurements if measurements is not None else []
-        self.check_results: list[CheckResult] = check_results if check_results is not None else []
+        self.started_timestamp: datetime = started_timestamp
+        self.ended_timestamp: datetime = ended_timestamp
+        self.measurements: list[Measurement] = measurements
+        self.check_results: list[CheckResult] = check_results
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.log_records: Optional[list[LogRecord]] = log_records
         self.status = status
@@ -536,7 +541,43 @@ class CheckCollectionResult:
         # this for legacy single-input contract callers that
         # ``pytest.raises(YamlParserException)`` on caller-input errors.
         # Always ``None`` on success-path results.
-        self._internal_exception: Optional[BaseException] = _internal_exception
+        self.originating_exception: Optional[BaseException] = originating_exception
+
+    @classmethod
+    def error_placeholder(
+        cls,
+        *,
+        contract: Contract,
+        log_record: LogRecord,
+        originating_exception: BaseException,
+        started_timestamp: Optional[datetime] = None,
+        ended_timestamp: Optional[datetime] = None,
+    ) -> "CheckCollectionResult":
+        """Build a minimal ERROR-state result for a spec that failed before producing real output.
+
+        Used by the session impl when a spec raises during parse or verify.
+        Carries the originating exception so the contract facade can re-raise
+        for single-input legacy callers, and a synthesized ERROR log record so
+        ``get_errors()`` returns non-empty.
+
+        Subclasses inherit this factory; cls is the subclass type so a failed
+        ``DataStandardImpl`` spec returns a ``DataStandardResult`` placeholder.
+        """
+        now = started_timestamp if started_timestamp is not None else datetime.now(tz=timezone.utc)
+        ended = ended_timestamp if ended_timestamp is not None else now
+        return cls(
+            contract=contract,
+            data_source=None,
+            data_timestamp=None,
+            started_timestamp=now,
+            ended_timestamp=ended,
+            status=ContractVerificationStatus.ERROR,
+            measurements=[],
+            check_results=[],
+            sending_results_to_soda_cloud_failed=False,
+            log_records=[log_record],
+            originating_exception=originating_exception,
+        )
 
     def get_logs(self) -> list[str]:
         if not self.log_records:
