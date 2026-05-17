@@ -35,6 +35,8 @@ class _SentinelSessionResult(CheckCollectionSessionResult):
 class _SentinelImpl(CheckCollectionImpl[_SentinelYaml, _SentinelResult]):
     """Sentinel impl — wires _RESULT_CLASS via Generic[] subscription."""
 
+    _WIRE_SOURCE = "soda-sentinel"
+
 
 class _SentinelSessionImpl(
     CheckCollectionVerificationSessionImpl[_SentinelYaml, _SentinelImpl, _SentinelSessionResult]
@@ -114,7 +116,7 @@ def test_intermediate_typevar_subclass_leaves_classvars_unset_concrete_leaf_wire
         pass
 
     class _LeafImpl(_IntermediateImpl[_LeafYaml, _LeafResult]):
-        pass
+        _WIRE_SOURCE = "soda-leaf"
 
     assert _LeafImpl._RESULT_CLASS is _LeafResult
 
@@ -128,7 +130,7 @@ def test_session_impl_with_typevar_arg_skips_only_that_slot():
         pass
 
     class _MixedImpl(CheckCollectionImpl[CheckCollectionYaml, CheckCollectionResult]):
-        pass
+        _WIRE_SOURCE = "soda-mixed"
 
     class _MixedSessionImpl(CheckCollectionVerificationSessionImpl[_MixedYaml, _MixedImpl, _MixedSessionResult]):
         pass
@@ -168,6 +170,21 @@ def test_wire_source_required_on_concrete_subclass():
 
     with pytest.raises(AttributeError):
         CheckCollectionImpl._WIRE_SOURCE  # noqa: B018
+
+
+def test_classvar_validator_rejects_concrete_subtype_without_wire_source():
+    """A concrete subtype declared without ``_WIRE_SOURCE`` fails at class creation."""
+
+    class _MissingResult(CheckCollectionResult):
+        pass
+
+    class _MissingYaml(CheckCollectionYaml):
+        pass
+
+    with pytest.raises(TypeError, match="must declare _WIRE_SOURCE"):
+
+        class _MissingWireSourceImpl(CheckCollectionImpl[_MissingYaml, _MissingResult]):
+            pass
 
 
 def test_extra_identity_properties_default_is_empty():

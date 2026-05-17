@@ -47,12 +47,12 @@ country_test_table_specification = (
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
-    new_callable=mock.PropertyMock(return_value=True),
+    "soda_core.common.env_config_helper.EnvConfigHelper.soda_scan_definition_type",
+    new_callable=mock.PropertyMock(return_value="contractTest"),
 )
 def test_sampling_simple_pass(
     mocked_is_running_on_agent,
-    mocked_is_contract_test_scan_definition_type,
+    mocked_soda_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_sampler(SamplerType.ABSOLUTE_LIMIT):
@@ -133,12 +133,12 @@ def test_sampling_simple_pass(
     new_callable=mock.PropertyMock(return_value=False),
 )
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
-    new_callable=mock.PropertyMock(return_value=False),
+    "soda_core.common.env_config_helper.EnvConfigHelper.soda_scan_definition_type",
+    new_callable=mock.PropertyMock(return_value=None),
 )
 def test_sampling_not_applied_simple_pass(
     mocked_is_running_on_agent,
-    mocked_is_contract_test_scan_definition_type,
+    mocked_soda_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
     # Simple test to verify that sampling is NOT applied to all checks when enabled, but env is not running on agent and not contract test scan definition type.
@@ -216,12 +216,12 @@ def test_sampling_not_applied_simple_pass(
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
-    new_callable=mock.PropertyMock(return_value=True),
+    "soda_core.common.env_config_helper.EnvConfigHelper.soda_scan_definition_type",
+    new_callable=mock.PropertyMock(return_value="contractTest"),
 )
 def test_sampling_custom_sql_pass(
     mocked_is_running_on_agent,
-    mocked_is_contract_test_scan_definition_type,
+    mocked_soda_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
     if not data_source_test_helper.data_source_impl.sql_dialect.supports_sampler(SamplerType.ABSOLUTE_LIMIT):

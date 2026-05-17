@@ -315,12 +315,12 @@ def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
-    new_callable=mock.PropertyMock(return_value=True),
+    "soda_core.common.env_config_helper.EnvConfigHelper.soda_scan_definition_type",
+    new_callable=mock.PropertyMock(return_value="contractTest"),
 )
 def test_failed_rows_rows_tested_query_sampling_applied(
     mocked_is_running_on_agent,
-    mocked_is_contract_test_scan_definition_type,
+    mocked_soda_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
     """When sampling is enabled, rows_tested_query should be sampled like the failed rows query."""
@@ -377,12 +377,12 @@ def test_failed_rows_rows_tested_query_sampling_applied(
     new_callable=mock.PropertyMock(return_value=False),
 )
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_contract_test_scan_definition_type",
-    new_callable=mock.PropertyMock(return_value=False),
+    "soda_core.common.env_config_helper.EnvConfigHelper.soda_scan_definition_type",
+    new_callable=mock.PropertyMock(return_value=None),
 )
 def test_failed_rows_rows_tested_query_sampling_not_applied(
     mocked_is_running_on_agent,
-    mocked_is_contract_test_scan_definition_type,
+    mocked_soda_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
     """When not running on agent, rows_tested_query should NOT be sampled even if sampler config is present."""

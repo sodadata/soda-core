@@ -60,7 +60,3 @@ class EnvConfigHelper:
     @property
     def soda_scan_definition_type(self) -> str | None:
         return os.getenv("SODA_SCAN_DEFINITION_TYPE")
-
-    @property
-    def is_contract_test_scan_definition_type(self) -> bool:
-        return self.soda_scan_definition_type == "contractTest"

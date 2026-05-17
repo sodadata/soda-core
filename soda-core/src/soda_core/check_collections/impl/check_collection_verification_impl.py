@@ -362,8 +362,9 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                 check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
                     check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
                 )
-                check_collection_result = soda_cloud_impl.verify_contract_on_agent(
-                    contract_yaml=check_collection_yaml,
+                check_collection_result = cls._verify_on_agent(
+                    soda_cloud_impl=soda_cloud_impl,
+                    check_collection_yaml=check_collection_yaml,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
@@ -376,6 +377,25 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                     exc_info=True,
                 )
         return check_collection_results
+
+    @classmethod
+    def _verify_on_agent(
+        cls,
+        soda_cloud_impl: SodaCloud,
+        check_collection_yaml: CheckCollectionYaml,
+        variables: dict[str, str],
+        blocking_timeout_in_minutes: int,
+        publish_results: bool,
+        verbose: bool,
+    ) -> CheckCollectionResult:
+        """Per-subtype Cloud-side agent verification call.
+
+        Base raises ``NotImplementedError``. Subtypes that support agent
+        execution override and call the appropriate ``SodaCloud`` method.
+        """
+        raise NotImplementedError(
+            f"{cls.__name__} does not support agent execution; override _verify_on_agent on a concrete subtype"
+        )
 
 
 class CheckCollectionImplExtension(Protocol):
@@ -406,6 +426,11 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
     # No base default: a missing _WIRE_SOURCE raises AttributeError at first
     # read rather than silently uploading under the abstract base's name.
     _WIRE_SOURCE: ClassVar[str]
+    # Scan-definition-type literal that means "test verification on agent" for
+    # this subtype. None on the base → is_test_verification_on_agent returns
+    # False (no test-mode opinion). Subtypes that support test-mode runs on
+    # the Soda agent set their own literal (e.g. "contractTest").
+    _TEST_SCAN_DEFINITION_TYPE: ClassVar[Optional[str]] = None
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -424,6 +449,15 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             if isinstance(result_type, type):
                 cls._RESULT_CLASS = result_type
             break
+
+        # Concrete subtypes (those that wired _RESULT_CLASS this iteration)
+        # must declare _WIRE_SOURCE. _KIND / _DISPLAY_NAME have safe base
+        # defaults; _WIRE_SOURCE does not, and a missing value would silently
+        # upload checks under the abstract base's name.
+        if "_RESULT_CLASS" in cls.__dict__ and "_WIRE_SOURCE" not in {
+            attr for c in cls.__mro__ if c is not CheckCollectionImpl for attr in c.__dict__
+        }:
+            raise TypeError(f"{cls.__name__}: concrete CheckCollectionImpl subtype must declare _WIRE_SOURCE")
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:
@@ -587,10 +621,13 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
     def is_test_verification_on_agent(self) -> bool:
         """True iff this run is a test-mode verification on the Soda agent.
 
-        Base returns ``False``; subtypes override with their own
-        scan-definition-type predicate.
+        Returns ``False`` when the subtype hasn't declared
+        ``_TEST_SCAN_DEFINITION_TYPE`` (i.e. has no test-mode opinion).
         """
-        return False
+        test_type = type(self)._TEST_SCAN_DEFINITION_TYPE
+        if test_type is None:
+            return False
+        return self.soda_config.is_running_on_agent and self.soda_config.soda_scan_definition_type == test_type
 
     @property
     def is_sampling_enabled(self) -> bool:
@@ -1484,6 +1521,11 @@ class CheckImpl:
         # Merge attributes before filtering (selectors may query them)
         self.attributes: dict[str, any] = {**check_collection_impl.check_attributes, **check_yaml.attributes}
 
+        # raw_path is the unprefixed form; path equals raw_path today and gets
+        # prefixed by a future consumer when collection_name is non-None.
+        self.raw_path: str = self._compute_raw_path()
+        self.path: str = self.raw_path
+
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(check_collection_impl.check_selectors, self)
 
@@ -1508,7 +1550,14 @@ class CheckImpl:
     }
 
     def _extra_identity_properties(self) -> dict[str, object]:
-        """Subtype hook for extra identity-hash inputs. Base returns ``{}``."""
+        """Subtype hook for extra identity-hash inputs. Base returns ``{}``.
+
+        Distinct from the ``extra_identity_properties`` kwarg on
+        :meth:`__init__`: the kwarg carries per-call additions (e.g. reference-
+        data hashing per check); this method carries per-subtype additions.
+        :meth:`_merge_identity_properties` combines both — kwarg entries win
+        on key collision.
+        """
         return {}
 
     def _merge_identity_properties(
@@ -1527,16 +1576,6 @@ class CheckImpl:
         if explicit:
             merged.update(explicit)
         return merged
-
-    @property
-    def path(self) -> str:
-        """Storage / display / Cloud-upload path. Today equals :attr:`raw_path`."""
-        return self._compute_raw_path()
-
-    @property
-    def raw_path(self) -> str:
-        """The path the user wrote in YAML. Read by selector matching."""
-        return self._compute_raw_path()
 
     def _compute_raw_path(self) -> str:
         parts: list[str] = []

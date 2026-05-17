@@ -50,10 +50,7 @@ logger: logging.Logger = soda_logger
 class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
     _DISPLAY_NAME = "contract"
     _WIRE_SOURCE = "soda-contract"
-
-    @property
-    def is_test_verification_on_agent(self) -> bool:
-        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
+    _TEST_SCAN_DEFINITION_TYPE = "contractTest"
 
     @property
     def contract_yaml(self) -> ContractYaml:
@@ -63,7 +60,23 @@ class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]
 class ContractVerificationSessionImpl(
     CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult]
 ):
-    pass
+    @classmethod
+    def _verify_on_agent(
+        cls,
+        soda_cloud_impl,
+        check_collection_yaml,
+        variables,
+        blocking_timeout_in_minutes,
+        publish_results,
+        verbose,
+    ):
+        return soda_cloud_impl.verify_contract_on_agent(
+            contract_yaml=check_collection_yaml,
+            variables=variables,
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            publish_results=publish_results,
+            verbose=verbose,
+        )
 
 
 # Re-exports for backwards compatibility
