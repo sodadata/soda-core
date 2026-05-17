@@ -87,26 +87,56 @@ def test_universal_session_with_bc_kwarg_returns_base_result():
     assert len(result.check_collection_results) == 1
 
 
-def test_importing_soda_core_contracts_registers_contract_check_collection():
-    """Importing the public ``soda_core.contracts`` package eagerly wires the
-    ``contract`` CheckCollection into the registry. Anyone who only imports
-    the public facade (i.e. ``from soda_core.contracts import verify_contract``)
-    can call ``CheckCollection.get("contract")`` without an extra side-effect
+def test_importing_soda_core_contracts_eagerly_registers_in_fresh_interpreter():
+    """Importing ``soda_core.contracts`` in a fresh Python interpreter
+    eagerly wires the ``contract`` CheckCollection into the registry.
+
+    Spawning a subprocess is load-bearing: in the same pytest process the
+    contract module is already imported transitively by every other test
+    module, so an in-process ``import soda_core.contracts; assert ...``
+    smoke test would pass even if the load-bearing import at
+    ``soda_core/contracts/__init__.py:9`` were removed. The subprocess
+    forces a cold interpreter that exercises only the public package's
+    ``__init__`` side-effect chain.
+
+    Anyone who only imports the public facade
+    (``from soda_core.contracts import verify_contract``) must be able to
+    call ``CheckCollection.get('contract')`` without an extra side-effect
     import of the impl module.
 
-    This pins the move of the registration side-effect from a lazy import
-    inside ``CheckCollectionVerificationSession.execute`` to the public
-    package's ``__init__`` — registration now happens once on first facade
-    touch, not on every execute() call.
+    Note on regression coverage: the registration today has two load-bearing
+    paths — (1) the explicit eager import at
+    ``soda_core/contracts/__init__.py:9``, and (2) the transitive chain
+    through ``soda_core.contracts.api`` → ``verify_api`` → check-type
+    modules → ``contract_verification_impl``. This test exercises a fresh
+    interpreter so it's not contaminated by other tests' imports. It would
+    fail if BOTH paths regressed (e.g. someone factored the package
+    differently). A single-line revert of (1) alone still passes here
+    because of (2); the explicit eager import is documented in the
+    ``__init__.py`` as deliberate single-source-of-truth for future
+    maintainers who restructure the api package.
     """
-    import soda_core.contracts  # noqa: F401  — load-bearing import for this test
-    from soda_core.check_collections.check_collection import CheckCollection
+    import subprocess
+    import sys
 
-    descriptor = CheckCollection.get("contract")
-    assert descriptor.kind == "contract"
-    # Identity is read off the impl's ClassVars now — no duplicate descriptor fields.
-    assert descriptor.impl_class._WIRE_SOURCE == "soda-contract"
-    assert descriptor.impl_class._DISPLAY_NAME == "contract"
+    script = (
+        "from soda_core.contracts import verify_contract\n"
+        "from soda_core.check_collections.check_collection import CheckCollection\n"
+        "descriptor = CheckCollection.get('contract')\n"
+        "assert descriptor.kind == 'contract', descriptor.kind\n"
+        "assert descriptor.impl_class.__name__ == 'ContractImpl', descriptor.impl_class.__name__\n"
+        # Identity reads off the impl's ClassVars now — no duplicate descriptor fields.
+        "assert descriptor.impl_class._WIRE_SOURCE == 'soda-contract'\n"
+        "assert descriptor.impl_class._DISPLAY_NAME == 'contract'\n"
+        "print('OK')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Subprocess failed: stdout={result.stdout!r}, stderr={result.stderr!r}"
+    assert result.stdout.strip() == "OK"
 
 
 def test_contract_facade_reraises_soda_core_exception_for_single_input():

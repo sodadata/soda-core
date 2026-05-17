@@ -33,6 +33,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
                 local_file_path="contract.yml",
                 soda_cloud_file_id="fake_file_id",
             ),
+            wire_source="soda-contract",
         ),
         data_source=data_source,
         data_timestamp=now,

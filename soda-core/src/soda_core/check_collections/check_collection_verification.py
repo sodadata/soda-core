@@ -230,14 +230,18 @@ class Contract:
     dataset_name: str
     soda_qualified_dataset_name: str
     source: YamlFileContentInfo
-    dataset_id: Optional[str] = None  # This one can be filled later when we get the dataset id from Soda Cloud
     # Per-check Cloud upload ``source`` literal (e.g. ``"soda-contract"``).
     # Populated from ``type(check_collection_impl)._WIRE_SOURCE`` at the
     # construction site so the upload boundary does not have to know about
-    # the impl class hierarchy. Defaults to ``"soda-contract"`` for
-    # backwards compatibility with existing Contract constructions on
-    # publication / on-agent paths that don't run an impl locally.
-    wire_source: str = "soda-contract"
+    # the impl class hierarchy. Required (no default) so future subtype
+    # authors adding non-contract ``Contract(...)`` construction sites must
+    # make an explicit wire-source choice — silently defaulting to
+    # ``"soda-contract"`` would route a data-standard upload under the
+    # wrong ``source`` and backend's ``filterChecksToKnownStandards`` would
+    # drop the checks. The two existing contract-bound sites in
+    # ``common/soda_cloud.py`` pass ``wire_source="soda-contract"`` explicitly.
+    wire_source: str
+    dataset_id: Optional[str] = None  # This one can be filled later when we get the dataset id from Soda Cloud
 
 
 @dataclass

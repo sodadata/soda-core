@@ -141,3 +141,92 @@ def test_empty_registry_get_says_known_kinds_empty_and_all_is_empty():
     with pytest.raises(KeyError) as exc_info:
         CheckCollection.get("anything")
     assert "Known kinds: []" in str(exc_info.value)
+
+
+def test_register_rejects_impl_with_empty_wire_source():
+    """``CheckCollection.register`` validates that the impl class declares a
+    non-empty ``_WIRE_SOURCE`` string. An empty value would silently route the
+    Cloud upload under an empty ``source`` literal and the backend would drop
+    the checks. The validator must fail loud at registration time, naming the
+    impl class and explaining the requirement.
+    """
+
+    class _SentinelEmptyWireYaml(CheckCollectionYaml):
+        _KIND = "sentinel_empty_wire"
+
+    class _SentinelEmptyWireResult(CheckCollectionResult):
+        pass
+
+    class _SentinelEmptyWireImpl(CheckCollectionImpl[_SentinelEmptyWireYaml, _SentinelEmptyWireResult]):
+        _WIRE_SOURCE = ""
+
+    with pytest.raises(ValueError) as exc_info:
+        CheckCollection.register(
+            kind="sentinel_empty_wire",
+            yaml_class=_SentinelEmptyWireYaml,
+            impl_class=_SentinelEmptyWireImpl,
+            on_agent_verifier=None,
+        )
+    message = str(exc_info.value)
+    assert "_WIRE_SOURCE" in message
+    assert "non-empty str" in message
+    assert "_SentinelEmptyWireImpl" in message
+
+
+def test_register_rejects_impl_with_non_str_wire_source():
+    """``CheckCollection.register`` rejects a non-str ``_WIRE_SOURCE`` (e.g. an
+    int). The validator must fail loud at registration time with the same
+    'non-empty str' error class & message.
+    """
+
+    class _SentinelIntWireYaml(CheckCollectionYaml):
+        _KIND = "sentinel_int_wire"
+
+    class _SentinelIntWireResult(CheckCollectionResult):
+        pass
+
+    class _SentinelIntWireImpl(CheckCollectionImpl[_SentinelIntWireYaml, _SentinelIntWireResult]):
+        _WIRE_SOURCE = 42  # type: ignore[assignment]
+
+    with pytest.raises(ValueError) as exc_info:
+        CheckCollection.register(
+            kind="sentinel_int_wire",
+            yaml_class=_SentinelIntWireYaml,
+            impl_class=_SentinelIntWireImpl,
+            on_agent_verifier=None,
+        )
+    message = str(exc_info.value)
+    assert "_WIRE_SOURCE" in message
+    assert "non-empty str" in message
+    assert "_SentinelIntWireImpl" in message
+
+
+def test_register_rejects_kind_yaml_mismatch():
+    """``CheckCollection.register`` validates that the YAML class's ``_KIND``
+    matches the registered ``kind`` arg. A mismatch means the YAML
+    discriminator is wired to a different dispatch slot than the registry
+    expects — dispatch on the next subtype would silently route to the wrong
+    descriptor. Validator must fail loud at registration time naming both
+    sides of the mismatch.
+    """
+
+    class _SentinelMismatchYaml(CheckCollectionYaml):
+        _KIND = "foo_yaml_kind"
+
+    class _SentinelMismatchResult(CheckCollectionResult):
+        pass
+
+    class _SentinelMismatchImpl(CheckCollectionImpl[_SentinelMismatchYaml, _SentinelMismatchResult]):
+        _WIRE_SOURCE = "soda-sentinel-mismatch"
+
+    with pytest.raises(ValueError) as exc_info:
+        CheckCollection.register(
+            kind="foo_register_kind",
+            yaml_class=_SentinelMismatchYaml,
+            impl_class=_SentinelMismatchImpl,
+            on_agent_verifier=None,
+        )
+    message = str(exc_info.value)
+    assert "foo_register_kind" in message
+    assert "foo_yaml_kind" in message
+    assert "_SentinelMismatchYaml" in message

@@ -487,6 +487,10 @@ class SodaCloud:
                     soda_cloud_file_id=response_json.get("fileId", None),
                 ),
                 soda_qualified_dataset_name=contract_yaml.dataset,
+                # Contract-bound publish endpoint — only handles contracts today.
+                # A future data-standards publish path would build its own
+                # Contract(...) with wire_source from its impl's _WIRE_SOURCE.
+                wire_source="soda-contract",
                 dataset_id=response_json.get("publishedContract", {}).get("datasetId", None),
             ),
         )
@@ -562,6 +566,10 @@ class SodaCloud:
                     source_content_str=contract_yaml_str_original,
                     soda_cloud_file_id=None,
                 ),
+                # Contract-bound agent verifier — only handles contracts today.
+                # A future data-standards on-agent path would build its own
+                # Contract(...) with wire_source from its impl's _WIRE_SOURCE.
+                wire_source="soda-contract",
             ),
             data_source=None,
             data_timestamp=None,
