@@ -143,15 +143,15 @@ def test_importing_soda_core_contracts_eagerly_registers_in_fresh_interpreter():
 
 
 def test_contract_facade_does_not_reraise_for_multi_input():
-    """The contract-typed facade re-raises ``SodaCoreException`` ONLY when
-    there's exactly one input (legacy single-contract semantics). When two or
-    more contracts are passed, the bad slot is returned as an ERROR-status
-    placeholder rather than re-raised so multi-input callers can match results
-    to inputs by index.
+    """The contract-typed facade re-raises ANY ``originating_exception`` ONLY
+    when there's exactly one input (legacy single-contract semantics). When
+    two or more contracts are passed, the bad slot is returned as an
+    ERROR-status placeholder rather than re-raised so multi-input callers can
+    match results to inputs by index.
 
     Pins the asymmetry: legacy single-input re-raise is preserved, but a
-    future "fix" widening the re-raise scope to all ``SodaCoreException``
-    cases would silently break multi-input callers — this test catches that.
+    future "fix" widening the re-raise scope to multi-input would silently
+    break multi-collection callers — this test catches that.
     """
     from soda_core.check_collections.check_collection_verification import (
         ContractVerificationStatus,
@@ -178,23 +178,25 @@ def test_contract_facade_does_not_reraise_for_multi_input():
     assert isinstance(bad_result.originating_exception, YamlParserException)
 
 
-def test_contract_facade_reraises_soda_core_exception_for_single_input():
+def test_contract_facade_reraises_any_exception_for_single_input():
     """The contract-typed facade preserves legacy single-input semantics: a
-    single contract that fails with a ``SodaCoreException`` (e.g. malformed
-    YAML → ``YamlParserException``) is re-raised verbatim instead of returned
+    single contract that fails with ANY exception (``SodaCoreException``
+    family for caller-input errors AND non-SodaCoreException for programming
+    bugs / infrastructure failures) is re-raised verbatim instead of returned
     as an ERROR-status result. The impl is now symmetrically isolated (every
     ``Exception`` becomes an ERROR placeholder); the contract-typed facade
-    re-raises for the single-input case to preserve callers that
-    ``pytest.raises(YamlParserException)``.
+    re-raises for the single-input case so failures are noticed instead of
+    silently masked into a result.
 
-    Multi-input callers and the universal facade never re-raise — they get the
-    full ERROR-result list and can match errors to inputs by index.
+    Multi-input callers and the universal facade never re-raise — they get
+    the full ERROR-result list and can match errors to inputs by index.
     """
+    import pytest
     from soda_core.common.exceptions import YamlParserException
 
     bad_yaml = "columns:\n  - name: id\n"  # missing required 'dataset' property
-    import pytest
 
+    # Caller-input error (SodaCoreException family) propagates.
     with pytest.raises(YamlParserException):
         ContractVerificationSession.execute(
             contract_yaml_sources=[ContractYamlSource.from_str(bad_yaml)],

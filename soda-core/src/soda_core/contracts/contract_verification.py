@@ -23,7 +23,6 @@ from soda_core.check_collections.check_collection_verification import (
     Threshold,
     YamlFileContentInfo,
 )
-from soda_core.common.exceptions import SodaCoreException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import (
     CheckCollectionYamlSource,
@@ -88,20 +87,19 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
             check_selectors=check_selectors,
         )
 
-        # Legacy single-contract semantics: contract callers historically
-        # ``pytest.raises(YamlParserException)`` (and other ``SodaCoreException``
-        # subclasses) on caller-input errors. The impl now isolates ALL
-        # exceptions per-spec to give multi-collection callers the robustness
-        # the design doc requires, so the contract-typed facade re-raises here
-        # to preserve the legacy contract for the single-input case. Only
-        # ``SodaCoreException`` family bubbles — pure-runtime exceptions stay
-        # isolated because they represent a structured "execution failed" answer
-        # that the result list already conveys. The universal facade
-        # (``CheckCollectionVerificationSession.execute``) never re-raises.
+        # Legacy single-contract semantics: contract callers expect exceptions to
+        # propagate (both ``SodaCoreException`` caller-input errors and programming
+        # bugs like ``ValueError`` / ``AttributeError``) so failures are noticed
+        # rather than silently masked into a result. The impl now isolates ALL
+        # exceptions per-spec to give multi-collection callers the robustness the
+        # design doc requires, so this contract-typed facade re-raises ANY
+        # ``originating_exception`` for the single-input case. The universal facade
+        # (``CheckCollectionVerificationSession.execute``) never re-raises —
+        # multi-input callers always get isolated ERROR results.
         results = base_result.check_collection_results
         if len(results) == 1:
             exc = getattr(results[0], "originating_exception", None)
-            if isinstance(exc, SodaCoreException):
+            if exc is not None:
                 raise exc
 
         # The universal facade returns the base ``CheckCollectionSessionResult``;
