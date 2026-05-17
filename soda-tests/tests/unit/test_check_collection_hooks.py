@@ -1,6 +1,12 @@
-"""Pins the seams subtypes plug into: Generic subscription, ClassVars,
-override hooks. Sentinel subclasses subscribe the base with non-Contract*
-types and assert ``execute()`` / ``parse()`` return those types.
+"""Pins the impl-side seams subtypes plug into on ``CheckCollectionImpl``
+and ``CheckCollectionYaml``: Generic subscription, identity ClassVars,
+and ``CheckImpl`` identity hooks.
+
+The session-side Generic derivation that used to live here was removed in
+the DES-315 reshape — the session impl now dispatches via the family
+registry per spec rather than via ``Generic[YamlT, ImplT, ResultT]`` on a
+session subclass. See ``test_session_dispatch.py`` for the replacement
+coverage of mixed-kind sessions, unknown-kind errors, and agent dispatch.
 """
 
 from typing import TypeVar
@@ -8,11 +14,9 @@ from typing import TypeVar
 import pytest
 from soda_core.check_collections.check_collection_verification import (
     CheckCollectionResult,
-    CheckCollectionSessionResult,
 )
 from soda_core.check_collections.impl.check_collection_verification_impl import (
     CheckCollectionImpl,
-    CheckCollectionVerificationSessionImpl,
 )
 from soda_core.check_collections.impl.check_collection_yaml import CheckCollectionYaml
 from soda_core.common.yaml import CheckCollectionYamlSource
@@ -28,20 +32,10 @@ class _SentinelResult(CheckCollectionResult):
     """Sentinel per-collection result."""
 
 
-class _SentinelSessionResult(CheckCollectionSessionResult):
-    """Sentinel session result."""
-
-
 class _SentinelImpl(CheckCollectionImpl[_SentinelYaml, _SentinelResult]):
     """Sentinel impl — wires _RESULT_CLASS via Generic[] subscription."""
 
     _WIRE_SOURCE = "soda-sentinel"
-
-
-class _SentinelSessionImpl(
-    CheckCollectionVerificationSessionImpl[_SentinelYaml, _SentinelImpl, _SentinelSessionResult]
-):
-    """Sentinel session impl — wires three hooks via Generic[] subscription."""
 
 
 _MINIMAL_YAML = """\
@@ -58,29 +52,6 @@ def test_yaml_class_dispatch_routes_to_subclass():
     source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
     instance = _SentinelYaml.parse(check_collection_yaml_source=source)
     assert isinstance(instance, _SentinelYaml), f"Expected _SentinelYaml, got {type(instance).__name__}"
-
-
-def test_session_impl_hooks_route_to_subclass_types():
-    """All four hook slots resolve to the sentinel types via Generic subscription."""
-    source = CheckCollectionYamlSource.from_str(_MINIMAL_YAML)
-
-    result = _SentinelSessionImpl.execute(
-        check_collection_yaml_sources=[source],
-        only_validate_without_execute=True,
-        soda_cloud_publish_results=False,
-        soda_cloud_use_agent=False,
-    )
-
-    assert isinstance(result, _SentinelSessionResult), f"Expected _SentinelSessionResult, got {type(result).__name__}"
-    # Sanity check that at least one per-collection result exists so the
-    # type assertion below isn't vacuously true.
-    assert (
-        len(result.check_collection_results) == 1
-    ), f"Expected exactly 1 per-collection result, got {len(result.check_collection_results)}"
-    for per_collection in result.check_collection_results:
-        assert isinstance(
-            per_collection, _SentinelResult
-        ), f"Expected _SentinelResult per-collection, got {type(per_collection).__name__}"
 
 
 # Negative paths on ``__init_subclass__``'s ``get_args`` derivation — each
@@ -119,26 +90,6 @@ def test_intermediate_typevar_subclass_leaves_classvars_unset_concrete_leaf_wire
         _WIRE_SOURCE = "soda-leaf"
 
     assert _LeafImpl._RESULT_CLASS is _LeafResult
-
-
-def test_session_impl_with_typevar_arg_skips_only_that_slot():
-    """Mixed concrete/TypeVar subscription: concrete slots wire, TypeVar slot stays unset."""
-
-    _MixedYaml = TypeVar("_MixedYaml", bound=CheckCollectionYaml)
-
-    class _MixedSessionResult(CheckCollectionSessionResult):
-        pass
-
-    class _MixedImpl(CheckCollectionImpl[CheckCollectionYaml, CheckCollectionResult]):
-        _WIRE_SOURCE = "soda-mixed"
-
-    class _MixedSessionImpl(CheckCollectionVerificationSessionImpl[_MixedYaml, _MixedImpl, _MixedSessionResult]):
-        pass
-
-    assert _MixedSessionImpl._IMPL_CLASS is _MixedImpl
-    assert _MixedSessionImpl._SESSION_RESULT_CLASS is _MixedSessionResult
-    with pytest.raises(AttributeError):
-        _MixedSessionImpl._YAML_CLASS  # noqa: B018
 
 
 # Subtype identity ClassVars: ``_KIND`` (wire id) and ``_DISPLAY_NAME`` (user
