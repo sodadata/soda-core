@@ -432,24 +432,20 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
     1. ``_KIND`` (declared on the paired ``CheckCollectionYaml`` subclass) —
        the machine identifier carried by the YAML ``kind:`` discriminator
        field and used as the registry key. Lowercase, snake_case if multi-word.
-       Examples: ``"contract"``, ``"data_standard"``.
 
     2. ``_DISPLAY_NAME`` — the user-facing word that appears in INFO / error
        logs and the summary report header. Matches the term the user types in
-       the CLI command. Examples: ``"contract"``, ``"data standard"``.
+       the CLI command.
 
     3. ``_WIRE_SOURCE`` — the per-check ``source`` value the Cloud backend
-       receives on upload. Drives backend archive scoping. Phase 2's identity-
+       receives on upload. Drives backend archive scoping. The identity-
        disambiguation gate fires when this is not ``"soda-contract"``.
-       Examples: ``"soda-contract"``, ``"soda-data-standard"``.
 
-    Putting them together, a future ``DataStandardImpl`` looks like::
-
-        class DataStandardImpl(CheckCollectionImpl[DataStandardYaml, DataStandardResult]):
-            _DISPLAY_NAME = "data standard"
-            _WIRE_SOURCE = "soda-data-standard"
-
-            # _KIND lives on DataStandardYaml; only the impl carries _WIRE_SOURCE.
+    The only concrete subtype shipped in soda-core is ``ContractImpl``
+    (``_KIND = _DISPLAY_NAME = "contract"``, ``_WIRE_SOURCE = "soda-contract"``).
+    Additional subtypes ship as soda-extensions packages that subscribe the
+    base and declare their own ClassVar values; ``_KIND`` lives on their paired
+    YAML subclass, ``_DISPLAY_NAME`` and ``_WIRE_SOURCE`` on their impl.
 
     Hooks the subtype may override (each documented inline):
 
@@ -465,17 +461,16 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
     # User-facing display name for this check-collection subtype. Used in INFO /
     # error logs and the summary report header so the user sees the term that
     # matches their CLI command (e.g. ``soda contract verify`` → "Verifying
-    # contract …", a future ``soda data_standard verify`` → "Verifying data
-    # standard …"). Concrete subtypes override this; the base default is the
+    # contract …"). Concrete subtypes override this; the base default is the
     # abstract term so a bare-base call still produces a readable message.
     _DISPLAY_NAME: ClassVar[str] = "check collection"
 
     # Per-check ``source`` value the Cloud backend receives on upload (e.g.
-    # ``"soda-contract"``, ``"soda-data-standard"``). Concrete subtypes MUST
-    # declare this — the abstract base intentionally provides no default so a
+    # ``"soda-contract"`` for ``ContractImpl``). Concrete subtypes MUST declare
+    # this — the abstract base intentionally provides no default so a
     # misconfigured subtype fails loud at first ``cls._WIRE_SOURCE`` read instead
     # of silently uploading checks under the abstract base's name. The string
-    # is also what Phase 2's identity-disambiguation gate compares against
+    # is also what the identity-disambiguation gate compares against
     # (``"soda-contract"`` keeps existing identities byte-identical; any other
     # value enables the gate).
     _WIRE_SOURCE: ClassVar[str]
@@ -527,10 +522,9 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         self.soda_config = EnvConfigHelper()
 
         # Subtype-supplied identifier used for path prefixing and identity
-        # disambiguation by Phase 2's multi-collection session. None for
-        # contracts (no prefix, identity hash matches today's). Non-contract
-        # subtypes (data standards, future check suites) populate this from
-        # caller-supplied or YAML-supplied naming.
+        # disambiguation in multi-collection sessions. None for contracts
+        # (no prefix, identity hash matches today's). Non-contract subtypes
+        # populate this from caller-supplied or YAML-supplied naming.
         self.collection_name: Optional[str] = collection_name
 
         self.filter: Optional[str] = self.check_collection_yaml.filter
@@ -664,9 +658,10 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         """True iff this run is a test-mode verification on the Soda agent.
 
         Concrete subtypes override to define their own scan-definition-type
-        predicate (e.g. ``ContractImpl`` checks ``is_contract_test_scan_definition_type``;
-        a future ``DataStandardImpl`` would check its own equivalent). The
-        abstract base returns ``False`` — it has no test-mode opinion.
+        predicate (e.g. ``ContractImpl`` checks
+        ``is_contract_test_scan_definition_type``; other subtypes check
+        their own equivalent). The abstract base returns ``False`` — it has
+        no test-mode opinion.
         """
         return False
 
@@ -769,9 +764,9 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
     def verify(self) -> ResultT:
         # Resolve the concrete result class via the subtype hook. The Contract*
-        # path sets ``_RESULT_CLASS = ContractVerificationResult``; a future
-        # DataStandard* subtype sets it to its own result class and gets that
-        # back from ``verify()`` with no other change to this method.
+        # path sets ``_RESULT_CLASS = ContractVerificationResult``; other
+        # subtypes set it to their own result class and get that back from
+        # ``verify()`` with no other change to this method.
         result_cls: type = type(self)._RESULT_CLASS
 
         if self.data_source_impl and self.soda_config.is_running_on_agent:
@@ -1596,13 +1591,13 @@ class CheckImpl:
         for contracts is built from the base inputs only (data source,
         dataset prefix, dataset name, column, check type, qualifier).
 
-        Phase 2's identity disambiguation gate composes through here:
-        non-contract subtype impls (e.g. ``DataStandardImpl``) populate the
-        dict with ``{"cn": self.check_collection_impl.collection_name}``
-        when ``_WIRE_SOURCE != "soda-contract"``, producing distinct
-        identities for the same check shape on the same dataset across
-        sibling collections. Contracts keep ``_WIRE_SOURCE == "soda-contract"``
-        so the gate stays closed and identities remain byte-identical.
+        The identity-disambiguation gate composes through here: non-contract
+        subtype impls populate the dict with
+        ``{"cn": self.check_collection_impl.collection_name}`` when
+        ``_WIRE_SOURCE != "soda-contract"``, producing distinct identities
+        for the same check shape on the same dataset across sibling
+        collections. Contracts keep ``_WIRE_SOURCE == "soda-contract"`` so
+        the gate stays closed and identities remain byte-identical.
 
         Returns a dict (not a list) so it composes with the constructor's
         ``extra_identity_properties`` argument via :meth:`_merge_identity_properties`.

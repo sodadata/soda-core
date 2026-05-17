@@ -45,10 +45,11 @@ class CheckCollectionYaml:
     None value if the property is not present or the content was not a list,
     a list otherwise.
 
-    Concrete subtypes (``ContractYaml``, future ``DataStandardYaml``) subclass
-    this class directly. ``parse()`` uses ``cls(...)`` so Python's classmethod
-    dispatch routes ``ContractYaml.parse(...)`` to construct a ``ContractYaml``
-    — no class-attribute hook needed.
+    Concrete subtypes (``ContractYaml`` is the only one shipped in soda-core;
+    additional subtypes ship in soda-extensions packages) subclass this class
+    directly. ``parse()`` uses ``cls(...)`` so Python's classmethod dispatch
+    routes ``ContractYaml.parse(...)`` to construct a ``ContractYaml`` — no
+    class-attribute hook needed.
 
     Extensions can manipulate the check-collection YAML object. Extensions can
     be registered using the ``register_extension`` method, and they will be
@@ -62,30 +63,21 @@ class CheckCollectionYaml:
     since wire upload is an impl concern):
 
     1. ``_KIND`` — the machine identifier carried by the YAML ``kind:``
-       discriminator field. Lowercase, snake_case if multi-word. Examples:
-       ``"contract"``, ``"data_standard"``.
+       discriminator field. Lowercase, snake_case if multi-word.
 
     2. ``_DISPLAY_NAME`` — the user-facing word in INFO / error logs.
-       Examples: ``"contract"``, ``"data standard"``.
 
-    All check-collection YAMLs arrive fully materialized — the ``dataset:``
-    field is bound at YAML write-time (contracts) or by the platform's
-    materialization step (data standards). No runtime dataset injection is
-    needed; subtypes don't need to override how the dataset is resolved.
-
-    Example::
-
-        class DataStandardYaml(CheckCollectionYaml):
-            _KIND = "data_standard"
-            _DISPLAY_NAME = "data standard"
+    All check-collection YAMLs are read by ``__init__`` with ``dataset:``
+    bound directly in the YAML object. Subtypes do not override how the
+    dataset is resolved; callers / authoring tools are responsible for
+    writing the field into each YAML stream upstream of the parser.
     """
 
     check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
 
     # User-facing display name. Mirrors ``CheckCollectionImpl._DISPLAY_NAME`` so
-    # base-layer error messages emitted from this class read naturally for each
-    # concrete YAML subtype (``ContractYaml`` → "contract", a future
-    # ``DataStandardYaml`` → "data standard").
+    # base-layer error messages emitted from this class read naturally for the
+    # concrete YAML subtype (e.g. ``ContractYaml`` → "contract").
     _DISPLAY_NAME: ClassVar[str] = "check collection"
 
     # Wire identifier — the value of the YAML ``kind:`` discriminator field for
@@ -93,8 +85,9 @@ class CheckCollectionYaml:
     # readable token used by ``CheckCollectionYaml.parse`` to dispatch to the
     # registered parser, and surfaces on the wire and in registries; the display
     # name is the user-facing word. For ``ContractYaml`` both happen to be
-    # ``"contract"`` today; for a future ``DataStandardYaml`` they diverge
-    # (``_KIND="data_standard"``, ``_DISPLAY_NAME="data standard"``).
+    # ``"contract"`` today; subtypes whose wire identifier differs from their
+    # display word (multi-word display names, branding differences) set the
+    # two ClassVars to different strings.
     _KIND: ClassVar[str] = "check_collection"
 
     @classmethod

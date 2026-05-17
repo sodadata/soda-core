@@ -11,7 +11,7 @@ and needs no hook.
 Sentinel subclasses below subscribe the base with DIFFERENT types than the
 Contract* defaults, then assert that ``execute()`` and ``parse()`` return
 instances of those sentinel types. This documents the extension recipe for
-future check-collection subtypes (data-standards, check-suites, etc.).
+future check-collection subtypes shipped as soda-extensions packages.
 """
 
 from typing import TypeVar
@@ -209,16 +209,15 @@ def test_session_impl_with_typevar_arg_skips_only_that_slot():
 #
 # Every concrete check-collection subtype declares three identity ClassVars
 # with distinct purposes:
-#   * ``_DISPLAY_NAME`` — user-facing word (e.g. "contract", "data standard").
+#   * ``_DISPLAY_NAME`` — user-facing word (e.g. "contract").
 #   * ``_KIND`` — machine identifier used as the YAML ``kind:`` discriminator
-#     and registry key (e.g. "contract", "data_standard").
+#     and registry key (e.g. "contract").
 #   * ``_WIRE_SOURCE`` — per-check wire ``source`` value the Cloud backend
-#     receives (e.g. "soda-contract", "soda-data-standard"); declared on the
-#     impl, not the yaml.
+#     receives (e.g. "soda-contract"); declared on the impl, not the yaml.
 #
-# The recipe keeps the three concepts separate so future subtypes can diverge
-# (e.g. ``_KIND="data_standard"`` vs. ``_DISPLAY_NAME="data standard"``) even
-# though for contracts ``_KIND == _DISPLAY_NAME == "contract"`` by accident.
+# The recipe keeps the three concepts separate so subtypes whose wire
+# identifier differs from their user-facing word can diverge the two
+# strings, even though for contracts they both equal "contract".
 # ---------------------------------------------------------------------------
 
 
@@ -226,8 +225,8 @@ def test_kind_classvar_distinct_from_display_name():
     """``_KIND`` is the wire identifier; ``_DISPLAY_NAME`` is the user-facing word.
 
     They happen to be the same string for ContractYaml because the wire
-    identifier and the user word collide. Declared separately so future
-    subtypes (data standard) can diverge.
+    identifier and the user word collide. Declared separately so other
+    subtypes can diverge the two.
     """
     # Abstract base default values differ — ``_DISPLAY_NAME`` is multi-word
     # ("check collection") while ``_KIND`` is snake_case ("check_collection").
@@ -244,9 +243,9 @@ def test_wire_source_classvar_on_contract_impl():
     """``_WIRE_SOURCE`` is declared on the impl, not the yaml.
 
     The cloud upload path reads ``type(check_collection_impl)._WIRE_SOURCE``
-    when stamping the per-check ``source`` field. Today's wire value for
-    contracts is ``"soda-contract"``; a future data-standard impl would set
-    ``"soda-data-standard"``.
+    when stamping the per-check ``source`` field. Today's only wire value
+    is ``"soda-contract"``; other subtypes that ship as soda-extensions
+    packages set their own values.
     """
     assert ContractImpl._WIRE_SOURCE == "soda-contract"
 
