@@ -496,26 +496,27 @@ class CheckCollectionResult:
 
     def __init__(
         self,
-        contract: Contract,
-        data_source: DataSource,
-        data_timestamp: Optional[datetime],
-        started_timestamp: datetime,
-        ended_timestamp: datetime,
-        status: ContractVerificationStatus,
-        measurements: list[Measurement],
-        check_results: list[CheckResult],
-        sending_results_to_soda_cloud_failed: bool,
+        contract: Optional[Contract] = None,
+        data_source: Optional[DataSource] = None,
+        data_timestamp: Optional[datetime] = None,
+        started_timestamp: Optional[datetime] = None,
+        ended_timestamp: Optional[datetime] = None,
+        status: ContractVerificationStatus = ContractVerificationStatus.UNKNOWN,
+        measurements: Optional[list[Measurement]] = None,
+        check_results: Optional[list[CheckResult]] = None,
+        sending_results_to_soda_cloud_failed: bool = False,
         log_records: Optional[list[LogRecord]] = None,
         post_processing_stages: Optional[list[PostProcessingStage]] = None,
         token_usage: Optional[list[ScanTokenUsage]] = None,
+        _internal_exception: Optional[BaseException] = None,
     ):
-        self.contract: Contract = contract
-        self.data_source: DataSource = data_source
+        self.contract: Optional[Contract] = contract
+        self.data_source: Optional[DataSource] = data_source
         self.data_timestamp: Optional[datetime] = data_timestamp
-        self.started_timestamp: datetime = started_timestamp
-        self.ended_timestamp: datetime = ended_timestamp
-        self.measurements: list[Measurement] = measurements
-        self.check_results: list[CheckResult] = check_results
+        self.started_timestamp: Optional[datetime] = started_timestamp
+        self.ended_timestamp: Optional[datetime] = ended_timestamp
+        self.measurements: list[Measurement] = measurements if measurements is not None else []
+        self.check_results: list[CheckResult] = check_results if check_results is not None else []
         self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
         self.log_records: Optional[list[LogRecord]] = log_records
         self.status = status
@@ -525,19 +526,33 @@ class CheckCollectionResult:
         # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
         self.scan_id: Optional[str] = None
 
+        # Originating exception for ERROR-status placeholders built by the
+        # session impl when a spec fails before producing a real result. The
+        # facade layer (``ContractVerificationSession.execute``) re-raises
+        # this for legacy single-input contract callers that
+        # ``pytest.raises(YamlParserException)`` on caller-input errors.
+        # Always ``None`` on success-path results.
+        self._internal_exception: Optional[BaseException] = _internal_exception
+
     def get_logs(self) -> list[str]:
+        if not self.log_records:
+            return []
         return [r.getMessage() for r in self.log_records]
 
     def get_logs_str(self) -> str:
         return "\n".join(self.get_logs())
 
     def get_errors(self) -> list[str]:
+        if not self.log_records:
+            return []
         return [r.getMessage() for r in self.log_records if r.levelno >= ERROR]
 
     def get_errors_str(self) -> str:
         return "\n".join(self.get_errors())
 
     def get_warnings(self) -> list[str]:
+        if not self.log_records:
+            return []
         return [r.getMessage() for r in self.log_records if r.levelno == WARNING]
 
     def get_warnings_str(self) -> str:

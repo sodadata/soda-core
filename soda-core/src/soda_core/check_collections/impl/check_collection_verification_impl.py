@@ -11,6 +11,7 @@ from ruamel.yaml import YAML
 from soda_core.check_collections.check_collection_spec import CheckCollectionSpec
 from soda_core.check_collections.check_collection_verification import (
     Check,
+    CheckCollectionResult,
     CheckCollectionSessionResult,
     CheckOutcome,
     CheckResult,
@@ -236,23 +237,29 @@ class CheckCollectionVerificationSessionImpl:
 
         opened_data_sources: list[DataSourceImpl] = []
         try:
-            for spec in specs:
-                # Per-spec isolation: an unexpected runtime failure on one spec must
+            for idx, spec in enumerate(specs):
+                # Per-spec isolation: a parse or runtime failure on one spec must
                 # not abort the session and lose results for later specs. The result
                 # list stays positional with the input ``specs`` — consumers (e.g.
                 # backend ingestion) may match results to inputs by index, so we
-                # always append exactly one entry per spec, ``None`` when the spec
-                # failed before producing a real result.
+                # always append exactly one entry per spec, an ERROR-status
+                # ``CheckCollectionResult`` placeholder when the spec failed before
+                # producing a real result.
                 #
-                # ``SodaCoreException`` is intentionally *not* caught here. Those
-                # represent caller-input errors (malformed YAML, missing required
-                # fields, invalid arguments) that historically bubble out of the
-                # session — public callers and tests pin that contract. Only
-                # unexpected exceptions (impl construction / verify bugs, missing
-                # extension state, etc.) are isolated per-spec.
-                check_collection = CheckCollection.get(spec.kind)
+                # All ``Exception`` subtypes (including ``SodaCoreException``) are
+                # isolated here — both parse-time and runtime failures stay
+                # per-spec, matching the design doc's "parse or runtime failure
+                # isolated" contract and the multi-collection robustness backend
+                # ingestion expects. Legacy single-contract callers that
+                # ``pytest.raises(YamlParserException)`` on caller-input errors are
+                # preserved by ``ContractVerificationSession.execute`` re-raising
+                # the captured exception when there is exactly one ERROR result and
+                # it carries a ``SodaCoreException`` (see the facade in
+                # ``contracts/contract_verification.py``). ``BaseException``
+                # subclasses (``KeyboardInterrupt`` / ``SystemExit``) propagate.
+                descriptor = CheckCollection.get(spec.kind)
                 try:
-                    check_collection_yaml: CheckCollectionYaml = check_collection.yaml_class.parse(
+                    check_collection_yaml: CheckCollectionYaml = descriptor.yaml_class.parse(
                         check_collection_yaml_source=spec.yaml_source,
                         provided_variable_values=provided_variable_values,
                         data_timestamp=data_timestamp,
@@ -268,7 +275,7 @@ class CheckCollectionVerificationSessionImpl:
                         if (check_collection_yaml and data_source_name and not only_validate_without_execute)
                         else None
                     )
-                    check_collection_impl: CheckCollectionImpl = check_collection.impl_class(
+                    check_collection_impl: CheckCollectionImpl = descriptor.impl_class(
                         check_collection_yaml=check_collection_yaml,
                         only_validate_without_execute=only_validate_without_execute,
                         data_timestamp=check_collection_yaml.data_timestamp,
@@ -284,15 +291,18 @@ class CheckCollectionVerificationSessionImpl:
                     )
                     check_collection_result = check_collection_impl.verify()
                     check_collection_results.append(check_collection_result)
-                except SodaCoreException:
-                    # Caller-input error — surface to match legacy contract.
-                    raise
-                except Exception:
+                except Exception as exc:
                     logger.error(
-                        msg=(f"Could not verify {check_collection.impl_class._DISPLAY_NAME} " f"{spec.yaml_source}"),
+                        msg=(
+                            f"Could not verify spec[{idx}] "
+                            f"({spec.kind}, {spec.yaml_source}): "
+                            f"{type(exc).__name__}: {exc}"
+                        ),
                         exc_info=True,
                     )
-                    check_collection_results.append(None)
+                    check_collection_results.append(
+                        _build_error_result(spec=spec, descriptor=descriptor, exception=exc)
+                    )
         finally:
             for data_source_impl in opened_data_sources:
                 data_source_impl.close_connection()
@@ -365,18 +375,23 @@ class CheckCollectionVerificationSessionImpl:
 
         check_collection_results: list = []
 
-        for spec in specs:
-            check_collection = CheckCollection.get(spec.kind)
-            display_name = check_collection.impl_class._DISPLAY_NAME
-            if check_collection.on_agent_verifier is None:
+        for idx, spec in enumerate(specs):
+            descriptor = CheckCollection.get(spec.kind)
+            display_name = descriptor.impl_class._DISPLAY_NAME
+            if descriptor.on_agent_verifier is None:
                 raise NotImplementedError(f"{display_name} does not support agent execution")
             # Per-spec isolation: keep the result list positional with the input ``specs``
             # so callers can match results to inputs by index even when one spec fails.
+            # Symmetric with ``_execute_locally``: all ``Exception`` subtypes
+            # (including ``SodaCoreException``) are isolated into an ERROR-status
+            # placeholder. Facade-level legacy preservation (single-contract
+            # ``pytest.raises(YamlParserException)`` callers) lives in
+            # ``ContractVerificationSession.execute``.
             try:
-                check_collection_yaml: CheckCollectionYaml = check_collection.yaml_class.parse(
+                check_collection_yaml: CheckCollectionYaml = descriptor.yaml_class.parse(
                     check_collection_yaml_source=spec.yaml_source, provided_variable_values=variables
                 )
-                check_collection_result = check_collection.on_agent_verifier(
+                check_collection_result = descriptor.on_agent_verifier(
                     soda_cloud_impl=soda_cloud_impl,
                     check_collection_yaml=check_collection_yaml,
                     variables=variables,
@@ -385,13 +400,81 @@ class CheckCollectionVerificationSessionImpl:
                     verbose=soda_cloud_verbose,
                 )
                 check_collection_results.append(check_collection_result)
-            except Exception:
+            except Exception as exc:
                 logger.error(
-                    msg=f"Could not verify {display_name} {spec.yaml_source}",
+                    msg=(
+                        f"Could not verify spec[{idx}] "
+                        f"({spec.kind}, {spec.yaml_source}): "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
                     exc_info=True,
                 )
-                check_collection_results.append(None)
+                check_collection_results.append(_build_error_result(spec=spec, descriptor=descriptor, exception=exc))
         return check_collection_results
+
+
+def _build_error_result(
+    spec: CheckCollectionSpec,
+    descriptor,
+    exception: BaseException,
+) -> CheckCollectionResult:
+    """Build an ERROR-status ``CheckCollectionResult`` placeholder for a failed spec.
+
+    Per-spec isolation contract: when a spec fails before producing a real
+    result, the session impl appends this placeholder so the result list stays
+    positional with the input ``specs``. The placeholder carries
+    ``status=ContractVerificationStatus.ERROR``, no check results, and a single
+    ERROR-level log record whose message names the spec's kind plus the
+    exception's class and message. The originating exception is stored on a
+    private ``_internal_exception`` attribute so the contract-typed facade
+    (``ContractVerificationSession.execute``) can re-raise it for legacy
+    single-input callers that ``pytest.raises(SodaCoreException)``.
+
+    Subtype consumers (e.g. a future ``DataStandardsVerificationResult``
+    adapter) iterating ``check_collection_results`` get a uniform shape with
+    no per-slot ``None`` guard.
+    """
+    now = datetime.now(tz=timezone.utc)
+    wire_source = getattr(descriptor.impl_class, "_WIRE_SOURCE", "")
+    contract = Contract(
+        data_source_name=None,
+        dataset_prefix=[],
+        dataset_name=spec.collection_name or "",
+        soda_qualified_dataset_name=spec.collection_name or "",
+        source=YamlFileContentInfo(
+            source_content_str=None,
+            local_file_path=getattr(spec.yaml_source, "file_path", None),
+        ),
+        wire_source=wire_source,
+    )
+    # Synthesize a single ERROR-level LogRecord so ``get_errors()`` /
+    # ``get_logs()`` return non-empty for this placeholder.
+    log_record = logging.LogRecord(
+        name="soda_core.check_collections.impl.check_collection_verification_impl",
+        level=logging.ERROR,
+        pathname="",
+        lineno=0,
+        msg=(
+            f"Could not verify {descriptor.impl_class._DISPLAY_NAME} "
+            f"(spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}"
+        ),
+        args=(),
+        exc_info=None,
+    )
+    result_cls = getattr(descriptor.impl_class, "_RESULT_CLASS", CheckCollectionResult)
+    return result_cls(
+        contract=contract,
+        data_source=None,
+        data_timestamp=None,
+        started_timestamp=now,
+        ended_timestamp=now,
+        status=ContractVerificationStatus.ERROR,
+        measurements=[],
+        check_results=[],
+        sending_results_to_soda_cloud_failed=False,
+        log_records=[log_record],
+        _internal_exception=exception,
+    )
 
 
 class CheckCollectionImplExtension(Protocol):

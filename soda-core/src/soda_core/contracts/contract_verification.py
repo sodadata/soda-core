@@ -21,6 +21,7 @@ from soda_core.check_collections.check_collection_verification import (
     Threshold,
     YamlFileContentInfo,
 )
+from soda_core.common.exceptions import SodaCoreException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.yaml import (
     CheckCollectionYamlSource,
@@ -84,10 +85,27 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
             dwh_data_source_file_path=dwh_data_source_file_path,
             check_selectors=check_selectors,
         )
+
+        # Legacy single-contract semantics: contract callers historically
+        # ``pytest.raises(YamlParserException)`` (and other ``SodaCoreException``
+        # subclasses) on caller-input errors. The impl now isolates ALL
+        # exceptions per-spec to give multi-collection callers the robustness
+        # the design doc requires, so the contract-typed facade re-raises here
+        # to preserve the legacy contract for the single-input case. Only
+        # ``SodaCoreException`` family bubbles — pure-runtime exceptions stay
+        # isolated because they represent a structured "execution failed" answer
+        # that the result list already conveys. The universal facade
+        # (``CheckCollectionVerificationSession.execute``) never re-raises.
+        results = base_result.check_collection_results
+        if len(results) == 1:
+            exc = getattr(results[0], "_internal_exception", None)
+            if isinstance(exc, SodaCoreException):
+                raise exc
+
         # The universal facade returns the base ``CheckCollectionSessionResult``;
         # rewrap as ``ContractVerificationSessionResult`` so callers iterating
         # ``contract_verification_results`` (the typed BC alias) keep working.
-        return ContractVerificationSessionResult(check_collection_results=base_result.check_collection_results)
+        return ContractVerificationSessionResult(check_collection_results=results)
 
 
 class ContractVerificationSessionResult(CheckCollectionSessionResult):

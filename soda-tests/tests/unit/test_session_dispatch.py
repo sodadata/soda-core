@@ -209,17 +209,21 @@ def test_per_spec_error_isolation_in_local_execute():
     specs still run and the result list stays positional with the input.
 
     Three specs: good, broken, good. The middle spec's impl ``verify()`` raises
-    a plain ``RuntimeError`` (simulating an unexpected runtime bug, not a
-    caller-input error). The result list has length 3 with ``None`` in the
-    middle slot and real results at the edges. Consumers (e.g. backend
-    ingestion) may match results to inputs by index, so the positional
-    contract matters.
+    a plain ``RuntimeError`` (simulating an unexpected runtime bug). The result
+    list has length 3 with an ERROR-status ``CheckCollectionResult`` placeholder
+    in the middle slot and real results at the edges. Consumers (e.g. backend
+    ingestion) may match results to inputs by index, so the positional contract
+    matters and the placeholder shape must be a real ``CheckCollectionResult``
+    so consumers don't need ``None`` guards.
 
-    Note: ``SodaCoreException`` and its subclasses (YamlParserException etc.)
-    are *not* isolated — they bubble out to match the legacy
-    pytest.raises(YamlParserException) contract that callers pin in tests
-    like test_contract_parsing_errors.
+    Note: ``SodaCoreException`` subclasses (YamlParserException etc.) are also
+    isolated at the impl level — the contract-typed facade
+    (``ContractVerificationSession.execute``) re-raises them for legacy
+    single-input callers; the universal facade never does.
     """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
 
     # Per-test sentinel impl that raises during verify(). We register a fresh
     # descriptor with this impl so the failure is genuinely per-spec.
@@ -254,7 +258,115 @@ def test_per_spec_error_isolation_in_local_execute():
     )
 
     assert len(result.check_collection_results) == 3
-    # Positional: edges are real results, middle is the failure sentinel.
+    # Positional: edges are real results, middle is the ERROR placeholder.
     assert isinstance(result.check_collection_results[0], _SentinelAResult)
-    assert result.check_collection_results[1] is None
+    error_result = result.check_collection_results[1]
+    assert isinstance(error_result, CheckCollectionResult)
+    assert error_result.status is ContractVerificationStatus.ERROR
+    assert error_result.has_errors is True
+    # The originating exception is stored privately on the placeholder so the
+    # contract-typed facade can re-raise it for legacy single-input callers.
+    assert isinstance(error_result._internal_exception, RuntimeError)
+    assert isinstance(result.check_collection_results[2], _SentinelAResult)
+
+
+def test_soda_core_exception_is_isolated_at_impl_level():
+    """``SodaCoreException`` (and subclasses like ``YamlParserException``) raised
+    inside per-spec processing is also isolated at the impl level — the
+    universal facade never re-raises. The contract-typed facade
+    (``ContractVerificationSession.execute``) re-raises for legacy single-input
+    callers; that legacy preservation lives at the facade, not at the impl.
+
+    Pins the symmetric impl-level contract: every ``Exception`` subtype gets
+    isolated into an ERROR-status placeholder.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
+    from soda_core.common.exceptions import SodaCoreException
+
+    class _SodaCoreFailureImpl(_SentinelAImpl):
+        _WIRE_SOURCE = "soda-sentinel-soda-core-fail"
+
+        def verify(self):
+            raise SodaCoreException("simulated caller-input error")
+
+    class _SodaCoreFailureYaml(_SentinelAYaml):
+        _KIND = "sentinel_soda_core_fail"
+
+    CheckCollection.register(
+        kind="sentinel_soda_core_fail",
+        yaml_class=_SodaCoreFailureYaml,
+        impl_class=_SodaCoreFailureImpl,
+        on_agent_verifier=None,
+    )
+
+    spec = CheckCollectionSpec(kind="sentinel_soda_core_fail", yaml_source=_yaml_source())
+
+    # Universal facade / direct impl call must NOT raise — every Exception
+    # subtype is isolated at the impl level.
+    result = CheckCollectionVerificationSessionImpl.execute(
+        specs=[spec],
+        only_validate_without_execute=False,
+        soda_cloud_publish_results=False,
+        soda_cloud_use_agent=False,
+    )
+
+    assert len(result.check_collection_results) == 1
+    error_result = result.check_collection_results[0]
+    assert isinstance(error_result, CheckCollectionResult)
+    assert error_result.status is ContractVerificationStatus.ERROR
+    assert isinstance(error_result._internal_exception, SodaCoreException)
+
+
+def test_per_spec_error_isolation_in_agent_execute():
+    """The agent-execute path mirrors the local-execute isolation contract:
+    a failing on_agent_verifier raises an ``Exception``, the spec gets an
+    ERROR-status ``CheckCollectionResult`` placeholder, later specs still run.
+
+    Pins symmetric per-spec isolation between ``_execute_locally`` and
+    ``_execute_on_agent`` — both paths build the same placeholder shape so
+    consumers can iterate uniformly regardless of where the session ran.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
+
+    def _good_verifier(**kwargs):
+        return _SentinelAResult()
+
+    def _broken_verifier(**kwargs):
+        raise RuntimeError("simulated agent-side runtime failure")
+
+    CheckCollection.register(
+        kind="sentinel_a",
+        yaml_class=_SentinelAYaml,
+        impl_class=_SentinelAImpl,
+        on_agent_verifier=_good_verifier,
+    )
+    CheckCollection.register(
+        kind="sentinel_b",
+        yaml_class=_SentinelBYaml,
+        impl_class=_SentinelBImpl,
+        on_agent_verifier=_broken_verifier,
+    )
+
+    specs = [
+        CheckCollectionSpec(kind="sentinel_a", yaml_source=_yaml_source()),
+        CheckCollectionSpec(kind="sentinel_b", yaml_source=_yaml_source()),
+        CheckCollectionSpec(kind="sentinel_a", yaml_source=_yaml_source()),
+    ]
+
+    result = CheckCollectionVerificationSessionImpl.execute(
+        specs=specs,
+        soda_cloud_use_agent=True,
+        soda_cloud_publish_results=False,
+    )
+
+    assert len(result.check_collection_results) == 3
+    assert isinstance(result.check_collection_results[0], _SentinelAResult)
+    error_result = result.check_collection_results[1]
+    assert isinstance(error_result, CheckCollectionResult)
+    assert error_result.status is ContractVerificationStatus.ERROR
+    assert isinstance(error_result._internal_exception, RuntimeError)
     assert isinstance(result.check_collection_results[2], _SentinelAResult)

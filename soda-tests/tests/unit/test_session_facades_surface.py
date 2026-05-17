@@ -109,6 +109,55 @@ def test_importing_soda_core_contracts_registers_contract_check_collection():
     assert descriptor.impl_class._DISPLAY_NAME == "contract"
 
 
+def test_contract_facade_reraises_soda_core_exception_for_single_input():
+    """The contract-typed facade preserves legacy single-input semantics: a
+    single contract that fails with a ``SodaCoreException`` (e.g. malformed
+    YAML → ``YamlParserException``) is re-raised verbatim instead of returned
+    as an ERROR-status result. The impl is now symmetrically isolated (every
+    ``Exception`` becomes an ERROR placeholder); the contract-typed facade
+    re-raises for the single-input case to preserve callers that
+    ``pytest.raises(YamlParserException)``.
+
+    Multi-input callers and the universal facade never re-raise — they get the
+    full ERROR-result list and can match errors to inputs by index.
+    """
+    from soda_core.common.exceptions import YamlParserException
+
+    bad_yaml = "columns:\n  - name: id\n"  # missing required 'dataset' property
+    import pytest
+
+    with pytest.raises(YamlParserException):
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(bad_yaml)],
+            only_validate_without_execute=True,
+        )
+
+
+def test_universal_facade_does_not_reraise_isolated_errors():
+    """The universal ``CheckCollectionVerificationSession.execute`` never
+    re-raises — every per-spec exception is isolated into an ERROR-status
+    placeholder so multi-collection callers (data-standards, future subtypes)
+    get a uniform iteration shape with no per-slot ``None`` guards.
+
+    Pins the asymmetry between universal facade (always isolated) and
+    contract-typed facade (re-raises legacy single-input ``SodaCoreException``).
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
+
+    bad_yaml = "columns:\n  - name: id\n"  # missing required 'dataset' property
+
+    result = CheckCollectionVerificationSession.execute(
+        check_collection_yaml_sources=[ContractYamlSource.from_str(bad_yaml)],
+        only_validate_without_execute=True,
+    )
+
+    assert len(result.check_collection_results) == 1
+    error_result = result.check_collection_results[0]
+    assert error_result.status is ContractVerificationStatus.ERROR
+
+
 def test_contract_wire_source_is_plumbed_from_classvar_to_contract():
     """The ``Contract`` boundary object carries ``wire_source`` populated from
     ``type(check_collection_impl)._WIRE_SOURCE`` at construction time, so the
