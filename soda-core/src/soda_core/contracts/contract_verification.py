@@ -54,7 +54,7 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
         if contract_yaml_sources is not None and check_collection_yaml_sources is not None:
             raise TypeError("Pass either contract_yaml_sources (legacy) or check_collection_yaml_sources, not both")
         sources = contract_yaml_sources if contract_yaml_sources is not None else check_collection_yaml_sources
-        return super().execute(
+        base_result = super().execute(
             check_collection_yaml_sources=sources,
             only_validate_without_execute=only_validate_without_execute,
             variables=variables,
@@ -70,6 +70,9 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
             dwh_data_source_file_path=dwh_data_source_file_path,
             check_selectors=check_selectors,
         )
+        # The impl returns the universal base; wrap it in the typed result so
+        # callers iterating ``contract_verification_results`` keep working.
+        return ContractVerificationSessionResult(check_collection_results=base_result.check_collection_results)
 
 
 class ContractVerificationSessionResult(CheckCollectionSessionResult):

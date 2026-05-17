@@ -8,6 +8,7 @@ from logging import LogRecord
 from typing import ClassVar, Generic, Protocol, TypeVar, get_args, get_origin
 
 from ruamel.yaml import YAML
+from soda_core.check_collections.check_collection_spec import CheckCollectionSpec
 from soda_core.check_collections.check_collection_verification import (
     Check,
     CheckCollectionSessionResult,
@@ -92,48 +93,23 @@ class CheckCollectionVerificationHandlerRegistry(ABC):
 
 
 YamlT = TypeVar("YamlT", bound=CheckCollectionYaml)
-ImplT = TypeVar("ImplT", bound="CheckCollectionImpl")
-SessionResultT = TypeVar("SessionResultT", bound=CheckCollectionSessionResult)
 ResultT = TypeVar("ResultT", bound="CheckCollectionResult")
 
 
-class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResultT]):
-    """Verification session base. Subtypes subscribe Generic with three types.
+class CheckCollectionVerificationSessionImpl:
+    """Universal verification session impl.
 
-    Calling the base directly is unsupported — construct a concrete subclass.
+    A session run takes a heterogeneous ``list[CheckCollectionSpec]`` — each
+    spec carries its ``kind`` and the session impl dispatches via the family
+    registry. The legacy ``check_collection_yaml_sources`` kwarg is kept as a
+    BC bridge that wraps each source in a ``kind="contract"`` spec.
     """
-
-    _YAML_CLASS: ClassVar[type[CheckCollectionYaml]]
-    _IMPL_CLASS: ClassVar[type[CheckCollectionImpl]]
-    _SESSION_RESULT_CLASS: ClassVar[type[CheckCollectionSessionResult]]
-
-    def __init_subclass__(cls, **kwargs) -> None:
-        super().__init_subclass__(**kwargs)
-        # Derive ClassVars from Generic[...] subscription. TypeVar args are
-        # skipped (isinstance(arg, type) filter) so intermediate abstract
-        # subtypes stay un-wired.
-        for base in getattr(cls, "__orig_bases__", ()):
-            origin = get_origin(base)
-            if origin is None or not isinstance(origin, type):
-                continue
-            if not issubclass(origin, CheckCollectionVerificationSessionImpl):
-                continue
-            args = get_args(base)
-            if len(args) != 3:
-                continue
-            yaml_type, impl_type, session_result_type = args
-            if isinstance(yaml_type, type):
-                cls._YAML_CLASS = yaml_type
-            if isinstance(impl_type, type):
-                cls._IMPL_CLASS = impl_type
-            if isinstance(session_result_type, type):
-                cls._SESSION_RESULT_CLASS = session_result_type
-            break
 
     @classmethod
     def execute(
         cls,
-        check_collection_yaml_sources: list[CheckCollectionYamlSource],
+        check_collection_yaml_sources: Optional[list[CheckCollectionYamlSource]] = None,
+        specs: Optional[list[CheckCollectionSpec]] = None,
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
@@ -146,17 +122,25 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
-    ) -> SessionResultT:
-        session_result_cls: type = cls._SESSION_RESULT_CLASS
-
+    ) -> CheckCollectionSessionResult:
         logs: Logs = Logs()
 
-        # Validate input check_collection_yaml_sources
-        assert isinstance(check_collection_yaml_sources, list)
-        assert all(
-            isinstance(check_collection_yaml_source, CheckCollectionYamlSource)
-            for check_collection_yaml_source in check_collection_yaml_sources
-        )
+        # BC bridge: callers that pass check_collection_yaml_sources get each
+        # source wrapped in a kind="contract" spec — preserves the previous
+        # contract-only execution path while heterogeneous callers move to
+        # ``specs=`` directly.
+        if specs is None:
+            if check_collection_yaml_sources is None:
+                raise ValueError("Either specs or check_collection_yaml_sources must be provided.")
+            assert isinstance(check_collection_yaml_sources, list)
+            assert all(
+                isinstance(check_collection_yaml_source, CheckCollectionYamlSource)
+                for check_collection_yaml_source in check_collection_yaml_sources
+            )
+            specs = [CheckCollectionSpec(kind="contract", yaml_source=src) for src in check_collection_yaml_sources]
+        else:
+            assert isinstance(specs, list)
+            assert all(isinstance(spec, CheckCollectionSpec) for spec in specs)
 
         # Validate input variables
         if variables is None:
@@ -200,7 +184,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
 
         if soda_cloud_use_agent:
             check_collection_results: list = cls._execute_on_agent(
-                check_collection_yaml_sources=check_collection_yaml_sources,
+                specs=specs,
                 variables=variables,
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
@@ -211,7 +195,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         else:
             check_collection_results: list = cls._execute_locally(
                 logs=logs,
-                check_collection_yaml_sources=check_collection_yaml_sources,
+                specs=specs,
                 only_validate_without_execute=only_validate_without_execute,
                 provided_variable_values=variables,
                 data_timestamp=data_timestamp,
@@ -222,13 +206,13 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                 check_selectors=check_selectors,
                 dwh_data_source_file_path=dwh_data_source_file_path,
             )
-        return session_result_cls(check_collection_results=check_collection_results)
+        return CheckCollectionSessionResult(check_collection_results=check_collection_results)
 
     @classmethod
     def _execute_locally(
         cls,
         logs: Logs,
-        check_collection_yaml_sources: list[CheckCollectionYamlSource],
+        specs: list[CheckCollectionSpec],
         only_validate_without_execute: bool,
         provided_variable_values: dict[str, str],
         data_timestamp: Optional[str],
@@ -239,9 +223,8 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[CheckCollectionResult]:
-        "Verifies a check collection locally."
-        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS
-        impl_cls: type[CheckCollectionImpl] = cls._IMPL_CLASS
+        "Verifies a heterogeneous list of check collections locally, dispatching per-spec via the registry."
+        from soda_core.check_collections.check_collection_family import get_family
 
         check_collection_results: list = []
 
@@ -253,9 +236,10 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
 
         opened_data_sources: list[DataSourceImpl] = []
         try:
-            for check_collection_yaml_source in check_collection_yaml_sources:
-                check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
-                    check_collection_yaml_source=check_collection_yaml_source,
+            for spec in specs:
+                family = get_family(spec.kind)
+                check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
+                    check_collection_yaml_source=spec.yaml_source,
                     provided_variable_values=provided_variable_values,
                     data_timestamp=data_timestamp,
                     primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
@@ -270,7 +254,7 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                     if (check_collection_yaml and data_source_name and not only_validate_without_execute)
                     else None
                 )
-                check_collection_impl: CheckCollectionImpl = impl_cls(
+                check_collection_impl: CheckCollectionImpl = family.impl_class(
                     check_collection_yaml=check_collection_yaml,
                     only_validate_without_execute=only_validate_without_execute,
                     data_timestamp=check_collection_yaml.data_timestamp,
@@ -345,24 +329,27 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
     @classmethod
     def _execute_on_agent(
         cls,
-        check_collection_yaml_sources: list[CheckCollectionYamlSource],
+        specs: list[CheckCollectionSpec],
         variables: dict[str, str],
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_use_agent_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
     ) -> list[CheckCollectionResult]:
-        "Verifies check collections on the Soda Cloud agent."
-        yaml_cls: type[CheckCollectionYaml] = cls._YAML_CLASS
+        "Verifies a heterogeneous list of check collections on the Soda Cloud agent, dispatching per-spec via the registry."
+        from soda_core.check_collections.check_collection_family import get_family
 
         check_collection_results: list = []
 
-        for check_collection_yaml_source in check_collection_yaml_sources:
+        for spec in specs:
+            family = get_family(spec.kind)
+            if family.on_agent_verifier is None:
+                raise NotImplementedError(f"{family.display_name} does not support agent execution")
             try:
-                check_collection_yaml: CheckCollectionYaml = yaml_cls.parse(
-                    check_collection_yaml_source=check_collection_yaml_source, provided_variable_values=variables
+                check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
+                    check_collection_yaml_source=spec.yaml_source, provided_variable_values=variables
                 )
-                check_collection_result = cls._verify_on_agent(
+                check_collection_result = family.on_agent_verifier(
                     soda_cloud_impl=soda_cloud_impl,
                     check_collection_yaml=check_collection_yaml,
                     variables=variables,
@@ -373,29 +360,10 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
                 check_collection_results.append(check_collection_result)
             except:
                 logger.error(
-                    msg=f"Could not verify {cls._IMPL_CLASS._DISPLAY_NAME} {check_collection_yaml_source}",
+                    msg=f"Could not verify {family.display_name} {spec.yaml_source}",
                     exc_info=True,
                 )
         return check_collection_results
-
-    @classmethod
-    def _verify_on_agent(
-        cls,
-        soda_cloud_impl: SodaCloud,
-        check_collection_yaml: CheckCollectionYaml,
-        variables: dict[str, str],
-        blocking_timeout_in_minutes: int,
-        publish_results: bool,
-        verbose: bool,
-    ) -> CheckCollectionResult:
-        """Per-subtype Cloud-side agent verification call.
-
-        Base raises ``NotImplementedError``. Subtypes that support agent
-        execution override and call the appropriate ``SodaCloud`` method.
-        """
-        raise NotImplementedError(
-            f"{cls.__name__} does not support agent execution; override _verify_on_agent on a concrete subtype"
-        )
 
 
 class CheckCollectionImplExtension(Protocol):
@@ -1521,11 +1489,6 @@ class CheckImpl:
         # Merge attributes before filtering (selectors may query them)
         self.attributes: dict[str, any] = {**check_collection_impl.check_attributes, **check_yaml.attributes}
 
-        # raw_path is the unprefixed form; path equals raw_path today and gets
-        # prefixed by a future consumer when collection_name is non-None.
-        self.raw_path: str = self._compute_raw_path()
-        self.path: str = self.raw_path
-
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(check_collection_impl.check_selectors, self)
 
@@ -1576,6 +1539,22 @@ class CheckImpl:
         if explicit:
             merged.update(explicit)
         return merged
+
+    @property
+    def path(self) -> str:
+        """Storage / display / Cloud-upload path. Today equals :attr:`raw_path`.
+
+        Kept as ``@property`` (rather than an ``__init__``-stored attr) so
+        subtype-specific check classes (e.g. reconciliation) can override
+        with a wrapped computation. Future prefixing logic composes through
+        the property body, not via attribute assignment.
+        """
+        return self._compute_raw_path()
+
+    @property
+    def raw_path(self) -> str:
+        """The path the user wrote in YAML. Read by selector matching."""
+        return self._compute_raw_path()
 
     def _compute_raw_path(self) -> str:
         parts: list[str] = []

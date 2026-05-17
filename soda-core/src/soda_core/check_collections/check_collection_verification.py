@@ -54,16 +54,20 @@ class CheckCollectionVerificationSession:
         @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
         @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
         """
-        from soda_core.contracts.impl.check_selector import CheckSelector
-        from soda_core.contracts.impl.contract_verification_impl import (
-            ContractVerificationSessionImpl,
+        # Importing contract_verification_impl as a side-effect registers the
+        # contract family with the registry, so the BC bridge (yaml_sources →
+        # kind="contract" specs) inside execute() can dispatch correctly.
+        import soda_core.contracts.impl.contract_verification_impl  # noqa: F401
+        from soda_core.check_collections.impl.check_collection_verification_impl import (
+            CheckCollectionVerificationSessionImpl,
         )
+        from soda_core.contracts.impl.check_selector import CheckSelector
 
         # Merge check_paths into check_selectors for backward compatibility
         merged_selectors = list(check_selectors) if check_selectors else []
         merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
 
-        return ContractVerificationSessionImpl.execute(
+        return CheckCollectionVerificationSessionImpl.execute(
             check_collection_yaml_sources=check_collection_yaml_sources,
             only_validate_without_execute=only_validate_without_execute,
             variables=variables,

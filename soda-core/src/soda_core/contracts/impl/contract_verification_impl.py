@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import logging
 
+from soda_core.check_collections.check_collection_family import (
+    CheckCollectionFamily,
+    register_family,
+)
 from soda_core.check_collections.impl.check_collection_verification_impl import (
     AggregationMetricImpl,
     AggregationQuery,
@@ -26,10 +30,7 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
     ValidReferenceData,
 )
 from soda_core.common.logging_constants import soda_logger
-from soda_core.contracts.contract_verification import (
-    ContractVerificationResult,
-    ContractVerificationSessionResult,
-)
+from soda_core.contracts.contract_verification import ContractVerificationResult
 from soda_core.contracts.impl.contract_yaml import (
     CheckYaml,
     ColumnYaml,
@@ -44,9 +45,6 @@ from soda_core.contracts.impl.contract_yaml import (
 logger: logging.Logger = soda_logger
 
 
-# ContractImpl is declared before ContractVerificationSessionImpl because the
-# session impl binds its Generic args at class-creation time (not via a
-# deferred annotation).
 class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
     _DISPLAY_NAME = "contract"
     _WIRE_SOURCE = "soda-contract"
@@ -57,32 +55,48 @@ class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]
         return self.check_collection_yaml
 
 
-class ContractVerificationSessionImpl(
-    CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult]
+def _verify_contract_on_agent(
+    soda_cloud_impl,
+    check_collection_yaml,
+    variables,
+    blocking_timeout_in_minutes,
+    publish_results,
+    verbose,
 ):
-    @classmethod
-    def _verify_on_agent(
-        cls,
-        soda_cloud_impl,
-        check_collection_yaml,
-        variables,
-        blocking_timeout_in_minutes,
-        publish_results,
-        verbose,
-    ):
-        return soda_cloud_impl.verify_contract_on_agent(
-            contract_yaml=check_collection_yaml,
-            variables=variables,
-            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
-            publish_results=publish_results,
-            verbose=verbose,
-        )
+    """Module-level agent verifier registered on the ``contract`` family.
+
+    Replaces the previous ``ContractVerificationSessionImpl._verify_on_agent``
+    classmethod hook — the family registry now dispatches per-spec.
+    """
+    return soda_cloud_impl.verify_contract_on_agent(
+        contract_yaml=check_collection_yaml,
+        variables=variables,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+        publish_results=publish_results,
+        verbose=verbose,
+    )
+
+
+# Register the contract family at module-import time. The session impl reads
+# each spec's ``kind`` and dispatches via the registry; importing this module
+# is what wires the contract subtype.
+register_family(
+    CheckCollectionFamily(
+        kind="contract",
+        display_name="contract",
+        wire_source="soda-contract",
+        test_scan_definition_type="contractTest",
+        yaml_class=ContractYaml,
+        impl_class=ContractImpl,
+        result_class=ContractVerificationResult,
+        on_agent_verifier=_verify_contract_on_agent,
+    )
+)
 
 
 # Re-exports for backwards compatibility
 __all__ = [
     "ContractImpl",
-    "ContractVerificationSessionImpl",
     "CheckCollectionImpl",
     "CheckCollectionImplExtension",
     "CheckCollectionVerificationSessionImpl",
