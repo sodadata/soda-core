@@ -32,6 +32,14 @@ logger: logging.Logger = soda_logger
 
 
 class ContractVerificationSession(CheckCollectionVerificationSession):
+    """Contract-typed subtype facade.
+
+    Callers pass contract YAML sources in and get a typed
+    :class:`ContractVerificationSessionResult` back. Heterogeneous (mixed-kind)
+    sessions go through :class:`CheckCollectionVerificationSession` with
+    ``specs=`` instead.
+    """
+
     @classmethod
     def execute(
         cls,
@@ -50,12 +58,18 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
         dwh_data_source_file_path: Optional[str] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
         check_collection_yaml_sources: Optional[list[CheckCollectionYamlSource]] = None,
-    ) -> CheckCollectionSessionResult:
+    ) -> ContractVerificationSessionResult:
+        """Execute a contract verification session.
+
+        Either ``contract_yaml_sources`` (legacy) or
+        ``check_collection_yaml_sources`` (canonical kwarg name) — both are
+        treated as contracts and produce a :class:`ContractVerificationSessionResult`.
+        """
         if contract_yaml_sources is not None and check_collection_yaml_sources is not None:
             raise TypeError("Pass either contract_yaml_sources (legacy) or check_collection_yaml_sources, not both")
-        sources = contract_yaml_sources if contract_yaml_sources is not None else check_collection_yaml_sources
+        contract_sources = contract_yaml_sources if contract_yaml_sources is not None else check_collection_yaml_sources
         base_result = super().execute(
-            check_collection_yaml_sources=sources,
+            check_collection_yaml_sources=contract_sources,
             only_validate_without_execute=only_validate_without_execute,
             variables=variables,
             data_timestamp=data_timestamp,
@@ -70,8 +84,9 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
             dwh_data_source_file_path=dwh_data_source_file_path,
             check_selectors=check_selectors,
         )
-        # The impl returns the universal base; wrap it in the typed result so
-        # callers iterating ``contract_verification_results`` keep working.
+        # The universal facade returns the base ``CheckCollectionSessionResult``;
+        # rewrap as ``ContractVerificationSessionResult`` so callers iterating
+        # ``contract_verification_results`` (the typed BC alias) keep working.
         return ContractVerificationSessionResult(check_collection_results=base_result.check_collection_results)
 
 

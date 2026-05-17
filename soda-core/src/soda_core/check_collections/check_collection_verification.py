@@ -9,6 +9,7 @@ from numbers import Number
 from typing import Any, Optional
 
 from soda_core import is_verbose
+from soda_core.check_collections.check_collection_spec import CheckCollectionSpec
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import CheckCollectionYamlSource, DataSourceYamlSource
@@ -26,7 +27,8 @@ class CheckCollectionVerificationSession:
     @classmethod
     def execute(
         cls,
-        check_collection_yaml_sources: list[CheckCollectionYamlSource],
+        specs: Optional[list[CheckCollectionSpec]] = None,
+        check_collection_yaml_sources: Optional[list[CheckCollectionYamlSource]] = None,
         only_validate_without_execute: bool = False,
         variables: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
@@ -43,7 +45,13 @@ class CheckCollectionVerificationSession:
     ) -> CheckCollectionSessionResult:
         """Execute a check-collection verification session.
 
-        @param check_collection_yaml_sources: The list of check-collection YAML sources to verify.
+        Either ``specs`` (canonical, supports mixed kinds) or
+        ``check_collection_yaml_sources`` (BC, assumes ``kind="contract"``).
+
+        @param specs: Canonical heterogeneous input — each spec carries its own
+            ``kind`` and the session impl dispatches via the family registry.
+        @param check_collection_yaml_sources: BC kwarg — each source is wrapped
+            in a ``kind="contract"`` spec by the impl bridge.
         @param only_validate_without_execute: If True, only validate without executing.
         @param variables: The variables to use in the queries.
         @param data_timestamp: The timestamp of the data to use for the verification.
@@ -68,6 +76,7 @@ class CheckCollectionVerificationSession:
         merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
 
         return CheckCollectionVerificationSessionImpl.execute(
+            specs=specs,
             check_collection_yaml_sources=check_collection_yaml_sources,
             only_validate_without_execute=only_validate_without_execute,
             variables=variables,
