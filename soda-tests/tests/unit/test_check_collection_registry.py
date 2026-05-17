@@ -124,81 +124,71 @@ def test_conflict_raises_value_error():
     assert "different value" in str(exc_info.value)
 
 
-def test_unknown_kind_raises_key_error_with_known_list():
-    """CheckCollection.get on an unregistered kind raises KeyError mentioning 'Known kinds:'."""
-    _register_sentinel(kind="sentinel")
+@pytest.mark.parametrize(
+    "register_sentinel, expected_known_substring",
+    [
+        (True, "'sentinel'"),
+        (False, "Known kinds: []"),
+    ],
+    ids=["registry_has_one_entry", "registry_empty"],
+)
+def test_unknown_kind_raises_key_error_with_known_list(register_sentinel, expected_known_substring):
+    """``CheckCollection.get`` on an unregistered kind raises KeyError carrying
+    the offending kind and the current 'Known kinds:' list. The error message
+    is identical in shape whether the registry has zero entries or one — the
+    'Known kinds: [...]' literal lets the caller diagnose typos against the
+    actual registry contents.
+    """
+    if register_sentinel:
+        _register_sentinel(kind="sentinel")
+    else:
+        assert CheckCollection.all() == []
 
     with pytest.raises(KeyError) as exc_info:
         CheckCollection.get("nope")
     message = str(exc_info.value)
-    assert "Known kinds:" in message
     assert "nope" in message
+    assert "Known kinds:" in message
+    assert expected_known_substring in message
 
 
-def test_empty_registry_get_says_known_kinds_empty_and_all_is_empty():
-    """Empty registry: get raises with 'Known kinds: []' and all() returns []."""
-    assert CheckCollection.all() == []
-    with pytest.raises(KeyError) as exc_info:
-        CheckCollection.get("anything")
-    assert "Known kinds: []" in str(exc_info.value)
-
-
-def test_register_rejects_impl_with_empty_wire_source():
+@pytest.mark.parametrize(
+    "bad_wire_source, kind",
+    [
+        ("", "sentinel_empty_wire"),
+        (42, "sentinel_int_wire"),
+    ],
+    ids=["empty_str", "non_str"],
+)
+def test_register_rejects_impl_with_invalid_wire_source(bad_wire_source, kind):
     """``CheckCollection.register`` validates that the impl class declares a
-    non-empty ``_WIRE_SOURCE`` string. An empty value would silently route the
-    Cloud upload under an empty ``source`` literal and the backend would drop
-    the checks. The validator must fail loud at registration time, naming the
-    impl class and explaining the requirement.
+    non-empty ``_WIRE_SOURCE`` string. Both an empty value and a non-str value
+    would silently produce a broken Cloud upload (empty ``source`` literal or
+    a non-string in the JSON payload) and backend would drop the checks. The
+    validator must fail loud at registration time naming the impl class and
+    explaining the requirement.
     """
 
-    class _SentinelEmptyWireYaml(CheckCollectionYaml):
-        _KIND = "sentinel_empty_wire"
+    class _SentinelInvalidWireYaml(CheckCollectionYaml):
+        _KIND = kind
 
-    class _SentinelEmptyWireResult(CheckCollectionResult):
+    class _SentinelInvalidWireResult(CheckCollectionResult):
         pass
 
-    class _SentinelEmptyWireImpl(CheckCollectionImpl[_SentinelEmptyWireYaml, _SentinelEmptyWireResult]):
-        _WIRE_SOURCE = ""
+    class _SentinelInvalidWireImpl(CheckCollectionImpl[_SentinelInvalidWireYaml, _SentinelInvalidWireResult]):
+        _WIRE_SOURCE = bad_wire_source  # type: ignore[assignment]
 
     with pytest.raises(ValueError) as exc_info:
         CheckCollection.register(
-            kind="sentinel_empty_wire",
-            yaml_class=_SentinelEmptyWireYaml,
-            impl_class=_SentinelEmptyWireImpl,
+            kind=kind,
+            yaml_class=_SentinelInvalidWireYaml,
+            impl_class=_SentinelInvalidWireImpl,
             on_agent_verifier=None,
         )
     message = str(exc_info.value)
     assert "_WIRE_SOURCE" in message
     assert "non-empty str" in message
-    assert "_SentinelEmptyWireImpl" in message
-
-
-def test_register_rejects_impl_with_non_str_wire_source():
-    """``CheckCollection.register`` rejects a non-str ``_WIRE_SOURCE`` (e.g. an
-    int). The validator must fail loud at registration time with the same
-    'non-empty str' error class & message.
-    """
-
-    class _SentinelIntWireYaml(CheckCollectionYaml):
-        _KIND = "sentinel_int_wire"
-
-    class _SentinelIntWireResult(CheckCollectionResult):
-        pass
-
-    class _SentinelIntWireImpl(CheckCollectionImpl[_SentinelIntWireYaml, _SentinelIntWireResult]):
-        _WIRE_SOURCE = 42  # type: ignore[assignment]
-
-    with pytest.raises(ValueError) as exc_info:
-        CheckCollection.register(
-            kind="sentinel_int_wire",
-            yaml_class=_SentinelIntWireYaml,
-            impl_class=_SentinelIntWireImpl,
-            on_agent_verifier=None,
-        )
-    message = str(exc_info.value)
-    assert "_WIRE_SOURCE" in message
-    assert "non-empty str" in message
-    assert "_SentinelIntWireImpl" in message
+    assert "_SentinelInvalidWireImpl" in message
 
 
 def test_register_rejects_kind_yaml_mismatch():

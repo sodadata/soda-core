@@ -17,6 +17,7 @@ All four use ``only_validate_without_execute=True`` to avoid hitting a DB.
 
 from __future__ import annotations
 
+import pytest
 from soda_core.check_collections.check_collection_spec import CheckCollectionSpec
 from soda_core.check_collections.check_collection_verification import (
     CheckCollectionSessionResult,
@@ -42,10 +43,19 @@ def _yaml_source() -> ContractYamlSource:
     return ContractYamlSource.from_str(_CONTRACT_YAML)
 
 
-def test_contract_session_with_legacy_kwarg_returns_typed_result():
-    """ContractVerificationSession.execute(contract_yaml_sources=...) — legacy entry."""
+@pytest.mark.parametrize(
+    "kwarg_name",
+    ["contract_yaml_sources", "check_collection_yaml_sources"],
+    ids=["legacy_kwarg", "canonical_kwarg"],
+)
+def test_contract_session_returns_typed_result_on_either_kwarg(kwarg_name):
+    """``ContractVerificationSession.execute`` accepts both the legacy
+    ``contract_yaml_sources=`` and the canonical
+    ``check_collection_yaml_sources=`` kwarg name; both return a
+    ``ContractVerificationSessionResult`` carrying the typed BC alias.
+    """
     result = ContractVerificationSession.execute(
-        contract_yaml_sources=[_yaml_source()],
+        **{kwarg_name: [_yaml_source()]},
         only_validate_without_execute=True,
     )
     assert isinstance(result, ContractVerificationSessionResult)
@@ -53,33 +63,22 @@ def test_contract_session_with_legacy_kwarg_returns_typed_result():
     assert result.contract_verification_results == result.check_collection_results
 
 
-def test_contract_session_with_canonical_kwarg_returns_typed_result():
-    """ContractVerificationSession.execute(check_collection_yaml_sources=...) — canonical kwarg name."""
-    result = ContractVerificationSession.execute(
-        check_collection_yaml_sources=[_yaml_source()],
-        only_validate_without_execute=True,
-    )
-    assert isinstance(result, ContractVerificationSessionResult)
-
-
-def test_universal_session_with_specs_returns_base_result():
-    """CheckCollectionVerificationSession.execute(specs=...) — canonical heterogeneous entry."""
-    spec = CheckCollectionSpec(kind="contract", yaml_source=_yaml_source())
+@pytest.mark.parametrize(
+    "kwarg_name, value_builder",
+    [
+        ("specs", lambda: [CheckCollectionSpec(kind="contract", yaml_source=_yaml_source())]),
+        ("check_collection_yaml_sources", lambda: [_yaml_source()]),
+    ],
+    ids=["canonical_specs", "bc_kwarg"],
+)
+def test_universal_session_returns_base_result_on_either_input_shape(kwarg_name, value_builder):
+    """``CheckCollectionVerificationSession.execute`` accepts both the canonical
+    heterogeneous ``specs=`` input and the BC ``check_collection_yaml_sources=``
+    kwarg; both return the base ``CheckCollectionSessionResult`` (NOT the
+    contract-typed subtype — typed wrapping is the subtype facade's job).
+    """
     result = CheckCollectionVerificationSession.execute(
-        specs=[spec],
-        only_validate_without_execute=True,
-    )
-    assert isinstance(result, CheckCollectionSessionResult)
-    # Typed wrapping is the subtype facade's job — the universal facade must
-    # not pre-wrap into the contract-typed subtype.
-    assert not isinstance(result, ContractVerificationSessionResult)
-    assert len(result.check_collection_results) == 1
-
-
-def test_universal_session_with_bc_kwarg_returns_base_result():
-    """CheckCollectionVerificationSession.execute(check_collection_yaml_sources=...) — BC kwarg path."""
-    result = CheckCollectionVerificationSession.execute(
-        check_collection_yaml_sources=[_yaml_source()],
+        **{kwarg_name: value_builder()},
         only_validate_without_execute=True,
     )
     assert isinstance(result, CheckCollectionSessionResult)
@@ -141,6 +140,42 @@ def test_importing_soda_core_contracts_eagerly_registers_in_fresh_interpreter():
     # returncode + the presence of "OK" together prove the script ran the full
     # registry assertion chain.
     assert "OK" in result.stdout
+
+
+def test_contract_facade_does_not_reraise_for_multi_input():
+    """The contract-typed facade re-raises ``SodaCoreException`` ONLY when
+    there's exactly one input (legacy single-contract semantics). When two or
+    more contracts are passed, the bad slot is returned as an ERROR-status
+    placeholder rather than re-raised so multi-input callers can match results
+    to inputs by index.
+
+    Pins the asymmetry: legacy single-input re-raise is preserved, but a
+    future "fix" widening the re-raise scope to all ``SodaCoreException``
+    cases would silently break multi-input callers — this test catches that.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
+
+    good_yaml = _CONTRACT_YAML
+    bad_yaml = "columns:\n  - name: id\n"  # missing required 'dataset' property
+
+    # No raise — multi-input path returns both ERROR + OK slots.
+    result = ContractVerificationSession.execute(
+        contract_yaml_sources=[
+            ContractYamlSource.from_str(good_yaml),
+            ContractYamlSource.from_str(bad_yaml),
+        ],
+        only_validate_without_execute=True,
+    )
+    assert isinstance(result, ContractVerificationSessionResult)
+    assert len(result.check_collection_results) == 2
+    # The bad slot is an ERROR placeholder carrying its originating exception.
+    bad_result = result.check_collection_results[1]
+    assert bad_result.status is ContractVerificationStatus.ERROR
+    from soda_core.common.exceptions import YamlParserException
+
+    assert isinstance(bad_result.originating_exception, YamlParserException)
 
 
 def test_contract_facade_reraises_soda_core_exception_for_single_input():

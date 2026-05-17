@@ -7,6 +7,7 @@ Publishing results to Soda Cloud must not crash with an AttributeError on
 
 from datetime import datetime, timezone
 
+import pytest
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.common.soda_cloud import _build_contract_result_json_dict
 from soda_core.common.yaml import ContractYamlSource
@@ -56,6 +57,30 @@ def test_build_contract_result_json_dict_does_not_crash_when_data_source_is_none
     assert "defaultDataSource" not in json_dict
     assert "defaultDataSourceProperties" not in json_dict
     assert json_dict["hasErrors"] is True
+
+
+def test_contract_construction_requires_wire_source():
+    """``Contract`` (the universal boundary dataclass, aliased to
+    ``CheckCollectionTarget``) marks ``wire_source`` as a required field. A
+    construction site that forgets ``wire_source=`` must fail loud with
+    ``TypeError`` at construction time rather than silently default to
+    ``"soda-contract"`` and route a future data-standard upload to the wrong
+    Cloud ``source`` literal.
+
+    Pins the required-field invariant. The two contract-bound construction
+    sites in ``common/soda_cloud.py`` pass ``wire_source="soda-contract"``
+    explicitly; a future ``DataStandardImpl`` construction site that adds
+    its own ``Contract(...)`` must make the same explicit choice.
+    """
+    with pytest.raises(TypeError, match="wire_source"):
+        Contract(  # type: ignore[call-arg]
+            data_source_name=None,
+            dataset_prefix=[],
+            dataset_name="x",
+            soda_qualified_dataset_name="x",
+            source=YamlFileContentInfo(source_content_str=None, local_file_path=None),
+            # No wire_source= kwarg — must raise.
+        )
 
 
 def test_verify_does_not_send_results_to_cloud_when_datasource_not_found():

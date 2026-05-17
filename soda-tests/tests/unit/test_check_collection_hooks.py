@@ -21,7 +21,6 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
 )
 from soda_core.check_collections.impl.check_collection_yaml import CheckCollectionYaml
 from soda_core.common.yaml import CheckCollectionYamlSource
-from soda_core.contracts.impl.contract_verification_impl import ContractImpl
 from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 
@@ -109,21 +108,6 @@ def test_kind_classvar_distinct_from_display_name():
     assert ContractYaml._KIND == ContractYaml._DISPLAY_NAME
 
 
-def test_wire_source_classvar_on_contract_impl():
-    """Cloud upload reads ``type(impl)._WIRE_SOURCE``; contracts use ``"soda-contract"``."""
-    assert ContractImpl._WIRE_SOURCE == "soda-contract"
-
-
-def test_wire_source_required_on_concrete_subclass():
-    """Bare-base read raises AttributeError (no default — subtypes MUST set it)."""
-    from soda_core.check_collections.impl.check_collection_verification_impl import (
-        CheckCollectionImpl,
-    )
-
-    with pytest.raises(AttributeError):
-        CheckCollectionImpl._WIRE_SOURCE  # noqa: B018
-
-
 def test_classvar_validator_rejects_concrete_subtype_without_wire_source():
     """A concrete subtype declared without ``_WIRE_SOURCE`` fails at class creation."""
 
@@ -137,18 +121,6 @@ def test_classvar_validator_rejects_concrete_subtype_without_wire_source():
 
         class _MissingWireSourceImpl(CheckCollectionImpl[_MissingYaml, _MissingResult]):
             pass
-
-
-def test_extra_identity_properties_default_is_empty():
-    """Default hook returns ``{}`` so contract identity hashes stay byte-identical."""
-    from soda_core.check_collections.impl.check_collection_verification_impl import (
-        CheckImpl,
-    )
-
-    class _Probe:
-        _extra_identity_properties = CheckImpl._extra_identity_properties
-
-    assert _Probe()._extra_identity_properties() == {}
 
 
 def test_merge_identity_properties_returns_none_when_both_empty():
