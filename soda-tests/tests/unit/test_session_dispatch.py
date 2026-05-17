@@ -115,13 +115,17 @@ def _make_sentinel_result(
 
 @pytest.fixture(autouse=True)
 def _clean_registry() -> Iterator[None]:
-    """Snapshot the registry around each test so sentinel descriptors don't leak."""
-    saved = dict(CheckCollection._REGISTRY)
+    """Snapshot the registry around each test so sentinel descriptors don't leak.
+
+    Uses the ``_snapshot()`` / ``_restore()`` test-only helpers on
+    ``CheckCollection`` so the fixture doesn't reach into the private
+    ``_REGISTRY`` dict directly.
+    """
+    saved = CheckCollection._snapshot()
     try:
         yield
     finally:
-        CheckCollection._REGISTRY.clear()
-        CheckCollection._REGISTRY.update(saved)
+        CheckCollection._restore(saved)
 
 
 def _yaml_source() -> CheckCollectionYamlSource:

@@ -21,15 +21,16 @@ def _clean_registry() -> Iterator[None]:
 
     The registry is class-level mutable state on ``CheckCollection``; tests
     must not leak entries into each other or into other test modules in the
-    same session.
+    same session. Uses the ``_snapshot()`` / ``_restore()`` test-only helpers
+    on ``CheckCollection`` so the fixture doesn't poke at the private
+    ``_REGISTRY`` dict directly.
     """
-    saved = dict(CheckCollection._REGISTRY)
-    CheckCollection._REGISTRY.clear()
+    saved = CheckCollection._snapshot()
+    CheckCollection._restore({})
     try:
         yield
     finally:
-        CheckCollection._REGISTRY.clear()
-        CheckCollection._REGISTRY.update(saved)
+        CheckCollection._restore(saved)
 
 
 # Stand-in classes for descriptor fixtures. Only their class identity matters.

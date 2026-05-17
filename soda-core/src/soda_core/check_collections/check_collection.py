@@ -158,3 +158,33 @@ class CheckCollection:
     def all(cls) -> list["CheckCollection"]:
         """Return all registered descriptors in insertion order."""
         return list(cls._REGISTRY.values())
+
+    @classmethod
+    def _snapshot(cls) -> dict[str, "CheckCollection"]:
+        """Return a snapshot of the current registry contents. Test-only helper.
+
+        Use with :meth:`_restore` in test fixtures to isolate sentinel
+        registrations from leaking between tests::
+
+            @pytest.fixture(autouse=True)
+            def _clean_registry():
+                saved = CheckCollection._snapshot()
+                try:
+                    yield
+                finally:
+                    CheckCollection._restore(saved)
+
+        The leading underscore signals "test helper, not public stable API" —
+        production code should use :meth:`register` / :meth:`get` / :meth:`all`.
+        """
+        return dict(cls._REGISTRY)
+
+    @classmethod
+    def _restore(cls, snapshot: dict[str, "CheckCollection"]) -> None:
+        """Replace the registry contents with ``snapshot``. Test-only helper.
+
+        See :meth:`_snapshot` for the intended pattern. The leading underscore
+        signals "test helper, not public stable API".
+        """
+        cls._REGISTRY.clear()
+        cls._REGISTRY.update(snapshot)

@@ -27,8 +27,18 @@ class CheckCollectionSpec:
     backend collection_id UUID — the backend's ``findByNames(prefixes,
     DataStandard.class)`` call at ``DataStandardIngestionFilterModule.java:62-74``
     only resolves on the ``name`` column.
+
+    Specs are intentionally unhashable — they describe per-``execute()`` inputs,
+    not registry entries; use ``kind`` + identity for lookup. The frozen dataclass
+    would otherwise auto-generate ``__hash__`` based on field hashability, and
+    ``yaml_source`` (a ``CheckCollectionYamlSource``) may carry unhashable state.
+    Setting ``__hash__ = None`` explicitly makes the unhashability deliberate
+    rather than incidental — if a future code path actually needs to hash specs,
+    the failure mode is clear and the fix should be at the call site, not by
+    relying on whatever ``yaml_source`` happens to be hashable.
     """
 
     kind: str
     yaml_source: CheckCollectionYamlSource
     collection_name: Optional[str] = None
+    __hash__ = None  # type: ignore[assignment]
