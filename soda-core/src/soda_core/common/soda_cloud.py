@@ -44,9 +44,9 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    CheckCollectionTarget,
     CheckOutcome,
     CheckResult,
-    Contract,
     ContractVerificationResult,
     ContractVerificationStatus,
     PostProcessingStageState,
@@ -477,7 +477,7 @@ class SodaCloud:
         yaml_file_path = source_metadata["filePath"] if "filePath" in source_metadata else None
 
         return ContractPublicationResult(
-            contract=Contract(
+            contract=CheckCollectionTarget(
                 data_source_name=dataset_identifier.data_source_name,
                 dataset_prefix=dataset_identifier.prefixes,
                 dataset_name=dataset_identifier.dataset_name,
@@ -489,7 +489,7 @@ class SodaCloud:
                 soda_qualified_dataset_name=contract_yaml.dataset,
                 # Contract-bound publish endpoint — only handles contracts today.
                 # A future data-standards publish path would build its own
-                # Contract(...) with wire_source from its impl's _WIRE_SOURCE.
+                # CheckCollectionTarget(...) with wire_source from its impl's _WIRE_SOURCE.
                 wire_source="soda-contract",
                 dataset_id=response_json.get("publishedContract", {}).get("datasetId", None),
             ),
@@ -556,7 +556,7 @@ class SodaCloud:
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 
         verification_result = ContractVerificationResult(
-            contract=Contract(
+            contract=CheckCollectionTarget(
                 data_source_name=dataset_identifier.data_source_name,
                 dataset_prefix=dataset_identifier.prefixes,
                 dataset_name=dataset_identifier.dataset_name,
@@ -568,7 +568,7 @@ class SodaCloud:
                 ),
                 # Contract-bound agent verifier — only handles contracts today.
                 # A future data-standards on-agent path would build its own
-                # Contract(...) with wire_source from its impl's _WIRE_SOURCE.
+                # CheckCollectionTarget(...) with wire_source from its impl's _WIRE_SOURCE.
                 wire_source="soda-contract",
             ),
             data_source=None,
@@ -1418,12 +1418,10 @@ def _build_check_results_cloud_json_dicts(
     contract_verification_result: ContractVerificationResult,
 ) -> Optional[list[dict]]:
     check_results: Optional[list[CheckResult]] = contract_verification_result.check_results
-    contract: Contract = contract_verification_result.contract
+    target: CheckCollectionTarget = contract_verification_result.contract
     if not check_results:
         return None
-    return [
-        _build_check_result_cloud_dict(contract=contract, check_result=check_result) for check_result in check_results
-    ]
+    return [_build_check_result_cloud_dict(target=target, check_result=check_result) for check_result in check_results]
 
 
 def _build_scan_definition_name(contract_verification_result: ContractVerificationResult) -> str:
@@ -1496,20 +1494,20 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
     )
 
 
-def _build_contract_cloud_json_dict(contract: Contract):
+def _build_contract_cloud_json_dict(target: CheckCollectionTarget):
     return {
-        "fileId": contract.source.soda_cloud_file_id,
+        "fileId": target.source.soda_cloud_file_id,
         "metadata": {
             "source": {
                 "type": "local",
                 # TODO: make contract metadata verification optional on BE?
-                "filePath": contract.source.local_file_path or "REMOTE",
+                "filePath": target.source.local_file_path or "REMOTE",
             }
         },
     }
 
 
-def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
+def _build_check_result_cloud_dict(target: CheckCollectionTarget, check_result: CheckResult) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
         "checkPath": check_result.check.path,
@@ -1519,15 +1517,15 @@ def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult
         "definition": check_result.check.definition,
         **_build_check_attributes(check_result.check.attributes).model_dump(by_alias=True),
         "location": _build_check_location(check_result),
-        "dataSource": contract.data_source_name,
-        "table": contract.dataset_name,
-        "datasetPrefix": contract.dataset_prefix,
+        "dataSource": target.data_source_name,
+        "table": target.dataset_name,
+        "datasetPrefix": target.dataset_prefix,
         "column": check_result.check.column_name,
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
         # Read from the boundary object rather than hardcoding — future subtypes
-        # (e.g. data-standards) flow through via ``contract.wire_source`` populated
+        # (e.g. data-standards) flow through via ``target.wire_source`` populated
         # from ``type(check_collection_impl)._WIRE_SOURCE`` at construction time.
-        "source": contract.wire_source,
+        "source": target.wire_source,
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }
 

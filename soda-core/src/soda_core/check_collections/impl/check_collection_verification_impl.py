@@ -13,9 +13,9 @@ from soda_core.check_collections.check_collection_verification import (
     Check,
     CheckCollectionResult,
     CheckCollectionSessionResult,
+    CheckCollectionTarget,
     CheckOutcome,
     CheckResult,
-    Contract,
     ContractVerificationStatus,
     DataSource,
     Measurement,
@@ -484,7 +484,7 @@ def _build_error_result(
         wire_source = ""
         display_name = f"unknown kind {spec.kind!r}"
         result_cls = CheckCollectionResult
-    contract = Contract(
+    contract = CheckCollectionTarget(
         data_source_name=None,
         dataset_prefix=[],
         dataset_name=spec.collection_name or "",
@@ -935,7 +935,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             post_processing_stages += check_collection_verification_handler.provides_post_processing_stages()
 
         check_collection_result = result_cls(
-            contract=Contract(
+            contract=CheckCollectionTarget(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
                 dataset_prefix=self.dataset_prefix,
                 dataset_name=self.dataset_name,

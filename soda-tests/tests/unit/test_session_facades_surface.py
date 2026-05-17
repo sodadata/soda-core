@@ -192,6 +192,26 @@ def test_universal_facade_does_not_reraise_isolated_errors():
     assert error_result.status is ContractVerificationStatus.ERROR
 
 
+def test_contract_alias_points_to_check_collection_target():
+    """``Contract`` is preserved as a module-level BC alias pointing at the
+    universal ``CheckCollectionTarget`` boundary dataclass. External callers
+    that ``from soda_core.contracts.contract_verification import Contract``
+    keep working; soda-core internal code uses ``CheckCollectionTarget``.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        CheckCollectionTarget as InternalTarget,
+    )
+    from soda_core.contracts.contract_verification import (
+        CheckCollectionTarget as FacadeTarget,
+    )
+    from soda_core.contracts.contract_verification import Contract
+
+    # The facade re-export and the internal symbol are the same class.
+    assert FacadeTarget is InternalTarget
+    # ``Contract`` is the BC alias for the same class.
+    assert Contract is InternalTarget
+
+
 def test_contract_wire_source_is_plumbed_from_classvar_to_contract():
     """The ``Contract`` boundary object carries ``wire_source`` populated from
     ``type(check_collection_impl)._WIRE_SOURCE`` at construction time, so the

@@ -224,7 +224,17 @@ class YamlFileContentInfo:
 
 
 @dataclass
-class Contract:
+class CheckCollectionTarget:
+    """Boundary metadata for the dataset a check collection targets.
+
+    Universal across all check-collection subtypes (contracts, data standards,
+    suites). Carries the publication target's identity (data source, dataset
+    prefix/name, qualified name), the YAML source content, and the per-check
+    wire ``source`` literal stamped onto every uploaded check. Was previously
+    named ``Contract``; renamed for honesty across subtypes. ``Contract`` is
+    kept as a module-level BC alias.
+    """
+
     data_source_name: Optional[str]
     dataset_prefix: list[str]
     dataset_name: str
@@ -234,14 +244,20 @@ class Contract:
     # Populated from ``type(check_collection_impl)._WIRE_SOURCE`` at the
     # construction site so the upload boundary does not have to know about
     # the impl class hierarchy. Required (no default) so future subtype
-    # authors adding non-contract ``Contract(...)`` construction sites must
-    # make an explicit wire-source choice — silently defaulting to
+    # authors adding non-contract ``CheckCollectionTarget(...)`` construction
+    # sites must make an explicit wire-source choice — silently defaulting to
     # ``"soda-contract"`` would route a data-standard upload under the
     # wrong ``source`` and backend's ``filterChecksToKnownStandards`` would
     # drop the checks. The two existing contract-bound sites in
     # ``common/soda_cloud.py`` pass ``wire_source="soda-contract"`` explicitly.
     wire_source: str
     dataset_id: Optional[str] = None  # This one can be filled later when we get the dataset id from Soda Cloud
+
+
+# BC alias — external callers (and a few in-code sites) keep importing
+# ``Contract`` from ``check_collection_verification`` / ``contract_verification``.
+# Internal soda-core code uses ``CheckCollectionTarget``.
+Contract = CheckCollectionTarget
 
 
 @dataclass
@@ -505,7 +521,7 @@ class CheckCollectionResult:
 
     def __init__(
         self,
-        contract: Contract,
+        contract: CheckCollectionTarget,
         data_source: Optional[DataSource],
         data_timestamp: Optional[datetime],
         started_timestamp: datetime,
@@ -519,7 +535,7 @@ class CheckCollectionResult:
         token_usage: Optional[list[ScanTokenUsage]] = None,
         originating_exception: Optional[BaseException] = None,
     ):
-        self.contract: Contract = contract
+        self.contract: CheckCollectionTarget = contract
         self.data_source: Optional[DataSource] = data_source
         self.data_timestamp: Optional[datetime] = data_timestamp
         self.started_timestamp: datetime = started_timestamp
@@ -547,7 +563,7 @@ class CheckCollectionResult:
     def error_placeholder(
         cls,
         *,
-        contract: Contract,
+        contract: CheckCollectionTarget,
         log_record: LogRecord,
         originating_exception: BaseException,
         started_timestamp: Optional[datetime] = None,
