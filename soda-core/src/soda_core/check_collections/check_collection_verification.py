@@ -466,12 +466,29 @@ class Measurement:
         self.value: Any = value
 
 
-class ContractVerificationStatus(Enum):
+class CheckCollectionStatus(Enum):
+    """Universal verification status enum.
+
+    Used as ``CheckCollectionResult.status`` on every check-collection subtype
+    (contracts, data standards, future suites). Was previously named
+    ``ContractVerificationStatus``; renamed because the status enum is
+    subtype-agnostic. ``ContractVerificationStatus`` is preserved as a
+    module-level BC alias.
+
+    Values are unchanged — only the class name moves.
+    """
+
     UNKNOWN = "UNKNOWN"
     WARNED = "WARNED"
     FAILED = "FAILED"
     PASSED = "PASSED"
     ERROR = "ERROR"
+
+
+# BC alias — external callers and a few in-code sites keep importing
+# ``ContractVerificationStatus``. Internal soda-core code uses
+# ``CheckCollectionStatus``.
+ContractVerificationStatus = CheckCollectionStatus
 
 
 @dataclass
@@ -505,7 +522,7 @@ class CheckCollectionResult:
     @param data_source: The data source that was used for the verification.
     @param data_timestamp: The timestamp of the data to use for the verification.
     @param ended_timestamp: The timestamp when the verification ended.
-    @param status: The status of the verification. One of ContractVerificationStatus.
+    @param status: The status of the verification. One of CheckCollectionStatus.
     @param measurements: The measurements taken during the verification.
     @param check_results: The results of the checks performed during the verification.
     @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
@@ -526,7 +543,7 @@ class CheckCollectionResult:
         data_timestamp: Optional[datetime],
         started_timestamp: datetime,
         ended_timestamp: datetime,
-        status: ContractVerificationStatus,
+        status: CheckCollectionStatus,
         measurements: list[Measurement],
         check_results: list[CheckResult],
         sending_results_to_soda_cloud_failed: bool,
@@ -587,7 +604,7 @@ class CheckCollectionResult:
             data_timestamp=None,
             started_timestamp=now,
             ended_timestamp=ended,
-            status=ContractVerificationStatus.ERROR,
+            status=CheckCollectionStatus.ERROR,
             measurements=[],
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
@@ -621,7 +638,7 @@ class CheckCollectionResult:
 
     @property
     def has_errors(self) -> bool:
-        return self.status is ContractVerificationStatus.ERROR
+        return self.status is CheckCollectionStatus.ERROR
 
     @property
     def is_failed(self) -> bool:
@@ -631,7 +648,7 @@ class CheckCollectionResult:
         Only looks at check results.
         Ignores execution errors in the logs.
         """
-        return self.status is ContractVerificationStatus.FAILED
+        return self.status is CheckCollectionStatus.FAILED
 
     @property
     def is_passed(self) -> bool:
@@ -639,7 +656,7 @@ class CheckCollectionResult:
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
-        return self.status is ContractVerificationStatus.PASSED
+        return self.status is CheckCollectionStatus.PASSED
 
     @property
     def is_warned(self) -> bool:
@@ -647,7 +664,7 @@ class CheckCollectionResult:
         Returns true if there are checks that have warnings.
         Ignores execution errors in the logs.
         """
-        return self.status is ContractVerificationStatus.WARNED
+        return self.status is CheckCollectionStatus.WARNED
 
     @property
     def is_ok(self) -> bool:

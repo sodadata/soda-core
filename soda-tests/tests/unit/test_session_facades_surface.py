@@ -192,6 +192,28 @@ def test_universal_facade_does_not_reraise_isolated_errors():
     assert error_result.status is ContractVerificationStatus.ERROR
 
 
+def test_contract_verification_status_alias_points_to_check_collection_status():
+    """``ContractVerificationStatus`` is preserved as a module-level BC alias
+    pointing at the universal ``CheckCollectionStatus`` enum. Values are
+    unchanged — only the class name moves. External callers that
+    ``from soda_core.contracts.contract_verification import ContractVerificationStatus``
+    keep working; soda-core internal code uses ``CheckCollectionStatus``.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        CheckCollectionStatus as InternalStatus,
+    )
+    from soda_core.contracts.contract_verification import (
+        CheckCollectionStatus as FacadeStatus,
+    )
+    from soda_core.contracts.contract_verification import ContractVerificationStatus
+
+    assert FacadeStatus is InternalStatus
+    assert ContractVerificationStatus is InternalStatus
+    # Enum values unchanged.
+    assert ContractVerificationStatus.PASSED is InternalStatus.PASSED
+    assert ContractVerificationStatus.ERROR.value == "ERROR"
+
+
 def test_contract_alias_points_to_check_collection_target():
     """``Contract`` is preserved as a module-level BC alias pointing at the
     universal ``CheckCollectionTarget`` boundary dataclass. External callers

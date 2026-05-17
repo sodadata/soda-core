@@ -44,11 +44,11 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
     CheckCollectionTarget,
     CheckOutcome,
     CheckResult,
     ContractVerificationResult,
-    ContractVerificationStatus,
     PostProcessingStageState,
     SodaException,
     Threshold,
@@ -579,7 +579,7 @@ class SodaCloud:
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
             log_records=None,
-            status=ContractVerificationStatus.UNKNOWN,
+            status=CheckCollectionStatus.UNKNOWN,
         )
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
@@ -1695,17 +1695,17 @@ def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
 
 def _map_remote_scan_status_to_contract_verification_status(
     scan_status: RemoteScanStatus,
-) -> ContractVerificationStatus:
+) -> CheckCollectionStatus:
     if scan_status == RemoteScanStatus.COMPLETED:
-        return ContractVerificationStatus.PASSED
+        return CheckCollectionStatus.PASSED
     elif scan_status == RemoteScanStatus.COMPLETED_WITH_WARNINGS:
-        return ContractVerificationStatus.WARNED
+        return CheckCollectionStatus.WARNED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
-        return ContractVerificationStatus.FAILED
+        return CheckCollectionStatus.FAILED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_ERRORS,):
-        return ContractVerificationStatus.ERROR
+        return CheckCollectionStatus.ERROR
     else:
-        return ContractVerificationStatus.UNKNOWN
+        return CheckCollectionStatus.UNKNOWN
 
 
 # def _build_diagnostics_column_data_type_mismatches(

@@ -13,10 +13,10 @@ from soda_core.check_collections.check_collection_verification import (
     Check,
     CheckCollectionResult,
     CheckCollectionSessionResult,
+    CheckCollectionStatus,
     CheckCollectionTarget,
     CheckOutcome,
     CheckResult,
-    ContractVerificationStatus,
     DataSource,
     Measurement,
     PostProcessingStage,
@@ -451,7 +451,7 @@ def _build_error_result(
     Per-spec isolation contract: when a spec fails before producing a real
     result, the session impl appends this placeholder so the result list stays
     positional with the input ``specs``. The placeholder carries
-    ``status=ContractVerificationStatus.ERROR``, no check results, and a single
+    ``status=CheckCollectionStatus.ERROR``, no check results, and a single
     ERROR-level log record whose message names the spec's kind plus the
     exception's class and message. The originating exception is stored on a
     public ``originating_exception`` attribute so the contract-typed facade
@@ -858,7 +858,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
-        contract_verification_status: ContractVerificationStatus = ContractVerificationStatus.UNKNOWN
+        contract_verification_status: CheckCollectionStatus = CheckCollectionStatus.UNKNOWN
         dataset_rows_tested: Optional[int] = None
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
@@ -871,7 +871,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             data_source = self.data_source_impl.build_data_source()
 
         if self.logs.has_errors:
-            contract_verification_status = ContractVerificationStatus.ERROR
+            contract_verification_status = CheckCollectionStatus.ERROR
 
         elif not self.only_validate_without_execute:
             # Executing the queries will set the value of the metrics linked to queries.
@@ -1143,20 +1143,20 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
             )
 
 
-def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> ContractVerificationStatus:
+def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> CheckCollectionStatus:
     if has_errors:
-        return ContractVerificationStatus.ERROR
+        return CheckCollectionStatus.ERROR
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):
-        return ContractVerificationStatus.FAILED
+        return CheckCollectionStatus.FAILED
 
     if any(check_result.outcome == CheckOutcome.WARN for check_result in check_results):
-        return ContractVerificationStatus.WARNED
+        return CheckCollectionStatus.WARNED
 
     if all(check_result.outcome == CheckOutcome.PASSED for check_result in check_results):
-        return ContractVerificationStatus.PASSED
+        return CheckCollectionStatus.PASSED
 
-    return ContractVerificationStatus.UNKNOWN
+    return CheckCollectionStatus.UNKNOWN
 
 
 class MeasurementValues:
