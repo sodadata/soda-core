@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.sql_dialect import *
 from soda_core.contracts.contract_verification import CheckOutcome, CheckResult
@@ -111,7 +113,7 @@ class RowCountMetricImpl(AggregationMetricImpl):
         else:
             return COUNT(STAR())
 
-    def convert_db_value(self, value: any) -> any:
+    def convert_db_value(self, value: Any) -> Any:
         # Note: expression SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) gives NULL / None as a result if
         # there are no rows
         return int(value) if value is not None else 0

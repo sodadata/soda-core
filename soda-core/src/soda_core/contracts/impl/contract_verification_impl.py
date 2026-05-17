@@ -91,7 +91,8 @@ CheckCollection.register(
 # ``CheckCollectionVerificationSessionImpl`` lives in
 # ``check_collections.impl.check_collection_verification_impl`` — import it
 # from there directly. Re-exporting it here is misleading now that the
-# universal session impl is family-agnostic.
+# universal session impl is subtype-agnostic (dispatches via the
+# ``CheckCollection`` registry rather than a contract-specific class).
 __all__ = [
     "ContractImpl",
     "CheckCollectionImpl",

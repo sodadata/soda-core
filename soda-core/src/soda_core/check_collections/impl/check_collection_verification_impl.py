@@ -5,7 +5,7 @@ from datetime import timezone
 from enum import Enum
 from io import StringIO
 from logging import LogRecord
-from typing import ClassVar, Generic, Protocol, TypeVar, get_args, get_origin
+from typing import Any, ClassVar, Generic, Protocol, TypeVar, get_args, get_origin
 
 from ruamel.yaml import YAML
 from soda_core.check_collections.check_collection_spec import CheckCollectionSpec
@@ -101,9 +101,10 @@ class CheckCollectionVerificationSessionImpl:
     """Universal verification session impl.
 
     A session run takes a heterogeneous ``list[CheckCollectionSpec]`` — each
-    spec carries its ``kind`` and the session impl dispatches via the family
-    registry. The legacy ``check_collection_yaml_sources`` kwarg is kept as a
-    BC bridge that wraps each source in a ``kind="contract"`` spec.
+    spec carries its ``kind`` and the session impl dispatches via the
+    ``CheckCollection`` registry. The legacy ``check_collection_yaml_sources``
+    kwarg is kept as a BC bridge that wraps each source in a
+    ``kind="contract"`` spec.
     """
 
     @classmethod
@@ -624,7 +625,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
 
         self.dataset_name: Optional[str] = None
 
-        self.check_attributes: dict[str, any] = check_collection_yaml.check_attributes
+        self.check_attributes: dict[str, Any] = check_collection_yaml.check_attributes
 
         self.dataset_identifier = DatasetIdentifier.parse(check_collection_yaml.dataset)
         self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
@@ -1160,12 +1161,12 @@ def _get_contract_verification_status(has_errors: bool, check_results: list[Chec
 
 class MeasurementValues:
     def __init__(self, measurements: list[Measurement]):
-        self.metric_values_by_id: dict[str, any] = {
+        self.metric_values_by_id: dict[str, Any] = {
             measurement.metric_id: measurement.value for measurement in measurements
         }
         self.metric_ids_being_derived: set[str] = set()
 
-    def get_value(self, metric_impl: MetricImpl) -> any:
+    def get_value(self, metric_impl: MetricImpl) -> Any:
         return self.metric_values_by_id.get(metric_impl.id)
 
     def all_measured(self, *metric_impls: MetricImpl) -> bool:
@@ -1306,7 +1307,7 @@ class MissingAndValidity:
         )
 
     @classmethod
-    def __apply_default(cls, self_value, default_value) -> any:
+    def __apply_default(cls, self_value, default_value) -> Any:
         if self_value is not None:
             return self_value
         return default_value
@@ -1648,7 +1649,7 @@ class CheckImpl:
         self.queries: list[Query] = []
 
         # Merge attributes before filtering (selectors may query them)
-        self.attributes: dict[str, any] = {**check_collection_impl.check_attributes, **check_yaml.attributes}
+        self.attributes: dict[str, Any] = {**check_collection_impl.check_attributes, **check_yaml.attributes}
 
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(check_collection_impl.check_selectors, self)
@@ -1900,13 +1901,13 @@ class MetricImpl:
 
     def _build_id(self) -> str:
         hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(hash_string_length=8)
-        id_properties: dict[str, any] = self._get_id_properties()
+        id_properties: dict[str, Any] = self._get_id_properties()
         for k, v in id_properties.items():
             hash_builder.add_property(k, v)
         return hash_builder.get_hash()
 
-    def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = {"type": self.type}
+    def _get_id_properties(self) -> dict[str, Any]:
+        id_properties: dict[str, Any] = {"type": self.type}
 
         if self.data_source_impl:
             id_properties["data_source"] = self.data_source_impl.name
@@ -1982,7 +1983,7 @@ class AggregationMetricImpl(MetricImpl):
         Used in extensions
         """
 
-    def convert_db_value(self, value: any) -> any:
+    def convert_db_value(self, value: Any) -> Any:
         return value
 
     def get_short_description(self) -> str:
@@ -2009,8 +2010,8 @@ class DerivedMetricImpl(MetricImpl, ABC):
         values = [measurement_values.get_value(d) for d in self.get_metric_dependencies()]
         return None if any(v is None for v in values) else values
 
-    def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = super()._get_id_properties()
+    def _get_id_properties(self) -> dict[str, Any]:
+        id_properties: dict[str, Any] = super()._get_id_properties()
         for index, metric_dependency in enumerate(self.get_metric_dependencies()):
             id_properties[str(index)] = metric_dependency.id
         return id_properties

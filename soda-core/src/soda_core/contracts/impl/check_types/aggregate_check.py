@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
@@ -152,5 +153,5 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
 
         return self.data_source_impl.sql_dialect.get_function_expression(self.function, arg)
 
-    def convert_db_value(self, value) -> any:
+    def convert_db_value(self, value) -> Any:
         return float(value) if value is not None else None

@@ -49,7 +49,7 @@ class CheckCollectionVerificationSession:
         ``check_collection_yaml_sources`` (BC, assumes ``kind="contract"``).
 
         @param specs: Canonical heterogeneous input — each spec carries its own
-            ``kind`` and the session impl dispatches via the family registry.
+            ``kind`` and the session impl dispatches via the ``CheckCollection`` registry.
         @param check_collection_yaml_sources: BC kwarg — each source is wrapped
             in a ``kind="contract"`` spec by the impl bridge.
         @param only_validate_without_execute: If True, only validate without executing.
@@ -444,10 +444,10 @@ class CheckResult:
 
 
 class Measurement:
-    def __init__(self, metric_id: str, value: any, metric_name: Optional[str]):
+    def __init__(self, metric_id: str, value: Any, metric_name: Optional[str]):
         self.metric_id: str = metric_id
         self.metric_name: Optional[str] = metric_name
-        self.value: any = value
+        self.value: Any = value
 
 
 class ContractVerificationStatus(Enum):

@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from numbers import Number
-from typing import ClassVar, Optional, Protocol, TypeVar
+from typing import Any, ClassVar, Optional, Protocol, TypeVar
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
@@ -381,9 +381,9 @@ class VariableYaml:
     def __init__(self, variable_name: str, variable_yaml_object: YamlObject):
         self.variable_yaml_object: YamlObject = variable_yaml_object
         self.name: str = variable_name
-        self.type: any = variable_yaml_object.read_string_opt("type") if variable_yaml_object else None
-        self.required: any = variable_yaml_object.read_bool_opt("required") if variable_yaml_object else None
-        self.default: any = (
+        self.type: Any = variable_yaml_object.read_string_opt("type") if variable_yaml_object else None
+        self.required: Any = variable_yaml_object.read_bool_opt("required") if variable_yaml_object else None
+        self.default: Any = (
             variable_yaml_object.read_value(key="default", expected_type=[str, Number])
             if variable_yaml_object
             else None
@@ -684,7 +684,7 @@ class CheckYaml(ABC):
         )
         if self.filter:
             self.filter = self.filter.strip()
-        self.attributes: dict[str, any] = check_yaml_object.read_object_opt("attributes", default_value={}).to_dict()
+        self.attributes: dict[str, Any] = check_yaml_object.read_object_opt("attributes", default_value={}).to_dict()
         self.column_expression: Optional[str] = (
             check_yaml_object.read_string_opt("column_expression") if check_yaml_object else None
         )
@@ -762,7 +762,7 @@ class ThresholdYaml:
         self.level: str = threshold_yaml_object.read_string_opt("level", default_value="fail")
 
     @classmethod
-    def __config_count(cls, members: list[any]) -> int:
+    def __config_count(cls, members: list[Any]) -> int:
         return sum([0 if v is None else 1 for v in members])
 
     def has_any_configurations(self) -> bool:

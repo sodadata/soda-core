@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.logging_constants import soda_logger
@@ -336,7 +337,7 @@ class MultiColumnDistinctCountMetricImpl(AggregationMetricImpl):
             dataset_identifier=dataset_identifier,
         )
 
-    def _get_id_properties(self) -> dict[str, any]:
+    def _get_id_properties(self) -> dict[str, Any]:
         id_properties: dict[str, str] = super()._get_id_properties()
         if isinstance(self.column_expressions, list):
             for index, column_expression in enumerate(self.column_expressions):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
@@ -220,8 +221,8 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
             dataset_identifier=dataset_identifier,
         )
 
-    def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = super()._get_id_properties()
+    def _get_id_properties(self) -> dict[str, Any]:
+        id_properties: dict[str, Any] = super()._get_id_properties()
         id_properties["expression"] = self.expression
         return id_properties
 
@@ -231,7 +232,7 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
     def sql_condition_expression(self) -> SqlExpression:
         return SqlExpressionStr(self.expression)
 
-    def convert_db_value(self, value) -> any:
+    def convert_db_value(self, value) -> Any:
         return int(value) if value is not None else 0
 
 
@@ -254,8 +255,8 @@ class FailedRowsQueryMetricImpl(MetricImpl):
             dataset_identifier=dataset_identifier,
         )
 
-    def _get_id_properties(self) -> dict[str, any]:
-        id_properties: dict[str, any] = super()._get_id_properties()
+    def _get_id_properties(self) -> dict[str, Any]:
+        id_properties: dict[str, Any] = super()._get_id_properties()
         id_properties["query"] = self.query
         return id_properties
 

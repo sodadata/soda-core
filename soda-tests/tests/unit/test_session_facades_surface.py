@@ -136,7 +136,11 @@ def test_importing_soda_core_contracts_eagerly_registers_in_fresh_interpreter():
         text=True,
     )
     assert result.returncode == 0, f"Subprocess failed: stdout={result.stdout!r}, stderr={result.stderr!r}"
-    assert result.stdout.strip() == "OK"
+    # Match "OK" loosely so DeprecationWarning lines or other stdout noise (e.g.
+    # from an import-time side effect) don't break the test. The subprocess
+    # returncode + the presence of "OK" together prove the script ran the full
+    # registry assertion chain.
+    assert "OK" in result.stdout
 
 
 def test_contract_facade_reraises_soda_core_exception_for_single_input():

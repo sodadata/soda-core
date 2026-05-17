@@ -4,6 +4,7 @@ import logging
 from abc import ABC
 from datetime import date, datetime, timedelta, timezone
 from math import floor
+from typing import Any
 
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import convert_str_to_datetime
@@ -260,7 +261,7 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
             column_expression=column_expression or check_impl.column_expression,
         )
 
-    def _get_id_properties(self) -> dict[str, any]:
+    def _get_id_properties(self) -> dict[str, Any]:
         id_properties: dict[str, str] = super()._get_id_properties()
         id_properties["now_variable"] = self.now_variable
         id_properties["unit"] = self.unit
@@ -274,7 +275,7 @@ class MaxTimestampMetricImpl(AggregationMetricImpl):
 
         return MAX(max_expression)
 
-    def convert_db_value(self, value) -> any:
+    def convert_db_value(self, value) -> Any:
         return value
 
 
