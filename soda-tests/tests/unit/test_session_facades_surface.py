@@ -204,6 +204,47 @@ def test_contract_facade_reraises_any_exception_for_single_input():
         )
 
 
+def test_contract_facade_reraise_preserves_original_traceback():
+    """The single-input re-raise in ``ContractVerificationSession.execute``
+    must preserve ``exc.__traceback__`` so the original failure site is still
+    visible in the traceback chain.
+
+    ``raise exc`` (without ``from None``) keeps Python's traceback chain
+    intact when the exception was previously raised and stored. If a future
+    refactor switched to ``raise type(exc)(...)`` or ``raise exc from None``,
+    the originating frame would be hidden and operators debugging from logs
+    would lose the actual failure location. This test inspects the
+    traceback frames and asserts the impl module (where the parse error
+    originated) appears somewhere in the chain.
+    """
+    import pytest
+    from soda_core.common.exceptions import YamlParserException
+
+    bad_yaml = "columns:\n  - name: id\n"  # missing required 'dataset' property
+
+    with pytest.raises(YamlParserException) as exc_info:
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[ContractYamlSource.from_str(bad_yaml)],
+            only_validate_without_execute=True,
+        )
+
+    # Walk the traceback frame chain — at least one frame should come from
+    # below the facade (i.e. not from this test module and not from the
+    # contract_verification facade itself). The originating failure inside
+    # the impl module is what proves the traceback chain wasn't truncated.
+    tb = exc_info.tb
+    frame_files: list[str] = []
+    while tb is not None:
+        frame_files.append(tb.tb_frame.f_code.co_filename)
+        tb = tb.tb_next
+    # At least one frame from soda_core internal modules (not just this test
+    # file + the facade re-raise frame). The exact module varies with the
+    # exception path (yaml parser vs. impl bridge), so we just assert any
+    # ``soda_core`` frame other than the facade exists.
+    soda_core_frames = [f for f in frame_files if "soda_core" in f and "contract_verification.py" not in f]
+    assert soda_core_frames, f"Re-raised traceback lost the originating frame chain. Frames seen: {frame_files}"
+
+
 def test_universal_facade_does_not_reraise_isolated_errors():
     """The universal ``CheckCollectionVerificationSession.execute`` never
     re-raises — every per-spec exception is isolated into an ERROR-status

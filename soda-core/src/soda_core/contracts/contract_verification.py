@@ -66,6 +66,24 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
         Either ``contract_yaml_sources`` (legacy) or
         ``check_collection_yaml_sources`` (canonical kwarg name) — both are
         treated as contracts and produce a :class:`ContractVerificationSessionResult`.
+
+        Re-raise contract (asymmetric with the universal facade):
+
+        * **Single-input**: re-raises ANY ``originating_exception`` carried by
+          the only ERROR-status result. Covers both ``SodaCoreException``
+          family caller-input errors AND programming bugs (``ValueError``,
+          ``AttributeError``, ...). Legacy single-contract callers that
+          ``pytest.raises(YamlParserException)`` keep working, and unexpected
+          bugs surface instead of being silently masked into a result.
+        * **Multi-input**: never re-raises. Returns each failed slot as an
+          ERROR-status placeholder so multi-contract callers can match results
+          to inputs by index.
+        * **Universal facade** (``CheckCollectionVerificationSession.execute``):
+          never re-raises regardless of input size.
+
+        The ``raise exc`` below preserves ``exc.__traceback__`` (Python keeps
+        the traceback on stored exceptions across 3.x), so the original
+        failure site is still visible in the re-raised traceback frame chain.
         """
         if contract_yaml_sources is not None and check_collection_yaml_sources is not None:
             raise TypeError("Pass either contract_yaml_sources (legacy) or check_collection_yaml_sources, not both")
@@ -87,15 +105,11 @@ class ContractVerificationSession(CheckCollectionVerificationSession):
             check_selectors=check_selectors,
         )
 
-        # Legacy single-contract semantics: contract callers expect exceptions to
-        # propagate (both ``SodaCoreException`` caller-input errors and programming
-        # bugs like ``ValueError`` / ``AttributeError``) so failures are noticed
-        # rather than silently masked into a result. The impl now isolates ALL
-        # exceptions per-spec to give multi-collection callers the robustness the
-        # design doc requires, so this contract-typed facade re-raises ANY
-        # ``originating_exception`` for the single-input case. The universal facade
-        # (``CheckCollectionVerificationSession.execute``) never re-raises —
-        # multi-input callers always get isolated ERROR results.
+        # Single-input legacy re-raise — see docstring above for the full
+        # asymmetry contract. ``raise exc`` (not ``raise exc from None``)
+        # preserves ``exc.__traceback__`` so the original failure site stays
+        # visible to ``pytest.raises``' traceback inspection and to operators
+        # debugging from logs.
         results = base_result.check_collection_results
         if len(results) == 1:
             exc = getattr(results[0], "originating_exception", None)

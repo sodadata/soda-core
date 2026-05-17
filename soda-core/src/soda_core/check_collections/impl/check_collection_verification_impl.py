@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from abc import ABC
 from datetime import timezone
 from enum import Enum
@@ -505,14 +506,23 @@ def _build_error_result(
         wire_source=wire_source,
     )
     # Synthesize a single ERROR-level LogRecord so ``get_errors()`` /
-    # ``get_logs()`` return non-empty for this placeholder.
-    log_record = logging.LogRecord(
-        name="soda_core.check_collections.impl.check_collection_verification_impl",
+    # ``get_logs()`` return non-empty for this placeholder. The placeholder is
+    # built in-process (not captured by the ambient root-logger LogCapturer
+    # because the session impl doesn't attach a per-result Logs gatherer
+    # here), so the LogRecord is attached directly to the result.
+    #
+    # ``logger.makeRecord`` populates pathname/lineno via the standard logging
+    # internals so log handlers that format records with ``%(pathname)s:%(lineno)d``
+    # don't emit ``"":0`` for every ERROR placeholder. The synthetic call site
+    # is this function — ``__file__`` and the caller's line are good defaults.
+    msg = f"Could not verify {display_name} (spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}"
+    log_record = logger.makeRecord(
+        name=logger.name,
         level=logging.ERROR,
-        pathname="",
-        lineno=0,
-        msg=f"Could not verify {display_name} (spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}",
-        args=(),
+        fn=__file__,
+        lno=sys._getframe().f_lineno,
+        msg=msg,
+        args=None,
         exc_info=None,
     )
     return result_cls.error_placeholder(
