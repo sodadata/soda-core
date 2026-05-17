@@ -37,7 +37,7 @@ from soda_core.common.yaml import CheckCollectionYamlSource
 
 
 class _SentinelAYaml(CheckCollectionYaml):
-    pass
+    _KIND = "sentinel_a"
 
 
 class _SentinelAResult(CheckCollectionResult):
@@ -45,11 +45,12 @@ class _SentinelAResult(CheckCollectionResult):
 
 
 class _SentinelAImpl(CheckCollectionImpl[_SentinelAYaml, _SentinelAResult]):
+    _DISPLAY_NAME = "sentinel-a"
     _WIRE_SOURCE = "soda-sentinel-a"
 
 
 class _SentinelBYaml(CheckCollectionYaml):
-    pass
+    _KIND = "sentinel_b"
 
 
 class _SentinelBResult(CheckCollectionResult):
@@ -57,6 +58,7 @@ class _SentinelBResult(CheckCollectionResult):
 
 
 class _SentinelBImpl(CheckCollectionImpl[_SentinelBYaml, _SentinelBResult]):
+    _DISPLAY_NAME = "sentinel-b"
     _WIRE_SOURCE = "soda-sentinel-b"
 
 
@@ -88,12 +90,8 @@ def _register_sentinel_a(*, on_agent_verifier=None) -> None:
     register_family(
         CheckCollectionFamily(
             kind="sentinel_a",
-            display_name="sentinel-a",
-            wire_source="soda-sentinel-a",
-            test_scan_definition_type=None,
             yaml_class=_SentinelAYaml,
             impl_class=_SentinelAImpl,
-            result_class=_SentinelAResult,
             on_agent_verifier=on_agent_verifier,
         )
     )
@@ -103,12 +101,8 @@ def _register_sentinel_b(*, on_agent_verifier=None) -> None:
     register_family(
         CheckCollectionFamily(
             kind="sentinel_b",
-            display_name="sentinel-b",
-            wire_source="soda-sentinel-b",
-            test_scan_definition_type=None,
             yaml_class=_SentinelBYaml,
             impl_class=_SentinelBImpl,
-            result_class=_SentinelBResult,
             on_agent_verifier=on_agent_verifier,
         )
     )
@@ -161,7 +155,7 @@ def test_unknown_kind_raises_with_known_kinds_list():
 
 def test_agent_path_with_on_agent_verifier_none_raises_not_implemented():
     """A family registered with ``on_agent_verifier=None`` cleanly rejects
-    agent dispatch with a message that names the family's display_name and
+    agent dispatch with a message that names the family's display name and
     mentions agent execution."""
     _register_sentinel_a(on_agent_verifier=None)
 
@@ -176,3 +170,102 @@ def test_agent_path_with_on_agent_verifier_none_raises_not_implemented():
     message = str(exc_info.value)
     assert "sentinel-a" in message
     assert "agent execution" in message
+
+
+def test_spec_collection_name_is_forwarded_to_impl():
+    """``spec.collection_name`` reaches the constructed impl as
+    ``check_collection_impl.collection_name``.
+
+    Captures the impl constructed for the spec via a tiny subclass override
+    so the test can introspect the post-construction attribute without
+    needing a real verification run.
+    """
+    captured: list[_SentinelAImpl] = []
+
+    class _CapturingSentinelAImpl(_SentinelAImpl):
+        _WIRE_SOURCE = "soda-sentinel-a"
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    register_family(
+        CheckCollectionFamily(
+            kind="sentinel_a",
+            yaml_class=_SentinelAYaml,
+            impl_class=_CapturingSentinelAImpl,
+            on_agent_verifier=None,
+        )
+    )
+
+    spec = CheckCollectionSpec(
+        kind="sentinel_a",
+        yaml_source=_yaml_source(),
+        collection_name="foo",
+    )
+    CheckCollectionVerificationSessionImpl.execute(
+        specs=[spec],
+        only_validate_without_execute=True,
+        soda_cloud_publish_results=False,
+        soda_cloud_use_agent=False,
+    )
+
+    assert len(captured) == 1
+    assert captured[0].collection_name == "foo"
+
+
+def test_per_spec_error_isolation_in_local_execute():
+    """An unexpected runtime error on one spec must not abort the session — later
+    specs still run and the result list stays positional with the input.
+
+    Three specs: good, broken, good. The middle spec's impl ``verify()`` raises
+    a plain ``RuntimeError`` (simulating an unexpected runtime bug, not a
+    caller-input error). The result list has length 3 with ``None`` in the
+    middle slot and real results at the edges. Consumers (e.g. backend
+    ingestion) may match results to inputs by index, so the positional
+    contract matters.
+
+    Note: ``SodaCoreException`` and its subclasses (YamlParserException etc.)
+    are *not* isolated — they bubble out to match the legacy
+    pytest.raises(YamlParserException) contract that callers pin in tests
+    like test_contract_parsing_errors.
+    """
+    # Per-test sentinel impl that raises during verify(). We register a fresh
+    # family with this impl so the failure is genuinely per-spec.
+    class _BrokenSentinelImpl(_SentinelAImpl):
+        _WIRE_SOURCE = "soda-sentinel-broken"
+
+        def verify(self):
+            raise RuntimeError("simulated unexpected runtime failure")
+
+    class _BrokenSentinelYaml(_SentinelAYaml):
+        _KIND = "sentinel_broken"
+
+    register_family(
+        CheckCollectionFamily(
+            kind="sentinel_broken",
+            yaml_class=_BrokenSentinelYaml,
+            impl_class=_BrokenSentinelImpl,
+            on_agent_verifier=None,
+        )
+    )
+    _register_sentinel_a()
+
+    specs = [
+        CheckCollectionSpec(kind="sentinel_a", yaml_source=_yaml_source()),
+        CheckCollectionSpec(kind="sentinel_broken", yaml_source=_yaml_source()),
+        CheckCollectionSpec(kind="sentinel_a", yaml_source=_yaml_source()),
+    ]
+
+    result = CheckCollectionVerificationSessionImpl.execute(
+        specs=specs,
+        only_validate_without_execute=False,  # need verify() to be called for the broken spec
+        soda_cloud_publish_results=False,
+        soda_cloud_use_agent=False,
+    )
+
+    assert len(result.check_collection_results) == 3
+    # Positional: edges are real results, middle is the failure sentinel.
+    assert isinstance(result.check_collection_results[0], _SentinelAResult)
+    assert result.check_collection_results[1] is None
+    assert isinstance(result.check_collection_results[2], _SentinelAResult)

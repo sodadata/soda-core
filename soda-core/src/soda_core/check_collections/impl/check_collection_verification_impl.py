@@ -237,38 +237,65 @@ class CheckCollectionVerificationSessionImpl:
         opened_data_sources: list[DataSourceImpl] = []
         try:
             for spec in specs:
+                # Per-spec isolation: an unexpected runtime failure on one spec must
+                # not abort the session and lose results for later specs. The result
+                # list stays positional with the input ``specs`` — consumers (e.g.
+                # backend ingestion) may match results to inputs by index, so we
+                # always append exactly one entry per spec, ``None`` when the spec
+                # failed before producing a real result.
+                #
+                # ``SodaCoreException`` is intentionally *not* caught here. Those
+                # represent caller-input errors (malformed YAML, missing required
+                # fields, invalid arguments) that historically bubble out of the
+                # session — public callers and tests pin that contract. Only
+                # unexpected exceptions (impl construction / verify bugs, missing
+                # extension state, etc.) are isolated per-spec.
                 family = get_family(spec.kind)
-                check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
-                    check_collection_yaml_source=spec.yaml_source,
-                    provided_variable_values=provided_variable_values,
-                    data_timestamp=data_timestamp,
-                    primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
-                )
-                data_source_name: str = (
-                    check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")]
-                    if check_collection_yaml.dataset
-                    else None
-                )
-                data_source_impl: Optional[DataSourceImpl] = (
-                    cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
-                    if (check_collection_yaml and data_source_name and not only_validate_without_execute)
-                    else None
-                )
-                check_collection_impl: CheckCollectionImpl = family.impl_class(
-                    check_collection_yaml=check_collection_yaml,
-                    only_validate_without_execute=only_validate_without_execute,
-                    data_timestamp=check_collection_yaml.data_timestamp,
-                    execution_timestamp=check_collection_yaml.execution_timestamp,
-                    data_source_impl=data_source_impl,
-                    all_data_source_impls=data_source_impls_by_name,
-                    soda_cloud=soda_cloud_impl,
-                    publish_results=soda_cloud_publish_results,
-                    logs=logs,
-                    check_selectors=check_selectors,
-                    dwh_data_source_file_path=dwh_data_source_file_path,
-                )
-                check_collection_result = check_collection_impl.verify()
-                check_collection_results.append(check_collection_result)
+                try:
+                    check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
+                        check_collection_yaml_source=spec.yaml_source,
+                        provided_variable_values=provided_variable_values,
+                        data_timestamp=data_timestamp,
+                        primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
+                    )
+                    data_source_name: str = (
+                        check_collection_yaml.dataset[: check_collection_yaml.dataset.find("/")]
+                        if check_collection_yaml.dataset
+                        else None
+                    )
+                    data_source_impl: Optional[DataSourceImpl] = (
+                        cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
+                        if (check_collection_yaml and data_source_name and not only_validate_without_execute)
+                        else None
+                    )
+                    check_collection_impl: CheckCollectionImpl = family.impl_class(
+                        check_collection_yaml=check_collection_yaml,
+                        only_validate_without_execute=only_validate_without_execute,
+                        data_timestamp=check_collection_yaml.data_timestamp,
+                        execution_timestamp=check_collection_yaml.execution_timestamp,
+                        data_source_impl=data_source_impl,
+                        all_data_source_impls=data_source_impls_by_name,
+                        soda_cloud=soda_cloud_impl,
+                        publish_results=soda_cloud_publish_results,
+                        logs=logs,
+                        check_selectors=check_selectors,
+                        dwh_data_source_file_path=dwh_data_source_file_path,
+                        collection_name=spec.collection_name,
+                    )
+                    check_collection_result = check_collection_impl.verify()
+                    check_collection_results.append(check_collection_result)
+                except SodaCoreException:
+                    # Caller-input error — surface to match legacy contract.
+                    raise
+                except Exception:
+                    logger.error(
+                        msg=(
+                            f"Could not verify {family.impl_class._DISPLAY_NAME} "
+                            f"{spec.yaml_source}"
+                        ),
+                        exc_info=True,
+                    )
+                    check_collection_results.append(None)
         finally:
             for data_source_impl in opened_data_sources:
                 data_source_impl.close_connection()
@@ -343,8 +370,11 @@ class CheckCollectionVerificationSessionImpl:
 
         for spec in specs:
             family = get_family(spec.kind)
+            display_name = family.impl_class._DISPLAY_NAME
             if family.on_agent_verifier is None:
-                raise NotImplementedError(f"{family.display_name} does not support agent execution")
+                raise NotImplementedError(f"{display_name} does not support agent execution")
+            # Per-spec isolation: keep the result list positional with the input ``specs``
+            # so callers can match results to inputs by index even when one spec fails.
             try:
                 check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
                     check_collection_yaml_source=spec.yaml_source, provided_variable_values=variables
@@ -358,11 +388,12 @@ class CheckCollectionVerificationSessionImpl:
                     verbose=soda_cloud_verbose,
                 )
                 check_collection_results.append(check_collection_result)
-            except:
+            except Exception:
                 logger.error(
-                    msg=f"Could not verify {family.display_name} {spec.yaml_source}",
+                    msg=f"Could not verify {display_name} {spec.yaml_source}",
                     exc_info=True,
                 )
+                check_collection_results.append(None)
         return check_collection_results
 
 

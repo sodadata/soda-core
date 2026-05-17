@@ -11,7 +11,6 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
     AggregationQuery,
     CheckCollectionImpl,
     CheckCollectionImplExtension,
-    CheckCollectionVerificationSessionImpl,
     CheckImpl,
     CheckParser,
     ColumnImpl,
@@ -79,27 +78,29 @@ def _verify_contract_on_agent(
 
 # Register the contract family at module-import time. The session impl reads
 # each spec's ``kind`` and dispatches via the registry; importing this module
-# is what wires the contract subtype.
+# is what wires the contract subtype. Identity (display name, wire source,
+# test scan-definition type, result class) is read off ``ContractImpl``'s
+# ClassVars at dispatch time — the family carries only the dispatcher's
+# minimal needs.
 register_family(
     CheckCollectionFamily(
         kind="contract",
-        display_name="contract",
-        wire_source="soda-contract",
-        test_scan_definition_type="contractTest",
         yaml_class=ContractYaml,
         impl_class=ContractImpl,
-        result_class=ContractVerificationResult,
         on_agent_verifier=_verify_contract_on_agent,
     )
 )
 
 
-# Re-exports for backwards compatibility
+# Re-exports for backwards compatibility.
+# ``CheckCollectionVerificationSessionImpl`` lives in
+# ``check_collections.impl.check_collection_verification_impl`` — import it
+# from there directly. Re-exporting it here is misleading now that the
+# universal session impl is family-agnostic.
 __all__ = [
     "ContractImpl",
     "CheckCollectionImpl",
     "CheckCollectionImplExtension",
-    "CheckCollectionVerificationSessionImpl",
     "MeasurementValues",
     "ColumnImpl",
     "ValidReferenceData",

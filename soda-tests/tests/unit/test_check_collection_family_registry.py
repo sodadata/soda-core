@@ -41,7 +41,7 @@ def _clean_registry() -> Iterator[None]:
 
 
 class _SentinelYaml(CheckCollectionYaml):
-    pass
+    _KIND = "sentinel"
 
 
 class _SentinelResult(CheckCollectionResult):
@@ -53,7 +53,7 @@ class _SentinelImpl(CheckCollectionImpl[_SentinelYaml, _SentinelResult]):
 
 
 class _OtherYaml(CheckCollectionYaml):
-    pass
+    _KIND = "other"
 
 
 class _OtherResult(CheckCollectionResult):
@@ -69,16 +69,11 @@ def _make_family(
     *,
     yaml_class: type[CheckCollectionYaml] = _SentinelYaml,
     impl_class: type[CheckCollectionImpl] = _SentinelImpl,
-    result_class: type[CheckCollectionResult] = _SentinelResult,
 ) -> CheckCollectionFamily:
     return CheckCollectionFamily(
         kind=kind,
-        display_name=kind,
-        wire_source=f"soda-{kind}",
-        test_scan_definition_type=None,
         yaml_class=yaml_class,
         impl_class=impl_class,
-        result_class=result_class,
         on_agent_verifier=None,
     )
 
@@ -97,7 +92,6 @@ def test_list_families_returns_all_registered():
         kind="other",
         yaml_class=_OtherYaml,
         impl_class=_OtherImpl,
-        result_class=_OtherResult,
     )
     register_family(sentinel)
     register_family(other)
@@ -125,12 +119,8 @@ def test_conflict_raises_value_error():
 
     different = CheckCollectionFamily(
         kind="sentinel",
-        display_name="sentinel-renamed",  # differs from `first`
-        wire_source="soda-sentinel",
-        test_scan_definition_type=None,
         yaml_class=_SentinelYaml,
-        impl_class=_SentinelImpl,
-        result_class=_SentinelResult,
+        impl_class=_OtherImpl,  # differs from `first` impl
         on_agent_verifier=None,
     )
     with pytest.raises(ValueError, match="sentinel") as exc_info:
