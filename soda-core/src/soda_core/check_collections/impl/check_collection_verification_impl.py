@@ -476,12 +476,21 @@ def _build_error_result(
         # real invariant breach worth failing loud on.
         wire_source = descriptor.impl_class._WIRE_SOURCE
         display_name = descriptor.impl_class._DISPLAY_NAME
-        result_cls = getattr(descriptor.impl_class, "_RESULT_CLASS", CheckCollectionResult)
+        # Direct read mirrors the ``_WIRE_SOURCE`` discipline above:
+        # ``CheckCollectionImpl.__init_subclass__`` wires ``_RESULT_CLASS`` on every
+        # concrete subtype, so a missing attribute here is an invariant breach worth
+        # failing loud on. A ``getattr(..., CheckCollectionResult)`` fallback would
+        # silently mask a registration-time bug.
+        result_cls = descriptor.impl_class._RESULT_CLASS
     else:
-        # No descriptor available — spec.kind never resolved. Empty wire_source
-        # is documented above; the placeholder exists for positional integrity
-        # rather than for successful Cloud ingestion.
-        wire_source = ""
+        # No descriptor available — spec.kind never resolved. This placeholder is
+        # built only for positional integrity in the result list; the spec's
+        # ``kind`` isn't registered so no successful Cloud upload will follow.
+        # If a future code path DOES upload this placeholder, the sentinel
+        # ``"unknown"`` wire_source surfaces the registration failure on the
+        # backend side (where ``filterChecksToKnownStandards`` would otherwise
+        # silently drop a ``wire_source=""`` payload).
+        wire_source = "unknown"
         display_name = f"unknown kind {spec.kind!r}"
         result_cls = CheckCollectionResult
     contract = CheckCollectionTarget(

@@ -12,6 +12,7 @@ registry rather than via a session subclass.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Iterator
 
 import pytest
@@ -20,6 +21,9 @@ from soda_core.check_collections.check_collection_spec import CheckCollectionSpe
 from soda_core.check_collections.check_collection_verification import (
     CheckCollectionResult,
     CheckCollectionSessionResult,
+    CheckCollectionStatus,
+    CheckCollectionTarget,
+    YamlFileContentInfo,
 )
 from soda_core.check_collections.impl.check_collection_verification_impl import (
     CheckCollectionImpl,
@@ -65,6 +69,48 @@ columns:
     checks:
       - missing:
 """
+
+
+def _make_sentinel_result(
+    result_cls: type[CheckCollectionResult] = CheckCollectionResult,
+    *,
+    wire_source: str = "soda-sentinel-a",
+    status: CheckCollectionStatus = CheckCollectionStatus.PASSED,
+) -> CheckCollectionResult:
+    """Build a fully-populated ``CheckCollectionResult`` subclass instance with
+    all required positional args set to minimal stubs.
+
+    After round-3's ``__init__`` revert, ``CheckCollectionResult`` and its
+    subclasses (e.g. ``_SentinelAResult``) require a fixed positional argument
+    set — calling ``_SentinelAResult()`` no-args raises ``TypeError``, which
+    would be caught by the per-spec isolation in ``_execute_on_agent`` and
+    silently routed into an ERROR placeholder. That would make a "success
+    verifier returns OK" assertion pass for the wrong reason.
+
+    Tests building real success-path agent results should call this helper so
+    the returned object is a genuine non-ERROR result that exercises the
+    success path of the agent dispatch.
+    """
+    now = datetime.now(tz=timezone.utc)
+    target = CheckCollectionTarget(
+        data_source_name=None,
+        dataset_prefix=[],
+        dataset_name="sentinel",
+        soda_qualified_dataset_name="datasource/db/schema/sentinel",
+        source=YamlFileContentInfo(source_content_str=None, local_file_path=None),
+        wire_source=wire_source,
+    )
+    return result_cls(
+        contract=target,
+        data_source=None,
+        data_timestamp=None,
+        started_timestamp=now,
+        ended_timestamp=now,
+        status=status,
+        measurements=[],
+        check_results=[],
+        sending_results_to_soda_cloud_failed=False,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -361,7 +407,13 @@ def test_per_spec_error_isolation_in_agent_execute():
     )
 
     def _good_verifier(**kwargs):
-        return _SentinelAResult()
+        # Build a fully-initialized success result; ``_SentinelAResult()``
+        # no-args would raise ``TypeError`` after round-3's ``__init__`` revert
+        # and the per-spec isolation would silently route the spec into an
+        # ERROR placeholder. Using the helper guarantees this verifier actually
+        # exercises the success path so the test fails loudly if dispatch ever
+        # regresses into the error placeholder branch.
+        return _make_sentinel_result(_SentinelAResult)
 
     def _broken_verifier(**kwargs):
         raise RuntimeError("simulated agent-side runtime failure")
@@ -392,9 +444,17 @@ def test_per_spec_error_isolation_in_agent_execute():
     )
 
     assert len(result.check_collection_results) == 3
+    # Success slots: real verifier returns, NOT error placeholders. Pinning
+    # ``status != ERROR`` rules out the silent-fallthrough mode where a
+    # malformed ``_SentinelAResult()`` construction in ``_good_verifier`` would
+    # raise ``TypeError`` and the per-spec isolation would return an ERROR
+    # placeholder — which IS a ``_SentinelAResult`` instance and would let the
+    # type assertion below pass for the wrong reason.
     assert isinstance(result.check_collection_results[0], _SentinelAResult)
+    assert result.check_collection_results[0].status is not ContractVerificationStatus.ERROR
     error_result = result.check_collection_results[1]
     assert isinstance(error_result, CheckCollectionResult)
     assert error_result.status is ContractVerificationStatus.ERROR
     assert isinstance(error_result.originating_exception, RuntimeError)
     assert isinstance(result.check_collection_results[2], _SentinelAResult)
+    assert result.check_collection_results[2].status is not ContractVerificationStatus.ERROR
