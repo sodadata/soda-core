@@ -299,6 +299,14 @@ class Check:
     """Represents the state / essence of a check after it has been executed.
 
     i.e. "after" CheckImpl has been executed and check result is being created.
+
+    ``file_line`` / ``file_column`` carry the YAML location of the check
+    definition for any subtype (contract YAML, data-standard YAML, future
+    suites). The previous names ``contract_file_line`` / ``contract_file_column``
+    are preserved as ``@property`` BC aliases — read-only, returning the new
+    field values. Constructors must pass ``file_line=`` / ``file_column=``.
+    The wire payload keys (``"line"`` / ``"col"`` in the Cloud upload) are
+    independent and unchanged.
     """
 
     column_name: Optional[str]
@@ -309,11 +317,21 @@ class Check:
     identity: str
     definition: str
     column_name: Optional[str]
-    contract_file_line: int
-    contract_file_column: int
+    file_line: int
+    file_column: int
     threshold: Optional[Threshold]
     attributes: Optional[dict[str, Any]]
     location: Optional[Location]
+
+    @property
+    def contract_file_line(self) -> int:
+        """BC alias for ``file_line``. Read-only."""
+        return self.file_line
+
+    @property
+    def contract_file_column(self) -> int:
+        """BC alias for ``file_column``. Read-only."""
+        return self.file_column
 
 
 class CheckResult:

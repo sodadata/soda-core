@@ -1533,8 +1533,8 @@ def _build_check_result_cloud_dict(target: CheckCollectionTarget, check_result: 
 def _build_check_location(check_result: CheckResult) -> dict:
     return {
         "filePath": _build_file_path(check_result.check.location),
-        "line": check_result.check.contract_file_line,
-        "col": check_result.check.contract_file_column,
+        "line": check_result.check.file_line,
+        "col": check_result.check.file_column,
     }
 
 

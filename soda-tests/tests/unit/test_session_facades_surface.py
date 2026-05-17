@@ -192,6 +192,37 @@ def test_universal_facade_does_not_reraise_isolated_errors():
     assert error_result.status is ContractVerificationStatus.ERROR
 
 
+def test_check_file_location_property_aliases():
+    """``Check.contract_file_line`` / ``contract_file_column`` are read-only
+    ``@property`` aliases returning the new ``file_line`` / ``file_column``
+    field values. Pins the BC contract for external callers reading those
+    attributes off the public ``Check`` dataclass.
+    """
+    from soda_core.contracts.contract_verification import Check
+
+    check = Check(
+        column_name=None,
+        type="missing",
+        qualifier=None,
+        name="missing on email",
+        path="cols.email.checks.missing",
+        identity="abc",
+        definition="missing:",
+        file_line=42,
+        file_column=7,
+        threshold=None,
+        attributes=None,
+        location=None,
+    )
+
+    # New field reads.
+    assert check.file_line == 42
+    assert check.file_column == 7
+    # BC alias property reads — values follow the renamed fields.
+    assert check.contract_file_line == 42
+    assert check.contract_file_column == 7
+
+
 def test_contract_verification_status_alias_points_to_check_collection_status():
     """``ContractVerificationStatus`` is preserved as a module-level BC alias
     pointing at the universal ``CheckCollectionStatus`` enum. Values are
