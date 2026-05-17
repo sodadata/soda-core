@@ -45,49 +45,18 @@ class CheckCollectionYaml:
     None value if the property is not present or the content was not a list,
     a list otherwise.
 
-    Concrete subtypes (``ContractYaml`` is the only one shipped in soda-core;
-    additional subtypes ship in soda-extensions packages) subclass this class
-    directly. ``parse()`` uses ``cls(...)`` so Python's classmethod dispatch
-    routes ``ContractYaml.parse(...)`` to construct a ``ContractYaml`` — no
-    class-attribute hook needed.
+    Subtypes set two ClassVars: ``_KIND`` (YAML ``kind:`` discriminator,
+    snake_case) and ``_DISPLAY_NAME`` (user-facing word). For contracts both
+    are ``"contract"``.
 
     Extensions can manipulate the check-collection YAML object. Extensions can
     be registered using the ``register_extension`` method, and they will be
     automatically applied.
-
-    Declaring a new subtype
-    -----------------------
-
-    A concrete check-collection-yaml subtype sets two identity ClassVars (the
-    third, ``_WIRE_SOURCE``, lives on the paired ``CheckCollectionImpl`` subclass
-    since wire upload is an impl concern):
-
-    1. ``_KIND`` — the machine identifier carried by the YAML ``kind:``
-       discriminator field. Lowercase, snake_case if multi-word.
-
-    2. ``_DISPLAY_NAME`` — the user-facing word in INFO / error logs.
-
-    All check-collection YAMLs are read by ``__init__`` with ``dataset:``
-    bound directly in the YAML object. Subtypes do not override how the
-    dataset is resolved; callers / authoring tools are responsible for
-    writing the field into each YAML stream upstream of the parser.
     """
 
     check_collection_yaml_extensions: dict[str, type[CheckCollectionYamlExtension]] = {}
 
-    # User-facing display name. Mirrors ``CheckCollectionImpl._DISPLAY_NAME`` so
-    # base-layer error messages emitted from this class read naturally for the
-    # concrete YAML subtype (e.g. ``ContractYaml`` → "contract").
     _DISPLAY_NAME: ClassVar[str] = "check collection"
-
-    # Wire identifier — the value of the YAML ``kind:`` discriminator field for
-    # this subtype. Distinct from ``_DISPLAY_NAME``: ``_KIND`` is the machine-
-    # readable token used by ``CheckCollectionYaml.parse`` to dispatch to the
-    # registered parser, and surfaces on the wire and in registries; the display
-    # name is the user-facing word. For ``ContractYaml`` both happen to be
-    # ``"contract"`` today; subtypes whose wire identifier differs from their
-    # display word (multi-word display names, branding differences) set the
-    # two ClassVars to different strings.
     _KIND: ClassVar[str] = "check_collection"
 
     @classmethod
@@ -104,10 +73,8 @@ class CheckCollectionYaml:
     ) -> _SelfYamlT:
         """Construct a YAML model of the calling subclass.
 
-        Always returns an instance; parse-level errors are recorded on the
-        instance and surfaced through ``logger.error``, not by returning
-        ``None``. The classmethod dispatch via ``cls(...)`` ensures subtypes
-        like ``ContractYaml`` get back their own type without overriding this.
+        Parse errors are recorded on the instance and surfaced through
+        ``logger.error``, never via a ``None`` return.
         """
         return cls(
             check_collection_yaml_source=check_collection_yaml_source,

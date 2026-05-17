@@ -98,15 +98,7 @@ ResultT = TypeVar("ResultT", bound="CheckCollectionResult")
 
 
 class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResultT]):
-    """Implements the check-collection verification session.
-
-    Concrete subtypes wire their YAML / impl / session-result types via
-    ``Generic[…]`` subscription at class-declaration time:
-
-        class ContractVerificationSessionImpl(
-            CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult],
-        ):
-            pass
+    """Verification session base. Subtypes subscribe Generic with three types.
 
     Calling the base directly is unsupported — construct a concrete subclass.
     """
@@ -117,13 +109,9 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        # Derive ClassVar hooks from ``Generic[…]`` subscription. Each concrete
-        # subtype wires by subscribing the base with three concrete types, e.g.
-        # ``class ContractVerificationSessionImpl(
-        #     CheckCollectionVerificationSessionImpl[ContractYaml, ContractImpl, ContractVerificationSessionResult],
-        # ): ...``
-        # Intermediate abstract subtypes that subscribe with TypeVars are skipped
-        # (TypeVar instances are not ``type`` and don't set ClassVars).
+        # Derive ClassVars from Generic[...] subscription. TypeVar args are
+        # skipped (isinstance(arg, type) filter) so intermediate abstract
+        # subtypes stay un-wired.
         for base in getattr(cls, "__orig_bases__", ()):
             origin = get_origin(base)
             if origin is None or not isinstance(origin, type):
@@ -159,11 +147,6 @@ class CheckCollectionVerificationSessionImpl(Generic[YamlT, ImplT, SessionResult
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
     ) -> SessionResultT:
-        # Resolve concrete classes via the subtype hooks. Construction of the
-        # session result goes through ``cls._SESSION_RESULT_CLASS``, which
-        # concrete subtypes wire via ``__init_subclass__``; construction of
-        # per-check-collection YAMLs and impls happens in ``_execute_locally`` /
-        # ``_execute_on_agent`` via the corresponding hooks.
         session_result_cls: type = cls._SESSION_RESULT_CLASS
 
         logs: Logs = Logs()
@@ -409,70 +392,19 @@ class CheckCollectionImplExtension(Protocol):
 class CheckCollectionImpl(Generic[YamlT, ResultT]):
     """Implements the check-collection runtime.
 
-    Concrete subtypes wire their result type via ``Generic[…]`` subscription at
-    class-declaration time:
-
-        class ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult]):
-            pass
-
-    ``YamlT`` is a phantom type parameter — used for static typing only so
-    subscribers (and the symmetric session impl) can carry the concrete YAML
-    type without the impl class reading a runtime ``_YAML_CLASS``. The
-    runtime result class is read by ``verify()`` via
-    ``type(self)._RESULT_CLASS``.
-
-    Declaring a new subtype
-    -----------------------
-
-    A concrete check-collection subtype declares three identity ClassVars, each
-    serving a distinct purpose. Future authors should NOT collapse these into
-    one — they diverge as soon as a subtype's wire identifier differs from
-    its user-facing display word.
-
-    1. ``_KIND`` (declared on the paired ``CheckCollectionYaml`` subclass) —
-       the machine identifier carried by the YAML ``kind:`` discriminator
-       field and used as the registry key. Lowercase, snake_case if multi-word.
-
-    2. ``_DISPLAY_NAME`` — the user-facing word that appears in INFO / error
-       logs and the summary report header. Matches the term the user types in
-       the CLI command.
-
-    3. ``_WIRE_SOURCE`` — the per-check ``source`` value the Cloud backend
-       receives on upload. Drives backend archive scoping. The identity-
-       disambiguation gate fires when this is not ``"soda-contract"``.
-
-    The only concrete subtype shipped in soda-core is ``ContractImpl``
-    (``_KIND = _DISPLAY_NAME = "contract"``, ``_WIRE_SOURCE = "soda-contract"``).
-    Additional subtypes ship as soda-extensions packages that subscribe the
-    base and declare their own ClassVar values; ``_KIND`` lives on their paired
-    YAML subclass, ``_DISPLAY_NAME`` and ``_WIRE_SOURCE`` on their impl.
-
-    Hooks the subtype may override (each documented inline):
-
-    - :meth:`is_test_verification_on_agent` — agent-mode predicate (base: ``False``).
-    - :meth:`CheckImpl._extra_identity_properties` — extra identity-hash inputs
-      per check (base: ``{}``); the gate keyed on ``_WIRE_SOURCE`` lives here.
+    Subtypes subscribe ``Generic[YamlT, ResultT]`` to wire their result type
+    (``ContractImpl(CheckCollectionImpl[ContractYaml, ContractVerificationResult])``)
+    and declare three identity ClassVars: ``_KIND`` (on the paired YAML
+    subclass), ``_DISPLAY_NAME`` (user-facing word), and ``_WIRE_SOURCE``
+    (per-check Cloud ``source``; no base default — subtypes MUST set it).
     """
 
     check_collection_impl_extensions: dict[str, type[CheckCollectionImplExtension]] = {}
 
     _RESULT_CLASS: ClassVar[type[CheckCollectionResult]]
-
-    # User-facing display name for this check-collection subtype. Used in INFO /
-    # error logs and the summary report header so the user sees the term that
-    # matches their CLI command (e.g. ``soda contract verify`` → "Verifying
-    # contract …"). Concrete subtypes override this; the base default is the
-    # abstract term so a bare-base call still produces a readable message.
     _DISPLAY_NAME: ClassVar[str] = "check collection"
-
-    # Per-check ``source`` value the Cloud backend receives on upload (e.g.
-    # ``"soda-contract"`` for ``ContractImpl``). Concrete subtypes MUST declare
-    # this — the abstract base intentionally provides no default so a
-    # misconfigured subtype fails loud at first ``cls._WIRE_SOURCE`` read instead
-    # of silently uploading checks under the abstract base's name. The string
-    # is also what the identity-disambiguation gate compares against
-    # (``"soda-contract"`` keeps existing identities byte-identical; any other
-    # value enables the gate).
+    # No base default: a missing _WIRE_SOURCE raises AttributeError at first
+    # read rather than silently uploading under the abstract base's name.
     _WIRE_SOURCE: ClassVar[str]
 
     def __init_subclass__(cls, **kwargs) -> None:
@@ -522,9 +454,7 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         self.soda_config = EnvConfigHelper()
 
         # Subtype-supplied identifier used for path prefixing and identity
-        # disambiguation in multi-collection sessions. None for contracts
-        # (no prefix, identity hash matches today's). Non-contract subtypes
-        # populate this from caller-supplied or YAML-supplied naming.
+        # disambiguation. None for contracts.
         self.collection_name: Optional[str] = collection_name
 
         self.filter: Optional[str] = self.check_collection_yaml.filter
@@ -657,11 +587,8 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
     def is_test_verification_on_agent(self) -> bool:
         """True iff this run is a test-mode verification on the Soda agent.
 
-        Concrete subtypes override to define their own scan-definition-type
-        predicate (e.g. ``ContractImpl`` checks
-        ``is_contract_test_scan_definition_type``; other subtypes check
-        their own equivalent). The abstract base returns ``False`` — it has
-        no test-mode opinion.
+        Base returns ``False``; subtypes override with their own
+        scan-definition-type predicate.
         """
         return False
 
@@ -763,10 +690,6 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         return columns
 
     def verify(self) -> ResultT:
-        # Resolve the concrete result class via the subtype hook. The Contract*
-        # path sets ``_RESULT_CLASS = ContractVerificationResult``; other
-        # subtypes set it to their own result class and get that back from
-        # ``verify()`` with no other change to this method.
         result_cls: type = type(self)._RESULT_CLASS
 
         if self.data_source_impl and self.soda_config.is_running_on_agent:
@@ -1585,33 +1508,17 @@ class CheckImpl:
     }
 
     def _extra_identity_properties(self) -> dict[str, object]:
-        """Hook for subtype-specific identity-hash contributions.
-
-        Default implementation returns an empty dict — the identity hash
-        for contracts is built from the base inputs only (data source,
-        dataset prefix, dataset name, column, check type, qualifier).
-
-        The identity-disambiguation gate composes through here: non-contract
-        subtype impls populate the dict with
-        ``{"cn": self.check_collection_impl.collection_name}`` when
-        ``_WIRE_SOURCE != "soda-contract"``, producing distinct identities
-        for the same check shape on the same dataset across sibling
-        collections. Contracts keep ``_WIRE_SOURCE == "soda-contract"`` so
-        the gate stays closed and identities remain byte-identical.
-
-        Returns a dict (not a list) so it composes with the constructor's
-        ``extra_identity_properties`` argument via :meth:`_merge_identity_properties`.
-        """
+        """Subtype hook for extra identity-hash inputs. Base returns ``{}``."""
         return {}
 
     def _merge_identity_properties(
         self,
         explicit: Optional[dict[str, object]],
     ) -> Optional[dict[str, object]]:
-        """Merge the caller-supplied identity properties with the subtype hook.
+        """Merge subtype hook contributions with caller-supplied properties.
 
-        Hook contributions land first; explicit constructor-supplied entries
-        win on key collision so caller-level overrides remain authoritative.
+        Explicit entries win on key collision. Returns ``None`` when both are
+        empty so the call into ``_build_identity`` stays shape-identical.
         """
         hook = self._extra_identity_properties()
         if not hook and not explicit:
@@ -1623,24 +1530,12 @@ class CheckImpl:
 
     @property
     def path(self) -> str:
-        """Storage / display / Cloud-upload path.
-
-        Today equals :attr:`raw_path` for every check. Phase 2's path
-        prefixing makes this ``f"{collection_name}/{raw_path}"`` when the
-        owning :class:`CheckCollectionImpl` has a non-``None`` ``collection_name``;
-        for contracts ``collection_name`` is always ``None`` so the equality
-        holds and the upload bytes stay identical.
-        """
+        """Storage / display / Cloud-upload path. Today equals :attr:`raw_path`."""
         return self._compute_raw_path()
 
     @property
     def raw_path(self) -> str:
-        """The path the user wrote in YAML — never prefixed.
-
-        Selector / ``--check-paths`` / ``--check-filter`` matching reads this
-        so users filter on the value they typed, regardless of whether the
-        impl prefixes ``path`` for storage. For contracts ``raw_path == path``.
-        """
+        """The path the user wrote in YAML. Read by selector matching."""
         return self._compute_raw_path()
 
     def _compute_raw_path(self) -> str:

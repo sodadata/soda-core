@@ -34,13 +34,7 @@ class ContractYaml(CheckCollectionYaml):
         contract_yaml_source: Optional[ContractYamlSource],
         check_collection_yaml_source: Optional[ContractYamlSource],
     ) -> Optional[ContractYamlSource]:
-        """Normalize the legacy and current source kwargs to a single value.
-
-        ``contract_yaml_source`` is the historical public-API name and remains
-        supported for backwards compatibility; ``check_collection_yaml_source``
-        is the parent-class name used by the abstract base. Exactly one (or
-        neither) must be passed.
-        """
+        """Pick the source kwarg, preferring the legacy ``contract_yaml_source``."""
         if contract_yaml_source is not None and check_collection_yaml_source is not None:
             raise TypeError("Pass either contract_yaml_source (legacy) or check_collection_yaml_source, not both")
         return contract_yaml_source if contract_yaml_source is not None else check_collection_yaml_source
@@ -78,12 +72,12 @@ class ContractYaml(CheckCollectionYaml):
 
     @property
     def contract_yaml_source(self) -> ContractYamlSource:
-        """Backwards-compatible alias for self.check_collection_yaml_source."""
+        """BC alias for ``check_collection_yaml_source``."""
         return self.check_collection_yaml_source
 
     @property
     def contract_yaml_object(self) -> YamlObject:
-        """Backwards-compatible alias for self.check_collection_yaml_object."""
+        """BC alias for ``check_collection_yaml_object``."""
         return self.check_collection_yaml_object
 
 
