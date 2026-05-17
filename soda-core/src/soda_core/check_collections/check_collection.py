@@ -106,7 +106,7 @@ class CheckCollection:
             wire_source = impl_class._WIRE_SOURCE
         except AttributeError:
             raise ValueError(
-                f"CheckCollection for kind {kind!r}: impl class " f"{impl_class.__name__} must declare _WIRE_SOURCE."
+                f"CheckCollection for kind {kind!r}: impl class {impl_class.__name__} must declare _WIRE_SOURCE."
             )
         if not isinstance(wire_source, str) or not wire_source:
             raise ValueError(

@@ -126,40 +126,68 @@ def test_mixed_kind_session_aggregates_per_spec_results_in_order():
     assert per_spec_types == [_SentinelAResult, _SentinelBResult, _SentinelAResult]
 
 
-def test_unknown_kind_raises_with_known_kinds_list():
-    """A spec referencing an unregistered ``kind`` bubbles a ``KeyError``
-    out of the session impl that mentions the kind and the known list."""
+def test_unknown_kind_isolates_as_error_placeholder_with_known_kinds_list():
+    """A spec referencing an unregistered ``kind`` is isolated per-spec — the
+    session does not abort, the result list stays positional, and the placeholder
+    carries a ``KeyError`` whose message names the kind and the known list.
+
+    Symmetric with the rest of per-spec isolation: structurally invalid input
+    (bad kind) produces an ERROR placeholder rather than crashing the session.
+    Backend ingestion can still match the placeholder to its input spec by
+    index even when the registration was broken.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
+
     _register_sentinel_a()
 
     spec = CheckCollectionSpec(kind="unregistered", yaml_source=_yaml_source())
 
-    with pytest.raises(KeyError) as exc_info:
-        CheckCollectionVerificationSessionImpl.execute(
-            specs=[spec],
-            only_validate_without_execute=True,
-            soda_cloud_publish_results=False,
-            soda_cloud_use_agent=False,
-        )
-    message = str(exc_info.value)
+    result = CheckCollectionVerificationSessionImpl.execute(
+        specs=[spec],
+        only_validate_without_execute=True,
+        soda_cloud_publish_results=False,
+        soda_cloud_use_agent=False,
+    )
+    assert len(result.check_collection_results) == 1
+    error_result = result.check_collection_results[0]
+    assert error_result.status is ContractVerificationStatus.ERROR
+    exc = error_result._internal_exception
+    assert isinstance(exc, KeyError)
+    message = str(exc)
     assert "unregistered" in message
     assert "Known kinds:" in message
 
 
-def test_agent_path_with_on_agent_verifier_none_raises_not_implemented():
-    """A descriptor registered with ``on_agent_verifier=None`` cleanly rejects
-    agent dispatch with a message that names the descriptor's display name and
-    mentions agent execution."""
+def test_agent_path_with_on_agent_verifier_none_isolates_as_error_placeholder():
+    """A descriptor registered with ``on_agent_verifier=None`` produces an
+    ERROR-status placeholder carrying a ``NotImplementedError`` rather than
+    aborting the session.
+
+    Symmetric with the local-execute path: every ``Exception`` subtype is
+    isolated into a per-spec placeholder so multi-spec sessions stay robust
+    even when one descriptor doesn't support agent execution.
+    """
+    from soda_core.check_collections.check_collection_verification import (
+        ContractVerificationStatus,
+    )
+
     _register_sentinel_a(on_agent_verifier=None)
 
     spec = CheckCollectionSpec(kind="sentinel_a", yaml_source=_yaml_source())
 
-    with pytest.raises(NotImplementedError) as exc_info:
-        CheckCollectionVerificationSessionImpl.execute(
-            specs=[spec],
-            soda_cloud_use_agent=True,
-            soda_cloud_publish_results=False,
-        )
-    message = str(exc_info.value)
+    result = CheckCollectionVerificationSessionImpl.execute(
+        specs=[spec],
+        soda_cloud_use_agent=True,
+        soda_cloud_publish_results=False,
+    )
+    assert len(result.check_collection_results) == 1
+    error_result = result.check_collection_results[0]
+    assert error_result.status is ContractVerificationStatus.ERROR
+    exc = error_result._internal_exception
+    assert isinstance(exc, NotImplementedError)
+    message = str(exc)
     assert "sentinel-a" in message
     assert "agent execution" in message
 

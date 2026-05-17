@@ -130,55 +130,74 @@ class CheckCollectionVerificationSessionImpl:
         # source wrapped in a kind="contract" spec — preserves the previous
         # contract-only execution path while heterogeneous callers move to
         # ``specs=`` directly.
+        #
+        # Reject passing both — symmetric with ``ContractVerificationSession.execute``
+        # which raises ``TypeError`` on both being passed. Silently dropping one
+        # input was a footgun for callers migrating from the BC kwarg to the
+        # canonical ``specs=``.
+        if specs is not None and check_collection_yaml_sources is not None:
+            raise TypeError("Pass either specs= (canonical) or check_collection_yaml_sources= (BC), not both")
         if specs is None:
             if check_collection_yaml_sources is None:
                 raise ValueError("Either specs or check_collection_yaml_sources must be provided.")
-            assert isinstance(check_collection_yaml_sources, list)
-            assert all(
+            if not isinstance(check_collection_yaml_sources, list):
+                raise TypeError("check_collection_yaml_sources must be a list")
+            if not all(
                 isinstance(check_collection_yaml_source, CheckCollectionYamlSource)
                 for check_collection_yaml_source in check_collection_yaml_sources
-            )
+            ):
+                raise TypeError("check_collection_yaml_sources must contain CheckCollectionYamlSource instances")
             specs = [CheckCollectionSpec(kind="contract", yaml_source=src) for src in check_collection_yaml_sources]
         else:
-            assert isinstance(specs, list)
-            assert all(isinstance(spec, CheckCollectionSpec) for spec in specs)
+            if not isinstance(specs, list):
+                raise TypeError("specs must be a list")
+            if not all(isinstance(spec, CheckCollectionSpec) for spec in specs):
+                raise TypeError("specs must contain CheckCollectionSpec instances")
 
         # Validate input variables
         if variables is None:
             variables = {}
         else:
-            assert isinstance(variables, dict)
-            assert all(isinstance(k, str) and isinstance(v, (str, Number)) for k, v in variables.items())
+            if not isinstance(variables, dict):
+                raise TypeError("variables must be a dict")
+            if not all(isinstance(k, str) and isinstance(v, (str, Number)) for k, v in variables.items()):
+                raise TypeError("variables keys must be str and values must be str or numeric")
 
         # Validate input data_source_impls
         if data_source_impls is None:
             data_source_impls = []
         else:
-            assert isinstance(data_source_impls, list)
-            assert all(isinstance(data_source_impl, DataSourceImpl) for data_source_impl in data_source_impls)
+            if not isinstance(data_source_impls, list):
+                raise TypeError("data_source_impls must be a list")
+            if not all(isinstance(data_source_impl, DataSourceImpl) for data_source_impl in data_source_impls):
+                raise TypeError("data_source_impls must contain DataSourceImpl instances")
 
         # Validate input data_source_yaml_sources
         if data_source_yaml_sources is None:
             data_source_yaml_sources = []
         else:
-            assert isinstance(data_source_yaml_sources, list)
-            assert all(
+            if not isinstance(data_source_yaml_sources, list):
+                raise TypeError("data_source_yaml_sources must be a list")
+            if not all(
                 isinstance(data_source_yaml_source, DataSourceYamlSource) or soda_cloud_use_agent
                 for data_source_yaml_source in data_source_yaml_sources
-            )
+            ):
+                raise TypeError(
+                    "data_source_yaml_sources must contain DataSourceYamlSource instances "
+                    "(or soda_cloud_use_agent=True)"
+                )
 
         # Validate input soda_cloud_impl
-        if soda_cloud_impl is not None:
-            assert isinstance(soda_cloud_impl, SodaCloud)
+        if soda_cloud_impl is not None and not isinstance(soda_cloud_impl, SodaCloud):
+            raise TypeError("soda_cloud_impl must be a SodaCloud instance")
 
-        # Validate input soda_cloud_skip_publish
-        assert isinstance(soda_cloud_publish_results, bool)
-
-        # Validate input soda_cloud_use_agent
-        assert isinstance(soda_cloud_use_agent, bool)
-
-        # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
-        assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
+        # Validate flag inputs
+        if not isinstance(soda_cloud_publish_results, bool):
+            raise TypeError("soda_cloud_publish_results must be a bool")
+        if not isinstance(soda_cloud_use_agent, bool):
+            raise TypeError("soda_cloud_use_agent must be a bool")
+        if not isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int):
+            raise TypeError("soda_cloud_use_agent_blocking_timeout_in_minutes must be an int")
 
         if check_selectors is None:
             check_selectors = []
@@ -257,8 +276,14 @@ class CheckCollectionVerificationSessionImpl:
                 # it carries a ``SodaCoreException`` (see the facade in
                 # ``contracts/contract_verification.py``). ``BaseException``
                 # subclasses (``KeyboardInterrupt`` / ``SystemExit``) propagate.
-                descriptor = CheckCollection.get(spec.kind)
+                #
+                # ``CheckCollection.get(spec.kind)`` is inside the try so that an
+                # unregistered kind also isolates per-spec rather than aborting the
+                # whole session — the result list stays positional even when the
+                # descriptor lookup itself fails.
+                descriptor = None
                 try:
+                    descriptor = CheckCollection.get(spec.kind)
                     check_collection_yaml: CheckCollectionYaml = descriptor.yaml_class.parse(
                         check_collection_yaml_source=spec.yaml_source,
                         provided_variable_values=provided_variable_values,
@@ -376,18 +401,20 @@ class CheckCollectionVerificationSessionImpl:
         check_collection_results: list = []
 
         for idx, spec in enumerate(specs):
-            descriptor = CheckCollection.get(spec.kind)
-            display_name = descriptor.impl_class._DISPLAY_NAME
-            if descriptor.on_agent_verifier is None:
-                raise NotImplementedError(f"{display_name} does not support agent execution")
             # Per-spec isolation: keep the result list positional with the input ``specs``
             # so callers can match results to inputs by index even when one spec fails.
             # Symmetric with ``_execute_locally``: all ``Exception`` subtypes
-            # (including ``SodaCoreException``) are isolated into an ERROR-status
-            # placeholder. Facade-level legacy preservation (single-contract
-            # ``pytest.raises(YamlParserException)`` callers) lives in
-            # ``ContractVerificationSession.execute``.
+            # (including ``SodaCoreException``, ``KeyError`` on unknown kind, and
+            # ``NotImplementedError`` from a descriptor with ``on_agent_verifier=None``)
+            # are isolated into an ERROR-status placeholder. Facade-level legacy
+            # preservation (single-contract ``pytest.raises(YamlParserException)``
+            # callers) lives in ``ContractVerificationSession.execute``.
+            descriptor = None
             try:
+                descriptor = CheckCollection.get(spec.kind)
+                display_name = descriptor.impl_class._DISPLAY_NAME
+                if descriptor.on_agent_verifier is None:
+                    raise NotImplementedError(f"{display_name} does not support agent execution")
                 check_collection_yaml: CheckCollectionYaml = descriptor.yaml_class.parse(
                     check_collection_yaml_source=spec.yaml_source, provided_variable_values=variables
                 )
@@ -415,7 +442,7 @@ class CheckCollectionVerificationSessionImpl:
 
 def _build_error_result(
     spec: CheckCollectionSpec,
-    descriptor,
+    descriptor: Optional["CheckCollection"],
     exception: BaseException,
 ) -> CheckCollectionResult:
     """Build an ERROR-status ``CheckCollectionResult`` placeholder for a failed spec.
@@ -433,9 +460,29 @@ def _build_error_result(
     Subtype consumers (e.g. a future ``DataStandardsVerificationResult``
     adapter) iterating ``check_collection_results`` get a uniform shape with
     no per-slot ``None`` guard.
+
+    ``descriptor`` is ``None`` when the spec failed before the registry lookup
+    succeeded (unknown ``kind`` → ``KeyError`` from ``CheckCollection.get``).
+    In that case we synthesize a base-class ``CheckCollectionResult`` carrying
+    an empty ``wire_source`` so the placeholder still has positional integrity
+    even though no successful upload to Cloud will follow (the registration
+    was broken in the first place).
     """
     now = datetime.now(tz=timezone.utc)
-    wire_source = getattr(descriptor.impl_class, "_WIRE_SOURCE", "")
+    if descriptor is not None:
+        # Direct read — ``CheckCollection.register`` validates ``_WIRE_SOURCE`` is
+        # a non-empty str at registration time so a missing attribute here is a
+        # real invariant breach worth failing loud on.
+        wire_source = descriptor.impl_class._WIRE_SOURCE
+        display_name = descriptor.impl_class._DISPLAY_NAME
+        result_cls = getattr(descriptor.impl_class, "_RESULT_CLASS", CheckCollectionResult)
+    else:
+        # No descriptor available — spec.kind never resolved. Empty wire_source
+        # is documented above; the placeholder exists for positional integrity
+        # rather than for successful Cloud ingestion.
+        wire_source = ""
+        display_name = f"unknown kind {spec.kind!r}"
+        result_cls = CheckCollectionResult
     contract = Contract(
         data_source_name=None,
         dataset_prefix=[],
@@ -454,14 +501,10 @@ def _build_error_result(
         level=logging.ERROR,
         pathname="",
         lineno=0,
-        msg=(
-            f"Could not verify {descriptor.impl_class._DISPLAY_NAME} "
-            f"(spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}"
-        ),
+        msg=(f"Could not verify {display_name} " f"(spec.kind={spec.kind!r}): {type(exception).__name__}: {exception}"),
         args=(),
         exc_info=None,
     )
-    result_cls = getattr(descriptor.impl_class, "_RESULT_CLASS", CheckCollectionResult)
     return result_cls(
         contract=contract,
         data_source=None,
@@ -533,10 +576,17 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
         # must declare _WIRE_SOURCE. _KIND / _DISPLAY_NAME have safe base
         # defaults; _WIRE_SOURCE does not, and a missing value would silently
         # upload checks under the abstract base's name.
-        if "_RESULT_CLASS" in cls.__dict__ and "_WIRE_SOURCE" not in {
-            attr for c in cls.__mro__ if c is not CheckCollectionImpl for attr in c.__dict__
-        }:
-            raise TypeError(f"{cls.__name__}: concrete CheckCollectionImpl subtype must declare _WIRE_SOURCE")
+        #
+        # Walk MRO via ``any`` short-circuit rather than flattening every
+        # ancestor's ``__dict__`` into a set comprehension — cheaper and more
+        # readable: we only need to know whether some ancestor (excluding the
+        # base CheckCollectionImpl) declares the attribute.
+        if "_RESULT_CLASS" in cls.__dict__:
+            has_wire_source_in_ancestors = any(
+                "_WIRE_SOURCE" in c.__dict__ for c in cls.__mro__ if c is not CheckCollectionImpl
+            )
+            if not has_wire_source_in_ancestors:
+                raise TypeError(f"{cls.__name__}: concrete CheckCollectionImpl subtype must declare _WIRE_SOURCE")
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type[CheckCollectionImplExtension]) -> None:
