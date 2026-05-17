@@ -3,10 +3,11 @@ and ``CheckCollectionYaml``: Generic subscription, identity ClassVars,
 and ``CheckImpl`` identity hooks.
 
 The session-side Generic derivation that used to live here was removed in
-the DES-315 reshape — the session impl now dispatches via the family
-registry per spec rather than via ``Generic[YamlT, ImplT, ResultT]`` on a
-session subclass. See ``test_session_dispatch.py`` for the replacement
-coverage of mixed-kind sessions, unknown-kind errors, and agent dispatch.
+the DES-315 reshape — the session impl now dispatches via the
+``CheckCollection`` registry per spec rather than via
+``Generic[YamlT, ImplT, ResultT]`` on a session subclass. See
+``test_session_dispatch.py`` for the replacement coverage of mixed-kind
+sessions, unknown-kind errors, and agent dispatch.
 """
 
 from typing import TypeVar

@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from soda_core.check_collections.check_collection_family import (
-    CheckCollectionFamily,
-    register_family,
-)
+from soda_core.check_collections.check_collection import CheckCollection
 from soda_core.check_collections.impl.check_collection_verification_impl import (
     AggregationMetricImpl,
     AggregationQuery,
@@ -62,10 +59,10 @@ def _verify_contract_on_agent(
     publish_results,
     verbose,
 ):
-    """Module-level agent verifier registered on the ``contract`` family.
+    """Module-level agent verifier registered on the ``contract`` CheckCollection.
 
     Replaces the previous ``ContractVerificationSessionImpl._verify_on_agent``
-    classmethod hook — the family registry now dispatches per-spec.
+    classmethod hook — the CheckCollection registry now dispatches per-spec.
     """
     return soda_cloud_impl.verify_contract_on_agent(
         contract_yaml=check_collection_yaml,
@@ -76,19 +73,17 @@ def _verify_contract_on_agent(
     )
 
 
-# Register the contract family at module-import time. The session impl reads
-# each spec's ``kind`` and dispatches via the registry; importing this module
-# is what wires the contract subtype. Identity (display name, wire source,
-# test scan-definition type, result class) is read off ``ContractImpl``'s
-# ClassVars at dispatch time — the family carries only the dispatcher's
-# minimal needs.
-register_family(
-    CheckCollectionFamily(
-        kind="contract",
-        yaml_class=ContractYaml,
-        impl_class=ContractImpl,
-        on_agent_verifier=_verify_contract_on_agent,
-    )
+# Register the contract CheckCollection at module-import time. The session
+# impl reads each spec's ``kind`` and dispatches via the registry; importing
+# this module is what wires the contract subtype. Identity (display name,
+# wire source, test scan-definition type, result class) is read off
+# ``ContractImpl``'s ClassVars at dispatch time — the descriptor carries only
+# the dispatcher's minimal needs.
+CheckCollection.register(
+    kind="contract",
+    yaml_class=ContractYaml,
+    impl_class=ContractImpl,
+    on_agent_verifier=_verify_contract_on_agent,
 )
 
 

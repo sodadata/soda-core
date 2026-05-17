@@ -87,26 +87,26 @@ def test_universal_session_with_bc_kwarg_returns_base_result():
     assert len(result.check_collection_results) == 1
 
 
-def test_importing_soda_core_contracts_registers_contract_family():
+def test_importing_soda_core_contracts_registers_contract_check_collection():
     """Importing the public ``soda_core.contracts`` package eagerly wires the
-    ``contract`` family into the registry. Anyone who only imports the
-    public facade (i.e. ``from soda_core.contracts import verify_contract``)
-    can call ``get_family("contract")`` without an extra side-effect import
-    of the impl module.
+    ``contract`` CheckCollection into the registry. Anyone who only imports
+    the public facade (i.e. ``from soda_core.contracts import verify_contract``)
+    can call ``CheckCollection.get("contract")`` without an extra side-effect
+    import of the impl module.
 
-    This pins the move of the family-registering side-effect from a lazy
-    import inside ``CheckCollectionVerificationSession.execute`` to the
-    public package's ``__init__`` — registration now happens once on first
-    facade touch, not on every execute() call.
+    This pins the move of the registration side-effect from a lazy import
+    inside ``CheckCollectionVerificationSession.execute`` to the public
+    package's ``__init__`` — registration now happens once on first facade
+    touch, not on every execute() call.
     """
     import soda_core.contracts  # noqa: F401  — load-bearing import for this test
-    from soda_core.check_collections.check_collection_family import get_family
+    from soda_core.check_collections.check_collection import CheckCollection
 
-    family = get_family("contract")
-    assert family.kind == "contract"
-    # Identity is read off the impl's ClassVars now — no duplicate family fields.
-    assert family.impl_class._WIRE_SOURCE == "soda-contract"
-    assert family.impl_class._DISPLAY_NAME == "contract"
+    descriptor = CheckCollection.get("contract")
+    assert descriptor.kind == "contract"
+    # Identity is read off the impl's ClassVars now — no duplicate descriptor fields.
+    assert descriptor.impl_class._WIRE_SOURCE == "soda-contract"
+    assert descriptor.impl_class._DISPLAY_NAME == "contract"
 
 
 def test_contract_wire_source_is_plumbed_from_classvar_to_contract():

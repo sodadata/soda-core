@@ -224,7 +224,7 @@ class CheckCollectionVerificationSessionImpl:
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[CheckCollectionResult]:
         "Verifies a heterogeneous list of check collections locally, dispatching per-spec via the registry."
-        from soda_core.check_collections.check_collection_family import get_family
+        from soda_core.check_collections.check_collection import CheckCollection
 
         check_collection_results: list = []
 
@@ -250,9 +250,9 @@ class CheckCollectionVerificationSessionImpl:
                 # session — public callers and tests pin that contract. Only
                 # unexpected exceptions (impl construction / verify bugs, missing
                 # extension state, etc.) are isolated per-spec.
-                family = get_family(spec.kind)
+                check_collection = CheckCollection.get(spec.kind)
                 try:
-                    check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
+                    check_collection_yaml: CheckCollectionYaml = check_collection.yaml_class.parse(
                         check_collection_yaml_source=spec.yaml_source,
                         provided_variable_values=provided_variable_values,
                         data_timestamp=data_timestamp,
@@ -268,7 +268,7 @@ class CheckCollectionVerificationSessionImpl:
                         if (check_collection_yaml and data_source_name and not only_validate_without_execute)
                         else None
                     )
-                    check_collection_impl: CheckCollectionImpl = family.impl_class(
+                    check_collection_impl: CheckCollectionImpl = check_collection.impl_class(
                         check_collection_yaml=check_collection_yaml,
                         only_validate_without_execute=only_validate_without_execute,
                         data_timestamp=check_collection_yaml.data_timestamp,
@@ -289,7 +289,7 @@ class CheckCollectionVerificationSessionImpl:
                     raise
                 except Exception:
                     logger.error(
-                        msg=(f"Could not verify {family.impl_class._DISPLAY_NAME} " f"{spec.yaml_source}"),
+                        msg=(f"Could not verify {check_collection.impl_class._DISPLAY_NAME} " f"{spec.yaml_source}"),
                         exc_info=True,
                     )
                     check_collection_results.append(None)
@@ -361,22 +361,22 @@ class CheckCollectionVerificationSessionImpl:
         soda_cloud_verbose: bool,
     ) -> list[CheckCollectionResult]:
         "Verifies a heterogeneous list of check collections on the Soda Cloud agent, dispatching per-spec via the registry."
-        from soda_core.check_collections.check_collection_family import get_family
+        from soda_core.check_collections.check_collection import CheckCollection
 
         check_collection_results: list = []
 
         for spec in specs:
-            family = get_family(spec.kind)
-            display_name = family.impl_class._DISPLAY_NAME
-            if family.on_agent_verifier is None:
+            check_collection = CheckCollection.get(spec.kind)
+            display_name = check_collection.impl_class._DISPLAY_NAME
+            if check_collection.on_agent_verifier is None:
                 raise NotImplementedError(f"{display_name} does not support agent execution")
             # Per-spec isolation: keep the result list positional with the input ``specs``
             # so callers can match results to inputs by index even when one spec fails.
             try:
-                check_collection_yaml: CheckCollectionYaml = family.yaml_class.parse(
+                check_collection_yaml: CheckCollectionYaml = check_collection.yaml_class.parse(
                     check_collection_yaml_source=spec.yaml_source, provided_variable_values=variables
                 )
-                check_collection_result = family.on_agent_verifier(
+                check_collection_result = check_collection.on_agent_verifier(
                     soda_cloud_impl=soda_cloud_impl,
                     check_collection_yaml=check_collection_yaml,
                     variables=variables,

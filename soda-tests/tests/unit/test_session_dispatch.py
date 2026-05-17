@@ -1,7 +1,7 @@
-"""Pins the universal session impl's dispatch behavior over the family
-registry: mixed-kind sessions aggregate per-spec results in input order,
-unknown kinds raise a clear lookup error, and the agent path raises a
-clear ``NotImplementedError`` for families registered with
+"""Pins the universal session impl's dispatch behavior over the
+CheckCollection registry: mixed-kind sessions aggregate per-spec results in
+input order, unknown kinds raise a clear lookup error, and the agent path
+raises a clear ``NotImplementedError`` for descriptors registered with
 ``on_agent_verifier=None``.
 
 Replaces the session-side Generic-derivation tests that were dropped when
@@ -15,11 +15,7 @@ from __future__ import annotations
 from typing import Iterator
 
 import pytest
-from soda_core.check_collections.check_collection_family import (
-    _REGISTRY,
-    CheckCollectionFamily,
-    register_family,
-)
+from soda_core.check_collections.check_collection import CheckCollection
 from soda_core.check_collections.check_collection_spec import CheckCollectionSpec
 from soda_core.check_collections.check_collection_verification import (
     CheckCollectionResult,
@@ -32,8 +28,8 @@ from soda_core.check_collections.impl.check_collection_verification_impl import 
 from soda_core.check_collections.impl.check_collection_yaml import CheckCollectionYaml
 from soda_core.common.yaml import CheckCollectionYamlSource
 
-# Two sentinel families register at test time. We snapshot/restore the
-# module-level registry so they don't leak across tests.
+# Two sentinel descriptors register at test time. We snapshot/restore the
+# class-level registry so they don't leak across tests.
 
 
 class _SentinelAYaml(CheckCollectionYaml):
@@ -73,13 +69,13 @@ columns:
 
 @pytest.fixture(autouse=True)
 def _clean_registry() -> Iterator[None]:
-    """Snapshot the registry around each test so sentinel families don't leak."""
-    saved = dict(_REGISTRY)
+    """Snapshot the registry around each test so sentinel descriptors don't leak."""
+    saved = dict(CheckCollection._REGISTRY)
     try:
         yield
     finally:
-        _REGISTRY.clear()
-        _REGISTRY.update(saved)
+        CheckCollection._REGISTRY.clear()
+        CheckCollection._REGISTRY.update(saved)
 
 
 def _yaml_source() -> CheckCollectionYamlSource:
@@ -87,30 +83,26 @@ def _yaml_source() -> CheckCollectionYamlSource:
 
 
 def _register_sentinel_a(*, on_agent_verifier=None) -> None:
-    register_family(
-        CheckCollectionFamily(
-            kind="sentinel_a",
-            yaml_class=_SentinelAYaml,
-            impl_class=_SentinelAImpl,
-            on_agent_verifier=on_agent_verifier,
-        )
+    CheckCollection.register(
+        kind="sentinel_a",
+        yaml_class=_SentinelAYaml,
+        impl_class=_SentinelAImpl,
+        on_agent_verifier=on_agent_verifier,
     )
 
 
 def _register_sentinel_b(*, on_agent_verifier=None) -> None:
-    register_family(
-        CheckCollectionFamily(
-            kind="sentinel_b",
-            yaml_class=_SentinelBYaml,
-            impl_class=_SentinelBImpl,
-            on_agent_verifier=on_agent_verifier,
-        )
+    CheckCollection.register(
+        kind="sentinel_b",
+        yaml_class=_SentinelBYaml,
+        impl_class=_SentinelBImpl,
+        on_agent_verifier=on_agent_verifier,
     )
 
 
 def test_mixed_kind_session_aggregates_per_spec_results_in_order():
-    """A heterogeneous ``specs=`` list dispatches each spec to its family and
-    aggregates the per-spec results in input order on the session result."""
+    """A heterogeneous ``specs=`` list dispatches each spec to its CheckCollection
+    descriptor and aggregates the per-spec results in input order on the session result."""
     _register_sentinel_a()
     _register_sentinel_b()
 
@@ -154,8 +146,8 @@ def test_unknown_kind_raises_with_known_kinds_list():
 
 
 def test_agent_path_with_on_agent_verifier_none_raises_not_implemented():
-    """A family registered with ``on_agent_verifier=None`` cleanly rejects
-    agent dispatch with a message that names the family's display name and
+    """A descriptor registered with ``on_agent_verifier=None`` cleanly rejects
+    agent dispatch with a message that names the descriptor's display name and
     mentions agent execution."""
     _register_sentinel_a(on_agent_verifier=None)
 
@@ -189,13 +181,11 @@ def test_spec_collection_name_is_forwarded_to_impl():
             super().__init__(*args, **kwargs)
             captured.append(self)
 
-    register_family(
-        CheckCollectionFamily(
-            kind="sentinel_a",
-            yaml_class=_SentinelAYaml,
-            impl_class=_CapturingSentinelAImpl,
-            on_agent_verifier=None,
-        )
+    CheckCollection.register(
+        kind="sentinel_a",
+        yaml_class=_SentinelAYaml,
+        impl_class=_CapturingSentinelAImpl,
+        on_agent_verifier=None,
     )
 
     spec = CheckCollectionSpec(
@@ -232,7 +222,7 @@ def test_per_spec_error_isolation_in_local_execute():
     """
 
     # Per-test sentinel impl that raises during verify(). We register a fresh
-    # family with this impl so the failure is genuinely per-spec.
+    # descriptor with this impl so the failure is genuinely per-spec.
     class _BrokenSentinelImpl(_SentinelAImpl):
         _WIRE_SOURCE = "soda-sentinel-broken"
 
@@ -242,13 +232,11 @@ def test_per_spec_error_isolation_in_local_execute():
     class _BrokenSentinelYaml(_SentinelAYaml):
         _KIND = "sentinel_broken"
 
-    register_family(
-        CheckCollectionFamily(
-            kind="sentinel_broken",
-            yaml_class=_BrokenSentinelYaml,
-            impl_class=_BrokenSentinelImpl,
-            on_agent_verifier=None,
-        )
+    CheckCollection.register(
+        kind="sentinel_broken",
+        yaml_class=_BrokenSentinelYaml,
+        impl_class=_BrokenSentinelImpl,
+        on_agent_verifier=None,
     )
     _register_sentinel_a()
 
