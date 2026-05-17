@@ -56,7 +56,7 @@ def get_family(kind: str) -> CheckCollectionFamily:
         return _REGISTRY[kind]
     except KeyError:
         known = sorted(_REGISTRY)
-        raise KeyError(f"No check-collection family registered for kind {kind!r}. " f"Known kinds: {known}.")
+        raise KeyError(f"No check-collection family registered for kind {kind!r}. Known kinds: {known}.")
 
 
 def list_families() -> list[CheckCollectionFamily]:
