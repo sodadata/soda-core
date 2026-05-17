@@ -230,6 +230,7 @@ def test_per_spec_error_isolation_in_local_execute():
     pytest.raises(YamlParserException) contract that callers pin in tests
     like test_contract_parsing_errors.
     """
+
     # Per-test sentinel impl that raises during verify(). We register a fresh
     # family with this impl so the failure is genuinely per-spec.
     class _BrokenSentinelImpl(_SentinelAImpl):

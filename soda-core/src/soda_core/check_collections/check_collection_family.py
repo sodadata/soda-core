@@ -38,7 +38,8 @@ class OnAgentVerifier(Protocol):
         blocking_timeout_in_minutes: Optional[int],
         publish_results: bool,
         verbose: bool,
-    ) -> CheckCollectionResult: ...
+    ) -> CheckCollectionResult:
+        ...
 
 
 @dataclass(frozen=True, kw_only=True)

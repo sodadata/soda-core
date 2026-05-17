@@ -289,10 +289,7 @@ class CheckCollectionVerificationSessionImpl:
                     raise
                 except Exception:
                     logger.error(
-                        msg=(
-                            f"Could not verify {family.impl_class._DISPLAY_NAME} "
-                            f"{spec.yaml_source}"
-                        ),
+                        msg=(f"Could not verify {family.impl_class._DISPLAY_NAME} " f"{spec.yaml_source}"),
                         exc_info=True,
                     )
                     check_collection_results.append(None)
