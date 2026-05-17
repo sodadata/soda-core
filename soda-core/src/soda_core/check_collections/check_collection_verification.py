@@ -62,10 +62,6 @@ class CheckCollectionVerificationSession:
         @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
         @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
         """
-        # Importing contract_verification_impl as a side-effect registers the
-        # contract family with the registry, so the BC bridge (yaml_sources →
-        # kind="contract" specs) inside execute() can dispatch correctly.
-        import soda_core.contracts.impl.contract_verification_impl  # noqa: F401
         from soda_core.check_collections.impl.check_collection_verification_impl import (
             CheckCollectionVerificationSessionImpl,
         )
@@ -235,6 +231,13 @@ class Contract:
     soda_qualified_dataset_name: str
     source: YamlFileContentInfo
     dataset_id: Optional[str] = None  # This one can be filled later when we get the dataset id from Soda Cloud
+    # Per-check Cloud upload ``source`` literal (e.g. ``"soda-contract"``).
+    # Populated from ``type(check_collection_impl)._WIRE_SOURCE`` at the
+    # construction site so the upload boundary does not have to know about
+    # the impl class hierarchy. Defaults to ``"soda-contract"`` for
+    # backwards compatibility with existing Contract constructions on
+    # publication / on-agent paths that don't run an impl locally.
+    wire_source: str = "soda-contract"
 
 
 @dataclass

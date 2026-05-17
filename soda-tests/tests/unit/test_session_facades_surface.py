@@ -85,3 +85,57 @@ def test_universal_session_with_bc_kwarg_returns_base_result():
     assert isinstance(result, CheckCollectionSessionResult)
     assert not isinstance(result, ContractVerificationSessionResult)
     assert len(result.check_collection_results) == 1
+
+
+def test_importing_soda_core_contracts_registers_contract_family():
+    """Importing the public ``soda_core.contracts`` package eagerly wires the
+    ``contract`` family into the registry. Anyone who only imports the
+    public facade (i.e. ``from soda_core.contracts import verify_contract``)
+    can call ``get_family("contract")`` without an extra side-effect import
+    of the impl module.
+
+    This pins the move of the family-registering side-effect from a lazy
+    import inside ``CheckCollectionVerificationSession.execute`` to the
+    public package's ``__init__`` — registration now happens once on first
+    facade touch, not on every execute() call.
+    """
+    import soda_core.contracts  # noqa: F401  — load-bearing import for this test
+    from soda_core.check_collections.check_collection_family import get_family
+
+    family = get_family("contract")
+    assert family.kind == "contract"
+    # Identity is read off the impl's ClassVars now — no duplicate family fields.
+    assert family.impl_class._WIRE_SOURCE == "soda-contract"
+    assert family.impl_class._DISPLAY_NAME == "contract"
+
+
+def test_contract_wire_source_is_plumbed_from_classvar_to_contract():
+    """The ``Contract`` boundary object carries ``wire_source`` populated from
+    ``type(check_collection_impl)._WIRE_SOURCE`` at construction time, so the
+    Cloud upload site can read it instead of hardcoding ``"soda-contract"``.
+
+    The check is structural — we don't run a real upload; we assert the
+    plumbing path:
+    1. ContractImpl declares ``_WIRE_SOURCE = "soda-contract"`` (ClassVar).
+    2. A locally-verified contract's ``ContractVerificationResult.contract``
+       carries the same value on ``wire_source``.
+
+    Pins the fix for the hardcoded ``"source": "soda-contract"`` in
+    ``soda_cloud._build_check_result_cloud_dict`` — when a future subtype
+    declares ``_WIRE_SOURCE = "data-standard"``, the upload will say
+    ``"data-standard"`` automatically.
+    """
+    from soda_core.contracts.contract_verification import ContractVerificationSession
+    from soda_core.contracts.impl.contract_verification_impl import ContractImpl
+
+    # 1. ClassVar is the source of truth.
+    assert ContractImpl._WIRE_SOURCE == "soda-contract"
+
+    # 2. The plumbed value reaches Contract.wire_source on the result.
+    result = ContractVerificationSession.execute(
+        contract_yaml_sources=[_yaml_source()],
+        only_validate_without_execute=True,
+    )
+    assert len(result.check_collection_results) == 1
+    contract = result.check_collection_results[0].contract
+    assert contract.wire_source == "soda-contract"

@@ -821,6 +821,12 @@ class CheckCollectionImpl(Generic[YamlT, ResultT]):
                     soda_cloud_file_id=soda_cloud_file_id,
                 ),
                 dataset_id=None,  # Set this to None for now (default). Will be filled later when we get the dataset id from Soda Cloud
+                # Per-check Cloud upload ``source`` literal is dispatched off the
+                # subtype's ClassVar. Future subtypes (e.g. DataStandardImpl with
+                # _WIRE_SOURCE="data-standard") flow through here automatically;
+                # the upload site reads ``contract.wire_source`` rather than
+                # hardcoding a literal.
+                wire_source=type(self)._WIRE_SOURCE,
             ),
             data_source=data_source,
             data_timestamp=self.data_timestamp,

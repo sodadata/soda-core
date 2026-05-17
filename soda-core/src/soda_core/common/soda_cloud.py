@@ -1516,7 +1516,10 @@ def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult
         "datasetPrefix": contract.dataset_prefix,
         "column": check_result.check.column_name,
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
-        "source": "soda-contract",
+        # Read from the boundary object rather than hardcoding — future subtypes
+        # (e.g. data-standards) flow through via ``contract.wire_source`` populated
+        # from ``type(check_collection_impl)._WIRE_SOURCE`` at construction time.
+        "source": contract.wire_source,
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }
 
