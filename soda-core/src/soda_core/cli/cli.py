@@ -219,10 +219,8 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         "--metadata-diagnostics-warehouse",
         type=str,
         nargs="?",
-        help="Optional path to an org-wide metadata diagnostics warehouse configuration file. "
-        "When provided, a copy of selected metadata rows (currently check_results) is written "
-        "to this target in addition to the primary diagnostics warehouse. The destination "
-        "schema is fetched from Soda Cloud alongside the per-dataset DWH configuration.",
+        help="Specify the path to the metadata diagnostics warehouse configuration file. ",
+
     )
 
     def handle(args):
