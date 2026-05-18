@@ -377,7 +377,7 @@ class CheckCollectionImpl:
         return self.is_test_verification_on_agent and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
-        keys: list[str] = self.yaml.contract_yaml_object.keys()
+        keys: list[str] = self.yaml.yaml_object.keys()
         if "checks" in keys and "columns" in keys:
             return keys.index("checks") < keys.index("columns")
         return None
@@ -488,7 +488,7 @@ class CheckCollectionImpl:
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
             f"{verb} {self.display_name} {Emoticons.SCROLL} "
-            f"{self.yaml.contract_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
+            f"{self.yaml.yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
         )
 
         if self.data_source_impl:
@@ -544,7 +544,7 @@ class CheckCollectionImpl:
 
         soda_cloud_file_id: Optional[str] = None
         sending_results_to_soda_cloud_failed: bool = False
-        yaml_source_str_original = self.yaml.contract_yaml_source.yaml_str_original
+        yaml_source_str_original = self.yaml.yaml_source.yaml_str_original
         soda_cloud_response_json: Optional[dict] = None
 
         if self.soda_cloud and self.publish_results:
@@ -562,7 +562,7 @@ class CheckCollectionImpl:
                 soda_qualified_dataset_name=self.soda_qualified_dataset_name,
                 source=YamlFileContentInfo(
                     source_content_str=yaml_source_str_original,
-                    local_file_path=self.yaml.contract_yaml_source.file_path,
+                    local_file_path=self.yaml.yaml_source.file_path,
                     soda_cloud_file_id=soda_cloud_file_id,
                 ),
                 dataset_id=None,

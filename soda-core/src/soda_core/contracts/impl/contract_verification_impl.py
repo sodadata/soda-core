@@ -1095,7 +1095,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.contract_yaml.contract_yaml_source.file_path,
+            self.contract_impl.contract_yaml.yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,

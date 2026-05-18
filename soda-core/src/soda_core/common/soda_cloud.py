@@ -434,11 +434,11 @@ class SodaCloud:
             return ContractPublicationResult(contract=None)
 
         logger.info(
-            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_source.file_path} "
+            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.yaml_source.file_path} "
             f"{Emoticons.FINGERS_CROSSED}"
         )
-        contract_yaml_str_original = contract_yaml.contract_yaml_source.yaml_str_original
-        contract_local_file_path = contract_yaml.contract_yaml_source.file_path
+        contract_yaml_str_original = contract_yaml.yaml_source.yaml_str_original
+        contract_local_file_path = contract_yaml.yaml_source.file_path
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 
@@ -555,8 +555,8 @@ class SodaCloud:
         publish_results: bool,
         verbose: bool,
     ) -> ContractVerificationResult:
-        contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
-        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path or "REMOTE"  # TODO
+        contract_yaml_str_original: str = contract_yaml.yaml_source.yaml_str_original
+        contract_local_file_path: Optional[str] = contract_yaml.yaml_source.file_path or "REMOTE"  # TODO
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 

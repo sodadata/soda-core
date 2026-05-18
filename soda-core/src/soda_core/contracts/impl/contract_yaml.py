@@ -83,8 +83,12 @@ class ContractYaml(CheckCollectionYaml):
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ):
-        self.contract_yaml_source: ContractYamlSource = contract_yaml_source
-        self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
+        # Neutral attribute names on the base ``CheckCollectionYaml``: the
+        # engine in ``base.py`` reads ``self.yaml.yaml_object`` /
+        # ``self.yaml.yaml_source``, which works for any check-collection
+        # subtype. ``ContractYaml`` populates the neutral names directly.
+        self.yaml_source: ContractYamlSource = contract_yaml_source
+        self.yaml_object: YamlObject = contract_yaml_source.parse()
         self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
         # Cache the dialect's native→canonical data type mapping once — dialects construct this dict fresh on every call.
         self._native_to_soda_data_type_mapping: Optional[dict[str, SodaDataTypeName]] = (
@@ -121,22 +125,22 @@ class ContractYaml(CheckCollectionYaml):
             if f_convert_str_to_datetime(now_value) is None:
                 logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
 
-        self.contract_yaml_source.resolve_on_read_value(
+        self.yaml_source.resolve_on_read_value(
             resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
         )
 
-        self.dataset = self.contract_yaml_object.read_dataset_identifier("dataset")
+        self.dataset = self.yaml_object.read_dataset_identifier("dataset")
 
-        self.check_attributes = self.contract_yaml_object.read_object_opt(
+        self.check_attributes = self.yaml_object.read_object_opt(
             "check_attributes", default_value={}
         ).to_dict()
 
-        self.filter: Optional[str] = self.contract_yaml_object.read_string_opt("filter")
+        self.filter: Optional[str] = self.yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
 
-        self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
-        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+        self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
 
         for extension_cls in ContractYaml.contract_yaml_extensions.values():
             try:
@@ -150,8 +154,8 @@ class ContractYaml(CheckCollectionYaml):
     def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
 
-        if self.contract_yaml_object:
-            variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
+        if self.yaml_object:
+            variables_yaml_object: Optional[YamlObject] = self.yaml_object.read_object_opt("variables")
             if variables_yaml_object:
                 for variable_name, variable_yaml_object in variables_yaml_object.items():
                     variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
@@ -284,8 +288,8 @@ class ContractYaml(CheckCollectionYaml):
                             [f"[{location.line},{location.column}]" for location in locations if location is not None]
                         )
                         file_location = (
-                            f"In {self.contract_yaml_source.file_path} at: "
-                            if self.contract_yaml_source.file_path
+                            f"In {self.yaml_source.file_path} at: "
+                            if self.yaml_source.file_path
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
