@@ -64,18 +64,15 @@ class ContractYaml(CheckCollectionYaml):
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ) -> Optional[ContractYaml]:
-        # Canonical kwarg name is ``yaml_source=`` (matches the universal
-        # ``CheckCollectionYaml`` base and ``execute_check_collections``).
-        # The legacy ``contract_yaml_source=`` alias was dropped — soda-core
-        # callers now pass ``yaml_source=``. soda-extensions consumers
-        # cascade in a follow-up dispatch.
-        contract_yaml = ContractYaml(
+        # Construct via ``cls`` so subtype YAML classes (e.g. ``DataStandardYaml``)
+        # inherit ``parse`` cleanly: they only need to override ``__init__`` to
+        # read their extra fields after calling ``super().__init__()``.
+        return cls(
             contract_yaml_source=yaml_source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
-        return contract_yaml
 
     def __init__(
         self,
