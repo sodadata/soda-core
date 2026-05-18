@@ -53,9 +53,32 @@ jobs:
         run: uv lock --check
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
-  define-test-matrix:
+  detect-skip-tests:
+    name: detect [SKIP-TESTS]
     runs-on: ubuntu-24.04
-    needs: [check]
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check commit message for [SKIP-TESTS] prefix
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.event.pull_request.head.sha }}" --depth=1
+            COMMIT_MSG=$(git log -1 --pretty=%s FETCH_HEAD)
+          else
+            COMMIT_MSG=$(git log -1 --pretty=%s)
+          fi
+          if [[ "$COMMIT_MSG" == "[SKIP-TESTS]"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Commit message starts with [SKIP-TESTS] — tests will be skipped"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+  define-test-matrix:
+    if: needs.detect-skip-tests.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    needs: [check, detect-skip-tests]
     outputs:
       modules: ${{ steps.modules.outputs.modules }}
     steps:
@@ -297,7 +320,9 @@ jobs:
         run: docker rm -f trino-ci 2>/dev/null || true
 
   define-matrix:
-    if: github.ref_name == 'main'
+    if: |
+      always() && !cancelled() && github.ref_name == 'main'
+      && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-24.04
     needs: [test]
     outputs:
@@ -309,7 +334,14 @@ jobs:
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release-to-dev-pypi:
-    if: github.ref_name == 'main' # Pushes to "main" branch
+    # Mirror define-matrix's gating: without always() + an explicit
+    # needs.<job>.result check, GitHub Actions' default success() evaluates
+    # the *transitive* needs graph — so a [SKIP-TESTS] commit that skips
+    # `test` also skips this job, defeating the SKIP-TESTS contract
+    # (dev-pypi publish must still run on main).
+    if: |
+      always() && !cancelled() && github.ref_name == 'main'
+      && needs.define-matrix.result == 'success'
     runs-on: ubuntu-24.04
     needs: [define-matrix]
     strategy:
