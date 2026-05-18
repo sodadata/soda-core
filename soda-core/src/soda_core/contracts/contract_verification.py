@@ -446,12 +446,19 @@ class Measurement:
         self.value: any = value
 
 
-class ContractVerificationStatus(Enum):
+class CheckCollectionStatus(Enum):
     UNKNOWN = "UNKNOWN"
     WARNED = "WARNED"
     FAILED = "FAILED"
     PASSED = "PASSED"
     ERROR = "ERROR"
+
+
+# Backward-compat module-level alias. External callers (and any
+# yet-to-be-cascaded internal references in soda-extensions) keep working
+# via the legacy name. Internal soda-core references use the canonical
+# name directly.
+ContractVerificationStatus = CheckCollectionStatus
 
 
 @dataclass

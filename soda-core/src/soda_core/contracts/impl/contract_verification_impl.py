@@ -24,7 +24,7 @@ from soda_core.contracts.contract_verification import (
     CheckResult,
     ContractVerificationResult,
     ContractVerificationSessionResult,
-    ContractVerificationStatus,
+    CheckCollectionStatus,
     Measurement,
     PostProcessingStage,
     SodaException,
@@ -480,20 +480,20 @@ class ContractImpl(CheckCollectionImpl):
         )
 
 
-def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> ContractVerificationStatus:
+def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> CheckCollectionStatus:
     if has_errors:
-        return ContractVerificationStatus.ERROR
+        return CheckCollectionStatus.ERROR
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):
-        return ContractVerificationStatus.FAILED
+        return CheckCollectionStatus.FAILED
 
     if any(check_result.outcome == CheckOutcome.WARN for check_result in check_results):
-        return ContractVerificationStatus.WARNED
+        return CheckCollectionStatus.WARNED
 
     if all(check_result.outcome == CheckOutcome.PASSED for check_result in check_results):
-        return ContractVerificationStatus.PASSED
+        return CheckCollectionStatus.PASSED
 
-    return ContractVerificationStatus.UNKNOWN
+    return CheckCollectionStatus.UNKNOWN
 
 
 class MeasurementValues:

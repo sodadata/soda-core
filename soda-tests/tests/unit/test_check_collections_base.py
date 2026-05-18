@@ -23,7 +23,7 @@ from soda_core.check_collections.session import (
 )
 from soda_core.contracts.contract_verification import (
     Contract,
-    ContractVerificationStatus,
+    CheckCollectionStatus,
     YamlFileContentInfo,
 )
 
@@ -57,7 +57,7 @@ def _make_passed_result(label: str) -> _FakeResult:
         data_timestamp=None,
         started_timestamp=now,
         ended_timestamp=now,
-        status=ContractVerificationStatus.PASSED,
+        status=CheckCollectionStatus.PASSED,
         measurements=[],
         check_results=[],
         sending_results_to_soda_cloud_failed=False,
@@ -149,7 +149,7 @@ def test_execute_check_collections_runs_each_item_in_order():
 
     labels = [r.check_collection.dataset_name for r in session_result.results]
     assert labels == ["a", "b", "c"]
-    assert all(r.status is ContractVerificationStatus.PASSED for r in session_result.results)
+    assert all(r.status is CheckCollectionStatus.PASSED for r in session_result.results)
 
 
 def test_execute_check_collections_isolates_per_item_errors_by_default():
@@ -162,10 +162,10 @@ def test_execute_check_collections_isolates_per_item_errors_by_default():
     session_result = execute_check_collections(items=items, data_source_impl=None)
 
     assert len(session_result.results) == 3
-    assert session_result.results[0].status is ContractVerificationStatus.PASSED
-    assert session_result.results[1].status is ContractVerificationStatus.ERROR
+    assert session_result.results[0].status is CheckCollectionStatus.PASSED
+    assert session_result.results[1].status is CheckCollectionStatus.ERROR
     assert session_result.results[1].error is exc
-    assert session_result.results[2].status is ContractVerificationStatus.PASSED
+    assert session_result.results[2].status is CheckCollectionStatus.PASSED
 
 
 def test_execute_check_collections_abort_on_first_error_reraises_verbatim():
@@ -185,7 +185,7 @@ def test_execute_check_collections_handles_parse_failures():
     ]
     session_result = execute_check_collections(items=items, data_source_impl=None)
     assert len(session_result.results) == 1
-    assert session_result.results[0].status is ContractVerificationStatus.ERROR
+    assert session_result.results[0].status is CheckCollectionStatus.ERROR
     assert isinstance(session_result.results[0].error, RuntimeError)
 
 
@@ -213,7 +213,7 @@ def test_build_error_result_returns_subtype_result_class():
     result = _FakeImpl.build_error_result(yaml_source=_LabelledSource("bad"), exception=exc)
 
     assert isinstance(result, _FakeResult)
-    assert result.status is ContractVerificationStatus.ERROR
+    assert result.status is CheckCollectionStatus.ERROR
     assert result.error is exc
     assert result.measurements == []
     assert result.check_results == []

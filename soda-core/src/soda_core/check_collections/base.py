@@ -44,7 +44,7 @@ from soda_core.contracts.contract_verification import (
     CheckOutcome,
     CheckResult,
     Contract,
-    ContractVerificationStatus,
+    CheckCollectionStatus,
     DataSource,
     Measurement,
     PostProcessingStage,
@@ -75,7 +75,7 @@ class CheckCollectionResult:
     data_timestamp: Optional[datetime]
     started_timestamp: datetime
     ended_timestamp: datetime
-    status: ContractVerificationStatus
+    status: CheckCollectionStatus
     measurements: list[Measurement]
     check_results: list[CheckResult]
     sending_results_to_soda_cloud_failed: bool
@@ -108,7 +108,7 @@ class CheckCollectionResult:
 
     @property
     def has_errors(self) -> bool:
-        return self.status is ContractVerificationStatus.ERROR
+        return self.status is CheckCollectionStatus.ERROR
 
     @property
     def is_failed(self) -> bool:
@@ -118,7 +118,7 @@ class CheckCollectionResult:
         Only looks at check results.
         Ignores execution errors in the logs.
         """
-        return self.status is ContractVerificationStatus.FAILED
+        return self.status is CheckCollectionStatus.FAILED
 
     @property
     def is_passed(self) -> bool:
@@ -126,7 +126,7 @@ class CheckCollectionResult:
         Returns true if there are no checks that have failed.
         Ignores execution errors in the logs.
         """
-        return self.status is ContractVerificationStatus.PASSED
+        return self.status is CheckCollectionStatus.PASSED
 
     @property
     def is_warned(self) -> bool:
@@ -134,7 +134,7 @@ class CheckCollectionResult:
         Returns true if there are checks that have warnings.
         Ignores execution errors in the logs.
         """
-        return self.status is ContractVerificationStatus.WARNED
+        return self.status is CheckCollectionStatus.WARNED
 
     @property
     def is_ok(self) -> bool:
@@ -496,7 +496,7 @@ class CheckCollectionImpl:
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
         measurements: list[Measurement] = []
-        verification_status: ContractVerificationStatus = ContractVerificationStatus.UNKNOWN
+        verification_status: CheckCollectionStatus = CheckCollectionStatus.UNKNOWN
 
         verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
         logger.info(
@@ -508,7 +508,7 @@ class CheckCollectionImpl:
             data_source = self.data_source_impl.build_data_source()
 
         if self.logs.has_errors:
-            verification_status = ContractVerificationStatus.ERROR
+            verification_status = CheckCollectionStatus.ERROR
 
         elif not self.only_validate_without_execute:
             # Executing the queries will set the value of the metrics linked to queries.
@@ -684,7 +684,7 @@ class CheckCollectionImpl:
             data_timestamp=None,
             started_timestamp=now,
             ended_timestamp=now,
-            status=ContractVerificationStatus.ERROR,
+            status=CheckCollectionStatus.ERROR,
             measurements=[],
             check_results=[],
             sending_results_to_soda_cloud_failed=False,

@@ -14,7 +14,7 @@ from soda_core.contracts.contract_verification import (
     Contract,
     ContractVerificationResult,
     ContractVerificationSession,
-    ContractVerificationStatus,
+    CheckCollectionStatus,
     YamlFileContentInfo,
 )
 
@@ -38,7 +38,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
         data_timestamp=now,
         started_timestamp=now,
         ended_timestamp=now,
-        status=ContractVerificationStatus.ERROR,
+        status=CheckCollectionStatus.ERROR,
         measurements=[],
         check_results=[],
         sending_results_to_soda_cloud_failed=False,
