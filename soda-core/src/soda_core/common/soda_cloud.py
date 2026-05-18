@@ -44,11 +44,11 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
     CheckOutcome,
     CheckResult,
     Contract,
     ContractVerificationResult,
-    CheckCollectionStatus,
     PostProcessingStageState,
     SodaException,
     Threshold,

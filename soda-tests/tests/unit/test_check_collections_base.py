@@ -22,8 +22,8 @@ from soda_core.check_collections.session import (
     execute_check_collections,
 )
 from soda_core.contracts.contract_verification import (
-    Contract,
     CheckCollectionStatus,
+    Contract,
     YamlFileContentInfo,
 )
 

@@ -11,10 +11,10 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.common.soda_cloud import _build_contract_result_json_dict
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
     Contract,
     ContractVerificationResult,
     ContractVerificationSession,
-    CheckCollectionStatus,
     YamlFileContentInfo,
 )
 

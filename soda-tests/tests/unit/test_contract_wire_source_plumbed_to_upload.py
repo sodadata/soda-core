@@ -18,11 +18,11 @@ from soda_core.common.soda_cloud import (
 )
 from soda_core.contracts.contract_verification import (
     Check,
+    CheckCollectionStatus,
     CheckOutcome,
     CheckResult,
     Contract,
     ContractVerificationResult,
-    CheckCollectionStatus,
     DataSource,
     YamlFileContentInfo,
 )

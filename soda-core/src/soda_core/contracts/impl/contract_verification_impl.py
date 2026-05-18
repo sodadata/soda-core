@@ -20,11 +20,11 @@ from soda_core.common.yaml import (
 )
 from soda_core.contracts.contract_verification import (
     Check,
+    CheckCollectionStatus,
     CheckOutcome,
     CheckResult,
     ContractVerificationResult,
     ContractVerificationSessionResult,
-    CheckCollectionStatus,
     Measurement,
     PostProcessingStage,
     SodaException,

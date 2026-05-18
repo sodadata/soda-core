@@ -132,9 +132,7 @@ class ContractYaml(CheckCollectionYaml):
 
         self.dataset = self.yaml_object.read_dataset_identifier("dataset")
 
-        self.check_attributes = self.yaml_object.read_object_opt(
-            "check_attributes", default_value={}
-        ).to_dict()
+        self.check_attributes = self.yaml_object.read_object_opt("check_attributes", default_value={}).to_dict()
 
         self.filter: Optional[str] = self.yaml_object.read_string_opt("filter")
         if self.filter:

@@ -20,9 +20,7 @@ def test_parse_relative_complete_contract():
         )
     )
 
-    contract_yaml: ContractYaml = ContractYaml.parse(
-        yaml_source=contract_yaml_source, provided_variable_values={}
-    )
+    contract_yaml: ContractYaml = ContractYaml.parse(yaml_source=contract_yaml_source, provided_variable_values={})
 
     assert "sdf/soda_test/dev_xxx/SODATEST_test_schema_31761d69" == contract_yaml.dataset
 

@@ -41,10 +41,10 @@ from soda_core.common.sql_dialect import (
 )
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
     CheckOutcome,
     CheckResult,
     Contract,
-    CheckCollectionStatus,
     DataSource,
     Measurement,
     PostProcessingStage,

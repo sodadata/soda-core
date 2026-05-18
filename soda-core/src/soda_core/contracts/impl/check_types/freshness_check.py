@@ -61,9 +61,7 @@ class FreshnessCheckImplBase(CheckImpl, ABC):
         self.now_variable: Optional[str] = check_yaml.now_variable
         self.unit: str = check_yaml.unit if check_yaml.unit else "hour"
         self.resolved_variable_values = contract_impl.contract_yaml.resolved_variable_values
-        self.soda_variable_values = (
-            contract_impl.contract_yaml.yaml_source.resolve_on_read_soda_variable_values
-        )
+        self.soda_variable_values = contract_impl.contract_yaml.yaml_source.resolve_on_read_soda_variable_values
 
     def _calculate_freshness(self, max_timestamp: datetime, data_timestamp: datetime) -> timedelta:
         return data_timestamp - max_timestamp
