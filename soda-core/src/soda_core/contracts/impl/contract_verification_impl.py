@@ -201,10 +201,7 @@ class ContractVerificationSessionImpl:
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
-        from soda_core.check_collections.session import (
-            CheckCollectionItem,
-            execute_check_collections,
-        )
+        from soda_core.check_collections.session import execute_check_collections
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
             data_source_impls=data_source_impls,
@@ -219,9 +216,6 @@ class ContractVerificationSessionImpl:
             name for name, ds in data_source_impls_by_name.items() if not ds.has_open_connection()
         ]
 
-        items: list[CheckCollectionItem] = [
-            CheckCollectionItem(impl_class=ContractImpl, yaml_source=src) for src in contract_yaml_sources
-        ]
         # Contract convention: the parse-time "primary" data source is the
         # entry registered under the literal name ``"primary_datasource"``
         # in ``data_source_impls_by_name``. Resolve here so the universal
@@ -234,8 +228,12 @@ class ContractVerificationSessionImpl:
             # multi-input callers isolate per-item errors. ``ContractImpl``
             # resolves its own per-contract data source from
             # ``all_data_source_impls`` inside ``__init__``.
+            #
+            # Dispatch is by-kind: each contract yaml routes via its
+            # top-level ``kind:`` field (defaulting to ``"contract"`` for
+            # BC with existing YAMLs that don't declare one).
             session_result = execute_check_collections(
-                items=items,
+                yaml_sources=list(contract_yaml_sources),
                 data_source_impl=None,
                 soda_cloud_impl=soda_cloud_impl,
                 publish_results=soda_cloud_publish_results,

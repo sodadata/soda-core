@@ -1,8 +1,9 @@
 """Per-item verification loop with shared data-source connection.
 
-Universal executor for check-collection items (contracts, data standards,
-mixed). Each item is verified inside its own try/except block; on failure
-the item gets an ERROR-status placeholder result and the loop continues.
+Universal executor for check-collection YAML sources (contracts, data
+standards, mixed). Each yaml is verified inside its own try/except block;
+on failure the item gets an ERROR-status placeholder result and the loop
+continues.
 
 The single-input contract caller (``ContractVerificationSession.execute``
 with a 1-element ``contract_yaml_sources`` list) sets
@@ -11,7 +12,6 @@ with a 1-element ``contract_yaml_sources`` list) sets
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Union
 
@@ -30,22 +30,8 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
 
 
-@dataclass(frozen=True)
-class CheckCollectionItem:
-    """One item to verify in a session.
-
-    Plain tuple-like; explicit ``impl_class`` reference (no ``kind`` string).
-    The collection identifier (when applicable) lives in the YAML and is
-    read by the subtype's impl at construction time — not passed through
-    here.
-    """
-
-    impl_class: type[CheckCollectionImpl]
-    yaml_source: CheckCollectionYamlSource
-
-
 def execute_check_collections(
-    items: list[CheckCollectionItem],
+    yaml_sources: list[CheckCollectionYamlSource],
     data_source_impl: Optional[DataSourceImpl],
     soda_cloud_impl: Optional[SodaCloud] = None,
     publish_results: bool = False,
@@ -59,17 +45,21 @@ def execute_check_collections(
     logs: Optional[Logs] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
 ) -> CheckCollectionSessionResult:
-    """Run a list of check-collection items against a shared data-source connection.
+    """Run a list of check-collection YAML sources.
 
-    Per-item error isolation: each item is verified inside its own
+    Per-item dispatch: for each ``yaml_source`` the engine reads the
+    YAML's top-level ``kind:`` field (defaulting to ``"contract"`` when
+    absent for BC with existing contract YAMLs that don't declare one)
+    and looks up the impl class via ``CheckCollectionImpl.for_kind(...)``.
+
+    Per-item error isolation: each yaml is verified inside its own
     try/except. On failure, the item gets a ``CheckCollectionResult`` with
     ``status=ERROR`` and the exception attached on ``.error``. The result
-    list stays positional with the input items.
+    list stays positional with the input.
 
-    ``abort_on_first_error``: when True, the first exception is re-raised
-    verbatim and aborts the loop. Used by the legacy single-contract path
-    via ``ContractVerificationSession``. When False (default), exceptions
-    are isolated so the launcher can map results back to inputs by index.
+    ``abort_on_first_error`` (default False) — when True the first
+    exception re-raises verbatim. Used by the legacy single-contract
+    facade via ``ContractVerificationSession``.
 
     Upload-must-split rule: every item's results are uploaded to Soda Cloud
     in its own ``sodaCoreInsertScanResults`` request (one upload per item),
@@ -105,10 +95,18 @@ def execute_check_collections(
     )
 
     results: list[CheckCollectionResult] = []
-    for item in items:
+    for yaml_source in yaml_sources:
+        impl_class: Optional[type[CheckCollectionImpl]] = None
         try:
-            yaml = item.impl_class.yaml_class.parse(
-                yaml_source=item.yaml_source,
+            # Peek the kind from the YAML root. Cheap parse (YAML library
+            # call); the subtype's full parse below repeats this work but
+            # also walks columns/checks/variables which is the heavy part.
+            yaml_object = yaml_source.parse()
+            kind = (yaml_object.read_string_opt("kind") if yaml_object is not None else None) or "contract"
+            impl_class = CheckCollectionImpl.for_kind(kind)
+
+            yaml = impl_class.yaml_class.parse(
+                yaml_source=yaml_source,
                 provided_variable_values=variables,
                 data_timestamp=data_timestamp_str,
                 primary_data_source_impl=primary_data_source_impl,
@@ -122,7 +120,7 @@ def execute_check_collections(
             # must never be a string.
             yaml_data_timestamp = getattr(yaml, "data_timestamp", None)
             yaml_execution_timestamp = getattr(yaml, "execution_timestamp", None)
-            impl = item.impl_class(
+            impl = impl_class(
                 yaml=yaml,
                 data_source_impl=data_source_impl,
                 soda_cloud_impl=soda_cloud_impl,
@@ -139,7 +137,11 @@ def execute_check_collections(
         except Exception as exc:
             if abort_on_first_error:
                 raise
-            results.append(item.impl_class.build_error_result(item.yaml_source, exc))
+            # On unknown kind or pre-impl failures (where ``impl_class`` may
+            # be unresolved), use the base ``CheckCollectionImpl`` as a
+            # fallback builder so we still produce a positional ERROR result.
+            builder = impl_class if impl_class is not None else CheckCollectionImpl
+            results.append(builder.build_error_result(yaml_source, exc))
     return CheckCollectionSessionResult(results)
 
 
