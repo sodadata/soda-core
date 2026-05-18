@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
+from soda_core.check_collections.base import CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -18,6 +19,7 @@ from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import (
+    CheckCollectionYamlSource,
     ContractYamlSource,
     VariableResolver,
     YamlList,
@@ -36,7 +38,7 @@ class ContractYamlExtension(Protocol):
         ...
 
 
-class ContractYaml:
+class ContractYaml(CheckCollectionYaml):
     """
     Represents YAML as close as possible.
     None means the key was not present.
@@ -57,13 +59,17 @@ class ContractYaml:
     @classmethod
     def parse(
         cls,
-        contract_yaml_source: ContractYamlSource,
+        contract_yaml_source: Optional[ContractYamlSource] = None,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
+        yaml_source: Optional[CheckCollectionYamlSource] = None,
     ) -> Optional[ContractYaml]:
+        # Accept both the legacy ``contract_yaml_source=`` kwarg and the
+        # universal ``yaml_source=`` kwarg used by ``execute_check_collections``.
+        source = contract_yaml_source if contract_yaml_source is not None else yaml_source
         contract_yaml = ContractYaml(
-            contract_yaml_source=contract_yaml_source,
+            contract_yaml_source=source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
