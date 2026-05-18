@@ -222,6 +222,12 @@ class ContractVerificationSessionImpl:
         items: list[CheckCollectionItem] = [
             CheckCollectionItem(impl_class=ContractImpl, yaml_source=src) for src in contract_yaml_sources
         ]
+        # Contract convention: the parse-time "primary" data source is the
+        # entry registered under the literal name ``"primary_datasource"``
+        # in ``data_source_impls_by_name``. Resolve here so the universal
+        # ``execute_check_collections`` executor stays free of contract-
+        # specific naming conventions.
+        primary_data_source_impl: Optional[DataSourceImpl] = data_source_impls_by_name.get("primary_datasource")
         try:
             # Single-input contract callers historically re-raise on parse /
             # construction failure (tests rely on ``pytest.raises(...)``);
@@ -241,6 +247,7 @@ class ContractVerificationSessionImpl:
                 dwh_data_source_file_path=dwh_data_source_file_path,
                 abort_on_first_error=(len(contract_yaml_sources) == 1),
                 logs=logs,
+                primary_data_source_impl=primary_data_source_impl,
             )
         finally:
             for name in names_to_close:

@@ -63,15 +63,24 @@ def execute_check_collections(
     verbatim and aborts the loop. Used by the legacy single-contract path
     via ``ContractVerificationSession``. When False (default), exceptions
     are isolated so the launcher can map results back to inputs by index.
-    """
-    # Allow callers to derive the primary data source from the
-    # ``all_data_source_impls`` map when they don't pass it explicitly. The
-    # contract path historically resolves it as the entry named
-    # ``"primary_datasource"``; preserve that without leaking the key name
-    # to data-standard-style callers.
-    if primary_data_source_impl is None and all_data_source_impls:
-        primary_data_source_impl = all_data_source_impls.get("primary_datasource")
 
+    Upload-must-split rule: every item's results are uploaded to Soda Cloud
+    in its own ``sodaCoreInsertScanResults`` request (one upload per item),
+    keyed by ``wire_source`` (e.g. ``soda-contract`` for contracts,
+    ``soda-data-standard`` for data standards). The backend cannot ingest a
+    single upload that mixes checks from different wire sources — its
+    ingestion filter routes the whole batch by the top-level ``source`` and
+    rejects the request if any check inside disagrees. Mixed-source items in
+    one ``execute_check_collections`` call are therefore safe (each item
+    uploads independently); a single item must never emit checks whose
+    ``source`` disagrees with its own ``wire_source``.
+
+    Callers wanting the universal entrypoint pass ``primary_data_source_impl``
+    explicitly. The contract path uses ``ContractVerificationSessionImpl``,
+    which resolves the primary data source from its named-data-source map
+    *before* calling this function — no ``"primary_datasource"`` key
+    convention leaks into the universal executor.
+    """
     results: list[CheckCollectionResult] = []
     for item in items:
         try:
