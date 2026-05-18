@@ -334,7 +334,14 @@ jobs:
         run: |
           echo modules=$(bash scripts/release_matrix.sh) >> "$GITHUB_OUTPUT"
   release-to-dev-pypi:
-    if: github.ref_name == 'main' # Pushes to "main" branch
+    # Mirror define-matrix's gating: without always() + an explicit
+    # needs.<job>.result check, GitHub Actions' default success() evaluates
+    # the *transitive* needs graph — so a [SKIP-TESTS] commit that skips
+    # `test` also skips this job, defeating the SKIP-TESTS contract
+    # (dev-pypi publish must still run on main).
+    if: |
+      always() && !cancelled() && github.ref_name == 'main'
+      && needs.define-matrix.result == 'success'
     runs-on: ubuntu-24.04
     needs: [define-matrix]
     strategy:
