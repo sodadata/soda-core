@@ -46,7 +46,7 @@ class _FakeResult(CheckCollectionResult):
 def _make_passed_result(label: str) -> _FakeResult:
     now = datetime.now(tz=timezone.utc)
     result = _FakeResult(
-        contract=Contract(
+        check_collection=Contract(
             data_source_name="fake_ds",
             dataset_prefix=[],
             dataset_name=label,
@@ -147,7 +147,7 @@ def test_execute_check_collections_runs_each_item_in_order():
     ]
     session_result = execute_check_collections(items=items, data_source_impl=None)
 
-    labels = [r.contract.dataset_name for r in session_result.results]
+    labels = [r.check_collection.dataset_name for r in session_result.results]
     assert labels == ["a", "b", "c"]
     assert all(r.status is ContractVerificationStatus.PASSED for r in session_result.results)
 

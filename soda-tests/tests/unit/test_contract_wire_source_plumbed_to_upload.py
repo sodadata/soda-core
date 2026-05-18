@@ -108,7 +108,7 @@ def test_build_contract_result_json_dict_threads_wire_source_through_to_checks()
 
     now = datetime.now(tz=timezone.utc)
     verification_result = ContractVerificationResult(
-        contract=_make_contract(),
+        check_collection=_make_contract(),
         data_source=DataSource(name="test_ds", type="postgres"),
         data_timestamp=now,
         started_timestamp=now,
@@ -133,7 +133,7 @@ def test_build_check_results_cloud_json_dicts_defaults_to_soda_contract():
 
     now = datetime.now(tz=timezone.utc)
     verification_result = ContractVerificationResult(
-        contract=_make_contract(),
+        check_collection=_make_contract(),
         data_source=DataSource(name="test_ds", type="postgres"),
         data_timestamp=now,
         started_timestamp=now,

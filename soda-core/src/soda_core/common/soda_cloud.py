@@ -561,7 +561,7 @@ class SodaCloud:
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 
         verification_result = ContractVerificationResult(
-            contract=Contract(
+            check_collection=Contract(
                 data_source_name=dataset_identifier.data_source_name,
                 dataset_prefix=dataset_identifier.prefixes,
                 dataset_name=dataset_identifier.dataset_name,
@@ -1420,7 +1420,7 @@ def _build_check_results_cloud_json_dicts(
     wire_source: str = "soda-contract",
 ) -> Optional[list[dict]]:
     check_results: Optional[list[CheckResult]] = contract_verification_result.check_results
-    contract: Contract = contract_verification_result.contract
+    contract: Contract = contract_verification_result.check_collection
     if not check_results:
         return None
     return [
@@ -1435,7 +1435,7 @@ def _build_scan_definition_name(contract_verification_result: ContractVerificati
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
         return scan_definition_name
     else:
-        return contract_verification_result.contract.soda_qualified_dataset_name
+        return contract_verification_result.check_collection.soda_qualified_dataset_name
 
 
 def _build_post_processing_stages_dicts(
@@ -1494,7 +1494,7 @@ def _build_contract_result_json_dict(
             "checks": _build_check_results_cloud_json_dicts(contract_verification_result, wire_source=wire_source),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
-            "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
+            "contract": _build_contract_cloud_json_dict(contract_verification_result.check_collection),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
             "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
             "tokenUsage": _build_token_usage_dicts(contract_verification_result),

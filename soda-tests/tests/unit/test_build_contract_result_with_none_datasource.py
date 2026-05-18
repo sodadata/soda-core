@@ -23,7 +23,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
     """Build a minimal ContractVerificationResult with an optional (possibly None) data_source."""
     now = datetime.now(tz=timezone.utc)
     return ContractVerificationResult(
-        contract=Contract(
+        check_collection=Contract(
             data_source_name=None,
             dataset_prefix=["some", "schema"],
             dataset_name="my_table",

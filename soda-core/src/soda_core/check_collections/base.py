@@ -62,9 +62,15 @@ class CheckCollectionResult:
     Holds the immutable record of a single file's verification: status,
     measurements, check results, log records, and post-processing stages.
     ``ContractVerificationResult`` is a subclass preserving the historical name.
+
+    ``check_collection`` carries the wire-source-neutral metadata about the
+    parsed file (data source name, dataset prefix, qualified name, file
+    source info). The field type is still ``Contract`` until the future
+    ``Contract`` → ``CheckCollection`` class rename lands; only the field
+    name is neutral in this PR.
     """
 
-    contract: Contract
+    check_collection: Contract
     data_source: Optional[DataSource]
     data_timestamp: Optional[datetime]
     started_timestamp: datetime
@@ -562,7 +568,7 @@ class CheckCollectionImpl:
             post_processing_stages += handler.provides_post_processing_stages()
 
         verification_result: CheckCollectionResult = self.result_class(
-            contract=Contract(
+            check_collection=Contract(
                 data_source_name=self.data_source_impl.name if self.data_source_impl else None,
                 dataset_prefix=self.dataset_prefix,
                 dataset_name=self.dataset_name,
@@ -606,7 +612,7 @@ class CheckCollectionImpl:
                     verification_result.sending_results_to_soda_cloud_failed = True
                 else:
                     verification_result.scan_id = scan_id
-                    verification_result.contract.dataset_id = self.__get_dataset_id(
+                    verification_result.check_collection.dataset_id = self.__get_dataset_id(
                         soda_cloud_response_json, self.soda_qualified_dataset_name
                     )
         else:
@@ -664,7 +670,7 @@ class CheckCollectionImpl:
         # ``Contract`` dataclass signature on the in-memory result returned
         # to the launcher.
         result = cls.result_class(
-            contract=Contract(
+            check_collection=Contract(
                 data_source_name=None,
                 dataset_prefix=[],
                 dataset_name="",
