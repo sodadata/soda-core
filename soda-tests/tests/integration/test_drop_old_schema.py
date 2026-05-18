@@ -128,8 +128,6 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
             logger.info(f"[DRY RUN] Would drop {len(dry_run_targets)} schemas:\n  - {target_list}")
         else:
             logger.info("[DRY RUN] No schemas matched the cleanup criteria.")
-        logger.info(
-            "[DRY RUN] Note: actual run may differ — DB state can change between the dry-run and the real run."
-        )
+        logger.info("[DRY RUN] Note: actual run may differ — DB state can change between the dry-run and the real run.")
     else:
         logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
