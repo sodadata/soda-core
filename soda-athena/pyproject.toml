@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
     "soda-core==4.10.0",
-    "PyAthena>=2.2.0,<3.0",
+    "PyAthena>=3.9.0",
     "setuptools>=60",
 ]
 
