@@ -491,6 +491,18 @@ class CheckCollectionImpl:
         if not self.wire_source:
             raise ValueError(f"{type(self).__name__} did not declare wire_source class attribute")
 
+        # Non-contract subtypes MUST declare collection_id: the wire
+        # ``checkPath`` is prefixed with ``collection_id`` so the backend's
+        # ``firstSegmentOf(checkPath)`` filter can match ``DataStandard.name``.
+        # Without a collection_id the emitted checks would silently degrade
+        # to unprefixed paths the backend would then drop. Fail loudly here
+        # instead of producing a confused upload.
+        if self.wire_source != "soda-contract" and not self.collection_id:
+            raise ValueError(
+                f"{type(self).__name__} with wire_source={self.wire_source!r} requires a non-empty "
+                f"collection_id (used to prefix checkPath for backend routing)."
+            )
+
         if self.data_source_impl and self.soda_config.is_running_on_agent:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None

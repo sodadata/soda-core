@@ -36,6 +36,7 @@ def _make_check_result() -> CheckResult:
         qualifier=None,
         name="row count",
         path="checks.row_count",
+        full_path="checks.row_count",
         identity="abc",
         definition="row_count: ...",
         contract_file_line=1,

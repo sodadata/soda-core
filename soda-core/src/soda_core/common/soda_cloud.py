@@ -1522,7 +1522,12 @@ def _build_check_result_cloud_dict(
 ) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
-        "checkPath": check_result.check.path,
+        # Wire path: ``Check.full_path`` is the yaml-internal ``path`` for
+        # contracts (byte-identical to historical emission) and
+        # ``"{collection_id}.{path}"`` for non-contract subtypes so the
+        # backend's ``firstSegmentOf(checkPath)`` matches
+        # ``DataStandard.name``. Selector matching still uses ``check.path``.
+        "checkPath": check_result.check.full_path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,

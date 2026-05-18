@@ -1029,6 +1029,36 @@ class CheckImpl:
 
         return ".".join(parts)
 
+    @property
+    def full_path(self) -> str:
+        """Wire path emitted to Soda Cloud as ``checkPath``.
+
+        For contracts (``wire_source == "soda-contract"``) this is identical
+        to ``self.path`` — byte-identical to today's emission. For
+        non-contract subtypes (data standards) it is prefixed with
+        ``"{collection_id}.{path}"`` so the backend's
+        ``firstSegmentOf(checkPath)`` filter matches ``DataStandard.name``.
+
+        Selector matching uses ``self.path`` (not ``full_path``) so the
+        prefix never leaks into ``--check-selector`` matching.
+        """
+        # ``contract_impl`` is the back-ref to the enclosing
+        # ``CheckCollectionImpl`` (name preserved during the rename slice;
+        # rename deferred to a follow-up). The wire_source check matches
+        # ``ContractImpl.wire_source`` literally so any future subtype
+        # ("data-standard", etc.) automatically opts into prefixing.
+        if self.contract_impl.wire_source == "soda-contract":
+            return self.path
+        collection_id: Optional[str] = self.contract_impl.collection_id
+        # Non-contract subtypes MUST declare collection_id: the
+        # ``CheckCollectionImpl.verify()`` guard raises before this property
+        # is reached when collection_id is missing, but we defensively fall
+        # back to the bare path so dataclass-build callers can still
+        # instantiate a Check during error paths.
+        if not collection_id:
+            return self.path
+        return f"{collection_id}.{self.path}"
+
     def _get_name_with_default(self, check_yaml: CheckYaml) -> str:
         if isinstance(check_yaml.name, str):
             return check_yaml.name
@@ -1061,6 +1091,7 @@ class CheckImpl:
             qualifier=self.check_yaml.qualifier,
             name=self.name,
             path=self.path,
+            full_path=self.full_path,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,

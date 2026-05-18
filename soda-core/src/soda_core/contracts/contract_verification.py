@@ -279,6 +279,19 @@ class Check:
     """Represents the state / essence of a check after it has been executed.
 
     i.e. "after" CheckImpl has been executed and check result is being created.
+
+    ``path`` is the YAML-internal stripped path (e.g.
+    ``"columns.email.checks.missing"``). It is what selector matching and
+    user-facing messages use; it is byte-identical to the value emitted by
+    every prior contract verification.
+
+    ``full_path`` is the wire path emitted to Soda Cloud as ``checkPath``.
+    For contracts (``wire_source == "soda-contract"``) it equals ``path``.
+    For non-contract subtypes (data standards, ...) it is prefixed with
+    ``"{collection_id}.{path}"`` so the backend's
+    ``firstSegmentOf(checkPath)`` filter matches the
+    ``DataStandard.name``. Splitting the two means the prefix never leaks
+    into selector matching or error display.
     """
 
     column_name: Optional[str]
@@ -286,6 +299,7 @@ class Check:
     qualifier: Optional[str]
     name: Optional[str]
     path: str
+    full_path: str
     identity: str
     definition: str
     column_name: Optional[str]
