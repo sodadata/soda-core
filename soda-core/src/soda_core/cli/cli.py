@@ -18,6 +18,7 @@ from soda_core.cli.handlers.data_source import (
     handle_create_data_source,
     handle_test_data_source,
 )
+from soda_core.cli.handlers.data_standard import handle_verify_data_standards
 from soda_core.cli.handlers.request import (
     handle_fetch_proposal,
     handle_push_proposal,
@@ -115,6 +116,7 @@ def create_cli_parser() -> ArgumentParser:
     _setup_data_source_resource(resource_parsers)
     _setup_soda_cloud_resource(resource_parsers)
     _setup_contract_request_resource(resource_parsers)
+    _setup_data_standard_resource(resource_parsers)
 
     return parser
 
@@ -391,6 +393,97 @@ def _setup_contract_fetch_command(contract_parsers) -> None:
         exit_with_code(exit_code)
 
     fetch_parser.set_defaults(handler_func=handle)
+
+
+def _setup_data_standard_resource(resource_parsers) -> None:
+    data_standard_parser = resource_parsers.add_parser("data-standard", help="Data standard commands")
+    data_standard_subparsers = data_standard_parser.add_subparsers(dest="command", help="Data standard commands")
+
+    _setup_data_standard_verify_command(data_standard_subparsers)
+
+
+def _setup_data_standard_verify_command(data_standard_parsers) -> None:
+    verify_parser = data_standard_parsers.add_parser("verify", help="Verify one or more data standards")
+
+    verify_parser.add_argument(
+        "-c",
+        "--check",
+        type=str,
+        nargs="+",
+        required=True,
+        help="One or more data-standard YAML file paths to verify.",
+    )
+    verify_parser.add_argument(
+        "-ds",
+        "--data-source",
+        type=str,
+        nargs="+",
+        required=True,
+        help="One or more data source configuration file paths. The first is treated as primary.",
+    )
+    verify_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
+    verify_parser.add_argument(
+        "-p",
+        "--publish",
+        const=True,
+        action="store_const",
+        default=False,
+        help="Send the verification results to Soda Cloud.",
+    )
+    verify_parser.add_argument(
+        "-v",
+        "--verbose",
+        const=True,
+        action="store_const",
+        default=False,
+        help="Show more detailed logs on the console.",
+    )
+    verify_parser.add_argument(
+        "--set",
+        action="append",
+        type=str,
+        help="Set variable values to be used in the standard with format '--set <variable_name>=<variable_value>'.",
+    )
+    verify_parser.add_argument(
+        "--check-paths",
+        type=str,
+        nargs="+",
+        help="One or more check paths to run in a data standard.",
+    )
+    verify_parser.add_argument(
+        "-dw",
+        "--diagnostics-warehouse",
+        type=str,
+        nargs="?",
+        help="Specify the path to the diagnostics warehouse configuration file.",
+    )
+
+    def handle(args):
+        check_file_paths = args.check
+        data_source_file_paths = args.data_source
+        soda_cloud_file_path = args.soda_cloud
+        variables = _parse_variables(args.set)
+        if variables is None:
+            exit_with_code(ExitCode.LOG_ERRORS)
+        publish = args.publish
+        verbose = args.verbose
+        diagnostics_warehouse_file_path = args.diagnostics_warehouse
+
+        exit_code = handle_verify_data_standards(
+            check_file_paths=check_file_paths,
+            data_source_file_paths=data_source_file_paths,
+            soda_cloud_file_path=soda_cloud_file_path,
+            variables=variables,
+            publish=publish,
+            verbose=verbose,
+            check_paths=args.check_paths,
+            check_selectors=[],
+            diagnostics_warehouse_file_path=diagnostics_warehouse_file_path,
+        )
+
+        exit_with_code(exit_code)
+
+    verify_parser.set_defaults(handler_func=handle)
 
 
 def _setup_data_source_resource(resource_parsers) -> None:
