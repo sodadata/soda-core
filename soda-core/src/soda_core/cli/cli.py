@@ -220,7 +220,6 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         type=str,
         nargs="?",
         help="Specify the path to the metadata diagnostics warehouse configuration file. ",
-
     )
 
     def handle(args):
