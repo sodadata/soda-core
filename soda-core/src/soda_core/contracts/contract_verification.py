@@ -478,12 +478,14 @@ class PostProcessingStage:
         self.records_written: Optional[int] = records_written
 
 
-class ContractVerificationResult:
-    """
-    This is the immutable data structure containing all the results from a single contract verification.
-    This includes any potential execution errors as well as the results of all the checks performed.
+class CheckCollectionResult:
+    """Result of verifying one check-collection file (contract, data standard, ...).
 
-    @param contract: The contract that was verified.
+    Holds the immutable record of a single file's verification: status,
+    measurements, check results, log records, and post-processing stages.
+    ``ContractVerificationResult`` is a subclass preserving the historical name.
+
+    @param contract: The contract / check-collection target that was verified.
     @param data_source: The data source that was used for the verification.
     @param data_timestamp: The timestamp of the data to use for the verification.
     @param ended_timestamp: The timestamp when the verification ended.
@@ -493,7 +495,6 @@ class ContractVerificationResult:
     @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
     @param log_records: The log records generated during the verification.
     @param post_processing_stages: The post processing stages of the verification.
-
     """
 
     def __init__(
@@ -524,8 +525,13 @@ class ContractVerificationResult:
         self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
         self.token_usage: Optional[list[ScanTokenUsage]] = token_usage
 
-        # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
+        # Initialize these variables to None, they will be set later when the results are sent to Soda Cloud
         self.scan_id: Optional[str] = None
+
+        # Set on ERROR-status placeholder results when the file failed before
+        # producing real output (used by ``execute_check_collections`` per-item
+        # error isolation). Real verifications leave this as None.
+        self.error: Optional[BaseException] = None
 
     def get_logs(self) -> list[str]:
         return [r.getMessage() for r in self.log_records]
@@ -596,3 +602,12 @@ class ContractVerificationResult:
         return len(
             [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
         )
+
+
+class ContractVerificationResult(CheckCollectionResult):
+    """Result of verifying one contract.
+
+    Thin subclass preserving the historical name; all logic lives on
+    ``CheckCollectionResult``. ``ContractImpl`` declares this as its
+    ``result_class``.
+    """
