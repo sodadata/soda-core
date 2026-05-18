@@ -632,6 +632,12 @@ class CheckCollectionImpl:
                 )
                 sending_results_to_soda_cloud_failed = True
                 verification_result.sending_results_to_soda_cloud_failed = True
+            elif not self._verify_check_sources_aligned(verification_result):
+                # Alignment guard tripped — logging + flag already set inside the helper.
+                # We intentionally skip the upload (don't even attempt) so the backend
+                # never sees a misaligned batch (see DataStandardIngestionFilterModule.java
+                # — a single misaligned check there would 500 the entire batch).
+                sending_results_to_soda_cloud_failed = True
             else:
                 # send_contract_result will use contract.source.soda_cloud_file_id
                 soda_cloud_response_json = self.soda_cloud.send_contract_result(
@@ -826,6 +832,60 @@ class CheckCollectionImpl:
                     },
                 )
             checks_by_identity[check_impl.identity] = check_impl
+
+    def _verify_check_sources_aligned(self, verification_result: "CheckCollectionResult") -> bool:
+        """Iterate every emitted check result and verify its per-check
+        ``source`` override (if any) matches ``self.wire_source``.
+
+        Today every check inherits the collection's ``wire_source`` by
+        default (``Check.source is None`` → the wire emitter falls back
+        to ``wire_source``), so this guard is a no-op for current code
+        paths. It exists to defend against future extension code that
+        emits a Check with an explicit ``source`` override that disagrees
+        with the parent collection — the backend's
+        ``DataStandardIngestionFilterModule`` would otherwise 500 the
+        entire batch on a single misaligned check
+        (``DATA_STANDARDS_SOURCE_MISALIGNED``).
+
+        On mismatch:
+        - logs an error per offending check (with ``full_path``, the
+          offending ``source``, and the expected ``wire_source``);
+        - sets ``sending_results_to_soda_cloud_failed = True`` on the result;
+        - returns ``False`` so ``verify()`` skips the Cloud upload entirely.
+
+        Returns ``True`` when every check passes (the common path).
+        """
+        offending: list = []
+        for check_result in verification_result.check_results:
+            check_source: Optional[str] = check_result.check.source
+            if check_source is not None and check_source != self.wire_source:
+                offending.append(check_result)
+
+        if not offending:
+            return True
+
+        # ``Logs`` is the per-collection log buffer; we also push directly
+        # via ``logger.error`` so the records are queryable through the
+        # normal ``LogRecord`` stream (so launchers see them via
+        # ``result.get_errors()``).
+        for check_result in offending:
+            logger.error(
+                f"Source mismatch — check '{check_result.check.full_path}' has "
+                f"source={check_result.check.source!r} but parent collection "
+                f"declares wire_source={self.wire_source!r}. Skipping Cloud upload to avoid "
+                f"a backend-side DATA_STANDARDS_SOURCE_MISALIGNED 500 on the whole batch."
+            )
+
+        # Re-collect the log records we just emitted so they land on the
+        # verification result the launcher inspects.
+        new_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
+        if new_records:
+            if verification_result.log_records is None:
+                verification_result.log_records = []
+            verification_result.log_records.extend(new_records)
+
+        verification_result.sending_results_to_soda_cloud_failed = True
+        return False
 
     def _handle_post_processing_failure(
         self,

@@ -1541,8 +1541,13 @@ def _build_check_result_cloud_dict(
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
         # ``wire_source`` is the literal that the Cloud backend filters on
         # (see DataStandardIngestionFilterModule.java) — the impl class
-        # carries the value as a plain class attribute.
-        "source": wire_source,
+        # carries the value as a plain class attribute. ``check.source``
+        # is an optional per-check override exercised by extensions that
+        # emit checks with a deliberate source different from the parent
+        # collection; the alignment guard in ``CheckCollectionImpl.verify()``
+        # rejects the upload before this code runs when the override
+        # disagrees with ``self.wire_source``.
+        "source": check_result.check.source if check_result.check.source is not None else wire_source,
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }
 

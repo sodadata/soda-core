@@ -308,6 +308,13 @@ class Check:
     threshold: Optional[Threshold]
     attributes: Optional[dict[str, Any]]
     location: Optional[Location]
+    # Per-check source override. ``None`` (the default) means: emit the
+    # enclosing ``CheckCollectionImpl.wire_source`` as the wire ``"source"``
+    # field. A non-None value is exercised by future extensions that emit
+    # checks with a deliberate source different from the parent collection;
+    # the ``CheckCollectionImpl.verify()`` alignment guard rejects the
+    # upload when these don't match ``self.wire_source``.
+    source: Optional[str] = None
 
 
 class CheckResult:
