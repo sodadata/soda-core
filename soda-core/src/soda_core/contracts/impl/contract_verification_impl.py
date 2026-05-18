@@ -349,8 +349,8 @@ class ContractImpl(CheckCollectionImpl):
 
     wire_source: str = "soda-contract"
     display_name: str = "contract"
-    yaml_class: type = ContractYaml
-    result_class: type = ContractVerificationResult
+    yaml_class: type[ContractYaml] = ContractYaml
+    result_class: type[ContractVerificationResult] = ContractVerificationResult
 
     # Plugin registry stays attached to ``ContractImpl`` so existing
     # extension callers continue to work via ``ContractImpl.register_extension``

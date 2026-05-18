@@ -194,8 +194,12 @@ class CheckCollectionImpl:
     # routing to no Cloud feature.
     wire_source: str = ""
     display_name: str = "check collection"
-    yaml_class: type = CheckCollectionYaml  # subclass overrides to its yaml type
-    result_class: type = CheckCollectionResult  # subclass overrides to its result type
+    # Parametrize the type hints so subclass declarations (e.g.
+    # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
+    # checked: a subclass that points these at unrelated types will be
+    # flagged by a type-checker rather than silently surviving until runtime.
+    yaml_class: type[CheckCollectionYaml] = CheckCollectionYaml
+    result_class: type[CheckCollectionResult] = CheckCollectionResult
 
     # Plugin hooks. Extensions register against the concrete subclass that
     # cares about them (today: ``ContractImpl.contract_impl_extensions``);
