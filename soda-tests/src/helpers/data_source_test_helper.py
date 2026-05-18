@@ -733,6 +733,23 @@ class DataSourceTestHelper:
     def drop_schema_if_exists_sql(self, schema: str) -> str:
         return f"DROP SCHEMA IF EXISTS {self.data_source_impl.sql_dialect.quote_default(schema)} CASCADE;"
 
+    def list_schemas_for_cleanup(self) -> list[tuple[str, str]]:
+        """
+        Return (drop_target, match_name) pairs used by the schema-cleanup integration test.
+
+        - drop_target: value passed to drop_schema_if_exists
+        - match_name: value matched against the cleanup prefix list / date heuristic
+
+        Default implementation uses the dialect's flat schema-listing path; both elements
+        of the pair are the same. Adapters whose schemas are nested folder paths
+        (e.g. Dremio) override this.
+        """
+        dialect = self.data_source_impl.sql_dialect
+        table_namespace, _ = self.data_source_impl._build_table_namespace_for_schema_query(self.dataset_prefix)
+        schemas_query_sql: str = dialect.build_schemas_metadata_query_str(table_namespace=table_namespace)
+        query_result: QueryResult = self.data_source_impl.execute_query(schemas_query_sql)
+        return [(row[0], row[0]) for row in query_result.rows if row[0]]
+
     def drop_schema_sql(self, schema: str) -> str:
         return f"DROP SCHEMA {self.data_source_impl.sql_dialect.quote_default(schema)} CASCADE;"
 
