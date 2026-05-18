@@ -202,14 +202,21 @@ class CheckCollectionImpl:
     result_class: type[CheckCollectionResult] = CheckCollectionResult
 
     # Plugin hooks. Extensions register against the concrete subclass that
-    # cares about them (today: ``ContractImpl.contract_impl_extensions``);
-    # the base initialises its own empty dict so the engine code can iterate
-    # without conditional checks.
-    contract_impl_extensions: dict[str, type] = {}
+    # cares about them; the base initialises its own empty dict so the
+    # engine code can iterate without conditional checks. The classmethod
+    # auto-isolates the dict per concrete subtype so registering on
+    # ``DataStandardImpl`` doesn't mutate the shared base / ``ContractImpl``
+    # dict via the MRO.
+    impl_extensions: dict[str, type] = {}
 
     @classmethod
     def register_extension(cls, name: str, extension_cls: type) -> None:
-        cls.contract_impl_extensions[name] = extension_cls
+        # Auto-isolate per concrete subtype: without this, ``cls`` may resolve
+        # ``impl_extensions`` to a parent class's dict (the MRO), and mutating
+        # that dict leaks the extension registration to every sibling subtype.
+        if "impl_extensions" not in cls.__dict__:
+            cls.impl_extensions = {}
+        cls.impl_extensions[name] = extension_cls
 
     def __init__(
         self,
@@ -328,7 +335,7 @@ class CheckCollectionImpl:
             )
 
         self.extensions: list = []
-        for extension_cls in type(self).contract_impl_extensions.values():
+        for extension_cls in type(self).impl_extensions.values():
             try:
                 extension = extension_cls(self)
                 self.extensions.append(extension)

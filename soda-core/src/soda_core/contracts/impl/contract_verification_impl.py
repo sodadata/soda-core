@@ -361,10 +361,13 @@ class ContractImpl(CheckCollectionImpl):
     yaml_class: type[ContractYaml] = ContractYaml
     result_class: type[ContractVerificationResult] = ContractVerificationResult
 
-    # Plugin registry stays attached to ``ContractImpl`` so existing
-    # extension callers continue to work via ``ContractImpl.register_extension``
-    # and ``ContractImpl.contract_impl_extensions``.
-    contract_impl_extensions: dict[str, type[ContractImplExtension]] = {}
+    # Per-subtype isolated extension registry. ``CheckCollectionImpl``'s
+    # ``register_extension`` auto-isolates this dict at registration time, so
+    # registering on ``ContractImpl`` never touches the base dict or sibling
+    # subtypes (``DataStandardImpl``). The explicit declaration here makes
+    # the isolation visible to static analysis and to anyone inspecting the
+    # class for its extension surface.
+    impl_extensions: dict[str, type[ContractImplExtension]] = {}
 
     def __init__(
         self,
