@@ -333,12 +333,23 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[dict]:
+    def send_contract_result(
+        self,
+        contract_verification_result: ContractVerificationResult,
+        wire_source: str = "soda-contract",
+    ) -> Optional[dict]:
         """
         Returns A scanId string if a 200 OK was received, None otherwise
+
+        @param wire_source: The ``"source"`` literal stamped on each emitted
+            check in the upload payload. Defaults to ``"soda-contract"`` for
+            backward compatibility with callers that don't pass it (e.g.
+            soda-autopilot ``publish.py``). The engine passes
+            ``CheckCollectionImpl.wire_source`` for the calling subtype.
         """
         contract_verification_result = _build_contract_result_json_dict(
-            contract_verification_result=contract_verification_result
+            contract_verification_result=contract_verification_result,
+            wire_source=wire_source,
         )
         contract_verification_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -1406,13 +1417,15 @@ def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
 
 def _build_check_results_cloud_json_dicts(
     contract_verification_result: ContractVerificationResult,
+    wire_source: str = "soda-contract",
 ) -> Optional[list[dict]]:
     check_results: Optional[list[CheckResult]] = contract_verification_result.check_results
     contract: Contract = contract_verification_result.contract
     if not check_results:
         return None
     return [
-        _build_check_result_cloud_dict(contract=contract, check_result=check_result) for check_result in check_results
+        _build_check_result_cloud_dict(contract=contract, check_result=check_result, wire_source=wire_source)
+        for check_result in check_results
     ]
 
 
@@ -1452,7 +1465,10 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
-def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
+def _build_contract_result_json_dict(
+    contract_verification_result: ContractVerificationResult,
+    wire_source: str = "soda-contract",
+) -> dict:
     return to_jsonnable(  # type: ignore
         {
             "scanId": os.environ.get("SODA_SCAN_ID", None),
@@ -1475,7 +1491,7 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "hasErrors": contract_verification_result.has_errors,
             "hasWarns": contract_verification_result.is_warned,
             "hasFailures": contract_verification_result.is_failed,
-            "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
+            "checks": _build_check_results_cloud_json_dicts(contract_verification_result, wire_source=wire_source),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
             "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
@@ -1499,7 +1515,11 @@ def _build_contract_cloud_json_dict(contract: Contract):
     }
 
 
-def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
+def _build_check_result_cloud_dict(
+    contract: Contract,
+    check_result: CheckResult,
+    wire_source: str = "soda-contract",
+) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
         "checkPath": check_result.check.path,
@@ -1514,7 +1534,10 @@ def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult
         "datasetPrefix": contract.dataset_prefix,
         "column": check_result.check.column_name,
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
-        "source": "soda-contract",
+        # ``wire_source`` is the literal that the Cloud backend filters on
+        # (see DataStandardIngestionFilterModule.java) — the impl class
+        # carries the value as a plain class attribute.
+        "source": wire_source,
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }
 
