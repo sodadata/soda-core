@@ -199,16 +199,13 @@ class YamlSource:
             raise YamlParserException(f"YAML syntax error", str(location))
 
 
-class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
-    ...
+class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE): ...
 
 
-class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):
-    ...
+class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD): ...
 
 
-class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
-    ...
+class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT): ...
 
 
 class YamlValue:

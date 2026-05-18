@@ -33,8 +33,7 @@ def test_rerun_protocol_intercepts_first_attempt_replay_error(pytester, _reset_r
     automatically re-run; the second attempt sees the test passing and the
     protocol reports it as RERAN: PASSED."""
     pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_rerun="""
+    pytester.makepyfile(test_rerun="""
 import os
 from helpers.snapshot_connection import _PENDING_RERUN
 from helpers.snapshot_manager import SnapshotMismatchError
@@ -48,8 +47,7 @@ def test_target():
         raise SnapshotMismatchError("simulated mismatch")
     # Second attempt passes.
     assert _STATE["attempt"] == 2
-"""
-    )
+""")
 
     result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
@@ -65,8 +63,7 @@ def test_rerun_protocol_reports_failure_when_rerun_also_fails(pytester, _reset_r
     """If both first attempt and rerun fail, the test counts as FAILED and the
     label is RERAN: FAILED — we don't try a third time."""
     pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_rerun_fail="""
+    pytester.makepyfile(test_rerun_fail="""
 from helpers.snapshot_connection import _PENDING_RERUN
 from helpers.snapshot_manager import SnapshotMismatchError
 
@@ -79,8 +76,7 @@ def test_broken():
         raise SnapshotMismatchError("simulated mismatch")
     # Second attempt: a real test failure (not another replay error).
     assert False, "real failure on rerun"
-"""
-    )
+""")
 
     result = pytester.runpytest("-v")
     result.assert_outcomes(failed=1)
@@ -93,16 +89,14 @@ def test_rerun_protocol_does_not_fire_in_strict_mode(pytester, _reset_rerun_regi
     record verification to catch non-deterministic SQL."""
     monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
     pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_no_rerun="""
+    pytester.makepyfile(test_no_rerun="""
 from helpers.snapshot_connection import _PENDING_RERUN
 from helpers.snapshot_manager import SnapshotMismatchError
 
 def test_target():
     _PENDING_RERUN["test_no_rerun.py::test_target"] = "ignored"
     raise SnapshotMismatchError("not re-runnable under strict mode")
-"""
-    )
+""")
 
     result = pytester.runpytest("-v")
     result.assert_outcomes(failed=1)
@@ -114,8 +108,7 @@ def test_rerun_skipped_when_setup_fails(pytester, _reset_rerun_registry):
     no rerun is attempted — the test must pass setup/teardown for a rerun
     to make sense (per the design spec)."""
     pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_setup_fails="""
+    pytester.makepyfile(test_setup_fails="""
 import pytest
 from helpers.snapshot_connection import _PENDING_RERUN
 
@@ -125,8 +118,7 @@ def broken_fixture():
 
 def test_with_broken_setup(broken_fixture):
     _PENDING_RERUN["test_setup_fails.py::test_with_broken_setup"] = "should not be used"
-"""
-    )
+""")
 
     result = pytester.runpytest("-v")
     result.assert_outcomes(errors=1)
@@ -138,12 +130,10 @@ def test_strict_mode_banner_in_terminal_summary(pytester, _reset_rerun_registry,
     snapshot mismatches will fail hard rather than rerun."""
     monkeypatch.setenv("SODA_TEST_SNAPSHOT_STRICT", "true")
     pytester.makeconftest(_conftest_text())
-    pytester.makepyfile(
-        test_plain="""
+    pytester.makepyfile(test_plain="""
 def test_plain():
     assert True
-"""
-    )
+""")
 
     result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
