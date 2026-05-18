@@ -388,7 +388,6 @@ class ContractImpl(CheckCollectionImpl):
         # cascade in a follow-up dispatch.
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
-        collection_id: Optional[str] = None,
     ):
         resolved_all_data_source_impls: dict[str, DataSourceImpl] = (
             all_data_source_impls if all_data_source_impls is not None else {}
@@ -414,7 +413,6 @@ class ContractImpl(CheckCollectionImpl):
             data_source_impl=resolved_data_source_impl,
             soda_cloud_impl=soda_cloud_impl,
             publish_results=publish_results,
-            collection_id=collection_id,
             only_validate_without_execute=only_validate_without_execute,
             check_selectors=check_selectors if check_selectors is not None else [],
             execution_timestamp=execution_timestamp,

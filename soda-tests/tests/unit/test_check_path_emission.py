@@ -200,8 +200,9 @@ def test_verify_raises_when_non_contract_impl_missing_collection_id():
 
         def __init__(self):
             # Skip the heavy engine init — the guard fires before any work.
+            # ``collection_id`` defaults to ``None`` via the base class's
+            # read-only @property — no instance attribute needed.
             self.wire_source = "data-standard"
-            self.collection_id = None
 
     with pytest.raises(ValueError, match="collection_id"):
         _NoCollectionIdImpl().verify()

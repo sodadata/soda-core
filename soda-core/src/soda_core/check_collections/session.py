@@ -35,11 +35,13 @@ class CheckCollectionItem:
     """One item to verify in a session.
 
     Plain tuple-like; explicit ``impl_class`` reference (no ``kind`` string).
+    The collection identifier (when applicable) lives in the YAML and is
+    read by the subtype's impl at construction time — not passed through
+    here.
     """
 
     impl_class: type[CheckCollectionImpl]
     yaml_source: CheckCollectionYamlSource
-    collection_id: Optional[str] = None
 
 
 def execute_check_collections(
@@ -125,7 +127,6 @@ def execute_check_collections(
                 data_source_impl=data_source_impl,
                 soda_cloud_impl=soda_cloud_impl,
                 publish_results=publish_results,
-                collection_id=item.collection_id,
                 only_validate_without_execute=only_validate_without_execute,
                 check_selectors=check_selectors,
                 all_data_source_impls=all_data_source_impls,

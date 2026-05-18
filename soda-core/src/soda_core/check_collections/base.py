@@ -242,13 +242,25 @@ class CheckCollectionImpl:
         """
         return ()
 
+    @property
+    def collection_id(self) -> Optional[str]:
+        """Identifier of this check-collection instance.
+
+        Default: ``None`` — contracts inherit this and don't carry a
+        collection identifier (their identity comes from dataset + check
+        shape alone). Non-contract subtypes override to compute from their
+        YAML (e.g., ``return self.yaml.name``). The result becomes the first
+        segment of the wire ``checkPath`` and is also mixed into the
+        identity prefix.
+        """
+        return None
+
     def __init__(
         self,
         yaml: CheckCollectionYaml,
         data_source_impl: Optional[DataSourceImpl],
         soda_cloud_impl: Optional[SodaCloud] = None,
         publish_results: bool = False,
-        collection_id: Optional[str] = None,
         only_validate_without_execute: bool = False,
         check_selectors: Optional[list] = None,
         execution_timestamp: Optional[datetime] = None,
@@ -271,7 +283,6 @@ class CheckCollectionImpl:
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
         self.publish_results: bool = publish_results
-        self.collection_id: Optional[str] = collection_id
         self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = yaml.filter

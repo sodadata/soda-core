@@ -86,7 +86,6 @@ class _FakeImpl(CheckCollectionImpl):
         data_source_impl=None,
         soda_cloud_impl=None,
         publish_results=False,
-        collection_id=None,
         only_validate_without_execute=False,
         check_selectors=None,
         execution_timestamp=None,
@@ -96,9 +95,10 @@ class _FakeImpl(CheckCollectionImpl):
         logs=None,
     ):
         # Skip ``CheckCollectionImpl.__init__`` (which wants a real YAML);
-        # stash the few attributes the test cares about.
+        # stash the few attributes the test cares about. ``collection_id``
+        # is inherited from the base class as a ``@property`` returning
+        # ``None`` — no instance attribute needed.
         self.yaml = yaml
-        self.collection_id = collection_id
         # ``raise_on_verify`` lives on the yaml_source for per-instance control;
         # the FakeYaml wrapper carries the source reference through.
         source = getattr(yaml, "yaml_source", None)
@@ -203,9 +203,9 @@ def test_check_collection_impl_default_verify_on_agent_raises_not_implemented():
 
 
 def test_check_collection_item_is_frozen():
-    item = CheckCollectionItem(impl_class=_FakeImpl, yaml_source=_LabelledSource("a"), collection_id="cid-1")
+    item = CheckCollectionItem(impl_class=_FakeImpl, yaml_source=_LabelledSource("a"))
     with pytest.raises(Exception):
-        item.collection_id = "cid-2"  # type: ignore[misc]
+        item.yaml_source = _LabelledSource("b")  # type: ignore[misc]
 
 
 def test_build_error_result_returns_subtype_result_class():

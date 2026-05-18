@@ -36,6 +36,10 @@ class _SentinelImpl(CheckCollectionImpl):
     The full ``__init__`` requires real YAML + data-source machinery —
     we stub the few attributes ``_verify_check_sources_aligned`` and the
     ``send_contract_result`` site read.
+
+    ``collection_id`` is exposed as a writable property so tests can set
+    it directly. Production subtypes (``DataStandardImpl``) override the
+    base's read-only property to compute from yaml.
     """
 
     wire_source = "data-standard"
@@ -47,6 +51,15 @@ class _SentinelImpl(CheckCollectionImpl):
         # Skip the engine init — the alignment guard only reads
         # ``self.logs``, ``self.wire_source``, and the verification result.
         self.logs = Logs()
+        self._collection_id = None
+
+    @property
+    def collection_id(self):
+        return self._collection_id
+
+    @collection_id.setter
+    def collection_id(self, value):
+        self._collection_id = value
 
 
 def _make_check(*, source):
