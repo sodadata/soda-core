@@ -189,8 +189,9 @@ class CheckCollectionImpl:
     Subclasses provide four plain class attributes; the engine inherits.
     """
 
-    # Subclasses MUST override these. No __init_subclass__ validator — missing
-    # values fail loudly the first time .verify() runs or at Cloud upload.
+    # Subclasses MUST override these. ``wire_source`` is guarded at the top of
+    # ``verify()`` so a missing override raises immediately rather than silently
+    # routing to no Cloud feature.
     wire_source: str = ""
     display_name: str = "check collection"
     yaml_class: type = CheckCollectionYaml  # subclass overrides to its yaml type
@@ -259,9 +260,7 @@ class CheckCollectionImpl:
         self.column_impls: list = []
         self.check_impls: list = []
 
-        # TODO replace usage of self.soda_qualified_dataset_name with self.dataset_identifier
         self.soda_qualified_dataset_name = yaml.dataset
-        # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
         self.sql_qualified_dataset_name: Optional[str] = None
 
         self.datasource_warehouse: Optional[str] = None
@@ -471,6 +470,9 @@ class CheckCollectionImpl:
             MeasurementValues,
             _get_contract_verification_status,
         )
+
+        if not self.wire_source:
+            raise ValueError(f"{type(self).__name__} did not declare wire_source class attribute")
 
         if self.data_source_impl and self.soda_config.is_running_on_agent:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
@@ -768,10 +770,6 @@ class CheckCollectionImpl:
                     },
                 )
             checks_by_identity[check_impl.identity] = check_impl
-
-    @classmethod
-    def compute_data_quality_score(cls, total_failed_rows_count: int, total_rows_count: int) -> float:
-        return 100 - (total_failed_rows_count * 100 / total_rows_count)
 
     def _handle_post_processing_failure(
         self,

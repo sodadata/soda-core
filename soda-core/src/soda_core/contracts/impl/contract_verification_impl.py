@@ -301,8 +301,16 @@ class ContractVerificationSessionImpl:
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
-                contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
+                # Build a minimal ContractImpl whose only job is to dispatch through
+                # ``verify_on_agent``. ``data_source_impl`` and ``soda_cloud_impl`` are
+                # left None on the impl so engine init does no Cloud calls or query
+                # building — the actual ``soda_cloud_impl`` is handed to ``verify_on_agent``.
+                contract_impl: ContractImpl = ContractImpl(
                     contract_yaml=contract_yaml,
+                    only_validate_without_execute=True,
+                )
+                contract_verification_result: ContractVerificationResult = contract_impl.verify_on_agent(
+                    soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
                     blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,

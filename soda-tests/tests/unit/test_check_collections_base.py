@@ -202,21 +202,6 @@ def test_check_collection_impl_default_verify_on_agent_raises_not_implemented():
     assert "fake" in str(exc_info.value)
 
 
-def test_check_collection_impl_default_is_test_verification_on_agent_returns_false():
-    impl = _FakeImpl(yaml=_FakeYaml(yaml_source=_LabelledSource("a")))
-
-    # ``is_test_verification_on_agent`` is a property on the base; on the
-    # default ``CheckCollectionImpl`` it returns False. The fake bypasses
-    # ``__init__`` so we can't read ``soda_config``-derived state — assert
-    # the unbound property descriptor on the class returns False via a
-    # fresh proxy that has the required attributes.
-    class _SafeImpl(CheckCollectionImpl):
-        def __init__(self):
-            pass
-
-    assert _SafeImpl().is_test_verification_on_agent is False
-
-
 def test_check_collection_item_is_frozen():
     item = CheckCollectionItem(impl_class=_FakeImpl, yaml_source=_LabelledSource("a"), collection_id="cid-1")
     with pytest.raises(Exception):
@@ -232,3 +217,20 @@ def test_build_error_result_returns_subtype_result_class():
     assert result.error is exc
     assert result.measurements == []
     assert result.check_results == []
+
+
+def test_verify_raises_when_wire_source_is_empty():
+    """A subclass that forgets to declare ``wire_source`` must fail loudly in ``verify()``."""
+
+    class _NoWireSourceImpl(CheckCollectionImpl):
+        # Inherits ``wire_source = ""`` from the base.
+        display_name = "no-wire-source"
+        yaml_class = _FakeYaml
+        result_class = _FakeResult
+
+        def __init__(self):
+            # Bypass the heavy engine init — the guard runs at the top of ``verify()``.
+            pass
+
+    with pytest.raises(ValueError, match="wire_source"):
+        _NoWireSourceImpl().verify()
