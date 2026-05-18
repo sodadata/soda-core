@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
-from logging import ERROR, WARNING, LogRecord
 from numbers import Number
 from typing import Any, Optional
 
@@ -478,132 +476,14 @@ class PostProcessingStage:
         self.records_written: Optional[int] = records_written
 
 
-class CheckCollectionResult:
-    """Result of verifying one check-collection file (contract, data standard, ...).
-
-    Holds the immutable record of a single file's verification: status,
-    measurements, check results, log records, and post-processing stages.
-    ``ContractVerificationResult`` is a subclass preserving the historical name.
-
-    @param contract: The contract / check-collection target that was verified.
-    @param data_source: The data source that was used for the verification.
-    @param data_timestamp: The timestamp of the data to use for the verification.
-    @param ended_timestamp: The timestamp when the verification ended.
-    @param status: The status of the verification. One of ContractVerificationStatus.
-    @param measurements: The measurements taken during the verification.
-    @param check_results: The results of the checks performed during the verification.
-    @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
-    @param log_records: The log records generated during the verification.
-    @param post_processing_stages: The post processing stages of the verification.
-    """
-
-    def __init__(
-        self,
-        contract: Contract,
-        data_source: DataSource,
-        data_timestamp: Optional[datetime],
-        started_timestamp: datetime,
-        ended_timestamp: datetime,
-        status: ContractVerificationStatus,
-        measurements: list[Measurement],
-        check_results: list[CheckResult],
-        sending_results_to_soda_cloud_failed: bool,
-        log_records: Optional[list[LogRecord]] = None,
-        post_processing_stages: Optional[list[PostProcessingStage]] = None,
-        token_usage: Optional[list[ScanTokenUsage]] = None,
-    ):
-        self.contract: Contract = contract
-        self.data_source: DataSource = data_source
-        self.data_timestamp: Optional[datetime] = data_timestamp
-        self.started_timestamp: datetime = started_timestamp
-        self.ended_timestamp: datetime = ended_timestamp
-        self.measurements: list[Measurement] = measurements
-        self.check_results: list[CheckResult] = check_results
-        self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
-        self.log_records: Optional[list[LogRecord]] = log_records
-        self.status = status
-        self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
-        self.token_usage: Optional[list[ScanTokenUsage]] = token_usage
-
-        # Initialize these variables to None, they will be set later when the results are sent to Soda Cloud
-        self.scan_id: Optional[str] = None
-
-        # Set on ERROR-status placeholder results when the file failed before
-        # producing real output (used by ``execute_check_collections`` per-item
-        # error isolation). Real verifications leave this as None.
-        self.error: Optional[BaseException] = None
-
-    def get_logs(self) -> list[str]:
-        return [r.getMessage() for r in self.log_records]
-
-    def get_logs_str(self) -> str:
-        return "\n".join(self.get_logs())
-
-    def get_errors(self) -> list[str]:
-        return [r.getMessage() for r in self.log_records if r.levelno >= ERROR]
-
-    def get_errors_str(self) -> str:
-        return "\n".join(self.get_errors())
-
-    def get_warnings(self) -> list[str]:
-        return [r.getMessage() for r in self.log_records if r.levelno == WARNING]
-
-    def get_warnings_str(self) -> str:
-        return "\n".join(self.get_warnings())
-
-    @property
-    def has_errors(self) -> bool:
-        return self.status is ContractVerificationStatus.ERROR
-
-    @property
-    def is_failed(self) -> bool:
-        """
-        Returns true if there are checks that have failed.
-        False is returned if there are no check results.
-        Only looks at check results.
-        Ignores execution errors in the logs.
-        """
-        return self.status is ContractVerificationStatus.FAILED
-
-    @property
-    def is_passed(self) -> bool:
-        """
-        Returns true if there are no checks that have failed.
-        Ignores execution errors in the logs.
-        """
-        return self.status is ContractVerificationStatus.PASSED
-
-    @property
-    def is_warned(self) -> bool:
-        """
-        Returns true if there are checks that have warnings.
-        Ignores execution errors in the logs.
-        """
-        return self.status is ContractVerificationStatus.WARNED
-
-    @property
-    def is_ok(self) -> bool:
-        return not self.is_failed and not self.has_errors
-
-    @property
-    def number_of_checks(self) -> int:
-        return len(self.check_results)
-
-    @property
-    def number_of_checks_passed(self) -> int:
-        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
-
-    @property
-    def number_of_checks_failed(self) -> int:
-        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])
-
-    @property
-    def number_of_checks_excluded(self) -> int:
-        return len(
-            [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
-        )
+# ``CheckCollectionResult`` lives in ``check_collections.base`` (the spec
+# location). Imported here at module bottom to break the import cycle:
+# ``base.py`` needs Contract / DataSource / Measurement / ... defined above,
+# and ``ContractVerificationResult`` is a thin subclass below.
+from soda_core.check_collections.base import CheckCollectionResult  # noqa: E402
 
 
+@dataclass
 class ContractVerificationResult(CheckCollectionResult):
     """Result of verifying one contract.
 

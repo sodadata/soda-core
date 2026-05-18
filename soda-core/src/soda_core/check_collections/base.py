@@ -16,8 +16,9 @@ execute, upload to Soda Cloud, run post-processing handlers) is inherited.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from logging import LogRecord
+from logging import ERROR, WARNING, LogRecord
 from numbers import Number
 from typing import Any, Optional
 
@@ -40,7 +41,6 @@ from soda_core.common.sql_dialect import (
 )
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.contract_verification import (
-    CheckCollectionResult,
     CheckOutcome,
     CheckResult,
     Contract,
@@ -48,10 +48,119 @@ from soda_core.contracts.contract_verification import (
     DataSource,
     Measurement,
     PostProcessingStage,
+    ScanTokenUsage,
     YamlFileContentInfo,
 )
 
 logger: logging.Logger = soda_logger
+
+
+@dataclass
+class CheckCollectionResult:
+    """Result of verifying one check-collection file (contract, data standard, ...).
+
+    Holds the immutable record of a single file's verification: status,
+    measurements, check results, log records, and post-processing stages.
+    ``ContractVerificationResult`` is a subclass preserving the historical name.
+    """
+
+    contract: Contract
+    data_source: Optional[DataSource]
+    data_timestamp: Optional[datetime]
+    started_timestamp: datetime
+    ended_timestamp: datetime
+    status: ContractVerificationStatus
+    measurements: list[Measurement]
+    check_results: list[CheckResult]
+    sending_results_to_soda_cloud_failed: bool
+    log_records: Optional[list[LogRecord]] = None
+    post_processing_stages: Optional[list[PostProcessingStage]] = None
+    token_usage: Optional[list[ScanTokenUsage]] = None
+    scan_id: Optional[str] = None
+    # Set on ERROR-status placeholder results when the file failed before
+    # producing real output (used by ``execute_check_collections`` per-item
+    # error isolation). Real verifications leave this as None.
+    error: Optional[BaseException] = None
+
+    def get_logs(self) -> list[str]:
+        return [r.getMessage() for r in self.log_records] if self.log_records else []
+
+    def get_logs_str(self) -> str:
+        return "\n".join(self.get_logs())
+
+    def get_errors(self) -> list[str]:
+        return [r.getMessage() for r in self.log_records if r.levelno >= ERROR] if self.log_records else []
+
+    def get_errors_str(self) -> str:
+        return "\n".join(self.get_errors())
+
+    def get_warnings(self) -> list[str]:
+        return [r.getMessage() for r in self.log_records if r.levelno == WARNING] if self.log_records else []
+
+    def get_warnings_str(self) -> str:
+        return "\n".join(self.get_warnings())
+
+    @property
+    def has_errors(self) -> bool:
+        return self.status is ContractVerificationStatus.ERROR
+
+    @property
+    def is_failed(self) -> bool:
+        """
+        Returns true if there are checks that have failed.
+        False is returned if there are no check results.
+        Only looks at check results.
+        Ignores execution errors in the logs.
+        """
+        return self.status is ContractVerificationStatus.FAILED
+
+    @property
+    def is_passed(self) -> bool:
+        """
+        Returns true if there are no checks that have failed.
+        Ignores execution errors in the logs.
+        """
+        return self.status is ContractVerificationStatus.PASSED
+
+    @property
+    def is_warned(self) -> bool:
+        """
+        Returns true if there are checks that have warnings.
+        Ignores execution errors in the logs.
+        """
+        return self.status is ContractVerificationStatus.WARNED
+
+    @property
+    def is_ok(self) -> bool:
+        return not self.is_failed and not self.has_errors
+
+    @property
+    def number_of_checks(self) -> int:
+        return len(self.check_results)
+
+    @property
+    def number_of_checks_passed(self) -> int:
+        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
+
+    @property
+    def number_of_checks_failed(self) -> int:
+        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])
+
+    @property
+    def number_of_checks_excluded(self) -> int:
+        return len(
+            [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
+        )
+
+
+@dataclass
+class CheckCollectionSessionResult:
+    """Result of verifying multiple check-collection files in one session.
+
+    Per-file results are positional with the input items.
+    """
+
+    results: list[CheckCollectionResult] = field(default_factory=list)
 
 
 class CheckCollectionYaml:
@@ -72,16 +181,6 @@ class CheckCollectionYaml:
     ) -> "CheckCollectionYaml":
         """Subclasses override with their own parse logic."""
         raise NotImplementedError(f"{cls.__name__} does not implement parse(...)")
-
-
-class CheckCollectionSessionResult:
-    """Result of verifying multiple check-collection files in one session.
-
-    Per-file results are positional with the input items.
-    """
-
-    def __init__(self, results: list[CheckCollectionResult]):
-        self.results: list[CheckCollectionResult] = results
 
 
 class CheckCollectionImpl:
