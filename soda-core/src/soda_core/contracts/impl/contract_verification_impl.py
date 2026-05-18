@@ -306,7 +306,7 @@ class ContractVerificationSessionImpl:
         for contract_yaml_source in contract_yaml_sources:
             try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, provided_variable_values=variables
+                    yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
                 # Build a ContractImpl whose only job is to dispatch through
                 # ``verify_on_agent``. ``data_source_impl`` and
@@ -322,7 +322,7 @@ class ContractVerificationSessionImpl:
                 # The actual Soda Cloud client used to invoke the agent is
                 # passed below to ``verify_on_agent``.
                 contract_impl: ContractImpl = ContractImpl(
-                    contract_yaml=contract_yaml,
+                    yaml=contract_yaml,
                     only_validate_without_execute=True,
                 )
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_agent(
@@ -372,26 +372,24 @@ class ContractImpl(CheckCollectionImpl):
     def __init__(
         self,
         logs: Optional[Logs] = None,
-        contract_yaml: Optional[ContractYaml] = None,
         only_validate_without_execute: bool = False,
         data_source_impl: Optional[DataSourceImpl] = None,
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
         data_timestamp: Optional[datetime] = None,
         execution_timestamp: Optional[datetime] = None,
-        soda_cloud: Optional[SodaCloud] = None,
         publish_results: bool = False,
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_data_source_file_path: Optional[str] = None,
-        # Universal kwargs from ``CheckCollectionImpl`` — accepted so the
-        # session executor can construct a ``ContractImpl`` generically.
+        # Universal kwargs from ``CheckCollectionImpl`` — the session
+        # executor passes these and they are the canonical names. The
+        # legacy contract-specific aliases (``contract_yaml=`` /
+        # ``soda_cloud=``) were dropped: callers in soda-core now pass
+        # ``yaml=`` / ``soda_cloud_impl=``. soda-extensions consumers
+        # cascade in a follow-up dispatch.
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
         collection_id: Optional[str] = None,
     ):
-        # Map legacy contract-specific kwargs onto the universal names used
-        # by ``CheckCollectionImpl.__init__``. Either set wins — the session
-        # executor passes universal kwargs; existing call sites pass legacy.
-        resolved_yaml: Optional[ContractYaml] = yaml if yaml is not None else contract_yaml
         resolved_all_data_source_impls: dict[str, DataSourceImpl] = (
             all_data_source_impls if all_data_source_impls is not None else {}
         )
@@ -405,16 +403,16 @@ class ContractImpl(CheckCollectionImpl):
         # runs so the missing-data-source error is logged (and surfaces on
         # the result's log_records the same way the legacy session loop did).
         resolved_data_source_impl: Optional[DataSourceImpl] = data_source_impl
-        if resolved_data_source_impl is None and not only_validate_without_execute and resolved_yaml is not None:
+        if resolved_data_source_impl is None and not only_validate_without_execute and yaml is not None:
             resolved_data_source_impl = self._resolve_data_source_impl(
-                contract_yaml=resolved_yaml,
+                contract_yaml=yaml,
                 all_data_source_impls=resolved_all_data_source_impls,
             )
 
         super().__init__(
-            yaml=resolved_yaml,
+            yaml=yaml,
             data_source_impl=resolved_data_source_impl,
-            soda_cloud_impl=soda_cloud_impl if soda_cloud_impl is not None else soda_cloud,
+            soda_cloud_impl=soda_cloud_impl,
             publish_results=publish_results,
             collection_id=collection_id,
             only_validate_without_execute=only_validate_without_execute,

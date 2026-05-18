@@ -8,7 +8,7 @@ from soda_core.contracts.impl.contract_yaml import ContractYaml
 
 def parse_contract(contract_yaml_str: str, provided_variable_values: Optional[dict[str, str]] = None) -> ContractYaml:
     return ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)),
+        yaml_source=ContractYamlSource.from_str(dedent_and_strip(contract_yaml_str)),
         provided_variable_values=provided_variable_values,
     )
 

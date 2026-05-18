@@ -59,17 +59,18 @@ class ContractYaml(CheckCollectionYaml):
     @classmethod
     def parse(
         cls,
-        contract_yaml_source: Optional[ContractYamlSource] = None,
+        yaml_source: Optional[CheckCollectionYamlSource] = None,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
-        yaml_source: Optional[CheckCollectionYamlSource] = None,
     ) -> Optional[ContractYaml]:
-        # Accept both the legacy ``contract_yaml_source=`` kwarg and the
-        # universal ``yaml_source=`` kwarg used by ``execute_check_collections``.
-        source = contract_yaml_source if contract_yaml_source is not None else yaml_source
+        # Canonical kwarg name is ``yaml_source=`` (matches the universal
+        # ``CheckCollectionYaml`` base and ``execute_check_collections``).
+        # The legacy ``contract_yaml_source=`` alias was dropped — soda-core
+        # callers now pass ``yaml_source=``. soda-extensions consumers
+        # cascade in a follow-up dispatch.
         contract_yaml = ContractYaml(
-            contract_yaml_source=source,
+            contract_yaml_source=yaml_source,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
