@@ -50,6 +50,7 @@ def execute_check_collections(
     dwh_data_source_file_path: Optional[str] = None,
     abort_on_first_error: bool = False,
     logs: Optional[Logs] = None,
+    primary_data_source_impl: Optional[DataSourceImpl] = None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection items against a shared data-source connection.
 
@@ -63,6 +64,14 @@ def execute_check_collections(
     via ``ContractVerificationSession``. When False (default), exceptions
     are isolated so the launcher can map results back to inputs by index.
     """
+    # Allow callers to derive the primary data source from the
+    # ``all_data_source_impls`` map when they don't pass it explicitly. The
+    # contract path historically resolves it as the entry named
+    # ``"primary_datasource"``; preserve that without leaking the key name
+    # to data-standard-style callers.
+    if primary_data_source_impl is None and all_data_source_impls:
+        primary_data_source_impl = all_data_source_impls.get("primary_datasource")
+
     results: list[CheckCollectionResult] = []
     for item in items:
         try:
@@ -70,7 +79,14 @@ def execute_check_collections(
                 yaml_source=item.yaml_source,
                 provided_variable_values=variables,
                 data_timestamp=data_timestamp,
+                primary_data_source_impl=primary_data_source_impl,
             )
+            # Forward the parsed yaml's resolved data_timestamp /
+            # execution_timestamp to the impl when the yaml exposes them
+            # (ContractYaml does; the base CheckCollectionYaml in POC scope
+            # does not yet). Fall back to the raw inputs otherwise.
+            yaml_data_timestamp = getattr(yaml, "data_timestamp", None)
+            yaml_execution_timestamp = getattr(yaml, "execution_timestamp", None)
             impl = item.impl_class(
                 yaml=yaml,
                 data_source_impl=data_source_impl,
@@ -82,6 +98,8 @@ def execute_check_collections(
                 all_data_source_impls=all_data_source_impls,
                 dwh_data_source_file_path=dwh_data_source_file_path,
                 logs=logs,
+                data_timestamp=yaml_data_timestamp if yaml_data_timestamp is not None else data_timestamp,
+                execution_timestamp=yaml_execution_timestamp,
             )
             results.append(impl.verify())
         except Exception as exc:

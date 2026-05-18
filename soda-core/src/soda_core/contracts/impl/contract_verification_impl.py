@@ -200,8 +200,11 @@ class ContractVerificationSessionImpl:
         check_selectors: list[CheckSelector],
         dwh_data_source_file_path: Optional[str] = None,
     ) -> list[ContractVerificationResult]:
-        "Verifies a Contract locally."
-        contract_verification_results: list[ContractVerificationResult] = []
+        "Verifies Contracts locally by funnelling through ``execute_check_collections``."
+        from soda_core.check_collections.session import (
+            CheckCollectionItem,
+            execute_check_collections,
+        )
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
             data_source_impls=data_source_impls,
@@ -209,45 +212,42 @@ class ContractVerificationSessionImpl:
             provided_variable_values=provided_variable_values,
         )
 
-        opened_data_sources: list[DataSourceImpl] = []
+        # Track which data sources had no open connection at session start so
+        # we only close those that this session itself opened (caller-supplied
+        # pre-opened connections are left alone, matching historical behavior).
+        names_to_close: list[str] = [
+            name for name, ds in data_source_impls_by_name.items() if not ds.has_open_connection()
+        ]
+
+        items: list[CheckCollectionItem] = [
+            CheckCollectionItem(impl_class=ContractImpl, yaml_source=src) for src in contract_yaml_sources
+        ]
         try:
-            for contract_yaml_source in contract_yaml_sources:
-                try:
-                    contract_yaml: ContractYaml = ContractYaml.parse(
-                        contract_yaml_source=contract_yaml_source,
-                        provided_variable_values=provided_variable_values,
-                        data_timestamp=data_timestamp,
-                        primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
-                    )
-                    data_source_name: str = (
-                        contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
-                    )
-                    data_source_impl: Optional[DataSourceImpl] = (
-                        cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
-                        if (contract_yaml and data_source_name and not only_validate_without_execute)
-                        else None
-                    )
-                    contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml,
-                        only_validate_without_execute=only_validate_without_execute,
-                        data_timestamp=contract_yaml.data_timestamp,
-                        execution_timestamp=contract_yaml.execution_timestamp,
-                        data_source_impl=data_source_impl,
-                        all_data_source_impls=data_source_impls_by_name,
-                        soda_cloud=soda_cloud_impl,
-                        publish_results=soda_cloud_publish_results,
-                        logs=logs,
-                        check_selectors=check_selectors,
-                        dwh_data_source_file_path=dwh_data_source_file_path,
-                    )
-                    contract_verification_result: ContractVerificationResult = contract_impl.verify()
-                    contract_verification_results.append(contract_verification_result)
-                except Exception as e:
-                    raise e
+            # Single-input contract callers historically re-raise on parse /
+            # construction failure (tests rely on ``pytest.raises(...)``);
+            # multi-input callers isolate per-item errors. ``ContractImpl``
+            # resolves its own per-contract data source from
+            # ``all_data_source_impls`` inside ``__init__``.
+            session_result = execute_check_collections(
+                items=items,
+                data_source_impl=None,
+                soda_cloud_impl=soda_cloud_impl,
+                publish_results=soda_cloud_publish_results,
+                only_validate_without_execute=only_validate_without_execute,
+                variables=provided_variable_values,
+                data_timestamp=data_timestamp,
+                all_data_source_impls=data_source_impls_by_name,
+                check_selectors=check_selectors,
+                dwh_data_source_file_path=dwh_data_source_file_path,
+                abort_on_first_error=(len(contract_yaml_sources) == 1),
+                logs=logs,
+            )
         finally:
-            for data_source_impl in opened_data_sources:
-                data_source_impl.close_connection()
-        return contract_verification_results
+            for name in names_to_close:
+                ds = data_source_impls_by_name.get(name)
+                if ds is not None and ds.has_open_connection():
+                    ds.close_connection()
+        return list(session_result.results)
 
     @classmethod
     def _build_data_source_impls_by_name(
@@ -282,24 +282,6 @@ class ContractVerificationSessionImpl:
                 soda_cloud_yaml_source=soda_cloud_yaml_source, provided_variable_values=provided_variable_values
             )
         return None
-
-    @classmethod
-    def _get_data_source_impl(
-        cls,
-        data_source_name: Optional[str],
-        data_source_impl_by_name: dict[str, DataSourceImpl],
-        opened_data_sources: list[DataSourceImpl],
-    ) -> Optional[DataSourceImpl]:
-        if data_source_name is None:
-            return None
-        data_source_impl: Optional[DataSourceImpl] = data_source_impl_by_name.get(data_source_name)
-        if isinstance(data_source_impl, DataSourceImpl):
-            if not data_source_impl.has_open_connection():
-                data_source_impl.open_connection()
-                opened_data_sources.append(data_source_impl)
-            return data_source_impl
-        else:
-            logger.error(f"Data source '{data_source_name}' not found")
 
     @classmethod
     def _execute_on_agent(
@@ -382,9 +364,29 @@ class ContractImpl(CheckCollectionImpl):
         # Map legacy contract-specific kwargs onto the universal names used
         # by ``CheckCollectionImpl.__init__``. Either set wins — the session
         # executor passes universal kwargs; existing call sites pass legacy.
+        resolved_yaml: Optional[ContractYaml] = yaml if yaml is not None else contract_yaml
+        resolved_all_data_source_impls: dict[str, DataSourceImpl] = (
+            all_data_source_impls if all_data_source_impls is not None else {}
+        )
+
+        # Per-contract data source resolution. The session executor passes
+        # ``data_source_impl=None`` plus ``all_data_source_impls`` and lets
+        # the impl resolve its own data source from its yaml — that's an
+        # impl-level concern, not a session-level concern. Legacy callers
+        # that pass ``data_source_impl=`` directly bypass this branch.
+        # ``all_data_source_impls`` may be an empty dict; the resolver still
+        # runs so the missing-data-source error is logged (and surfaces on
+        # the result's log_records the same way the legacy session loop did).
+        resolved_data_source_impl: Optional[DataSourceImpl] = data_source_impl
+        if resolved_data_source_impl is None and not only_validate_without_execute and resolved_yaml is not None:
+            resolved_data_source_impl = self._resolve_data_source_impl(
+                contract_yaml=resolved_yaml,
+                all_data_source_impls=resolved_all_data_source_impls,
+            )
+
         super().__init__(
-            yaml=yaml if yaml is not None else contract_yaml,
-            data_source_impl=data_source_impl,
+            yaml=resolved_yaml,
+            data_source_impl=resolved_data_source_impl,
             soda_cloud_impl=soda_cloud_impl if soda_cloud_impl is not None else soda_cloud,
             publish_results=publish_results,
             collection_id=collection_id,
@@ -392,10 +394,35 @@ class ContractImpl(CheckCollectionImpl):
             check_selectors=check_selectors if check_selectors is not None else [],
             execution_timestamp=execution_timestamp,
             data_timestamp=data_timestamp,
-            all_data_source_impls=all_data_source_impls if all_data_source_impls is not None else {},
+            all_data_source_impls=resolved_all_data_source_impls,
             dwh_data_source_file_path=dwh_data_source_file_path,
             logs=logs,
         )
+
+    @staticmethod
+    def _resolve_data_source_impl(
+        contract_yaml: ContractYaml,
+        all_data_source_impls: dict[str, DataSourceImpl],
+    ) -> Optional[DataSourceImpl]:
+        """Resolve the per-contract data source from ``all_data_source_impls``.
+
+        Looks up the data source name from ``contract_yaml.dataset`` (the
+        leading segment before the first ``/``), then opens the connection
+        lazily if not already open. Logs an error and returns None when the
+        named data source is missing.
+        """
+        if not contract_yaml.dataset:
+            return None
+        data_source_name: str = contract_yaml.dataset[: contract_yaml.dataset.find("/")]
+        if not data_source_name:
+            return None
+        data_source_impl: Optional[DataSourceImpl] = all_data_source_impls.get(data_source_name)
+        if not isinstance(data_source_impl, DataSourceImpl):
+            logger.error(f"Data source '{data_source_name}' not found")
+            return None
+        if not data_source_impl.has_open_connection():
+            data_source_impl.open_connection()
+        return data_source_impl
 
     @property
     def contract_yaml(self) -> ContractYaml:
