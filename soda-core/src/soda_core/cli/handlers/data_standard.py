@@ -36,9 +36,7 @@ def handle_verify_data_standards(
 ) -> ExitCode:
     try:
         if not check_file_paths:
-            raise InvalidArgumentException(
-                "At least one -c/--check file path is required for data-standard verify."
-            )
+            raise InvalidArgumentException("At least one -c/--check file path is required for data-standard verify.")
         if not data_source_file_paths:
             raise InvalidArgumentException(
                 "At least one -ds/--data-source file path is required for data-standard verify."
@@ -69,9 +67,7 @@ def handle_verify_data_standards(
                 provided_variable_values=variables,
             )
             if ds_impl is None:
-                raise InvalidDataSourceConfigurationException(
-                    f"Failed to load data source from {ds_yaml.file_path}"
-                )
+                raise InvalidDataSourceConfigurationException(f"Failed to load data source from {ds_yaml.file_path}")
             all_data_source_impls.append(ds_impl)
 
         primary_data_source_impl: DataSourceImpl = all_data_source_impls[0]
