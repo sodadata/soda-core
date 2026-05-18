@@ -308,10 +308,19 @@ class ContractVerificationSessionImpl:
                 contract_yaml: ContractYaml = ContractYaml.parse(
                     contract_yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
-                # Build a minimal ContractImpl whose only job is to dispatch through
-                # ``verify_on_agent``. ``data_source_impl`` and ``soda_cloud_impl`` are
-                # left None on the impl so engine init does no Cloud calls or query
-                # building — the actual ``soda_cloud_impl`` is handed to ``verify_on_agent``.
+                # Build a ContractImpl whose only job is to dispatch through
+                # ``verify_on_agent``. ``data_source_impl`` and
+                # ``soda_cloud_impl`` are left None on the impl, and
+                # ``only_validate_without_execute=True`` keeps the engine
+                # from connecting to a data source or executing queries.
+                # Note that ``__init__`` is NOT a no-op here: it still parses
+                # the YAML's columns and checks, builds the metrics resolver,
+                # resolves the row-count metric, constructs the dataset CTE,
+                # and instantiates registered extensions. None of that hits
+                # the network — but it does run real parsing work, so a bad
+                # YAML still raises here rather than at agent dispatch time.
+                # The actual Soda Cloud client used to invoke the agent is
+                # passed below to ``verify_on_agent``.
                 contract_impl: ContractImpl = ContractImpl(
                     contract_yaml=contract_yaml,
                     only_validate_without_execute=True,

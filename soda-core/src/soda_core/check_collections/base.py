@@ -647,6 +647,15 @@ class CheckCollectionImpl:
         Used by per-item isolation in ``execute_check_collections``.
         """
         now = datetime.now(tz=timezone.utc)
+        # Invariant: this placeholder Contract is never uploaded to Soda Cloud.
+        # ``build_error_result`` is only invoked when the YAML failed to parse
+        # before a real ``Contract`` could be constructed; the result it
+        # produces has ERROR status and no ``soda_cloud_file_id`` is ever
+        # attached to ``source``, so the engine's "upload if file id present"
+        # gate in ``verify()`` skips it. The empty-string / empty-list /
+        # ``None`` values below are inert: they exist solely to satisfy the
+        # ``Contract`` dataclass signature on the in-memory result returned
+        # to the launcher.
         result = cls.result_class(
             contract=Contract(
                 data_source_name=None,
