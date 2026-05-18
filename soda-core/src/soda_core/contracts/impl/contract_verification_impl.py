@@ -447,11 +447,6 @@ class ContractImpl(CheckCollectionImpl):
         return data_source_impl
 
     @property
-    def contract_yaml(self) -> ContractYaml:
-        """BC accessor — callers that read ``.contract_yaml`` still work."""
-        return self.yaml
-
-    @property
     def is_test_verification_on_agent(self) -> bool:
         """Contract-specific test-mode predicate.
 
@@ -1136,7 +1131,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.contract_yaml.yaml_source.file_path,
+            self.contract_impl.yaml.yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,
@@ -1146,8 +1141,8 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        if self.contract_impl.contract_yaml.filter:
-            contract_dict["filter"] = self.contract_impl.contract_yaml.filter
+        if self.contract_impl.yaml.filter:
+            contract_dict["filter"] = self.contract_impl.yaml.filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 
