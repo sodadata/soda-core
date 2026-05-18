@@ -224,6 +224,24 @@ class CheckCollectionImpl:
             cls.impl_extensions = {}
         cls.impl_extensions[name] = extension_cls
 
+    def identity_prefix(self) -> tuple:
+        """Identity prefix mixed into every emitted check's identity hash.
+
+        Default: ``()`` — contracts inherit this and their per-check identity
+        hash stays byte-identical to every prior verification, preserving
+        Cloud history (the ``tests`` table is keyed off identity).
+
+        Non-contract subtypes (data standards, ...) override to return
+        ``(wire_source, collection_id)`` so two collections with identical
+        check shapes on the same dataset produce distinct identities and
+        the backend never silently overwrites rows.
+
+        Returning a tuple (rather than a string) keeps the prefix
+        extensible — a future subtype that needs more fields appends them
+        without breaking the hash for sibling subtypes.
+        """
+        return ()
+
     def __init__(
         self,
         yaml: CheckCollectionYaml,

@@ -1112,6 +1112,18 @@ class CheckImpl:
         extra_identity_properties: Optional[dict[str, object]] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
+
+        # Identity-prefix mix-in: contracts inherit ``identity_prefix() == ()``
+        # so the loop is a no-op and the hash stays byte-identical to every
+        # prior contract verification (preserving Cloud history). Non-contract
+        # subtypes return ``(wire_source, collection_id)`` so two collections
+        # with identical check shapes on the same dataset produce distinct
+        # identities. The prefix entries use stable, namespaced keys
+        # (``__cc_<index>``) so the contract empty-prefix path emits zero
+        # additional bytes into the blake2b stream.
+        for index, prefix_value in enumerate(contract_impl.identity_prefix()):
+            identity_hash_builder.add_property(f"__cc_{index}", prefix_value)
+
         if contract_impl.data_source_impl:
             identity_hash_builder.add_property("dso", contract_impl.data_source_impl.name)
         identity_hash_builder.add_property("pr", contract_impl.dataset_prefix)

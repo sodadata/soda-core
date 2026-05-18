@@ -414,6 +414,12 @@ class _StubContractImpl:
     dataset_prefix = "schema"
     dataset_name = "table"
 
+    def identity_prefix(self) -> tuple:
+        # Contracts inherit ``CheckCollectionImpl.identity_prefix() == ()``;
+        # the stub mirrors that so the per-check identity hash stays
+        # byte-identical to today.
+        return ()
+
 
 def _stub_contract_impl():
     return _StubContractImpl()
