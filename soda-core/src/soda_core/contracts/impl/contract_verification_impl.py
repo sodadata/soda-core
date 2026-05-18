@@ -356,6 +356,7 @@ class ContractImpl(CheckCollectionImpl):
     execute, upload to Cloud) is inherited from ``CheckCollectionImpl``.
     """
 
+    kind: str = "contract"
     wire_source: str = "soda-contract"
     display_name: str = "contract"
     yaml_class: type[ContractYaml] = ContractYaml

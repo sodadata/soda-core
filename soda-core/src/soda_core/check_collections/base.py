@@ -195,6 +195,10 @@ class CheckCollectionImpl:
     Subclasses provide four plain class attributes; the engine inherits.
     """
 
+    # Subtype identity — declared per-subtype as a plain class attribute.
+    # The base default is empty string → not registered.
+    kind: str = ""
+
     # Subclasses MUST override these. ``wire_source`` is guarded at the top of
     # ``verify()`` so a missing override raises immediately rather than silently
     # routing to no Cloud feature.
@@ -206,6 +210,37 @@ class CheckCollectionImpl:
     # flagged by a type-checker rather than silently surviving until runtime.
     yaml_class: type[CheckCollectionYaml] = CheckCollectionYaml
     result_class: type[CheckCollectionResult] = CheckCollectionResult
+
+    # Registry mapping ``kind`` → concrete impl class. Populated by
+    # ``__init_subclass__`` when a subtype declares a non-empty ``kind``.
+    # Test stubs that don't want to register simply leave ``kind`` empty.
+    _REGISTRY: dict[str, type["CheckCollectionImpl"]] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Only register subclasses that declare a non-empty kind in their
+        # own class body. Inherited kinds (e.g. test stubs subclassing
+        # ContractImpl) don't re-register.
+        own_kind = cls.__dict__.get("kind", "")
+        if own_kind:
+            CheckCollectionImpl._REGISTRY[own_kind] = cls
+
+    @classmethod
+    def for_kind(cls, kind: str) -> type["CheckCollectionImpl"]:
+        """Look up the impl class for a YAML ``kind:`` value.
+
+        Raises ``ValueError`` with the list of registered kinds if the
+        requested kind isn't registered. Missing/unimported subtype
+        packages will fail loudly here.
+        """
+        if kind not in CheckCollectionImpl._REGISTRY:
+            available = sorted(CheckCollectionImpl._REGISTRY.keys())
+            raise ValueError(
+                f"Unknown check-collection kind '{kind}'. "
+                f"Registered: {available}. "
+                f"Ensure the subtype's package is imported before dispatching."
+            )
+        return CheckCollectionImpl._REGISTRY[kind]
 
     # Plugin hooks. Extensions register against the concrete subclass that
     # cares about them; the base initialises its own empty dict so the
