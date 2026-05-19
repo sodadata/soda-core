@@ -34,7 +34,7 @@ def stub_get_current_warehouse_none() -> Optional[str]:
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
@@ -46,7 +46,7 @@ def stub_get_current_warehouse_none() -> Optional[str]:
     side_effect=stub_get_current_warehouse,
 )
 def test_warehouse_switching(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_switch_warehouse,
     mocked_get_current_warehouse,
     data_source_test_helper: DataSourceTestHelper,
@@ -77,7 +77,7 @@ def test_warehouse_switching(
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
@@ -89,7 +89,7 @@ def test_warehouse_switching(
     side_effect=stub_get_current_warehouse_none,
 )
 def test_warehouse_switching_no_current_wh(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_switch_warehouse,
     mocked_get_current_warehouse,
     data_source_test_helper: DataSourceTestHelper,

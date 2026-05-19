@@ -54,7 +54,7 @@ columns:
         contract_yaml_sources=[ContractYamlSource.from_str(contract_yaml_str)],
         only_validate_without_execute=True,
         soda_cloud_publish_results=False,
-        soda_cloud_use_agent=False,
+        soda_cloud_use_runner=False,
     )
 
     assert result is not None

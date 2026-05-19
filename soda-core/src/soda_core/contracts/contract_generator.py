@@ -31,8 +31,10 @@ class IContractGenerator:
         output_file_path: Optional[str],
         verbose: bool,
         soda_cloud: Optional[SodaCloud],
-        use_agent: bool,
+        use_runner: bool = False,
         generate_checks: bool = True,
         include_type_parameters: bool = True,
+        **kwargs,
     ):
+        # Backwards-compat: accept legacy use_agent kwarg.
         raise NotImplementedError("No implementation for create_skeleton() yet. Please install an appropriate plugin.")
