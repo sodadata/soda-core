@@ -669,7 +669,28 @@ class ContractImpl:
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
                     else:
-                        check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                        # Framework-level NOT_EVALUATED gating: if a check declares
+                        # required metrics via get_required_metric_impls() and any
+                        # of them are unmeasured (upstream aggregation query failed),
+                        # short-circuit to NOT_EVALUATED with the check's numeric
+                        # diagnostic defaults. Saves every evaluate() from having to
+                        # call all_measured() and coalesce None → 0 in its dict.
+                        required = check_impl.get_required_metric_impls()
+                        if required and not measurement_values.all_measured(*required):
+                            # Merge order: defaults first, dataset_rows_tested last,
+                            # so a check that accidentally puts `dataset_rows_tested`
+                            # in its defaults can't override the real dataset value.
+                            check_result: CheckResult = CheckResult(
+                                check=check_impl._build_check_info(),
+                                outcome=CheckOutcome.NOT_EVALUATED,
+                                threshold_value=None,
+                                diagnostic_metric_values={
+                                    **check_impl.get_diagnostic_defaults(),
+                                    "dataset_rows_tested": self.dataset_rows_tested,
+                                },
+                            )
+                        else:
+                            check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
             contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
@@ -1402,6 +1423,24 @@ class CheckImpl:
 
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+
+    def get_required_metric_impls(self) -> list["MetricImpl"]:
+        """Metrics this check needs measured to evaluate. If any is unmeasured at
+        dispatch time, the framework short-circuits to NOT_EVALUATED with the
+        numeric defaults from `get_diagnostic_defaults()` — `evaluate()` is not
+        called, so each check's body can assume its required metrics are present.
+
+        Default: empty (legacy checks not yet migrated keep their own gating)."""
+        return []
+
+    def get_diagnostic_defaults(self) -> dict[str, Number]:
+        """Numeric defaults populated into `diagnostic_metric_values` when the
+        framework short-circuits this check to NOT_EVALUATED. Soda Cloud DTOs
+        for several check types declare these fields as `@NotNull`; the
+        NOT_EVALUATED outcome itself signals "not real".
+
+        Default: empty (legacy checks not yet migrated keep their own coalesce)."""
+        return {}
 
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
