@@ -1769,8 +1769,9 @@ class DerivedPercentageMetricImpl(DerivedMetricImpl):
         if values is None:
             return None
         fraction, total = values
-        return (fraction * 100 / total) if total != 0 else 0
-
+        if total == 0:
+            return None  # No rows to evaluate; let evaluate_threshold return NOT_EVALUATED
+        return fraction * 100 / total
 
 class ValidCountMetric(AggregationMetricImpl):
     """TODO -- 3/10/2025: this metric is not used anywhere in the codebase, it's not clear if it's needed."""
