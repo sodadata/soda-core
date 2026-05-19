@@ -140,6 +140,10 @@ def execute_check_collections(
             # On unknown kind or pre-impl failures (where ``impl_class`` may
             # be unresolved), use the base ``CheckCollectionImpl`` as a
             # fallback builder so we still produce a positional ERROR result.
+            # Note: when kind-dispatch fails before impl_class is resolved (e.g.,
+            # malformed YAML, file-not-found), the fallback uses the base class
+            # so the returned result type is plain CheckCollectionResult, not the
+            # subtype-typed result. Downstream consumers must not narrow on type.
             builder = impl_class if impl_class is not None else CheckCollectionImpl
             results.append(builder.build_error_result(yaml_source, exc))
     return CheckCollectionSessionResult(results)
