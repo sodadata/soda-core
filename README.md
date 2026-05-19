@@ -230,18 +230,18 @@ Parameter | Required | Description
 `-p`,`--publish`| No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
 
 
-### Verify a contract remotely using Soda Agent
+### Verify a contract remotely using Soda Runner
 
-To verify contracts via Soda Cloud using the [Soda Agent](https://docs.soda.io/soda-v4/reference/soda-agent-basic-concepts),  configure a dataset and contract in Soda Cloud and configure an agent in your environment.  To obtain the Soda Cloud dataset identifier, for example `postgres_ds/db/schema/dataset`, open the contract in Soda Cloud, enable the `Toggle Code` control, and copy the identifier from the first line of the contract.  To launch contract verification:
+To verify contracts via Soda Cloud using the Soda Runner (formerly known as the Soda Agent), configure a dataset and contract in Soda Cloud and configure a runner in your environment.  To obtain the Soda Cloud dataset identifier, for example `postgres_ds/db/schema/dataset`, open the contract in Soda Cloud, enable the `Toggle Code` control, and copy the identifier from the first line of the contract.  To launch contract verification:
 
 ```
-soda contract verify -sc sc_config.yml -d postgres_ds/db/schema/dataset -a 
+soda contract verify -sc sc_config.yml -d postgres_ds/db/schema/dataset -r
 ```
 Parameter | Required | Description
 --- | --- | ---
-`-a`,`--use-agent`| Yes | Use Soda Agent for execution
-`-sc`,`--soda-cloud`| with `-a` | Path to a Soda Cloud YAML configuration file
-`-d`,`--dataset`| with `-a` | Soda Cloud dataset identifier
+`-r`,`--use-runner`| Yes | Use Soda Runner for execution. The legacy `-a`/`--use-agent` flag is still accepted as a deprecated alias.
+`-sc`,`--soda-cloud`| with `-r` | Path to a Soda Cloud YAML configuration file
+`-d`,`--dataset`| with `-r` | Soda Cloud dataset identifier
 `-p`,`--publish`| No | Publish results and contract to Soda Cloud. Requires "Manage contract" permission; [learn about permissions here](https://docs.soda.io/soda-v4/dataset-attributes-and-responsibilities).
 
 

@@ -41,7 +41,7 @@ def test_contract(
         variables=variables,
         only_validate_without_execute=True,
         soda_cloud_publish_results=False,
-        soda_cloud_use_agent=False,
+        soda_cloud_use_runner=False,
         soda_cloud_verbose=verbose,
     )
 

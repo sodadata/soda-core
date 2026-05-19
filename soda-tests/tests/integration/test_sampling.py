@@ -43,7 +43,7 @@ country_test_table_specification = (
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
@@ -51,7 +51,7 @@ country_test_table_specification = (
     new_callable=mock.PropertyMock(return_value=True),
 )
 def test_sampling_simple_pass(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
@@ -129,7 +129,7 @@ def test_sampling_simple_pass(
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=False),
 )
 @mock.patch(
@@ -137,7 +137,7 @@ def test_sampling_simple_pass(
     new_callable=mock.PropertyMock(return_value=False),
 )
 def test_sampling_not_applied_simple_pass(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
@@ -212,7 +212,7 @@ def test_sampling_not_applied_simple_pass(
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
@@ -220,7 +220,7 @@ def test_sampling_not_applied_simple_pass(
     new_callable=mock.PropertyMock(return_value=True),
 )
 def test_sampling_custom_sql_pass(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
