@@ -193,6 +193,19 @@ class CheckCollectionImpl:
     """Engine that verifies one check-collection file against a data source.
 
     Subclasses provide four plain class attributes; the engine inherits.
+
+    Example subtype declaration::
+
+        class DataStandardImpl(CheckCollectionImpl):
+            kind = "data-standard"          # YAML 'kind:' dispatch key
+            wire_source = "data-standard"   # Cloud upload 'source' literal
+            display_name = "data standard"  # human-readable in logs
+            yaml_class = DataStandardYaml
+            result_class = DataStandardResult
+
+        # The base auto-disambiguates per-check identity for non-contract
+        # subtypes via identity_prefix(); no further overrides typically
+        # needed.
     """
 
     # Subtype identity — declared per-subtype as a plain class attribute.
@@ -262,20 +275,17 @@ class CheckCollectionImpl:
     def identity_prefix(self) -> tuple:
         """Identity prefix mixed into every emitted check's identity hash.
 
-        Default: ``()`` — contracts inherit this and their per-check identity
-        hash stays byte-identical to every prior verification, preserving
-        Cloud history (the ``tests`` table is keyed off identity).
+        Contracts inherit the base default returning ``()`` and keep
+        byte-identical history. Non-contract subtypes auto-disambiguate
+        by ``(wire_source, collection_id)`` so two collections with
+        identical check shapes on the same dataset produce distinct
+        identities.
 
-        Non-contract subtypes (data standards, ...) override to return
-        ``(wire_source, collection_id)`` so two collections with identical
-        check shapes on the same dataset produce distinct identities and
-        the backend never silently overwrites rows.
-
-        Returning a tuple (rather than a string) keeps the prefix
-        extensible — a future subtype that needs more fields appends them
-        without breaking the hash for sibling subtypes.
+        Override only if a subtype needs a different prefix shape.
         """
-        return ()
+        if self.wire_source == "soda-contract":
+            return ()
+        return (self.wire_source, self.collection_id)
 
     @property
     def collection_id(self) -> Optional[str]:
