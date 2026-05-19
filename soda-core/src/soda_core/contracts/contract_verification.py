@@ -30,8 +30,8 @@ class ContractVerificationSession:
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
     @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
     @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+    @param soda_cloud_use_runner: If True, use the Soda Cloud runner (formerly agent) for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud runner.
     """
 
     @classmethod
@@ -45,17 +45,33 @@ class ContractVerificationSession:
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional["SodaCloud"] = None,
         soda_cloud_publish_results: bool = False,
-        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_runner: bool = False,
         soda_cloud_verbose: bool = False,
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: int = 60,
         check_paths: Optional[list[str]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
+        **kwargs,
     ) -> ContractVerificationSessionResult:
+        from soda_core.common._deprecation import deprecated_kwarg
         from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
         )
+
+        if "soda_cloud_use_agent" in kwargs:
+            soda_cloud_use_runner = deprecated_kwarg(
+                kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner
+            )
+        if "soda_cloud_use_agent_blocking_timeout_in_minutes" in kwargs:
+            soda_cloud_use_runner_blocking_timeout_in_minutes = deprecated_kwarg(
+                kwargs,
+                "soda_cloud_use_agent_blocking_timeout_in_minutes",
+                "soda_cloud_use_runner_blocking_timeout_in_minutes",
+                soda_cloud_use_runner_blocking_timeout_in_minutes,
+            )
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
 
         # Merge check_paths into check_selectors for backward compatibility
         merged_selectors = list(check_selectors) if check_selectors else []
@@ -70,9 +86,9 @@ class ContractVerificationSession:
             data_source_yaml_sources=data_source_yaml_sources,
             soda_cloud_impl=soda_cloud_impl,
             soda_cloud_publish_results=soda_cloud_publish_results,
-            soda_cloud_use_agent=soda_cloud_use_agent,
+            soda_cloud_use_runner=soda_cloud_use_runner,
             soda_cloud_verbose=soda_cloud_verbose,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
             check_selectors=merged_selectors,
             dwh_data_source_file_path=dwh_data_source_file_path,
         )
