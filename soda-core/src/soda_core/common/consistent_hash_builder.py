@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import date, datetime, time
 from numbers import Number
 from typing import Optional
@@ -50,7 +51,7 @@ class ConsistentHashBuilder:
             else:
                 raise AssertionError(f"Unsupported hash value type {value} ({type(value).__name__})")
         return self
-    
+
     def add_property(self, key: str, value: Optional[object]) -> ConsistentHashBuilder:
         if value is not None:
             self.add(key)
