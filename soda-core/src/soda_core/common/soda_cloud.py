@@ -1429,13 +1429,25 @@ def _build_check_results_cloud_json_dicts(
     ]
 
 
-def _build_scan_definition_name(contract_verification_result: ContractVerificationResult) -> str:
+def _build_scan_definition_name(
+    contract_verification_result: ContractVerificationResult,
+    wire_source: str = "soda-contract",
+) -> str:
     scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
     if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
         return scan_definition_name
-    else:
-        return contract_verification_result.check_collection.soda_qualified_dataset_name
+    # Fallback derives the scan-def name from the dataset's qualified name.
+    # For data-standards, the backend's lazy scan-def creation names them
+    # ``<dataset.contractIdentifier>_data_standards_scan`` (see
+    # ``DataStandardModule.ensureDataStandardsScanDefinition`` on the soda
+    # server). Match that convention so a local ``soda data-standard verify
+    # -p`` lands on a scan-def of the right type and clears the backend's
+    # ``DATA_STANDARDS_SOURCE_MISALIGNED`` guard.
+    qualified_name = contract_verification_result.check_collection.soda_qualified_dataset_name
+    if wire_source == "data-standard":
+        return f"{qualified_name}_data_standards_scan"
+    return qualified_name
 
 
 def _build_post_processing_stages_dicts(
@@ -1474,7 +1486,7 @@ def _build_contract_result_json_dict(
             "scanId": os.environ.get("SODA_SCAN_ID", None),
             # The scan definition name is still required on result ingestion to link to the contract
             # and determine if we're dealing with a default or test contract.
-            "definitionName": _build_scan_definition_name(contract_verification_result),
+            "definitionName": _build_scan_definition_name(contract_verification_result, wire_source=wire_source),
             "defaultDataSource": contract_verification_result.data_source.name
             if contract_verification_result.data_source
             else None,
