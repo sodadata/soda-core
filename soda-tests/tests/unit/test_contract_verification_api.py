@@ -343,10 +343,7 @@ def test_local_flow_with_dataset_but_no_datasource_raises_error(mock_cloud_clien
 def test_verify_contract_on_agent_alias_emits_deprecation_warning(monkeypatch):
     """The legacy public ``verify_contract_on_agent`` function emits a DeprecationWarning
     and delegates to ``verify_contract_on_runner``."""
-    from soda_core.contracts.api.verify_api import (
-        verify_contract_on_agent,
-        verify_contract_on_runner,
-    )
+    from soda_core.contracts.api.verify_api import verify_contract_on_agent
 
     called = {}
 

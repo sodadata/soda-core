@@ -43,7 +43,5 @@ def deprecated_kwarg(
     old_value = kwargs.pop(old_name)
     warn_deprecated(old_name, new_name, stacklevel=3)
     if current_new_value not in (None, sentinel) and old_value != current_new_value:
-        raise TypeError(
-            f"Cannot pass both {old_name} and {new_name} with conflicting values; use {new_name} only."
-        )
+        raise TypeError(f"Cannot pass both {old_name} and {new_name} with conflicting values; use {new_name} only.")
     return old_value
