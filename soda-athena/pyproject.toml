@@ -8,8 +8,8 @@ authors = [
     {name = "Soda Data N.V.", email = "info@soda.io"}
 ]
 dependencies = [
+    "PyAthena>=3.9.0",
     "soda-core==4.10.2rc0",
-    "PyAthena>=2.2.0,<3.0",
     "setuptools>=60",
 ]
 
