@@ -1,9 +1,13 @@
 from __future__ import annotations
-
 from datetime import date, datetime, time
-from hashlib import blake2b
 from numbers import Number
 from typing import Optional
+
+try:
+    from hashlib import blake2b
+    _BLAKE2B_AVAILABLE = True
+except ImportError:
+    _BLAKE2B_AVAILABLE = False
 
 
 class ConsistentHashBuilder:
@@ -15,6 +19,8 @@ class ConsistentHashBuilder:
 
     def __get_blake2b(self) -> blake2b:
         # Lazy initialization of blake2b in order to return None in the self.get_hash(self) in case nothing was added
+        if not _BLAKE2B_AVAILABLE:
+            return None
         if self.blake2b is None:
             self.blake2b = blake2b(digest_size=int(self.hash_string_length / 2))
         return self.blake2b
@@ -22,15 +28,19 @@ class ConsistentHashBuilder:
     def add(self, value: Optional[object]) -> ConsistentHashBuilder:
         if value is not None:
             if isinstance(value, str):
-                self.__get_blake2b().update(value.encode("utf-8"))
+                b = self.__get_blake2b()
+                if b:
+                    b.update(value.encode("utf-8"))
             elif isinstance(value, dict):
-                for key, value in value.items():
-                    self.add_property(key, value)
+                    for key, value in value.items():
+                        self.add_property(key, value)
             elif isinstance(value, list):
                 for e in value:
                     self.add(e)
             elif isinstance(value, Number) or isinstance(value, bool):
-                self.__get_blake2b().update(str(value).encode("utf-8"))
+                b = self.__get_blake2b()
+                if b:
+                    b.update(str(value).encode("utf-8"))
             elif isinstance(value, datetime):
                 self.add(str(value))
             elif isinstance(value, date):
@@ -40,7 +50,7 @@ class ConsistentHashBuilder:
             else:
                 raise AssertionError(f"Unsupported hash value type {value} ({type(value).__name__})")
         return self
-
+    
     def add_property(self, key: str, value: Optional[object]) -> ConsistentHashBuilder:
         if value is not None:
             self.add(key)
