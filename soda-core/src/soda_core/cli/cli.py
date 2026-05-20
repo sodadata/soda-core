@@ -252,7 +252,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             use_runner = use_runner or args.use_agent_deprecated
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
-        metadata_diagnostics_warehouse_file_path = args.metadata_diagnostics_warehouse
+        metadata_dwh_file_path = args.metadata_diagnostics_warehouse
 
         # Parse --check-filter expressions
         try:
@@ -274,7 +274,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             args.check_paths,
             check_selectors,
             diagnostics_warehouse_file_path,
-            metadata_diagnostics_warehouse_file_path,
+            metadata_dwh_file_path,
         )
 
         exit_with_code(exit_code)
