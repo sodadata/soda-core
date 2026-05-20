@@ -10,7 +10,7 @@ class DiagnosticsWarehouseFiles:
 
     primary_path:
         Per-datasource DWH config. This is the pre-existing DWH target.
-    metadata_path:
+    metadata_dwh_file_path:
         Org-wide metadata DWH config. When set, a copy of selected metadata
         rows (currently check_results) is written here in addition to the
         primary target. When None, behavior is identical to the
@@ -24,7 +24,7 @@ class DiagnosticsWarehouseFiles:
     """
 
     primary_path: Optional[str] = None
-    metadata_path: Optional[str] = None
+    metadata_dwh_file_path: Optional[str] = None
 
     @classmethod
     def normalize(
@@ -44,4 +44,4 @@ class DiagnosticsWarehouseFiles:
 
     @property
     def is_empty(self) -> bool:
-        return self.primary_path is None and self.metadata_path is None
+        return self.primary_path is None and self.metadata_dwh_file_path is None
