@@ -528,8 +528,35 @@ class CheckCollectionImpl:
             else:
                 other_queries.append(query)
 
+        # Deduplicate byte-identical aggregation metrics before bundling them into
+        # queries. Two metrics that render to the same SQL (e.g. MissingCheckImpl
+        # and InvalidCheckImpl on the same column both resolving a MissingCount
+        # metric) compute the redundant aggregate twice on the warehouse otherwise.
+        # Key on (type, rendered_sql) so we never collapse metrics that would
+        # convert their DB value differently (``int`` vs ``float`` vs identity).
+        canonical_metrics: list = []
+        canonical_by_sql: dict = {}
+        # canonical_metric.id -> [aliased_metric, ...]. We keep the full metric impls
+        # (not just ids) so AggregationQuery.execute can emit each Measurement under
+        # the aliased metric's own get_short_description() — two deduped metrics may
+        # belong to different check types (e.g. missing vs invalid) and have different
+        # metric_name semantics for downstream consumers.
+        metric_aliases: dict = {}
+        if self.data_source_impl is not None:
+            sql_dialect = self.data_source_impl.sql_dialect
+            for metric in aggregation_metrics:
+                key = (type(metric), sql_dialect.build_expression_sql(metric.sql_expression()))
+                canonical = canonical_by_sql.get(key)
+                if canonical is None:
+                    canonical_by_sql[key] = metric
+                    canonical_metrics.append(metric)
+                else:
+                    metric_aliases.setdefault(canonical.id, []).append(metric)
+        else:
+            canonical_metrics = aggregation_metrics
+
         aggregation_queries: list = []
-        for aggregation_metric in aggregation_metrics:
+        for aggregation_metric in canonical_metrics:
             if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
                 aggregation_queries.append(
                     AggregationQuery(
@@ -538,6 +565,7 @@ class CheckCollectionImpl:
                         dataset_name=self.dataset_name,
                         data_source_impl=self.data_source_impl,
                         logs=self.logs,
+                        metric_aliases=metric_aliases,
                     )
                 )
             last_aggregation_query = aggregation_queries[-1]
