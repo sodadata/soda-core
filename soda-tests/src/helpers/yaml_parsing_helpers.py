@@ -17,7 +17,7 @@ def parse_contract(yaml_str: str, variables: Optional[dict[str, str | int | floa
     """Parse a contract YAML string into a ContractYaml domain model."""
     contract_yaml_source = ContractYamlSource.from_str(yaml_str=dedent_and_strip(yaml_str))
     return ContractYaml.parse(
-        contract_yaml_source=contract_yaml_source,
+        yaml_source=contract_yaml_source,
         provided_variable_values=variables or {},
     )
 

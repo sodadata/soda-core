@@ -44,11 +44,11 @@ from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
     CheckOutcome,
     CheckResult,
     Contract,
     ContractVerificationResult,
-    ContractVerificationStatus,
     PostProcessingStageState,
     SodaException,
     Threshold,
@@ -333,12 +333,23 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def send_contract_result(self, contract_verification_result: ContractVerificationResult) -> Optional[dict]:
+    def send_contract_result(
+        self,
+        contract_verification_result: ContractVerificationResult,
+        wire_source: str = "soda-contract",
+    ) -> Optional[dict]:
         """
         Returns A scanId string if a 200 OK was received, None otherwise
+
+        @param wire_source: The ``"source"`` literal stamped on each emitted
+            check in the upload payload. Defaults to ``"soda-contract"`` for
+            backward compatibility with callers that don't pass it (e.g.
+            soda-autopilot ``publish.py``). The engine passes
+            ``CheckCollectionImpl.wire_source`` for the calling subtype.
         """
         contract_verification_result = _build_contract_result_json_dict(
-            contract_verification_result=contract_verification_result
+            contract_verification_result=contract_verification_result,
+            wire_source=wire_source,
         )
         contract_verification_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -423,11 +434,11 @@ class SodaCloud:
             return ContractPublicationResult(contract=None)
 
         logger.info(
-            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.contract_yaml_source.file_path} "
+            f"Publishing {Emoticons.SCROLL} contract {contract_yaml.yaml_source.file_path} "
             f"{Emoticons.FINGERS_CROSSED}"
         )
-        contract_yaml_str_original = contract_yaml.contract_yaml_source.yaml_str_original
-        contract_local_file_path = contract_yaml.contract_yaml_source.file_path
+        contract_yaml_str_original = contract_yaml.yaml_source.yaml_str_original
+        contract_local_file_path = contract_yaml.yaml_source.file_path
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 
@@ -544,13 +555,13 @@ class SodaCloud:
         publish_results: bool,
         verbose: bool,
     ) -> ContractVerificationResult:
-        contract_yaml_str_original: str = contract_yaml.contract_yaml_source.yaml_str_original
-        contract_local_file_path: Optional[str] = contract_yaml.contract_yaml_source.file_path or "REMOTE"  # TODO
+        contract_yaml_str_original: str = contract_yaml.yaml_source.yaml_str_original
+        contract_local_file_path: Optional[str] = contract_yaml.yaml_source.file_path or "REMOTE"  # TODO
 
         dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
 
         verification_result = ContractVerificationResult(
-            contract=Contract(
+            check_collection=Contract(
                 data_source_name=dataset_identifier.data_source_name,
                 dataset_prefix=dataset_identifier.prefixes,
                 dataset_name=dataset_identifier.dataset_name,
@@ -569,7 +580,7 @@ class SodaCloud:
             check_results=[],
             sending_results_to_soda_cloud_failed=False,
             log_records=None,
-            status=ContractVerificationStatus.UNKNOWN,
+            status=CheckCollectionStatus.UNKNOWN,
         )
 
         can_publish_and_verify, reason = self.can_publish_and_verify_contract(
@@ -1406,23 +1417,37 @@ def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
 
 def _build_check_results_cloud_json_dicts(
     contract_verification_result: ContractVerificationResult,
+    wire_source: str = "soda-contract",
 ) -> Optional[list[dict]]:
     check_results: Optional[list[CheckResult]] = contract_verification_result.check_results
-    contract: Contract = contract_verification_result.contract
+    contract: Contract = contract_verification_result.check_collection
     if not check_results:
         return None
     return [
-        _build_check_result_cloud_dict(contract=contract, check_result=check_result) for check_result in check_results
+        _build_check_result_cloud_dict(contract=contract, check_result=check_result, wire_source=wire_source)
+        for check_result in check_results
     ]
 
 
-def _build_scan_definition_name(contract_verification_result: ContractVerificationResult) -> str:
+def _build_scan_definition_name(
+    contract_verification_result: ContractVerificationResult,
+    wire_source: str = "soda-contract",
+) -> str:
     scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
     if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
         return scan_definition_name
-    else:
-        return contract_verification_result.contract.soda_qualified_dataset_name
+    # Fallback derives the scan-def name from the dataset's qualified name.
+    # For data-standards, the backend's lazy scan-def creation names them
+    # ``<dataset.contractIdentifier>_data_standards_scan`` (see
+    # ``DataStandardModule.ensureDataStandardsScanDefinition`` on the soda
+    # server). Match that convention so a local ``soda data-standard verify
+    # -p`` lands on a scan-def of the right type and clears the backend's
+    # ``DATA_STANDARDS_SOURCE_MISALIGNED`` guard.
+    qualified_name = contract_verification_result.check_collection.soda_qualified_dataset_name
+    if wire_source == "data-standard":
+        return f"{qualified_name}_data_standards_scan"
+    return qualified_name
 
 
 def _build_post_processing_stages_dicts(
@@ -1452,13 +1477,16 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
-def _build_contract_result_json_dict(contract_verification_result: ContractVerificationResult) -> dict:
+def _build_contract_result_json_dict(
+    contract_verification_result: ContractVerificationResult,
+    wire_source: str = "soda-contract",
+) -> dict:
     return to_jsonnable(  # type: ignore
         {
             "scanId": os.environ.get("SODA_SCAN_ID", None),
             # The scan definition name is still required on result ingestion to link to the contract
             # and determine if we're dealing with a default or test contract.
-            "definitionName": _build_scan_definition_name(contract_verification_result),
+            "definitionName": _build_scan_definition_name(contract_verification_result, wire_source=wire_source),
             "defaultDataSource": contract_verification_result.data_source.name
             if contract_verification_result.data_source
             else None,
@@ -1475,10 +1503,23 @@ def _build_contract_result_json_dict(contract_verification_result: ContractVerif
             "hasErrors": contract_verification_result.has_errors,
             "hasWarns": contract_verification_result.is_warned,
             "hasFailures": contract_verification_result.is_failed,
-            "checks": _build_check_results_cloud_json_dicts(contract_verification_result),
+            "checks": _build_check_results_cloud_json_dicts(contract_verification_result, wire_source=wire_source),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
-            "contract": _build_contract_cloud_json_dict(contract_verification_result.contract),
+            # ``contract`` is contract-handler-routing on the backend:
+            # ``SodaCoreInsertScanResultsCommandExecutor`` routes to
+            # ``FullContractScanHandlerModule`` when ``command.getContract()``
+            # is non-null, **before** it checks the scan-def type. Setting it
+            # to None for non-contract wire sources lets the routing fall
+            # through to the scan-def-type-based dispatch (e.g.
+            # ``DataStandardIngestionHandlerModule`` for DATA_STANDARDS). The
+            # data-standard handler doesn't read this field — file refs come
+            # from per-check ``checkPath`` resolution.
+            "contract": (
+                _build_contract_cloud_json_dict(contract_verification_result.check_collection)
+                if wire_source == "soda-contract"
+                else None
+            ),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
             "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
             "tokenUsage": _build_token_usage_dicts(contract_verification_result),
@@ -1499,10 +1540,22 @@ def _build_contract_cloud_json_dict(contract: Contract):
     }
 
 
-def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult) -> dict:
+def _build_check_result_cloud_dict(
+    contract: Contract,
+    check_result: CheckResult,
+    wire_source: str = "soda-contract",
+) -> dict:
     return {
         "identities": {"vc1": check_result.check.identity},
-        "checkPath": check_result.check.path,
+        # Wire path: ``Check.full_path`` is the yaml-internal ``path`` for
+        # contracts (byte-identical to historical emission) and
+        # ``"{collection_id}.{path}"`` for non-contract subtypes so the
+        # backend's ``firstSegmentOf(checkPath)`` matches
+        # ``DataStandard.name``. Selector matching still uses ``check.path``.
+        # Falls back to ``path`` when ``full_path`` is empty (the dataclass
+        # default) — protects external constructors of ``Check(...)`` that
+        # don't set ``full_path`` explicitly.
+        "checkPath": check_result.check.full_path or check_result.check.path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,
@@ -1514,7 +1567,15 @@ def _build_check_result_cloud_dict(contract: Contract, check_result: CheckResult
         "datasetPrefix": contract.dataset_prefix,
         "column": check_result.check.column_name,
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
-        "source": "soda-contract",
+        # ``wire_source`` is the literal that the Cloud backend filters on
+        # (see DataStandardIngestionFilterModule.java) — the impl class
+        # carries the value as a plain class attribute. ``check.source``
+        # is an optional per-check override exercised by extensions that
+        # emit checks with a deliberate source different from the parent
+        # collection; the alignment guard in ``CheckCollectionImpl.verify()``
+        # rejects the upload before this code runs when the override
+        # disagrees with ``self.wire_source``.
+        "source": check_result.check.source if check_result.check.source is not None else wire_source,
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }
 
@@ -1684,17 +1745,17 @@ def _build_fail_threshold(check_result: CheckResult) -> Optional[dict]:
 
 def _map_remote_scan_status_to_contract_verification_status(
     scan_status: RemoteScanStatus,
-) -> ContractVerificationStatus:
+) -> CheckCollectionStatus:
     if scan_status == RemoteScanStatus.COMPLETED:
-        return ContractVerificationStatus.PASSED
+        return CheckCollectionStatus.PASSED
     elif scan_status == RemoteScanStatus.COMPLETED_WITH_WARNINGS:
-        return ContractVerificationStatus.WARNED
+        return CheckCollectionStatus.WARNED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_FAILURES, RemoteScanStatus.FAILED):
-        return ContractVerificationStatus.FAILED
+        return CheckCollectionStatus.FAILED
     elif scan_status in (RemoteScanStatus.COMPLETED_WITH_ERRORS,):
-        return ContractVerificationStatus.ERROR
+        return CheckCollectionStatus.ERROR
     else:
-        return ContractVerificationStatus.UNKNOWN
+        return CheckCollectionStatus.UNKNOWN
 
 
 # def _build_diagnostics_column_data_type_mismatches(

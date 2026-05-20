@@ -571,9 +571,9 @@ def test_verify_contract_on_agent_permission_check():
 
     assert isinstance(res, ContractVerificationResult)
     assert res.sending_results_to_soda_cloud_failed is False
-    assert res.contract.dataset_name == "CUSTOMERS"
-    assert res.contract.data_source_name == "test"
-    assert res.contract.dataset_prefix == ["some", "schema"]
+    assert res.check_collection.dataset_name == "CUSTOMERS"
+    assert res.check_collection.data_source_name == "test"
+    assert res.check_collection.dataset_prefix == ["some", "schema"]
     assert res.check_results == []
     assert res.measurements == []
     assert res.log_records is None
