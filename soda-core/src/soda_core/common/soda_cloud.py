@@ -1506,7 +1506,20 @@ def _build_contract_result_json_dict(
             "checks": _build_check_results_cloud_json_dicts(contract_verification_result, wire_source=wire_source),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
-            "contract": _build_contract_cloud_json_dict(contract_verification_result.check_collection),
+            # ``contract`` is contract-handler-routing on the backend:
+            # ``SodaCoreInsertScanResultsCommandExecutor`` routes to
+            # ``FullContractScanHandlerModule`` when ``command.getContract()``
+            # is non-null, **before** it checks the scan-def type. Setting it
+            # to None for non-contract wire sources lets the routing fall
+            # through to the scan-def-type-based dispatch (e.g.
+            # ``DataStandardIngestionHandlerModule`` for DATA_STANDARDS). The
+            # data-standard handler doesn't read this field — file refs come
+            # from per-check ``checkPath`` resolution.
+            "contract": (
+                _build_contract_cloud_json_dict(contract_verification_result.check_collection)
+                if wire_source == "soda-contract"
+                else None
+            ),
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
             "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
             "tokenUsage": _build_token_usage_dicts(contract_verification_result),
@@ -1539,7 +1552,10 @@ def _build_check_result_cloud_dict(
         # ``"{collection_id}.{path}"`` for non-contract subtypes so the
         # backend's ``firstSegmentOf(checkPath)`` matches
         # ``DataStandard.name``. Selector matching still uses ``check.path``.
-        "checkPath": check_result.check.full_path,
+        # Falls back to ``path`` when ``full_path`` is empty (the dataclass
+        # default) — protects external constructors of ``Check(...)`` that
+        # don't set ``full_path`` explicitly.
+        "checkPath": check_result.check.full_path or check_result.check.path,
         "name": check_result.check.name,
         "type": "generic",
         "checkType": check_result.check.type,

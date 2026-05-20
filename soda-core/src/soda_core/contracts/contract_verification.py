@@ -299,7 +299,6 @@ class Check:
     qualifier: Optional[str]
     name: Optional[str]
     path: str
-    full_path: str
     identity: str
     definition: str
     column_name: Optional[str]
@@ -308,6 +307,14 @@ class Check:
     threshold: Optional[Threshold]
     attributes: Optional[dict[str, Any]]
     location: Optional[Location]
+    # Wire-path emitted to Soda Cloud as ``checkPath``. For contracts it
+    # equals ``path``; for non-contract subtypes the engine prefixes it
+    # with ``"{collection_id}.{path}"`` so the backend's
+    # ``firstSegmentOf(checkPath)`` filter matches ``DataStandard.name``.
+    # Defaults to ``""`` so external callers that construct ``Check(...)``
+    # without specifying it still work — emission code falls back to
+    # ``path`` when ``full_path`` is empty.
+    full_path: str = ""
     # Per-check source override. ``None`` (the default) means: emit the
     # enclosing ``CheckCollectionImpl.wire_source`` as the wire ``"source"``
     # field. A non-None value is exercised by future extensions that emit

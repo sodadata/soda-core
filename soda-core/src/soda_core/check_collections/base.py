@@ -107,6 +107,17 @@ class CheckCollectionResult:
         return "\n".join(self.get_warnings())
 
     @property
+    def contract(self) -> Contract:
+        """Backwards-compat alias for ``check_collection``.
+
+        External callers (and any in-the-wild code) that read
+        ``result.contract`` keep working. New code should read
+        ``check_collection`` directly — it's the wire-source-neutral name.
+        Read-only; assignment must go through ``check_collection``.
+        """
+        return self.check_collection
+
+    @property
     def has_errors(self) -> bool:
         return self.status is CheckCollectionStatus.ERROR
 
