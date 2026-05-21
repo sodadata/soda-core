@@ -364,16 +364,79 @@ def test_verify_contract_on_agent_alias_emits_deprecation_warning(monkeypatch):
 
 
 def test_verify_contracts_on_agent_alias_emits_deprecation_warning(monkeypatch):
+    """The legacy plural ``verify_contracts_on_agent`` delegates straight to the canonical
+    singular ``verify_contract_on_runner`` and emits exactly one DeprecationWarning (from the
+    ``@deprecated`` decorator)."""
     from soda_core.contracts.api.verify_api import verify_contracts_on_agent
 
+    called = {}
+
+    def fake_singular(**kwargs):
+        called.update(kwargs)
+        return "ok"
+
     monkeypatch.setattr(
-        "soda_core.contracts.api.verify_api.verify_contracts_on_runner",
-        lambda **kwargs: "ok",
+        "soda_core.contracts.api.verify_api.verify_contract_on_runner",
+        fake_singular,
     )
 
-    with pytest.warns(DeprecationWarning, match="verify_contracts_on_agent"):
+    with pytest.warns(DeprecationWarning, match="verify_contract_on_runner") as records:
         result = verify_contracts_on_agent(
-            soda_cloud_file_path="sc.yaml", contract_file_paths=["c.yaml"], dataset_identifiers=[]
+            soda_cloud_file_path="sc.yaml",
+            contract_file_paths=["c.yaml"],
+            dataset_identifiers=None,
         )
 
+    # Exactly one DeprecationWarning fires (from the @deprecated decorator). The previous
+    # implementation fired three: decorator + explicit warn + decorator-on-delegate.
+    assert len(records) == 1, f"expected one DeprecationWarning, got {len(records)}"
     assert result == "ok"
+    assert called["contract_file_path"] == "c.yaml"
+    assert called["soda_cloud_file_path"] == "sc.yaml"
+
+
+# Direct ContractVerificationSession.execute backwards-compat tests for the legacy kwargs.
+# These exercise the code path that previously raised TypeError on `soda_cloud_use_agent=...`
+# because of a bug in `_deprecation.deprecated_kwarg`.
+
+
+def test_contract_verification_session_execute_accepts_legacy_soda_cloud_use_agent():
+    """``ContractVerificationSession.execute(soda_cloud_use_agent=True)`` must not raise and must
+    emit exactly one DeprecationWarning for the legacy kwarg."""
+    with pytest.warns(DeprecationWarning, match="soda_cloud_use_agent"):
+        result = ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent=True,
+        )
+    assert result is not None
+
+
+def test_contract_verification_session_execute_accepts_legacy_blocking_timeout():
+    """The legacy ``soda_cloud_use_agent_blocking_timeout_in_minutes`` kwarg must not raise either."""
+    with pytest.warns(DeprecationWarning, match="soda_cloud_use_agent_blocking_timeout_in_minutes"):
+        result = ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent_blocking_timeout_in_minutes=42,
+        )
+    assert result is not None
+
+
+def test_contract_verification_session_execute_rejects_conflicting_legacy_and_canonical_kwargs():
+    """If a caller passes both the legacy and canonical kwargs with conflicting values, raise."""
+    with pytest.raises(TypeError, match="Cannot pass both soda_cloud_use_agent"):
+        ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent=True,
+            soda_cloud_use_runner=False,
+        )
+
+
+def test_contract_verification_session_execute_accepts_matching_legacy_and_canonical_kwargs():
+    """If legacy and canonical kwargs match, no error — the helper is permissive here."""
+    with pytest.warns(DeprecationWarning, match="soda_cloud_use_agent"):
+        result = ContractVerificationSession.execute(
+            contract_yaml_sources=[],
+            soda_cloud_use_agent=False,
+            soda_cloud_use_runner=False,
+        )
+    assert result is not None

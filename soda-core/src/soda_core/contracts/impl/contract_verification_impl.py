@@ -505,7 +505,7 @@ class ContractImpl(CheckCollectionImpl):
         publish_results: bool,
         verbose: bool,
     ) -> ContractVerificationResult:
-        return soda_cloud_impl.verify_contract_on_agent(
+        return soda_cloud_impl.verify_contract_on_runner(
             contract_yaml=self.yaml,
             variables=variables,
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,

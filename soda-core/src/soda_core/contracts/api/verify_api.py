@@ -167,10 +167,46 @@ def verify_contracts_on_runner(
     )
 
 
-@deprecated("Use verify_contracts_on_runner instead")
-def verify_contracts_on_agent(*args, **kwargs) -> ContractVerificationSessionResult:
-    warn_deprecated("verify_contracts_on_agent", "verify_contracts_on_runner")
-    return verify_contracts_on_runner(*args, **kwargs)
+@deprecated("Use verify_contract_on_runner instead")
+def verify_contracts_on_agent(
+    soda_cloud_file_path: str,
+    contract_file_paths: Optional[Union[str, list[str]]] = None,
+    dataset_identifiers: Optional[list[str]] = None,
+    data_source_file_path: Optional[str] = None,
+    data_source_file_paths: list[str] = [],
+    variables: Optional[Dict[str, str]] = None,
+    publish: bool = False,
+    verbose: bool = False,
+    blocking_timeout_in_minutes: int = 60,
+) -> ContractVerificationSessionResult:
+    # Don't route through ``verify_contracts_on_runner`` — that path is itself deprecated and
+    # would emit a second redundant warning. Apply the same first-element-pick that the plural
+    # variant did and delegate straight to the canonical singular function.
+    if not contract_file_paths and not dataset_identifiers:
+        raise InvalidArgumentException(__AT_LEAST_ONE_CONTRACT_OR_DATASET_REQUIRED)
+    if isinstance(contract_file_paths, str):
+        contract_file_paths = [contract_file_paths]
+    if contract_file_paths and len(contract_file_paths) > 1:
+        raise InvalidArgumentException("Only one contract is allowed at a time")
+    if dataset_identifiers and len(dataset_identifiers) > 1:
+        raise InvalidArgumentException("Only one dataset identifier is allowed at a time")
+    if contract_file_paths and dataset_identifiers:
+        logger.info(
+            "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
+        )
+    contract_file_path = contract_file_paths[0] if contract_file_paths else None
+    dataset_identifier = dataset_identifiers[0] if dataset_identifiers else None
+    return verify_contract_on_runner(
+        soda_cloud_file_path=soda_cloud_file_path,
+        contract_file_path=contract_file_path,
+        dataset_identifier=dataset_identifier,
+        data_source_file_path=data_source_file_path,
+        data_source_file_paths=data_source_file_paths,
+        variables=variables,
+        publish=publish,
+        verbose=verbose,
+        blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+    )
 
 
 def verify_contract_on_runner(
@@ -225,8 +261,7 @@ def verify_contract(
     check_selectors: Optional[list[CheckSelector]] = None,
     **kwargs,
 ) -> ContractVerificationSessionResult:
-    if "use_agent" in kwargs:
-        use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
+    use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
     if kwargs:
         raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
     if use_runner is None:

@@ -32,8 +32,7 @@ def handle_verify_contract(
     diagnostics_warehouse_file_path: Optional[str] = None,
     **kwargs,
 ) -> ExitCode:
-    if "use_agent" in kwargs:
-        use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
+    use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
     if kwargs:
         raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
     if use_runner is None:
