@@ -371,6 +371,10 @@ class ContractImpl(CheckCollectionImpl):
     display_name: str = "contract"
     yaml_class: type[ContractYaml] = ContractYaml
     result_class: type[ContractVerificationResult] = ContractVerificationResult
+    # Contracts upload with a bare (un-prefixed) ``checkPath`` — the
+    # backend's contract ingestion path doesn't route by
+    # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
+    requires_collection_id: bool = False
 
     # Per-subtype isolated extension registry. ``CheckCollectionImpl``'s
     # ``register_extension`` auto-isolates this dict at registration time, so
@@ -379,6 +383,11 @@ class ContractImpl(CheckCollectionImpl):
     # visible to static analysis and to anyone inspecting the class for
     # its extension surface.
     impl_extensions: dict[str, type[ContractImplExtension]] = {}
+
+    def identity_prefix(self) -> tuple:
+        """Contracts emit checks with no identity prefix so per-check
+        identity hashes stay byte-identical to historical emissions."""
+        return ()
 
     def __init__(
         self,

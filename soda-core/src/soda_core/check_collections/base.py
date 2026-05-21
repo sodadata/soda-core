@@ -106,17 +106,6 @@ class CheckCollectionResult:
         return "\n".join(self.get_warnings())
 
     @property
-    def contract(self) -> Contract:
-        """Backwards-compat alias for ``check_collection``.
-
-        External callers (and any in-the-wild code) that read
-        ``result.contract`` keep working. New code should read
-        ``check_collection`` directly — it's the wire-source-neutral name.
-        Read-only; assignment must go through ``check_collection``.
-        """
-        return self.check_collection
-
-    @property
     def has_errors(self) -> bool:
         return self.status is CheckCollectionStatus.ERROR
 
@@ -207,25 +196,41 @@ class CheckCollectionImpl:
     """Engine that verifies one check-collection file against a data source.
 
     Subclasses provide four plain class attributes; the engine inherits.
-    The base auto-disambiguates per-check identity for non-contract
-    subtypes via ``identity_prefix()``; no further overrides are typically
-    needed.
+
+    Example subtype declaration::
+
+        class FooImpl(CheckCollectionImpl):
+            kind = "foo"          # YAML 'kind:' dispatch key
+            wire_source = "foo"   # Cloud upload 'source' literal
+            display_name = "foo"  # human-readable in logs (defaults to kind)
+            yaml_class = FooYaml
+            result_class = FooResult
+
+    The base auto-disambiguates per-check identity via ``identity_prefix()``;
+    subtypes that need byte-identical-history per-check hashes override it
+    to return an empty tuple.
     """
 
     # Subtype identity — declared per-subtype as a plain class attribute.
     # The base default is empty string → not registered.
     kind: str = ""
 
-    # Subclasses MUST override these. ``wire_source`` is guarded at the top of
+    # Subclasses MUST override ``wire_source``. It is guarded at the top of
     # ``verify()`` so a missing override raises immediately rather than silently
     # routing to no Cloud feature.
     wire_source: str = ""
-    display_name: str = "check collection"
     # Optional suffix appended to the dataset qualified name to derive the
     # Soda Cloud scan-definition name. ``None`` (default) uses the bare
     # qualified name. Subtypes opt in by declaring a non-empty suffix; the
     # engine just threads the value through the upload.
     scan_definition_suffix: Optional[str] = None
+    # Whether the engine requires ``collection_id`` to be set on this
+    # subtype before upload. Default ``True``: emitted ``checkPath`` gets
+    # prefixed with ``collection_id`` so the backend's
+    # ``firstSegmentOf(checkPath)`` filter can route to the subtype's
+    # identifier. Subtypes whose backend ingestion doesn't need that
+    # prefix override to ``False``.
+    requires_collection_id: bool = True
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -281,31 +286,40 @@ class CheckCollectionImpl:
             cls.impl_extensions = {}
         cls.impl_extensions[name] = extension_cls
 
+    @property
+    def display_name(self) -> str:
+        """Human-readable label for this subtype in logs and error messages.
+
+        Default: ``self.kind`` with hyphens swapped for spaces (so a
+        ``kind = "my-subtype"`` declaration shows up as ``"my subtype"``
+        in user-facing output). Subclasses override by declaring a plain
+        ``display_name`` class attribute — that shadows this property via
+        normal MRO lookup (Python finds the subclass's string before the
+        base's data descriptor).
+        """
+        return self.kind.replace("-", " ") if self.kind else "check collection"
+
     def identity_prefix(self) -> tuple:
         """Identity prefix mixed into every emitted check's identity hash.
 
-        Contracts inherit the base default returning ``()`` and keep
-        byte-identical history. Non-contract subtypes auto-disambiguate
-        by ``(wire_source, collection_id)`` so two collections with
+        Default: ``(wire_source, collection_id)`` so two collections with
         identical check shapes on the same dataset produce distinct
-        identities.
-
-        Override only if a subtype needs a different prefix shape.
+        identities. Subtypes that need a different prefix shape override
+        this method (e.g. return ``()`` to keep per-check hashes
+        byte-identical to historical emissions).
         """
-        if self.wire_source == "soda-contract":
-            return ()
         return (self.wire_source, self.collection_id)
 
     @property
     def collection_id(self) -> Optional[str]:
         """Identifier of this check-collection instance.
 
-        Default: ``None`` — contracts inherit this and don't carry a
-        collection identifier (their identity comes from dataset + check
-        shape alone). Non-contract subtypes override to compute from their
-        YAML (e.g., ``return self.yaml.name``). The result becomes the first
-        segment of the wire ``checkPath`` and is also mixed into the
-        identity prefix.
+        Default: ``None`` — subtypes without a per-instance identifier
+        inherit this and derive their identity from dataset + check
+        shape alone. Subtypes that carry a per-instance identifier
+        override to compute it from their YAML (e.g.,
+        ``return self.yaml.name``). The result becomes the first segment
+        of the wire ``checkPath`` and is mixed into the identity prefix.
         """
         return None
 
@@ -440,7 +454,7 @@ class CheckCollectionImpl:
         column_check_impls: list = []
         for column_impl in self.column_impls:
             column_check_impls.extend(column_impl.check_impls)
-        # For consistency and predictability, we want the checks eval and results in the same order as in the contract
+        # For consistency and predictability, we want the checks eval and results in the same order as in the YAML
         self.all_check_impls: list = (
             dataset_check_impls + column_check_impls
             if self._dataset_checks_came_before_columns_in_yaml()
@@ -602,13 +616,14 @@ class CheckCollectionImpl:
         if not self.wire_source:
             raise ValueError(f"{type(self).__name__} did not declare wire_source class attribute")
 
-        # Non-contract subtypes MUST declare collection_id: the wire
-        # ``checkPath`` is prefixed with ``collection_id`` so the backend's
-        # ``firstSegmentOf(checkPath)`` filter can match the subtype's
-        # identifier. Without a collection_id the emitted checks would
-        # silently degrade to unprefixed paths the backend would then
-        # drop. Fail loudly here instead of producing a confused upload.
-        if self.wire_source != "soda-contract" and not self.collection_id:
+        # Subtypes that need ``collection_id`` (the default) must have a
+        # non-empty value: the wire ``checkPath`` is prefixed with it so
+        # the backend's ``firstSegmentOf(checkPath)`` filter can route to
+        # the subtype's identifier. Without one the emitted checks would
+        # silently degrade to unprefixed paths the backend would drop.
+        # Subtypes that opt out via ``requires_collection_id = False``
+        # bypass this guard.
+        if self.requires_collection_id and not self.collection_id:
             raise ValueError(
                 f"{type(self).__name__} with wire_source={self.wire_source!r} requires a non-empty "
                 f"collection_id (used to prefix checkPath for backend routing)."
@@ -720,7 +735,7 @@ class CheckCollectionImpl:
             if data_source is None:
                 logger.error(
                     f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
-                    f"Data source not found. Check that the data source name in the contract's "
+                    f"Data source not found. Check that the data source name in the YAML's "
                     f"'dataset' field matches the name in your data source configuration."
                 )
                 sending_results_to_soda_cloud_failed = True

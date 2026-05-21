@@ -521,7 +521,19 @@ from soda_core.check_collections.base import CheckCollectionResult  # noqa: E402
 class ContractVerificationResult(CheckCollectionResult):
     """Result of verifying one contract.
 
-    Thin subclass preserving the historical name; all logic lives on
-    ``CheckCollectionResult``. ``ContractImpl`` declares this as its
+    Thin subclass preserving the historical name; all engine logic lives
+    on ``CheckCollectionResult``. ``ContractImpl`` declares this as its
     ``result_class``.
     """
+
+    @property
+    def contract(self) -> Contract:
+        """Backwards-compat alias for ``check_collection``.
+
+        External callers (and any in-the-wild code) that read
+        ``result.contract`` keep working. Lives on the contract subclass
+        so the wire-source-neutral ``CheckCollectionResult`` base stays
+        free of contract-specific naming. Read-only; assignment must go
+        through ``check_collection``.
+        """
+        return self.check_collection

@@ -1,17 +1,17 @@
 """Lock per-check identity disambiguation across check-collection subtypes.
 
-Two data standards with identical-shaped checks on the same dataset must
-produce distinct identity hashes — backend's ``tests`` table is keyed off
-identity, so collisions silently overwrite history.
+Two non-contract collections with identical-shaped checks on the same
+dataset must produce distinct identity hashes — backend's ``tests`` table
+is keyed off identity, so collisions silently overwrite history.
 
 Contract identities are byte-identical to today's emission (preserves
-Cloud history). Non-contract subtypes mix ``(wire_source, collection_id)``
-into the per-check hash via ``CheckCollectionImpl.identity_prefix()``.
+Cloud history) via ``ContractImpl.identity_prefix() == ()``. Non-contract
+subtypes inherit the base default which mixes ``(wire_source,
+collection_id)`` into the per-check hash.
 """
 
 from __future__ import annotations
 
-from soda_core.check_collections.base import CheckCollectionImpl
 from soda_core.contracts.impl.contract_verification_impl import CheckImpl, ContractImpl
 
 
@@ -21,8 +21,8 @@ class _StubDataSourceImpl:
 
 class _ContractStub:
     """Sentinel that mirrors the surface ``CheckImpl._build_identity`` reads
-    AND the ``CheckCollectionImpl.identity_prefix()`` method default
-    (returns ``()`` — contracts inherit unchanged).
+    AND the ``ContractImpl.identity_prefix()`` override (returns ``()`` so
+    contract identities stay byte-identical to historical emissions).
     """
 
     wire_source = "soda-contract"
@@ -31,9 +31,9 @@ class _ContractStub:
     dataset_prefix = "schema"
     dataset_name = "table"
 
-    # Borrow the production method verbatim so any future refactor that
-    # changes the default is exercised by these tests.
-    identity_prefix = CheckCollectionImpl.identity_prefix
+    # Borrow the production override verbatim so any future refactor that
+    # changes ContractImpl's identity prefix is exercised by these tests.
+    identity_prefix = ContractImpl.identity_prefix
 
 
 class _DataStandardStub:
@@ -54,14 +54,14 @@ class _DataStandardStub:
 
 
 def test_contract_identity_prefix_is_empty_tuple():
-    """``ContractImpl`` inherits the base ``identity_prefix() == ()`` and
-    never overrides — its per-check identity hash is byte-identical to
-    every prior contract verification.
+    """``ContractImpl`` overrides ``identity_prefix`` to return ``()`` so
+    its per-check identity hash stays byte-identical to every prior
+    contract verification. The base default (``(wire_source,
+    collection_id)``) would mutate every existing contract's identity.
     """
-    # Inherits from CheckCollectionImpl; no per-subtype override.
-    assert "identity_prefix" not in ContractImpl.__dict__
-    # Default on the base.
-    assert CheckCollectionImpl.identity_prefix(ContractImpl.__new__(ContractImpl)) == ()
+    assert "identity_prefix" in ContractImpl.__dict__
+    contract_stub = ContractImpl.__new__(ContractImpl)
+    assert contract_stub.identity_prefix() == ()
 
 
 def test_contract_identity_byte_identical_to_no_prefix_mixin():
