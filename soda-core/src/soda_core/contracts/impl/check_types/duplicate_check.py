@@ -119,9 +119,6 @@ class ColumnDuplicateCheckImpl(MissingAndValidityCheckImpl):
             self.distinct_count_metric_impl,
         ]
 
-    def get_diagnostic_defaults(self) -> dict[str, Number]:
-        return {"duplicate_count": 0, "duplicate_percent": 0, "check_rows_tested": 0, "missing_count": 0}
-
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         distinct_count = measurement_values.get_value(self.distinct_count_metric_impl)
         check_rows_tested_count = measurement_values.get_value(self.check_rows_tested_metric_impl)
@@ -282,9 +279,6 @@ class MultiColumnDuplicateCheckImpl(CheckImpl):
 
     def get_required_metric_impls(self) -> list[MetricImpl]:
         return [self.row_count_metric_impl, self.multi_column_distinct_count_metric_impl]
-
-    def get_diagnostic_defaults(self) -> dict[str, Number]:
-        return {"duplicate_count": 0, "duplicate_percent": 0, "check_rows_tested": 0}
 
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         row_count: int = measurement_values.get_value(self.row_count_metric_impl)

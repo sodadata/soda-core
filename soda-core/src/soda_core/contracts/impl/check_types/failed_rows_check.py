@@ -137,9 +137,6 @@ class FailedRowsCheckImpl(CheckImpl):
             required.append(self.check_rows_tested_metric_impl)
         return required
 
-    def get_diagnostic_defaults(self) -> dict[str, Number]:
-        return {"failed_rows_count": 0, "failed_rows_percent": 0, "check_rows_tested": 0}
-
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         failed_rows_count: int = measurement_values.get_value(self.failed_rows_count_metric_impl)
 

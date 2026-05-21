@@ -131,9 +131,6 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             self.missing_count_metric_impl,
         ]
 
-    def get_diagnostic_defaults(self) -> dict[str, Number]:
-        return {"invalid_count": 0, "invalid_percent": 0, "check_rows_tested": 0, "missing_count": 0}
-
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         invalid_count = measurement_values.get_value(self.invalid_count_metric_impl)
         row_count = measurement_values.get_value(self.row_count_metric)

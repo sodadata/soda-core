@@ -169,14 +169,11 @@ def test_duplicate_check_survives_failed_aggregation_query(
         f"failed upstream; got {duplicate_result.outcome}"
     )
 
-    # NOT_EVALUATED must NOT propagate nulls into the diagnostics dict for fields that
-    # historically defaulted to 0 — consumers (Soda Cloud) depend on these being numeric.
+    # NOT_EVALUATED carries no synthetic diagnostic values: the outcome itself signals
+    # "not measured". Only dataset_rows_tested (framework-supplied) should be present.
     diagnostics = duplicate_result.diagnostic_metric_values or {}
-    # All Duplicate DTO fields are @NotNull — assert none of them leak null in failure mode.
     for field in ("duplicate_count", "duplicate_percent", "check_rows_tested", "missing_count"):
-        assert (
-            diagnostics.get(field) is not None
-        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+        assert field not in diagnostics, f"{field} must not be set on NOT_EVALUATED; got {diagnostics!r}"
 
 
 def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
@@ -219,15 +216,11 @@ def test_failed_rows_percent_check_does_not_falsely_pass_when_aggregation_fails(
         f"got {failed_rows_result.outcome} (this is the falsely-PASSED regression)"
     )
 
-    # failed_rows_percent must remain a numeric default (0), not null — consumers
-    # depend on this. The threshold gating happens via threshold_value, not by
-    # nulling out the diagnostic.
+    # NOT_EVALUATED carries no synthetic diagnostic values: threshold gating happens
+    # via threshold_value=None, and the outcome itself signals "not measured".
     diagnostics = failed_rows_result.diagnostic_metric_values or {}
-    # `failed_rows_count` and `failed_rows_percent` are required by the FailedRows DTO.
     for field in ("failed_rows_count", "failed_rows_percent"):
-        assert (
-            diagnostics.get(field) is not None
-        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+        assert field not in diagnostics, f"{field} must not be set on NOT_EVALUATED; got {diagnostics!r}"
 
 
 def test_missing_percent_does_not_falsely_pass_when_aggregation_fails(
@@ -271,11 +264,9 @@ def test_missing_percent_does_not_falsely_pass_when_aggregation_fails(
     )
 
     diagnostics = missing_result.diagnostic_metric_values or {}
-    # All Missing DTO fields are @NotNull — assert none of them leak null in failure mode.
+    # NOT_EVALUATED carries no synthetic diagnostic values.
     for field in ("missing_count", "missing_percent", "check_rows_tested"):
-        assert (
-            diagnostics.get(field) is not None
-        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+        assert field not in diagnostics, f"{field} must not be set on NOT_EVALUATED; got {diagnostics!r}"
 
 
 def test_invalid_percent_does_not_leak_nulls_when_aggregation_fails(
@@ -314,11 +305,9 @@ def test_invalid_percent_does_not_leak_nulls_when_aggregation_fails(
     assert invalid_result.outcome == CheckOutcome.NOT_EVALUATED
 
     diagnostics = invalid_result.diagnostic_metric_values or {}
-    # All Invalid DTO fields are @NotNull (including missing_count) — assert no nulls.
+    # NOT_EVALUATED carries no synthetic diagnostic values.
     for field in ("invalid_count", "invalid_percent", "check_rows_tested", "missing_count"):
-        assert (
-            diagnostics.get(field) is not None
-        ), f"{field} must default to a numeric value (not null) under NOT_EVALUATED; got {diagnostics!r}"
+        assert field not in diagnostics, f"{field} must not be set on NOT_EVALUATED; got {diagnostics!r}"
 
 
 def test_framework_short_circuits_to_not_evaluated_when_required_metric_missing(
@@ -363,8 +352,7 @@ def test_framework_short_circuits_to_not_evaluated_when_required_metric_missing(
         missing_result.outcome == CheckOutcome.NOT_EVALUATED
     ), f"Expected NOT_EVALUATED from framework gating; got {missing_result.outcome}"
     diagnostics = missing_result.diagnostic_metric_values or {}
-    # Diagnostic defaults from get_diagnostic_defaults() must be present and numeric.
+    # NOT_EVALUATED carries no synthetic diagnostic values: the outcome itself signals
+    # "not measured". Only dataset_rows_tested (framework-supplied) should be present.
     for field in ("missing_count", "missing_percent", "check_rows_tested"):
-        assert (
-            diagnostics.get(field) == 0
-        ), f"{field} must be the get_diagnostic_defaults() value (0); got {diagnostics!r}"
+        assert field not in diagnostics, f"{field} must not be set on NOT_EVALUATED; got {diagnostics!r}"

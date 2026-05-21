@@ -79,9 +79,6 @@ class MissingCheckImpl(MissingAndValidityCheckImpl):
     def get_required_metric_impls(self) -> list[MetricImpl]:
         return [self.missing_count_metric_impl, self.row_count_metric_impl, self.missing_percent_metric_impl]
 
-    def get_diagnostic_defaults(self) -> dict[str, Number]:
-        return {"missing_count": 0, "missing_percent": 0, "check_rows_tested": 0}
-
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
         # All required metrics are present by the framework's contract.
         missing_count = measurement_values.get_value(self.missing_count_metric_impl)
