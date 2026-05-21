@@ -14,6 +14,7 @@ from soda_core.common.sql_ast import (
     COUNT,
     CREATE_TABLE,
     CREATE_TABLE_AS_SELECT,
+    CREATE_TABLE_COLUMN,
     CREATE_TABLE_IF_NOT_EXISTS,
     CREATE_VIEW,
     DISTINCT,
@@ -323,6 +324,22 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
             "datetime2",
             "datetimeoffset",
         ]
+
+    # SQL Server's datetime2 / datetimeoffset / time accept a fractional-seconds
+    # precision of 0..7. Any higher value is rejected at CREATE TABLE time.
+    _MAX_DATETIME_PRECISION = 7
+
+    def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
+        # Clamp datetime precision to SQL Server's max. Cross-source flows from sources
+        # with higher native precision (e.g. Snowflake's TIMESTAMP_NTZ defaults to 9)
+        # would otherwise produce e.g. `datetime2(9)` and fail CREATE TABLE.
+        if create_table_column.type.name.lower() in ("datetime2", "datetimeoffset", "time"):
+            if (
+                create_table_column.type.datetime_precision is not None
+                and create_table_column.type.datetime_precision > self._MAX_DATETIME_PRECISION
+            ):
+                create_table_column.type.datetime_precision = self._MAX_DATETIME_PRECISION
+        return super()._build_create_table_column_type(create_table_column)
 
     def default_varchar_length(self) -> Optional[int]:
         return 255

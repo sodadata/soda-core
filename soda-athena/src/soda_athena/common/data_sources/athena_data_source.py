@@ -354,8 +354,10 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
             return "string"
         if create_table_column.type.name == "char" and create_table_column.type.character_maximum_length is None:
             return "char(1)"
-        else:
-            return create_table_column.type.get_sql_data_type_str_with_parameters()
+        # Delegate to the base implementation so the type-aware and dialect-level
+        # safeguards (which strip e.g. `timestamp(2)` down to `timestamp` since
+        # supports_data_type_datetime_precision returns False for athena) apply.
+        return super()._build_create_table_column_type(create_table_column)
 
     def _is_not_null_ddl_supported(self) -> bool:
         return False

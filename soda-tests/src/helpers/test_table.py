@@ -24,8 +24,11 @@ class TestTableSpecificationBuilder:
 
     __test__ = False
 
-    # All test table names to verify that every test table name is used only once in the whole test suite.
-    __names = []
+    # Map of table_purpose (lowercased) → unique_name. Used to verify every
+    # purpose is used by at most ONE distinct spec across the test suite.
+    # Rebuilding the SAME spec twice (e.g. a test body re-executed by the
+    # snapshot rerun plugin) hits the same unique_name and is allowed.
+    __purpose_to_unique_name: dict = {}
 
     def __init__(self):
         self._table_purpose: Optional[str] = None
@@ -184,16 +187,21 @@ class TestTableSpecificationBuilder:
 
     def build(self) -> TestTableSpecification:
         assert isinstance(self._table_purpose, str)
-        # Ensure unique table data names
+        # Ensure each table_purpose maps to AT MOST ONE distinct spec across
+        # the test suite. Re-building the SAME spec is allowed — the snapshot
+        # rerun plugin re-executes a test's body, which legitimately calls
+        # .build() a second time on an identical builder.
         name_lower = self._table_purpose.lower()
-        if name_lower in self.__names:
+        unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
+        existing_unique_name = self.__purpose_to_unique_name.get(name_lower)
+        if existing_unique_name is not None and existing_unique_name != unique_name:
             raise AssertionError(
                 f"Duplicate test table purpose detected: {self._table_purpose}.  In the codebase, the table_purpose "
                 f'of every test table should be unique.  Search for .table_purpose("{self._table_purpose}") and you '
-                f"should find multiple places in the test codebase where the same table_purpose is created."
+                f"should find multiple places in the test codebase where the same table_purpose is created with "
+                f"different columns or rows."
             )
-        self.__names.append(name_lower)
-        unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
+        self.__purpose_to_unique_name[name_lower] = unique_name
         return TestTableSpecification(
             name=self._table_purpose,
             columns=self._columns,

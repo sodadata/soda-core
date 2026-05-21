@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 
 import pytest
 from dateutil.parser import parse
 from helpers.data_source_test_helper import DataSourceTestHelper
-from soda_core.common.data_source_impl import QueryResult
 from soda_core.common.logging_constants import soda_logger
-from soda_core.common.sql_dialect import SqlDialect
 
 logger: logging.Logger = soda_logger
 
@@ -23,11 +22,16 @@ DATASOURCES_TO_RUN = [
     "redshift",
     "oracle",
     "databricks",
+    "dremio",
 ]
 # Only drop schemma's starting with these prefixes.
 LIST_OF_PREFIXES_TO_DROP = ["soda_diagnostics_", "ALTERNATE_DWH_", "ci_", "my_dwh_"]
 # Schema's starting with these prefixes are exempt from being dropped.
 LIST_OF_EXEMPTIONS = ["soda_diagnostics_dev_"]
+
+
+def _dry_run() -> bool:
+    return os.getenv("SODA_SCHEMA_CLEANUP_DRY_RUN", "false").lower() in ("1", "true", "yes")
 
 
 def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
@@ -41,6 +45,16 @@ def determine_if_schema_needs_to_be_dropped(schema_name: str) -> bool:
             ]  # soda_diagnostics_0db10c31_20251119_093446
             # Only drop the schema if it has a date
             must_have_date = True
+            # Fallback for the cross-source variant: soda_diagnostics_<datasource>_<YYYYMMDD>_<8hex>
+            # Variable-length datasource names shift the date off the fixed offset above,
+            # so the substring above won't be a date. Only kick in when the fixed-offset
+            # extraction didn't produce an 8-digit string AND the name has the exact
+            # 5-underscore-part shape with parts[3] being 8 digits — otherwise behavior
+            # for all other schema names is unchanged.
+            if not (len(potential_date_string) == 8 and potential_date_string.isdigit()):
+                parts = schema_name.split("_")
+                if len(parts) == 5 and len(parts[3]) == 8 and parts[3].isdigit():
+                    potential_date_string = parts[3]
         elif schema_name.upper().startswith("ALTERNATE_DWH_"):
             potential_date_string: str = schema_name[len("ALTERNATE_DWH_") + 9 :]  # ALTERNATE_DWH_0db10c31_20251119
         elif schema_name.lower().startswith("ci_"):
@@ -89,33 +103,41 @@ def test_drop_old_schemas(data_source_test_helper: DataSourceTestHelper):
                 f"Skipping test for {data_source_test_helper.data_source_impl.type_name} because it is a hive catalog"
             )
 
-    dialect: SqlDialect = data_source_test_helper.data_source_impl.sql_dialect
-    # First get the list of all the schema's in the database.
-    table_namespace, schema_name = data_source_test_helper.data_source_impl._build_table_namespace_for_schema_query(
-        data_source_test_helper.dataset_prefix
-    )
-    schemas_query_sql = dialect.build_schemas_metadata_query_str(table_namespace=table_namespace)
-    query_result: QueryResult = data_source_test_helper.data_source_impl.execute_query(schemas_query_sql)
-    schema_names: list[str] = [row[0] for row in query_result.rows]
+    dry_run: bool = _dry_run()
+    if dry_run:
+        logger.info("SODA_SCHEMA_CLEANUP_DRY_RUN is set — will log targets but not execute DROP statements.")
+
+    # Returns (drop_target, match_name) pairs. drop_target is what we pass to drop_schema_if_exists;
+    # match_name is what we match prefix/date rules against. For most data sources they're identical;
+    # adapters with nested folder paths (e.g. Dremio) override to keep the two distinct.
+    candidates: list[tuple[str, str]] = data_source_test_helper.list_schemas_for_cleanup()
+
+    dry_run_targets: list[str] = []
     num_deleted_schemas: int = 0
-    for schema_name in schema_names:
-        if any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
-            if not any(schema_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
-                if determine_if_schema_needs_to_be_dropped(schema_name):
-                    logger.info(f"Dropping schema name: {schema_name}")
+    for drop_target, match_name in candidates:
+        if any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_PREFIXES_TO_DROP):
+            if not any(match_name.lower().startswith(prefix.lower()) for prefix in LIST_OF_EXEMPTIONS):
+                if determine_if_schema_needs_to_be_dropped(match_name):
+                    if dry_run:
+                        dry_run_targets.append(drop_target)
+                        logger.info(f"[DRY RUN] Would drop schema: {drop_target}")
+                        continue
+                    logger.info(f"Dropping schema name: {drop_target}")
                     try:
-                        data_source_test_helper.drop_schema_if_exists(schema_name)
+                        data_source_test_helper.drop_schema_if_exists(drop_target)
                         num_deleted_schemas += 1
-                        # Old code, don't just create the SQL, but use the data source test helper to drop the schema.
-                        # data_source_test_helper.data_source_impl.execute_update(
-                        #     data_source_test_helper.drop_schema_if_exists_sql(
-                        #         schema_name
-                        #     )  # Use if exists because we may have multiple CI runs at the same time, removing the same schema.
-                        # )
                     except (
                         Exception
                     ) as e:  # We catch any exception, because we don't want the CI itself to fail because of this.
                         logger.error(f"Error dropping schema: {e}")
                 else:
-                    logger.info(f"Schema name: {schema_name} is not old enough to be dropped or is an exemption")
-    logger.info(f"Number of deleted schemas: {num_deleted_schemas}")
+                    logger.info(f"Schema name: {match_name} is not old enough to be dropped or is an exemption")
+    if dry_run:
+        if dry_run_targets:
+            target_list: str = "\n  - ".join(dry_run_targets)
+            logger.info(f"[DRY RUN] Would drop {len(dry_run_targets)} schemas:\n  - {target_list}")
+        else:
+            logger.info("[DRY RUN] No schemas matched the cleanup criteria.")
+        logger.info("[DRY RUN] Note: actual run may differ — DB state can change between the dry-run and the real run.")
+    else:
+        logger.info(f"Number of deleted schemas: {num_deleted_schemas}")

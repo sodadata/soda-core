@@ -9,6 +9,10 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
 
+# Surface snapshot fallback events in pytest output (custom progress char,
+# end-of-session summary). Loaded as a plugin so its hooks register cleanly.
+pytest_plugins = ["helpers.snapshot_pytest_plugin"]
+
 
 def pytest_configure(config) -> None:
     config.addinivalue_line(
