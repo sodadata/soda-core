@@ -1,8 +1,7 @@
 """Base classes for check-collection verification.
 
-A check collection is one verifiable YAML file (a contract, a data standard,
-...). ``CheckCollectionImpl`` is the engine. Subclasses declare four plain
-class attributes:
+A check collection is one verifiable YAML file. ``CheckCollectionImpl``
+is the engine. Subclasses declare four plain class attributes:
 
     wire_source:  str  — Cloud upload ``"source"`` literal (e.g. ``"soda-contract"``).
     display_name: str  — User-facing word in logs and errors.
@@ -57,7 +56,7 @@ logger: logging.Logger = soda_logger
 
 @dataclass
 class CheckCollectionResult:
-    """Result of verifying one check-collection file (contract, data standard, ...).
+    """Result of verifying one check-collection file.
 
     Holds the immutable record of a single file's verification: status,
     measurements, check results, log records, and post-processing stages.
@@ -183,9 +182,9 @@ class CheckCollectionSessionResult:
 class CheckCollectionYaml:
     """Parsed YAML for one check-collection file.
 
-    Concrete subtypes (``ContractYaml``, ``DataStandardYaml``, ...) inherit
-    from this. They are responsible for their own ``parse()`` classmethod;
-    the executor calls ``cls.yaml_class.parse(...)``.
+    Concrete subtypes (e.g. ``ContractYaml``) inherit from this. They only
+    need to override ``__init__`` to read their extra fields; ``parse``
+    constructs via ``cls(yaml_source=..., ...)`` and is inherited as-is.
     """
 
     @classmethod
@@ -196,27 +195,21 @@ class CheckCollectionYaml:
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ) -> "CheckCollectionYaml":
-        """Subclasses override with their own parse logic."""
-        raise NotImplementedError(f"{cls.__name__} does not implement parse(...)")
+        return cls(
+            yaml_source=yaml_source,
+            provided_variable_values=provided_variable_values,
+            data_timestamp=data_timestamp,
+            primary_data_source_impl=primary_data_source_impl,
+        )
 
 
 class CheckCollectionImpl:
     """Engine that verifies one check-collection file against a data source.
 
     Subclasses provide four plain class attributes; the engine inherits.
-
-    Example subtype declaration::
-
-        class DataStandardImpl(CheckCollectionImpl):
-            kind = "data-standard"          # YAML 'kind:' dispatch key
-            wire_source = "data-standard"   # Cloud upload 'source' literal
-            display_name = "data standard"  # human-readable in logs
-            yaml_class = DataStandardYaml
-            result_class = DataStandardResult
-
-        # The base auto-disambiguates per-check identity for non-contract
-        # subtypes via identity_prefix(); no further overrides typically
-        # needed.
+    The base auto-disambiguates per-check identity for non-contract
+    subtypes via ``identity_prefix()``; no further overrides are typically
+    needed.
     """
 
     # Subtype identity — declared per-subtype as a plain class attribute.
@@ -228,6 +221,11 @@ class CheckCollectionImpl:
     # routing to no Cloud feature.
     wire_source: str = ""
     display_name: str = "check collection"
+    # Optional suffix appended to the dataset qualified name to derive the
+    # Soda Cloud scan-definition name. ``None`` (default) uses the bare
+    # qualified name. Subtypes opt in by declaring a non-empty suffix; the
+    # engine just threads the value through the upload.
+    scan_definition_suffix: Optional[str] = None
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -269,9 +267,9 @@ class CheckCollectionImpl:
     # Plugin hooks. Extensions register against the concrete subclass that
     # cares about them; the base initialises its own empty dict so the
     # engine code can iterate without conditional checks. The classmethod
-    # auto-isolates the dict per concrete subtype so registering on
-    # ``DataStandardImpl`` doesn't mutate the shared base / ``ContractImpl``
-    # dict via the MRO.
+    # auto-isolates the dict per concrete subtype so registering on one
+    # subtype doesn't mutate the shared base / sibling-subtype dict via
+    # the MRO.
     impl_extensions: dict[str, type] = {}
 
     @classmethod
@@ -606,10 +604,10 @@ class CheckCollectionImpl:
 
         # Non-contract subtypes MUST declare collection_id: the wire
         # ``checkPath`` is prefixed with ``collection_id`` so the backend's
-        # ``firstSegmentOf(checkPath)`` filter can match ``DataStandard.name``.
-        # Without a collection_id the emitted checks would silently degrade
-        # to unprefixed paths the backend would then drop. Fail loudly here
-        # instead of producing a confused upload.
+        # ``firstSegmentOf(checkPath)`` filter can match the subtype's
+        # identifier. Without a collection_id the emitted checks would
+        # silently degrade to unprefixed paths the backend would then
+        # drop. Fail loudly here instead of producing a confused upload.
         if self.wire_source != "soda-contract" and not self.collection_id:
             raise ValueError(
                 f"{type(self).__name__} with wire_source={self.wire_source!r} requires a non-empty "
@@ -730,13 +728,15 @@ class CheckCollectionImpl:
             elif not self._verify_check_sources_aligned(verification_result):
                 # Alignment guard tripped — logging + flag already set inside the helper.
                 # We intentionally skip the upload (don't even attempt) so the backend
-                # never sees a misaligned batch (see DataStandardIngestionFilterModule.java
-                # — a single misaligned check there would 500 the entire batch).
+                # never sees a misaligned batch (a single misaligned check would 500
+                # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
             else:
                 # send_contract_result will use contract.source.soda_cloud_file_id
                 soda_cloud_response_json = self.soda_cloud.send_contract_result(
-                    verification_result, wire_source=self.wire_source
+                    verification_result,
+                    wire_source=self.wire_source,
+                    scan_definition_suffix=type(self).scan_definition_suffix,
                 )
                 scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
                 if not scan_id:
@@ -937,10 +937,9 @@ class CheckCollectionImpl:
         to ``wire_source``), so this guard is a no-op for current code
         paths. It exists to defend against future extension code that
         emits a Check with an explicit ``source`` override that disagrees
-        with the parent collection — the backend's
-        ``DataStandardIngestionFilterModule`` would otherwise 500 the
-        entire batch on a single misaligned check
-        (``DATA_STANDARDS_SOURCE_MISALIGNED``).
+        with the parent collection — server-side ingestion filters reject
+        a misaligned batch and fail the entire upload on a single
+        offending check.
 
         On mismatch:
         - logs an error per offending check (with ``full_path``, the
@@ -968,7 +967,7 @@ class CheckCollectionImpl:
                 f"Source mismatch — check '{check_result.check.full_path}' has "
                 f"source={check_result.check.source!r} but parent collection "
                 f"declares wire_source={self.wire_source!r}. Skipping Cloud upload to avoid "
-                f"a backend-side DATA_STANDARDS_SOURCE_MISALIGNED 500 on the whole batch."
+                f"a backend-side source-mismatch failure on the whole batch."
             )
 
         # Re-collect the log records we just emitted so they land on the

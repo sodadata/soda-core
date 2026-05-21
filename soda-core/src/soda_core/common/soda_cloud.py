@@ -337,6 +337,7 @@ class SodaCloud:
         self,
         contract_verification_result: ContractVerificationResult,
         wire_source: str = "soda-contract",
+        scan_definition_suffix: Optional[str] = None,
     ) -> Optional[dict]:
         """
         Returns A scanId string if a 200 OK was received, None otherwise
@@ -346,10 +347,17 @@ class SodaCloud:
             backward compatibility with callers that don't pass it (e.g.
             soda-autopilot ``publish.py``). The engine passes
             ``CheckCollectionImpl.wire_source`` for the calling subtype.
+        @param scan_definition_suffix: Optional suffix appended to the dataset
+            qualified name to derive the Soda Cloud scan-definition name.
+            ``None`` (default) uses the bare qualified name; a non-empty
+            value yields ``<qualified_name>_<suffix>``. Threaded in from
+            ``CheckCollectionImpl.scan_definition_suffix`` so soda-core
+            common code stays subtype-neutral.
         """
         contract_verification_result = _build_contract_result_json_dict(
             contract_verification_result=contract_verification_result,
             wire_source=wire_source,
+            scan_definition_suffix=scan_definition_suffix,
         )
         contract_verification_result["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
@@ -1431,22 +1439,20 @@ def _build_check_results_cloud_json_dicts(
 
 def _build_scan_definition_name(
     contract_verification_result: ContractVerificationResult,
-    wire_source: str = "soda-contract",
+    scan_definition_suffix: Optional[str] = None,
 ) -> str:
     scan_definition_name: str = os.environ.get("SODA_SCAN_DEFINITION")
     if scan_definition_name:
         logger.debug(f"Using SODA_SCAN_DEFINITION from environment variable: {scan_definition_name}")
         return scan_definition_name
     # Fallback derives the scan-def name from the dataset's qualified name.
-    # For data-standards, the backend's lazy scan-def creation names them
-    # ``<dataset.contractIdentifier>_data_standards_scan`` (see
-    # ``DataStandardModule.ensureDataStandardsScanDefinition`` on the soda
-    # server). Match that convention so a local ``soda data-standard verify
-    # -p`` lands on a scan-def of the right type and clears the backend's
-    # ``DATA_STANDARDS_SOURCE_MISALIGNED`` guard.
+    # Subtypes that need a subtype-specific scan-def naming declare a
+    # non-empty ``scan_definition_suffix`` on their impl; the engine
+    # threads it through here. Keeps subtype literals out of soda-core
+    # common.
     qualified_name = contract_verification_result.check_collection.soda_qualified_dataset_name
-    if wire_source == "data-standard":
-        return f"{qualified_name}_data_standards_scan"
+    if scan_definition_suffix:
+        return f"{qualified_name}_{scan_definition_suffix}"
     return qualified_name
 
 
@@ -1480,13 +1486,16 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
 def _build_contract_result_json_dict(
     contract_verification_result: ContractVerificationResult,
     wire_source: str = "soda-contract",
+    scan_definition_suffix: Optional[str] = None,
 ) -> dict:
     return to_jsonnable(  # type: ignore
         {
             "scanId": os.environ.get("SODA_SCAN_ID", None),
             # The scan definition name is still required on result ingestion to link to the contract
             # and determine if we're dealing with a default or test contract.
-            "definitionName": _build_scan_definition_name(contract_verification_result, wire_source=wire_source),
+            "definitionName": _build_scan_definition_name(
+                contract_verification_result, scan_definition_suffix=scan_definition_suffix
+            ),
             "defaultDataSource": contract_verification_result.data_source.name
             if contract_verification_result.data_source
             else None,
@@ -1506,15 +1515,10 @@ def _build_contract_result_json_dict(
             "checks": _build_check_results_cloud_json_dicts(contract_verification_result, wire_source=wire_source),
             "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
             "sourceOwner": "soda-core",
-            # ``contract`` is contract-handler-routing on the backend:
-            # ``SodaCoreInsertScanResultsCommandExecutor`` routes to
-            # ``FullContractScanHandlerModule`` when ``command.getContract()``
-            # is non-null, **before** it checks the scan-def type. Setting it
-            # to None for non-contract wire sources lets the routing fall
-            # through to the scan-def-type-based dispatch (e.g.
-            # ``DataStandardIngestionHandlerModule`` for DATA_STANDARDS). The
-            # data-standard handler doesn't read this field — file refs come
-            # from per-check ``checkPath`` resolution.
+            # ``contract`` is contract-handler-routing on the backend: a
+            # non-null value forces the contract ingestion path. Setting
+            # it to None for non-contract wire sources lets the routing
+            # fall through to scan-def-type-based dispatch for the subtype.
             "contract": (
                 _build_contract_cloud_json_dict(contract_verification_result.check_collection)
                 if wire_source == "soda-contract"
@@ -1550,11 +1554,11 @@ def _build_check_result_cloud_dict(
         # Wire path: ``Check.full_path`` is the yaml-internal ``path`` for
         # contracts (byte-identical to historical emission) and
         # ``"{collection_id}.{path}"`` for non-contract subtypes so the
-        # backend's ``firstSegmentOf(checkPath)`` matches
-        # ``DataStandard.name``. Selector matching still uses ``check.path``.
-        # Falls back to ``path`` when ``full_path`` is empty (the dataclass
-        # default) — protects external constructors of ``Check(...)`` that
-        # don't set ``full_path`` explicitly.
+        # backend's ``firstSegmentOf(checkPath)`` can match the subtype's
+        # identifier. Selector matching still uses ``check.path``. Falls
+        # back to ``path`` when ``full_path`` is empty (the dataclass
+        # default) — protects external constructors of ``Check(...)``
+        # that don't set ``full_path`` explicitly.
         "checkPath": check_result.check.full_path or check_result.check.path,
         "name": check_result.check.name,
         "type": "generic",
@@ -1568,13 +1572,12 @@ def _build_check_result_cloud_dict(
         "column": check_result.check.column_name,
         "outcome": check_outcome_to_soda_cloud(check_result.outcome),
         # ``wire_source`` is the literal that the Cloud backend filters on
-        # (see DataStandardIngestionFilterModule.java) — the impl class
-        # carries the value as a plain class attribute. ``check.source``
-        # is an optional per-check override exercised by extensions that
-        # emit checks with a deliberate source different from the parent
-        # collection; the alignment guard in ``CheckCollectionImpl.verify()``
-        # rejects the upload before this code runs when the override
-        # disagrees with ``self.wire_source``.
+        # — the impl class carries the value as a plain class attribute.
+        # ``check.source`` is an optional per-check override exercised by
+        # extensions that emit checks with a deliberate source different
+        # from the parent collection; the alignment guard in
+        # ``CheckCollectionImpl.verify()`` rejects the upload before this
+        # code runs when the override disagrees with ``self.wire_source``.
         "source": check_result.check.source if check_result.check.source is not None else wire_source,
         "diagnostics": _build_diagnostics_json_dict(check_result),
     }

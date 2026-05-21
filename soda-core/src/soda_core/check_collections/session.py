@@ -44,6 +44,7 @@ def execute_check_collections(
     abort_on_first_error: bool = False,
     logs: Optional[Logs] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
+    default_impl_class: Optional[type[CheckCollectionImpl]] = None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection YAML sources.
 
@@ -63,14 +64,14 @@ def execute_check_collections(
 
     Upload-must-split rule: every item's results are uploaded to Soda Cloud
     in its own ``sodaCoreInsertScanResults`` request (one upload per item),
-    keyed by ``wire_source`` (e.g. ``soda-contract`` for contracts,
-    ``soda-data-standard`` for data standards). The backend cannot ingest a
-    single upload that mixes checks from different wire sources — its
-    ingestion filter routes the whole batch by the top-level ``source`` and
-    rejects the request if any check inside disagrees. Mixed-source items in
-    one ``execute_check_collections`` call are therefore safe (each item
-    uploads independently); a single item must never emit checks whose
-    ``source`` disagrees with its own ``wire_source``.
+    keyed by ``wire_source`` (e.g. ``soda-contract`` for contracts). The
+    backend cannot ingest a single upload that mixes checks from different
+    wire sources — its ingestion filter routes the whole batch by the
+    top-level ``source`` and rejects the request if any check inside
+    disagrees. Mixed-source items in one ``execute_check_collections`` call
+    are therefore safe (each item uploads independently); a single item
+    must never emit checks whose ``source`` disagrees with its own
+    ``wire_source``.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -83,6 +84,16 @@ def execute_check_collections(
     Internally and downstream into ``CheckCollectionImpl.__init__`` the
     value is always ``datetime`` — no string-typed value ever reaches
     ``self.data_timestamp``.
+
+    ``default_impl_class`` is the impl class used to build the ERROR
+    placeholder when kind dispatch fails before an ``impl_class`` could be
+    resolved (unknown ``kind:`` value, malformed YAML, file-not-found, ...).
+    Callers that publish a subtype-narrowed return type
+    (e.g. ``ContractVerificationSessionImpl.execute`` returns
+    ``list[ContractVerificationResult]``) pass ``ContractImpl`` so the
+    fallback's ``build_error_result`` returns the right ``result_class``
+    and the typed return stays honest. Defaults to ``CheckCollectionImpl``
+    for callers that genuinely don't know a sensible subtype default.
     """
     parsed_data_timestamp: Optional[datetime] = _parse_data_timestamp(data_timestamp)
     # The yaml-level parser still takes the ISO string (it has its own
@@ -137,14 +148,20 @@ def execute_check_collections(
         except Exception as exc:
             if abort_on_first_error:
                 raise
-            # On unknown kind or pre-impl failures (where ``impl_class`` may
-            # be unresolved), use the base ``CheckCollectionImpl`` as a
-            # fallback builder so we still produce a positional ERROR result.
-            # Note: when kind-dispatch fails before impl_class is resolved (e.g.,
-            # malformed YAML, file-not-found), the fallback uses the base class
-            # so the returned result type is plain CheckCollectionResult, not the
-            # subtype-typed result. Downstream consumers must not narrow on type.
-            builder = impl_class if impl_class is not None else CheckCollectionImpl
+            # On unknown kind or pre-impl failures (where ``impl_class``
+            # could not be resolved), fall back to the caller-supplied
+            # ``default_impl_class``. Callers that publish a subtype-typed
+            # return (e.g. ``list[ContractVerificationResult]``) pass their
+            # subtype here so the ERROR placeholder's ``result_class``
+            # matches the declared return; callers without a sensible
+            # subtype default (or that genuinely want base
+            # ``CheckCollectionResult``) leave ``default_impl_class=None``
+            # and the universal base is used.
+            builder = (
+                impl_class
+                if impl_class is not None
+                else (default_impl_class if default_impl_class is not None else CheckCollectionImpl)
+            )
             results.append(builder.build_error_result(yaml_source, exc))
     return CheckCollectionSessionResult(results)
 

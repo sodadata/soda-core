@@ -244,6 +244,32 @@ def test_execute_check_collections_records_error_for_unknown_kind():
     assert session_result.results[2].status is CheckCollectionStatus.PASSED
 
 
+def test_execute_check_collections_unknown_kind_fallback_uses_default_impl_class():
+    """N5: when kind dispatch fails, the ERROR placeholder result must be
+    built by the caller-supplied ``default_impl_class``, not by the base
+    ``CheckCollectionImpl``.
+
+    The single-contract public surface
+    (``ContractVerificationSessionImpl.execute``) returns
+    ``list[ContractVerificationResult]``. If we fall back to
+    ``CheckCollectionImpl.build_error_result``, the placeholder is a base
+    ``CheckCollectionResult`` instance — violating the typed return.
+    Passing ``default_impl_class=ContractImpl`` (or any subtype) ensures
+    the fallback's result type matches the caller's declared subtype.
+    """
+    sources = [_LabelledSource("nope", kind="not-registered-anywhere")]
+    session_result = execute_check_collections(
+        yaml_sources=sources,
+        data_source_impl=None,
+        default_impl_class=_FakeImpl,
+    )
+    assert len(session_result.results) == 1
+    assert session_result.results[0].status is CheckCollectionStatus.ERROR
+    # Without the kwarg the fallback returned a plain ``CheckCollectionResult``;
+    # with it the result must be the subtype's ``result_class``.
+    assert isinstance(session_result.results[0], _FakeResult)
+
+
 def test_check_collection_impl_default_verify_on_agent_raises_not_implemented():
     impl = _FakeImpl(yaml=_FakeYaml(yaml_source=_LabelledSource("a")))
     with pytest.raises(NotImplementedError) as exc_info:

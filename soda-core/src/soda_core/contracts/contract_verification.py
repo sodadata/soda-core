@@ -301,7 +301,6 @@ class Check:
     path: str
     identity: str
     definition: str
-    column_name: Optional[str]
     contract_file_line: int
     contract_file_column: int
     threshold: Optional[Threshold]

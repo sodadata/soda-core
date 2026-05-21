@@ -19,7 +19,6 @@ from soda_core.common.logs import Location
 from soda_core.common.metadata_types import SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import (
-    CheckCollectionYamlSource,
     ContractYamlSource,
     VariableResolver,
     YamlList,
@@ -56,27 +55,9 @@ class ContractYaml(CheckCollectionYaml):
     def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
         cls.contract_yaml_extensions[name] = extension_cls
 
-    @classmethod
-    def parse(
-        cls,
-        yaml_source: Optional[CheckCollectionYamlSource] = None,
-        provided_variable_values: Optional[dict[str, str]] = None,
-        data_timestamp: Optional[str] = None,
-        primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ) -> Optional[ContractYaml]:
-        # Construct via ``cls`` so subtype YAML classes (e.g. ``DataStandardYaml``)
-        # inherit ``parse`` cleanly: they only need to override ``__init__`` to
-        # read their extra fields after calling ``super().__init__()``.
-        return cls(
-            contract_yaml_source=yaml_source,
-            provided_variable_values=provided_variable_values,
-            data_timestamp=data_timestamp,
-            primary_data_source_impl=primary_data_source_impl,
-        )
-
     def __init__(
         self,
-        contract_yaml_source: ContractYamlSource,
+        yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
@@ -85,8 +66,8 @@ class ContractYaml(CheckCollectionYaml):
         # engine in ``base.py`` reads ``self.yaml.yaml_object`` /
         # ``self.yaml.yaml_source``, which works for any check-collection
         # subtype. ``ContractYaml`` populates the neutral names directly.
-        self.yaml_source: ContractYamlSource = contract_yaml_source
-        self.yaml_object: YamlObject = contract_yaml_source.parse()
+        self.yaml_source: ContractYamlSource = yaml_source
+        self.yaml_object: YamlObject = yaml_source.parse()
         self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
         # Cache the dialect's native→canonical data type mapping once — dialects construct this dict fresh on every call.
         self._native_to_soda_data_type_mapping: Optional[dict[str, SodaDataTypeName]] = (
@@ -95,7 +76,7 @@ class ContractYaml(CheckCollectionYaml):
             else None
         )
 
-        self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
+        self.variables: list[VariableYaml] = self._parse_variable_yamls(yaml_source, provided_variable_values)
 
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
@@ -147,7 +128,7 @@ class ContractYaml(CheckCollectionYaml):
                     f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
                 )
 
-    def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
+    def _parse_variable_yamls(self, yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
 
         if self.yaml_object:

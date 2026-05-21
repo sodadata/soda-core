@@ -246,6 +246,10 @@ class ContractVerificationSessionImpl:
                 abort_on_first_error=(len(contract_yaml_sources) == 1),
                 logs=logs,
                 primary_data_source_impl=primary_data_source_impl,
+                # The contract surface publishes ``list[ContractVerificationResult]``;
+                # use ``ContractImpl`` for unknown-kind fallback so the ERROR
+                # placeholder's ``result_class`` matches that declared return.
+                default_impl_class=ContractImpl,
             )
         finally:
             for name in names_to_close:
@@ -311,18 +315,22 @@ class ContractVerificationSessionImpl:
                 # ``soda_cloud_impl`` are left None on the impl, and
                 # ``only_validate_without_execute=True`` keeps the engine
                 # from connecting to a data source or executing queries.
-                # Note that ``__init__`` is NOT a no-op here: it still parses
-                # the YAML's columns and checks, builds the metrics resolver,
-                # resolves the row-count metric, constructs the dataset CTE,
-                # and instantiates registered extensions. None of that hits
-                # the network — but it does run real parsing work, so a bad
-                # YAML still raises here rather than at agent dispatch time.
-                # The actual Soda Cloud client used to invoke the agent is
-                # passed below to ``verify_on_agent``.
+                # ``__init__`` is NOT a no-op: it parses columns/checks,
+                # builds the metrics resolver, resolves the row-count
+                # metric, constructs the dataset CTE, and instantiates
+                # registered extensions. None of that hits the network,
+                # but any errors logged during the parse are popped from
+                # the impl's own ``Logs`` below and prepended onto the
+                # returned result — otherwise ``soda_cloud.verify_contract
+                # _on_agent``'s late-bound ``Logs()`` (which starts AFTER
+                # this construction) would silently drop them.
                 contract_impl: ContractImpl = ContractImpl(
                     yaml=contract_yaml,
                     only_validate_without_execute=True,
                 )
+                init_log_records = contract_impl.logs.pop_log_records()
+                contract_impl.logs.remove_from_root_logger()
+
                 contract_verification_result: ContractVerificationResult = contract_impl.verify_on_agent(
                     soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
@@ -330,6 +338,10 @@ class ContractVerificationSessionImpl:
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
                 )
+                if init_log_records:
+                    contract_verification_result.log_records = init_log_records + (
+                        contract_verification_result.log_records or []
+                    )
                 contract_verification_results.append(contract_verification_result)
             except:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
@@ -362,10 +374,10 @@ class ContractImpl(CheckCollectionImpl):
 
     # Per-subtype isolated extension registry. ``CheckCollectionImpl``'s
     # ``register_extension`` auto-isolates this dict at registration time, so
-    # registering on ``ContractImpl`` never touches the base dict or sibling
-    # subtypes (``DataStandardImpl``). The explicit declaration here makes
-    # the isolation visible to static analysis and to anyone inspecting the
-    # class for its extension surface.
+    # registering on ``ContractImpl`` never touches the base dict or any
+    # sibling subtype. The explicit declaration here makes the isolation
+    # visible to static analysis and to anyone inspecting the class for
+    # its extension surface.
     impl_extensions: dict[str, type[ContractImplExtension]] = {}
 
     def __init__(
@@ -1027,9 +1039,10 @@ class CheckImpl:
 
         For contracts (``wire_source == "soda-contract"``) this is identical
         to ``self.path`` — byte-identical to today's emission. For
-        non-contract subtypes (data standards) it is prefixed with
+        non-contract subtypes it is prefixed with
         ``"{collection_id}.{path}"`` so the backend's
-        ``firstSegmentOf(checkPath)`` filter matches ``DataStandard.name``.
+        ``firstSegmentOf(checkPath)`` filter can match the subtype's
+        identifier.
 
         Selector matching uses ``self.path`` (not ``full_path``) so the
         prefix never leaks into ``--check-selector`` matching.
@@ -1037,8 +1050,8 @@ class CheckImpl:
         # ``contract_impl`` is the back-ref to the enclosing
         # ``CheckCollectionImpl`` (name preserved during the rename slice;
         # rename deferred to a follow-up). The wire_source check matches
-        # ``ContractImpl.wire_source`` literally so any future subtype
-        # ("data-standard", etc.) automatically opts into prefixing.
+        # ``ContractImpl.wire_source`` literally so any non-contract
+        # subtype automatically opts into prefixing.
         if self.contract_impl.wire_source == "soda-contract":
             return self.path
         collection_id: Optional[str] = self.contract_impl.collection_id
