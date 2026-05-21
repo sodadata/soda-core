@@ -215,6 +215,14 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         help="Specify the path to the diagnostics warehouse configuration file. ",
     )
 
+    verify_parser.add_argument(
+    "--dry-run",
+    const=True,
+    action="store_const",
+    default=False,
+    help="Print the SQL queries that would be executed without running them against the data source.",
+)
+
     def handle(args):
         contract_file_path = args.contract
         dataset_identifier = args.dataset
@@ -228,6 +236,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         use_agent = args.use_agent
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
+        dry_run = args.dry_run
 
         # Parse --check-filter expressions
         try:
@@ -249,6 +258,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             args.check_paths,
             check_selectors,
             diagnostics_warehouse_file_path,
+            dry_run=dry_run,
         )
 
         exit_with_code(exit_code)
