@@ -98,6 +98,36 @@ existing dialect packages in this monorepo to compare against.
 
 ## 2. Adding a data source — step by step
 
+### 2.0. Research the engine first
+
+Each question below maps to a specific override. Resolve them before
+scaffolding; unresolved, they surface as failures deep in the
+cross-data-source suite. The closest reference adapter (§9) answers most of
+them.
+
+| Question | Drives |
+|---|---|
+| Identifier quoting char? (`"` standard; backtick for Databricks) | `quote_default()` / `quote_for_ddl()` |
+| Does it upper/lower/preserve **unquoted** identifiers? | `default_casify()`, `metadata_casify()` |
+| Pagination — `LIMIT`/`OFFSET`, `FETCH FIRST n ROWS ONLY`, `TOP n`? Any required clause order? | `_build_limit_sql()`, `_build_offset_sql()` |
+| Does table/column metadata live in `INFORMATION_SCHEMA` or a vendor catalog? | `build_columns_metadata_query_str()` / `build_all_columns_metadata_query_str()` (or the per-field accessors they call) |
+| Does `SELECT 1` work without a `FROM`? | `build_select_sql()` |
+| Date/datetime/time literal format? | `literal_date()`, `literal_datetime()`, `literal_time()` |
+| Native `BOOLEAN`? If not, substitute (`BIT`/`SMALLINT`/`TINYINT`)? | type-name dicts, `literal_boolean()` |
+| Regex operator/function and flag syntax? | `_build_regex_like_sql()` |
+| `TABLESAMPLE` (or equivalent) support, and which `SamplerType`s? | `supports_sampler()`, `_build_sample_sql()` |
+| RANDOM/RAND function name — per-row or per-statement? | `_build_random_sql()` |
+| `DROP TABLE`/`DROP VIEW IF EXISTS`? `CASCADE`? | drop-DDL overrides |
+| `CREATE SCHEMA IF NOT EXISTS`? | `create_schema_if_not_exists_sql()` |
+| Namespace depth — 2-part (`schema.table`) or 3-part (`db.schema.table`)? | `get_database_prefix_index()`, `get_schema_prefix_index()` |
+| Which PEP 249 driver, and is `cursor.description` named or plain tuples? | `_create_connection()`, `_execute_query_get_result_row_column_name()` |
+| Does `cursor.rowcount` return a real count after SELECT/UPDATE? | `execute_update()` return value |
+| Does the engine treat `\` as an escape char inside string literals? | `escape_string()` |
+| Native `TIMESTAMP WITH TIME ZONE`? Stored naive or UTC? | `literal_datetime()` / tz handling |
+| Bare `DECIMAL` / `VARCHAR` / `NUMERIC` defaults — surprisingly narrow? | type-name dicts + default precision/length |
+| Separate `datetime_precision` catalog column? | `column_data_type_datetime_precision()` |
+| Default port? | connection model |
+
 ### 2.1. Package skeleton
 
 Copy `soda-duckdb/` (smallest reference) and rename `duckdb` → `{name}` in
@@ -214,6 +244,11 @@ import SodaDataTypeName; print([m.name for m in SodaDataTypeName])"` enumerates
 the full set — your two required type-name dicts must round-trip every member
 your engine can produce.
 
+Work through the overrides in dependency order: identifier quoting + casing
+first (everything else builds on it), then pagination, then the type-name
+dicts, then literal formatting, then metadata queries, then regex / sampling /
+string ops. Add a unit test after each group rather than at the very end.
+
 **Required overrides:**
 
 | Method | Returns | Purpose |
@@ -236,6 +271,10 @@ Postgres uses `[database, schema]` (database=0, schema=1). DuckDB returns
 - `create_schema_if_not_exists_sql(prefixes, add_semicolon)` — for engines
   with non-standard schema DDL.
 - `escape_string(value)` / `escape_regex(value)` — quoting/escaping rules.
+  Engines that treat `\` as an escape character inside string literals
+  (e.g. Snowflake) must double backslashes **and** single quotes, or an
+  `INSERT ... VALUES` containing `'C:\path'` silently corrupts. Postgres and
+  DuckDB don't, so the default (double single-quote only) is correct there.
 - `quote_default(identifier)` / `quote_for_ddl(identifier)` — identifier
   quoting (default: double-quote).
 - `default_casify(identifier)` / `metadata_casify(identifier)` — case
@@ -641,6 +680,37 @@ source.
 | Failing-rows queries return nothing | Override `escape_string` if your engine uses non-standard string escaping. |
 | `Cannot determine schema name from prefixes` | `get_schema_prefix_index()` is wrong, or your `_create_dataset_prefix()` in the test helper returns the wrong list shape for this dialect. |
 | Pre-commit fails with import errors | Missing `__init__.py` in a new directory, or import paths don't match the package structure. |
+
+### 7.1. Base-class assumptions that don't always hold
+
+Assumptions the base classes make that a new engine may violate. Verify each
+against the target driver and dialect:
+
+1. **`cursor.rowcount` may be `-1`, non-int, or expensive** after a SELECT.
+   Some drivers report `-1`; do not depend on it.
+2. **Rows may not be plain tuples.** Some drivers return non-tuple rows that
+   must be normalised on read.
+3. **`INFORMATION_SCHEMA` is not universal.** Hive-metastore engines
+   (Databricks) and vendor catalogs need custom
+   `build_columns_metadata_query_str()` / `build_all_columns_metadata_query_str()`.
+4. **`RANDOM()` semantics vary.** Some engines evaluate it once per statement
+   rather than per row, and need a per-row construct instead.
+5. **A tz-aware `TIMESTAMP` may be stored tz-naive.** Convert to UTC in the
+   dialect before insert rather than patching individual tests.
+6. **Precision may be silently normalised** by the engine (e.g.
+   `TIMESTAMP(3)` → `TIMESTAMP(6)`). Assert against the *actual* fetched
+   metadata, not the requested DDL.
+7. **Identifier length limits vary** — long generated test names can overflow
+   engines with short identifier caps.
+8. **CTE-wrapping arbitrary user SQL is not always safe.** Some engines reject
+   `ORDER BY` inside a CTE or forbid `WITH` inside parenthesised subqueries.
+   Fall back to row-by-row streaming.
+9. **Metadata discovery must exclude internal `__soda_*` tables** — the
+   framework creates them (failed-rows storage, etc.) and they must not leak
+   into schema or discovery results.
+10. **A declared capability may silently degrade.** `supports_materialized_views()`
+    returning `True` does not guarantee real MV semantics — verify behaviour
+    rather than trusting the flag.
 
 ---
 

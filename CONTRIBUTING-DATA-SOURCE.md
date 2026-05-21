@@ -20,6 +20,23 @@ There is no separate Soda SDK package. Extension support is built into Soda Core
 
 ## Implementation basics
 
+### Before you start: research your engine
+
+A new adapter is mostly dialect-specific overrides, each tied to a fact about
+the target engine. Establish these before scaffolding:
+
+- identifier quoting and case-folding
+- pagination syntax (`LIMIT`/`OFFSET`, `FETCH FIRST`, `TOP`)
+- where table/column metadata lives (`INFORMATION_SCHEMA` or a vendor catalog)
+- date/time literal format
+- native `BOOLEAN`, or its substitute
+- regex syntax
+- sampling support
+- namespace depth (2-part vs 3-part)
+- the PEP 249 driver and the shape of its `cursor.description`
+
+Each maps to a specific override; the agent reference's [research checklist](CONTRIBUTING-DATA-SOURCE.AGENT.md#20-research-the-engine-first) maps every question to the method it drives.
+
 ### Package layout
 
 A new data source package mirrors the existing `soda-{name}/` siblings:
