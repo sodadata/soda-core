@@ -92,6 +92,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 InvalidReferenceCountMetricImpl(
                     contract_impl=contract_impl,
                     column_impl=column_impl,
+                    check_filter=self.check_yaml.filter,
                     missing_and_validity=self.missing_and_validity,
                     column_expression=self.column_expression,
                 )
@@ -196,17 +197,25 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 
 
 class InvalidReferenceCountMetricImpl(MetricImpl):
+    """Count of values invalid by reference-data lookup. Distinct metric_type
+    from the aggregation sibling InvalidCountMetricImpl so the two never share
+    an id even if other properties match. Value is supplied by
+    InvalidReferenceCountQuery, not the dataset aggregation query.
+    """
+
     def __init__(
         self,
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
+        check_filter: Optional[str],
         missing_and_validity: MissingAndValidity,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
-            metric_type="invalid_count",
+            metric_type="invalid_reference_count",
             column_impl=column_impl,
+            check_filter=check_filter,
             missing_and_validity=missing_and_validity,
             column_expression=column_expression,
         )

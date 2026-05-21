@@ -104,8 +104,11 @@ class FailedRowsCheckImpl(CheckImpl):
                 self.queries.append(failed_rows_count_query)
 
             if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
+                # Must NOT use RowCountMetricImpl here — its identity hash
+                # would match the contract-wide row_count metric and the
+                # custom-query measurement would clobber dataset_rows_tested.
                 self.check_rows_tested_metric_impl = self._resolve_metric(
-                    RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                    RowsTestedQueryMetricImpl(contract_impl=contract_impl, check_impl=self)
                 )
                 rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
                 if contract_impl.should_apply_sampling:
@@ -229,6 +232,30 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
 
     def convert_db_value(self, value) -> any:
         return int(value) if value is not None else 0
+
+
+class RowsTestedQueryMetricImpl(MetricImpl):
+    """Row count from a user-provided rows_tested_query. SQL is part of the
+    identity so it can't collide with the contract row_count metric, and two
+    checks with the same SQL still share one measurement. Not an
+    AggregationMetricImpl: the value comes from the user's query, not COUNT(*).
+    """
+
+    def __init__(self, contract_impl: ContractImpl, check_impl: FailedRowsCheckImpl):
+        self.rows_tested_query: str = check_impl.failed_rows_check_yaml.rows_tested_query
+        super().__init__(
+            contract_impl=contract_impl,
+            metric_type="rows_tested_query",
+            check_filter=check_impl.check_yaml.filter,
+        )
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, any] = super()._get_id_properties()
+        id_properties["rows_tested_query"] = self.rows_tested_query
+        return id_properties
+
+    def sql_condition_expression(self) -> Optional[SqlExpression]:
+        return None
 
 
 class FailedRowsQueryMetricImpl(MetricImpl):
