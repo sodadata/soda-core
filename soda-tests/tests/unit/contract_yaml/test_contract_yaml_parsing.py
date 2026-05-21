@@ -47,7 +47,7 @@ class _FakeDataSourceImpl:
 def _parse_with_dialect(yaml_str: str) -> ContractYaml:
     source = ContractYamlSource.from_str(yaml_str=dedent_and_strip(yaml_str))
     return ContractYaml.parse(
-        contract_yaml_source=source,
+        yaml_source=source,
         provided_variable_values={},
         primary_data_source_impl=_FakeDataSourceImpl(),
     )
