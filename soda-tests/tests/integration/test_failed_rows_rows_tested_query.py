@@ -485,7 +485,7 @@ def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=True),
 )
 @mock.patch(
@@ -493,7 +493,7 @@ def test_failed_rows_rows_tested_query_with_expression_emits_warning(data_source
     new_callable=mock.PropertyMock(return_value=True),
 )
 def test_failed_rows_rows_tested_query_sampling_applied(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):
@@ -547,7 +547,7 @@ def test_failed_rows_rows_tested_query_sampling_applied(
 
 
 @mock.patch(
-    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_agent",
+    "soda_core.common.env_config_helper.EnvConfigHelper.is_running_on_runner",
     new_callable=mock.PropertyMock(return_value=False),
 )
 @mock.patch(
@@ -555,7 +555,7 @@ def test_failed_rows_rows_tested_query_sampling_applied(
     new_callable=mock.PropertyMock(return_value=False),
 )
 def test_failed_rows_rows_tested_query_sampling_not_applied(
-    mocked_is_running_on_agent,
+    mocked_is_running_on_runner,
     mocked_is_contract_test_scan_definition_type,
     data_source_test_helper: DataSourceTestHelper,
 ):

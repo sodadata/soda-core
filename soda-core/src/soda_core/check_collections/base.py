@@ -471,12 +471,23 @@ class CheckCollectionImpl:
         self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
 
     @property
-    def is_test_verification_on_agent(self) -> bool:
-        """Whether this is a test scan running on the Soda Cloud agent.
+    def is_test_verification_on_runner(self) -> bool:
+        """Whether this is a test scan running on the Soda Cloud Runner (formerly Soda Agent).
 
         Default: False. Subclasses (``ContractImpl``) override.
         """
         return False
+
+    @property
+    def is_test_verification_on_agent(self) -> bool:
+        """Deprecated alias for :pyattr:`is_test_verification_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated(
+            f"{type(self).__name__}.is_test_verification_on_agent",
+            f"{type(self).__name__}.is_test_verification_on_runner",
+        )
+        return self.is_test_verification_on_runner
 
     @property
     def is_sampling_enabled(self) -> bool:
@@ -484,7 +495,7 @@ class CheckCollectionImpl:
 
     @property
     def should_apply_sampling(self) -> bool:
-        return self.is_test_verification_on_agent and self.is_sampling_enabled
+        return self.is_test_verification_on_runner and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         keys: list[str] = self.yaml.yaml_object.keys()
@@ -629,7 +640,7 @@ class CheckCollectionImpl:
                 f"collection_id (used to prefix checkPath for backend routing)."
             )
 
-        if self.data_source_impl and self.soda_config.is_running_on_agent:
+        if self.data_source_impl and self.soda_config.is_running_on_runner:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []

@@ -4,6 +4,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from soda_core.common._deprecation import warn_deprecated
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.utils import strtobool
 
@@ -53,9 +54,16 @@ class EnvConfigHelper:
         return os.getenv("SODA_INSTRUCTION_ID")
 
     @property
-    def is_running_on_agent(self) -> bool:
-        # SODA_INSTRUCTION_ID is only set when running in Soda Agent
+    def is_running_on_runner(self) -> bool:
+        # SODA_INSTRUCTION_ID is only set when running in Soda Runner (formerly Soda Agent).
+        # The env var name itself remains SODA_INSTRUCTION_ID for backwards compatibility with
+        # existing Runner runtimes that set it.
         return self.soda_instruction_id is not None
+
+    @property
+    def is_running_on_agent(self) -> bool:
+        warn_deprecated("EnvConfigHelper.is_running_on_agent", "EnvConfigHelper.is_running_on_runner")
+        return self.is_running_on_runner
 
     @property
     def soda_scan_definition_type(self) -> str | None:
