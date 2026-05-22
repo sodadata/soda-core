@@ -13,10 +13,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from soda_core.common.logs import Location
-from soda_core.common.soda_cloud import (
-    SodaCloud,
-    _build_combined_results_json_dict,
-)
+from soda_core.common.soda_cloud import SodaCloud, _build_combined_results_json_dict
 from soda_core.contracts.contract_verification import (
     Check,
     CheckCollectionStatus,
