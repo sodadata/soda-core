@@ -101,6 +101,7 @@ class _FakeImpl(CheckCollectionImpl):
         all_data_source_impls=None,
         dwh_data_source_file_path=None,
         logs=None,
+        **kwargs,
     ):
         # Skip ``CheckCollectionImpl.__init__`` (which wants a real YAML);
         # stash the few attributes the test cares about. ``collection_id``

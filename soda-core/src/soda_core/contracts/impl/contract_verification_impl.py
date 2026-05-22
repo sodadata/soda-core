@@ -408,6 +408,7 @@ class ContractImpl(CheckCollectionImpl):
         # cascade in a follow-up dispatch.
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
+        defer_upload: bool = False,
     ):
         resolved_all_data_source_impls: dict[str, DataSourceImpl] = (
             all_data_source_impls if all_data_source_impls is not None else {}
@@ -440,6 +441,7 @@ class ContractImpl(CheckCollectionImpl):
             all_data_source_impls=resolved_all_data_source_impls,
             dwh_data_source_file_path=dwh_data_source_file_path,
             logs=logs,
+            defer_upload=defer_upload,
         )
 
     @staticmethod

@@ -373,6 +373,66 @@ class SodaCloud:
                 return response_json
         return None
 
+    def send_combined_results(
+        self,
+        results: list[ContractVerificationResult],
+        wire_source: str,
+        scan_definition_suffix: Optional[str] = None,
+    ) -> Optional[dict]:
+        """Send N files' worth of check results in one ingestion request.
+
+        Used by ``execute_check_collections`` for subtypes whose impl
+        class declares ``combine_uploads = True`` (e.g. data standards).
+        All files in ``results`` MUST share the same ``wire_source``;
+        per-file routing happens on the backend via
+        ``firstSegmentOf(checkPath)`` → subtype identifier, so the
+        combined ``checks: [...]`` array can carry checks from N
+        different files of the same subtype without conflict.
+
+        Empty ``results`` is a no-op — returns None without hitting the
+        backend.
+
+        On 200 OK, each per-file result has ``scan_id`` and
+        ``dataset_id`` populated from the response (the same scanId
+        applies to all files in the batch — that's the whole point of
+        the combined upload). On non-200, all per-file results get
+        ``sending_results_to_soda_cloud_failed = True``.
+        """
+        if not results:
+            return None
+        payload = _build_combined_results_json_dict(
+            results=results,
+            wire_source=wire_source,
+            scan_definition_suffix=scan_definition_suffix,
+        )
+        payload["type"] = "sodaCoreInsertScanResults"
+        response: Response = self._execute_command(
+            command_json_dict=payload, request_log_name="send_combined_results"
+        )
+        if response.status_code == 200:
+            logger.info(f"{Emoticons.OK_HAND} Combined results sent to Soda Cloud ({len(results)} files)")
+            response_json: dict = response.json()
+            if isinstance(response_json, dict):
+                cloud_url: Optional[str] = response_json.get("cloudUrl")
+                if isinstance(cloud_url, str):
+                    logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
+                scan_id = response_json.get("scanId")
+                # Stamp the shared scanId on every per-file result so
+                # downstream consumers (post-processing handlers, CLI
+                # output) can correlate to the Cloud-side scan row. If
+                # the response omits scanId, mark every per-file result
+                # as failed-to-send rather than guessing.
+                if scan_id:
+                    for r in results:
+                        r.scan_id = scan_id
+                else:
+                    for r in results:
+                        r.sending_results_to_soda_cloud_failed = True
+                return response_json
+        for r in results:
+            r.sending_results_to_soda_cloud_failed = True
+        return None
+
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
         command_json_dict: dict = {
             "type": "sodaCoreGenerateContractSkeleton",
@@ -1527,6 +1587,111 @@ def _build_contract_result_json_dict(
             "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
             "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
             "tokenUsage": _build_token_usage_dicts(contract_verification_result),
+        }
+    )
+
+
+def _build_combined_results_json_dict(
+    results: list[ContractVerificationResult],
+    wire_source: str,
+    scan_definition_suffix: Optional[str] = None,
+) -> dict:
+    """Combined ``sodaCoreInsertScanResults`` payload covering N files.
+
+    Shape mirrors ``_build_contract_result_json_dict`` so the backend
+    ingestion path doesn't have to learn a second schema. Session-level
+    fields (``scanId``, ``definitionName``, data source, timestamps) come
+    from the first result — all files in a combined upload share a
+    dataset and therefore a qualified name and scan-def name. Aggregated
+    fields (``hasErrors``, ``hasWarns``, ``hasFailures``) are ORs over
+    per-file values. ``checks`` and ``logs`` are flat concatenations,
+    with log indices renumbered 0..N so they're monotonic across the
+    combined stream.
+
+    ``contract`` is always None: combined uploads only fire for
+    non-contract wire sources (the contract path keeps the per-file
+    upload model).
+    """
+    head = results[0]
+    started_timestamps = [r.started_timestamp for r in results if r.started_timestamp]
+    ended_timestamps = [r.ended_timestamp for r in results if r.ended_timestamp]
+
+    checks: list[dict] = []
+    for r in results:
+        per_file = _build_check_results_cloud_json_dicts(r, wire_source=wire_source)
+        if per_file:
+            checks.extend(per_file)
+
+    log_records: list[LogRecord] = []
+    for r in results:
+        if r.log_records:
+            log_records.extend(r.log_records)
+    logs = _build_log_cloud_json_dicts(log_records)
+
+    # De-dup post-processing stages by name across files. The same stage
+    # declared by two files (e.g. both data standards request the
+    # "dwh-failed-rows" stage) should only appear once in the combined
+    # payload — the backend tracks one ONGOING stage per scan, not per
+    # check.
+    seen_stage_names: set[str] = set()
+    post_processing_stages: list[dict] = []
+    for r in results:
+        if not r.post_processing_stages:
+            continue
+        for stage in r.post_processing_stages:
+            if stage.name in seen_stage_names:
+                continue
+            seen_stage_names.add(stage.name)
+            post_processing_stages.append({"name": stage.name})
+
+    token_usage: list[dict] = []
+    for r in results:
+        if r.token_usage:
+            token_usage.extend(
+                {
+                    "promptTokens": tu.prompt_tokens,
+                    "completionTokens": tu.completion_tokens,
+                    "totalTokens": tu.total_tokens,
+                    "model": tu.model,
+                    "operation": tu.operation,
+                }
+                for tu in r.token_usage
+            )
+
+    # Ingestion mode: PARTIAL if any per-file check was EXCLUDED, else
+    # FULL. Mirrors the per-file rule in
+    # ``determine_verification_ingestion_mode`` aggregated over all checks
+    # in the batch.
+    ingestion_mode = VerificationIngestionMode.FULL
+    for r in results:
+        if any(check.outcome == CheckOutcome.EXCLUDED for check in r.check_results):
+            ingestion_mode = VerificationIngestionMode.PARTIAL
+            break
+
+    return to_jsonnable(  # type: ignore
+        {
+            "scanId": os.environ.get("SODA_SCAN_ID", None),
+            "definitionName": _build_scan_definition_name(
+                head, scan_definition_suffix=scan_definition_suffix
+            ),
+            "defaultDataSource": head.data_source.name if head.data_source else None,
+            "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
+            "dataTimestamp": head.data_timestamp,
+            "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
+            "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
+            "hasErrors": any(r.has_errors for r in results),
+            "hasWarns": any(r.is_warned for r in results),
+            "hasFailures": any(r.is_failed for r in results),
+            "checks": checks if checks else None,
+            "logs": logs,
+            "sourceOwner": "soda-core",
+            # Combined upload is never used for contracts — keep
+            # ``contract`` None so the backend's contract-handler routing
+            # falls through to scan-def-type dispatch for the subtype.
+            "contract": None,
+            "postProcessingStages": post_processing_stages,
+            "resultsIngestionMode": ingestion_mode.value,
+            "tokenUsage": token_usage,
         }
     )
 

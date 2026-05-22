@@ -62,15 +62,18 @@ def execute_check_collections(
     exception re-raises verbatim. Used by the legacy single-contract
     facade via ``ContractVerificationSession``.
 
-    Upload-must-split rule: every item's results are uploaded to Soda Cloud
-    in its own ``sodaCoreInsertScanResults`` request (one upload per item),
-    keyed by ``wire_source`` (e.g. ``soda-contract`` for contracts). The
-    backend cannot ingest a single upload that mixes checks from different
-    wire sources — its ingestion filter routes the whole batch by the
-    top-level ``source`` and rejects the request if any check inside
-    disagrees. Mixed-source items in one ``execute_check_collections`` call
-    are therefore safe (each item uploads independently); a single item
-    must never emit checks whose ``source`` disagrees with its own
+    Upload model: one ``sodaCoreInsertScanResults`` request per
+    ``(session, wire_source)`` pair. Subtypes whose impl class declares
+    ``combine_uploads = True`` (e.g. data standards) issue one combined
+    request per session covering all that subtype's files; subtypes that
+    keep the default ``combine_uploads = False`` (e.g. contracts) upload
+    once per file inside ``verify()`` itself. Either way the backend
+    cannot ingest a single upload that mixes checks from different wire
+    sources — its ingestion filter routes the whole batch by the top-level
+    ``source`` and rejects the request if any check inside disagrees.
+    Mixed-source items in one ``execute_check_collections`` call are
+    therefore safe (each wire-source group uploads independently); a single
+    item must never emit checks whose ``source`` disagrees with its own
     ``wire_source``.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
@@ -106,6 +109,11 @@ def execute_check_collections(
     )
 
     results: list[CheckCollectionResult] = []
+    # Parallel to ``results``: the impl class used for each item. ``None``
+    # entries correspond to results whose kind dispatch failed before an
+    # impl class could be resolved — those don't participate in combined
+    # upload grouping below.
+    result_impl_classes: list[Optional[type[CheckCollectionImpl]]] = []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
         try:
@@ -143,8 +151,10 @@ def execute_check_collections(
                 logs=logs,
                 data_timestamp=yaml_data_timestamp if yaml_data_timestamp is not None else parsed_data_timestamp,
                 execution_timestamp=yaml_execution_timestamp,
+                defer_upload=impl_class.combine_uploads,
             )
             results.append(impl.verify())
+            result_impl_classes.append(impl_class)
         except Exception as exc:
             if abort_on_first_error:
                 raise
@@ -163,6 +173,47 @@ def execute_check_collections(
                 else (default_impl_class if default_impl_class is not None else CheckCollectionImpl)
             )
             results.append(builder.build_error_result(yaml_source, exc))
+            # impl_class may still be unresolved here (kind dispatch
+            # failed before reaching the impl class lookup). Whatever the
+            # state, we don't include ERROR placeholders in combined upload
+            # groups — they have no soda_cloud_file_id and no real checks
+            # to contribute. Track impl_class so callers (or tests) that
+            # care can still see which subtype handled the failure.
+            result_impl_classes.append(impl_class)
+
+    # Combined-upload pass: group results whose impl class opted into
+    # combine_uploads. ERROR-status placeholders and results with no
+    # soda_cloud_file_id are skipped — they have nothing to send. The
+    # session-level upload runs after every file has been verified so the
+    # batch reflects the full session in one Soda Cloud request.
+    if soda_cloud_impl is not None and publish_results:
+        combined_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
+        combined_suffix_by_wire_source: dict[str, Optional[str]] = {}
+        for result, result_impl_class in zip(results, result_impl_classes):
+            if result_impl_class is None or not result_impl_class.combine_uploads:
+                continue
+            if result.sending_results_to_soda_cloud_failed:
+                # Per-file alignment guard or data-source-missing path
+                # already flagged the result; don't include it in the
+                # combined upload.
+                continue
+            file_id = (
+                result.check_collection.source.soda_cloud_file_id
+                if result.check_collection and result.check_collection.source
+                else None
+            )
+            if file_id is None:
+                continue
+            combined_by_wire_source.setdefault(result_impl_class.wire_source, []).append(result)
+            combined_suffix_by_wire_source[result_impl_class.wire_source] = result_impl_class.scan_definition_suffix
+
+        for wire_source, group in combined_by_wire_source.items():
+            soda_cloud_impl.send_combined_results(
+                results=group,
+                wire_source=wire_source,
+                scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
+            )
+
     return CheckCollectionSessionResult(results)
 
 

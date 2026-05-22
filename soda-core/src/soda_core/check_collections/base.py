@@ -231,6 +231,14 @@ class CheckCollectionImpl:
     # identifier. Subtypes whose backend ingestion doesn't need that
     # prefix override to ``False``.
     requires_collection_id: bool = True
+    # Whether N files of this subtype in one session should be uploaded as
+    # one combined ``sodaCoreInsertScanResults`` request (default ``False``:
+    # one upload per file, preserving the contract path's wire output
+    # byte-identical). Subtypes whose user-facing scan is one run over N
+    # files (e.g. data standards) override to ``True``; the executor
+    # groups their results and calls ``SodaCloud.send_combined_results``
+    # once per session per wire_source after the per-file loop.
+    combine_uploads: bool = False
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -336,6 +344,7 @@ class CheckCollectionImpl:
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
         dwh_data_source_file_path: Optional[str] = None,
         logs: Optional[Logs] = None,
+        defer_upload: bool = False,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
@@ -351,6 +360,12 @@ class CheckCollectionImpl:
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
         self.publish_results: bool = publish_results
+        # When True, verify() skips the per-file send_contract_result call;
+        # the session layer issues one combined upload after the per-file
+        # loop. YAML file upload still happens so each file's
+        # soda_cloud_file_id is populated. Set by the executor when the
+        # impl class declares combine_uploads = True.
+        self.defer_upload: bool = defer_upload
         self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = yaml.filter
@@ -746,6 +761,16 @@ class CheckCollectionImpl:
                 # never sees a misaligned batch (a single misaligned check would 500
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
+            elif self.defer_upload:
+                # Session-level combined upload mode: the executor will issue
+                # one sodaCoreInsertScanResults request after all files
+                # verify. We've still uploaded the YAML file (file_id is on
+                # the result) and validated alignment, so the result is ready
+                # to be included in the combined payload.
+                logger.debug(
+                    f"Deferring upload to session-level combined request "
+                    f"{Emoticons.FINGERS_CROSSED}"
+                )
             else:
                 # send_contract_result will use contract.source.soda_cloud_file_id
                 soda_cloud_response_json = self.soda_cloud.send_contract_result(
@@ -777,6 +802,26 @@ class CheckCollectionImpl:
             except Exception as e:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
+
+        # Stamp the per-file thread label on each record so the Cloud-side
+        # grouping by ``thread`` produces one log stream per file inside a
+        # combined upload. LogRecord.thread is normally the OS thread id;
+        # overriding it here is safe because the Cloud wire schema treats
+        # ``thread`` as an opaque grouping key (see
+        # ``build_log_cloud_json_dict`` in soda_cloud.py).
+        #
+        # Done at the END of verify() (not at pop_log_records() time) on
+        # purpose: ``pop_log_records()`` returns the live list reference
+        # from the gatherer, and subsequent code (YAML file upload, the
+        # send_contract_result call, post-processing handlers) emits more
+        # records that get appended to that same list. Stamping at the end
+        # catches the full set in one pass.
+        if log_records:
+            thread_label = (
+                f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
+            )
+            for record in log_records:
+                record.thread = thread_label
 
         return verification_result
 
