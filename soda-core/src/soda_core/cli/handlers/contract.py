@@ -15,6 +15,9 @@ from soda_core.contracts.api import test_contract, verify_contract
 from soda_core.contracts.api.publish_api import publish_contract
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 
 def handle_verify_contract(
@@ -30,6 +33,7 @@ def handle_verify_contract(
     check_paths: Optional[list[str]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
     diagnostics_warehouse_file_path: Optional[str] = None,
+    metadata_dwh_file_path: Optional[str] = None,
     **kwargs,
 ) -> ExitCode:
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
@@ -40,6 +44,13 @@ def handle_verify_contract(
     if check_selectors is None:
         check_selectors = []
     try:
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None
+        if diagnostics_warehouse_file_path or metadata_dwh_file_path:
+            dwh_files = DiagnosticsWarehouseFiles(
+                primary_path=diagnostics_warehouse_file_path,
+                metadata_dwh_file_path=metadata_dwh_file_path,
+            )
+
         contract_verification_result = verify_contract(
             contract_file_path=contract_file_path,
             dataset_identifier=dataset_identifier,
@@ -53,7 +64,7 @@ def handle_verify_contract(
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             check_paths=check_paths,
             check_selectors=check_selectors,
-            dwh_data_source_file_path=diagnostics_warehouse_file_path,
+            dwh_data_source_file_path=dwh_files if dwh_files is not None else diagnostics_warehouse_file_path,
         )
 
         return interpret_contract_verification_result(contract_verification_result)

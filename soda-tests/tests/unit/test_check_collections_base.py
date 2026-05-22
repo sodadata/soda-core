@@ -99,7 +99,7 @@ class _FakeImpl(CheckCollectionImpl):
         execution_timestamp=None,
         data_timestamp=None,
         all_data_source_impls=None,
-        dwh_data_source_file_path=None,
+        dwh_files=None,
         logs=None,
     ):
         # Skip ``CheckCollectionImpl.__init__`` (which wants a real YAML);

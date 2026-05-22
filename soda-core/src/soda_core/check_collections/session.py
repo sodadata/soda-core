@@ -28,6 +28,9 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 
 def execute_check_collections(
@@ -40,7 +43,7 @@ def execute_check_collections(
     data_timestamp: Optional[Union[str, datetime]] = None,
     all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
     check_selectors: Optional[list] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     abort_on_first_error: bool = False,
     logs: Optional[Logs] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
@@ -139,7 +142,7 @@ def execute_check_collections(
                 only_validate_without_execute=only_validate_without_execute,
                 check_selectors=check_selectors,
                 all_data_source_impls=all_data_source_impls,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
                 logs=logs,
                 data_timestamp=yaml_data_timestamp if yaml_data_timestamp is not None else parsed_data_timestamp,
                 execution_timestamp=yaml_execution_timestamp,

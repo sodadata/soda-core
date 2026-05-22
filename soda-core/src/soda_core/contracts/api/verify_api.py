@@ -16,6 +16,9 @@ from soda_core.contracts.contract_verification import (
     ContractVerificationSessionResult,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from typing_extensions import deprecated
 
@@ -38,7 +41,7 @@ def verify_contracts_locally(
     data_timestamp: Optional[str] = None,
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     if not contract_file_paths and not dataset_identifiers:
@@ -92,7 +95,7 @@ def verify_contract_locally(
     data_timestamp: Optional[str] = None,
     publish: bool = False,
     check_paths: Optional[list[str]] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
 ) -> ContractVerificationSessionResult:
     """
@@ -257,7 +260,7 @@ def verify_contract(
     data_sources: Optional[list[DataSourceImpl]] = None,
     data_source_file_paths: Optional[list[str]] = None,
     check_paths: Optional[list[str]] = None,
-    dwh_data_source_file_path: Optional[str] = None,
+    dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
     **kwargs,
 ) -> ContractVerificationSessionResult:

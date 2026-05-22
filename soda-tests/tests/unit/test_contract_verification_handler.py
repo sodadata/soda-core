@@ -14,6 +14,9 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandler,
     ContractVerificationHandlerRegistry,
 )
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -41,7 +44,7 @@ def test_failure_in_contract_verification_handler_does_not_fail_scan(
             contract_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
-            dwh_data_source_file_path: Optional[str] = None,
+            dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         ):
             raise RuntimeError("Simulated failure in ContractVerificationHandler")
 
