@@ -12,7 +12,6 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
-    ALIAS,
     AND,
     CAST,
     COLUMN,
