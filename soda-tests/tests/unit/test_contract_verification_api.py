@@ -305,18 +305,6 @@ def test_runner_flow_without_local_datasource_returns_none():
     assert result is None
 
 
-def test_agent_flow_without_local_datasource_returns_none_deprecated():
-    """Deprecated alias for the runner flow test above; preserved for backwards compat."""
-    # _create_datasource_yamls is a private helper with no legacy kwarg name, but the public
-    # surface that calls it accepts both. This test now just mirrors the runner-named one.
-    result = _create_datasource_yamls(
-        data_source_file_paths=[],
-        use_runner=True,
-    )
-
-    assert result is None
-
-
 @patch("soda_core.contracts.api.verify_api.SodaCloud.from_config")
 def test_local_flow_with_dataset_but_no_datasource_raises_error(mock_cloud_client):
     """

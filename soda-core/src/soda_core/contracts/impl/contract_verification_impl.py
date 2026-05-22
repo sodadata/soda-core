@@ -89,9 +89,9 @@ class ContractVerificationSessionImpl:
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
     @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
     @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
-    @param soda_cloud_use_agent_blocking_timeout_in_minutes: The timeout for the Soda Cloud agent.
+    @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
+    @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
     @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
     """
 
