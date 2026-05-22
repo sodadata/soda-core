@@ -50,7 +50,9 @@ from soda_core.contracts.contract_verification import (
     ScanTokenUsage,
     YamlFileContentInfo,
 )
-from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 
