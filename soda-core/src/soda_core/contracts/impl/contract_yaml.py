@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
+from soda_core.check_collections.base import CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -36,7 +37,7 @@ class ContractYamlExtension(Protocol):
         ...
 
 
-class ContractYaml:
+class ContractYaml(CheckCollectionYaml):
     """
     Represents YAML as close as possible.
     None means the key was not present.
@@ -54,31 +55,19 @@ class ContractYaml:
     def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
         cls.contract_yaml_extensions[name] = extension_cls
 
-    @classmethod
-    def parse(
-        cls,
-        contract_yaml_source: ContractYamlSource,
-        provided_variable_values: Optional[dict[str, str]] = None,
-        data_timestamp: Optional[str] = None,
-        primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ) -> Optional[ContractYaml]:
-        contract_yaml = ContractYaml(
-            contract_yaml_source=contract_yaml_source,
-            provided_variable_values=provided_variable_values,
-            data_timestamp=data_timestamp,
-            primary_data_source_impl=primary_data_source_impl,
-        )
-        return contract_yaml
-
     def __init__(
         self,
-        contract_yaml_source: ContractYamlSource,
+        yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]],
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ):
-        self.contract_yaml_source: ContractYamlSource = contract_yaml_source
-        self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
+        # Neutral attribute names on the base ``CheckCollectionYaml``: the
+        # engine in ``base.py`` reads ``self.yaml.yaml_object`` /
+        # ``self.yaml.yaml_source``, which works for any check-collection
+        # subtype. ``ContractYaml`` populates the neutral names directly.
+        self.yaml_source: ContractYamlSource = yaml_source
+        self.yaml_object: YamlObject = yaml_source.parse()
         self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
         # Cache the dialect's native→canonical data type mapping once — dialects construct this dict fresh on every call.
         self._native_to_soda_data_type_mapping: Optional[dict[str, SodaDataTypeName]] = (
@@ -87,7 +76,7 @@ class ContractYaml:
             else None
         )
 
-        self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
+        self.variables: list[VariableYaml] = self._parse_variable_yamls(yaml_source, provided_variable_values)
 
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
@@ -115,22 +104,20 @@ class ContractYaml:
             if f_convert_str_to_datetime(now_value) is None:
                 logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
 
-        self.contract_yaml_source.resolve_on_read_value(
+        self.yaml_source.resolve_on_read_value(
             resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
         )
 
-        self.dataset = self.contract_yaml_object.read_dataset_identifier("dataset")
+        self.dataset = self.yaml_object.read_dataset_identifier("dataset")
 
-        self.check_attributes = self.contract_yaml_object.read_object_opt(
-            "check_attributes", default_value={}
-        ).to_dict()
+        self.check_attributes = self.yaml_object.read_object_opt("check_attributes", default_value={}).to_dict()
 
-        self.filter: Optional[str] = self.contract_yaml_object.read_string_opt("filter")
+        self.filter: Optional[str] = self.yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
 
-        self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
-        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+        self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
 
         for extension_cls in ContractYaml.contract_yaml_extensions.values():
             try:
@@ -141,11 +128,11 @@ class ContractYaml:
                     f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
                 )
 
-    def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
+    def _parse_variable_yamls(self, yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
 
-        if self.contract_yaml_object:
-            variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
+        if self.yaml_object:
+            variables_yaml_object: Optional[YamlObject] = self.yaml_object.read_object_opt("variables")
             if variables_yaml_object:
                 for variable_name, variable_yaml_object in variables_yaml_object.items():
                     variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
@@ -278,8 +265,8 @@ class ContractYaml:
                             [f"[{location.line},{location.column}]" for location in locations if location is not None]
                         )
                         file_location = (
-                            f"In {self.contract_yaml_source.file_path} at: "
-                            if self.contract_yaml_source.file_path
+                            f"In {self.yaml_source.file_path} at: "
+                            if self.yaml_source.file_path
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""

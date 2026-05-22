@@ -11,10 +11,10 @@ from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
 from soda_core.common.soda_cloud import _build_contract_result_json_dict
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
+    CheckCollectionStatus,
     Contract,
     ContractVerificationResult,
     ContractVerificationSession,
-    ContractVerificationStatus,
     YamlFileContentInfo,
 )
 
@@ -23,7 +23,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
     """Build a minimal ContractVerificationResult with an optional (possibly None) data_source."""
     now = datetime.now(tz=timezone.utc)
     return ContractVerificationResult(
-        contract=Contract(
+        check_collection=Contract(
             data_source_name=None,
             dataset_prefix=["some", "schema"],
             dataset_name="my_table",
@@ -38,7 +38,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
         data_timestamp=now,
         started_timestamp=now,
         ended_timestamp=now,
-        status=ContractVerificationStatus.ERROR,
+        status=CheckCollectionStatus.ERROR,
         measurements=[],
         check_results=[],
         sending_results_to_soda_cloud_failed=False,
