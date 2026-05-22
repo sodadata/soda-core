@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional
 
 from soda_core.common.sql_ast import (
-    ALIAS,
     COLUMN,
     EQ,
     FROM,
@@ -36,7 +35,7 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
         select: list = [
             SELECT(
                 [
-                    ALIAS(current_database_expression, "table_catalog"),
+                    current_database_expression.AS("table_catalog"),
                     COLUMN("nspname", table_alias="n").AS("table_schema"),
                     COLUMN("relname", table_alias="c").AS("table_name"),
                     RAW_SQL(self.sql_dialect.relkind_table_type_sql_expression()),

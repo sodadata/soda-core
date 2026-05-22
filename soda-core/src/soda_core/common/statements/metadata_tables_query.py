@@ -71,10 +71,10 @@ class MetadataTablesQuery:
             ),
             SELECT(
                 [
-                    self.sql_dialect.column_table_catalog() or ALIAS(LITERAL(None), "database_name"),
+                    self.sql_dialect.column_table_catalog() or LITERAL(None).AS("database_name"),
                     self.sql_dialect.column_table_schema(),
                     self.sql_dialect.column_table_name(),
-                    self.sql_dialect.column_table_type() or ALIAS(LITERAL(None), "table_type"),
+                    self.sql_dialect.column_table_type() or LITERAL(None).AS("table_type"),
                 ]
             ),
         ]

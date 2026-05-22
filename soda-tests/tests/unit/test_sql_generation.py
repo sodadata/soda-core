@@ -366,3 +366,15 @@ def test_alias_in_select_list_emits_in_sql():
     )
     assert 'NULL AS "database_name"' in sql
     assert '"name" AS "table_name"' in sql
+
+
+def test_AS_method_works_on_any_sql_expression():
+    """`.AS()` lives on `SqlExpression` so every expression type — not just COLUMN —
+    can be aliased fluently. `expr.AS("x")` is equivalent to `ALIAS(expr, "x")`."""
+    sql_dialect: SqlDialect = SqlDialect()
+    assert sql_dialect.build_expression_sql(LITERAL(None).AS("database_name")) == 'NULL AS "database_name"'
+    assert sql_dialect.build_expression_sql(COUNT(STAR()).AS("n_count")) == 'COUNT(*) AS "n_count"'
+    assert sql_dialect.build_expression_sql(RAW_SQL("current_database()").AS("table_catalog")) == (
+        'current_database() AS "table_catalog"'
+    )
+    assert isinstance(LITERAL(None).AS("x"), ALIAS)

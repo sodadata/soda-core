@@ -346,7 +346,7 @@ class PostgresSqlDialect(SqlDialect, sqlglot_dialect="postgres"):
                     END AS "datetime_precision"
                 """
                 ),
-                ALIAS(current_database_expression, "table_catalog"),
+                current_database_expression.AS("table_catalog"),
                 COLUMN("nspname", table_alias="n").AS("table_schema"),
                 COLUMN("relname", table_alias="c").AS("table_name"),
                 RAW_SQL(self.relkind_table_type_sql_expression()),

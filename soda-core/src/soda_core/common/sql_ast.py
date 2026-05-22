@@ -181,6 +181,9 @@ class SqlExpression(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
 
+    def AS(self, alias: str) -> "ALIAS":
+        return ALIAS(self, alias)
+
 
 @dataclass
 class STAR(SqlExpression):
@@ -369,9 +372,6 @@ class COLUMN(SqlExpression):
 
     def IN(self, table_alias: str) -> COLUMN:
         return COLUMN(name=self.name, table_alias=table_alias)
-
-    def AS(self, alias: str) -> ALIAS:
-        return ALIAS(self, alias)
 
 
 @dataclass
