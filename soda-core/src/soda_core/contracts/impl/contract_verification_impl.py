@@ -1004,6 +1004,22 @@ class CheckImpl:
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
 
+    def get_required_metric_impls(self) -> list["MetricImpl"]:
+        """Metrics this check needs measured to evaluate. If any is unmeasured at
+        dispatch time, the framework short-circuits to NOT_EVALUATED — `evaluate()`
+        is not called, so each check's body can assume its required metrics are
+        present.
+
+        Default: empty (legacy checks not yet migrated keep their own gating)."""
+        return []
+
+    def get_diagnostic_defaults(self) -> dict[str, Number]:
+        """Optional diagnostic values populated into `diagnostic_metric_values` when
+        the framework short-circuits this check to NOT_EVALUATED. The NOT_EVALUATED
+        outcome itself signals "not measured", so the default is empty; override
+        only if a specific field must always carry a sentinel."""
+        return {}
+
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
         # Use check level column expression if exists, fall-back to column level check expression if possible.

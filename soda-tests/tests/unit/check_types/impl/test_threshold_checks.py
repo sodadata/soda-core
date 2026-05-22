@@ -371,8 +371,33 @@ def _evaluate_check(
     metric_values: list[tuple],
     dataset_rows_tested: object = 100,
 ):
+    """Simulate the framework's dispatch loop for a single check.
+
+    The framework short-circuits to NOT_EVALUATED with numeric diagnostic defaults
+    when any required metric is unmeasured. Direct callers of this helper get the
+    same behavior, so tests can assert on the post-dispatch CheckResult shape
+    instead of testing evaluate() in isolation (which now assumes its required
+    metrics are present, per get_required_metric_impls).
+    """
+    from soda_core.contracts.contract_verification import CheckResult
+
     mv = build_measurement_values(metric_values, contract_impl=contract_impl)
     contract_impl.dataset_rows_tested = dataset_rows_tested
+
+    required = check.get_required_metric_impls()
+    if required and not mv.all_measured(*required):
+        # Merge order matches the framework dispatch: defaults first, then
+        # dataset_rows_tested last, so a defaults dict that accidentally includes
+        # `dataset_rows_tested` cannot override the real value.
+        return CheckResult(
+            check=check._build_check_info(),
+            outcome=CheckOutcome.NOT_EVALUATED,
+            threshold_value=None,
+            diagnostic_metric_values={
+                **check.get_diagnostic_defaults(),
+                "dataset_rows_tested": dataset_rows_tested,
+            },
+        )
     return check.evaluate(mv)
 
 

@@ -680,7 +680,28 @@ class CheckCollectionImpl:
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
                     else:
-                        check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                        # Framework-level NOT_EVALUATED gating: if a check declares
+                        # required metrics via get_required_metric_impls() and any
+                        # of them are unmeasured (upstream aggregation query failed),
+                        # short-circuit to NOT_EVALUATED. The outcome itself signals
+                        # "not measured", so diagnostics carry only dataset_rows_tested
+                        # (plus any sentinels the check opts into via get_diagnostic_defaults).
+                        required = check_impl.get_required_metric_impls()
+                        if required and not measurement_values.all_measured(*required):
+                            # Merge order: defaults first, dataset_rows_tested last,
+                            # so a check that accidentally puts `dataset_rows_tested`
+                            # in its defaults can't override the real dataset value.
+                            check_result: CheckResult = CheckResult(
+                                check=check_impl._build_check_info(),
+                                outcome=CheckOutcome.NOT_EVALUATED,
+                                threshold_value=None,
+                                diagnostic_metric_values={
+                                    **check_impl.get_diagnostic_defaults(),
+                                    "dataset_rows_tested": self.dataset_rows_tested,
+                                },
+                            )
+                        else:
+                            check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
             verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
