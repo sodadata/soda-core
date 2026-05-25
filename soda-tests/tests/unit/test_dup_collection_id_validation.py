@@ -30,7 +30,6 @@ from soda_core.contracts.contract_verification import (
     YamlFileContentInfo,
 )
 
-
 # Unique kinds per stub so registrations don't collide with other test
 # modules' sentinel impls or with the real subtypes.
 _DUP_KIND = "dup-check-collection-id-stub"
