@@ -34,8 +34,9 @@ from soda_core.contracts.contract_verification import (
 # Unique kinds per stub so registrations don't collide with other test
 # modules' sentinel impls or with the real subtypes.
 _DUP_KIND = "dup-check-collection-id-stub"
-_DUP_OTHER_WIRE_KIND = "dup-other-wire-source-stub"
-_NO_COMBINE_KIND = "dup-no-combine-uploads-stub"
+# Reserved for Task 3 tests (cross-wire-source and combine-uploads opt-out cases).
+_DUP_OTHER_WIRE_KIND = "dup-other-wire-source-stub"  # noqa: F841
+_NO_COMBINE_KIND = "dup-no-combine-uploads-stub"  # noqa: F841
 
 
 class _StubYaml(CheckCollectionYaml):

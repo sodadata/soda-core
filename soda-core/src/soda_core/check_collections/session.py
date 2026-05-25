@@ -20,12 +20,12 @@ from soda_core.check_collections.base import (
     CheckCollectionResult,
     CheckCollectionSessionResult,
 )
-from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
+from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
@@ -203,7 +203,11 @@ def execute_check_collections(
             continue
         collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
 
-    dup_groups = {key: sources_in_group for key, sources_in_group in collisions.items() if len(sources_in_group) > 1}
+    dup_groups = {
+        key: sources_in_group
+        for key, sources_in_group in collisions.items()
+        if len(sources_in_group) > 1
+    }
     if dup_groups:
         lines: list[str] = []
         for (wire_source, collection_id), sources_in_group in dup_groups.items():
