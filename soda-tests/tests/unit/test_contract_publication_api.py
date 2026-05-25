@@ -9,18 +9,11 @@ from soda_core.contracts.contract_publication import (
 
 
 def test_contract_publication_fails_on_missing_soda_cloud_config():
-    contract_publication_result: ContractPublicationResult = (
-        ContractPublication.builder()
-        .with_contract_yaml_str(
-            f"""
+    contract_publication_result: ContractPublicationResult = ContractPublication.builder().with_contract_yaml_str(f"""
           dataset: ds/db/sch/CUSTOMERS
           columns:
             - name: id
-        """
-        )
-        .build()
-        .execute()
-    )
+        """).build().execute()
 
     assert contract_publication_result.has_errors
     assert "Cannot publish without a Soda Cloud configuration" in contract_publication_result.logs.get_logs_str()
@@ -44,14 +37,12 @@ def test_contract_publication_fails_on_missing_contract_file():
         contract_publication_result: ContractPublicationResult = (
             ContractPublication.builder()
             .with_contract_yaml_file("../soda/mydb/myschema/table.yml")
-            .with_soda_cloud_yaml_str(
-                """
+            .with_soda_cloud_yaml_str("""
             soda_cloud:
               host: host.soda.io
               api_key_id: id
               api_key_secret: secret
-            """
-            )
+            """)
             .with_soda_cloud(mock_cloud)
             .build()
             .execute()
@@ -95,20 +86,16 @@ def test_contract_publication_returns_result_for_each_added_contract():
 
     contract_publication_result = (
         ContractPublication.builder()
-        .with_contract_yaml_str(
-            f"""
+        .with_contract_yaml_str(f"""
             dataset: test/some/schema/CUSTOMERS
             columns:
             - name: id
-            """
-        )
-        .with_contract_yaml_str(
-            f"""
+            """)
+        .with_contract_yaml_str(f"""
             dataset: test2/some/schema/CUSTOMERS2
             columns:
             - name: id
-            """
-        )
+            """)
         .with_soda_cloud(mock_cloud)
         .build()
         .execute()
