@@ -20,6 +20,7 @@ from soda_core.check_collections.base import (
     CheckCollectionResult,
     CheckCollectionSessionResult,
 )
+from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -179,8 +180,43 @@ def execute_check_collections(
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
 
-    # ---- Phase 1.5: session-wide invariant checks. ----
-    # (Empty in this task — Task 2 adds the dup-collection_id check here.)
+    # ---- Phase 1.5: session-wide invariant — dup collection_id. ----
+    # For every successfully-constructed impl in a ``combine_uploads = True``
+    # subtype, the pair ``(wire_source, collection_id)`` MUST be unique.
+    # Two files sharing that pair would land in the combined upload with
+    # identical ``checkPath`` prefixes and identical identity hashes —
+    # the backend's ``firstSegmentOf(checkPath) → subtype_identifier``
+    # lookup would resolve both to the same Cloud-side entry, collapsing
+    # what the user intended as two distinct collections. Hard raise
+    # before phase 2 so no partial verify() / upload work runs.
+    #
+    # Failures from phase 1 (impl is None) are skipped — they'll surface
+    # as ERROR-status results in phase 2 unless this dup raise short-
+    # circuits the whole session. ``abort_on_first_error`` doesn't apply
+    # here: the dup is a session-level user-input error, not a per-file
+    # engine failure.
+    collisions: dict[tuple[str, str], list[CheckCollectionYamlSource]] = {}
+    for impl, impl_class, _construct_exc, yaml_source in constructed:
+        if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        if not impl.collection_id:
+            continue
+        collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
+
+    dup_groups = {key: sources_in_group for key, sources_in_group in collisions.items() if len(sources_in_group) > 1}
+    if dup_groups:
+        lines: list[str] = []
+        for (wire_source, collection_id), sources_in_group in dup_groups.items():
+            paths = [
+                getattr(src, "file_path", None) or repr(src)
+                for src in sources_in_group
+            ]
+            lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
+        raise InvalidArgumentException(
+            "Duplicate collection names detected in session — each subtype that "
+            "combines uploads requires a unique 'name:' per file:\n"
+            + "\n".join(lines)
+        )
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
