@@ -1506,12 +1506,14 @@ def _build_contract_result_json_dict(
             "definitionName": _build_scan_definition_name(
                 contract_verification_result, scan_definition_suffix=scan_definition_suffix
             ),
-            "defaultDataSource": contract_verification_result.data_source.name
-            if contract_verification_result.data_source
-            else None,
-            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type}
-            if contract_verification_result.data_source
-            else None,
+            "defaultDataSource": (
+                contract_verification_result.data_source.name if contract_verification_result.data_source else None
+            ),
+            "defaultDataSourceProperties": (
+                {"type": contract_verification_result.data_source.type}
+                if contract_verification_result.data_source
+                else None
+            ),
             # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
             # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
             "dataTimestamp": contract_verification_result.data_timestamp,
@@ -1623,9 +1625,11 @@ def _build_diagnostics_json_dict(check_result: CheckResult) -> Optional[dict]:
 
     return {
         #  TODO: this default 0 value is here only because check.diagnostics.value is a required non-nullable field in the api.
-        "value": int(check_result.threshold_value)
-        if isinstance(check_result.threshold_value, bool)
-        else (check_result.threshold_value or 0),
+        "value": (
+            int(check_result.threshold_value)
+            if isinstance(check_result.threshold_value, bool)
+            else (check_result.threshold_value or 0)
+        ),
         "fail": _build_fail_threshold(check_result),
         "v4": _build_v4_diagnostics_check_type_json_dict(check_result),
     }
