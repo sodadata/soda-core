@@ -50,6 +50,9 @@ from soda_core.contracts.contract_verification import (
     ScanTokenUsage,
     YamlFileContentInfo,
 )
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -342,7 +345,7 @@ class CheckCollectionImpl:
         execution_timestamp: Optional[datetime] = None,
         data_timestamp: Optional[datetime] = None,
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
         defer_upload: bool = False,
     ):
@@ -483,15 +486,26 @@ class CheckCollectionImpl:
         if data_source_impl:
             self.queries = self._build_queries()
 
-        self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+        self.dwh_files: Optional[DiagnosticsWarehouseFiles] = dwh_files
 
     @property
-    def is_test_verification_on_agent(self) -> bool:
-        """Whether this is a test scan running on the Soda Cloud agent.
+    def is_test_verification_on_runner(self) -> bool:
+        """Whether this is a test scan running on the Soda Cloud Runner (formerly Soda Agent).
 
         Default: False. Subclasses (``ContractImpl``) override.
         """
         return False
+
+    @property
+    def is_test_verification_on_agent(self) -> bool:
+        """Deprecated alias for :pyattr:`is_test_verification_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated(
+            f"{type(self).__name__}.is_test_verification_on_agent",
+            f"{type(self).__name__}.is_test_verification_on_runner",
+        )
+        return self.is_test_verification_on_runner
 
     @property
     def is_sampling_enabled(self) -> bool:
@@ -499,7 +513,7 @@ class CheckCollectionImpl:
 
     @property
     def should_apply_sampling(self) -> bool:
-        return self.is_test_verification_on_agent and self.is_sampling_enabled
+        return self.is_test_verification_on_runner and self.is_sampling_enabled
 
     def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
         keys: list[str] = self.yaml.yaml_object.keys()
@@ -644,7 +658,7 @@ class CheckCollectionImpl:
                 f"collection_id (used to prefix checkPath for backend routing)."
             )
 
-        if self.data_source_impl and self.soda_config.is_running_on_agent:
+        if self.data_source_impl and self.soda_config.is_running_on_runner:
             self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
         data_source: Optional[DataSource] = None
         check_results: list[CheckResult] = []
@@ -695,7 +709,28 @@ class CheckCollectionImpl:
                             check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
                         )
                     else:
-                        check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
+                        # Framework-level NOT_EVALUATED gating: if a check declares
+                        # required metrics via get_required_metric_impls() and any
+                        # of them are unmeasured (upstream aggregation query failed),
+                        # short-circuit to NOT_EVALUATED. The outcome itself signals
+                        # "not measured", so diagnostics carry only dataset_rows_tested
+                        # (plus any sentinels the check opts into via get_diagnostic_defaults).
+                        required = check_impl.get_required_metric_impls()
+                        if required and not measurement_values.all_measured(*required):
+                            # Merge order: defaults first, dataset_rows_tested last,
+                            # so a check that accidentally puts `dataset_rows_tested`
+                            # in its defaults can't override the real dataset value.
+                            check_result: CheckResult = CheckResult(
+                                check=check_impl._build_check_info(),
+                                outcome=CheckOutcome.NOT_EVALUATED,
+                                threshold_value=None,
+                                diagnostic_metric_values={
+                                    **check_impl.get_diagnostic_defaults(),
+                                    "dataset_rows_tested": self.dataset_rows_tested,
+                                },
+                            )
+                        else:
+                            check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
                     check_results.append(check_result)
 
             verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
@@ -797,7 +832,7 @@ class CheckCollectionImpl:
                     contract_verification_result=verification_result,
                     soda_cloud=self.soda_cloud,
                     soda_cloud_send_results_response_json=soda_cloud_response_json,
-                    dwh_data_source_file_path=self.dwh_data_source_file_path,
+                    dwh_files=self.dwh_files,
                 )
             except Exception as e:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)

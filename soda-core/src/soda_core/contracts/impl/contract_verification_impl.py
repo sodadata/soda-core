@@ -7,6 +7,7 @@ from typing import Protocol
 
 from ruamel.yaml import YAML
 from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
@@ -41,6 +42,9 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -54,7 +58,7 @@ class ContractVerificationHandler(ABC):
         contract_verification_result: ContractVerificationResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         pass
 
@@ -88,10 +92,10 @@ class ContractVerificationSessionImpl:
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
     @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
     @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
-    @param soda_cloud_use_agent_blocking_timeout_in_minutes: The timeout for the Soda Cloud agent.
-    @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
+    @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
+    @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
+    @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
     @classmethod
@@ -105,12 +109,32 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
         soda_cloud_publish_results: bool = False,
-        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        **kwargs,
     ):
+        # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
+        # normalize-at-bottom lets us forward the new param to deprecated_kwarg without
+        # tripping its conflict check when the caller only supplied the legacy name.
+        soda_cloud_use_runner = deprecated_kwarg(
+            kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner
+        )
+        soda_cloud_use_runner_blocking_timeout_in_minutes = deprecated_kwarg(
+            kwargs,
+            "soda_cloud_use_agent_blocking_timeout_in_minutes",
+            "soda_cloud_use_runner_blocking_timeout_in_minutes",
+            soda_cloud_use_runner_blocking_timeout_in_minutes,
+        )
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+        if soda_cloud_use_runner is None:
+            soda_cloud_use_runner = False
+        if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
+            soda_cloud_use_runner_blocking_timeout_in_minutes = 60
+
         logs: Logs = Logs()
 
         # Validate input contract_yaml_sources
@@ -139,7 +163,7 @@ class ContractVerificationSessionImpl:
         else:
             assert isinstance(data_source_yaml_sources, list)
             assert all(
-                isinstance(data_source_yaml_source, DataSourceYamlSource) or soda_cloud_use_agent
+                isinstance(data_source_yaml_source, DataSourceYamlSource) or soda_cloud_use_runner
                 for data_source_yaml_source in data_source_yaml_sources
             )
 
@@ -150,21 +174,21 @@ class ContractVerificationSessionImpl:
         # Validate input soda_cloud_skip_publish
         assert isinstance(soda_cloud_publish_results, bool)
 
-        # Validate input soda_cloud_use_agent
-        assert isinstance(soda_cloud_use_agent, bool)
+        # Validate input soda_cloud_use_runner
+        assert isinstance(soda_cloud_use_runner, bool)
 
-        # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
-        assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
+        # Validate input soda_cloud_use_runner_blocking_timeout_in_minutes
+        assert isinstance(soda_cloud_use_runner_blocking_timeout_in_minutes, int)
 
         if check_selectors is None:
             check_selectors = []
 
-        if soda_cloud_use_agent:
-            contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
+        if soda_cloud_use_runner:
+            contract_verification_results: list[ContractVerificationResult] = cls._execute_on_runner(
                 contract_yaml_sources=contract_yaml_sources,
                 variables=variables,
                 soda_cloud_impl=soda_cloud_impl,
-                soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 soda_cloud_verbose=soda_cloud_verbose,
             )
@@ -181,7 +205,7 @@ class ContractVerificationSessionImpl:
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 check_selectors=check_selectors,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -198,7 +222,7 @@ class ContractVerificationSessionImpl:
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> list[ContractVerificationResult]:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
@@ -242,7 +266,7 @@ class ContractVerificationSessionImpl:
                 data_timestamp=data_timestamp,
                 all_data_source_impls=data_source_impls_by_name,
                 check_selectors=check_selectors,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
                 abort_on_first_error=(len(contract_yaml_sources) == 1),
                 logs=logs,
                 primary_data_source_impl=primary_data_source_impl,
@@ -293,16 +317,16 @@ class ContractVerificationSessionImpl:
         return None
 
     @classmethod
-    def _execute_on_agent(
+    def _execute_on_runner(
         cls,
         contract_yaml_sources: list[ContractYamlSource],
         variables: dict[str, str],
         soda_cloud_impl: Optional[SodaCloud],
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
     ) -> list[ContractVerificationResult]:
-        "Verifies Contracts on the Soda Cloud agent."
+        "Verifies Contracts on the Soda Cloud Runner (formerly agent)."
         contract_verification_results: list[ContractVerificationResult] = []
 
         for contract_yaml_source in contract_yaml_sources:
@@ -311,7 +335,7 @@ class ContractVerificationSessionImpl:
                     yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
                 # Build a ContractImpl whose only job is to dispatch through
-                # ``verify_on_agent``. ``data_source_impl`` and
+                # ``verify_on_runner``. ``data_source_impl`` and
                 # ``soda_cloud_impl`` are left None on the impl, and
                 # ``only_validate_without_execute=True`` keeps the engine
                 # from connecting to a data source or executing queries.
@@ -322,7 +346,7 @@ class ContractVerificationSessionImpl:
                 # but any errors logged during the parse are popped from
                 # the impl's own ``Logs`` below and prepended onto the
                 # returned result — otherwise ``soda_cloud.verify_contract
-                # _on_agent``'s late-bound ``Logs()`` (which starts AFTER
+                # _on_runner``'s late-bound ``Logs()`` (which starts AFTER
                 # this construction) would silently drop them.
                 contract_impl: ContractImpl = ContractImpl(
                     yaml=contract_yaml,
@@ -331,10 +355,10 @@ class ContractVerificationSessionImpl:
                 init_log_records = contract_impl.logs.pop_log_records()
                 contract_impl.logs.remove_from_root_logger()
 
-                contract_verification_result: ContractVerificationResult = contract_impl.verify_on_agent(
+                contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
                     soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
-                    blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                    blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
                 )
@@ -346,6 +370,27 @@ class ContractVerificationSessionImpl:
             except:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         return contract_verification_results
+
+    @classmethod
+    def _execute_on_agent(cls, *args, **kwargs) -> list[ContractVerificationResult]:
+        """Deprecated alias for :py:meth:`_execute_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated(
+            "ContractVerificationSessionImpl._execute_on_agent",
+            "ContractVerificationSessionImpl._execute_on_runner",
+        )
+        # Map the legacy timeout kwarg to the canonical one. We accept either name
+        # for backwards compatibility; the helper raises on conflicting values.
+        kwargs["soda_cloud_use_runner_blocking_timeout_in_minutes"] = deprecated_kwarg(
+            kwargs,
+            "soda_cloud_use_agent_blocking_timeout_in_minutes",
+            "soda_cloud_use_runner_blocking_timeout_in_minutes",
+            kwargs.get("soda_cloud_use_runner_blocking_timeout_in_minutes"),
+        )
+        if kwargs["soda_cloud_use_runner_blocking_timeout_in_minutes"] is None:
+            del kwargs["soda_cloud_use_runner_blocking_timeout_in_minutes"]
+        return cls._execute_on_runner(*args, **kwargs)
 
 
 class ContractImplExtension(Protocol):
@@ -399,7 +444,7 @@ class ContractImpl(CheckCollectionImpl):
         execution_timestamp: Optional[datetime] = None,
         publish_results: bool = False,
         check_selectors: Optional[list[CheckSelector]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         # Universal kwargs from ``CheckCollectionImpl`` — the session
         # executor passes these and they are the canonical names. The
         # legacy contract-specific aliases (``contract_yaml=`` /
@@ -439,7 +484,7 @@ class ContractImpl(CheckCollectionImpl):
             execution_timestamp=execution_timestamp,
             data_timestamp=data_timestamp,
             all_data_source_impls=resolved_all_data_source_impls,
-            dwh_data_source_file_path=dwh_data_source_file_path,
+            dwh_files=dwh_files,
             logs=logs,
             defer_upload=defer_upload,
         )
@@ -470,15 +515,26 @@ class ContractImpl(CheckCollectionImpl):
         return data_source_impl
 
     @property
-    def is_test_verification_on_agent(self) -> bool:
+    def is_test_verification_on_runner(self) -> bool:
         """Contract-specific test-mode predicate.
 
-        True when running on the Soda Cloud agent in test-scan mode (as
-        determined by ``EnvConfigHelper`` env vars).
+        True when running on the Soda Cloud Runner (formerly agent) in test-scan mode
+        (as determined by ``EnvConfigHelper`` env vars).
         """
-        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
+        return self.soda_config.is_running_on_runner and self.soda_config.is_contract_test_scan_definition_type
 
-    def verify_on_agent(
+    @property
+    def is_test_verification_on_agent(self) -> bool:
+        """Deprecated alias for :pyattr:`is_test_verification_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated(
+            "ContractImpl.is_test_verification_on_agent",
+            "ContractImpl.is_test_verification_on_runner",
+        )
+        return self.is_test_verification_on_runner
+
+    def verify_on_runner(
         self,
         soda_cloud_impl: SodaCloud,
         variables: dict,
@@ -486,13 +542,20 @@ class ContractImpl(CheckCollectionImpl):
         publish_results: bool,
         verbose: bool,
     ) -> ContractVerificationResult:
-        return soda_cloud_impl.verify_contract_on_agent(
+        return soda_cloud_impl.verify_contract_on_runner(
             contract_yaml=self.yaml,
             variables=variables,
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             publish_results=publish_results,
             verbose=verbose,
         )
+
+    def verify_on_agent(self, *args, **kwargs) -> ContractVerificationResult:
+        """Deprecated alias for :py:meth:`verify_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated("ContractImpl.verify_on_agent", "ContractImpl.verify_on_runner")
+        return self.verify_on_runner(*args, **kwargs)
 
 
 def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> CheckCollectionStatus:
@@ -1005,6 +1068,22 @@ class CheckImpl:
 
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
+
+    def get_required_metric_impls(self) -> list["MetricImpl"]:
+        """Metrics this check needs measured to evaluate. If any is unmeasured at
+        dispatch time, the framework short-circuits to NOT_EVALUATED — `evaluate()`
+        is not called, so each check's body can assume its required metrics are
+        present.
+
+        Default: empty (legacy checks not yet migrated keep their own gating)."""
+        return []
+
+    def get_diagnostic_defaults(self) -> dict[str, Number]:
+        """Optional diagnostic values populated into `diagnostic_metric_values` when
+        the framework short-circuits this check to NOT_EVALUATED. The NOT_EVALUATED
+        outcome itself signals "not measured", so the default is empty; override
+        only if a specific field must always carry a sentinel."""
+        return {}
 
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:

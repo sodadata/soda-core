@@ -617,6 +617,16 @@ class SodaCloud:
 
     def verify_contract_on_agent(
         self,
+        *args,
+        **kwargs,
+    ) -> ContractVerificationResult:
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated("SodaCloud.verify_contract_on_agent", "SodaCloud.verify_contract_on_runner")
+        return self.verify_contract_on_runner(*args, **kwargs)
+
+    def verify_contract_on_runner(
+        self,
         contract_yaml: ContractYaml,
         variables: dict[str, str],
         blocking_timeout_in_minutes: int,

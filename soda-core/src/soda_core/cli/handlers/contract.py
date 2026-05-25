@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.exceptions import (
     ContractParserException,
     InvalidArgumentException,
@@ -14,6 +15,9 @@ from soda_core.contracts.api import test_contract, verify_contract
 from soda_core.contracts.api.publish_api import publish_contract
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 
 def handle_verify_contract(
@@ -24,13 +28,29 @@ def handle_verify_contract(
     variables: Optional[Dict[str, str]],
     publish: bool,
     verbose: bool,
-    use_agent: bool,
-    blocking_timeout_in_minutes: int,
-    check_paths: Optional[list[str]],
-    check_selectors: list[CheckSelector],
-    diagnostics_warehouse_file_path: Optional[str],
+    use_runner: Optional[bool] = None,
+    blocking_timeout_in_minutes: int = 60,
+    check_paths: Optional[list[str]] = None,
+    check_selectors: Optional[list[CheckSelector]] = None,
+    diagnostics_warehouse_file_path: Optional[str] = None,
+    metadata_dwh_file_path: Optional[str] = None,
+    **kwargs,
 ) -> ExitCode:
+    use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
+    if kwargs:
+        raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+    if use_runner is None:
+        use_runner = False
+    if check_selectors is None:
+        check_selectors = []
     try:
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None
+        if diagnostics_warehouse_file_path or metadata_dwh_file_path:
+            dwh_files = DiagnosticsWarehouseFiles(
+                primary_path=diagnostics_warehouse_file_path,
+                metadata_dwh_file_path=metadata_dwh_file_path,
+            )
+
         contract_verification_result = verify_contract(
             contract_file_path=contract_file_path,
             dataset_identifier=dataset_identifier,
@@ -40,11 +60,11 @@ def handle_verify_contract(
             variables=variables,
             publish=publish,
             verbose=verbose,
-            use_agent=use_agent,
+            use_runner=use_runner,
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             check_paths=check_paths,
             check_selectors=check_selectors,
-            dwh_data_source_file_path=diagnostics_warehouse_file_path,
+            dwh_data_source_file_path=dwh_files if dwh_files is not None else diagnostics_warehouse_file_path,
         )
 
         return interpret_contract_verification_result(contract_verification_result)
