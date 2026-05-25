@@ -119,17 +119,20 @@ def execute_check_collections(
     result_impl_classes: list[Optional[type[CheckCollectionImpl]]] = []
 
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
-    # Each entry is either ``(impl, impl_class, None)`` on successful
-    # construction or ``(None, impl_class_or_None, exc)`` on parse/construct
-    # failure. Failures here flow through to phase 2 where they become
-    # ERROR-status placeholder results — matching today's per-file
-    # isolation semantics exactly. ``abort_on_first_error`` still re-raises
-    # immediately as before.
+    # Each entry is either ``(impl, impl_class, None, yaml_source)`` on
+    # successful construction or ``(None, impl_class_or_None, exc, yaml_source)``
+    # on parse/construct failure. Carrying ``yaml_source`` in the tuple avoids
+    # index-coupling between this list and the original ``yaml_sources`` list —
+    # Phase 1.5 may filter ``constructed`` without reordering ``yaml_sources``.
+    # Failures here flow through to phase 2 where they become ERROR-status
+    # placeholder results — matching today's per-file isolation semantics
+    # exactly. ``abort_on_first_error`` still re-raises immediately as before.
     constructed: list[
         tuple[
             Optional[CheckCollectionImpl],
             Optional[type[CheckCollectionImpl]],
             Optional[BaseException],
+            CheckCollectionYamlSource,
         ]
     ] = []
     for yaml_source in yaml_sources:
@@ -148,6 +151,12 @@ def execute_check_collections(
                 data_timestamp=data_timestamp_str,
                 primary_data_source_impl=primary_data_source_impl,
             )
+            # Forward the yaml's resolved data_timestamp / execution_timestamp
+            # to the impl when the yaml exposes them (ContractYaml does; the
+            # base CheckCollectionYaml in POC scope does not yet). Fall back
+            # to the boundary-parsed datetime otherwise — CheckCollectionImpl
+            # types data_timestamp as Optional[datetime], so the fallback must
+            # never be a string.
             yaml_data_timestamp = getattr(yaml, "data_timestamp", None)
             yaml_execution_timestamp = getattr(yaml, "execution_timestamp", None)
             impl = impl_class(
@@ -164,11 +173,11 @@ def execute_check_collections(
                 execution_timestamp=yaml_execution_timestamp,
                 defer_upload=impl_class.combine_uploads,
             )
-            constructed.append((impl, impl_class, None))
+            constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
             if abort_on_first_error:
                 raise
-            constructed.append((None, impl_class, exc))
+            constructed.append((None, impl_class, exc, yaml_source))
 
     # ---- Phase 1.5: session-wide invariant checks. ----
     # (Empty in this task — Task 2 adds the dup-collection_id check here.)
@@ -176,7 +185,7 @@ def execute_check_collections(
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
     # Verify-time exceptions follow the existing isolation semantics.
-    for idx, (impl, impl_class, construct_exc) in enumerate(constructed):
+    for impl, impl_class, construct_exc, yaml_source in constructed:
         if impl is None:
             # On unknown kind or pre-impl failures (where ``impl_class``
             # could not be resolved), fall back to the caller-supplied
@@ -192,7 +201,7 @@ def execute_check_collections(
                 if impl_class is not None
                 else (default_impl_class if default_impl_class is not None else CheckCollectionImpl)
             )
-            results.append(builder.build_error_result(yaml_sources[idx], construct_exc))
+            results.append(builder.build_error_result(yaml_source, construct_exc))
             result_impl_classes.append(impl_class)
             continue
         try:
@@ -201,7 +210,7 @@ def execute_check_collections(
         except Exception as exc:
             if abort_on_first_error:
                 raise
-            results.append(impl_class.build_error_result(yaml_sources[idx], exc))
+            results.append(impl_class.build_error_result(yaml_source, exc))
             result_impl_classes.append(impl_class)
 
     # ---- Phase 3 (existing): combined-upload pass for combine_uploads subtypes. ----
@@ -216,6 +225,8 @@ def execute_check_collections(
         for result, result_impl_class in zip(results, result_impl_classes):
             if result_impl_class is None or not result_impl_class.combine_uploads:
                 continue
+            # Per-file alignment guard or data-source-missing path already
+            # flagged this result; don't include it in the combined upload.
             if result.sending_results_to_soda_cloud_failed:
                 continue
             file_id = (
