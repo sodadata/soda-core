@@ -624,6 +624,7 @@ class CheckCollectionImpl:
         return columns
 
     def verify(self) -> CheckCollectionResult:
+        from soda_core.common.soda_cloud import extract_dataset_id_from_response
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationHandlerRegistry,
             DerivedMetricImpl,
@@ -800,25 +801,20 @@ class CheckCollectionImpl:
                     verification_result.sending_results_to_soda_cloud_failed = True
                 else:
                     verification_result.scan_id = scan_id
-                    verification_result.check_collection.dataset_id = self.__get_dataset_id(
+                    verification_result.check_collection.dataset_id = extract_dataset_id_from_response(
                         soda_cloud_response_json, self.soda_qualified_dataset_name
                     )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
-        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
-            try:
-                handler.handle(
-                    contract_impl=self,
-                    data_source_impl=self.data_source_impl,
-                    contract_verification_result=verification_result,
-                    soda_cloud=self.soda_cloud,
-                    soda_cloud_send_results_response_json=soda_cloud_response_json,
-                    dwh_files=self.dwh_files,
-                )
-            except Exception as e:
-                logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
-                self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
+        # Post-processing handlers. For combine-upload subtypes, defer to
+        # the session executor — handlers need the scan_id and
+        # response_json from the *combined* upload, which hasn't happened
+        # yet at this point in verify(). The executor calls
+        # ``run_post_processing_handlers`` per file after
+        # ``send_combined_results`` returns.
+        if not self.combine_uploads:
+            self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
 
         # Override OS thread id with a per-file label so combined uploads
         # group log records by file via the wire's ``thread`` field. Done
@@ -831,6 +827,41 @@ class CheckCollectionImpl:
                 record.thread = thread_label
 
         return verification_result
+
+    def run_post_processing_handlers(
+        self,
+        verification_result: CheckCollectionResult,
+        soda_cloud_send_results_response_json: Optional[dict],
+    ) -> None:
+        """Invoke every registered ``ContractVerificationHandler`` for this file.
+
+        Called inline from ``verify()`` for non-combine subtypes; for
+        combine-upload subtypes the session executor calls this per file
+        after ``send_combined_results`` returns so handlers see the shared
+        ``scan_id`` and ``response_json``. Files that were skipped from the
+        combined upload (alignment guard, missing file_id, send failure)
+        still get handlers invoked with ``response_json=None`` to match
+        the per-file path's "run handlers regardless of upload success"
+        semantics.
+        """
+        from soda_core.contracts.impl.contract_verification_impl import (
+            ContractVerificationHandlerRegistry,
+        )
+
+        scan_id = verification_result.scan_id
+        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+            try:
+                handler.handle(
+                    contract_impl=self,
+                    data_source_impl=self.data_source_impl,
+                    contract_verification_result=verification_result,
+                    soda_cloud=self.soda_cloud,
+                    soda_cloud_send_results_response_json=soda_cloud_send_results_response_json,
+                    dwh_files=self.dwh_files,
+                )
+            except Exception as e:
+                logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
+                self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
 
     def verify_on_agent(
         self,
@@ -1070,10 +1101,3 @@ class CheckCollectionImpl:
                 error=get_exception_stacktrace(exc),
             )
 
-    def __get_dataset_id(self, soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
-        for check in soda_cloud_response_json.get("checks", []):
-            for datasets in check.get("datasets", []):
-                dataset_dqn: Optional[str] = datasets.get("dqn")
-                if dataset_dqn and dataset_dqn == qualified_dataset_name:
-                    return datasets.get("id")
-        return None

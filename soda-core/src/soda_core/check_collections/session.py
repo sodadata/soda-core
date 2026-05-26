@@ -230,12 +230,18 @@ def execute_check_collections(
             results.append(impl_class.build_error_result(yaml_source, exc))
 
     # ---- Phase 3: combined-upload pass for ``combine_uploads`` subtypes. ----
-    # ERROR placeholders and alignment-guard-failed results are skipped.
-    # ``constructed`` is positionally aligned with ``results``, so we iterate
-    # both together and read the impl_class straight from the construct tuple.
+    # ERROR placeholders and alignment-guard-failed results are skipped from
+    # the upload itself, but post-processing handlers still run for them with
+    # ``response_json=None`` — matching the per-file path's "handlers run
+    # regardless of upload success" semantics. ``constructed`` is positionally
+    # aligned with ``results``, so we iterate both together and read the
+    # impl_class straight from the construct tuple.
     if soda_cloud_impl is not None and publish_results:
         combined_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
         combined_suffix_by_wire_source: dict[str, Optional[str]] = {}
+        # Track which results made it into the upload group so handlers
+        # below can pick the right response_json (or None for skipped files).
+        uploaded_ids: set[int] = set()
         for (_, impl_class, _, _), result in zip(constructed, results):
             if impl_class is None or not impl_class.combine_uploads:
                 continue
@@ -252,13 +258,31 @@ def execute_check_collections(
                 continue
             combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
             combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
+            uploaded_ids.add(id(result))
 
+        # Send combined uploads, capture per-wire-source response so each
+        # file's handlers see the shared scan_id + response_json.
+        response_json_by_wire_source: dict[str, Optional[dict]] = {}
         for wire_source, group in combined_by_wire_source.items():
-            soda_cloud_impl.send_combined_results(
+            response_json_by_wire_source[wire_source] = soda_cloud_impl.send_combined_results(
                 results=group,
                 wire_source=wire_source,
                 scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
             )
+
+        # Run post-processing handlers for every combine-subtype file (the
+        # per-file ``verify()`` deferred this for combine_uploads=True).
+        # Skipped files get response_json=None — same as the per-file path
+        # when its upload returns None.
+        for (impl, impl_class, _, _), result in zip(constructed, results):
+            if impl is None or impl_class is None or not impl_class.combine_uploads:
+                continue
+            response_for_file = (
+                response_json_by_wire_source.get(impl_class.wire_source)
+                if id(result) in uploaded_ids
+                else None
+            )
+            impl.run_post_processing_handlers(result, response_for_file)
 
     return CheckCollectionSessionResult(results)
 

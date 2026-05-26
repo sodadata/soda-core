@@ -414,6 +414,14 @@ class SodaCloud:
                 if scan_id:
                     for r in results:
                         r.scan_id = scan_id
+                        # The combined-upload backend resolves one dataset
+                        # per scan-definition; every per-file result in the
+                        # batch shares the same qualified name and therefore
+                        # the same dataset_id. Stamping per-result keeps
+                        # parity with the per-file send_contract_result path.
+                        r.check_collection.dataset_id = extract_dataset_id_from_response(
+                            response_json, r.check_collection.soda_qualified_dataset_name
+                        )
                 else:
                     for r in results:
                         r.sending_results_to_soda_cloud_failed = True
@@ -1983,3 +1991,21 @@ def determine_verification_ingestion_mode(
         ingestion_mode = VerificationIngestionMode.PARTIAL
 
     return ingestion_mode
+
+
+def extract_dataset_id_from_response(
+    soda_cloud_response_json: dict, qualified_dataset_name: str
+) -> Optional[str]:
+    """Find the dataset_id matching ``qualified_dataset_name`` in a Cloud ingestion response.
+
+    The Cloud response carries per-check ``datasets`` entries; we walk
+    them and return the ``id`` of the first dataset whose ``dqn`` matches
+    the qualified name. Used by both the per-file and combined upload
+    paths to stamp ``dataset_id`` on the per-file result.
+    """
+    for check in soda_cloud_response_json.get("checks", []):
+        for dataset in check.get("datasets", []):
+            dataset_dqn: Optional[str] = dataset.get("dqn")
+            if dataset_dqn and dataset_dqn == qualified_dataset_name:
+                return dataset.get("id")
+    return None
