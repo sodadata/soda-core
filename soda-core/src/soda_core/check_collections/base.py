@@ -343,7 +343,6 @@ class CheckCollectionImpl:
         all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
-        defer_upload: bool = False,
     ):
         # Defer import: CheckImpl/ColumnImpl/MetricsResolver/RowCountMetricImpl live in
         # contract_verification_impl.py which imports this module.
@@ -359,11 +358,6 @@ class CheckCollectionImpl:
         self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls or {}
         self.soda_cloud: Optional[SodaCloud] = soda_cloud_impl
         self.publish_results: bool = publish_results
-        # Set by the executor when ``combine_uploads`` is True. verify()
-        # still uploads the YAML file (so ``soda_cloud_file_id`` is
-        # populated) but skips ``send_contract_result`` — the session
-        # layer issues one combined upload after the per-file loop.
-        self.defer_upload: bool = defer_upload
         self.soda_config = EnvConfigHelper()
 
         self.filter: Optional[str] = yaml.filter
@@ -791,7 +785,7 @@ class CheckCollectionImpl:
                 # never sees a misaligned batch (a single misaligned check would 500
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
-            elif self.defer_upload:
+            elif self.combine_uploads:
                 # Session-level combined upload — executor sends after the loop.
                 logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
             else:

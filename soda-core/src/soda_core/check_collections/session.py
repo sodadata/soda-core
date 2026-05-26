@@ -111,9 +111,6 @@ def execute_check_collections(
     )
 
     results: list[CheckCollectionResult] = []
-    # Parallel to ``results``. ``None`` for items whose kind dispatch
-    # failed; they don't participate in combined-upload grouping below.
-    result_impl_classes: list[Optional[type[CheckCollectionImpl]]] = []
 
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
     # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
@@ -166,7 +163,6 @@ def execute_check_collections(
                 logs=logs,
                 data_timestamp=yaml_data_timestamp if yaml_data_timestamp is not None else parsed_data_timestamp,
                 execution_timestamp=yaml_execution_timestamp,
-                defer_upload=impl_class.combine_uploads,
             )
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
@@ -192,16 +188,17 @@ def execute_check_collections(
             continue
         collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
 
-    dup_groups = {key: sources_in_group for key, sources_in_group in collisions.items() if len(sources_in_group) > 1}
-    if dup_groups:
-        lines: list[str] = []
-        for (wire_source, collection_id), sources_in_group in dup_groups.items():
-            paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
-            lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
+    dup_lines: list[str] = []
+    for (wire_source, collection_id), sources_in_group in collisions.items():
+        if len(sources_in_group) < 2:
+            continue
+        paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
+        dup_lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
+    if dup_lines:
         raise InvalidArgumentException(
             "Duplicate collection identifier(s) detected in session — each "
             "combine-upload subtype requires a unique identifier per file:\n"
-            + "\n".join(lines)
+            + "\n".join(dup_lines)
         )
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
@@ -224,28 +221,23 @@ def execute_check_collections(
                 else (default_impl_class if default_impl_class is not None else CheckCollectionImpl)
             )
             results.append(builder.build_error_result(yaml_source, construct_exc))
-            result_impl_classes.append(impl_class)
             continue
         try:
             results.append(impl.verify())
-            result_impl_classes.append(impl_class)
         except Exception as exc:
             if abort_on_first_error:
                 raise
             results.append(impl_class.build_error_result(yaml_source, exc))
-            result_impl_classes.append(impl_class)
 
-    # ---- Phase 3 (existing): combined-upload pass for combine_uploads subtypes. ----
-    # Combined-upload pass: group results whose impl class opted into
-    # combine_uploads. ERROR-status placeholders and results with no
-    # soda_cloud_file_id are skipped — they have nothing to send. The
-    # session-level upload runs after every file has been verified so the
-    # batch reflects the full session in one Soda Cloud request.
+    # ---- Phase 3: combined-upload pass for ``combine_uploads`` subtypes. ----
+    # ERROR placeholders and alignment-guard-failed results are skipped.
+    # ``constructed`` is positionally aligned with ``results``, so we iterate
+    # both together and read the impl_class straight from the construct tuple.
     if soda_cloud_impl is not None and publish_results:
         combined_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
         combined_suffix_by_wire_source: dict[str, Optional[str]] = {}
-        for result, result_impl_class in zip(results, result_impl_classes):
-            if result_impl_class is None or not result_impl_class.combine_uploads:
+        for (_, impl_class, _, _), result in zip(constructed, results):
+            if impl_class is None or not impl_class.combine_uploads:
                 continue
             # Per-file alignment guard or data-source-missing path already
             # flagged this result; don't include it in the combined upload.
@@ -258,8 +250,8 @@ def execute_check_collections(
             )
             if file_id is None:
                 continue
-            combined_by_wire_source.setdefault(result_impl_class.wire_source, []).append(result)
-            combined_suffix_by_wire_source[result_impl_class.wire_source] = result_impl_class.scan_definition_suffix
+            combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
+            combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
 
         for wire_source, group in combined_by_wire_source.items():
             soda_cloud_impl.send_combined_results(
