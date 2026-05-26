@@ -1100,4 +1100,3 @@ class CheckCollectionImpl:
                 state=PostProcessingStageState.FAILED,
                 error=get_exception_stacktrace(exc),
             )
-
