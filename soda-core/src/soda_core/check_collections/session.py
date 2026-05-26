@@ -203,23 +203,15 @@ def execute_check_collections(
             continue
         collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
 
-    dup_groups = {
-        key: sources_in_group
-        for key, sources_in_group in collisions.items()
-        if len(sources_in_group) > 1
-    }
+    dup_groups = {key: sources_in_group for key, sources_in_group in collisions.items() if len(sources_in_group) > 1}
     if dup_groups:
         lines: list[str] = []
         for (wire_source, collection_id), sources_in_group in dup_groups.items():
-            paths = [
-                getattr(src, "file_path", None) or repr(src)
-                for src in sources_in_group
-            ]
+            paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
             lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
         raise InvalidArgumentException(
             "Duplicate collection names detected in session — each subtype that "
-            "combines uploads requires a unique 'name:' per file:\n"
-            + "\n".join(lines)
+            "combines uploads requires a unique 'name:' per file:\n" + "\n".join(lines)
         )
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----

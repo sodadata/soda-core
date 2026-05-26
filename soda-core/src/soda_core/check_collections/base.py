@@ -802,10 +802,7 @@ class CheckCollectionImpl:
                 # verify. We've still uploaded the YAML file (file_id is on
                 # the result) and validated alignment, so the result is ready
                 # to be included in the combined payload.
-                logger.debug(
-                    f"Deferring upload to session-level combined request "
-                    f"{Emoticons.FINGERS_CROSSED}"
-                )
+                logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
             else:
                 # send_contract_result will use contract.source.soda_cloud_file_id
                 soda_cloud_response_json = self.soda_cloud.send_contract_result(
@@ -852,9 +849,7 @@ class CheckCollectionImpl:
         # records that get appended to that same list. Stamping at the end
         # catches the full set in one pass.
         if log_records:
-            thread_label = (
-                f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
-            )
+            thread_label = f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
             for record in log_records:
                 record.thread = thread_label
 

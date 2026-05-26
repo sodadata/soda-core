@@ -406,9 +406,7 @@ class SodaCloud:
             scan_definition_suffix=scan_definition_suffix,
         )
         payload["type"] = "sodaCoreInsertScanResults"
-        response: Response = self._execute_command(
-            command_json_dict=payload, request_log_name="send_combined_results"
-        )
+        response: Response = self._execute_command(command_json_dict=payload, request_log_name="send_combined_results")
         if response.status_code == 200:
             logger.info(f"{Emoticons.OK_HAND} Combined results sent to Soda Cloud ({len(results)} files)")
             response_json: dict = response.json()
@@ -1681,9 +1679,7 @@ def _build_combined_results_json_dict(
     return to_jsonnable(  # type: ignore
         {
             "scanId": os.environ.get("SODA_SCAN_ID", None),
-            "definitionName": _build_scan_definition_name(
-                head, scan_definition_suffix=scan_definition_suffix
-            ),
+            "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
             "defaultDataSource": head.data_source.name if head.data_source else None,
             "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
             "dataTimestamp": head.data_timestamp,

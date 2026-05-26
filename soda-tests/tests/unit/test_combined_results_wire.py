@@ -112,9 +112,7 @@ def test_combined_payload_or_aggregates_status_flags():
     r_failed = _make_result(label="fail", status=CheckCollectionStatus.FAILED)
     r_errored = _make_result(label="err", status=CheckCollectionStatus.ERROR)
 
-    payload = _build_combined_results_json_dict(
-        [r_passed, r_warned, r_failed, r_errored], wire_source="data-standard"
-    )
+    payload = _build_combined_results_json_dict([r_passed, r_warned, r_failed, r_errored], wire_source="data-standard")
 
     assert payload["hasErrors"] is True
     assert payload["hasWarns"] is True
@@ -150,9 +148,7 @@ def test_combined_payload_omits_contract_field():
     null-valued dict keys, so the field doesn't appear at all in the
     serialized payload — same shape as the contract path produces for
     non-contract wire sources today."""
-    payload = _build_combined_results_json_dict(
-        [_make_result(label="alpha")], wire_source="data-standard"
-    )
+    payload = _build_combined_results_json_dict([_make_result(label="alpha")], wire_source="data-standard")
     assert "contract" not in payload
 
 
