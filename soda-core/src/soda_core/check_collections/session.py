@@ -67,18 +67,16 @@ def execute_check_collections(
     facade via ``ContractVerificationSession``.
 
     Upload model: one ``sodaCoreInsertScanResults`` request per
-    ``(session, wire_source)`` pair. Subtypes whose impl class declares
-    ``combine_uploads = True`` (e.g. data standards) issue one combined
-    request per session covering all that subtype's files; subtypes that
-    keep the default ``combine_uploads = False`` (e.g. contracts) upload
-    once per file inside ``verify()`` itself. Either way the backend
-    cannot ingest a single upload that mixes checks from different wire
-    sources — its ingestion filter routes the whole batch by the top-level
-    ``source`` and rejects the request if any check inside disagrees.
-    Mixed-source items in one ``execute_check_collections`` call are
-    therefore safe (each wire-source group uploads independently); a single
-    item must never emit checks whose ``source`` disagrees with its own
-    ``wire_source``.
+    ``(session, wire_source)`` pair. Subtypes with ``combine_uploads = True``
+    issue one combined request per session covering all their files;
+    subtypes with the default ``combine_uploads = False`` upload once per
+    file inside ``verify()`` itself. The backend cannot ingest a single
+    upload that mixes checks from different wire sources — its ingestion
+    filter routes the whole batch by the top-level ``source`` and rejects
+    the request if any check inside disagrees. Mixed-source items in one
+    ``execute_check_collections`` call are therefore safe (each wire-source
+    group uploads independently); a single item must never emit checks
+    whose ``source`` disagrees with its own ``wire_source``.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -113,21 +111,17 @@ def execute_check_collections(
     )
 
     results: list[CheckCollectionResult] = []
-    # Parallel to ``results``: the impl class used for each item. ``None``
-    # entries correspond to results whose kind dispatch failed before an
-    # impl class could be resolved — those don't participate in combined
-    # upload grouping below.
+    # Parallel to ``results``. ``None`` for items whose kind dispatch
+    # failed; they don't participate in combined-upload grouping below.
     result_impl_classes: list[Optional[type[CheckCollectionImpl]]] = []
 
     # ---- Phase 1: parse + construct every impl, per-file isolated. ----
-    # Each entry is either ``(impl, impl_class, None, yaml_source)`` on
-    # successful construction or ``(None, impl_class_or_None, exc, yaml_source)``
-    # on parse/construct failure. Carrying ``yaml_source`` in the tuple avoids
-    # index-coupling between this list and the original ``yaml_sources`` list —
-    # Phase 1.5 may filter ``constructed`` without reordering ``yaml_sources``.
-    # Failures here flow through to phase 2 where they become ERROR-status
-    # placeholder results — matching today's per-file isolation semantics
-    # exactly. ``abort_on_first_error`` still re-raises immediately as before.
+    # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
+    # ``(None, impl_class_or_None, exc, yaml_source)`` on failure. The
+    # ``yaml_source`` slot lets phase 1.5 filter ``constructed`` without
+    # index-coupling to ``yaml_sources``. Construct failures flow to
+    # phase 2 as ERROR placeholders; ``abort_on_first_error`` still
+    # re-raises immediately.
     constructed: list[
         tuple[
             Optional[CheckCollectionImpl],
@@ -180,21 +174,16 @@ def execute_check_collections(
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
 
-    # ---- Phase 1.5: session-wide invariant — dup collection_id. ----
-    # For every successfully-constructed impl in a ``combine_uploads = True``
-    # subtype, the pair ``(wire_source, collection_id)`` MUST be unique.
-    # Two files sharing that pair would land in the combined upload with
-    # identical ``checkPath`` prefixes and identical identity hashes —
-    # the backend's ``firstSegmentOf(checkPath) → subtype_identifier``
-    # lookup would resolve both to the same Cloud-side entry, collapsing
-    # what the user intended as two distinct collections. Hard raise
-    # before phase 2 so no partial verify() / upload work runs.
-    #
-    # Failures from phase 1 (impl is None) are skipped — they'll surface
-    # as ERROR-status results in phase 2 unless this dup raise short-
-    # circuits the whole session. ``abort_on_first_error`` doesn't apply
-    # here: the dup is a session-level user-input error, not a per-file
-    # engine failure.
+    # ---- Phase 1.5: session-wide invariant — unique collection_id. ----
+    # For ``combine_uploads = True`` subtypes, the pair
+    # ``(wire_source, collection_id)`` MUST be unique across the session:
+    # duplicates would emit colliding ``checkPath`` prefixes and identity
+    # hashes into the combined upload, and the backend would resolve them
+    # to the same entry. Hard raise before phase 2 — independent of
+    # ``abort_on_first_error`` since this is a session-level user-input
+    # error, not a per-file engine failure. Phase 1 failures (impl is
+    # None) are skipped here; they surface as phase 2 ERROR placeholders
+    # if not pre-empted by a dup raise.
     collisions: dict[tuple[str, str], list[CheckCollectionYamlSource]] = {}
     for impl, impl_class, _construct_exc, yaml_source in constructed:
         if impl is None or impl_class is None or not impl_class.combine_uploads:
@@ -210,8 +199,9 @@ def execute_check_collections(
             paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
             lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
         raise InvalidArgumentException(
-            "Duplicate collection names detected in session — each subtype that "
-            "combines uploads requires a unique 'name:' per file:\n" + "\n".join(lines)
+            "Duplicate collection identifier(s) detected in session — each "
+            "combine-upload subtype requires a unique identifier per file:\n"
+            + "\n".join(lines)
         )
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----

@@ -381,21 +381,14 @@ class SodaCloud:
     ) -> Optional[dict]:
         """Send N files' worth of check results in one ingestion request.
 
-        Used by ``execute_check_collections`` for subtypes whose impl
-        class declares ``combine_uploads = True`` (e.g. data standards).
-        All files in ``results`` MUST share the same ``wire_source``;
-        per-file routing happens on the backend via
-        ``firstSegmentOf(checkPath)`` → subtype identifier, so the
-        combined ``checks: [...]`` array can carry checks from N
-        different files of the same subtype without conflict.
+        Used by ``execute_check_collections`` for ``combine_uploads = True``
+        subtypes. All files in ``results`` MUST share the same
+        ``wire_source``; per-file routing is by ``firstSegmentOf(checkPath)``
+        → subtype identifier on the backend.
 
-        Empty ``results`` is a no-op — returns None without hitting the
-        backend.
-
-        On 200 OK, each per-file result has ``scan_id`` and
-        ``dataset_id`` populated from the response (the same scanId
-        applies to all files in the batch — that's the whole point of
-        the combined upload). On non-200, all per-file results get
+        Empty ``results`` is a no-op. On 200, the shared ``scanId`` from
+        the response is stamped on every per-file result. On non-200 (or
+        missing ``scanId``), every result is marked
         ``sending_results_to_soda_cloud_failed = True``.
         """
         if not results:
@@ -415,11 +408,9 @@ class SodaCloud:
                 if isinstance(cloud_url, str):
                     logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
                 scan_id = response_json.get("scanId")
-                # Stamp the shared scanId on every per-file result so
-                # downstream consumers (post-processing handlers, CLI
-                # output) can correlate to the Cloud-side scan row. If
-                # the response omits scanId, mark every per-file result
-                # as failed-to-send rather than guessing.
+                # The shared scanId correlates per-file results to the
+                # one Cloud-side scan row. Missing scanId → mark every
+                # result failed-to-send rather than guessing.
                 if scan_id:
                     for r in results:
                         r.scan_id = scan_id
@@ -1606,19 +1597,12 @@ def _build_combined_results_json_dict(
 ) -> dict:
     """Combined ``sodaCoreInsertScanResults`` payload covering N files.
 
-    Shape mirrors ``_build_contract_result_json_dict`` so the backend
-    ingestion path doesn't have to learn a second schema. Session-level
-    fields (``scanId``, ``definitionName``, data source, timestamps) come
-    from the first result — all files in a combined upload share a
-    dataset and therefore a qualified name and scan-def name. Aggregated
-    fields (``hasErrors``, ``hasWarns``, ``hasFailures``) are ORs over
-    per-file values. ``checks`` and ``logs`` are flat concatenations,
-    with log indices renumbered 0..N so they're monotonic across the
-    combined stream.
-
-    ``contract`` is always None: combined uploads only fire for
-    non-contract wire sources (the contract path keeps the per-file
-    upload model).
+    Shape mirrors ``_build_contract_result_json_dict`` — the backend
+    ingestion path uses one schema. Session-level fields (scanId,
+    definitionName, data source, timestamps) come from the first result;
+    ``hasErrors``/``hasWarns``/``hasFailures`` are ORs over per-file
+    values; ``checks`` and ``logs`` flatten across files. ``contract`` is
+    always None (combined uploads only fire for non-contract sources).
     """
     head = results[0]
     started_timestamps = [r.started_timestamp for r in results if r.started_timestamp]
@@ -1636,11 +1620,8 @@ def _build_combined_results_json_dict(
             log_records.extend(r.log_records)
     logs = _build_log_cloud_json_dicts(log_records)
 
-    # De-dup post-processing stages by name across files. The same stage
-    # declared by two files (e.g. both data standards request the
-    # "dwh-failed-rows" stage) should only appear once in the combined
-    # payload — the backend tracks one ONGOING stage per scan, not per
-    # check.
+    # De-dup post-processing stages by name: the backend tracks one
+    # ONGOING stage per scan, not per file.
     seen_stage_names: set[str] = set()
     post_processing_stages: list[dict] = []
     for r in results:
@@ -1666,10 +1647,8 @@ def _build_combined_results_json_dict(
                 for tu in r.token_usage
             )
 
-    # Ingestion mode: PARTIAL if any per-file check was EXCLUDED, else
-    # FULL. Mirrors the per-file rule in
-    # ``determine_verification_ingestion_mode`` aggregated over all checks
-    # in the batch.
+    # PARTIAL if any check was EXCLUDED, else FULL — same rule as
+    # ``determine_verification_ingestion_mode`` aggregated over the batch.
     ingestion_mode = VerificationIngestionMode.FULL
     for r in results:
         if any(check.outcome == CheckOutcome.EXCLUDED for check in r.check_results):
@@ -1691,9 +1670,8 @@ def _build_combined_results_json_dict(
             "checks": checks if checks else None,
             "logs": logs,
             "sourceOwner": "soda-core",
-            # Combined upload is never used for contracts — keep
-            # ``contract`` None so the backend's contract-handler routing
-            # falls through to scan-def-type dispatch for the subtype.
+            # Non-contract sources only; null lets backend routing fall
+            # through to scan-def-type dispatch.
             "contract": None,
             "postProcessingStages": post_processing_stages,
             "resultsIngestionMode": ingestion_mode.value,
