@@ -35,9 +35,9 @@ class PostgresMetadataTablesQuery(MetadataTablesQuery):
         select: list = [
             SELECT(
                 [
-                    COLUMN(current_database_expression, field_alias="table_catalog"),
-                    COLUMN("nspname", table_alias="n", field_alias="table_schema"),
-                    COLUMN("relname", table_alias="c", field_alias="table_name"),
+                    current_database_expression.AS("table_catalog"),
+                    COLUMN("nspname", table_alias="n").AS("table_schema"),
+                    COLUMN("relname", table_alias="c").AS("table_name"),
                     RAW_SQL(self.sql_dialect.relkind_table_type_sql_expression()),
                 ]
             ),

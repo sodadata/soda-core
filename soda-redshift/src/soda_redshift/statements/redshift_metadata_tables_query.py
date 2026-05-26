@@ -81,9 +81,9 @@ class RedshiftMetadataTablesQuery(MetadataTablesQuery):
         matview_select = [
             SELECT(
                 [
-                    COLUMN("database_name", field_alias="table_catalog"),
-                    COLUMN("schema_name", field_alias="table_schema"),
-                    COLUMN("name", field_alias="table_name"),
+                    COLUMN("database_name").AS("table_catalog"),
+                    COLUMN("schema_name").AS("table_schema"),
+                    COLUMN("name").AS("table_name"),
                     RAW_SQL("'MATERIALIZED VIEW' AS TABLE_TYPE"),
                 ]
             ),
