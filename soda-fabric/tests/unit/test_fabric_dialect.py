@@ -1,5 +1,5 @@
 from soda_core.common.metadata_types import SqlDataType
-from soda_core.common.sql_ast import CREATE_TABLE_COLUMN
+from soda_core.common.sql_ast import COUNT, CREATE_TABLE_COLUMN, STAR
 from soda_core.common.sql_dialect import FROM, RANDOM, SELECT
 from soda_fabric.common.data_sources.fabric_data_source import FabricSqlDialect
 
@@ -8,6 +8,11 @@ def test_random():
     sql_dialect: FabricSqlDialect = FabricSqlDialect()
     sql = sql_dialect.build_select_sql([SELECT(RANDOM()), FROM("a")])
     assert sql == "SELECT ABS(CAST(CHECKSUM(NEWID()) AS FLOAT)) / 2147483648.0\nFROM [a];"
+
+
+def test_count_renders_as_count_big():
+    # Inherits the COUNT_BIG override from SqlServerSqlDialect — guards against accidental regressions.
+    assert FabricSqlDialect().build_expression_sql(COUNT(STAR())) == "COUNT_BIG(*)"
 
 
 # ---------------------------------------------------------------------------
