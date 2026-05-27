@@ -414,11 +414,10 @@ class SodaCloud:
                 if scan_id:
                     for r in results:
                         r.scan_id = scan_id
-                        # The combined-upload backend resolves one dataset
-                        # per scan-definition; every per-file result in the
-                        # batch shares the same qualified name and therefore
-                        # the same dataset_id. Stamping per-result keeps
-                        # parity with the per-file send_contract_result path.
+                        # Each per-file result resolves its own dataset_id
+                        # from the shared response (matched by qualified
+                        # dataset name) — parity with the per-file
+                        # send_contract_result path.
                         r.check_collection.dataset_id = extract_dataset_id_from_response(
                             response_json, r.check_collection.soda_qualified_dataset_name
                         )

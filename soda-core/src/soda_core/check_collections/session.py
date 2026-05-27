@@ -49,6 +49,7 @@ def execute_check_collections(
     logs: Optional[Logs] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
+    expected_kinds: Optional[set[str]] = None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection YAML sources.
 
@@ -99,6 +100,17 @@ def execute_check_collections(
     fallback's ``build_error_result`` returns the right ``result_class``
     and the typed return stays honest. Defaults to ``CheckCollectionImpl``
     for callers that genuinely don't know a sensible subtype default.
+
+    ``expected_kinds`` is an opt-in set of permitted top-level ``kind:``
+    values. When set, the executor reads each yaml's ``kind:`` in phase 1
+    and — if a yaml declares a kind outside the set — collects it and
+    raises ``InvalidArgumentException`` at the end of phase 1 (before any
+    impl is verified). Subtype-narrowed public APIs
+    (``verify_data_standards``, future ``verify_reconciliations``, ...)
+    pass their own ``{kind}`` so dispatch matches the function name's
+    promise and per-yaml ``kind:`` is read exactly once (the same parse
+    that drives ``CheckCollectionImpl.for_kind(...)``). The universal
+    entrypoint leaves it ``None`` and accepts every registered kind.
     """
     parsed_data_timestamp: Optional[datetime] = _parse_data_timestamp(data_timestamp)
     # The yaml-level parser still takes the ISO string (it has its own
@@ -127,6 +139,10 @@ def execute_check_collections(
             CheckCollectionYamlSource,
         ]
     ] = []
+    # Offenders for ``expected_kinds`` rejection — collected during the
+    # phase 1 kind-dispatch read and raised eagerly after the loop so we
+    # never run any verify() for a wrong-kind session.
+    kind_offenders: list[tuple[CheckCollectionYamlSource, Optional[str]]] = []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
         try:
@@ -137,6 +153,9 @@ def execute_check_collections(
             # raises; never ``None``.
             yaml_object = yaml_source.parse()
             kind = yaml_object.read_string_opt("kind") or "contract"
+            if expected_kinds is not None and kind not in expected_kinds:
+                kind_offenders.append((yaml_source, kind))
+                continue
             impl_class = CheckCollectionImpl.for_kind(kind)
 
             yaml = impl_class.yaml_class.parse(
@@ -167,6 +186,23 @@ def execute_check_collections(
             if abort_on_first_error:
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
+
+    # ---- Phase 1.25: session-wide invariant — every yaml's kind is in ``expected_kinds``. ----
+    # Subtype-narrowed APIs (``verify_data_standards`` etc.) pass their
+    # own ``{kind}``; offenders are collected during phase 1's single
+    # kind-read above and raised here before any verify() runs. Session-
+    # level user-input error — ignore ``abort_on_first_error`` (mirrors
+    # the phase 1.5 dup-collection_id raise).
+    if kind_offenders:
+        expected_str = ", ".join(repr(k) for k in sorted(expected_kinds or ()))
+        offender_str = ", ".join(
+            f"{getattr(src, 'file_path', None) or repr(src)} (kind={kind!r})" for src, kind in kind_offenders
+        )
+        raise InvalidArgumentException(
+            f"Every yaml must declare 'kind:' in {{{expected_str}}} at the root. "
+            f"Offending file(s): {offender_str}. "
+            "Use execute_check_collections directly to verify mixed kinds."
+        )
 
     # ---- Phase 1.5: session-wide invariant — unique collection_id. ----
     # For ``combine_uploads = True`` subtypes, the pair
