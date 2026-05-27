@@ -883,7 +883,7 @@ class CheckCollectionImpl:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
 
-    def verify_on_agent(
+    def verify_on_runner(
         self,
         soda_cloud_impl: SodaCloud,
         variables: dict,
@@ -891,11 +891,22 @@ class CheckCollectionImpl:
         publish_results: bool,
         verbose: bool,
     ) -> CheckCollectionResult:
-        """Agent-path verification. Default: raise NotImplementedError.
+        """Runner-path verification (formerly agent execution).
 
-        Subtypes that support agent execution (``ContractImpl``) override.
+        Default: raise NotImplementedError. Subtypes that support remote
+        execution (``ContractImpl``) override.
         """
-        raise NotImplementedError(f"{self.display_name} does not support agent execution")
+        raise NotImplementedError(f"{self.display_name} does not support runner execution")
+
+    def verify_on_agent(self, *args, **kwargs) -> CheckCollectionResult:
+        """Deprecated alias for :py:meth:`verify_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated(
+            f"{type(self).__name__}.verify_on_agent",
+            f"{type(self).__name__}.verify_on_runner",
+        )
+        return self.verify_on_runner(*args, **kwargs)
 
     @classmethod
     def build_error_result(

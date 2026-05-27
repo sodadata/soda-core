@@ -64,7 +64,7 @@ def handle_verify_contract(
             blocking_timeout_in_minutes=blocking_timeout_in_minutes,
             check_paths=check_paths,
             check_selectors=check_selectors,
-            dwh_data_source_file_path=dwh_files if dwh_files is not None else diagnostics_warehouse_file_path,
+            dwh_data_source_file_path=dwh_files,
         )
 
         return interpret_contract_verification_result(contract_verification_result)

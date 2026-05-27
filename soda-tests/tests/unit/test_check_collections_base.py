@@ -271,10 +271,10 @@ def test_execute_check_collections_unknown_kind_fallback_uses_default_impl_class
     assert isinstance(session_result.results[0], _FakeResult)
 
 
-def test_check_collection_impl_default_verify_on_agent_raises_not_implemented():
+def test_check_collection_impl_default_verify_on_runner_raises_not_implemented():
     impl = _FakeImpl(yaml=_FakeYaml(yaml_source=_LabelledSource("a")))
     with pytest.raises(NotImplementedError) as exc_info:
-        impl.verify_on_agent(
+        impl.verify_on_runner(
             soda_cloud_impl=None,
             variables={},
             blocking_timeout_in_minutes=60,
@@ -282,6 +282,28 @@ def test_check_collection_impl_default_verify_on_agent_raises_not_implemented():
             verbose=False,
         )
     assert "fake" in str(exc_info.value)
+
+
+def test_check_collection_impl_verify_on_agent_alias_warns_and_delegates():
+    """The deprecated ``verify_on_agent`` alias on the base emits a
+    DeprecationWarning and forwards to ``verify_on_runner`` — matches
+    the alias pattern on ``ContractImpl``."""
+    import warnings
+
+    impl = _FakeImpl(yaml=_FakeYaml(yaml_source=_LabelledSource("a")))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(NotImplementedError):
+            impl.verify_on_agent(
+                soda_cloud_impl=None,
+                variables={},
+                blocking_timeout_in_minutes=60,
+                publish_results=False,
+                verbose=False,
+            )
+    assert any(
+        issubclass(w.category, DeprecationWarning) and "verify_on_agent" in str(w.message) for w in caught
+    ), "verify_on_agent alias should emit a DeprecationWarning"
 
 
 def test_for_kind_returns_registered_impl_class():

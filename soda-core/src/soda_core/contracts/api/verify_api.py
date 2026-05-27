@@ -152,8 +152,9 @@ def verify_contracts_on_runner(
             "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
         )
 
-    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
-
+    # ``__attempt_pick_first_element`` handles None safely; no list-type
+    # assertion needed (an earlier assert here tripped on the common
+    # ``dataset_identifiers=None`` call shape).
     contract_file_path = __attempt_pick_first_element(contract_file_paths)
     dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
 
