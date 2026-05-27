@@ -130,27 +130,20 @@ def execute_check_collections(
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
         try:
-            # Peek the kind from the YAML root. Cheap parse (YAML library
-            # call); the subtype's full parse below repeats this work but
-            # also walks columns/checks/variables which is the heavy part.
+            # Parse the YAML once for kind dispatch; reuse the parsed
+            # object inside the subtype's ``yaml_class.parse(...)`` so the
+            # subtype's __init__ doesn't re-parse the same source.
             yaml_object = yaml_source.parse()
             kind = (yaml_object.read_string_opt("kind") if yaml_object is not None else None) or "contract"
             impl_class = CheckCollectionImpl.for_kind(kind)
 
             yaml = impl_class.yaml_class.parse(
                 yaml_source=yaml_source,
+                yaml_object=yaml_object,
                 provided_variable_values=variables,
                 data_timestamp=data_timestamp_str,
                 primary_data_source_impl=primary_data_source_impl,
             )
-            # Forward the yaml's resolved data_timestamp / execution_timestamp
-            # to the impl when the yaml exposes them (ContractYaml does; the
-            # base CheckCollectionYaml in POC scope does not yet). Fall back
-            # to the boundary-parsed datetime otherwise — CheckCollectionImpl
-            # types data_timestamp as Optional[datetime], so the fallback must
-            # never be a string.
-            yaml_data_timestamp = getattr(yaml, "data_timestamp", None)
-            yaml_execution_timestamp = getattr(yaml, "execution_timestamp", None)
             impl = impl_class(
                 yaml=yaml,
                 data_source_impl=data_source_impl,
@@ -161,8 +154,11 @@ def execute_check_collections(
                 all_data_source_impls=all_data_source_impls,
                 dwh_files=dwh_files,
                 logs=logs,
-                data_timestamp=yaml_data_timestamp if yaml_data_timestamp is not None else parsed_data_timestamp,
-                execution_timestamp=yaml_execution_timestamp,
+                # ``data_timestamp`` and ``execution_timestamp`` are
+                # first-class fields on ``CheckCollectionYaml``: every
+                # subtype yaml has them after construction.
+                data_timestamp=yaml.data_timestamp,
+                execution_timestamp=yaml.execution_timestamp,
             )
             constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:

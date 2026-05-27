@@ -40,12 +40,12 @@ _NO_COMBINE_KIND = "dup-no-combine-uploads-stub"
 class _StubYaml(CheckCollectionYaml):
     """Yaml stub that records its source for verify()-time inspection."""
 
-    def __init__(self, yaml_source):
-        self.yaml_source = yaml_source
-
     @classmethod
-    def parse(cls, yaml_source, **_kwargs):
-        return cls(yaml_source=yaml_source)
+    def parse(cls, yaml_source, **kwargs):
+        # Delegate to base init so first-class fields (``yaml_object``,
+        # ``kind``, ``data_timestamp``, ``execution_timestamp``) get
+        # populated — the executor reads them post-parse.
+        return cls(yaml_source=yaml_source, yaml_object=kwargs.get("yaml_object"))
 
 
 class _StubResult(CheckCollectionResult):

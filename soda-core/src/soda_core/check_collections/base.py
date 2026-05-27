@@ -22,6 +22,7 @@ from numbers import Number
 from typing import Any, Optional
 
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
@@ -38,7 +39,7 @@ from soda_core.common.sql_dialect import (
     DatasetIdentifier,
     SqlExpressionStr,
 )
-from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.common.yaml import CheckCollectionYamlSource, YamlObject
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     CheckOutcome,
@@ -194,25 +195,76 @@ class CheckCollectionSessionResult:
 class CheckCollectionYaml:
     """Parsed YAML for one check-collection file.
 
-    Concrete subtypes (e.g. ``ContractYaml``) inherit from this. They only
-    need to override ``__init__`` to read their extra fields; ``parse``
-    constructs via ``cls(yaml_source=..., ...)`` and is inherited as-is.
+    First-class properties populated by the base ``__init__``:
+
+      - ``yaml_source``: the originating ``CheckCollectionYamlSource``.
+      - ``yaml_object``: the parsed ``YamlObject`` root — parsed once
+        here, reused by subtypes. The executor's kind-peek pass passes
+        the pre-parsed object back in via the ``yaml_object`` kwarg so
+        the YAML is parsed exactly once per session.
+      - ``kind``: the YAML root's ``kind:`` field (used by the executor
+        for subtype dispatch). May be ``None`` for files that omit it
+        (the executor defaults missing kinds to ``"contract"`` for BC).
+      - ``execution_timestamp``: when this session started — captured at
+        construct time so every subtype has the same one.
+      - ``data_timestamp``: the user-supplied (or implicit) data
+        timestamp, normalised to ``datetime``. Falls back to
+        ``execution_timestamp`` when the caller didn't supply one.
+
+    Concrete subtypes call ``super().__init__(...)`` and add their own
+    fields. ``ContractYaml`` is the canonical example.
     """
+
+    def __init__(
+        self,
+        yaml_source: CheckCollectionYamlSource,
+        yaml_object: Optional[YamlObject] = None,
+        provided_variable_values: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
+        primary_data_source_impl: Optional[DataSourceImpl] = None,
+    ):
+        self.yaml_source: CheckCollectionYamlSource = yaml_source
+        # The executor's kind-peek pass parses each YAML once and passes
+        # the result back in. When called directly (no executor), parse
+        # here. Either way the YAML is parsed exactly once.
+        self.yaml_object: YamlObject = yaml_object if yaml_object is not None else yaml_source.parse()
+        self.kind: Optional[str] = self.yaml_object.read_string_opt("kind") if self.yaml_object is not None else None
+        self.execution_timestamp: datetime = datetime.now(timezone.utc)
+        self.data_timestamp: datetime = _resolve_data_timestamp_str(data_timestamp, self.execution_timestamp)
 
     @classmethod
     def parse(
         cls,
         yaml_source: CheckCollectionYamlSource,
+        yaml_object: Optional[YamlObject] = None,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ) -> "CheckCollectionYaml":
         return cls(
             yaml_source=yaml_source,
+            yaml_object=yaml_object,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
+
+
+def _resolve_data_timestamp_str(
+    data_timestamp: Optional[str],
+    default_when_unset_or_invalid: datetime,
+) -> datetime:
+    """Normalise a user-supplied ISO-8601 ``data_timestamp`` string to a
+    ``datetime``; fall back to ``default_when_unset_or_invalid`` when the
+    caller didn't supply one or the string fails to parse."""
+    if isinstance(data_timestamp, str):
+        parsed = convert_str_to_datetime(data_timestamp)
+        if isinstance(parsed, datetime):
+            return parsed
+        logger.error(
+            f"Provided 'data_timestamp' value is not a correct ISO 8601 " f"timestamp format: '{data_timestamp}'"
+        )
+    return default_when_unset_or_invalid
 
 
 class CheckCollectionImpl:

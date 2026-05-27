@@ -27,14 +27,12 @@ from soda_core.contracts.contract_verification import (
 
 
 class _FakeYaml(CheckCollectionYaml):
-    """Sentinel yaml that records the yaml_source it was parsed from."""
+    """Sentinel yaml that records the yaml_source it was parsed from.
 
-    def __init__(self, yaml_source):
-        self.yaml_source = yaml_source
-
-    @classmethod
-    def parse(cls, yaml_source, provided_variable_values=None, data_timestamp=None, **kwargs):
-        return cls(yaml_source=yaml_source)
+    Inherits the base ``__init__`` so the executor's post-parse reads of
+    ``yaml.data_timestamp`` / ``yaml.execution_timestamp`` see real
+    values (set by ``CheckCollectionYaml.__init__``).
+    """
 
 
 class _FakeResult(CheckCollectionResult):
