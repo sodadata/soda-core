@@ -197,8 +197,7 @@ def execute_check_collections(
     if dup_lines:
         raise InvalidArgumentException(
             "Duplicate collection identifier(s) detected in session — each "
-            "combine-upload subtype requires a unique identifier per file:\n"
-            + "\n".join(dup_lines)
+            "combine-upload subtype requires a unique identifier per file:\n" + "\n".join(dup_lines)
         )
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
@@ -278,9 +277,7 @@ def execute_check_collections(
             if impl is None or impl_class is None or not impl_class.combine_uploads:
                 continue
             response_for_file = (
-                response_json_by_wire_source.get(impl_class.wire_source)
-                if id(result) in uploaded_ids
-                else None
+                response_json_by_wire_source.get(impl_class.wire_source) if id(result) in uploaded_ids else None
             )
             impl.run_post_processing_handlers(result, response_for_file)
 

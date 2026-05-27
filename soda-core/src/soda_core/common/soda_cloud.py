@@ -1993,9 +1993,7 @@ def determine_verification_ingestion_mode(
     return ingestion_mode
 
 
-def extract_dataset_id_from_response(
-    soda_cloud_response_json: dict, qualified_dataset_name: str
-) -> Optional[str]:
+def extract_dataset_id_from_response(soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
     """Find the dataset_id matching ``qualified_dataset_name`` in a Cloud ingestion response.
 
     The Cloud response carries per-check ``datasets`` entries; we walk

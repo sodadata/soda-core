@@ -170,6 +170,26 @@ class CheckCollectionSessionResult:
 
     results: list[CheckCollectionResult] = field(default_factory=list)
 
+    @property
+    def has_errors(self) -> bool:
+        """True if any per-file result has an engine/parse ERROR status."""
+        return any(r.has_errors for r in self.results)
+
+    @property
+    def is_failed(self) -> bool:
+        """True if any per-file result has at least one FAILED check."""
+        return any(r.is_failed for r in self.results)
+
+    @property
+    def is_warned(self) -> bool:
+        """True if any per-file result has at least one WARN check."""
+        return any(r.is_warned for r in self.results)
+
+    @property
+    def sending_results_to_soda_cloud_failed(self) -> bool:
+        """True if any per-file result failed to send to Soda Cloud."""
+        return any(r.sending_results_to_soda_cloud_failed for r in self.results)
+
 
 class CheckCollectionYaml:
     """Parsed YAML for one check-collection file.
