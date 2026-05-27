@@ -116,7 +116,7 @@ def test_more_complex_setup_with_existing_session(data_source_test_helper: DataS
         variables=None,
         data_source_impls=[my_data_source_impl],
         soda_cloud_impl=mock_cloud,
-        soda_cloud_use_agent=False,
+        soda_cloud_use_runner=False,
         soda_cloud_publish_results=False,
         dwh_data_source_file_path=None,
     )

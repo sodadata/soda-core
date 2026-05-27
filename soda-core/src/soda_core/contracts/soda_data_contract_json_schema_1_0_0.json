@@ -37,8 +37,38 @@
                 "additionalProperties": false
             }
         },
+        "soda_runner": {
+            "description": "The runner configuration to be used within the contract file. Replaces 'soda_agent'; both keys are accepted for backwards compatibility but not at the same time.",
+            "type": "object",
+            "properties": {
+                "checks_schedule": {
+                    "type": "object",
+                    "properties": {
+                        "cron": {
+                            "type": "string",
+                            "description": "Cron expression in the format '* * * * *' (minute hour day month weekday). Requires string in quotes."
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "The timezone to be used within the contract file"
+                        },
+                        "variables": {
+                            "type": "object",
+                            "description": "The variables to be used within the contract file",
+                            "additionalProperties": {
+                                "type": [
+                                    "string",
+                                    "number"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "soda_agent": {
-            "description": "The agent configuration to be used within the contract file",
+            "description": "DEPRECATED: use 'soda_runner' instead. The runner configuration to be used within the contract file. Kept for backwards compatibility.",
             "type": "object",
             "properties": {
                 "checks_schedule": {
@@ -844,6 +874,47 @@
     "required": [
         "dataset",
         "columns"
+    ],
+    "oneOf": [
+        {
+            "description": "Contract uses the canonical 'soda_runner' key.",
+            "required": [
+                "soda_runner"
+            ],
+            "not": {
+                "required": [
+                    "soda_agent"
+                ]
+            }
+        },
+        {
+            "description": "DEPRECATED: contract uses the legacy 'soda_agent' key.",
+            "required": [
+                "soda_agent"
+            ],
+            "not": {
+                "required": [
+                    "soda_runner"
+                ]
+            }
+        },
+        {
+            "description": "Contract has neither soda_runner nor soda_agent.",
+            "not": {
+                "anyOf": [
+                    {
+                        "required": [
+                            "soda_runner"
+                        ]
+                    },
+                    {
+                        "required": [
+                            "soda_agent"
+                        ]
+                    }
+                ]
+            }
+        }
     ],
     "$defs": {
         "generic_check_properties": {

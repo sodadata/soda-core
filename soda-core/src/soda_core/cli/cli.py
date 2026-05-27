@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import signal
 import sys
 import traceback
@@ -156,12 +157,22 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         help="Set variable values to be used in the contract with format '--set <variable_name>=<variable_value>'.",
     )
     verify_parser.add_argument(
-        "-a",
-        "--use-agent",
+        "-r",
+        "--use-runner",
         const=True,
         action="store_const",
         default=False,
-        help="Executes contract verification on Soda Agent instead of locally in this library.",
+        help="Executes contract verification on the Soda Runner instead of locally in this library.",
+    )
+    # Deprecated alias kept for backwards compatibility (formerly Soda Agent).
+    verify_parser.add_argument(
+        "-a",
+        "--use-agent",
+        dest="use_agent_deprecated",
+        const=True,
+        action="store_const",
+        default=False,
+        help=argparse.SUPPRESS,
     )
     verify_parser.add_argument(
         "-btm",
@@ -169,7 +180,7 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         type=int,
         default=60,
         help="Max time in minutes that the CLI should wait for the contract "
-        "verification to complete on Soda Agent.  Default is 60 minutes.",
+        "verification to complete on the Soda Runner. Default is 60 minutes.",
     )
     verify_parser.add_argument(
         "-p",
@@ -214,6 +225,13 @@ def _setup_contract_verify_command(contract_parsers) -> None:
         nargs="?",
         help="Specify the path to the diagnostics warehouse configuration file. ",
     )
+    verify_parser.add_argument(
+        "-mdw",
+        "--metadata-diagnostics-warehouse",
+        type=str,
+        nargs="?",
+        help="Specify the path to the metadata diagnostics warehouse configuration file. ",
+    )
 
     def handle(args):
         contract_file_path = args.contract
@@ -225,9 +243,16 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             exit_with_code(ExitCode.LOG_ERRORS)
         publish = args.publish
         verbose = args.verbose
-        use_agent = args.use_agent
+        use_runner = args.use_runner
+        if getattr(args, "use_agent_deprecated", False):
+            print(
+                "warning: -a/--use-agent is deprecated; use -r/--use-runner instead.",
+                file=sys.stderr,
+            )
+            use_runner = use_runner or args.use_agent_deprecated
         blocking_timeout_in_minutes = args.blocking_timeout_in_minutes
         diagnostics_warehouse_file_path = args.diagnostics_warehouse
+        metadata_dwh_file_path = args.metadata_diagnostics_warehouse
 
         # Parse --check-filter expressions
         try:
@@ -244,11 +269,12 @@ def _setup_contract_verify_command(contract_parsers) -> None:
             variables,
             publish,
             verbose,
-            use_agent,
+            use_runner,
             blocking_timeout_in_minutes,
             args.check_paths,
             check_selectors,
             diagnostics_warehouse_file_path,
+            metadata_dwh_file_path,
         )
 
         exit_with_code(exit_code)

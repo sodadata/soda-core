@@ -54,7 +54,7 @@ def build_contract_impl(
     """
     contract_yaml_source = ContractYamlSource.from_str(dedent_and_strip(yaml_str))
     contract_yaml: ContractYaml = ContractYaml.parse(
-        contract_yaml_source=contract_yaml_source,
+        yaml_source=contract_yaml_source,
         provided_variable_values=variables or {},
     )
     own_logs = logs is None
@@ -64,13 +64,13 @@ def build_contract_impl(
     try:
         contract_impl = ContractImpl(
             logs=logs,
-            contract_yaml=contract_yaml,
+            yaml=contract_yaml,
             only_validate_without_execute=True,
             data_source_impl=None,
             all_data_source_impls={},
             data_timestamp=contract_yaml.data_timestamp or now,
             execution_timestamp=contract_yaml.execution_timestamp or now,
-            soda_cloud=None,
+            soda_cloud_impl=None,
             publish_results=False,
         )
         return contract_impl
@@ -137,6 +137,6 @@ def validate_contract(yaml_str: str, variables: Optional[dict[str, str | int | f
         only_validate_without_execute=True,
         variables=variables,
         soda_cloud_publish_results=False,
-        soda_cloud_use_agent=False,
+        soda_cloud_use_runner=False,
     )
     return result

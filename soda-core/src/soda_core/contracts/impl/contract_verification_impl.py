@@ -1,27 +1,18 @@
 from __future__ import annotations
 
 from abc import ABC
-from datetime import timezone
 from enum import Enum
 from io import StringIO
-from logging import LogRecord
 from typing import Protocol
 
 from ruamel.yaml import YAML
+from soda_core.check_collections.base import CheckCollectionImpl
+from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.env_config_helper import EnvConfigHelper
-from soda_core.common.exceptions import (
-    InvalidRegexException,
-    SodaCoreException,
-    get_exception_stacktrace,
-)
-from soda_core.common.logging_constants import Emoticons, ExtraKeys
-from soda_core.common.logs import Location, Logs
-from soda_core.common.metadata_types import SamplerType
+from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.soda_cloud_converter import map_sampler_type_from_dto
-from soda_core.common.soda_cloud_dto import DatasetConfigurationDTO
 from soda_core.common.sql_dialect import *
 from soda_core.common.yaml import (
     ContractYamlSource,
@@ -30,19 +21,15 @@ from soda_core.common.yaml import (
 )
 from soda_core.contracts.contract_verification import (
     Check,
+    CheckCollectionStatus,
     CheckOutcome,
     CheckResult,
-    Contract,
     ContractVerificationResult,
     ContractVerificationSessionResult,
-    ContractVerificationStatus,
-    DataSource,
     Measurement,
     PostProcessingStage,
-    PostProcessingStageState,
     SodaException,
     Threshold,
-    YamlFileContentInfo,
 )
 from soda_core.contracts.impl.check_selector import CheckSelector
 from soda_core.contracts.impl.contract_yaml import (
@@ -55,7 +42,9 @@ from soda_core.contracts.impl.contract_yaml import (
     ThresholdYaml,
     ValidReferenceDataYaml,
 )
-from tabulate import tabulate
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -69,7 +58,7 @@ class ContractVerificationHandler(ABC):
         contract_verification_result: ContractVerificationResult,
         soda_cloud: SodaCloud,
         soda_cloud_send_results_response_json: dict,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         pass
 
@@ -103,10 +92,10 @@ class ContractVerificationSessionImpl:
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
     @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
     @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
-    @param soda_cloud_use_agent_blocking_timeout_in_minutes: The timeout for the Soda Cloud agent.
-    @param dwh_data_source_file_path: The file path to the Diagnostics Warehouse data source.
+    @param soda_cloud_use_runner: If True, use the Soda Cloud Runner (formerly Soda Agent) for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud Runner.
+    @param soda_cloud_use_runner_blocking_timeout_in_minutes: The timeout for the Soda Cloud Runner.
+    @param dwh_files: Bundled Diagnostics Warehouse YAML file paths (primary + optional metadata target).
     """
 
     @classmethod
@@ -120,12 +109,32 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
         soda_cloud_publish_results: bool = False,
-        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
         check_selectors: Optional[list[CheckSelector]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        **kwargs,
     ):
+        # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
+        # normalize-at-bottom lets us forward the new param to deprecated_kwarg without
+        # tripping its conflict check when the caller only supplied the legacy name.
+        soda_cloud_use_runner = deprecated_kwarg(
+            kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner
+        )
+        soda_cloud_use_runner_blocking_timeout_in_minutes = deprecated_kwarg(
+            kwargs,
+            "soda_cloud_use_agent_blocking_timeout_in_minutes",
+            "soda_cloud_use_runner_blocking_timeout_in_minutes",
+            soda_cloud_use_runner_blocking_timeout_in_minutes,
+        )
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+        if soda_cloud_use_runner is None:
+            soda_cloud_use_runner = False
+        if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
+            soda_cloud_use_runner_blocking_timeout_in_minutes = 60
+
         logs: Logs = Logs()
 
         # Validate input contract_yaml_sources
@@ -154,7 +163,7 @@ class ContractVerificationSessionImpl:
         else:
             assert isinstance(data_source_yaml_sources, list)
             assert all(
-                isinstance(data_source_yaml_source, DataSourceYamlSource) or soda_cloud_use_agent
+                isinstance(data_source_yaml_source, DataSourceYamlSource) or soda_cloud_use_runner
                 for data_source_yaml_source in data_source_yaml_sources
             )
 
@@ -165,21 +174,21 @@ class ContractVerificationSessionImpl:
         # Validate input soda_cloud_skip_publish
         assert isinstance(soda_cloud_publish_results, bool)
 
-        # Validate input soda_cloud_use_agent
-        assert isinstance(soda_cloud_use_agent, bool)
+        # Validate input soda_cloud_use_runner
+        assert isinstance(soda_cloud_use_runner, bool)
 
-        # Validate input soda_cloud_use_agent_blocking_timeout_in_minutes
-        assert isinstance(soda_cloud_use_agent_blocking_timeout_in_minutes, int)
+        # Validate input soda_cloud_use_runner_blocking_timeout_in_minutes
+        assert isinstance(soda_cloud_use_runner_blocking_timeout_in_minutes, int)
 
         if check_selectors is None:
             check_selectors = []
 
-        if soda_cloud_use_agent:
-            contract_verification_results: list[ContractVerificationResult] = cls._execute_on_agent(
+        if soda_cloud_use_runner:
+            contract_verification_results: list[ContractVerificationResult] = cls._execute_on_runner(
                 contract_yaml_sources=contract_yaml_sources,
                 variables=variables,
                 soda_cloud_impl=soda_cloud_impl,
-                soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 soda_cloud_verbose=soda_cloud_verbose,
             )
@@ -196,7 +205,7 @@ class ContractVerificationSessionImpl:
                 soda_cloud_impl=soda_cloud_impl,
                 soda_cloud_publish_results=soda_cloud_publish_results,
                 check_selectors=check_selectors,
-                dwh_data_source_file_path=dwh_data_source_file_path,
+                dwh_files=dwh_files,
             )
         return ContractVerificationSessionResult(contract_verification_results=contract_verification_results)
 
@@ -213,10 +222,10 @@ class ContractVerificationSessionImpl:
         soda_cloud_impl: Optional[SodaCloud],
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> list[ContractVerificationResult]:
-        "Verifies a Contract locally."
-        contract_verification_results: list[ContractVerificationResult] = []
+        "Verifies Contracts locally by funnelling through ``execute_check_collections``."
+        from soda_core.check_collections.session import execute_check_collections
 
         data_source_impls_by_name: dict[str, DataSourceImpl] = cls._build_data_source_impls_by_name(
             data_source_impls=data_source_impls,
@@ -224,45 +233,54 @@ class ContractVerificationSessionImpl:
             provided_variable_values=provided_variable_values,
         )
 
-        opened_data_sources: list[DataSourceImpl] = []
+        # Track which data sources had no open connection at session start so
+        # we only close those that this session itself opened (caller-supplied
+        # pre-opened connections are left alone, matching historical behavior).
+        names_to_close: list[str] = [
+            name for name, ds in data_source_impls_by_name.items() if not ds.has_open_connection()
+        ]
+
+        # Contract convention: the parse-time "primary" data source is the
+        # entry registered under the literal name ``"primary_datasource"``
+        # in ``data_source_impls_by_name``. Resolve here so the universal
+        # ``execute_check_collections`` executor stays free of contract-
+        # specific naming conventions.
+        primary_data_source_impl: Optional[DataSourceImpl] = data_source_impls_by_name.get("primary_datasource")
         try:
-            for contract_yaml_source in contract_yaml_sources:
-                try:
-                    contract_yaml: ContractYaml = ContractYaml.parse(
-                        contract_yaml_source=contract_yaml_source,
-                        provided_variable_values=provided_variable_values,
-                        data_timestamp=data_timestamp,
-                        primary_data_source_impl=data_source_impls_by_name.get("primary_datasource"),
-                    )
-                    data_source_name: str = (
-                        contract_yaml.dataset[: contract_yaml.dataset.find("/")] if contract_yaml.dataset else None
-                    )
-                    data_source_impl: Optional[DataSourceImpl] = (
-                        cls._get_data_source_impl(data_source_name, data_source_impls_by_name, opened_data_sources)
-                        if (contract_yaml and data_source_name and not only_validate_without_execute)
-                        else None
-                    )
-                    contract_impl: ContractImpl = ContractImpl(
-                        contract_yaml=contract_yaml,
-                        only_validate_without_execute=only_validate_without_execute,
-                        data_timestamp=contract_yaml.data_timestamp,
-                        execution_timestamp=contract_yaml.execution_timestamp,
-                        data_source_impl=data_source_impl,
-                        all_data_source_impls=data_source_impls_by_name,
-                        soda_cloud=soda_cloud_impl,
-                        publish_results=soda_cloud_publish_results,
-                        logs=logs,
-                        check_selectors=check_selectors,
-                        dwh_data_source_file_path=dwh_data_source_file_path,
-                    )
-                    contract_verification_result: ContractVerificationResult = contract_impl.verify()
-                    contract_verification_results.append(contract_verification_result)
-                except Exception as e:
-                    raise e
+            # Single-input contract callers historically re-raise on parse /
+            # construction failure (tests rely on ``pytest.raises(...)``);
+            # multi-input callers isolate per-item errors. ``ContractImpl``
+            # resolves its own per-contract data source from
+            # ``all_data_source_impls`` inside ``__init__``.
+            #
+            # Dispatch is by-kind: each contract yaml routes via its
+            # top-level ``kind:`` field (defaulting to ``"contract"`` for
+            # BC with existing YAMLs that don't declare one).
+            session_result = execute_check_collections(
+                yaml_sources=list(contract_yaml_sources),
+                data_source_impl=None,
+                soda_cloud_impl=soda_cloud_impl,
+                publish_results=soda_cloud_publish_results,
+                only_validate_without_execute=only_validate_without_execute,
+                variables=provided_variable_values,
+                data_timestamp=data_timestamp,
+                all_data_source_impls=data_source_impls_by_name,
+                check_selectors=check_selectors,
+                dwh_files=dwh_files,
+                abort_on_first_error=(len(contract_yaml_sources) == 1),
+                logs=logs,
+                primary_data_source_impl=primary_data_source_impl,
+                # The contract surface publishes ``list[ContractVerificationResult]``;
+                # use ``ContractImpl`` for unknown-kind fallback so the ERROR
+                # placeholder's ``result_class`` matches that declared return.
+                default_impl_class=ContractImpl,
+            )
         finally:
-            for data_source_impl in opened_data_sources:
-                data_source_impl.close_connection()
-        return contract_verification_results
+            for name in names_to_close:
+                ds = data_source_impls_by_name.get(name)
+                if ds is not None and ds.has_open_connection():
+                    ds.close_connection()
+        return list(session_result.results)
 
     @classmethod
     def _build_data_source_impls_by_name(
@@ -299,52 +317,80 @@ class ContractVerificationSessionImpl:
         return None
 
     @classmethod
-    def _get_data_source_impl(
-        cls,
-        data_source_name: Optional[str],
-        data_source_impl_by_name: dict[str, DataSourceImpl],
-        opened_data_sources: list[DataSourceImpl],
-    ) -> Optional[DataSourceImpl]:
-        if data_source_name is None:
-            return None
-        data_source_impl: Optional[DataSourceImpl] = data_source_impl_by_name.get(data_source_name)
-        if isinstance(data_source_impl, DataSourceImpl):
-            if not data_source_impl.has_open_connection():
-                data_source_impl.open_connection()
-                opened_data_sources.append(data_source_impl)
-            return data_source_impl
-        else:
-            logger.error(f"Data source '{data_source_name}' not found")
-
-    @classmethod
-    def _execute_on_agent(
+    def _execute_on_runner(
         cls,
         contract_yaml_sources: list[ContractYamlSource],
         variables: dict[str, str],
         soda_cloud_impl: Optional[SodaCloud],
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: int,
         soda_cloud_publish_results: bool,
         soda_cloud_verbose: bool,
     ) -> list[ContractVerificationResult]:
-        "Verifies Contracts on the Soda Cloud agent."
+        "Verifies Contracts on the Soda Cloud Runner (formerly agent)."
         contract_verification_results: list[ContractVerificationResult] = []
 
         for contract_yaml_source in contract_yaml_sources:
             try:
                 contract_yaml: ContractYaml = ContractYaml.parse(
-                    contract_yaml_source=contract_yaml_source, provided_variable_values=variables
+                    yaml_source=contract_yaml_source, provided_variable_values=variables
                 )
-                contract_verification_result: ContractVerificationResult = soda_cloud_impl.verify_contract_on_agent(
-                    contract_yaml=contract_yaml,
+                # Build a ContractImpl whose only job is to dispatch through
+                # ``verify_on_runner``. ``data_source_impl`` and
+                # ``soda_cloud_impl`` are left None on the impl, and
+                # ``only_validate_without_execute=True`` keeps the engine
+                # from connecting to a data source or executing queries.
+                # ``__init__`` is NOT a no-op: it parses columns/checks,
+                # builds the metrics resolver, resolves the row-count
+                # metric, constructs the dataset CTE, and instantiates
+                # registered extensions. None of that hits the network,
+                # but any errors logged during the parse are popped from
+                # the impl's own ``Logs`` below and prepended onto the
+                # returned result — otherwise ``soda_cloud.verify_contract
+                # _on_runner``'s late-bound ``Logs()`` (which starts AFTER
+                # this construction) would silently drop them.
+                contract_impl: ContractImpl = ContractImpl(
+                    yaml=contract_yaml,
+                    only_validate_without_execute=True,
+                )
+                init_log_records = contract_impl.logs.pop_log_records()
+                contract_impl.logs.remove_from_root_logger()
+
+                contract_verification_result: ContractVerificationResult = contract_impl.verify_on_runner(
+                    soda_cloud_impl=soda_cloud_impl,
                     variables=variables,
-                    blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+                    blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
                     publish_results=soda_cloud_publish_results,
                     verbose=soda_cloud_verbose,
                 )
+                if init_log_records:
+                    contract_verification_result.log_records = init_log_records + (
+                        contract_verification_result.log_records or []
+                    )
                 contract_verification_results.append(contract_verification_result)
             except:
                 logger.error(msg=f"Could not verify contract {contract_yaml_source}", exc_info=True)
         return contract_verification_results
+
+    @classmethod
+    def _execute_on_agent(cls, *args, **kwargs) -> list[ContractVerificationResult]:
+        """Deprecated alias for :py:meth:`_execute_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
+
+        warn_deprecated(
+            "ContractVerificationSessionImpl._execute_on_agent",
+            "ContractVerificationSessionImpl._execute_on_runner",
+        )
+        # Map the legacy timeout kwarg to the canonical one. We accept either name
+        # for backwards compatibility; the helper raises on conflicting values.
+        kwargs["soda_cloud_use_runner_blocking_timeout_in_minutes"] = deprecated_kwarg(
+            kwargs,
+            "soda_cloud_use_agent_blocking_timeout_in_minutes",
+            "soda_cloud_use_runner_blocking_timeout_in_minutes",
+            kwargs.get("soda_cloud_use_runner_blocking_timeout_in_minutes"),
+        )
+        if kwargs["soda_cloud_use_runner_blocking_timeout_in_minutes"] is None:
+            del kwargs["soda_cloud_use_runner_blocking_timeout_in_minutes"]
+        return cls._execute_on_runner(*args, **kwargs)
 
 
 class ContractImplExtension(Protocol):
@@ -358,554 +404,172 @@ class ContractImplExtension(Protocol):
         return []
 
 
-class ContractImpl:
-    contract_impl_extensions: dict[str, type[ContractImplExtension]] = {}
+class ContractImpl(CheckCollectionImpl):
+    """Contract subtype — same engine as ``CheckCollectionImpl``, contract identity.
 
-    @classmethod
-    def register_extension(cls, name: str, extension_cls: type[ContractImplExtension]) -> None:
-        cls.contract_impl_extensions[name] = extension_cls
+    Engine logic (parse columns/checks, resolve metrics, build queries,
+    execute, upload to Cloud) is inherited from ``CheckCollectionImpl``.
+    """
+
+    kind: str = "contract"
+    wire_source: str = "soda-contract"
+    display_name: str = "contract"
+    yaml_class: type[ContractYaml] = ContractYaml
+    result_class: type[ContractVerificationResult] = ContractVerificationResult
+    # Contracts upload with a bare (un-prefixed) ``checkPath`` — the
+    # backend's contract ingestion path doesn't route by
+    # ``firstSegmentOf(checkPath)``, so ``collection_id`` is not needed.
+    requires_collection_id: bool = False
+
+    # Per-subtype isolated extension registry. ``CheckCollectionImpl``'s
+    # ``register_extension`` auto-isolates this dict at registration time, so
+    # registering on ``ContractImpl`` never touches the base dict or any
+    # sibling subtype. The explicit declaration here makes the isolation
+    # visible to static analysis and to anyone inspecting the class for
+    # its extension surface.
+    impl_extensions: dict[str, type[ContractImplExtension]] = {}
+
+    def identity_prefix(self) -> tuple:
+        """Contracts emit checks with no identity prefix so per-check
+        identity hashes stay byte-identical to historical emissions."""
+        return ()
 
     def __init__(
         self,
-        logs: Logs,
-        contract_yaml: ContractYaml,
-        only_validate_without_execute: bool,
-        data_source_impl: Optional[DataSourceImpl],
-        all_data_source_impls: dict[str, DataSourceImpl],
-        data_timestamp: datetime,
-        execution_timestamp: datetime,
-        soda_cloud: Optional[SodaCloud],
-        publish_results: bool,
-        check_selectors: list[CheckSelector] = [],
-        dwh_data_source_file_path: Optional[str] = None,
+        logs: Optional[Logs] = None,
+        only_validate_without_execute: bool = False,
+        data_source_impl: Optional[DataSourceImpl] = None,
+        all_data_source_impls: Optional[dict[str, DataSourceImpl]] = None,
+        data_timestamp: Optional[datetime] = None,
+        execution_timestamp: Optional[datetime] = None,
+        publish_results: bool = False,
+        check_selectors: Optional[list[CheckSelector]] = None,
+        dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        # Universal kwargs from ``CheckCollectionImpl`` — the session
+        # executor passes these and they are the canonical names. The
+        # legacy contract-specific aliases (``contract_yaml=`` /
+        # ``soda_cloud=``) were dropped: callers in soda-core now pass
+        # ``yaml=`` / ``soda_cloud_impl=``. soda-extensions consumers
+        # cascade in a follow-up dispatch.
+        yaml: Optional[ContractYaml] = None,
+        soda_cloud_impl: Optional[SodaCloud] = None,
     ):
-        self.logs: Logs = logs
-        self.contract_yaml: ContractYaml = contract_yaml
-        self.only_validate_without_execute: bool = only_validate_without_execute
-        self.data_source_impl: DataSourceImpl = data_source_impl
-        self.all_data_source_impls: dict[str, DataSourceImpl] = all_data_source_impls
-        self.soda_cloud: Optional[SodaCloud] = soda_cloud
-        self.publish_results: bool = publish_results
-        self.soda_config = EnvConfigHelper()
+        resolved_all_data_source_impls: dict[str, DataSourceImpl] = (
+            all_data_source_impls if all_data_source_impls is not None else {}
+        )
 
-        self.filter: Optional[str] = self.contract_yaml.filter
-        self.check_selectors: list[CheckSelector] = check_selectors
-
-        self.started_timestamp: datetime = datetime.now(tz=timezone.utc)
-
-        self.execution_timestamp: datetime = execution_timestamp
-        self.data_timestamp: datetime = data_timestamp
-
-        self.dataset_name: Optional[str] = None
-
-        self.check_attributes: dict[str, any] = contract_yaml.check_attributes
-
-        self.dataset_identifier = DatasetIdentifier.parse(contract_yaml.dataset)
-        self.dataset_prefix: list[str] = self.dataset_identifier.prefixes
-        self.dataset_name = self.dataset_identifier.dataset_name
-
-        self.metrics_resolver: MetricsResolver = MetricsResolver()
-
-        self.column_impls: list[ColumnImpl] = []
-        self.check_impls: list[CheckImpl] = []
-
-        # TODO replace usage of self.soda_qualified_dataset_name with self.dataset_identifier
-        self.soda_qualified_dataset_name = contract_yaml.dataset
-        # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
-        self.sql_qualified_dataset_name: Optional[str] = None
-
-        self.datasource_warehouse: Optional[str] = None
-        self.compute_warehouse: Optional[str] = None
-
-        if data_source_impl:
-            # TODO replace usage of self.sql_qualified_dataset_name with self.dataset_identifier
-            self.sql_qualified_dataset_name = data_source_impl.sql_dialect.qualify_dataset_name(
-                dataset_prefix=self.dataset_prefix, dataset_name=self.dataset_name
+        # Per-contract data source resolution. The session executor passes
+        # ``data_source_impl=None`` plus ``all_data_source_impls`` and lets
+        # the impl resolve its own data source from its yaml — that's an
+        # impl-level concern, not a session-level concern. Legacy callers
+        # that pass ``data_source_impl=`` directly bypass this branch.
+        # ``all_data_source_impls`` may be an empty dict; the resolver still
+        # runs so the missing-data-source error is logged (and surfaces on
+        # the result's log_records the same way the legacy session loop did).
+        resolved_data_source_impl: Optional[DataSourceImpl] = data_source_impl
+        if resolved_data_source_impl is None and not only_validate_without_execute and yaml is not None:
+            resolved_data_source_impl = self._resolve_data_source_impl(
+                contract_yaml=yaml,
+                all_data_source_impls=resolved_all_data_source_impls,
             )
 
-            if data_source_impl.data_source_connection:
-                if hasattr(data_source_impl.data_source_connection.connection_properties, "warehouse"):
-                    self.datasource_warehouse = data_source_impl.data_source_connection.connection_properties.warehouse
-
-                if self.datasource_warehouse is None:
-                    self.datasource_warehouse = data_source_impl.get_current_warehouse()
-
-        from soda_core.contracts.impl.check_types.row_count_check import (
-            RowCountMetricImpl,
+        super().__init__(
+            yaml=yaml,
+            data_source_impl=resolved_data_source_impl,
+            soda_cloud_impl=soda_cloud_impl,
+            publish_results=publish_results,
+            only_validate_without_execute=only_validate_without_execute,
+            check_selectors=check_selectors if check_selectors is not None else [],
+            execution_timestamp=execution_timestamp,
+            data_timestamp=data_timestamp,
+            all_data_source_impls=resolved_all_data_source_impls,
+            dwh_files=dwh_files,
+            logs=logs,
         )
 
-        self.row_count_metric_impl: MetricImpl = self.metrics_resolver.resolve_metric(
-            RowCountMetricImpl(contract_impl=self)
-        )
-        self.dataset_rows_tested: Optional[int] = None
+    @staticmethod
+    def _resolve_data_source_impl(
+        contract_yaml: ContractYaml,
+        all_data_source_impls: dict[str, DataSourceImpl],
+    ) -> Optional[DataSourceImpl]:
+        """Resolve the per-contract data source from ``all_data_source_impls``.
 
-        # Dataset defining CTE - used as basis for all queries in this contract
-        self.cte = CTE("_soda_filtered_dataset").AS(
-            [
-                SELECT(STAR()),
-                FROM(self.dataset_identifier.dataset_name, self.dataset_identifier.prefixes),
-                WHERE.optional(SqlExpressionStr.optional(self.filter)),
-            ]
-        )
-        # Optional sampler configuration. Is there a better place or way to store this?
-        self.sampler_type: Optional[SamplerType] = None
-        self.sampler_limit: Optional[Number] = None
+        Looks up the data source name from ``contract_yaml.dataset`` (the
+        leading segment before the first ``/``), then opens the connection
+        lazily if not already open. Logs an error and returns None when the
+        named data source is missing.
+        """
+        if not contract_yaml.dataset:
+            return None
+        data_source_name: str = contract_yaml.dataset[: contract_yaml.dataset.find("/")]
+        if not data_source_name:
+            return None
+        data_source_impl: Optional[DataSourceImpl] = all_data_source_impls.get(data_source_name)
+        if not isinstance(data_source_impl, DataSourceImpl):
+            logger.error(f"Data source '{data_source_name}' not found")
+            return None
+        if not data_source_impl.has_open_connection():
+            data_source_impl.open_connection()
+        return data_source_impl
 
-        self.dataset_configuration: Optional[DatasetConfigurationDTO] = None
-        if self.soda_cloud:
-            self.dataset_configuration = self.soda_cloud.fetch_dataset_configuration(self.dataset_identifier)
+    @property
+    def is_test_verification_on_runner(self) -> bool:
+        """Contract-specific test-mode predicate.
 
-        if self.dataset_configuration:
-            if (
-                self.dataset_configuration.test_row_sampler_configuration
-                and self.dataset_configuration.test_row_sampler_configuration.enabled
-                and self.dataset_configuration.test_row_sampler_configuration.test_row_sampler is not None
-            ):
-                self.sampler_type = map_sampler_type_from_dto(
-                    self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type
-                )
-                self.sampler_limit = self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit
-
-            if self.dataset_configuration.compute_warehouse_override:
-                self.compute_warehouse = self.dataset_configuration.compute_warehouse_override.name
-
-        if self.should_apply_sampling:
-            logger.info(
-                f"Row sampling is enabled for dataset {self.dataset_identifier.to_string()} "
-                f"with sampler config: type:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.type}', limit:'{self.dataset_configuration.test_row_sampler_configuration.test_row_sampler.limit}'"
-            )
-
-            # This modifies the CTE to include sampling by accessing the first element of the cte_query list, may be flaky. Consider adding a better way to modify queries, or change AST to a 3rd party library which may support it already.
-            self.cte.cte_query[1] = self.cte.cte_query[1].SAMPLE(
-                self.sampler_type,
-                self.sampler_limit,
-            )
-
-        self.extensions: list[ContractImplExtension] = []
-        for extension_cls in ContractImpl.contract_impl_extensions.values():
-            try:
-                extension = extension_cls(self)
-                self.extensions.append(extension)
-            except Exception as e:
-                logger.error(
-                    f"Error extending contract implementation with extension {extension_cls.__name__}: {e}",
-                )
-
-        self.column_impls: list[ColumnImpl] = self._parse_columns(contract_yaml=contract_yaml)
-        self.check_impls: list[CheckImpl] = self._parse_checks(contract_yaml)
-
-        dataset_check_impls: list[CheckImpl] = list(self.check_impls)
-        column_check_impls: list[CheckImpl] = []
-        for column_impl in self.column_impls:
-            column_check_impls.extend(column_impl.check_impls)
-        # For consistency and predictability, we want the checks eval and results in the same order as in the contract
-        self.all_check_impls: list[CheckImpl] = (
-            dataset_check_impls + column_check_impls
-            if self._dataset_checks_came_before_columns_in_yaml()
-            else column_check_impls + dataset_check_impls
-        )
-
-        self._verify_duplicate_identities(self.all_check_impls)
-        self.metrics: list[MetricImpl] = self.metrics_resolver.get_resolved_metrics()
-
-        self.queries: list[Query] = []
-        if data_source_impl:
-            self.queries = self._build_queries()
-
-        self.dwh_data_source_file_path: Optional[str] = dwh_data_source_file_path
+        True when running on the Soda Cloud Runner (formerly agent) in test-scan mode
+        (as determined by ``EnvConfigHelper`` env vars).
+        """
+        return self.soda_config.is_running_on_runner and self.soda_config.is_contract_test_scan_definition_type
 
     @property
     def is_test_verification_on_agent(self) -> bool:
-        return self.soda_config.is_running_on_agent and self.soda_config.is_contract_test_scan_definition_type
+        """Deprecated alias for :pyattr:`is_test_verification_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
 
-    @property
-    def is_sampling_enabled(self) -> bool:
-        return self.sampler_type is not None and self.sampler_limit is not None
+        warn_deprecated(
+            "ContractImpl.is_test_verification_on_agent",
+            "ContractImpl.is_test_verification_on_runner",
+        )
+        return self.is_test_verification_on_runner
 
-    @property
-    def should_apply_sampling(self) -> bool:
-        return self.is_test_verification_on_agent and self.is_sampling_enabled
-
-    def _dataset_checks_came_before_columns_in_yaml(self) -> Optional[bool]:
-        contract_keys: list[str] = self.contract_yaml.contract_yaml_object.keys()
-        if "checks" in contract_keys and "columns" in contract_keys:
-            return contract_keys.index("checks") < contract_keys.index("columns")
-        return None
-
-    def _get_data_timestamp(
-        self, resolved_variable_values: dict[str, str], soda_variable_values: dict[str, str], default: datetime
-    ) -> Optional[datetime]:
-        # Skipped for 'NOW' :)
-        return None
-
-    def _parse_checks(self, contract_yaml: ContractYaml) -> list[CheckImpl]:
-        check_impls: list[CheckImpl] = []
-        if contract_yaml.checks:
-            for check_yaml in contract_yaml.checks:
-                if check_yaml:
-                    check = CheckImpl.parse_check(contract_impl=self, check_yaml=check_yaml)
-                    check_impls.append(check)
-
-        for extension in self.extensions:
-            try:
-                check_impls.extend(extension.parse_checks(contract_impl=self))
-            except Exception as e:
-                logger.error(f"Error parsing checks with extension {extension.__class__.__name__}: {e}")
-
-        return check_impls
-
-    def _build_queries(self) -> list[Query]:
-        queries: list[Query] = []
-        aggregation_metrics: list[AggregationMetricImpl] = []
-
-        for check in self.all_check_impls:
-            queries.extend(check.queries)
-
-        for metric in self.metrics:
-            # Only build aggregation queries for metrics of known origin. Extensions might build their own queries.
-            # Known origin means that the metric does not have any specific datasource/dataset associated or the ones that are linked are the same as the contract's datasource and dataset.
-            if isinstance(metric, AggregationMetricImpl):
-                if (metric.data_source_impl is None and metric.dataset_identifier is None) or (
-                    metric.data_source_impl == self.data_source_impl
-                    and metric.dataset_identifier == self.dataset_identifier
-                ):
-                    aggregation_metrics.append(metric)
-
-        from soda_core.contracts.impl.check_types.schema_check import SchemaQuery
-
-        schema_queries: list[SchemaQuery] = []
-        other_queries: list[SchemaQuery] = []
-        for query in queries:
-            if isinstance(query, SchemaQuery):
-                schema_queries.append(query)
-            else:
-                other_queries.append(query)
-
-        aggregation_queries: list[AggregationQuery] = []
-        for aggregation_metric in aggregation_metrics:
-            if len(aggregation_queries) == 0 or not aggregation_queries[-1].can_accept(aggregation_metric):
-                aggregation_queries.append(
-                    AggregationQuery(
-                        cte=self.cte,
-                        dataset_prefix=self.dataset_prefix,
-                        dataset_name=self.dataset_name,
-                        data_source_impl=self.data_source_impl,
-                        logs=self.logs,
-                    )
-                )
-            last_aggregation_query: AggregationQuery = aggregation_queries[-1]
-            last_aggregation_query.append_aggregation_metric(aggregation_metric)
-
-        all_queries: list[Query] = schema_queries + aggregation_queries + other_queries
-
-        for extension in self.extensions:
-            try:
-                extension_queries: list[Query] = extension.build_queries(contract_impl=self)
-                all_queries.extend(extension_queries)
-            except Exception as e:
-                logger.error(f"Error building queries with extension {extension.__class__.__name__}: {e}")
-
-        return all_queries
-
-    def _parse_columns(self, contract_yaml: ContractYaml) -> list[ColumnImpl]:
-        columns: list[ColumnImpl] = []
-        if contract_yaml.columns:
-            for column_yaml in contract_yaml.columns:
-                if column_yaml:
-                    column = ColumnImpl(contract_impl=self, column_yaml=column_yaml)
-                    columns.append(column)
-        return columns
-
-    def verify(self) -> ContractVerificationResult:
-        if self.data_source_impl and self.soda_config.is_running_on_agent:
-            self.data_source_impl.switch_warehouse(self.compute_warehouse, contract_impl=self)
-        data_source: Optional[DataSource] = None
-        check_results: list[CheckResult] = []
-        measurements: list[Measurement] = []
-        contract_verification_status: ContractVerificationStatus = ContractVerificationStatus.UNKNOWN
-        dataset_rows_tested: Optional[int] = None
-
-        verb: str = "Validating" if self.only_validate_without_execute else "Verifying"
-        logger.info(
-            f"{verb} contract {Emoticons.SCROLL} "
-            f"{self.contract_yaml.contract_yaml_source.file_path} {Emoticons.FINGERS_CROSSED}"
+    def verify_on_runner(
+        self,
+        soda_cloud_impl: SodaCloud,
+        variables: dict,
+        blocking_timeout_in_minutes: int,
+        publish_results: bool,
+        verbose: bool,
+    ) -> ContractVerificationResult:
+        return soda_cloud_impl.verify_contract_on_runner(
+            contract_yaml=self.yaml,
+            variables=variables,
+            blocking_timeout_in_minutes=blocking_timeout_in_minutes,
+            publish_results=publish_results,
+            verbose=verbose,
         )
 
-        if self.data_source_impl:
-            data_source = self.data_source_impl.build_data_source()
+    def verify_on_agent(self, *args, **kwargs) -> ContractVerificationResult:
+        """Deprecated alias for :py:meth:`verify_on_runner`."""
+        from soda_core.common._deprecation import warn_deprecated
 
-        if self.logs.has_errors:
-            contract_verification_status = ContractVerificationStatus.ERROR
-
-        elif not self.only_validate_without_execute:
-            # Executing the queries will set the value of the metrics linked to queries.
-            # A SodaCoreException from one query (e.g. an aggregation referencing a column
-            # that has been dropped) must not abort the scan — other queries, including the
-            # schema query, still need to run so the user sees the real cause.
-            for query in self.queries:
-                try:
-                    query_measurements: list[Measurement] = query.execute()
-                    measurements.extend(query_measurements)
-                except SodaCoreException as e:
-                    logger.error(f"Query execution failed, continuing with remaining checks: {e}")
-
-            measurement_values: MeasurementValues = MeasurementValues(measurements)
-
-            self.dataset_rows_tested = measurement_values.get_value(self.row_count_metric_impl)
-
-            # Triggering the derived metrics to initialize their value based on their dependencies
-            derived_metric_impls: list[DerivedMetricImpl] = [
-                derived_metric for derived_metric in self.metrics if isinstance(derived_metric, DerivedMetricImpl)
-            ]
-            for derived_metric_impl in derived_metric_impls:
-                measurement_values.derive_value(derived_metric_impl)
-
-            if self.data_source_impl:
-                # Evaluate the checks
-                for check_impl in self.all_check_impls:
-                    if check_impl.skip:
-                        logger.info(f"Skipping evaluation of check at path '{check_impl.path}'")
-                        check_result: CheckResult = CheckResult(
-                            check=check_impl._build_check_info(), outcome=CheckOutcome.EXCLUDED
-                        )
-                    else:
-                        check_result: CheckResult = check_impl.evaluate(measurement_values=measurement_values)
-                    check_results.append(check_result)
-
-            contract_verification_status = _get_contract_verification_status(self.logs.has_errors, check_results)
-
-            log_lines = self.build_log_summary(
-                soda_qualified_dataset_name=self.soda_qualified_dataset_name, check_results=check_results
-            )
-            for line in log_lines:
-                logger.info(line)
-
-        log_records: Optional[list[LogRecord]] = self.logs.pop_log_records()
-
-        soda_cloud_file_id: Optional[str] = None
-        sending_results_to_soda_cloud_failed: bool = False
-        contract_yaml_source_str_original = self.contract_yaml.contract_yaml_source.yaml_str_original
-        soda_cloud_response_json: Optional[dict] = None
-
-        if self.soda_cloud and self.publish_results:
-            soda_cloud_file_id = self.soda_cloud._upload_contract_yaml_file(contract_yaml_source_str_original)
-
-        post_processing_stages: list[PostProcessingStage] = []
-        for contract_verification_handler in ContractVerificationHandlerRegistry.post_processing_stages.values():
-            post_processing_stages += contract_verification_handler.provides_post_processing_stages()
-
-        contract_verification_result: ContractVerificationResult = ContractVerificationResult(
-            contract=Contract(
-                data_source_name=self.data_source_impl.name if self.data_source_impl else None,
-                dataset_prefix=self.dataset_prefix,
-                dataset_name=self.dataset_name,
-                soda_qualified_dataset_name=self.soda_qualified_dataset_name,
-                source=YamlFileContentInfo(
-                    source_content_str=contract_yaml_source_str_original,
-                    local_file_path=self.contract_yaml.contract_yaml_source.file_path,
-                    soda_cloud_file_id=soda_cloud_file_id,
-                ),
-                dataset_id=None,  # Set this to None for now (default). Will be filled later when we get the dataset id from Soda Cloud
-            ),
-            data_source=data_source,
-            data_timestamp=self.data_timestamp,
-            started_timestamp=self.started_timestamp,
-            ended_timestamp=datetime.now(tz=timezone.utc),
-            measurements=measurements,
-            check_results=check_results,
-            sending_results_to_soda_cloud_failed=sending_results_to_soda_cloud_failed,
-            status=contract_verification_status,
-            log_records=log_records,
-            post_processing_stages=post_processing_stages,
-        )
-
-        scan_id: Optional[str] = None
-        if soda_cloud_file_id:
-            if data_source is None:
-                logger.error(
-                    f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK} "
-                    f"Data source not found. Check that the data source name in the contract's "
-                    f"'dataset' field matches the name in your data source configuration."
-                )
-                sending_results_to_soda_cloud_failed = True
-                contract_verification_result.sending_results_to_soda_cloud_failed = True
-            else:
-                # send_contract_result will use contract.source.soda_cloud_file_id
-                soda_cloud_response_json = self.soda_cloud.send_contract_result(contract_verification_result)
-                scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-                if not scan_id:
-                    contract_verification_result.sending_results_to_soda_cloud_failed = True
-                else:
-                    contract_verification_result.scan_id = scan_id
-                    # Put the dataset id in the contract object
-                    contract_verification_result.contract.dataset_id = self.__get_dataset_id(
-                        soda_cloud_response_json, self.soda_qualified_dataset_name
-                    )
-        else:
-            logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
-
-        for contract_verification_handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
-            try:
-                contract_verification_handler.handle(
-                    contract_impl=self,
-                    data_source_impl=self.data_source_impl,
-                    contract_verification_result=contract_verification_result,
-                    soda_cloud=self.soda_cloud,
-                    soda_cloud_send_results_response_json=soda_cloud_response_json,
-                    dwh_data_source_file_path=self.dwh_data_source_file_path,
-                )
-            except Exception as e:
-                logger.error(f"Error in contract verification handler: {e}", exc_info=True)
-                self._handle_post_processing_failure(
-                    scan_id=scan_id, exc=e, contract_verification_handler=contract_verification_handler
-                )
-
-        return contract_verification_result
-
-    def __get_dataset_id(self, soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
-        # Find the dataset id for the given qualified dataset name
-        for check in soda_cloud_response_json.get("checks", []):
-            for datasets in check.get("datasets", []):
-                dataset_dqn: Optional[str] = datasets.get("dqn")
-                if dataset_dqn and dataset_dqn == qualified_dataset_name:
-                    return datasets.get("id")
-        return None
-
-    def build_log_summary(self, soda_qualified_dataset_name: str, check_results: list[CheckResult]) -> list[str]:
-        summary_lines: list[str] = []
-
-        failed_count: int = 0
-        warned_count: int = 0
-        not_evaluated_count: int = 0
-        passed_count: int = 0
-        excluded_count: int = 0
-
-        for check_result in check_results:
-            if check_result.is_failed:
-                failed_count += 1
-            elif check_result.is_not_evaluated:
-                not_evaluated_count += 1
-            elif check_result.is_passed:
-                passed_count += 1
-            elif check_result.is_warned:
-                warned_count += 1
-            elif check_result.is_excluded:
-                excluded_count += 1
-        total_count: int = failed_count + not_evaluated_count + passed_count + warned_count + excluded_count
-
-        error_count: int = len(self.logs.get_errors())
-
-        table_lines = [
-            ["Checks", total_count],
-            ["Passed", passed_count, Emoticons.WHITE_CHECK_MARK],
-        ]
-
-        if failed_count > 0:
-            table_lines.append(["Failed", failed_count, Emoticons.CROSS_MARK])
-        else:
-            table_lines.append(["Failed", failed_count, Emoticons.WHITE_CHECK_MARK])
-
-        if warned_count > 0:
-            table_lines.append(["Warned", warned_count, Emoticons.WARNING])
-        else:
-            table_lines.append(["Warned", warned_count, Emoticons.WHITE_CHECK_MARK])
-
-        if not_evaluated_count > 0:
-            table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.CROSS_MARK])
-        else:
-            table_lines.append(["Not Evaluated", not_evaluated_count, Emoticons.WHITE_CHECK_MARK])
-
-        if excluded_count > 0:
-            table_lines.append(["Excluded", excluded_count, Emoticons.QUESTION_MARK])
-        else:
-            table_lines.append(["Excluded", excluded_count, Emoticons.WHITE_CHECK_MARK])
-
-        if error_count > 0:
-            table_lines.append(["Runtime Errors", error_count, Emoticons.CROSS_MARK])
-        else:
-            table_lines.append(["Runtime Errors", error_count, Emoticons.WHITE_CHECK_MARK])
-
-        summary_lines.append(f"\n### Contract results for {soda_qualified_dataset_name}")
-        summary_lines.append(self.build_summary_table(check_results))
-
-        overview_table = tabulate(table_lines, tablefmt="github", stralign="left")
-        summary_lines.append(f"# Summary:\n{overview_table}\n")
-
-        return [line for joined_line in summary_lines for line in joined_line.split("\n")]
-
-    def build_summary_table(self, check_results: list[CheckResult]) -> str:
-        overview_table_data = [check_result.log_table_row() for check_result in check_results]
-
-        # Sort by column name, check name and check outcome
-        overview_table_data.sort(key=lambda row: (row["Column"], row["Check"], row["Outcome"]))
-
-        # Re-iterate rows data and remove column name if it is the same as the previous row
-        previous_column_name: Optional[str] = None
-        for row in overview_table_data:
-            if previous_column_name == row["Column"]:
-                row["Column"] = ""  # Clear column name if it is the same as the previous row
-            else:
-                previous_column_name = row["Column"]
-
-        return tabulate(overview_table_data, headers="keys", tablefmt="grid")
-
-    @classmethod
-    def _verify_duplicate_identities(cls, all_check_impls: list[CheckImpl]):
-        checks_by_identity: dict[str, CheckImpl] = {}
-        for check_impl in all_check_impls:
-            existing_check_impl: Optional[CheckImpl] = checks_by_identity.get(check_impl.identity)
-            if existing_check_impl:
-                original_location: Optional[Location] = existing_check_impl.check_yaml.check_yaml_object.location
-                original_location_str: str = f" Original({original_location})" if original_location else ""
-                duplicate_location: Optional[Location] = check_impl.check_yaml.check_yaml_object.location
-                duplicate_location_str: str = f" Duplicate({duplicate_location})" if duplicate_location else ""
-                logger.error(
-                    msg=(
-                        f"Duplicate identity {check_impl.build_identity_path()}."
-                        f"{original_location_str}{duplicate_location_str}"
-                    ),
-                    extra={
-                        ExtraKeys.LOCATION: duplicate_location,
-                    },
-                )
-            checks_by_identity[check_impl.identity] = check_impl
-
-    @classmethod
-    def compute_data_quality_score(cls, total_failed_rows_count: int, total_rows_count: int) -> float:
-        return 100 - (total_failed_rows_count * 100 / total_rows_count)
-
-    def _handle_post_processing_failure(
-        self, scan_id: Optional[str], exc: Exception, contract_verification_handler: ContractVerificationHandler
-    ):
-        if scan_id is None:
-            logger.warning("Not sending post-processing stage updates to Soda Cloud - no scan ID")
-            return
-        if self.soda_cloud is None:
-            logger.warning("Not sending post-processing stage updates to Soda Cloud - no Soda Cloud client")
-            return
-        for post_processing_stage in contract_verification_handler.provides_post_processing_stages():
-            self.soda_cloud.post_processing_update(
-                stage=post_processing_stage.name,
-                scan_id=scan_id,
-                state=PostProcessingStageState.FAILED,
-                error=get_exception_stacktrace(exc),
-            )
+        warn_deprecated("ContractImpl.verify_on_agent", "ContractImpl.verify_on_runner")
+        return self.verify_on_runner(*args, **kwargs)
 
 
-def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> ContractVerificationStatus:
+def _get_contract_verification_status(has_errors: bool, check_results: list[CheckResult]) -> CheckCollectionStatus:
     if has_errors:
-        return ContractVerificationStatus.ERROR
+        return CheckCollectionStatus.ERROR
 
     if any(check_result.outcome == CheckOutcome.FAILED for check_result in check_results):
-        return ContractVerificationStatus.FAILED
+        return CheckCollectionStatus.FAILED
 
     if any(check_result.outcome == CheckOutcome.WARN for check_result in check_results):
-        return ContractVerificationStatus.WARNED
+        return CheckCollectionStatus.WARNED
 
     if all(check_result.outcome == CheckOutcome.PASSED for check_result in check_results):
-        return ContractVerificationStatus.PASSED
+        return CheckCollectionStatus.PASSED
 
-    return ContractVerificationStatus.UNKNOWN
+    return CheckCollectionStatus.UNKNOWN
 
 
 class MeasurementValues:
@@ -1403,6 +1067,22 @@ class CheckImpl:
         # Apply check selectors (subsumes old check_paths logic)
         self.skip: bool = not CheckSelector.all_match(contract_impl.check_selectors, self)
 
+    def get_required_metric_impls(self) -> list["MetricImpl"]:
+        """Metrics this check needs measured to evaluate. If any is unmeasured at
+        dispatch time, the framework short-circuits to NOT_EVALUATED — `evaluate()`
+        is not called, so each check's body can assume its required metrics are
+        present.
+
+        Default: empty (legacy checks not yet migrated keep their own gating)."""
+        return []
+
+    def get_diagnostic_defaults(self) -> dict[str, Number]:
+        """Optional diagnostic values populated into `diagnostic_metric_values` when
+        the framework short-circuits this check to NOT_EVALUATED. The NOT_EVALUATED
+        outcome itself signals "not measured", so the default is empty; override
+        only if a specific field must always carry a sentinel."""
+        return {}
+
     @property
     def column_expression(self) -> Optional[SqlExpressionStr | COLUMN]:
         # Use check level column expression if exists, fall-back to column level check expression if possible.
@@ -1441,6 +1121,37 @@ class CheckImpl:
 
         return ".".join(parts)
 
+    @property
+    def full_path(self) -> str:
+        """Wire path emitted to Soda Cloud as ``checkPath``.
+
+        For contracts (``wire_source == "soda-contract"``) this is identical
+        to ``self.path`` — byte-identical to today's emission. For
+        non-contract subtypes it is prefixed with
+        ``"{collection_id}.{path}"`` so the backend's
+        ``firstSegmentOf(checkPath)`` filter can match the subtype's
+        identifier.
+
+        Selector matching uses ``self.path`` (not ``full_path``) so the
+        prefix never leaks into ``--check-selector`` matching.
+        """
+        # ``contract_impl`` is the back-ref to the enclosing
+        # ``CheckCollectionImpl`` (name preserved during the rename slice;
+        # rename deferred to a follow-up). The wire_source check matches
+        # ``ContractImpl.wire_source`` literally so any non-contract
+        # subtype automatically opts into prefixing.
+        if self.contract_impl.wire_source == "soda-contract":
+            return self.path
+        collection_id: Optional[str] = self.contract_impl.collection_id
+        # Non-contract subtypes MUST declare collection_id: the
+        # ``CheckCollectionImpl.verify()`` guard raises before this property
+        # is reached when collection_id is missing, but we defensively fall
+        # back to the bare path so dataclass-build callers can still
+        # instantiate a Check during error paths.
+        if not collection_id:
+            return self.path
+        return f"{collection_id}.{self.path}"
+
     def _get_name_with_default(self, check_yaml: CheckYaml) -> str:
         if isinstance(check_yaml.name, str):
             return check_yaml.name
@@ -1473,6 +1184,7 @@ class CheckImpl:
             qualifier=self.check_yaml.qualifier,
             name=self.name,
             path=self.path,
+            full_path=self.full_path,
             identity=self.identity,
             definition=self._build_definition(),
             column_name=self.column_impl.column_yaml.name if self.column_impl else None,
@@ -1493,6 +1205,18 @@ class CheckImpl:
         extra_identity_properties: Optional[dict[str, object]] = None,
     ) -> str:
         identity_hash_builder: ConsistentHashBuilder = ConsistentHashBuilder(8)
+
+        # Identity-prefix mix-in: contracts inherit ``identity_prefix() == ()``
+        # so the loop is a no-op and the hash stays byte-identical to every
+        # prior contract verification (preserving Cloud history). Non-contract
+        # subtypes return ``(wire_source, collection_id)`` so two collections
+        # with identical check shapes on the same dataset produce distinct
+        # identities. The prefix entries use stable, namespaced keys
+        # (``__cc_<index>``) so the contract empty-prefix path emits zero
+        # additional bytes into the blake2b stream.
+        for index, prefix_value in enumerate(contract_impl.identity_prefix()):
+            identity_hash_builder.add_property(f"__cc_{index}", prefix_value)
+
         if contract_impl.data_source_impl:
             identity_hash_builder.add_property("dso", contract_impl.data_source_impl.name)
         identity_hash_builder.add_property("pr", contract_impl.dataset_prefix)
@@ -1508,7 +1232,7 @@ class CheckImpl:
 
     def build_identity_path(self) -> str:
         parts: list[Optional[str]] = [
-            self.contract_impl.contract_yaml.contract_yaml_source.file_path,
+            self.contract_impl.yaml.yaml_source.file_path,
             self.column_impl.column_yaml.name if self.column_impl else None,
             self.type,
             self.check_yaml.qualifier if self.check_yaml else None,
@@ -1518,8 +1242,8 @@ class CheckImpl:
 
     def _build_definition(self) -> str:
         contract_dict: dict = {}
-        if self.contract_impl.contract_yaml.filter:
-            contract_dict["filter"] = self.contract_impl.contract_yaml.filter
+        if self.contract_impl.yaml.filter:
+            contract_dict["filter"] = self.contract_impl.yaml.filter
 
         check_dict: dict = self.check_yaml.check_yaml_object.yaml_dict
 
@@ -1800,6 +1524,7 @@ class AggregationQuery(Query):
         dataset_name: str,
         data_source_impl: Optional[DataSourceImpl],
         logs: Logs,
+        metric_aliases: Optional[dict[str, list["AggregationMetricImpl"]]] = None,
     ):
         super().__init__(data_source_impl=data_source_impl, metrics=[])
         self.cte: CTE = cte
@@ -1809,6 +1534,13 @@ class AggregationQuery(Query):
         self.data_source_impl: DataSourceImpl = data_source_impl
         self.query_size: int = len(self.build_sql())
         self.logs: Logs = logs
+        # canonical_metric.id -> [aliased_metric, ...]. After execute() computes
+        # a Measurement for a canonical metric, it also emits Measurements with the
+        # same value for every aliased metric (those metrics were deduped out of
+        # the SQL but still need values for downstream check evaluation). We keep
+        # the full metric impls so each Measurement uses the aliased metric's own
+        # get_short_description() — two deduped metrics may have different names.
+        self.metric_aliases: dict[str, list[AggregationMetricImpl]] = metric_aliases or {}
 
     def can_accept(self, aggregation_metric_impl: AggregationMetricImpl) -> bool:
         max_query_length: int = self.data_source_impl.sql_dialect.get_max_sql_statement_length()
@@ -1867,11 +1599,21 @@ class AggregationQuery(Query):
         for i in range(0, len(self.aggregation_metrics)):
             aggregation_metric_impl: AggregationMetricImpl = self.aggregation_metrics[i]
             measurement_value = aggregation_metric_impl.convert_db_value(row[i])
+            metric_name = aggregation_metric_impl.get_short_description()
             measurements.append(
-                Measurement(
-                    metric_id=aggregation_metric_impl.id,
-                    value=measurement_value,
-                    metric_name=aggregation_metric_impl.get_short_description(),
-                )
+                Measurement(metric_id=aggregation_metric_impl.id, value=measurement_value, metric_name=metric_name)
             )
+            # Mirror the value onto every aliased metric that was deduped out
+            # of this query. Each consumer (check.evaluate) looks up its metric by
+            # id; they all need to find a Measurement. Use each aliased metric's own
+            # get_short_description() so metric_name reflects the consuming metric,
+            # not the canonical one we happened to keep in the SQL.
+            for aliased_metric in self.metric_aliases.get(aggregation_metric_impl.id, ()):
+                measurements.append(
+                    Measurement(
+                        metric_id=aliased_metric.id,
+                        value=measurement_value,
+                        metric_name=aliased_metric.get_short_description(),
+                    )
+                )
         return measurements

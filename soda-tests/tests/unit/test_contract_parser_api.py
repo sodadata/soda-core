@@ -20,9 +20,7 @@ def test_parse_relative_complete_contract():
         )
     )
 
-    contract_yaml: ContractYaml = ContractYaml.parse(
-        contract_yaml_source=contract_yaml_source, provided_variable_values={}
-    )
+    contract_yaml: ContractYaml = ContractYaml.parse(yaml_source=contract_yaml_source, provided_variable_values={})
 
     assert "sdf/soda_test/dev_xxx/SODATEST_test_schema_31761d69" == contract_yaml.dataset
 
@@ -36,7 +34,7 @@ def test_parse_relative_complete_contract():
 
 def test_legacy_dataset_specification(logs: Logs):
     ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(
+        yaml_source=ContractYamlSource.from_str(
             """
             data_source: abc
             dataset_prefix: [a, b]
@@ -51,7 +49,7 @@ def test_legacy_dataset_specification(logs: Logs):
 def test_minimal_contract():
     logs: Logs = Logs()
     ContractYaml.parse(
-        contract_yaml_source=ContractYamlSource.from_str(
+        yaml_source=ContractYamlSource.from_str(
             """
             dataset: a/b/c/d
             columns: []

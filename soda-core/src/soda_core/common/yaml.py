@@ -211,6 +211,12 @@ class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
     ...
 
 
+# Generalized name for any check-collection YAML source (contract, data
+# standard, ...). Today every concrete source is a ``YamlSource`` subclass,
+# so the alias resolves to the existing base — no new class hierarchy.
+CheckCollectionYamlSource = YamlSource
+
+
 class YamlValue:
     def __init__(self, yaml_source: YamlSource) -> None:
         self.yaml_source: YamlSource = yaml_source

@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
-from logging import ERROR, WARNING, LogRecord
 from numbers import Number
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from soda_core import is_verbose
 from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import Location
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
 from soda_core.contracts.contract_interfaces import Loggable
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 logger: logging.Logger = soda_logger
 
@@ -30,8 +31,8 @@ class ContractVerificationSession:
     @param data_source_yaml_sources: The data source YAML sources to use for the verification.
     @param soda_cloud_impl: The Soda Cloud implementation to use for the verification.
     @param soda_cloud_publish_results: If True, publish the results to Soda Cloud.
-    @param soda_cloud_use_agent: If True, use the Soda Cloud agent for the verification.
-    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud agent.
+    @param soda_cloud_use_runner: If True, use the Soda Cloud runner (formerly agent) for the verification.
+    @param soda_cloud_verbose: If True, enable verbose logging for the Soda Cloud runner.
     """
 
     @classmethod
@@ -45,21 +46,44 @@ class ContractVerificationSession:
         data_source_yaml_sources: Optional[list[DataSourceYamlSource]] = None,
         soda_cloud_impl: Optional["SodaCloud"] = None,
         soda_cloud_publish_results: bool = False,
-        soda_cloud_use_agent: bool = False,
+        soda_cloud_use_runner: Optional[bool] = None,
         soda_cloud_verbose: bool = False,
-        soda_cloud_use_agent_blocking_timeout_in_minutes: int = 60,
+        soda_cloud_use_runner_blocking_timeout_in_minutes: Optional[int] = None,
         check_paths: Optional[list[str]] = None,
-        dwh_data_source_file_path: Optional[str] = None,
+        dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
         check_selectors: Optional[list["CheckSelector"]] = None,
+        **kwargs,
     ) -> ContractVerificationSessionResult:
+        from soda_core.common._deprecation import deprecated_kwarg
         from soda_core.contracts.impl.check_selector import CheckSelector
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationSessionImpl,
         )
 
+        soda_cloud_use_runner = deprecated_kwarg(
+            kwargs, "soda_cloud_use_agent", "soda_cloud_use_runner", soda_cloud_use_runner
+        )
+        soda_cloud_use_runner_blocking_timeout_in_minutes = deprecated_kwarg(
+            kwargs,
+            "soda_cloud_use_agent_blocking_timeout_in_minutes",
+            "soda_cloud_use_runner_blocking_timeout_in_minutes",
+            soda_cloud_use_runner_blocking_timeout_in_minutes,
+        )
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+        if soda_cloud_use_runner is None:
+            soda_cloud_use_runner = False
+        if soda_cloud_use_runner_blocking_timeout_in_minutes is None:
+            soda_cloud_use_runner_blocking_timeout_in_minutes = 60
+
         # Merge check_paths into check_selectors for backward compatibility
         merged_selectors = list(check_selectors) if check_selectors else []
         merged_selectors.extend(CheckSelector.from_check_paths(check_paths))
+
+        # Accept a legacy string (primary-only) or the bundled DiagnosticsWarehouseFiles.
+        # Internal layers only see the normalized form, so a bare string keeps the exact
+        # pre-existing single-connection behavior.
+        dwh_files = DiagnosticsWarehouseFiles.normalize(dwh_data_source_file_path)
 
         return ContractVerificationSessionImpl.execute(
             contract_yaml_sources=contract_yaml_sources,
@@ -70,11 +94,11 @@ class ContractVerificationSession:
             data_source_yaml_sources=data_source_yaml_sources,
             soda_cloud_impl=soda_cloud_impl,
             soda_cloud_publish_results=soda_cloud_publish_results,
-            soda_cloud_use_agent=soda_cloud_use_agent,
+            soda_cloud_use_runner=soda_cloud_use_runner,
             soda_cloud_verbose=soda_cloud_verbose,
-            soda_cloud_use_agent_blocking_timeout_in_minutes=soda_cloud_use_agent_blocking_timeout_in_minutes,
+            soda_cloud_use_runner_blocking_timeout_in_minutes=soda_cloud_use_runner_blocking_timeout_in_minutes,
             check_selectors=merged_selectors,
-            dwh_data_source_file_path=dwh_data_source_file_path,
+            dwh_files=dwh_files,
         )
 
 
@@ -281,6 +305,19 @@ class Check:
     """Represents the state / essence of a check after it has been executed.
 
     i.e. "after" CheckImpl has been executed and check result is being created.
+
+    ``path`` is the YAML-internal stripped path (e.g.
+    ``"columns.email.checks.missing"``). It is what selector matching and
+    user-facing messages use; it is byte-identical to the value emitted by
+    every prior contract verification.
+
+    ``full_path`` is the wire path emitted to Soda Cloud as ``checkPath``.
+    For contracts (``wire_source == "soda-contract"``) it equals ``path``.
+    For non-contract subtypes (data standards, ...) it is prefixed with
+    ``"{collection_id}.{path}"`` so the backend's
+    ``firstSegmentOf(checkPath)`` filter matches the
+    ``DataStandard.name``. Splitting the two means the prefix never leaks
+    into selector matching or error display.
     """
 
     column_name: Optional[str]
@@ -290,12 +327,26 @@ class Check:
     path: str
     identity: str
     definition: str
-    column_name: Optional[str]
     contract_file_line: int
     contract_file_column: int
     threshold: Optional[Threshold]
     attributes: Optional[dict[str, Any]]
     location: Optional[Location]
+    # Wire-path emitted to Soda Cloud as ``checkPath``. For contracts it
+    # equals ``path``; for non-contract subtypes the engine prefixes it
+    # with ``"{collection_id}.{path}"`` so the backend's
+    # ``firstSegmentOf(checkPath)`` filter matches ``DataStandard.name``.
+    # Defaults to ``""`` so external callers that construct ``Check(...)``
+    # without specifying it still work — emission code falls back to
+    # ``path`` when ``full_path`` is empty.
+    full_path: str = ""
+    # Per-check source override. ``None`` (the default) means: emit the
+    # enclosing ``CheckCollectionImpl.wire_source`` as the wire ``"source"``
+    # field. A non-None value is exercised by future extensions that emit
+    # checks with a deliberate source different from the parent collection;
+    # the ``CheckCollectionImpl.verify()`` alignment guard rejects the
+    # upload when these don't match ``self.wire_source``.
+    source: Optional[str] = None
 
 
 class CheckResult:
@@ -448,12 +499,19 @@ class Measurement:
         self.value: any = value
 
 
-class ContractVerificationStatus(Enum):
+class CheckCollectionStatus(Enum):
     UNKNOWN = "UNKNOWN"
     WARNED = "WARNED"
     FAILED = "FAILED"
     PASSED = "PASSED"
     ERROR = "ERROR"
+
+
+# Backward-compat module-level alias. External callers (and any
+# yet-to-be-cascaded internal references in soda-extensions) keep working
+# via the legacy name. Internal soda-core references use the canonical
+# name directly.
+ContractVerificationStatus = CheckCollectionStatus
 
 
 @dataclass
@@ -478,121 +536,30 @@ class PostProcessingStage:
         self.records_written: Optional[int] = records_written
 
 
-class ContractVerificationResult:
-    """
-    This is the immutable data structure containing all the results from a single contract verification.
-    This includes any potential execution errors as well as the results of all the checks performed.
+# ``CheckCollectionResult`` lives in ``check_collections.base`` (the spec
+# location). Imported here at module bottom to break the import cycle:
+# ``base.py`` needs Contract / DataSource / Measurement / ... defined above,
+# and ``ContractVerificationResult`` is a thin subclass below.
+from soda_core.check_collections.base import CheckCollectionResult  # noqa: E402
 
-    @param contract: The contract that was verified.
-    @param data_source: The data source that was used for the verification.
-    @param data_timestamp: The timestamp of the data to use for the verification.
-    @param ended_timestamp: The timestamp when the verification ended.
-    @param status: The status of the verification. One of ContractVerificationStatus.
-    @param measurements: The measurements taken during the verification.
-    @param check_results: The results of the checks performed during the verification.
-    @param sending_results_to_soda_cloud_failed: If True, sending results to Soda Cloud failed.
-    @param log_records: The log records generated during the verification.
-    @param post_processing_stages: The post processing stages of the verification.
 
+@dataclass
+class ContractVerificationResult(CheckCollectionResult):
+    """Result of verifying one contract.
+
+    Thin subclass preserving the historical name; all engine logic lives
+    on ``CheckCollectionResult``. ``ContractImpl`` declares this as its
+    ``result_class``.
     """
 
-    def __init__(
-        self,
-        contract: Contract,
-        data_source: DataSource,
-        data_timestamp: Optional[datetime],
-        started_timestamp: datetime,
-        ended_timestamp: datetime,
-        status: ContractVerificationStatus,
-        measurements: list[Measurement],
-        check_results: list[CheckResult],
-        sending_results_to_soda_cloud_failed: bool,
-        log_records: Optional[list[LogRecord]] = None,
-        post_processing_stages: Optional[list[PostProcessingStage]] = None,
-        token_usage: Optional[list[ScanTokenUsage]] = None,
-    ):
-        self.contract: Contract = contract
-        self.data_source: DataSource = data_source
-        self.data_timestamp: Optional[datetime] = data_timestamp
-        self.started_timestamp: datetime = started_timestamp
-        self.ended_timestamp: datetime = ended_timestamp
-        self.measurements: list[Measurement] = measurements
-        self.check_results: list[CheckResult] = check_results
-        self.sending_results_to_soda_cloud_failed: bool = sending_results_to_soda_cloud_failed
-        self.log_records: Optional[list[LogRecord]] = log_records
-        self.status = status
-        self.post_processing_stages: Optional[list[PostProcessingStage]] = post_processing_stages
-        self.token_usage: Optional[list[ScanTokenUsage]] = token_usage
-
-        # Initialze these variables to None, they will be set later when the results are sent to Soda Cloud
-        self.scan_id: Optional[str] = None
-
-    def get_logs(self) -> list[str]:
-        return [r.getMessage() for r in self.log_records]
-
-    def get_logs_str(self) -> str:
-        return "\n".join(self.get_logs())
-
-    def get_errors(self) -> list[str]:
-        return [r.getMessage() for r in self.log_records if r.levelno >= ERROR]
-
-    def get_errors_str(self) -> str:
-        return "\n".join(self.get_errors())
-
-    def get_warnings(self) -> list[str]:
-        return [r.getMessage() for r in self.log_records if r.levelno == WARNING]
-
-    def get_warnings_str(self) -> str:
-        return "\n".join(self.get_warnings())
-
     @property
-    def has_errors(self) -> bool:
-        return self.status is ContractVerificationStatus.ERROR
+    def contract(self) -> Contract:
+        """Backwards-compat alias for ``check_collection``.
 
-    @property
-    def is_failed(self) -> bool:
+        External callers (and any in-the-wild code) that read
+        ``result.contract`` keep working. Lives on the contract subclass
+        so the wire-source-neutral ``CheckCollectionResult`` base stays
+        free of contract-specific naming. Read-only; assignment must go
+        through ``check_collection``.
         """
-        Returns true if there are checks that have failed.
-        False is returned if there are no check results.
-        Only looks at check results.
-        Ignores execution errors in the logs.
-        """
-        return self.status is ContractVerificationStatus.FAILED
-
-    @property
-    def is_passed(self) -> bool:
-        """
-        Returns true if there are no checks that have failed.
-        Ignores execution errors in the logs.
-        """
-        return self.status is ContractVerificationStatus.PASSED
-
-    @property
-    def is_warned(self) -> bool:
-        """
-        Returns true if there are checks that have warnings.
-        Ignores execution errors in the logs.
-        """
-        return self.status is ContractVerificationStatus.WARNED
-
-    @property
-    def is_ok(self) -> bool:
-        return not self.is_failed and not self.has_errors
-
-    @property
-    def number_of_checks(self) -> int:
-        return len(self.check_results)
-
-    @property
-    def number_of_checks_passed(self) -> int:
-        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.PASSED])
-
-    @property
-    def number_of_checks_failed(self) -> int:
-        return len([check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.FAILED])
-
-    @property
-    def number_of_checks_excluded(self) -> int:
-        return len(
-            [check_result for check_result in self.check_results if check_result.outcome == CheckOutcome.EXCLUDED]
-        )
+        return self.check_collection

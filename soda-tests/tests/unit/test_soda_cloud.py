@@ -41,6 +41,9 @@ from soda_core.contracts.impl.contract_verification_impl import (
     ContractVerificationHandlerRegistry,
 )
 from soda_core.contracts.impl.contract_yaml import ContractYaml
+from soda_core.contracts.impl.diagnostics_warehouse_files import (
+    DiagnosticsWarehouseFiles,
+)
 
 test_table_specification = (
     TestTableSpecification.builder()
@@ -203,7 +206,7 @@ def test_soda_cloud_results_with_post_processing(data_source_test_helper: DataSo
             contract_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
-            dwh_data_source_file_path: Optional[str] = None,
+            dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         ):
             """
             not needed for this test
@@ -273,7 +276,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
             contract_verification_result: ContractVerificationResult,
             soda_cloud: SodaCloud,
             soda_cloud_send_results_response_json: dict,
-            dwh_data_source_file_path: Optional[str] = None,
+            dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         ):
             raise RuntimeError("Intentional failure for testing")
 
@@ -344,7 +347,7 @@ def test_soda_cloud_results_with_post_processing_with_failure(
     ), f"Expected 3 cloud requests, got more: {data_source_test_helper.soda_cloud.requests}"
 
 
-def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
+def test_execute_over_runner(data_source_test_helper: DataSourceTestHelper):
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
@@ -405,7 +408,7 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
         ]
     )
 
-    data_source_test_helper.use_agent = True
+    data_source_test_helper.use_runner = True
 
     data_source_test_helper.assert_contract_pass(
         test_table=test_table,
@@ -421,8 +424,8 @@ def test_execute_over_agent(data_source_test_helper: DataSourceTestHelper):
     )
 
 
-def test_execute_over_agent_completed_with_warnings(data_source_test_helper: DataSourceTestHelper):
-    """When agent returns completedWithWarnings, is_warned must be True and is_passed must be False."""
+def test_execute_over_runner_completed_with_warnings(data_source_test_helper: DataSourceTestHelper):
+    """When the runner returns completedWithWarnings, is_warned must be True and is_passed must be False."""
     test_table = data_source_test_helper.ensure_test_table(test_table_specification)
 
     data_source_test_helper.enable_soda_cloud_mock(
@@ -483,7 +486,7 @@ def test_execute_over_agent_completed_with_warnings(data_source_test_helper: Dat
         ]
     )
 
-    data_source_test_helper.use_agent = True
+    data_source_test_helper.use_runner = True
 
     data_source_test_helper.assert_contract_warn(
         test_table=test_table,
@@ -541,7 +544,7 @@ def test_publish_contract():
     assert res.contract.source.local_file_path == "yaml_string"
 
 
-def test_verify_contract_on_agent_permission_check():
+def test_verify_contract_on_runner_permission_check():
     responses = [
         MockResponse(
             status_code=200,
@@ -553,7 +556,7 @@ def test_verify_contract_on_agent_permission_check():
     ]
     mock_cloud = MockSodaCloud(responses)
 
-    res = mock_cloud.verify_contract_on_agent(
+    res = mock_cloud.verify_contract_on_runner(
         ContractYaml.parse(
             ContractYamlSource.from_str(
                 f"""
@@ -568,6 +571,46 @@ def test_verify_contract_on_agent_permission_check():
         publish_results=False,
         verbose=False,
     )
+
+    assert isinstance(res, ContractVerificationResult)
+    assert res.sending_results_to_soda_cloud_failed is False
+    assert res.check_collection.dataset_name == "CUSTOMERS"
+    assert res.check_collection.data_source_name == "test"
+    assert res.check_collection.dataset_prefix == ["some", "schema"]
+    assert res.check_results == []
+    assert res.measurements == []
+    assert res.log_records is None
+
+
+def test_verify_contract_on_agent_permission_check_deprecated():
+    """Backwards-compat: the legacy ``verify_contract_on_agent`` method still works and warns."""
+    responses = [
+        MockResponse(
+            status_code=200,
+            json_object={
+                "allowed": False,
+                "reason": "missingManageContracts",
+            },
+        ),
+    ]
+    mock_cloud = MockSodaCloud(responses)
+
+    with pytest.warns(DeprecationWarning, match="verify_contract_on_agent"):
+        res = mock_cloud.verify_contract_on_agent(
+            ContractYaml.parse(
+                ContractYamlSource.from_str(
+                    f"""
+                dataset: test/some/schema/CUSTOMERS
+                columns:
+                - name: id
+            """
+                )
+            ),
+            variables={},
+            blocking_timeout_in_minutes=60,
+            publish_results=False,
+            verbose=False,
+        )
 
     assert isinstance(res, ContractVerificationResult)
     assert res.sending_results_to_soda_cloud_failed is False
