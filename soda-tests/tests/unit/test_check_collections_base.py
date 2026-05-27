@@ -282,28 +282,6 @@ def test_check_collection_impl_default_verify_on_runner_raises_not_implemented()
     assert "fake" in str(exc_info.value)
 
 
-def test_check_collection_impl_verify_on_agent_alias_warns_and_delegates():
-    """The deprecated ``verify_on_agent`` alias on the base emits a
-    DeprecationWarning and forwards to ``verify_on_runner`` — matches
-    the alias pattern on ``ContractImpl``."""
-    import warnings
-
-    impl = _FakeImpl(yaml=_FakeYaml(yaml_source=_LabelledSource("a")))
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with pytest.raises(NotImplementedError):
-            impl.verify_on_agent(
-                soda_cloud_impl=None,
-                variables={},
-                blocking_timeout_in_minutes=60,
-                publish_results=False,
-                verbose=False,
-            )
-    assert any(
-        issubclass(w.category, DeprecationWarning) and "verify_on_agent" in str(w.message) for w in caught
-    ), "verify_on_agent alias should emit a DeprecationWarning"
-
-
 def test_for_kind_returns_registered_impl_class():
     assert CheckCollectionImpl.for_kind(_FAKE_KIND) is _FakeImpl
     assert CheckCollectionImpl.for_kind(_RAISING_KIND) is _RaisingImpl

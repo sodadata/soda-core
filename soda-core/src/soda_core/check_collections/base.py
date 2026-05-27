@@ -945,22 +945,11 @@ class CheckCollectionImpl:
         publish_results: bool,
         verbose: bool,
     ) -> CheckCollectionResult:
-        """Runner-path verification (formerly agent execution).
+        """Runner-path verification. Default: raise NotImplementedError.
 
-        Default: raise NotImplementedError. Subtypes that support remote
-        execution (``ContractImpl``) override.
+        Subtypes that support remote execution (``ContractImpl``) override.
         """
         raise NotImplementedError(f"{self.display_name} does not support runner execution")
-
-    def verify_on_agent(self, *args, **kwargs) -> CheckCollectionResult:
-        """Deprecated alias for :py:meth:`verify_on_runner`."""
-        from soda_core.common._deprecation import warn_deprecated
-
-        warn_deprecated(
-            f"{type(self).__name__}.verify_on_agent",
-            f"{type(self).__name__}.verify_on_runner",
-        )
-        return self.verify_on_runner(*args, **kwargs)
 
     @classmethod
     def build_error_result(
