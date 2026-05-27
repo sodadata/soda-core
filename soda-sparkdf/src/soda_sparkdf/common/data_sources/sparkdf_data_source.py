@@ -137,6 +137,10 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
+    # Local Spark SQL rejects ``DROP TABLE ... CASCADE`` (ParseException). The
+    # Databricks SQL connector accepts it, hence the divergence from the
+    # parent dialect.
+    SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
     def get_database_prefix_index(self) -> int | None:
         return None
