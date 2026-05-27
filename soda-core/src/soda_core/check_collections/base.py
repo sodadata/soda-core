@@ -227,8 +227,10 @@ class CheckCollectionYaml:
         # The executor's kind-peek pass parses each YAML once and passes
         # the result back in. When called directly (no executor), parse
         # here. Either way the YAML is parsed exactly once.
+        # ``YamlSource.parse()`` either returns a ``YamlObject`` or raises;
+        # never ``None``.
         self.yaml_object: YamlObject = yaml_object if yaml_object is not None else yaml_source.parse()
-        self.kind: Optional[str] = self.yaml_object.read_string_opt("kind") if self.yaml_object is not None else None
+        self.kind: Optional[str] = self.yaml_object.read_string_opt("kind")
         self.execution_timestamp: datetime = datetime.now(timezone.utc)
         self.data_timestamp: datetime = _resolve_data_timestamp_str(data_timestamp, self.execution_timestamp)
 

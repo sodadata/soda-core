@@ -11,7 +11,10 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
-from soda_core.common.exceptions import YamlParserException
+from soda_core.common.exceptions import (
+    InvalidDataSourceConfigurationException,
+    YamlParserException,
+)
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 
@@ -201,6 +204,36 @@ class YamlSource:
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
     ...
+
+
+def build_data_source_yaml_sources(
+    data_source_file_paths: Optional[list[str]],
+    *,
+    use_runner: bool,
+) -> Optional[list[DataSourceYamlSource]]:
+    """Build a list of ``DataSourceYamlSource`` from local config file paths.
+
+    Returns the list of sources when at least one path was provided.
+    Returns ``None`` when no paths were given AND ``use_runner=True`` —
+    the runner will supply the data source config remotely.
+    Raises ``InvalidDataSourceConfigurationException`` when no paths are
+    given and ``use_runner=False``: the local caller must supply at
+    least one ``-ds`` / ``--data-source`` config.
+    """
+    data_source_yamls: list[DataSourceYamlSource] = []
+    if data_source_file_paths:
+        for data_source_file_path in data_source_file_paths:
+            soda_logger.debug(f"Using local data source config: {data_source_file_path}")
+            data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
+
+    if data_source_yamls:
+        return data_source_yamls
+    if use_runner:
+        return None
+    raise InvalidDataSourceConfigurationException(
+        "No data source configuration provided. "
+        "Please provide a data source configuration file using the -ds/--data-source argument."
+    )
 
 
 class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):

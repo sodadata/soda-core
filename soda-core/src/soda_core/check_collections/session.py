@@ -133,8 +133,10 @@ def execute_check_collections(
             # Parse the YAML once for kind dispatch; reuse the parsed
             # object inside the subtype's ``yaml_class.parse(...)`` so the
             # subtype's __init__ doesn't re-parse the same source.
+            # ``YamlSource.parse()`` either returns a ``YamlObject`` or
+            # raises; never ``None``.
             yaml_object = yaml_source.parse()
-            kind = (yaml_object.read_string_opt("kind") if yaml_object is not None else None) or "contract"
+            kind = yaml_object.read_string_opt("kind") or "contract"
             impl_class = CheckCollectionImpl.for_kind(kind)
 
             yaml = impl_class.yaml_class.parse(
