@@ -415,9 +415,7 @@ def test_cli_argument_mapping_for_data_source_test_command_with_scan_reference(m
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with(
-        "ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference="scan-ref-123"
-    )
+    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference="scan-ref-123")
 
 
 @patch("soda_core.cli.cli.handle_create_soda_cloud")

@@ -26,9 +26,7 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
     try:
         Path(dir_name).mkdir(parents=True, exist_ok=True)
         with open(data_source_file_path, "w") as text_file:
-            text_file.write(
-                dedent(
-                    """
+            text_file.write(dedent("""
                 type: postgres
                 name: postgres_ds
                 connection:
@@ -36,9 +34,7 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
                     user: ${POSTGRES_USERNAME}
                     password: ${POSTGRES_PASSWORD}
                     database: your_postgres_db
-                """
-                ).strip()
-            )
+                """).strip())
         soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'")
         return ExitCode.OK
     except Exception as exc:
@@ -76,7 +72,9 @@ def handle_test_data_source(
             )
             return ExitCode.LOG_ERRORS
         else:
-            soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok.")
+            soda_logger.info(
+                f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok."
+            )
             return ExitCode.OK
     finally:
         if log_uploader is not None:
@@ -121,9 +119,7 @@ def _build_log_uploader(
         return None
 
     if soda_cloud is None:
-        soda_logger.warning(
-            "Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded."
-        )
+        soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
         return None
 
     logs_queue = LogsQueue(

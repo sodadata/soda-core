@@ -85,9 +85,7 @@ def test_test_data_source_uploads_logs_when_scan_reference_provided(
     mock_log_capturer = MagicMock()
     mock_log_capturer_cls.return_value = mock_log_capturer
 
-    exit_code = handle_test_data_source(
-        "ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference="scan-ref-123"
-    )
+    exit_code = handle_test_data_source("ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference="scan-ref-123")
 
     assert exit_code == ExitCode.OK
     mock_logs_queue_cls.assert_called_once_with(
