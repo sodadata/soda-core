@@ -191,7 +191,6 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
     SODA_DATA_TYPE_SYNONYMS = (
         (SodaDataTypeName.TEXT, SodaDataTypeName.VARCHAR),
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
-        (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
         (SodaDataTypeName.TIME, SodaDataTypeName.VARCHAR),
     )
 
@@ -243,7 +242,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
             SodaDataTypeName.DATE: "date",
             SodaDataTypeName.TIME: "varchar",  # Athena does not support time data type, for time specifically, it should be formatted as a string!
             SodaDataTypeName.TIMESTAMP: "timestamp",
-            SodaDataTypeName.TIMESTAMP_TZ: "timestamp",
+            SodaDataTypeName.TIMESTAMP_TZ: "timestamp with time zone",
             SodaDataTypeName.BOOLEAN: "boolean",
         }
 
@@ -274,6 +273,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
             # Date/Time types
             "date": SodaDataTypeName.DATE,
             "timestamp": SodaDataTypeName.TIMESTAMP,
+            "timestamp with time zone": SodaDataTypeName.TIMESTAMP_TZ,
             # Boolean type
             "boolean": SodaDataTypeName.BOOLEAN,
             "bool": SodaDataTypeName.BOOLEAN,
@@ -390,10 +390,7 @@ class AthenaSqlDialect(SqlDialect, sqlglot_dialect="athena"):
 
         We don't want data type comparisons to fail, so strip this extra information.
         """
-        paranthesis_index = data_type.find("(")
-        if paranthesis_index != -1:
-            return data_type[:paranthesis_index]
-        return data_type
+        return re.sub(r"\([^)]*\)", "", data_type).replace("  ", " ").strip()
 
     def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
         return self.format_metadata_data_type(data_type_name).lower() in ["varchar", "char"]
