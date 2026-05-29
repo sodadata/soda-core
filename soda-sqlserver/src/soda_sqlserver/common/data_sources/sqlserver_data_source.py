@@ -163,6 +163,11 @@ class SqlServerSqlDialect(SqlDialect, sqlglot_dialect="tsql"):
     def _build_length_sql(self, length: LENGTH) -> str:
         return f"LEN({self.build_expression_sql(length.expression)})"
 
+    def _build_count_sql(self, count: COUNT) -> str:
+        # T-SQL COUNT returns INT and overflows above 2,147,483,647 rows. COUNT_BIG is the
+        # BIGINT-returning equivalent with identical null/distinct semantics.
+        return f"COUNT_BIG({self.build_expression_sql(count.expression)})"
+
     def sql_expr_timestamp_literal(self, datetime_in_iso8601: str) -> str:
         return f"'{datetime_in_iso8601}'"
 

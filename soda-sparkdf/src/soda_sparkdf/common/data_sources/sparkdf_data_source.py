@@ -12,6 +12,8 @@ from soda_core.common.data_source_impl import DataSourceImpl, MetadataTablesQuer
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.metadata_types import ColumnMetadata, SodaDataTypeName
 from soda_core.common.sql_dialect import SqlDialect
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName
+from soda_core.common.statements.table_types import FullyQualifiedViewName, TableType
 from soda_databricks.common.data_sources.databricks_data_source import (
     DatabricksSqlDialect,
 )
@@ -108,7 +110,9 @@ class SparkDataFrameCursor:
 
     @staticmethod
     def convert_spark_df_schema_to_dbapi_description(df) -> tuple[tuple]:
-        return tuple((field.name, type(field.dataType).__name__) for field in df.schema.fields)
+        # simpleString() yields Spark SQL type names like "int", "decimal(10,2)", "string" —
+        # parseable by the DWH extension and aligned with the dialect's supported-type list.
+        return tuple((field.name, field.dataType.simpleString()) for field in df.schema.fields)
 
 
 class SparkDataFrameDataSourceConnectionWrapper:
@@ -133,6 +137,10 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
+    # Local Spark SQL rejects ``DROP TABLE ... CASCADE`` (ParseException). The
+    # Databricks SQL connector accepts it, hence the divergence from the
+    # parent dialect.
+    SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
     def get_database_prefix_index(self) -> int | None:
         return None
@@ -174,6 +182,15 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
 
 class SparkDataFrameDataSourceConnection(DataSourceConnection):
     def __init__(self, name: str, connection_properties: dict, connection: Optional[object] = None):
+        # When the caller supplies a pre-built ``connection``, the base ``open_connection`` skips
+        # ``_create_connection`` (which is where ``self.session`` would normally be assigned).
+        # Pull the session out of ``connection_properties`` up-front so ``self.session`` is
+        # always available — DWH calls like ``test_schema_exists`` rely on it.
+        self.session: Optional[SparkSession] = None
+        if isinstance(connection_properties, dict):
+            existing_session = connection_properties.get("spark_session")
+            if existing_session is not None:
+                self.session = existing_session
         super().__init__(name, connection_properties, connection)
 
     def _create_connection(
@@ -221,6 +238,114 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
         return 0
 
 
+class SparkDataFrameMetadataTablesQuery(HiveMetadataTablesQuery):
+    """SparkDF variant of HiveMetadataTablesQuery.
+
+    Handles two SparkDF-specific quirks:
+      1. SHOW TABLES / SHOW VIEWS throws AnalysisException when the schema doesn't exist
+         (the Databricks SQL connector returns empty). Wrap each call in try/except so DWH
+         introspection of the not-yet-created diagnostics schema doesn't crash.
+      2. SHOW TABLES in Spark returns both tables and views; collect view names first and
+         subtract them so TableType.TABLE results are disjoint from TableType.VIEW.
+
+    Also emits ``database_name=None`` since SparkDF has no catalog concept (the dialect
+    uses ``database_prefix_index=None``).
+    """
+
+    def execute(
+        self,
+        database_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        include_table_name_like_filters: Optional[list[str]] = None,
+        exclude_table_name_like_filters: Optional[list[str]] = None,
+        types_to_return: Optional[list[TableType]] = None,
+    ) -> list[FullyQualifiedTableName]:
+        if types_to_return is None:
+            types_to_return = [TableType.TABLE]
+        results: list[FullyQualifiedTableName] = []
+
+        view_names: set[str] = set()
+        if TableType.TABLE in types_to_return:
+            try:
+                view_sql = self.build_sql_statement(
+                    database_name=database_name, schema_name=schema_name, object_type_to_fetch=TableType.VIEW
+                )
+                view_result: QueryResult = self.data_source_connection.execute_query(view_sql)
+                view_names = {row[1] for row in view_result.rows}
+            except Exception:
+                pass  # Schema may not exist yet
+
+        if TableType.TABLE in types_to_return:
+            try:
+                sql = self.build_sql_statement(
+                    database_name=database_name, schema_name=schema_name, object_type_to_fetch=TableType.TABLE
+                )
+                query_result: QueryResult = self.data_source_connection.execute_query(sql)
+                filtered_rows = [row for row in query_result.rows if row[1] not in view_names]
+                filtered_result = QueryResult(rows=filtered_rows, columns=query_result.columns)
+                results.extend(
+                    self.get_results(
+                        filtered_result,
+                        object_type_to_fetch=TableType.TABLE,
+                        include_table_name_like_filters=include_table_name_like_filters,
+                        exclude_table_name_like_filters=exclude_table_name_like_filters,
+                    )
+                )
+            except Exception:
+                pass
+
+        if TableType.VIEW in types_to_return:
+            try:
+                sql = self.build_sql_statement(
+                    database_name=database_name, schema_name=schema_name, object_type_to_fetch=TableType.VIEW
+                )
+                query_result = self.data_source_connection.execute_query(sql)
+                results.extend(
+                    self.get_results(
+                        query_result,
+                        object_type_to_fetch=TableType.VIEW,
+                        include_table_name_like_filters=include_table_name_like_filters,
+                        exclude_table_name_like_filters=exclude_table_name_like_filters,
+                    )
+                )
+            except Exception:
+                pass
+
+        return results
+
+    def get_results(
+        self,
+        query_result: QueryResult,
+        object_type_to_fetch: TableType,
+        include_table_name_like_filters: Optional[list[str]] = None,
+        exclude_table_name_like_filters: Optional[list[str]] = None,
+    ) -> list[FullyQualifiedTableName]:
+        if object_type_to_fetch == TableType.TABLE:
+            names_for_filtering = [table_name for _, table_name, _ in query_result.rows]
+        elif object_type_to_fetch == TableType.VIEW:
+            names_for_filtering = [view_name for _, view_name, *_ in query_result.rows]
+        else:
+            raise ValueError(f"Invalid object type to fetch: {object_type_to_fetch}")
+        filtered_names = self._filter_include_exclude(
+            names_for_filtering, include_table_name_like_filters, exclude_table_name_like_filters
+        )
+
+        if object_type_to_fetch == TableType.TABLE:
+            return [
+                FullyQualifiedTableName(database_name=None, schema_name=schema_name, table_name=table_name)
+                for schema_name, table_name, _is_temporary in query_result.rows
+                if table_name in filtered_names
+            ]
+        elif object_type_to_fetch == TableType.VIEW:
+            return [
+                FullyQualifiedViewName(database_name=None, schema_name=schema_name, view_name=view_name)
+                for schema_name, view_name, *_ in query_result.rows
+                if view_name in filtered_names
+            ]
+        else:
+            raise ValueError(f"Invalid object type to fetch: {object_type_to_fetch}")
+
+
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
         return SparkDataFrameSqlDialect()
@@ -231,7 +356,9 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         )
 
     def create_metadata_tables_query(self) -> MetadataTablesQuery:
-        return HiveMetadataTablesQuery(sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection)
+        return SparkDataFrameMetadataTablesQuery(
+            sql_dialect=self.sql_dialect, data_source_connection=self.data_source_connection
+        )
 
     @classmethod
     def from_existing_session(cls, session: SparkSession, name: str) -> DataSourceImpl:

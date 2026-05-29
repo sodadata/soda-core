@@ -38,7 +38,12 @@ class SparkDataFrameDataSourceTestHelper(DataSourceTestHelper):
         return None
 
     def _create_schema_name(self) -> Optional[str]:
-        return "main"
+        # Two helpers (primary + secondary) in the same test session share the
+        # JVM-level SparkSession via ``SparkSession.builder.getOrCreate()``, which
+        # also means they share the catalog. Use a helper-name-suffixed schema so
+        # primary and secondary don't collide on identical TestTableSpecification
+        # hashes (e.g. reconciliation tests that build the same fixture on both).
+        return f"main_{self.name}"
 
     def _create_dataset_prefix(self) -> list[str]:
         schema_name: str = self._create_schema_name()
