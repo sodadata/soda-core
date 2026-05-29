@@ -35,7 +35,7 @@ class _SentinelImpl(CheckCollectionImpl):
 
     The full ``__init__`` requires real YAML + data-source machinery —
     we stub the few attributes ``_verify_check_sources_aligned`` and the
-    ``send_contract_result`` site read.
+    ``send_check_collection_results`` site read.
 
     ``collection_id`` is exposed as a writable property so tests can set
     it directly. Production subtypes (``DataStandardImpl``) override the
@@ -137,7 +137,7 @@ def test_alignment_guard_skips_upload_on_source_mismatch():
     """If any emitted check has ``Check.source != self.wire_source``, the
     guard returns False, sets the ``sending_results_to_soda_cloud_failed``
     flag, and emits an error log record. ``verify()`` reads the False
-    return and skips the ``send_contract_result`` call entirely.
+    return and skips the ``send_check_collection_results`` call entirely.
     """
     impl = _SentinelImpl()
     result = _make_verification_result(
@@ -173,9 +173,9 @@ def test_alignment_guard_reports_every_offending_check():
     assert len(error_messages) == 3, f"Expected 3 mismatch errors; got: {error_messages}"
 
 
-def test_verify_skips_send_contract_result_when_alignment_guard_trips():
+def test_verify_skips_send_check_collection_results_when_alignment_guard_trips():
     """End-to-end mock: ``verify()`` must NOT call
-    ``soda_cloud.send_contract_result`` when the alignment guard returns
+    ``soda_cloud.send_check_collection_results`` when the alignment guard returns
     False, AND it must set the flag on the returned result.
     """
     impl = _SentinelImpl()
@@ -189,7 +189,7 @@ def test_verify_skips_send_contract_result_when_alignment_guard_trips():
     impl.all_data_source_impls = {}
     impl.soda_cloud = MagicMock()
     impl.soda_cloud._upload_contract_yaml_file.return_value = "file-id-123"
-    impl.soda_cloud.send_contract_result = MagicMock(return_value={"scanId": "should-not-be-called"})
+    impl.soda_cloud.send_check_collection_results = MagicMock(return_value={"scanId": "should-not-be-called"})
     impl.publish_results = True
     impl.collection_id = "my_pii_standard"
     impl.only_validate_without_execute = False
@@ -231,12 +231,12 @@ def test_verify_skips_send_contract_result_when_alignment_guard_trips():
     soda_cloud_file_id = "file-id-123"
     if soda_cloud_file_id:
         # data_source is non-None and aligned is False → guard branch runs;
-        # the test asserts ``send_contract_result`` is NOT called.
+        # the test asserts ``send_check_collection_results`` is NOT called.
         if not aligned:
             verification_result.sending_results_to_soda_cloud_failed = True
             # (Identical to the real branch in ``CheckCollectionImpl.verify()``.)
         else:
-            impl.soda_cloud.send_contract_result(verification_result, wire_source=impl.wire_source)
+            impl.soda_cloud.send_check_collection_results([verification_result], wire_source=impl.wire_source)
 
-    impl.soda_cloud.send_contract_result.assert_not_called()
+    impl.soda_cloud.send_check_collection_results.assert_not_called()
     assert verification_result.sending_results_to_soda_cloud_failed is True

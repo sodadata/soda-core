@@ -698,7 +698,6 @@ class CheckCollectionImpl:
         return columns
 
     def verify(self) -> CheckCollectionResult:
-        from soda_core.common.soda_cloud import extract_dataset_id_from_response
         from soda_core.contracts.impl.contract_verification_impl import (
             ContractVerificationHandlerRegistry,
             DerivedMetricImpl,
@@ -864,20 +863,14 @@ class CheckCollectionImpl:
                 # Session-level combined upload — executor sends after the loop.
                 logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
             else:
-                # send_contract_result will use contract.source.soda_cloud_file_id
-                soda_cloud_response_json = self.soda_cloud.send_contract_result(
-                    verification_result,
+                # send_check_collection_results stamps scan_id + dataset_id
+                # on the result internally; we just hold the response_json
+                # for the post-processing-handler invocation below.
+                soda_cloud_response_json = self.soda_cloud.send_check_collection_results(
+                    [verification_result],
                     wire_source=self.wire_source,
                     scan_definition_suffix=type(self).scan_definition_suffix,
                 )
-                scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-                if not scan_id:
-                    verification_result.sending_results_to_soda_cloud_failed = True
-                else:
-                    verification_result.scan_id = scan_id
-                    verification_result.check_collection.dataset_id = extract_dataset_id_from_response(
-                        soda_cloud_response_json, self.soda_qualified_dataset_name
-                    )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
@@ -885,8 +878,8 @@ class CheckCollectionImpl:
         # the session executor — handlers need the scan_id and
         # response_json from the *combined* upload, which hasn't happened
         # yet at this point in verify(). The executor calls
-        # ``run_post_processing_handlers`` per file after
-        # ``send_combined_results`` returns.
+        # ``run_post_processing_handlers`` per file after the session-level
+        # ``send_check_collection_results`` returns.
         if not self.combine_uploads:
             self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
 
@@ -909,7 +902,7 @@ class CheckCollectionImpl:
 
         Called inline from ``verify()`` for non-combine subtypes; for
         combine-upload subtypes the session executor calls this per file
-        after ``send_combined_results`` returns so handlers see the shared
+        after ``send_check_collection_results`` returns so handlers see the shared
         ``scan_id`` and ``response_json``. Files that were skipped from the
         combined upload (alignment guard, missing file_id, send failure)
         still get handlers invoked with ``response_json=None`` to match
