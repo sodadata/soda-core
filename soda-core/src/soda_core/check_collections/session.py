@@ -304,11 +304,17 @@ def execute_check_collections(
                 scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
             )
 
-    # Post-processing handlers — always run for every successfully-constructed
-    # combine-upload impl. The non-combine path runs handlers unconditionally
-    # at the end of ``verify()``; this loop is the combine-upload equivalent.
+    # Post-processing handlers — run for every successfully-VERIFIED
+    # combine-upload impl. The non-combine path runs handlers at the end
+    # of ``verify()`` only when verify() returned normally (an exception
+    # bypasses everything below the failing line); this loop is the
+    # combine-upload equivalent and must skip ERROR placeholders for
+    # parity. ``result.error`` is set exclusively by ``build_error_result``
+    # on the executor's exception branches, so it's a reliable signal.
     for (impl, impl_class, _, _), result in zip(constructed, results):
         if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        if result.error is not None:
             continue
         response_for_file = (
             response_json_by_wire_source.get(impl_class.wire_source) if id(result) in uploaded_ids else None

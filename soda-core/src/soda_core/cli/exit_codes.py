@@ -42,9 +42,11 @@ def session_result_to_exit_code(session_result: _HasRollups) -> ExitCode:
     """Map a session result's rollup properties to a CLI exit code.
 
     Subtype-neutral: works on any session-style result that exposes the
-    four rollup properties (``CheckCollectionSessionResult`` and its
-    subtypes do; ``ContractVerificationSessionResult`` does too, with
-    its own equivalents). Priority order:
+    four rollup properties — ``CheckCollectionSessionResult`` and its
+    subtypes (``DataStandardSessionResult``, ...). The legacy
+    ``ContractVerificationSessionResult`` is NOT a structural match (it
+    lacks ``sending_results_to_soda_cloud_failed``); contract-only CLI
+    handlers map exit codes directly. Priority order:
 
     1. Cloud-send failure trumps everything (the user wants to know
        results didn't land in Soda Cloud).
