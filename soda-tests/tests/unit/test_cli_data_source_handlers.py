@@ -60,3 +60,80 @@ def test_test_data_source_connection_error(mock_data_source_impl_cls):
 def test_test_data_source_returns_none(mock_from_file):
     exit_code = handle_test_data_source("ds.yaml")
     assert exit_code == ExitCode.LOG_ERRORS
+
+
+@patch("soda_core.cli.handlers.data_source.LogCapturer")
+@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.cli.handlers.data_source.SodaCloudYamlSource")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_test_data_source_uploads_logs_when_scan_reference_provided(
+    mock_data_source_impl_cls,
+    mock_yaml_source_cls,
+    mock_soda_cloud_cls,
+    mock_logs_queue_cls,
+    mock_log_capturer_cls,
+):
+    mock_instance = MagicMock()
+    mock_instance.test_connection_error_message.return_value = None
+    mock_data_source_impl_cls.from_yaml_source.return_value = mock_instance
+
+    mock_soda_cloud = MagicMock()
+    mock_soda_cloud_cls.from_yaml_source.return_value = mock_soda_cloud
+    mock_logs_queue = MagicMock()
+    mock_logs_queue_cls.return_value = mock_logs_queue
+    mock_log_capturer = MagicMock()
+    mock_log_capturer_cls.return_value = mock_log_capturer
+
+    exit_code = handle_test_data_source(
+        "ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference="scan-ref-123"
+    )
+
+    assert exit_code == ExitCode.OK
+    mock_logs_queue_cls.assert_called_once_with(
+        soda_cloud=mock_soda_cloud,
+        stage="test_connection",
+        scan_reference="scan-ref-123",
+        dataset="",
+    )
+    mock_log_capturer_cls.assert_called_once_with(mock_logs_queue)
+    mock_log_capturer.remove_from_root_logger.assert_called_once()
+    mock_logs_queue.close.assert_called_once()
+
+
+@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_test_data_source_skips_log_upload_when_scan_reference_missing(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_logs_queue_cls,
+):
+    mock_instance = MagicMock()
+    mock_instance.test_connection_error_message.return_value = None
+    mock_data_source_impl_cls.from_yaml_source.return_value = mock_instance
+
+    exit_code = handle_test_data_source("ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference=None)
+
+    assert exit_code == ExitCode.OK
+    mock_soda_cloud_cls.from_yaml_source.assert_not_called()
+    mock_logs_queue_cls.assert_not_called()
+
+
+@patch("soda_core.cli.handlers.data_source.LogsQueue")
+@patch("soda_core.cli.handlers.data_source.SodaCloud")
+@patch("soda_core.common.data_source_impl.DataSourceImpl")
+def test_test_data_source_skips_log_upload_when_soda_cloud_missing(
+    mock_data_source_impl_cls,
+    mock_soda_cloud_cls,
+    mock_logs_queue_cls,
+):
+    mock_instance = MagicMock()
+    mock_instance.test_connection_error_message.return_value = None
+    mock_data_source_impl_cls.from_yaml_source.return_value = mock_instance
+
+    exit_code = handle_test_data_source("ds.yaml", soda_cloud_file_path=None, scan_reference="scan-ref-123")
+
+    assert exit_code == ExitCode.OK
+    mock_soda_cloud_cls.from_yaml_source.assert_not_called()
+    mock_logs_queue_cls.assert_not_called()

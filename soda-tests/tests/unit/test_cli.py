@@ -389,7 +389,35 @@ def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with("ds.yaml")
+    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path=None, scan_reference=None)
+
+
+@patch("soda_core.cli.cli.handle_test_data_source")
+def test_cli_argument_mapping_for_data_source_test_command_with_scan_reference(mock_handler):
+    mock_handler.return_value = ExitCode.OK.value
+    sys.argv = [
+        "soda",
+        "data-source",
+        "test",
+        "-ds",
+        "ds.yaml",
+        "-sc",
+        "sc.yaml",
+        "--scan-reference",
+        "scan-ref-123",
+    ]
+
+    parser = create_cli_parser()
+    args = parser.parse_args()
+
+    with pytest.raises(SystemExit) as e:
+        args.handler_func(args)
+
+    assert e.value.code == 0
+
+    mock_handler.assert_called_once_with(
+        "ds.yaml", soda_cloud_file_path="sc.yaml", scan_reference="scan-ref-123"
+    )
 
 
 @patch("soda_core.cli.cli.handle_create_soda_cloud")
