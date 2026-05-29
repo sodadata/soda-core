@@ -152,11 +152,17 @@ def execute_check_collections(
             # ``YamlSource.parse()`` either returns a ``YamlObject`` or
             # raises; never ``None``.
             yaml_object = yaml_source.parse()
-            kind = yaml_object.read_string_opt("kind") or "contract"
-            if expected_kinds is not None and kind not in expected_kinds:
-                kind_offenders.append((yaml_source, kind))
+            # ``raw_kind`` may be ``None`` if the yaml omits the ``kind:``
+            # field — we keep it raw for the offender report (so the
+            # message reads ``kind=None`` instead of misleadingly saying
+            # ``kind='contract'`` for a file that had no kind at all).
+            # The ``"contract"`` default is only applied for impl-class
+            # dispatch — BC for legacy contract YAMLs without a kind line.
+            raw_kind = yaml_object.read_string_opt("kind")
+            if expected_kinds is not None and raw_kind not in expected_kinds:
+                kind_offenders.append((yaml_source, raw_kind))
                 continue
-            impl_class = CheckCollectionImpl.for_kind(kind)
+            impl_class = CheckCollectionImpl.for_kind(raw_kind or "contract")
 
             yaml = impl_class.yaml_class.parse(
                 yaml_source=yaml_source,

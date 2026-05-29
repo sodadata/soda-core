@@ -114,8 +114,10 @@ def test_expected_kinds_rejects_yaml_with_wrong_kind():
 
 
 def test_expected_kinds_rejects_yaml_missing_kind():
-    """A yaml without ``kind:`` defaults to ``"contract"`` for dispatch — which
-    is rejected when the caller's expected_kinds does not include it."""
+    """A yaml without ``kind:`` is rejected — and the offender report
+    surfaces the raw ``None`` (NOT the ``"contract"`` dispatch default)
+    so the user can tell their yaml is missing the field, not declaring
+    the wrong value."""
     sources = [
         _StubSource(label="no_kind", kind=None),
     ]
@@ -127,8 +129,10 @@ def test_expected_kinds_rejects_yaml_missing_kind():
         )
     msg = str(exc_info.value)
     assert "/fake/no_kind.yml" in msg
-    # Default kind is "contract" — surfaced in the offender message.
-    assert "kind='contract'" in msg
+    # Missing kind reads as ``None`` in the offender list — not the
+    # dispatch default ``"contract"``, which would mislead the user.
+    assert "kind=None" in msg
+    assert "kind='contract'" not in msg
 
 
 def test_expected_kinds_none_accepts_everything():
