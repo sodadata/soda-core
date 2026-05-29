@@ -11,12 +11,8 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
 
-def handle_create_data_source(
-    data_source_file_path: str, data_source_type: str
-) -> ExitCode:
-    soda_logger.info(
-        f"Creating {data_source_type} data source YAML file '{data_source_file_path}'"
-    )
+def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
+    soda_logger.info(f"Creating {data_source_type} data source YAML file '{data_source_file_path}'")
     if exists(data_source_file_path):
         soda_logger.error(
             f"Could not create data source file '{data_source_file_path}'. "
@@ -24,9 +20,7 @@ def handle_create_data_source(
         )
         return ExitCode.LOG_ERRORS
     if data_source_type != "postgres":
-        soda_logger.error(
-            f"{Emoticons.POLICE_CAR_LIGHT} Only type postgres is supported atm"
-        )
+        soda_logger.error(f"{Emoticons.POLICE_CAR_LIGHT} Only type postgres is supported atm")
         return ExitCode.LOG_ERRORS
     dir_name = dirname(data_source_file_path)
     try:
@@ -45,9 +39,7 @@ def handle_create_data_source(
                 """
                 ).strip()
             )
-        soda_logger.info(
-            f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'"
-        )
+        soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Created data source file '{data_source_file_path}'")
         return ExitCode.OK
     except Exception as exc:
         soda_logger.exception(f"An unexpected exception occurred: {exc}")
@@ -131,9 +123,7 @@ def _build_log_uploader(
         return None
 
     if soda_cloud is None:
-        soda_logger.warning(
-            "Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded."
-        )
+        soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
         return None
 
     logs_queue = LogsQueue(
