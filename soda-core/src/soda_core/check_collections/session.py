@@ -187,52 +187,11 @@ def execute_check_collections(
                 raise
             constructed.append((None, impl_class, exc, yaml_source))
 
-    # ---- Phase 1.25: session-wide invariant — every yaml's kind is in ``expected_kinds``. ----
-    # Subtype-narrowed APIs (``verify_data_standards`` etc.) pass their
-    # own ``{kind}``; offenders are collected during phase 1's single
-    # kind-read above and raised here before any verify() runs. Session-
-    # level user-input error — ignore ``abort_on_first_error`` (mirrors
-    # the phase 1.5 dup-collection_id raise).
-    if kind_offenders:
-        expected_str = ", ".join(repr(k) for k in sorted(expected_kinds or ()))
-        offender_str = ", ".join(
-            f"{getattr(src, 'file_path', None) or repr(src)} (kind={kind!r})" for src, kind in kind_offenders
-        )
-        raise InvalidArgumentException(
-            f"Every yaml must declare 'kind:' in {{{expected_str}}} at the root. "
-            f"Offending file(s): {offender_str}. "
-            "Use execute_check_collections directly to verify mixed kinds."
-        )
-
-    # ---- Phase 1.5: session-wide invariant — unique collection_id. ----
-    # For ``combine_uploads = True`` subtypes, the pair
-    # ``(wire_source, collection_id)`` MUST be unique across the session:
-    # duplicates would emit colliding ``checkPath`` prefixes and identity
-    # hashes into the combined upload, and the backend would resolve them
-    # to the same entry. Hard raise before phase 2 — independent of
-    # ``abort_on_first_error`` since this is a session-level user-input
-    # error, not a per-file engine failure. Phase 1 failures (impl is
-    # None) are skipped here; they surface as phase 2 ERROR placeholders
-    # if not pre-empted by a dup raise.
-    collisions: dict[tuple[str, str], list[CheckCollectionYamlSource]] = {}
-    for impl, impl_class, _construct_exc, yaml_source in constructed:
-        if impl is None or impl_class is None or not impl_class.combine_uploads:
-            continue
-        if not impl.collection_id:
-            continue
-        collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
-
-    dup_lines: list[str] = []
-    for (wire_source, collection_id), sources_in_group in collisions.items():
-        if len(sources_in_group) < 2:
-            continue
-        paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
-        dup_lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
-    if dup_lines:
-        raise InvalidArgumentException(
-            "Duplicate collection identifier(s) detected in session — each "
-            "combine-upload subtype requires a unique identifier per file:\n" + "\n".join(dup_lines)
-        )
+    # ---- Session-wide invariants — raise before any verify() runs. ----
+    # Both checks are user-input errors at the session boundary, so they
+    # ignore ``abort_on_first_error`` (which gates per-file engine errors).
+    _raise_if_kind_offenders(kind_offenders, expected_kinds)
+    _raise_if_duplicate_collection_ids(constructed)
 
     # ---- Phase 2: verify every constructed impl, per-file isolated. ----
     # Construct-failure placeholders from phase 1 become ERROR results.
@@ -337,3 +296,67 @@ def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[dat
     if isinstance(value, datetime):
         return value
     return convert_str_to_datetime(value)
+
+
+def _raise_if_kind_offenders(
+    kind_offenders: list[tuple[CheckCollectionYamlSource, Optional[str]]],
+    expected_kinds: Optional[set[str]],
+) -> None:
+    """Raise ``InvalidArgumentException`` listing every yaml whose ``kind:``
+    fell outside ``expected_kinds``.
+
+    Offenders are collected inline during phase 1's kind-dispatch parse
+    (single parse per yaml) and handed here for the raise. Subtype-narrowed
+    APIs (``verify_data_standards``, future ``verify_reconciliations``, ...)
+    rely on this to enforce their function-name promise.
+    """
+    if not kind_offenders:
+        return
+    expected_str = ", ".join(repr(k) for k in sorted(expected_kinds or ()))
+    offender_str = ", ".join(
+        f"{getattr(src, 'file_path', None) or repr(src)} (kind={kind!r})" for src, kind in kind_offenders
+    )
+    raise InvalidArgumentException(
+        f"Every yaml must declare 'kind:' in {{{expected_str}}} at the root. "
+        f"Offending file(s): {offender_str}. "
+        "Use execute_check_collections directly to verify mixed kinds."
+    )
+
+
+def _raise_if_duplicate_collection_ids(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+) -> None:
+    """Raise ``InvalidArgumentException`` if two constructed impls in a
+    ``combine_uploads = True`` subtype share ``(wire_source, collection_id)``.
+
+    Duplicates would emit colliding ``checkPath`` prefixes and identity
+    hashes into the combined upload, and the backend would resolve them to
+    the same entry. Phase 1 failures (impl is None) and impls without a
+    ``collection_id`` are skipped; they don't participate in the dedup.
+    """
+    collisions: dict[tuple[str, str], list[CheckCollectionYamlSource]] = {}
+    for impl, impl_class, _construct_exc, yaml_source in constructed:
+        if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        if not impl.collection_id:
+            continue
+        collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
+
+    dup_lines: list[str] = []
+    for (wire_source, collection_id), sources_in_group in collisions.items():
+        if len(sources_in_group) < 2:
+            continue
+        paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
+        dup_lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
+    if dup_lines:
+        raise InvalidArgumentException(
+            "Duplicate collection identifier(s) detected in session — each "
+            "combine-upload subtype requires a unique identifier per file:\n" + "\n".join(dup_lines)
+        )
