@@ -226,6 +226,34 @@ def test_send_check_collection_results_stamps_scan_id_on_every_result():
     assert all(r.sending_results_to_soda_cloud_failed is False for r in results)
 
 
+def test_send_check_collection_results_n1_stamps_scan_id_and_dataset_id():
+    """1-element call (production path: autopilot + non-combine ``verify()``)
+    stamps both ``scan_id`` and ``dataset_id`` on the single result.
+
+    The dataset_id resolution moved from the per-file ``verify()`` call
+    site into the unified sender as part of the unification; this test
+    locks the N=1 stamping behaviour the migrated callers rely on.
+    """
+    cloud = SodaCloud.__new__(SodaCloud)
+    response = MagicMock()
+    response.status_code = 200
+    # Per-check ``datasets`` shape that ``extract_dataset_id_from_response``
+    # walks — same dqn as the result's ``soda_qualified_dataset_name``.
+    response.json.return_value = {
+        "scanId": "scan-n1",
+        "checks": [{"datasets": [{"dqn": "test_ds/s/t", "id": "ds-id-1"}]}],
+    }
+    cloud._execute_command = MagicMock(return_value=response)
+
+    (result,) = [_make_result(label="solo")]
+    out = cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
+
+    assert out == response.json.return_value
+    assert result.scan_id == "scan-n1"
+    assert result.check_collection.dataset_id == "ds-id-1"
+    assert result.sending_results_to_soda_cloud_failed is False
+
+
 def test_send_check_collection_results_marks_all_failed_on_non_200():
     """Non-200 → every per-file result gets ``sending_results_to_soda_cloud_failed = True``."""
     cloud = SodaCloud.__new__(SodaCloud)

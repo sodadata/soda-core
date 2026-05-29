@@ -373,7 +373,8 @@ class SodaCloud:
             command_json_dict=payload, request_log_name="send_check_collection_results"
         )
         if response.status_code == 200:
-            logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud ({len(results)} file(s))")
+            file_count_label = "1 file" if len(results) == 1 else f"{len(results)} files"
+            logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud ({file_count_label})")
             response_json: dict = response.json()
             if isinstance(response_json, dict):
                 cloud_url: Optional[str] = response_json.get("cloudUrl")
