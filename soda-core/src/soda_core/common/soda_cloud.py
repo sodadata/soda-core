@@ -373,6 +373,62 @@ class SodaCloud:
                 return response_json
         return None
 
+    def send_combined_results(
+        self,
+        results: list[ContractVerificationResult],
+        wire_source: str,
+        scan_definition_suffix: Optional[str] = None,
+    ) -> Optional[dict]:
+        """Send N files' worth of check results in one ingestion request.
+
+        Used by ``execute_check_collections`` for ``combine_uploads = True``
+        subtypes. All files in ``results`` MUST share the same
+        ``wire_source``; per-file routing is by ``firstSegmentOf(checkPath)``
+        → subtype identifier on the backend.
+
+        Empty ``results`` is a no-op. On 200, the shared ``scanId`` from
+        the response is stamped on every per-file result. On non-200 (or
+        missing ``scanId``), every result is marked
+        ``sending_results_to_soda_cloud_failed = True``.
+        """
+        if not results:
+            return None
+        payload = _build_combined_results_json_dict(
+            results=results,
+            wire_source=wire_source,
+            scan_definition_suffix=scan_definition_suffix,
+        )
+        payload["type"] = "sodaCoreInsertScanResults"
+        response: Response = self._execute_command(command_json_dict=payload, request_log_name="send_combined_results")
+        if response.status_code == 200:
+            logger.info(f"{Emoticons.OK_HAND} Combined results sent to Soda Cloud ({len(results)} files)")
+            response_json: dict = response.json()
+            if isinstance(response_json, dict):
+                cloud_url: Optional[str] = response_json.get("cloudUrl")
+                if isinstance(cloud_url, str):
+                    logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
+                scan_id = response_json.get("scanId")
+                # The shared scanId correlates per-file results to the
+                # one Cloud-side scan row. Missing scanId → mark every
+                # result failed-to-send rather than guessing.
+                if scan_id:
+                    for r in results:
+                        r.scan_id = scan_id
+                        # Each per-file result resolves its own dataset_id
+                        # from the shared response (matched by qualified
+                        # dataset name) — parity with the per-file
+                        # send_contract_result path.
+                        r.check_collection.dataset_id = extract_dataset_id_from_response(
+                            response_json, r.check_collection.soda_qualified_dataset_name
+                        )
+                else:
+                    for r in results:
+                        r.sending_results_to_soda_cloud_failed = True
+                return response_json
+        for r in results:
+            r.sending_results_to_soda_cloud_failed = True
+        return None
+
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
         command_json_dict: dict = {
             "type": "sodaCoreGenerateContractSkeleton",
@@ -1541,6 +1597,96 @@ def _build_contract_result_json_dict(
     )
 
 
+def _build_combined_results_json_dict(
+    results: list[ContractVerificationResult],
+    wire_source: str,
+    scan_definition_suffix: Optional[str] = None,
+) -> dict:
+    """Combined ``sodaCoreInsertScanResults`` payload covering N files.
+
+    Shape mirrors ``_build_contract_result_json_dict`` — the backend
+    ingestion path uses one schema. Session-level fields (scanId,
+    definitionName, data source, timestamps) come from the first result;
+    ``hasErrors``/``hasWarns``/``hasFailures`` are ORs over per-file
+    values; ``checks`` and ``logs`` flatten across files. ``contract`` is
+    always None (combined uploads only fire for non-contract sources).
+    """
+    head = results[0]
+    started_timestamps = [r.started_timestamp for r in results if r.started_timestamp]
+    ended_timestamps = [r.ended_timestamp for r in results if r.ended_timestamp]
+
+    checks: list[dict] = []
+    for r in results:
+        per_file = _build_check_results_cloud_json_dicts(r, wire_source=wire_source)
+        if per_file:
+            checks.extend(per_file)
+
+    log_records: list[LogRecord] = []
+    for r in results:
+        if r.log_records:
+            log_records.extend(r.log_records)
+    logs = _build_log_cloud_json_dicts(log_records)
+
+    # De-dup post-processing stages by name: the backend tracks one
+    # ONGOING stage per scan, not per file.
+    seen_stage_names: set[str] = set()
+    post_processing_stages: list[dict] = []
+    for r in results:
+        if not r.post_processing_stages:
+            continue
+        for stage in r.post_processing_stages:
+            if stage.name in seen_stage_names:
+                continue
+            seen_stage_names.add(stage.name)
+            post_processing_stages.append({"name": stage.name})
+
+    token_usage: list[dict] = []
+    for r in results:
+        if r.token_usage:
+            token_usage.extend(
+                {
+                    "promptTokens": tu.prompt_tokens,
+                    "completionTokens": tu.completion_tokens,
+                    "totalTokens": tu.total_tokens,
+                    "model": tu.model,
+                    "operation": tu.operation,
+                }
+                for tu in r.token_usage
+            )
+
+    # PARTIAL if any check was EXCLUDED, else FULL — same rule as
+    # ``determine_verification_ingestion_mode`` aggregated over the batch.
+    ingestion_mode = VerificationIngestionMode.FULL
+    for r in results:
+        if any(check.outcome == CheckOutcome.EXCLUDED for check in r.check_results):
+            ingestion_mode = VerificationIngestionMode.PARTIAL
+            break
+
+    return to_jsonnable(  # type: ignore
+        {
+            "scanId": os.environ.get("SODA_SCAN_ID", None),
+            "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+            "defaultDataSource": head.data_source.name if head.data_source else None,
+            "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
+            "dataTimestamp": head.data_timestamp,
+            "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
+            "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
+            "hasErrors": any(r.has_errors for r in results),
+            "hasWarns": any(r.is_warned for r in results),
+            "hasFailures": any(r.is_failed for r in results),
+            "checks": checks if checks else None,
+            "logs": logs,
+            "sourceOwner": "soda-core",
+            # Non-contract sources only; null lets backend routing fall
+            # through to scan-def-type dispatch.
+            "contract": None,
+            "postProcessingStages": post_processing_stages,
+            "resultsIngestionMode": ingestion_mode.value,
+            "tokenUsage": token_usage,
+        }
+    )
+
+
 def _build_contract_cloud_json_dict(contract: Contract):
     return {
         "fileId": contract.source.soda_cloud_file_id,
@@ -1844,3 +1990,19 @@ def determine_verification_ingestion_mode(
         ingestion_mode = VerificationIngestionMode.PARTIAL
 
     return ingestion_mode
+
+
+def extract_dataset_id_from_response(soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
+    """Find the dataset_id matching ``qualified_dataset_name`` in a Cloud ingestion response.
+
+    The Cloud response carries per-check ``datasets`` entries; we walk
+    them and return the ``id`` of the first dataset whose ``dqn`` matches
+    the qualified name. Used by both the per-file and combined upload
+    paths to stamp ``dataset_id`` on the per-file result.
+    """
+    for check in soda_cloud_response_json.get("checks", []):
+        for dataset in check.get("datasets", []):
+            dataset_dqn: Optional[str] = dataset.get("dqn")
+            if dataset_dqn and dataset_dqn == qualified_dataset_name:
+                return dataset.get("id")
+    return None

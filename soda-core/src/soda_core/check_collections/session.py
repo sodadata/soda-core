@@ -25,6 +25,7 @@ from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
     convert_str_to_datetime,
 )
+from soda_core.common.exceptions import InvalidArgumentException
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
@@ -48,6 +49,7 @@ def execute_check_collections(
     logs: Optional[Logs] = None,
     primary_data_source_impl: Optional[DataSourceImpl] = None,
     default_impl_class: Optional[type[CheckCollectionImpl]] = None,
+    expected_kinds: Optional[set[str]] = None,
 ) -> CheckCollectionSessionResult:
     """Run a list of check-collection YAML sources.
 
@@ -65,16 +67,17 @@ def execute_check_collections(
     exception re-raises verbatim. Used by the legacy single-contract
     facade via ``ContractVerificationSession``.
 
-    Upload-must-split rule: every item's results are uploaded to Soda Cloud
-    in its own ``sodaCoreInsertScanResults`` request (one upload per item),
-    keyed by ``wire_source`` (e.g. ``soda-contract`` for contracts). The
-    backend cannot ingest a single upload that mixes checks from different
-    wire sources — its ingestion filter routes the whole batch by the
-    top-level ``source`` and rejects the request if any check inside
-    disagrees. Mixed-source items in one ``execute_check_collections`` call
-    are therefore safe (each item uploads independently); a single item
-    must never emit checks whose ``source`` disagrees with its own
-    ``wire_source``.
+    Upload model: one ``sodaCoreInsertScanResults`` request per
+    ``(session, wire_source)`` pair. Subtypes with ``combine_uploads = True``
+    issue one combined request per session covering all their files;
+    subtypes with the default ``combine_uploads = False`` upload once per
+    file inside ``verify()`` itself. The backend cannot ingest a single
+    upload that mixes checks from different wire sources — its ingestion
+    filter routes the whole batch by the top-level ``source`` and rejects
+    the request if any check inside disagrees. Mixed-source items in one
+    ``execute_check_collections`` call are therefore safe (each wire-source
+    group uploads independently); a single item must never emit checks
+    whose ``source`` disagrees with its own ``wire_source``.
 
     Callers wanting the universal entrypoint pass ``primary_data_source_impl``
     explicitly. The contract path uses ``ContractVerificationSessionImpl``,
@@ -97,6 +100,17 @@ def execute_check_collections(
     fallback's ``build_error_result`` returns the right ``result_class``
     and the typed return stays honest. Defaults to ``CheckCollectionImpl``
     for callers that genuinely don't know a sensible subtype default.
+
+    ``expected_kinds`` is an opt-in set of permitted top-level ``kind:``
+    values. When set, the executor reads each yaml's ``kind:`` in phase 1
+    and — if a yaml declares a kind outside the set — collects it and
+    raises ``InvalidArgumentException`` at the end of phase 1 (before any
+    impl is verified). Subtype-narrowed public APIs
+    (``verify_data_standards``, future ``verify_reconciliations``, ...)
+    pass their own ``{kind}`` so dispatch matches the function name's
+    promise and per-yaml ``kind:`` is read exactly once (the same parse
+    that drives ``CheckCollectionImpl.for_kind(...)``). The universal
+    entrypoint leaves it ``None`` and accepts every registered kind.
     """
     parsed_data_timestamp: Optional[datetime] = _parse_data_timestamp(data_timestamp)
     # The yaml-level parser still takes the ISO string (it has its own
@@ -109,31 +123,54 @@ def execute_check_collections(
     )
 
     results: list[CheckCollectionResult] = []
+
+    # ---- Phase 1: parse + construct every impl, per-file isolated. ----
+    # Entries: ``(impl, impl_class, None, yaml_source)`` on success,
+    # ``(None, impl_class_or_None, exc, yaml_source)`` on failure. The
+    # ``yaml_source`` slot lets phase 1.5 filter ``constructed`` without
+    # index-coupling to ``yaml_sources``. Construct failures flow to
+    # phase 2 as ERROR placeholders; ``abort_on_first_error`` still
+    # re-raises immediately.
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ] = []
+    # Offenders for ``expected_kinds`` rejection — collected during the
+    # phase 1 kind-dispatch read and raised eagerly after the loop so we
+    # never run any verify() for a wrong-kind session.
+    kind_offenders: list[tuple[CheckCollectionYamlSource, Optional[str]]] = []
     for yaml_source in yaml_sources:
         impl_class: Optional[type[CheckCollectionImpl]] = None
         try:
-            # Peek the kind from the YAML root. Cheap parse (YAML library
-            # call); the subtype's full parse below repeats this work but
-            # also walks columns/checks/variables which is the heavy part.
+            # Parse the YAML once for kind dispatch; reuse the parsed
+            # object inside the subtype's ``yaml_class.parse(...)`` so the
+            # subtype's __init__ doesn't re-parse the same source.
+            # ``YamlSource.parse()`` either returns a ``YamlObject`` or
+            # raises; never ``None``.
             yaml_object = yaml_source.parse()
-            kind = (yaml_object.read_string_opt("kind") if yaml_object is not None else None) or "contract"
-            impl_class = CheckCollectionImpl.for_kind(kind)
+            # ``raw_kind`` may be ``None`` if the yaml omits the ``kind:``
+            # field — we keep it raw for the offender report (so the
+            # message reads ``kind=None`` instead of misleadingly saying
+            # ``kind='contract'`` for a file that had no kind at all).
+            # The ``"contract"`` default is only applied for impl-class
+            # dispatch — BC for legacy contract YAMLs without a kind line.
+            raw_kind = yaml_object.read_string_opt("kind")
+            if expected_kinds is not None and raw_kind not in expected_kinds:
+                kind_offenders.append((yaml_source, raw_kind))
+                continue
+            impl_class = CheckCollectionImpl.for_kind(raw_kind or "contract")
 
             yaml = impl_class.yaml_class.parse(
                 yaml_source=yaml_source,
+                yaml_object=yaml_object,
                 provided_variable_values=variables,
                 data_timestamp=data_timestamp_str,
                 primary_data_source_impl=primary_data_source_impl,
             )
-            # Forward the parsed yaml's resolved data_timestamp /
-            # execution_timestamp to the impl when the yaml exposes them
-            # (ContractYaml does; the base CheckCollectionYaml in POC scope
-            # does not yet). Fall back to the boundary-parsed datetime
-            # otherwise — ``CheckCollectionImpl.__init__`` types
-            # ``data_timestamp`` as ``Optional[datetime]``, so the fallback
-            # must never be a string.
-            yaml_data_timestamp = getattr(yaml, "data_timestamp", None)
-            yaml_execution_timestamp = getattr(yaml, "execution_timestamp", None)
             impl = impl_class(
                 yaml=yaml,
                 data_source_impl=data_source_impl,
@@ -144,13 +181,29 @@ def execute_check_collections(
                 all_data_source_impls=all_data_source_impls,
                 dwh_files=dwh_files,
                 logs=logs,
-                data_timestamp=yaml_data_timestamp if yaml_data_timestamp is not None else parsed_data_timestamp,
-                execution_timestamp=yaml_execution_timestamp,
+                # ``data_timestamp`` and ``execution_timestamp`` are
+                # first-class fields on ``CheckCollectionYaml``: every
+                # subtype yaml has them after construction.
+                data_timestamp=yaml.data_timestamp,
+                execution_timestamp=yaml.execution_timestamp,
             )
-            results.append(impl.verify())
+            constructed.append((impl, impl_class, None, yaml_source))
         except Exception as exc:
             if abort_on_first_error:
                 raise
+            constructed.append((None, impl_class, exc, yaml_source))
+
+    # ---- Session-wide invariants — raise before any verify() runs. ----
+    # Both checks are user-input errors at the session boundary, so they
+    # ignore ``abort_on_first_error`` (which gates per-file engine errors).
+    _raise_if_kind_offenders(kind_offenders, expected_kinds)
+    _raise_if_duplicate_collection_ids(constructed)
+
+    # ---- Phase 2: verify every constructed impl, per-file isolated. ----
+    # Construct-failure placeholders from phase 1 become ERROR results.
+    # Verify-time exceptions follow the existing isolation semantics.
+    for impl, impl_class, construct_exc, yaml_source in constructed:
+        if impl is None:
             # On unknown kind or pre-impl failures (where ``impl_class``
             # could not be resolved), fall back to the caller-supplied
             # ``default_impl_class``. Callers that publish a subtype-typed
@@ -165,7 +218,74 @@ def execute_check_collections(
                 if impl_class is not None
                 else (default_impl_class if default_impl_class is not None else CheckCollectionImpl)
             )
-            results.append(builder.build_error_result(yaml_source, exc))
+            results.append(builder.build_error_result(yaml_source, construct_exc))
+            continue
+        try:
+            results.append(impl.verify())
+        except Exception as exc:
+            if abort_on_first_error:
+                raise
+            results.append(impl_class.build_error_result(yaml_source, exc))
+
+    # ---- Phase 3: combined upload (cloud-gated) + post-processing handlers (always). ----
+    # ``constructed`` is positionally aligned with ``results``, so we iterate
+    # both together and read the impl_class straight from the construct tuple.
+    # Two distinct concerns split by their gating:
+    #   - The combined upload runs only when there's a cloud client AND the
+    #     caller opted into publish_results — otherwise there's nothing to send.
+    #   - Post-processing handlers run for every combine-upload result regardless
+    #     of cloud presence, mirroring the non-combine path's "handlers run
+    #     unconditionally at the end of verify()" semantics. Handlers receive
+    #     the shared response_json when the result was actually uploaded, or
+    #     None otherwise (alignment-guard failure, missing file_id, cloud absent,
+    #     publish_results=False).
+    response_json_by_wire_source: dict[str, Optional[dict]] = {}
+    uploaded_ids: set[int] = set()
+    if soda_cloud_impl is not None and publish_results:
+        combined_by_wire_source: dict[str, list[CheckCollectionResult]] = {}
+        combined_suffix_by_wire_source: dict[str, Optional[str]] = {}
+        for (_, impl_class, _, _), result in zip(constructed, results):
+            if impl_class is None or not impl_class.combine_uploads:
+                continue
+            # Per-file alignment guard or data-source-missing path already
+            # flagged this result; don't include it in the combined upload.
+            if result.sending_results_to_soda_cloud_failed:
+                continue
+            file_id = (
+                result.check_collection.source.soda_cloud_file_id
+                if result.check_collection and result.check_collection.source
+                else None
+            )
+            if file_id is None:
+                continue
+            combined_by_wire_source.setdefault(impl_class.wire_source, []).append(result)
+            combined_suffix_by_wire_source[impl_class.wire_source] = impl_class.scan_definition_suffix
+            uploaded_ids.add(id(result))
+
+        for wire_source, group in combined_by_wire_source.items():
+            response_json_by_wire_source[wire_source] = soda_cloud_impl.send_combined_results(
+                results=group,
+                wire_source=wire_source,
+                scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),
+            )
+
+    # Post-processing handlers — run for every successfully-VERIFIED
+    # combine-upload impl. The non-combine path runs handlers at the end
+    # of ``verify()`` only when verify() returned normally (an exception
+    # bypasses everything below the failing line); this loop is the
+    # combine-upload equivalent and must skip ERROR placeholders for
+    # parity. ``result.error`` is set exclusively by ``build_error_result``
+    # on the executor's exception branches, so it's a reliable signal.
+    for (impl, impl_class, _, _), result in zip(constructed, results):
+        if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        if result.error is not None:
+            continue
+        response_for_file = (
+            response_json_by_wire_source.get(impl_class.wire_source) if id(result) in uploaded_ids else None
+        )
+        impl.run_post_processing_handlers(result, response_for_file)
+
     return CheckCollectionSessionResult(results)
 
 
@@ -182,3 +302,67 @@ def _parse_data_timestamp(value: Optional[Union[str, datetime]]) -> Optional[dat
     if isinstance(value, datetime):
         return value
     return convert_str_to_datetime(value)
+
+
+def _raise_if_kind_offenders(
+    kind_offenders: list[tuple[CheckCollectionYamlSource, Optional[str]]],
+    expected_kinds: Optional[set[str]],
+) -> None:
+    """Raise ``InvalidArgumentException`` listing every yaml whose ``kind:``
+    fell outside ``expected_kinds``.
+
+    Offenders are collected inline during phase 1's kind-dispatch parse
+    (single parse per yaml) and handed here for the raise. Subtype-narrowed
+    APIs (``verify_data_standards``, future ``verify_reconciliations``, ...)
+    rely on this to enforce their function-name promise.
+    """
+    if not kind_offenders:
+        return
+    expected_str = ", ".join(repr(k) for k in sorted(expected_kinds or ()))
+    offender_str = ", ".join(
+        f"{getattr(src, 'file_path', None) or repr(src)} (kind={kind!r})" for src, kind in kind_offenders
+    )
+    raise InvalidArgumentException(
+        f"Every yaml must declare 'kind:' in {{{expected_str}}} at the root. "
+        f"Offending file(s): {offender_str}. "
+        "Use execute_check_collections directly to verify mixed kinds."
+    )
+
+
+def _raise_if_duplicate_collection_ids(
+    constructed: list[
+        tuple[
+            Optional[CheckCollectionImpl],
+            Optional[type[CheckCollectionImpl]],
+            Optional[BaseException],
+            CheckCollectionYamlSource,
+        ]
+    ],
+) -> None:
+    """Raise ``InvalidArgumentException`` if two constructed impls in a
+    ``combine_uploads = True`` subtype share ``(wire_source, collection_id)``.
+
+    Duplicates would emit colliding ``checkPath`` prefixes and identity
+    hashes into the combined upload, and the backend would resolve them to
+    the same entry. Phase 1 failures (impl is None) and impls without a
+    ``collection_id`` are skipped; they don't participate in the dedup.
+    """
+    collisions: dict[tuple[str, str], list[CheckCollectionYamlSource]] = {}
+    for impl, impl_class, _construct_exc, yaml_source in constructed:
+        if impl is None or impl_class is None or not impl_class.combine_uploads:
+            continue
+        if not impl.collection_id:
+            continue
+        collisions.setdefault((impl_class.wire_source, impl.collection_id), []).append(yaml_source)
+
+    dup_lines: list[str] = []
+    for (wire_source, collection_id), sources_in_group in collisions.items():
+        if len(sources_in_group) < 2:
+            continue
+        paths = [getattr(src, "file_path", None) or repr(src) for src in sources_in_group]
+        dup_lines.append(f"  - {wire_source} '{collection_id}': {', '.join(paths)}")
+    if dup_lines:
+        raise InvalidArgumentException(
+            "Duplicate collection identifier(s) detected in session — each "
+            "combine-upload subtype requires a unique identifier per file:\n" + "\n".join(dup_lines)
+        )

@@ -8,10 +8,9 @@ from soda_core.common.exceptions import (
     YamlParserException,
 )
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import ContractYamlSource
+from soda_core.common.yaml import ContractYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.api.verify_api import (
     ContractVerificationSession,
-    _create_datasource_yamls,
     all_none_or_empty,
     verify_contract,
 )
@@ -259,7 +258,7 @@ def test_handle_verify_contract_returns_exit_code_0_when_no_valid_remote_contrac
 
 def test_local_flow_does_not_fetch_datasource_config_from_cloud():
     """
-    In the local flow (use_runner=False), _create_datasource_yamls
+    In the local flow (use_runner=False), build_data_source_yaml_sources
     should NOT call fetch_data_source_configuration_for_dataset on the
     SodaCloud client. Fetching datasource configs from Cloud in the local
     flow is a security risk — it can expose host/connection info to users
@@ -269,7 +268,7 @@ def test_local_flow_does_not_fetch_datasource_config_from_cloud():
     raise an error instead of fetching from Cloud.
     """
     with pytest.raises(InvalidDataSourceConfigurationException):
-        _create_datasource_yamls(
+        build_data_source_yaml_sources(
             data_source_file_paths=[],
             use_runner=False,
         )
@@ -283,7 +282,7 @@ def test_local_flow_with_dataset_identifier_uses_local_datasource_config(tmp_pat
     ds_file = tmp_path / "ds.yml"
     ds_file.write_text("type: duckdb\npath: test.db")
 
-    result = _create_datasource_yamls(
+    result = build_data_source_yaml_sources(
         data_source_file_paths=[str(ds_file)],
         use_runner=False,
     )
@@ -297,7 +296,7 @@ def test_runner_flow_without_local_datasource_returns_none():
     are provided, return None (runner provides its own config). Should NOT
     fetch from Cloud.
     """
-    result = _create_datasource_yamls(
+    result = build_data_source_yaml_sources(
         data_source_file_paths=[],
         use_runner=True,
     )
