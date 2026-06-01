@@ -35,10 +35,21 @@ def _to_jsonl(batch: list[LogRecord]) -> str:
 
 
 class LogsQueue(LogsBase):
-    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_id: str, dataset: str):
+    def __init__(
+        self,
+        soda_cloud: SodaCloud,
+        stage: str,
+        scan_reference: Optional[str] = None,
+        dataset: str = "",
+        scan_id: Optional[str] = None,
+    ):
         super().__init__()
         self.index = 0
         self.soda_cloud = soda_cloud
+        # When scan_id is set, logs are uploaded via the scan-id-keyed batchV4 endpoint;
+        # otherwise we fall back to the scan-reference-keyed batchV3 endpoint that existing
+        # library consumers rely on.
+        self.scan_reference = scan_reference
         self.scan_id = scan_id
         self.stage = stage
         self.thread = str(uuid.uuid4())
@@ -138,7 +149,10 @@ class LogsQueue(LogsBase):
                     if self.verbose:
                         print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
 
-                    response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
+                    if self.scan_id:
+                        response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
+                    else:
+                        response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
 
                     if self.verbose:
                         print(
