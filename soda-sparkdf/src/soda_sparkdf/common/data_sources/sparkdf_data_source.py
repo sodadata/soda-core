@@ -139,9 +139,9 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
-    # Local Spark SQL rejects ``DROP TABLE ... CASCADE`` (ParseException). The
-    # Databricks SQL connector accepts it, hence the divergence from the
-    # parent dialect.
+    # Class-level default: legacy local-Spark rejects ``DROP TABLE ... CASCADE``
+    # with a ParseException. In catalog mode (Databricks) CASCADE is supported, so
+    # __init__ promotes this to True via an instance attribute that shadows the class.
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
     def __init__(self, use_catalog: bool = False):
@@ -150,6 +150,8 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
         # namespace). In legacy mode, prefixes are [schema] only — local Spark has no
         # catalog concept beyond ``spark_catalog``.
         self.use_catalog = use_catalog
+        # Instance override — see class-level comment above.
+        self.SUPPORTS_DROP_TABLE_CASCADE = use_catalog
 
     def get_database_prefix_index(self) -> int | None:
         return 0 if self.use_catalog else None
@@ -413,7 +415,13 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
     def from_existing_session(
         cls, session: SparkSession, name: str, use_catalog: bool = False
     ) -> DataSourceImpl:
-        connection_properties = {"spark_session": session, "schema_": name, "use_catalog": use_catalog}
+        # Locally-owned dict so we never mutate caller-shared state via the
+        # ``connection_properties`` plumbing.
+        connection_properties = {
+            "spark_session": session,
+            "schema_": name,
+            "use_catalog": use_catalog,
+        }
         ds_model = SparkDataFrameDataSourceModel(
             name=name,
             connection_properties=connection_properties,
@@ -443,23 +451,25 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         return False
 
     def test_schema_exists(self, prefixes: list[str]) -> bool:
-        # Catalog-mode prefixes are [catalog, schema]; we check existence within the catalog so
-        # the SHOW SCHEMAS result is scoped (and a missing/empty catalog returns False cleanly).
+        # Catalog-mode prefixes are [catalog, schema]; we list schemas in the catalog and do
+        # exact-match in Python rather than ``LIKE '<schema>'`` so a schema named
+        # ``soda_diagnostics`` doesn't false-positive against ``sodaXdiagnostics`` via the
+        # ``_`` wildcard. Quote the catalog so names with hyphens (legal in UC) parse cleanly.
         if self.sql_dialect.get_database_prefix_index() is not None and len(prefixes) >= 2:
             catalog_name = prefixes[0]
             schema_name = prefixes[1]
+            quoted_catalog = self.sql_dialect.quote_default(catalog_name)
             try:
-                result = self.connection.session.sql(
-                    f"SHOW SCHEMAS IN {catalog_name} LIKE '{schema_name}'"
-                ).collect()
+                result = self.connection.session.sql(f"SHOW SCHEMAS IN {quoted_catalog}").collect()
             except Exception:
-                # Catalog does not yet exist — pre_schema_create_sql will create it.
+                # Catalog doesn't exist (or we can't see into it) — the subsequent
+                # ``CREATE SCHEMA IF NOT EXISTS <cat>.<schema>`` will surface the real error.
                 return False
             for row in result:
                 if row[0] and row[0].lower() == schema_name.lower():
                     return True
             return False
-        result = self.connection.session.sql(f"SHOW SCHEMAS LIKE '{prefixes[0]}'").collect()
+        result = self.connection.session.sql("SHOW SCHEMAS").collect()
         for row in result:
             if row[0] and row[0].lower() == prefixes[0].lower():
                 return True

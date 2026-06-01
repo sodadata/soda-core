@@ -40,3 +40,17 @@ def test_catalog_mode_create_schema_sql_no_semicolon_option():
     dialect = SparkDataFrameSqlDialect(use_catalog=True)
     sql = dialect.create_schema_if_not_exists_sql(["my_cat", "my_schema"], add_semicolon=False)
     assert sql == "CREATE SCHEMA IF NOT EXISTS `my_cat`.`my_schema`"
+
+
+def test_drop_table_cascade_disabled_in_legacy_mode():
+    # Local Spark rejects DROP TABLE ... CASCADE with a ParseException, so the dialect
+    # must NOT emit the CASCADE suffix when running on a local SparkSession.
+    dialect = SparkDataFrameSqlDialect()
+    assert dialect.SUPPORTS_DROP_TABLE_CASCADE is False
+
+
+def test_drop_table_cascade_enabled_in_catalog_mode():
+    # In catalog mode the engine is Databricks (or another UC-aware Spark), which accepts
+    # DROP TABLE ... CASCADE. The dialect promotes the class default to True per-instance.
+    dialect = SparkDataFrameSqlDialect(use_catalog=True)
+    assert dialect.SUPPORTS_DROP_TABLE_CASCADE is True

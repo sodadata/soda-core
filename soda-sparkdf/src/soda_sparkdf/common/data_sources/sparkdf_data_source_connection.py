@@ -17,9 +17,10 @@ class SparkDataFrameConnectionProperties(DataSourceConnectionProperties, ABC):
         False,
         description=(
             "When True, treat DWH prefixes as [catalog, schema] so DWH tables land in a "
-            "Unity-Catalog-style 3-level namespace. The dialect emits CREATE CATALOG IF "
-            "NOT EXISTS ahead of CREATE SCHEMA and qualifies all DDL/DML with the catalog. "
-            "Leave False for local Spark which has no catalog concept."
+            "Unity-Catalog-style 3-level namespace. The dialect qualifies CREATE SCHEMA and "
+            "schema-existence checks with the catalog (e.g. ``catalog.schema``); the catalog "
+            "itself is assumed to already exist (Soda does not auto-create catalogs). Leave "
+            "False for local Spark which has no catalog concept."
         ),
     )
 
