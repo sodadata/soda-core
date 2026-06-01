@@ -263,7 +263,7 @@ def execute_check_collections(
             uploaded_ids.add(id(result))
 
         for wire_source, group in combined_by_wire_source.items():
-            response_json_by_wire_source[wire_source] = soda_cloud_impl.send_combined_results(
+            response_json_by_wire_source[wire_source] = soda_cloud_impl.send_check_collection_results(
                 results=group,
                 wire_source=wire_source,
                 scan_definition_suffix=combined_suffix_by_wire_source.get(wire_source),

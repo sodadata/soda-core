@@ -8,7 +8,7 @@ Publishing results to Soda Cloud must not crash with an AttributeError on
 from datetime import datetime, timezone
 
 from helpers.mock_soda_cloud import MockResponse, MockSodaCloud
-from soda_core.common.soda_cloud import _build_contract_result_json_dict
+from soda_core.common.soda_cloud import _build_check_collection_results_json_dict
 from soda_core.common.yaml import ContractYamlSource
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
@@ -48,7 +48,7 @@ def _make_contract_verification_result(data_source=None) -> ContractVerification
 
 def test_build_contract_result_json_dict_does_not_crash_when_data_source_is_none():
     result = _make_contract_verification_result(data_source=None)
-    json_dict = _build_contract_result_json_dict(result)
+    json_dict = _build_check_collection_results_json_dict([result])
 
     assert isinstance(json_dict, dict)
     # to_jsonnable strips None values, so these keys should be absent
@@ -61,7 +61,7 @@ def test_verify_does_not_send_results_to_cloud_when_datasource_not_found():
     """
     When the data source name in the contract's 'dataset' field
     does not match any registered data source, verify() must:
-    - NOT attempt to send results to Soda Cloud (no send_contract_result call)
+    - NOT attempt to send results to Soda Cloud (no send_check_collection_results call)
     - Mark sending_results_to_soda_cloud_failed as True
     - Not crash
     """
@@ -69,7 +69,7 @@ def test_verify_does_not_send_results_to_cloud_when_datasource_not_found():
         [
             # Response for the contract YAML file upload
             MockResponse(status_code=200, json_object={"fileId": "777ggg"}),
-            # Response for send_contract_result — should NOT be consumed
+            # Response for send_check_collection_results — should NOT be consumed
             MockResponse(status_code=200, json_object={"scanId": "should_not_be_reached"}),
         ]
     )
@@ -94,6 +94,6 @@ def test_verify_does_not_send_results_to_cloud_when_datasource_not_found():
     # Results should NOT have been sent to Cloud
     assert result.sending_results_to_soda_cloud_failed is True
 
-    # Only the file upload request should have been made, NOT send_contract_result
+    # Only the file upload request should have been made, NOT send_check_collection_results
     assert len(mock_cloud.requests) == 1
     assert mock_cloud.requests[0].json["type"] == "sodaCoreUploadContractFile"

@@ -1,9 +1,10 @@
 """Unit tests for the combined-upload wire payload.
 
-Locks the shape of ``_build_combined_results_json_dict`` and the
-``SodaCloud.send_combined_results`` API used by subtypes that opt into
-session-level combined ingestion (``CheckCollectionImpl.combine_uploads =
-True``). Contract path is exercised separately in
+Locks the shape of ``_build_check_collection_results_json_dict`` (the
+unified single+multi builder) when called with N≥2 results from
+``combine_uploads = True`` subtypes, and the ``SodaCloud
+.send_check_collection_results`` API the executor uses. The single-result
+case is exercised separately in
 ``test_contract_wire_source_plumbed_to_upload.py``.
 """
 
@@ -13,7 +14,10 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from soda_core.common.logs import Location
-from soda_core.common.soda_cloud import SodaCloud, _build_combined_results_json_dict
+from soda_core.common.soda_cloud import (
+    SodaCloud,
+    _build_check_collection_results_json_dict,
+)
 from soda_core.contracts.contract_verification import (
     Check,
     CheckCollectionStatus,
@@ -97,7 +101,7 @@ def test_combined_payload_flattens_check_results():
     )
     r2 = _make_result(label="beta", check_results=[_make_check_result(path="checks.c")])
 
-    payload = _build_combined_results_json_dict([r1, r2], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([r1, r2], wire_source="data-standard")
 
     assert payload["checks"] is not None
     assert [c["checkPath"] for c in payload["checks"]] == ["checks.a", "checks.b", "checks.c"]
@@ -112,7 +116,9 @@ def test_combined_payload_or_aggregates_status_flags():
     r_failed = _make_result(label="fail", status=CheckCollectionStatus.FAILED)
     r_errored = _make_result(label="err", status=CheckCollectionStatus.ERROR)
 
-    payload = _build_combined_results_json_dict([r_passed, r_warned, r_failed, r_errored], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict(
+        [r_passed, r_warned, r_failed, r_errored], wire_source="data-standard"
+    )
 
     assert payload["hasErrors"] is True
     assert payload["hasWarns"] is True
@@ -123,7 +129,7 @@ def test_combined_payload_status_flags_all_false_when_no_problems():
     """All-PASSED batch → all flags False."""
     r1 = _make_result(label="alpha")
     r2 = _make_result(label="beta")
-    payload = _build_combined_results_json_dict([r1, r2], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([r1, r2], wire_source="data-standard")
     assert payload["hasErrors"] is False
     assert payload["hasWarns"] is False
     assert payload["hasFailures"] is False
@@ -135,7 +141,7 @@ def test_combined_payload_picks_min_max_timestamps():
     late = _make_result(label="late", started_minute=20, ended_minute=25)
     middle = _make_result(label="middle", started_minute=15, ended_minute=18)
 
-    payload = _build_combined_results_json_dict([late, early, middle], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([late, early, middle], wire_source="data-standard")
 
     assert payload["scanStartTimestamp"] == "2026-01-01T12:10:00+00:00"
     assert payload["scanEndTimestamp"] == "2026-01-01T12:25:00+00:00"
@@ -148,7 +154,7 @@ def test_combined_payload_omits_contract_field():
     null-valued dict keys, so the field doesn't appear at all in the
     serialized payload — same shape as the contract path produces for
     non-contract wire sources today."""
-    payload = _build_combined_results_json_dict([_make_result(label="alpha")], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([_make_result(label="alpha")], wire_source="data-standard")
     assert "contract" not in payload
 
 
@@ -165,13 +171,13 @@ def test_combined_payload_dedups_post_processing_stages_by_name():
             PostProcessingStage(name="other-stage", stage=PostProcessingStageState.ONGOING),
         ],
     )
-    payload = _build_combined_results_json_dict([r1, r2], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([r1, r2], wire_source="data-standard")
     assert payload["postProcessingStages"] == [{"name": "dwh-stage"}, {"name": "other-stage"}]
 
 
 def test_combined_payload_definition_name_uses_scan_suffix():
     """``definitionName`` uses the dataset qualified name + scan suffix."""
-    payload = _build_combined_results_json_dict(
+    payload = _build_check_collection_results_json_dict(
         [_make_result(label="alpha")],
         wire_source="data-standard",
         scan_definition_suffix="data_standards_scan",
@@ -183,7 +189,7 @@ def test_combined_payload_ingestion_mode_partial_when_any_check_excluded():
     """One EXCLUDED check anywhere in the batch → mode = PARTIAL."""
     r1 = _make_result(label="alpha", check_results=[_make_check_result(outcome=CheckOutcome.PASSED)])
     r2 = _make_result(label="beta", check_results=[_make_check_result(outcome=CheckOutcome.EXCLUDED)])
-    payload = _build_combined_results_json_dict([r1, r2], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([r1, r2], wire_source="data-standard")
     assert payload["resultsIngestionMode"] == "partial"
 
 
@@ -191,20 +197,20 @@ def test_combined_payload_ingestion_mode_full_otherwise():
     """No EXCLUDED checks anywhere → mode = FULL."""
     r1 = _make_result(label="alpha")
     r2 = _make_result(label="beta")
-    payload = _build_combined_results_json_dict([r1, r2], wire_source="data-standard")
+    payload = _build_check_collection_results_json_dict([r1, r2], wire_source="data-standard")
     assert payload["resultsIngestionMode"] == "full"
 
 
-def test_send_combined_results_no_op_on_empty_list():
+def test_send_check_collection_results_no_op_on_empty_list():
     """Empty ``results`` returns None without hitting the backend."""
     cloud = SodaCloud.__new__(SodaCloud)  # bypass __init__; we mock _execute_command
     cloud._execute_command = MagicMock()
-    out = cloud.send_combined_results(results=[], wire_source="data-standard")
+    out = cloud.send_check_collection_results(results=[], wire_source="data-standard")
     assert out is None
     cloud._execute_command.assert_not_called()
 
 
-def test_send_combined_results_stamps_scan_id_on_every_result():
+def test_send_check_collection_results_stamps_scan_id_on_every_result():
     """200 OK with a scanId → every per-file result gets ``scan_id`` set."""
     cloud = SodaCloud.__new__(SodaCloud)
     response = MagicMock()
@@ -213,14 +219,42 @@ def test_send_combined_results_stamps_scan_id_on_every_result():
     cloud._execute_command = MagicMock(return_value=response)
 
     results = [_make_result(label="alpha"), _make_result(label="beta")]
-    out = cloud.send_combined_results(results=results, wire_source="data-standard")
+    out = cloud.send_check_collection_results(results=results, wire_source="data-standard")
 
     assert out == {"scanId": "scan-42"}
     assert all(r.scan_id == "scan-42" for r in results)
     assert all(r.sending_results_to_soda_cloud_failed is False for r in results)
 
 
-def test_send_combined_results_marks_all_failed_on_non_200():
+def test_send_check_collection_results_n1_stamps_scan_id_and_dataset_id():
+    """1-element call (production path: autopilot + non-combine ``verify()``)
+    stamps both ``scan_id`` and ``dataset_id`` on the single result.
+
+    The dataset_id resolution moved from the per-file ``verify()`` call
+    site into the unified sender as part of the unification; this test
+    locks the N=1 stamping behaviour the migrated callers rely on.
+    """
+    cloud = SodaCloud.__new__(SodaCloud)
+    response = MagicMock()
+    response.status_code = 200
+    # Per-check ``datasets`` shape that ``extract_dataset_id_from_response``
+    # walks — same dqn as the result's ``soda_qualified_dataset_name``.
+    response.json.return_value = {
+        "scanId": "scan-n1",
+        "checks": [{"datasets": [{"dqn": "test_ds/s/t", "id": "ds-id-1"}]}],
+    }
+    cloud._execute_command = MagicMock(return_value=response)
+
+    (result,) = [_make_result(label="solo")]
+    out = cloud.send_check_collection_results(results=[result], wire_source="soda-contract")
+
+    assert out == response.json.return_value
+    assert result.scan_id == "scan-n1"
+    assert result.check_collection.dataset_id == "ds-id-1"
+    assert result.sending_results_to_soda_cloud_failed is False
+
+
+def test_send_check_collection_results_marks_all_failed_on_non_200():
     """Non-200 → every per-file result gets ``sending_results_to_soda_cloud_failed = True``."""
     cloud = SodaCloud.__new__(SodaCloud)
     response = MagicMock()
@@ -229,13 +263,13 @@ def test_send_combined_results_marks_all_failed_on_non_200():
     cloud._execute_command = MagicMock(return_value=response)
 
     results = [_make_result(label="alpha"), _make_result(label="beta")]
-    out = cloud.send_combined_results(results=results, wire_source="data-standard")
+    out = cloud.send_check_collection_results(results=results, wire_source="data-standard")
 
     assert out is None
     assert all(r.sending_results_to_soda_cloud_failed is True for r in results)
 
 
-def test_send_combined_results_marks_all_failed_when_response_omits_scan_id():
+def test_send_check_collection_results_marks_all_failed_when_response_omits_scan_id():
     """200 OK but no scanId in the body → mark all results failed-to-send.
 
     We can't pick which file's ingest failed without a scanId to correlate,
@@ -247,7 +281,7 @@ def test_send_combined_results_marks_all_failed_when_response_omits_scan_id():
     cloud._execute_command = MagicMock(return_value=response)
 
     results = [_make_result(label="alpha"), _make_result(label="beta")]
-    out = cloud.send_combined_results(results=results, wire_source="data-standard")
+    out = cloud.send_check_collection_results(results=results, wire_source="data-standard")
 
     assert out == {"cloudUrl": "https://cloud.example/dataset"}
     assert all(r.sending_results_to_soda_cloud_failed is True for r in results)
