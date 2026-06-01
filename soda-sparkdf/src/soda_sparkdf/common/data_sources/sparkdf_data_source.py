@@ -21,13 +21,13 @@ from soda_databricks.common.statements.hive_metadata_tables_query import (
     HiveMetadataTablesQuery,
 )
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
+    SparkDataFrameActiveSessionProperties,
     SparkDataFrameConnectionProperties,
 )
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameDataSource as SparkDataFrameDataSourceModel,
 )
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
-    SparkDataFrameActiveSessionProperties,
     SparkDataFrameExistingSessionProperties,
     SparkDataFrameNewSessionProperties,
     SparkDataFrameRemoteSessionProperties,
@@ -412,9 +412,7 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         )
 
     @classmethod
-    def from_existing_session(
-        cls, session: SparkSession, name: str, use_catalog: bool = False
-    ) -> DataSourceImpl:
+    def from_existing_session(cls, session: SparkSession, name: str, use_catalog: bool = False) -> DataSourceImpl:
         # Locally-owned dict so we never mutate caller-shared state via the
         # ``connection_properties`` plumbing.
         connection_properties = {
