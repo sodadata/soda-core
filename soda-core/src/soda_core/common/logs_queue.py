@@ -35,11 +35,11 @@ def _to_jsonl(batch: list[LogRecord]) -> str:
 
 
 class LogsQueue(LogsBase):
-    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_reference: str, dataset: str):
+    def __init__(self, soda_cloud: SodaCloud, stage: str, scan_id: str, dataset: str):
         super().__init__()
         self.index = 0
         self.soda_cloud = soda_cloud
-        self.scan_reference = scan_reference
+        self.scan_id = scan_id
         self.stage = stage
         self.thread = str(uuid.uuid4())
         self.dataset = dataset
@@ -138,7 +138,7 @@ class LogsQueue(LogsBase):
                     if self.verbose:
                         print(f"Sending logs to the cloud, {len(batch)} logs in the batch.")
 
-                    response = self.soda_cloud.logs_batch(scan_reference=self.scan_reference, body=_to_jsonl(batch))
+                    response = self.soda_cloud.logs_batch_v4(scan_id=self.scan_id, body=_to_jsonl(batch))
 
                     if self.verbose:
                         print(

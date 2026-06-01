@@ -49,7 +49,7 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
 def handle_test_data_source(
     data_source_file_path: str,
     soda_cloud_file_path: Optional[str] = None,
-    scan_reference: Optional[str] = None,
+    scan_id: Optional[str] = None,
 ) -> ExitCode:
     soda_logger.info(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source_impl import DataSourceImpl
@@ -60,7 +60,7 @@ def handle_test_data_source(
 
     log_uploader: Optional["_TestConnectionLogUploader"] = _build_log_uploader(
         soda_cloud_file_path=soda_cloud_file_path,
-        scan_reference=scan_reference,
+        scan_id=scan_id,
     )
 
     try:
@@ -88,7 +88,7 @@ def handle_test_data_source(
 class _TestConnectionLogUploader:
     """Wires Soda Cloud log upload around the test-connection flow.
 
-    Holds a LogsQueue bound to the given scan_reference and a LogCapturer that
+    Holds a LogsQueue bound to the given scan_id and a LogCapturer that
     forwards root-logger records to it. Must be closed to flush the final batch.
     """
 
@@ -105,9 +105,9 @@ class _TestConnectionLogUploader:
 
 def _build_log_uploader(
     soda_cloud_file_path: Optional[str],
-    scan_reference: Optional[str],
+    scan_id: Optional[str],
 ) -> Optional[_TestConnectionLogUploader]:
-    if not scan_reference or not soda_cloud_file_path:
+    if not scan_id or not soda_cloud_file_path:
         return None
 
     try:
@@ -117,8 +117,8 @@ def _build_log_uploader(
         )
     except Exception as e:
         soda_logger.warning(
-            f"Could not initialise Soda Cloud log upload for test-connection (scan_reference="
-            f"{scan_reference}): {e}. Continuing without log upload."
+            f"Could not initialise Soda Cloud log upload for test-connection (scan_id="
+            f"{scan_id}): {e}. Continuing without log upload."
         )
         return None
 
@@ -129,7 +129,7 @@ def _build_log_uploader(
     logs_queue = LogsQueue(
         soda_cloud=soda_cloud,
         stage="test_connection",
-        scan_reference=scan_reference,
+        scan_id=scan_id,
         dataset="",
     )
     log_capturer = LogCapturer(logs_queue)

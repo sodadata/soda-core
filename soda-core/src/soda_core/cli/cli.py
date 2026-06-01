@@ -467,11 +467,11 @@ def _setup_data_source_test_command(data_source_parsers) -> None:
     test_parser.add_argument("-sc", "--soda-cloud", type=str, help=CLOUD_CONFIG_PATH_HELP)
 
     test_parser.add_argument(
-        "--scan-reference",
+        "--scan-id",
         type=str,
         required=False,
         default=None,
-        help="Optional scan reference; if provided together with --soda-cloud, "
+        help="Optional scan id; if provided together with --soda-cloud, "
         "logs are uploaded to Soda Cloud during the test.",
     )
 
@@ -487,12 +487,12 @@ def _setup_data_source_test_command(data_source_parsers) -> None:
     def handle(args):
         data_source_file_path = args.data_source
         soda_cloud_file_path = args.soda_cloud
-        scan_reference = args.scan_reference
+        scan_id = args.scan_id
 
         exit_code = handle_test_data_source(
             data_source_file_path,
             soda_cloud_file_path=soda_cloud_file_path,
-            scan_reference=scan_reference,
+            scan_id=scan_id,
         )
         exit_with_code(exit_code)
 
