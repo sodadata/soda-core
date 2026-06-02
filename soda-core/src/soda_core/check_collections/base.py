@@ -114,6 +114,14 @@ class CheckCollectionResult:
         return self.status is CheckCollectionStatus.ERROR
 
     @property
+    def errored_without_results(self) -> bool:
+        """True when the run errored before producing any check results (e.g. the data
+        source connection failed). Such a scan must be reported to Soda Cloud as FAILED,
+        not sent as results: Cloud maps an errored result batch to COMPLETED_WITH_ERRORS,
+        a transition the backend forbids while the scan is still PENDING."""
+        return self.has_errors and not self.check_results
+
+    @property
     def is_failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
@@ -860,8 +868,23 @@ class CheckCollectionImpl:
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
             elif self.combine_uploads:
-                # Session-level combined upload — executor sends after the loop.
+                # Session-level combined upload — executor sends after the loop (and applies
+                # the same errored-without-results -> mark-scan-failed handling there).
                 logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
+            elif verification_result.errored_without_results and self.soda_config.soda_scan_id:
+                # A runner-created (still PENDING) Cloud scan errored before producing any
+                # check results. Report it as FAILED instead of sending results: an errored,
+                # result-less batch makes Cloud attempt PENDING -> COMPLETED_WITH_ERRORS, which
+                # the scan-state machine rejects (invalid_scan_state), whereas PENDING ->
+                # FAILED is allowed — so no false RESULTS_NOT_SENT_TO_CLOUD (exit 4) is raised.
+                # Gate on the scan id (what mark_scan_as_failed needs), not is_running_on_runner:
+                # without a scan id we fall through to the normal upload below, which creates
+                # the scan and preserves the errored result's Cloud visibility.
+                # Stamp the known scan id on the result so post-processing failure reporting
+                # (run_post_processing_handlers) can update Cloud, and pass it explicitly
+                # rather than have mark_scan_as_failed re-read it from the environment.
+                verification_result.scan_id = self.soda_config.soda_scan_id
+                self.soda_cloud.mark_scan_as_failed(scan_id=verification_result.scan_id, logs=log_records)
             else:
                 # send_check_collection_results stamps scan_id + dataset_id
                 # on the result internally; we just hold the response_json
