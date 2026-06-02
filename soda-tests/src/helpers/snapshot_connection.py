@@ -829,11 +829,61 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         sql = _SODA_TEMP_RE.sub(_SODA_TEMP_PLACEHOLDER, sql)
         return sql
 
+    @staticmethod
+    def _canonicalize_yaml_literals(sql: str) -> str:
+        """Replace YAML-formatted single-quoted string literals with canonical JSON.
+
+        Some columns persist structured data as a YAML dump (notably
+        ``check_results.check_definition``). YAML's plain-scalar line-wrap column
+        depends on content length, so the same logical value can serialize to
+        different textual forms across runs when the surrounding content changes
+        length (e.g. a different test-session schema name length shifts the wrap
+        point). Such whitespace-only differences are semantically irrelevant —
+        ``yaml.safe_load`` collapses ``\\n + indent`` to a single space and returns
+        identical Python objects either way.
+
+        For every single-quoted SQL literal that parses as structured YAML (dict
+        or list), substitute its sorted-key JSON canonical form, so that
+        downstream string comparison is insensitive to YAML pretty-print drift.
+        Literals that fail to parse, or parse to a bare scalar, are left
+        untouched — keeping the rewrite confined to values that actually
+        embedded YAML data on purpose.
+        """
+        import json
+
+        import yaml as _yaml
+
+        def _repl(match: "re.Match[str]") -> str:
+            literal = match.group(0)
+            # SQL single-quote escaping: '' inside a literal represents a single '
+            inner = literal[1:-1].replace("''", "'")
+            try:
+                parsed = _yaml.safe_load(inner)
+            except _yaml.YAMLError:
+                return literal
+            if not isinstance(parsed, (dict, list)):
+                return literal
+            canonical = json.dumps(parsed, sort_keys=True)
+            return "'" + canonical.replace("'", "''") + "'"
+
+        return re.sub(r"'(?:[^']|'')*'", _repl, sql)
+
     def _sql_matches(self, stored_sql: str, incoming_sql: str) -> bool:
-        """Compare two SQL strings, optionally normalizing dynamic values first."""
+        """Compare two SQL strings, optionally normalizing dynamic values first.
+
+        Strict equality is the fast path. On miss, a YAML-aware fallback
+        canonicalizes any single-quoted literals that embed structured YAML so
+        that cosmetic line-wrap differences (e.g. in the ``check_definition``
+        column) don't trigger spurious mismatches.
+        """
         if self.normalize_timestamps:
-            return self._normalize_dynamic_values(stored_sql) == self._normalize_dynamic_values(incoming_sql)
-        return stored_sql == incoming_sql
+            stored = self._normalize_dynamic_values(stored_sql)
+            incoming = self._normalize_dynamic_values(incoming_sql)
+        else:
+            stored, incoming = stored_sql, incoming_sql
+        if stored == incoming:
+            return True
+        return self._canonicalize_yaml_literals(stored) == self._canonicalize_yaml_literals(incoming)
 
     def _next_replay_entry(self, expected_type: str, expected_sql: str) -> SnapshotEntry:
         """Get the next entry from the replay data and verify it matches.

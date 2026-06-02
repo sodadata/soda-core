@@ -1008,6 +1008,102 @@ class TestTimestampNormalization:
             conn.execute_update("CREATE TABLE __soda_temp_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2 AS SELECT 1")
 
 
+class TestYamlAwareSqlMatching:
+    """Tests for the YAML-aware fallback in _sql_matches.
+
+    Some SQL columns persist structured data as a YAML dump (notably
+    check_results.check_definition). YAML's plain-scalar line-wrap column
+    depends on surrounding content length, so the same logical value can
+    serialize to different textual forms across runs. The fallback path
+    in _sql_matches canonicalizes such literals via ``yaml.safe_load`` →
+    sorted-key JSON, so cosmetic wrap differences match.
+    """
+
+    def _conn(self):
+        manager = SnapshotManager("postgres", ".test_snapshots_temp")
+        return SnapshotDataSourceConnection(real_connection=None, snapshot_manager=manager, mode="replay")
+
+    def test_yaml_literal_wrap_difference_matches(self):
+        """Same YAML value, different line-wrap columns → matches."""
+        conn = self._conn()
+        stored = "INSERT INTO t (def) VALUES ('checks:\n" '- query: select * from "schema"."table" where x = 5\n\')'
+        # Same YAML content, but PyYAML chose to wrap at a different column.
+        incoming = (
+            "INSERT INTO t (def) VALUES ('checks:\n" '- query: select * from \n    "schema"."table" where x = 5\n\')'
+        )
+        assert stored != incoming, "literals must differ textually for the test to be meaningful"
+        assert conn._sql_matches(stored, incoming)
+
+    def test_yaml_literal_real_difference_does_not_match(self):
+        """Structurally different YAML in a literal → no match."""
+        conn = self._conn()
+        stored = "INSERT INTO t (def) VALUES ('checks:\n- query: select 1\n')"
+        incoming = "INSERT INTO t (def) VALUES ('checks:\n- query: select 2\n')"
+        assert not conn._sql_matches(stored, incoming)
+
+    def test_bare_scalar_literal_not_canonicalized(self):
+        """Single-quoted literal that parses to a bare scalar is left untouched.
+
+        Without this guard, ``'just_a_string'`` and ``'just a string'`` would
+        both parse as Python strings via yaml.safe_load and incorrectly
+        compare equal.
+        """
+        conn = self._conn()
+        stored = "INSERT INTO t (s) VALUES ('hello world')"
+        incoming = "INSERT INTO t (s) VALUES ('hello  world')"  # two spaces
+        # Plain scalars are NOT canonicalized → still differ.
+        assert not conn._sql_matches(stored, incoming)
+
+    def test_malformed_yaml_literal_left_untouched(self):
+        """A literal that doesn't parse as YAML falls back to strict comparison."""
+        conn = self._conn()
+        # Unbalanced braces — not valid YAML
+        stored = "INSERT INTO t (raw) VALUES ('{[broken')"
+        incoming = "INSERT INTO t (raw) VALUES ('[broken')"
+        assert not conn._sql_matches(stored, incoming)
+
+    def test_yaml_with_placeholders_inside_matches(self):
+        """Placeholders inside YAML strings carry through canonicalization."""
+        conn = self._conn()
+        stored = (
+            "INSERT INTO t (def) VALUES ('checks:\n"
+            '- query: select * from "__$$__soda_test_schema__$$__"."SODATEST_x"\n'
+            "    where x = 5\n')"
+        )
+        incoming = (
+            "INSERT INTO t (def) VALUES ('checks:\n"
+            "- query: select * from \n"
+            '    "__$$__soda_test_schema__$$__"."SODATEST_x"\n'
+            "    where x = 5\n')"
+        )
+        assert conn._sql_matches(stored, incoming)
+
+    def test_yaml_aware_match_respects_timestamps_when_enabled(self):
+        """Timestamp normalization runs before the YAML fallback."""
+        conn = self._conn()
+        conn.normalize_timestamps = True
+        # Different timestamps + YAML wrap drift in different literals
+        stored = (
+            "INSERT INTO t (ts, def) VALUES ('2026-03-16T18:24:35.151223', " "'checks:\n- query: select 1 from t\n')"
+        )
+        incoming = (
+            "INSERT INTO t (ts, def) VALUES ('2026-04-22T09:00:00.000000', "
+            "'checks:\n- query: select 1\n    from t\n')"
+        )
+        assert conn._sql_matches(stored, incoming)
+
+    def test_canonicalize_static_helper_idempotent(self):
+        """Canonicalizing twice yields the same result (sanity)."""
+        sql = "INSERT INTO t VALUES ('checks:\n- query: select 1\n')"
+        once = SnapshotDataSourceConnection._canonicalize_yaml_literals(sql)
+        twice = SnapshotDataSourceConnection._canonicalize_yaml_literals(once)
+        assert once == twice
+
+    def test_canonicalize_static_helper_leaves_non_yaml_alone(self):
+        sql = "INSERT INTO t VALUES ('plain text', 42, NULL)"
+        assert SnapshotDataSourceConnection._canonicalize_yaml_literals(sql) == sql
+
+
 # ---------------------------------------------------------------------------
 # Unconsumed entries detection
 # ---------------------------------------------------------------------------
