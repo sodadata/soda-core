@@ -863,10 +863,36 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         ):
             # Show denormalized forms in error for readability
             denormalized = self._denormalize_from_snapshot(stored_entry)
+            # Diagnostic dump: write the FULL Expected/Got pair to disk so it can
+            # be captured as a CI artifact (the in-error truncation makes the
+            # actual diff invisible for long INSERT statements).
+            import os as _os
+
+            diag_dir = _os.environ.get("SODA_TEST_SNAPSHOT_DIAG_DIR")
+            if diag_dir:
+                try:
+                    _os.makedirs(diag_dir, exist_ok=True)
+                    safe_test = (self._current_test_id or "unknown").replace("/", "_").replace(":", "_")[:200]
+                    diag_path = _os.path.join(diag_dir, f"{safe_test}_op{self._replay_index}.txt")
+                    with open(diag_path, "w", encoding="utf-8") as _f:
+                        _f.write(f"Test: {self._current_test_id}\n")
+                        _f.write(f"Operation index: {self._replay_index}\n")
+                        _f.write(f"Stored op_type: {stored_entry.op_type}\n")
+                        _f.write(f"Got op_type:    {expected_type}\n\n")
+                        _f.write("=== Expected SQL (denormalized) ===\n")
+                        _f.write(denormalized.sql)
+                        _f.write("\n\n=== Got SQL (current run) ===\n")
+                        _f.write(expected_sql)
+                        _f.write("\n\n=== Stored SQL (normalized — as in snapshot file) ===\n")
+                        _f.write(stored_entry.sql)
+                        _f.write("\n\n=== Incoming SQL (normalized — what comparison sees) ===\n")
+                        _f.write(incoming_normalized.sql)
+                except Exception:
+                    pass  # best-effort diagnostic
             raise SnapshotMismatchError(
                 f"Snapshot mismatch at operation #{self._replay_index} for test {self._current_test_id}.\n"
-                f"  Expected ({denormalized.op_type}): {denormalized.sql[:200]}\n"
-                f"  Got      ({expected_type}): {expected_sql[:200]}\n"
+                f"  Expected ({denormalized.op_type}): {denormalized.sql[:4000]}\n"
+                f"  Got      ({expected_type}): {expected_sql[:4000]}\n"
                 f"  To re-record, run: SODA_TEST_SNAPSHOT=record pytest ..."
             )
         # Return denormalized entry so callers get usable result data
