@@ -842,19 +842,39 @@ class SnapshotDataSourceConnection(DataSourceConnection):
         ``yaml.safe_load`` collapses ``\\n + indent`` to a single space and returns
         identical Python objects either way.
 
-        For every single-quoted SQL literal that parses as structured YAML (dict
-        or list), substitute its sorted-key JSON canonical form, so that
+        For every single-quoted SQL literal that parses as **multi-line**
+        structured YAML (dict or list, with at least one newline in the inner
+        content), substitute its sorted-key JSON canonical form, so that
         downstream string comparison is insensitive to YAML pretty-print drift.
-        Literals that fail to parse, or parse to a bare scalar, are left
-        untouched — keeping the rewrite confined to values that actually
-        embedded YAML data on purpose.
+
+        Two guards constrain when the rewrite fires:
+
+        - **Multi-line only** (``"\\n" in inner``): a YAML wrap-drift difference
+          can only arise from a YAML dump that's actually wrapped, which means
+          multi-line. Single-line flow-style literals like ``'[1,2,3]'`` or
+          ``'{a: 1}'`` are left untouched so legitimate whitespace/ordering
+          differences in flow-style payloads still surface as mismatches.
+
+        - **JSON-serialisable parsed value**: ``yaml.safe_load`` happily parses
+          bare ISO timestamps into ``datetime`` objects and other tagged YAML
+          types that ``json.dumps`` can't natively encode. Fall back to a
+          string coercion via ``default=str`` so canonicalisation never crashes
+          on these — and tolerate any residual unexpected type by catching
+          ``TypeError``/``ValueError`` and leaving the literal as-is.
         """
         import json
 
         import yaml as _yaml
 
         def _try_yaml_structured(content: str):
-            """Return parsed dict/list if ``content`` is structured YAML; else None."""
+            """Return parsed dict/list if ``content`` is *multi-line* structured YAML.
+
+            Single-line flow-style scalars (``'[1,2,3]'``, ``'{a:1}'``) and bare
+            scalars are explicitly NOT eligible — the wrap-drift bug only
+            manifests on YAML dumps that span multiple lines.
+            """
+            if "\n" not in content:
+                return None
             try:
                 parsed = _yaml.safe_load(content)
             except _yaml.YAMLError:
@@ -880,7 +900,13 @@ class SnapshotDataSourceConnection(DataSourceConnection):
                 parsed = _try_yaml_structured(inner[1:-1])
             if parsed is None:
                 return literal
-            canonical = json.dumps(parsed, sort_keys=True)
+            try:
+                # ``default=str`` coerces non-JSON-serialisable values (e.g.
+                # ``datetime`` parsed from unquoted ISO timestamps) to their
+                # str() form so canonicalisation produces a stable text.
+                canonical = json.dumps(parsed, sort_keys=True, default=str)
+            except (TypeError, ValueError):
+                return literal
             return "'" + canonical.replace("'", "''") + "'"
 
         return re.sub(r"'(?:[^']|'')*'", _repl, sql)

@@ -1129,6 +1129,47 @@ class TestYamlAwareSqlMatching:
         incoming = "INSERT INTO t (def) VALUES ('''checks:\n- query: select 2\n''')"
         assert not conn._sql_matches(stored, incoming)
 
+    def test_single_line_flow_list_left_untouched(self):
+        """Single-line YAML flow-style list literals must NOT be canonicalised.
+
+        Without the multi-line guard, ``yaml.safe_load("[1,2,3]")`` returns a
+        list and would be treated as structured YAML — making ``'[1, 2, 3]'``
+        and ``'[1,2,3]'`` falsely-equal. That would mask real differences in
+        columns that legitimately persist textual lists.
+        """
+        conn = self._conn()
+        stored = "INSERT INTO t (arr) VALUES ('[1, 2, 3]')"
+        incoming = "INSERT INTO t (arr) VALUES ('[1,2,3]')"
+        assert not conn._sql_matches(stored, incoming)
+
+    def test_single_line_flow_dict_left_untouched(self):
+        """Single-line YAML flow-style dict literals must NOT be canonicalised.
+
+        Without the guard, key-order differences in ``'{a:1,b:2}'`` vs
+        ``'{b:2,a:1}'`` would be silently flattened by ``sort_keys=True``.
+        """
+        conn = self._conn()
+        stored = "INSERT INTO t (m) VALUES ('{a: 1, b: 2}')"
+        incoming = "INSERT INTO t (m) VALUES ('{b: 2, a: 1}')"
+        assert not conn._sql_matches(stored, incoming)
+
+    def test_yaml_with_unquoted_iso_timestamp_does_not_crash(self):
+        """YAML containing an unquoted ISO timestamp must not crash.
+
+        ``yaml.safe_load`` parses bare ISO timestamps into ``datetime`` objects,
+        which ``json.dumps`` cannot natively serialise. The canonicaliser falls
+        back to ``str()`` coercion (via ``default=str``) so the comparison
+        proceeds instead of raising ``TypeError``.
+        """
+        conn = self._conn()
+        stored = "INSERT INTO t (def) VALUES ('checks:\n- created: 2026-03-16T18:24:35.151223\n')"
+        # Identical content — strict-equality fast path covers this. The point
+        # of the test is that the canonicaliser doesn't crash when it does run.
+        assert conn._sql_matches(stored, stored)
+        # And different content with timestamps still doesn't match.
+        incoming = "INSERT INTO t (def) VALUES ('checks:\n- created: 2026-04-22T09:00:00.000000\n')"
+        assert not conn._sql_matches(stored, incoming)
+
 
 # ---------------------------------------------------------------------------
 # Unconsumed entries detection
