@@ -1103,6 +1103,32 @@ class TestYamlAwareSqlMatching:
         sql = "INSERT INTO t VALUES ('plain text', 42, NULL)"
         assert SnapshotDataSourceConnection._canonicalize_yaml_literals(sql) == sql
 
+    def test_bigquery_style_double_wrapped_yaml_matches(self):
+        """BigQuery's bulk-insert wraps string values in an extra layer of single-
+        quote escaping, so a YAML check_definition value appears as ``'''YAML'''``
+        at the SQL surface. After SQL unescape that decodes to ``'YAML'`` — a YAML
+        single-quoted scalar that ``safe_load`` returns as a string, not a dict.
+        The one-level recursive unwrap re-parses the string so structured YAML
+        nested under the extra escape layer still canonicalizes.
+        """
+        conn = self._conn()
+        stored = (
+            "INSERT INTO t (def) VALUES ('''checks:\n" '- query: select * from "schema"."table" where x = 5\n\'\'\')'
+        )
+        incoming = (
+            "INSERT INTO t (def) VALUES ('''checks:\n"
+            '- query: select * from \n    "schema"."table" where x = 5\n\'\'\')'
+        )
+        assert stored != incoming
+        assert conn._sql_matches(stored, incoming)
+
+    def test_double_wrapped_real_difference_does_not_match(self):
+        """Structurally different YAML inside a double-wrapped literal → no match."""
+        conn = self._conn()
+        stored = "INSERT INTO t (def) VALUES ('''checks:\n- query: select 1\n''')"
+        incoming = "INSERT INTO t (def) VALUES ('''checks:\n- query: select 2\n''')"
+        assert not conn._sql_matches(stored, incoming)
+
 
 # ---------------------------------------------------------------------------
 # Unconsumed entries detection

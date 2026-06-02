@@ -853,15 +853,32 @@ class SnapshotDataSourceConnection(DataSourceConnection):
 
         import yaml as _yaml
 
+        def _try_yaml_structured(content: str):
+            """Return parsed dict/list if ``content`` is structured YAML; else None."""
+            try:
+                parsed = _yaml.safe_load(content)
+            except _yaml.YAMLError:
+                return None
+            if isinstance(parsed, (dict, list)):
+                return parsed
+            return None
+
         def _repl(match: "re.Match[str]") -> str:
             literal = match.group(0)
             # SQL single-quote escaping: '' inside a literal represents a single '
             inner = literal[1:-1].replace("''", "'")
-            try:
-                parsed = _yaml.safe_load(inner)
-            except _yaml.YAMLError:
-                return literal
-            if not isinstance(parsed, (dict, list)):
+            parsed = _try_yaml_structured(inner)
+            # One-level extra unwrap: some dialects (notably BigQuery's
+            # do_bulk_insert) wrap string values in an extra layer of single-quote
+            # escaping, so the SQL literal carries content like ``'YAML-here'`` —
+            # i.e. the structured YAML wrapped in literal single quotes. YAML
+            # parses such content as a single-quoted SCALAR (folding newlines
+            # into spaces), which loses the structure. Detect this pattern by
+            # checking for inner content that starts AND ends with a single
+            # quote, strip that layer, and retry the structured parse.
+            if parsed is None and len(inner) >= 2 and inner.startswith("'") and inner.endswith("'"):
+                parsed = _try_yaml_structured(inner[1:-1])
+            if parsed is None:
                 return literal
             canonical = json.dumps(parsed, sort_keys=True)
             return "'" + canonical.replace("'", "''") + "'"
