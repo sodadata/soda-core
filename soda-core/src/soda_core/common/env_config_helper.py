@@ -54,6 +54,14 @@ class EnvConfigHelper:
         return os.getenv("SODA_INSTRUCTION_ID")
 
     @property
+    def soda_scan_id(self) -> str | None:
+        # Set by the Soda Runner/agent for managed scans: the id of the pre-created Cloud scan.
+        # Presence of this id is the precondition for reporting a scan as failed
+        # (mark_scan_as_failed needs it) — not is_running_on_runner, which only reflects
+        # SODA_INSTRUCTION_ID and can be set without a scan id.
+        return os.getenv("SODA_SCAN_ID")
+
+    @property
     def is_running_on_runner(self) -> bool:
         # SODA_INSTRUCTION_ID is only set when running in Soda Runner (formerly Soda Agent).
         # The env var name itself remains SODA_INSTRUCTION_ID for backwards compatibility with

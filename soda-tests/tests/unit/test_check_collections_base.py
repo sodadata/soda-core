@@ -27,14 +27,12 @@ from soda_core.contracts.contract_verification import (
 
 
 class _FakeYaml(CheckCollectionYaml):
-    """Sentinel yaml that records the yaml_source it was parsed from."""
+    """Sentinel yaml that records the yaml_source it was parsed from.
 
-    def __init__(self, yaml_source):
-        self.yaml_source = yaml_source
-
-    @classmethod
-    def parse(cls, yaml_source, provided_variable_values=None, data_timestamp=None, **kwargs):
-        return cls(yaml_source=yaml_source)
+    Inherits the base ``__init__`` so the executor's post-parse reads of
+    ``yaml.data_timestamp`` / ``yaml.execution_timestamp`` see real
+    values (set by ``CheckCollectionYaml.__init__``).
+    """
 
 
 class _FakeResult(CheckCollectionResult):
@@ -101,6 +99,7 @@ class _FakeImpl(CheckCollectionImpl):
         all_data_source_impls=None,
         dwh_files=None,
         logs=None,
+        **kwargs,
     ):
         # Skip ``CheckCollectionImpl.__init__`` (which wants a real YAML);
         # stash the few attributes the test cares about. ``collection_id``
@@ -270,10 +269,10 @@ def test_execute_check_collections_unknown_kind_fallback_uses_default_impl_class
     assert isinstance(session_result.results[0], _FakeResult)
 
 
-def test_check_collection_impl_default_verify_on_agent_raises_not_implemented():
+def test_check_collection_impl_default_verify_on_runner_raises_not_implemented():
     impl = _FakeImpl(yaml=_FakeYaml(yaml_source=_LabelledSource("a")))
     with pytest.raises(NotImplementedError) as exc_info:
-        impl.verify_on_agent(
+        impl.verify_on_runner(
             soda_cloud_impl=None,
             variables={},
             blocking_timeout_in_minutes=60,

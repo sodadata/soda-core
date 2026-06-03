@@ -22,6 +22,7 @@ from numbers import Number
 from typing import Any, Optional
 
 from soda_core.common.data_source_impl import DataSourceImpl
+from soda_core.common.datetime_conversions import convert_str_to_datetime
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import SodaCoreException, get_exception_stacktrace
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
@@ -38,7 +39,7 @@ from soda_core.common.sql_dialect import (
     DatasetIdentifier,
     SqlExpressionStr,
 )
-from soda_core.common.yaml import CheckCollectionYamlSource
+from soda_core.common.yaml import CheckCollectionYamlSource, YamlObject
 from soda_core.contracts.contract_verification import (
     CheckCollectionStatus,
     CheckOutcome,
@@ -113,6 +114,14 @@ class CheckCollectionResult:
         return self.status is CheckCollectionStatus.ERROR
 
     @property
+    def errored_without_results(self) -> bool:
+        """True when the run errored before producing any check results (e.g. the data
+        source connection failed). Such a scan must be reported to Soda Cloud as FAILED,
+        not sent as results: Cloud maps an errored result batch to COMPLETED_WITH_ERRORS,
+        a transition the backend forbids while the scan is still PENDING."""
+        return self.has_errors and not self.check_results
+
+    @property
     def is_failed(self) -> bool:
         """
         Returns true if there are checks that have failed.
@@ -170,29 +179,102 @@ class CheckCollectionSessionResult:
 
     results: list[CheckCollectionResult] = field(default_factory=list)
 
+    @property
+    def has_errors(self) -> bool:
+        """True if any per-file result has an engine/parse ERROR status."""
+        return any(r.has_errors for r in self.results)
+
+    @property
+    def is_failed(self) -> bool:
+        """True if any per-file result has at least one FAILED check."""
+        return any(r.is_failed for r in self.results)
+
+    @property
+    def is_warned(self) -> bool:
+        """True if any per-file result has at least one WARN check."""
+        return any(r.is_warned for r in self.results)
+
+    @property
+    def sending_results_to_soda_cloud_failed(self) -> bool:
+        """True if any per-file result failed to send to Soda Cloud."""
+        return any(r.sending_results_to_soda_cloud_failed for r in self.results)
+
 
 class CheckCollectionYaml:
     """Parsed YAML for one check-collection file.
 
-    Concrete subtypes (e.g. ``ContractYaml``) inherit from this. They only
-    need to override ``__init__`` to read their extra fields; ``parse``
-    constructs via ``cls(yaml_source=..., ...)`` and is inherited as-is.
+    First-class properties populated by the base ``__init__``:
+
+      - ``yaml_source``: the originating ``CheckCollectionYamlSource``.
+      - ``yaml_object``: the parsed ``YamlObject`` root — parsed once
+        here, reused by subtypes. The executor's kind-peek pass passes
+        the pre-parsed object back in via the ``yaml_object`` kwarg so
+        the YAML is parsed exactly once per session.
+      - ``kind``: the YAML root's ``kind:`` field (used by the executor
+        for subtype dispatch). May be ``None`` for files that omit it
+        (the executor defaults missing kinds to ``"contract"`` for BC).
+      - ``execution_timestamp``: when this session started — captured at
+        construct time so every subtype has the same one.
+      - ``data_timestamp``: the user-supplied (or implicit) data
+        timestamp, normalised to ``datetime``. Falls back to
+        ``execution_timestamp`` when the caller didn't supply one.
+
+    Concrete subtypes call ``super().__init__(...)`` and add their own
+    fields. ``ContractYaml`` is the canonical example.
     """
+
+    def __init__(
+        self,
+        yaml_source: CheckCollectionYamlSource,
+        yaml_object: Optional[YamlObject] = None,
+        provided_variable_values: Optional[dict[str, str]] = None,
+        data_timestamp: Optional[str] = None,
+        primary_data_source_impl: Optional[DataSourceImpl] = None,
+    ):
+        self.yaml_source: CheckCollectionYamlSource = yaml_source
+        # The executor's kind-peek pass parses each YAML once and passes
+        # the result back in. When called directly (no executor), parse
+        # here. Either way the YAML is parsed exactly once.
+        # ``YamlSource.parse()`` either returns a ``YamlObject`` or raises;
+        # never ``None``.
+        self.yaml_object: YamlObject = yaml_object if yaml_object is not None else yaml_source.parse()
+        self.kind: Optional[str] = self.yaml_object.read_string_opt("kind")
+        self.execution_timestamp: datetime = datetime.now(timezone.utc)
+        self.data_timestamp: datetime = _resolve_data_timestamp_str(data_timestamp, self.execution_timestamp)
 
     @classmethod
     def parse(
         cls,
         yaml_source: CheckCollectionYamlSource,
+        yaml_object: Optional[YamlObject] = None,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
     ) -> "CheckCollectionYaml":
         return cls(
             yaml_source=yaml_source,
+            yaml_object=yaml_object,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
+
+
+def _resolve_data_timestamp_str(
+    data_timestamp: Optional[str],
+    default_when_unset_or_invalid: datetime,
+) -> datetime:
+    """Normalise a user-supplied ISO-8601 ``data_timestamp`` string to a
+    ``datetime``; fall back to ``default_when_unset_or_invalid`` when the
+    caller didn't supply one or the string fails to parse."""
+    if isinstance(data_timestamp, str):
+        parsed = convert_str_to_datetime(data_timestamp)
+        if isinstance(parsed, datetime):
+            return parsed
+        logger.error(
+            f"Provided 'data_timestamp' value is not a correct ISO 8601 " f"timestamp format: '{data_timestamp}'"
+        )
+    return default_when_unset_or_invalid
 
 
 class CheckCollectionImpl:
@@ -234,6 +316,10 @@ class CheckCollectionImpl:
     # identifier. Subtypes whose backend ingestion doesn't need that
     # prefix override to ``False``.
     requires_collection_id: bool = True
+    # When True, N files of this subtype in one session combine into one
+    # ``sodaCoreInsertScanResults`` upload. Default False keeps the
+    # per-file upload path (byte-identical wire output) intact.
+    combine_uploads: bool = False
     # Parametrize the type hints so subclass declarations (e.g.
     # ``yaml_class: type[ContractYaml]`` on ``ContractImpl``) are statically
     # checked: a subclass that points these at unrelated types will be
@@ -781,24 +867,76 @@ class CheckCollectionImpl:
                 # never sees a misaligned batch (a single misaligned check would 500
                 # the entire batch on the server-side ingestion filter).
                 sending_results_to_soda_cloud_failed = True
+            elif self.combine_uploads:
+                # Session-level combined upload — executor sends after the loop (and applies
+                # the same errored-without-results -> mark-scan-failed handling there).
+                logger.debug(f"Deferring upload to session-level combined request " f"{Emoticons.FINGERS_CROSSED}")
+            elif verification_result.errored_without_results and self.soda_config.soda_scan_id:
+                # A runner-created (still PENDING) Cloud scan errored before producing any
+                # check results. Report it as FAILED instead of sending results: an errored,
+                # result-less batch makes Cloud attempt PENDING -> COMPLETED_WITH_ERRORS, which
+                # the scan-state machine rejects (invalid_scan_state), whereas PENDING ->
+                # FAILED is allowed — so no false RESULTS_NOT_SENT_TO_CLOUD (exit 4) is raised.
+                # Gate on the scan id (what mark_scan_as_failed needs), not is_running_on_runner:
+                # without a scan id we fall through to the normal upload below, which creates
+                # the scan and preserves the errored result's Cloud visibility.
+                # Stamp the known scan id on the result so post-processing failure reporting
+                # (run_post_processing_handlers) can update Cloud, and pass it explicitly
+                # rather than have mark_scan_as_failed re-read it from the environment.
+                verification_result.scan_id = self.soda_config.soda_scan_id
+                self.soda_cloud.mark_scan_as_failed(scan_id=verification_result.scan_id, logs=log_records)
             else:
-                # send_contract_result will use contract.source.soda_cloud_file_id
-                soda_cloud_response_json = self.soda_cloud.send_contract_result(
-                    verification_result,
+                # send_check_collection_results stamps scan_id + dataset_id
+                # on the result internally; we just hold the response_json
+                # for the post-processing-handler invocation below.
+                soda_cloud_response_json = self.soda_cloud.send_check_collection_results(
+                    [verification_result],
                     wire_source=self.wire_source,
                     scan_definition_suffix=type(self).scan_definition_suffix,
                 )
-                scan_id = soda_cloud_response_json.get("scanId") if soda_cloud_response_json else None
-                if not scan_id:
-                    verification_result.sending_results_to_soda_cloud_failed = True
-                else:
-                    verification_result.scan_id = scan_id
-                    verification_result.check_collection.dataset_id = self.__get_dataset_id(
-                        soda_cloud_response_json, self.soda_qualified_dataset_name
-                    )
         else:
             logger.debug(f"Not sending results to Soda Cloud {Emoticons.CROSS_MARK}")
 
+        # Post-processing handlers. For combine-upload subtypes, defer to
+        # the session executor — handlers need the scan_id and
+        # response_json from the *combined* upload, which hasn't happened
+        # yet at this point in verify(). The executor calls
+        # ``run_post_processing_handlers`` per file after the session-level
+        # ``send_check_collection_results`` returns.
+        if not self.combine_uploads:
+            self.run_post_processing_handlers(verification_result, soda_cloud_response_json)
+
+        # Stamp per-file thread label on log records (covers query/upload/
+        # in-verify-handler emissions). Combine subtypes get a second
+        # relabel pass at the end of ``run_post_processing_handlers``
+        # because phase 3 invokes that AFTER verify() returns and any
+        # logs the handlers emit then would otherwise carry raw OS thread
+        # ids and break the Cloud-side per-file grouping.
+        self._apply_thread_label_to_log_records(log_records)
+
+        return verification_result
+
+    def run_post_processing_handlers(
+        self,
+        verification_result: CheckCollectionResult,
+        soda_cloud_send_results_response_json: Optional[dict],
+    ) -> None:
+        """Invoke every registered ``ContractVerificationHandler`` for this file.
+
+        Called inline from ``verify()`` for non-combine subtypes; for
+        combine-upload subtypes the session executor calls this per file
+        after ``send_check_collection_results`` returns so handlers see the shared
+        ``scan_id`` and ``response_json``. Files that were skipped from the
+        combined upload (alignment guard, missing file_id, send failure)
+        still get handlers invoked with ``response_json=None`` to match
+        the per-file path's "run handlers regardless of upload success"
+        semantics.
+        """
+        from soda_core.contracts.impl.contract_verification_impl import (
+            ContractVerificationHandlerRegistry,
+        )
+
+        scan_id = verification_result.scan_id
         for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
             try:
                 handler.handle(
@@ -806,16 +944,38 @@ class CheckCollectionImpl:
                     data_source_impl=self.data_source_impl,
                     contract_verification_result=verification_result,
                     soda_cloud=self.soda_cloud,
-                    soda_cloud_send_results_response_json=soda_cloud_response_json,
+                    soda_cloud_send_results_response_json=soda_cloud_send_results_response_json,
                     dwh_files=self.dwh_files,
                 )
             except Exception as e:
                 logger.error(f"Error in {self.display_name} verification handler: {e}", exc_info=True)
                 self._handle_post_processing_failure(scan_id=scan_id, exc=e, contract_verification_handler=handler)
 
-        return verification_result
+        # Re-stamp the per-file thread label on any records appended by
+        # the handler loop above. Non-combine path: verify() relabels
+        # again right after returning from here, so this is idempotent.
+        # Combine path: handlers run in phase 3 AFTER verify() already
+        # relabelled, so without this pass the handler-emitted records
+        # would carry raw OS thread ids — the Cloud-side wire grouping
+        # by ``thread`` field would then misbucket them.
+        self._apply_thread_label_to_log_records(verification_result.log_records)
 
-    def verify_on_agent(
+    def _apply_thread_label_to_log_records(self, log_records: Optional[list[LogRecord]]) -> None:
+        """Stamp the per-file label on every log record so combined uploads
+        group records by file via the wire's ``thread`` field.
+
+        Idempotent — safe to call multiple times as more records get
+        appended to the same list (the gatherer's live list is shared
+        across emit sites, including the post-pop YAML upload + handler
+        emissions).
+        """
+        if not log_records:
+            return
+        thread_label = f"{self.wire_source}.{self.collection_id}" if self.collection_id else self.wire_source
+        for record in log_records:
+            record.thread = thread_label
+
+    def verify_on_runner(
         self,
         soda_cloud_impl: SodaCloud,
         variables: dict,
@@ -823,11 +983,11 @@ class CheckCollectionImpl:
         publish_results: bool,
         verbose: bool,
     ) -> CheckCollectionResult:
-        """Agent-path verification. Default: raise NotImplementedError.
+        """Runner-path verification. Default: raise NotImplementedError.
 
-        Subtypes that support agent execution (``ContractImpl``) override.
+        Subtypes that support remote execution (``ContractImpl``) override.
         """
-        raise NotImplementedError(f"{self.display_name} does not support agent execution")
+        raise NotImplementedError(f"{self.display_name} does not support runner execution")
 
     @classmethod
     def build_error_result(
@@ -1052,11 +1212,3 @@ class CheckCollectionImpl:
                 state=PostProcessingStageState.FAILED,
                 error=get_exception_stacktrace(exc),
             )
-
-    def __get_dataset_id(self, soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
-        for check in soda_cloud_response_json.get("checks", []):
-            for datasets in check.get("datasets", []):
-                dataset_dqn: Optional[str] = datasets.get("dqn")
-                if dataset_dqn and dataset_dqn == qualified_dataset_name:
-                    return datasets.get("id")
-        return None

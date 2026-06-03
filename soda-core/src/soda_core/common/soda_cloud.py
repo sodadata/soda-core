@@ -333,44 +333,72 @@ class SodaCloud:
             request_log_name="mark_scan_as_failed",
         )
 
-    def send_contract_result(
+    def send_check_collection_results(
         self,
-        contract_verification_result: ContractVerificationResult,
+        results: list[ContractVerificationResult],
         wire_source: str = "soda-contract",
         scan_definition_suffix: Optional[str] = None,
     ) -> Optional[dict]:
-        """
-        Returns A scanId string if a 200 OK was received, None otherwise
+        """Send N check-collection results in one ``sodaCoreInsertScanResults`` request.
+
+        Single-file path: pass a 1-element list — used by the non-combine
+        ``CheckCollectionImpl.verify()``. Multi-file path: pass N results
+        sharing the same ``wire_source`` — used by the executor for
+        ``combine_uploads = True`` subtypes.
+
+        On 200, the shared ``scanId`` is stamped on every result and each
+        result's ``dataset_id`` is resolved from the response by its
+        qualified dataset name. On non-200 (or missing ``scanId``), every
+        result is marked ``sending_results_to_soda_cloud_failed = True``.
+
+        Empty ``results`` is a no-op.
 
         @param wire_source: The ``"source"`` literal stamped on each emitted
-            check in the upload payload. Defaults to ``"soda-contract"`` for
-            backward compatibility with callers that don't pass it (e.g.
-            soda-autopilot ``publish.py``). The engine passes
-            ``CheckCollectionImpl.wire_source`` for the calling subtype.
-        @param scan_definition_suffix: Optional suffix appended to the dataset
-            qualified name to derive the Soda Cloud scan-definition name.
-            ``None`` (default) uses the bare qualified name; a non-empty
-            value yields ``<qualified_name>_<suffix>``. Threaded in from
-            ``CheckCollectionImpl.scan_definition_suffix`` so soda-core
-            common code stays subtype-neutral.
+            check. Defaults to ``"soda-contract"`` for callers that don't
+            pass it (autopilot ``publish.py``). The engine passes
+            ``CheckCollectionImpl.wire_source``.
+        @param scan_definition_suffix: Optional suffix appended to the
+            head result's qualified name to derive the Soda Cloud
+            scan-definition name. ``None`` uses the bare qualified name.
         """
-        contract_verification_result = _build_contract_result_json_dict(
-            contract_verification_result=contract_verification_result,
+        if not results:
+            return None
+        payload = _build_check_collection_results_json_dict(
+            results=results,
             wire_source=wire_source,
             scan_definition_suffix=scan_definition_suffix,
         )
-        contract_verification_result["type"] = "sodaCoreInsertScanResults"
+        payload["type"] = "sodaCoreInsertScanResults"
         response: Response = self._execute_command(
-            command_json_dict=contract_verification_result, request_log_name="send_contract_verification_results"
+            command_json_dict=payload, request_log_name="send_check_collection_results"
         )
         if response.status_code == 200:
-            logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud")
+            file_count_label = "1 file" if len(results) == 1 else f"{len(results)} files"
+            logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud ({file_count_label})")
             response_json: dict = response.json()
             if isinstance(response_json, dict):
                 cloud_url: Optional[str] = response_json.get("cloudUrl")
                 if isinstance(cloud_url, str):
                     logger.info(f"To view the dataset on Soda Cloud, see {cloud_url}")
+                scan_id = response_json.get("scanId")
+                # The shared scanId correlates per-file results to the
+                # one Cloud-side scan row. Missing scanId → mark every
+                # result failed-to-send rather than guessing.
+                if scan_id:
+                    for r in results:
+                        r.scan_id = scan_id
+                        # Each per-file result resolves its own dataset_id
+                        # from the shared response (matched by qualified
+                        # dataset name).
+                        r.check_collection.dataset_id = extract_dataset_id_from_response(
+                            response_json, r.check_collection.soda_qualified_dataset_name
+                        )
+                else:
+                    for r in results:
+                        r.sending_results_to_soda_cloud_failed = True
                 return response_json
+        for r in results:
+            r.sending_results_to_soda_cloud_failed = True
         return None
 
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
@@ -1507,50 +1535,108 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
-def _build_contract_result_json_dict(
-    contract_verification_result: ContractVerificationResult,
+def _build_check_collection_results_json_dict(
+    results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
     scan_definition_suffix: Optional[str] = None,
 ) -> dict:
+    """Unified ``sodaCoreInsertScanResults`` payload for N≥1 results.
+
+    Session-level fields (scanId, definitionName, data source, dataTimestamp)
+    come from the first result; per-batch fields aggregate:
+
+    - ``scanStartTimestamp`` = min of per-result starts
+    - ``scanEndTimestamp`` = max of per-result ends
+    - ``hasErrors``/``hasWarns``/``hasFailures`` = ORs over per-result flags
+    - ``checks`` / ``logs`` / ``tokenUsage`` = flattened across results
+    - ``postProcessingStages`` = de-duped by name (the backend tracks
+      one ONGOING stage per scan)
+    - ``resultsIngestionMode`` = PARTIAL if any check across the batch is
+      EXCLUDED, else FULL
+
+    For N=1 these all degenerate to the legacy per-file shape. The only
+    non-trivial conditional is the ``contract`` field, which stays null
+    for non-contract sources (the backend routes by ``firstSegmentOf(checkPath)``
+    once ``contract`` is null) and carries the contract-handler-routing
+    payload only when ``wire_source == "soda-contract"``.
+    """
+    head = results[0]
+    started_timestamps = [r.started_timestamp for r in results if r.started_timestamp]
+    ended_timestamps = [r.ended_timestamp for r in results if r.ended_timestamp]
+
+    checks: list[dict] = []
+    for r in results:
+        per_file = _build_check_results_cloud_json_dicts(r, wire_source=wire_source)
+        if per_file:
+            checks.extend(per_file)
+
+    log_records: list[LogRecord] = []
+    for r in results:
+        if r.log_records:
+            log_records.extend(r.log_records)
+    logs = _build_log_cloud_json_dicts(log_records)
+
+    # De-dup post-processing stages by name: the backend tracks one
+    # ONGOING stage per scan, not per file. For N=1 with unique stage
+    # names this is a no-op identical to the legacy per-file output.
+    seen_stage_names: set[str] = set()
+    post_processing_stages: list[dict] = []
+    for r in results:
+        if not r.post_processing_stages:
+            continue
+        for stage in r.post_processing_stages:
+            if stage.name in seen_stage_names:
+                continue
+            seen_stage_names.add(stage.name)
+            post_processing_stages.append({"name": stage.name})
+
+    token_usage: list[dict] = []
+    for r in results:
+        if r.token_usage:
+            token_usage.extend(
+                {
+                    "promptTokens": tu.prompt_tokens,
+                    "completionTokens": tu.completion_tokens,
+                    "totalTokens": tu.total_tokens,
+                    "model": tu.model,
+                    "operation": tu.operation,
+                }
+                for tu in r.token_usage
+            )
+
+    ingestion_mode = VerificationIngestionMode.FULL
+    for r in results:
+        if any(check.outcome == CheckOutcome.EXCLUDED for check in r.check_results):
+            ingestion_mode = VerificationIngestionMode.PARTIAL
+            break
+
     return to_jsonnable(  # type: ignore
         {
             "scanId": os.environ.get("SODA_SCAN_ID", None),
-            # The scan definition name is still required on result ingestion to link to the contract
-            # and determine if we're dealing with a default or test contract.
-            "definitionName": _build_scan_definition_name(
-                contract_verification_result, scan_definition_suffix=scan_definition_suffix
-            ),
-            "defaultDataSource": contract_verification_result.data_source.name
-            if contract_verification_result.data_source
-            else None,
-            "defaultDataSourceProperties": {"type": contract_verification_result.data_source.type}
-            if contract_verification_result.data_source
-            else None,
-            # dataTimestamp can be changed by user, this is shown in Cloud as time of a scan.
-            # It's the timestamp used to identify the time partition, which is the slice of data that is verified.
-            "dataTimestamp": contract_verification_result.data_timestamp,
-            # scanStartTimestamp is the actual time when the scan started.
-            "scanStartTimestamp": contract_verification_result.started_timestamp,
-            # scanEndTimestamp is the actual time when scan ended.
-            "scanEndTimestamp": contract_verification_result.ended_timestamp,
-            "hasErrors": contract_verification_result.has_errors,
-            "hasWarns": contract_verification_result.is_warned,
-            "hasFailures": contract_verification_result.is_failed,
-            "checks": _build_check_results_cloud_json_dicts(contract_verification_result, wire_source=wire_source),
-            "logs": _build_log_cloud_json_dicts(contract_verification_result.log_records),
+            "definitionName": _build_scan_definition_name(head, scan_definition_suffix=scan_definition_suffix),
+            "defaultDataSource": head.data_source.name if head.data_source else None,
+            "defaultDataSourceProperties": {"type": head.data_source.type} if head.data_source else None,
+            "dataTimestamp": head.data_timestamp,
+            "scanStartTimestamp": min(started_timestamps) if started_timestamps else head.started_timestamp,
+            "scanEndTimestamp": max(ended_timestamps) if ended_timestamps else head.ended_timestamp,
+            "hasErrors": any(r.has_errors for r in results),
+            "hasWarns": any(r.is_warned for r in results),
+            "hasFailures": any(r.is_failed for r in results),
+            # Empty checks list serialises as ``None`` to match the legacy
+            # combined-builder behaviour the backend already accepts.
+            "checks": checks if checks else None,
+            "logs": logs,
             "sourceOwner": "soda-core",
-            # ``contract`` is contract-handler-routing on the backend: a
-            # non-null value forces the contract ingestion path. Setting
-            # it to None for non-contract wire sources lets the routing
-            # fall through to scan-def-type-based dispatch for the subtype.
+            # ``contract`` is contract-handler-routing on the backend.
+            # Non-null forces the contract ingestion path; null lets the
+            # routing fall through to scan-def-type dispatch for
+            # non-contract subtypes.
             "contract": (
-                _build_contract_cloud_json_dict(contract_verification_result.check_collection)
-                if wire_source == "soda-contract"
-                else None
+                _build_contract_cloud_json_dict(head.check_collection) if wire_source == "soda-contract" else None
             ),
-            "postProcessingStages": _build_post_processing_stages_dicts(contract_verification_result),
-            "resultsIngestionMode": determine_verification_ingestion_mode(contract_verification_result).value,
-            "tokenUsage": _build_token_usage_dicts(contract_verification_result),
+            "postProcessingStages": post_processing_stages,
+            "resultsIngestionMode": ingestion_mode.value,
+            "tokenUsage": token_usage,
         }
     )
 
@@ -1858,3 +1944,19 @@ def determine_verification_ingestion_mode(
         ingestion_mode = VerificationIngestionMode.PARTIAL
 
     return ingestion_mode
+
+
+def extract_dataset_id_from_response(soda_cloud_response_json: dict, qualified_dataset_name: str) -> Optional[str]:
+    """Find the dataset_id matching ``qualified_dataset_name`` in a Cloud ingestion response.
+
+    The Cloud response carries per-check ``datasets`` entries; we walk
+    them and return the ``id`` of the first dataset whose ``dqn`` matches
+    the qualified name. Used by both the per-file and combined upload
+    paths to stamp ``dataset_id`` on the per-file result.
+    """
+    for check in soda_cloud_response_json.get("checks", []):
+        for dataset in check.get("datasets", []):
+            dataset_dqn: Optional[str] = dataset.get("dqn")
+            if dataset_dqn and dataset_dqn == qualified_dataset_name:
+                return dataset.get("id")
+    return None

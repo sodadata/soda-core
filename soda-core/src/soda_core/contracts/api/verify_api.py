@@ -3,14 +3,14 @@ from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import (
-    InvalidArgumentException,
-    InvalidDataSourceConfigurationException,
-    SodaCloudException,
-)
+from soda_core.common.exceptions import InvalidArgumentException, SodaCloudException
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.soda_cloud import SodaCloud
-from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource
+from soda_core.common.yaml import (
+    ContractYamlSource,
+    DataSourceYamlSource,
+    build_data_source_yaml_sources,
+)
 from soda_core.contracts.contract_verification import (
     ContractVerificationSession,
     ContractVerificationSessionResult,
@@ -152,8 +152,9 @@ def verify_contracts_on_runner(
             "Both contract file paths and dataset identifiers are provided. Only evaluating the contract file paths."
         )
 
-    assert isinstance(dataset_identifiers, list), f"Expected a list, got {type(dataset_identifiers)}"
-
+    # ``__attempt_pick_first_element`` handles None safely; no list-type
+    # assertion needed (an earlier assert here tripped on the common
+    # ``dataset_identifiers=None`` call shape).
     contract_file_path = __attempt_pick_first_element(contract_file_paths)
     dataset_identifier = __attempt_pick_first_element(dataset_identifiers)
 
@@ -314,10 +315,7 @@ def verify_contract(
         data_source_yaml_sources: list[DataSourceYamlSource] = []
         if data_source_file_paths:
             data_source_yaml_sources.extend(
-                _create_datasource_yamls(
-                    data_source_file_paths,
-                    use_runner,
-                )
+                build_data_source_yaml_sources(data_source_file_paths, use_runner=use_runner)
             )
 
         contract_verification_result = ContractVerificationSession.execute(
@@ -424,31 +422,6 @@ def _create_contract_yamls(
         return []
 
     return contract_yaml_sources
-
-
-def _create_datasource_yamls(
-    data_source_file_paths: Optional[list[str]],
-    use_runner: bool,
-) -> Optional[DataSourceYamlSource]:
-    data_source_yamls: list[DataSourceYamlSource] = []
-
-    if data_source_file_paths:
-        for data_source_file_path in data_source_file_paths:
-            soda_logger.debug(f"Using local data source config: {data_source_file_path}")
-            data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
-
-    if data_source_yamls:
-        return data_source_yamls
-
-    # By this point, we can only progress if we are using a runner (formerly agent).
-    # Then the runner will provide the data source config.
-    if use_runner:
-        return None
-
-    raise InvalidDataSourceConfigurationException(
-        "No data source configuration provided. "
-        "Please provide a data source configuration file using the -ds/--data-source argument."
-    )
 
 
 def __attempt_pick_first_element(my_list: Optional[list[str]]) -> Optional[str]:

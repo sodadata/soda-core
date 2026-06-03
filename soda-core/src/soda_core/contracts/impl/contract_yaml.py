@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
@@ -58,16 +57,21 @@ class ContractYaml(CheckCollectionYaml):
     def __init__(
         self,
         yaml_source: ContractYamlSource,
-        provided_variable_values: Optional[dict[str, str]],
+        provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
+        yaml_object: Optional[YamlObject] = None,
     ):
-        # Neutral attribute names on the base ``CheckCollectionYaml``: the
-        # engine in ``base.py`` reads ``self.yaml.yaml_object`` /
-        # ``self.yaml.yaml_source``, which works for any check-collection
-        # subtype. ``ContractYaml`` populates the neutral names directly.
-        self.yaml_source: ContractYamlSource = yaml_source
-        self.yaml_object: YamlObject = yaml_source.parse()
+        # ``yaml_source``, ``yaml_object``, ``kind``, ``execution_timestamp``,
+        # and ``data_timestamp`` are first-class fields on the base
+        # ``CheckCollectionYaml`` — populated here via super().
+        super().__init__(
+            yaml_source=yaml_source,
+            yaml_object=yaml_object,
+            provided_variable_values=provided_variable_values,
+            data_timestamp=data_timestamp,
+            primary_data_source_impl=primary_data_source_impl,
+        )
         self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
         # Cache the dialect's native→canonical data type mapping once — dialects construct this dict fresh on every call.
         self._native_to_soda_data_type_mapping: Optional[dict[str, SodaDataTypeName]] = (
@@ -77,9 +81,6 @@ class ContractYaml(CheckCollectionYaml):
         )
 
         self.variables: list[VariableYaml] = self._parse_variable_yamls(yaml_source, provided_variable_values)
-
-        self.execution_timestamp: datetime = datetime.now(timezone.utc)
-        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
 
         # Some dialects (Dremio) don't use ISO format, we need to override
         f_convert_str_to_datetime = convert_str_to_datetime
@@ -332,18 +333,6 @@ class ContractYaml(CheckCollectionYaml):
                         logger.error(f"Checks must have a YAML object structure.")
 
         return checks
-
-    def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
-        if isinstance(data_timestamp, str):
-            parsed_data_timestamp = convert_str_to_datetime(data_timestamp)
-            if isinstance(parsed_data_timestamp, datetime):
-                return parsed_data_timestamp
-            else:
-                logging.error(
-                    f"Provided 'data_timestamp' value is not a correct ISO 8601 "
-                    f"timestamp format: '{data_timestamp}'"
-                )
-        return default_soda_now
 
 
 class VariableYaml:
