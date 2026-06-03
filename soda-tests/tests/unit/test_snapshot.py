@@ -1026,10 +1026,10 @@ class TestYamlAwareSqlMatching:
     def test_yaml_literal_wrap_difference_matches(self):
         """Same YAML value, different line-wrap columns → matches."""
         conn = self._conn()
-        stored = "INSERT INTO t (def) VALUES ('checks:\n" '- query: select * from "schema"."table" where x = 5\n\')'
-        # Same YAML content, but PyYAML chose to wrap at a different column.
+        stored = "INSERT INTO t (def) VALUES ('checks:\n" + '- query: select * from "schema"."table" where x = 5\n\')'
+        # Same YAML content, but the YAML dumper chose to wrap at a different column.
         incoming = (
-            "INSERT INTO t (def) VALUES ('checks:\n" '- query: select * from \n    "schema"."table" where x = 5\n\')'
+            "INSERT INTO t (def) VALUES ('checks:\n" + '- query: select * from \n    "schema"."table" where x = 5\n\')'
         )
         assert stored != incoming, "literals must differ textually for the test to be meaningful"
         assert conn._sql_matches(stored, incoming)
@@ -1067,14 +1067,14 @@ class TestYamlAwareSqlMatching:
         conn = self._conn()
         stored = (
             "INSERT INTO t (def) VALUES ('checks:\n"
-            '- query: select * from "__$$__soda_test_schema__$$__"."SODATEST_x"\n'
-            "    where x = 5\n')"
+            + '- query: select * from "__$$__soda_test_schema__$$__"."SODATEST_x"\n'
+            + "    where x = 5\n')"
         )
         incoming = (
             "INSERT INTO t (def) VALUES ('checks:\n"
-            "- query: select * from \n"
-            '    "__$$__soda_test_schema__$$__"."SODATEST_x"\n'
-            "    where x = 5\n')"
+            + "- query: select * from \n"
+            + '    "__$$__soda_test_schema__$$__"."SODATEST_x"\n'
+            + "    where x = 5\n')"
         )
         assert conn._sql_matches(stored, incoming)
 
@@ -1084,11 +1084,11 @@ class TestYamlAwareSqlMatching:
         conn.normalize_timestamps = True
         # Different timestamps + YAML wrap drift in different literals
         stored = (
-            "INSERT INTO t (ts, def) VALUES ('2026-03-16T18:24:35.151223', " "'checks:\n- query: select 1 from t\n')"
+            "INSERT INTO t (ts, def) VALUES ('2026-03-16T18:24:35.151223', " + "'checks:\n- query: select 1 from t\n')"
         )
         incoming = (
             "INSERT INTO t (ts, def) VALUES ('2026-04-22T09:00:00.000000', "
-            "'checks:\n- query: select 1\n    from t\n')"
+            + "'checks:\n- query: select 1\n    from t\n')"
         )
         assert conn._sql_matches(stored, incoming)
 
@@ -1113,11 +1113,11 @@ class TestYamlAwareSqlMatching:
         """
         conn = self._conn()
         stored = (
-            "INSERT INTO t (def) VALUES ('''checks:\n" '- query: select * from "schema"."table" where x = 5\n\'\'\')'
+            "INSERT INTO t (def) VALUES ('''checks:\n" + '- query: select * from "schema"."table" where x = 5\n\'\'\')'
         )
         incoming = (
             "INSERT INTO t (def) VALUES ('''checks:\n"
-            '- query: select * from \n    "schema"."table" where x = 5\n\'\'\')'
+            + '- query: select * from \n    "schema"."table" where x = 5\n\'\'\')'
         )
         assert stored != incoming
         assert conn._sql_matches(stored, incoming)
