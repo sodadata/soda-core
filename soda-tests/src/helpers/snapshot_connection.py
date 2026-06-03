@@ -855,16 +855,23 @@ class SnapshotDataSourceConnection(DataSourceConnection):
           ``'{a: 1}'`` are left untouched so legitimate whitespace/ordering
           differences in flow-style payloads still surface as mismatches.
 
-        - **JSON-serialisable parsed value**: ``yaml.safe_load`` happily parses
+        - **JSON-serialisable parsed value**: the YAML loader happily parses
           bare ISO timestamps into ``datetime`` objects and other tagged YAML
           types that ``json.dumps`` can't natively encode. Fall back to a
           string coercion via ``default=str`` so canonicalisation never crashes
           on these — and tolerate any residual unexpected type by catching
           ``TypeError``/``ValueError`` and leaving the literal as-is.
+
+        Uses ``ruamel.yaml`` (a declared soda-core dependency) rather than
+        PyYAML, which isn't pulled in transitively by ``soda-tests`` and would
+        be ``ModuleNotFoundError`` in a clean install.
         """
         import json
 
-        import yaml as _yaml
+        from ruamel.yaml import YAML as _YAML
+        from ruamel.yaml import YAMLError as _YAMLError
+
+        _yaml_loader = _YAML(typ="safe")
 
         def _try_yaml_structured(content: str):
             """Return parsed dict/list if ``content`` is *multi-line* structured YAML.
@@ -876,8 +883,8 @@ class SnapshotDataSourceConnection(DataSourceConnection):
             if "\n" not in content:
                 return None
             try:
-                parsed = _yaml.safe_load(content)
-            except _yaml.YAMLError:
+                parsed = _yaml_loader.load(content)
+            except _YAMLError:
                 return None
             if isinstance(parsed, (dict, list)):
                 return parsed
