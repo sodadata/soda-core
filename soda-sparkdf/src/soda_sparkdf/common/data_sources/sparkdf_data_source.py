@@ -21,6 +21,7 @@ from soda_databricks.common.statements.hive_metadata_tables_query import (
     HiveMetadataTablesQuery,
 )
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
+    SparkDataFrameActiveSessionProperties,
     SparkDataFrameConnectionProperties,
 )
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
@@ -29,6 +30,7 @@ from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
 from soda_sparkdf.common.data_sources.sparkdf_data_source_connection import (
     SparkDataFrameExistingSessionProperties,
     SparkDataFrameNewSessionProperties,
+    SparkDataFrameRemoteSessionProperties,
 )
 
 _in_memory_connection = None
@@ -137,21 +139,40 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
         (SodaDataTypeName.NUMERIC, SodaDataTypeName.DECIMAL),
         (SodaDataTypeName.TIMESTAMP_TZ, SodaDataTypeName.TIMESTAMP),
     )
-    # Local Spark SQL rejects ``DROP TABLE ... CASCADE`` (ParseException). The
-    # Databricks SQL connector accepts it, hence the divergence from the
-    # parent dialect.
+    # Class-level default: legacy local-Spark rejects ``DROP TABLE ... CASCADE``
+    # with a ParseException. In catalog mode (Databricks) CASCADE is supported, so
+    # __init__ promotes this to True via an instance attribute that shadows the class.
     SUPPORTS_DROP_TABLE_CASCADE: bool = False
 
+    def __init__(self, use_catalog: bool = False):
+        super().__init__()
+        # In catalog mode, prefixes are [catalog, schema] (Unity-Catalog style 3-level
+        # namespace). In legacy mode, prefixes are [schema] only — local Spark has no
+        # catalog concept beyond ``spark_catalog``.
+        self.use_catalog = use_catalog
+        # Instance override — see class-level comment above.
+        self.SUPPORTS_DROP_TABLE_CASCADE = use_catalog
+
     def get_database_prefix_index(self) -> int | None:
-        return None
+        return 0 if self.use_catalog else None
 
     def get_schema_prefix_index(self) -> int | None:
-        return 0
+        return 1 if self.use_catalog else 0
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
-        schema_name: str = prefixes[0]
-        quoted_schema_name: str = self.quote_default(schema_name)
-        return f"CREATE SCHEMA IF NOT EXISTS {quoted_schema_name}" + (";" if add_semicolon else "")
+        if self.use_catalog:
+            if len(prefixes) < 2:
+                raise ValueError(
+                    f"Catalog-mode SparkDF requires 2 prefixes [catalog, schema]; got {len(prefixes)}: {prefixes}"
+                )
+            catalog_name: str = prefixes[0]
+            schema_name: str = prefixes[1]
+            quoted = f"{self.quote_default(catalog_name)}.{self.quote_default(schema_name)}"
+        else:
+            if len(prefixes) < 1:
+                raise ValueError(f"SparkDF requires at least 1 prefix [schema]; got {len(prefixes)}: {prefixes}")
+            quoted = self.quote_default(prefixes[0])
+        return f"CREATE SCHEMA IF NOT EXISTS {quoted}" + (";" if add_semicolon else "")
 
     def post_schema_create_sql(self, prefixes: list[str]) -> Optional[list[str]]:
         pass  # Do nothing, Spark does not have a post-schema-create concept
@@ -200,6 +221,37 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
         session = None
         if isinstance(config, SparkDataFrameExistingSessionProperties):
             session = config.spark_session
+        elif isinstance(config, SparkDataFrameActiveSessionProperties):
+            # Pick up the thread-local active SparkSession (the Databricks notebook's
+            # ``spark``, or whatever the caller last did ``.getOrCreate()`` on). No URI,
+            # no credentials, no global state we own — just pyspark's existing notion
+            # of which session is active in this thread.
+            session = SparkSession.getActiveSession()
+            if session is None:
+                raise ValueError(
+                    "SparkDataFrame is configured with use_active_session=True but no active "
+                    "SparkSession was found. Build a session (e.g. SparkSession.builder.…"
+                    "getOrCreate()) before opening this connection, or switch to another "
+                    "connection mode: pass ``spark_session`` (existing session), "
+                    "``host`` + ``token`` + ``cluster_id`` (remote Spark Connect), or "
+                    "``new_session: true`` (local session)."
+                )
+        elif isinstance(config, SparkDataFrameRemoteSessionProperties):
+            # Spark Connect URI. ``token`` becomes a gRPC bearer header (handled by
+            # pyspark.sql.connect.ChannelBuilder); ``x-databricks-cluster-id`` is forwarded
+            # as gRPC metadata, which is how Databricks routes the session to a cluster.
+            # ``getOrCreate`` caches per URI in-process, so multiple data sources pointing
+            # at the same workspace+cluster end up sharing one underlying session.
+            # NB: ``config.token`` is a SecretStr — unwrap only when assembling the URI
+            # (which is kept as a local variable, never logged).
+            uri = (
+                f"sc://{config.host}:443/"
+                f";use_ssl=true"
+                f";token={config.token.get_secret_value()}"
+                f";x-databricks-cluster-id={config.cluster_id}"
+            )
+            session = SparkSession.builder.remote(uri).getOrCreate()
+            session.sql("SET TIME ZONE 'UTC'")
         elif isinstance(config, SparkDataFrameNewSessionProperties):
             session = (
                 SparkSession.builder.master("local")
@@ -348,7 +400,14 @@ class SparkDataFrameMetadataTablesQuery(HiveMetadataTablesQuery):
 
 class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDataSourceModel):
     def _create_sql_dialect(self) -> SqlDialect:
-        return SparkDataFrameSqlDialect()
+        return SparkDataFrameSqlDialect(use_catalog=self._read_use_catalog_flag())
+
+    def _read_use_catalog_flag(self) -> bool:
+        # Pydantic model when fully parsed, dict during the from_existing_session bootstrap.
+        props = self.data_source_model.connection_properties
+        if isinstance(props, dict):
+            return bool(props.get("use_catalog", False))
+        return bool(getattr(props, "use_catalog", False))
 
     def _create_data_source_connection(self) -> DataSourceConnection:
         return SparkDataFrameDataSourceConnection(
@@ -361,8 +420,14 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         )
 
     @classmethod
-    def from_existing_session(cls, session: SparkSession, name: str) -> DataSourceImpl:
-        connection_properties = {"spark_session": session, "schema_": name}
+    def from_existing_session(cls, session: SparkSession, name: str, use_catalog: bool = False) -> DataSourceImpl:
+        # Locally-owned dict so we never mutate caller-shared state via the
+        # ``connection_properties`` plumbing.
+        connection_properties = {
+            "spark_session": session,
+            "schema_": name,
+            "use_catalog": use_catalog,
+        }
         ds_model = SparkDataFrameDataSourceModel(
             name=name,
             connection_properties=connection_properties,
@@ -392,7 +457,25 @@ class SparkDataFrameDataSourceImpl(DataSourceImpl, model_class=SparkDataFrameDat
         return False
 
     def test_schema_exists(self, prefixes: list[str]) -> bool:
-        result = self.connection.session.sql(f"SHOW SCHEMAS LIKE '{prefixes[0]}'").collect()
+        # Catalog-mode prefixes are [catalog, schema]; we list schemas in the catalog and do
+        # exact-match in Python rather than ``LIKE '<schema>'`` so a schema named
+        # ``soda_diagnostics`` doesn't false-positive against ``sodaXdiagnostics`` via the
+        # ``_`` wildcard. Quote the catalog so names with hyphens (legal in UC) parse cleanly.
+        if self.sql_dialect.get_database_prefix_index() is not None and len(prefixes) >= 2:
+            catalog_name = prefixes[0]
+            schema_name = prefixes[1]
+            quoted_catalog = self.sql_dialect.quote_default(catalog_name)
+            try:
+                result = self.connection.session.sql(f"SHOW SCHEMAS IN {quoted_catalog}").collect()
+            except Exception:
+                # Catalog doesn't exist (or we can't see into it) — the subsequent
+                # ``CREATE SCHEMA IF NOT EXISTS <cat>.<schema>`` will surface the real error.
+                return False
+            for row in result:
+                if row[0] and row[0].lower() == schema_name.lower():
+                    return True
+            return False
+        result = self.connection.session.sql("SHOW SCHEMAS").collect()
         for row in result:
             if row[0] and row[0].lower() == prefixes[0].lower():
                 return True

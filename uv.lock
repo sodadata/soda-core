@@ -1795,6 +1795,18 @@ dependencies = [
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/bf/58ee13add151469c25825b7125bbf62c3bdcec05eec4d458fcb5c5516066/pyspark-4.1.1.tar.gz", hash = "sha256:77f78984aa84fbe865c717dd37b49913b4e5c97d76ef6824f932f1aefa6621ec", size = 455359625, upload-time = "2026-01-09T09:38:38.28Z" }
 
+[package.optional-dependencies]
+connect = [
+    { name = "googleapis-common-protos" },
+    { name = "grpcio" },
+    { name = "grpcio-status" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "zstandard" },
+]
+
 [[package]]
 name = "pytest"
 version = "9.0.2"
@@ -2323,7 +2335,7 @@ version = "4.12.1rc0"
 source = { editable = "soda-sparkdf" }
 dependencies = [
     { name = "freezegun" },
-    { name = "pyspark" },
+    { name = "pyspark", extra = ["connect"] },
     { name = "soda-core" },
     { name = "soda-databricks" },
 ]
@@ -2331,7 +2343,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "freezegun" },
-    { name = "pyspark", specifier = ">=3.5.0" },
+    { name = "pyspark", extras = ["connect"], specifier = ">=3.5.0" },
     { name = "soda-core", editable = "soda-core" },
     { name = "soda-databricks", editable = "soda-databricks" },
 ]

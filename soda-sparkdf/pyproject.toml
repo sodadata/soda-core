@@ -10,7 +10,7 @@ authors = [
 dependencies = [
     "soda-core==4.12.1rc0",
     "freezegun",
-    "pyspark>=3.5.0",
+    "pyspark[connect]>=3.5.0",
     "soda-databricks==4.12.1rc0",
 ]
 
