@@ -1045,8 +1045,8 @@ def test_execute_dataset_query_non_json_200_body_returns_empty_dict():
 def test_verify_contract_on_runner_returns_result_when_upload_fails():
     """If uploading the contract file fails (no fileId), the method must return a ContractVerificationResult
     and set sending_results_to_soda_cloud_failed=True rather than returning a list or other type."""
-    from soda_core.contracts.impl.contract_yaml import ContractYaml
     from soda_core.common.yaml import ContractYamlSource
+    from soda_core.contracts.impl.contract_yaml import ContractYaml
 
     # First response: permission check allowed
     # Second response: upload contract returns 200 but without fileId → treated as upload failure
