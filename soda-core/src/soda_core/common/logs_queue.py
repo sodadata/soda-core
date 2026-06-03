@@ -51,6 +51,10 @@ class LogsQueue(LogsBase):
         # library consumers rely on.
         self.scan_reference = scan_reference
         self.scan_id = scan_id
+        if not scan_id and not scan_reference:
+            # Without an identifier the flush would POST to /logs/None/batchV3, silently
+            # discarding logs server-side and making failures hard to diagnose.
+            raise ValueError("LogsQueue requires either scan_id (batchV4) or scan_reference (batchV3)")
         self.stage = stage
         self.thread = str(uuid.uuid4())
         self.dataset = dataset
