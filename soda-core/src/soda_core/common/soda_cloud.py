@@ -643,7 +643,8 @@ class SodaCloud:
         file_id: Optional[str] = self._upload_contract_yaml_file(contract_yaml_str_original)
         if not file_id:
             logger.critical("Contract wasn't uploaded so skipping sending the results to Soda Cloud")
-            return []
+            verification_result.sending_results_to_soda_cloud_failed = True
+            return verification_result
 
         verify_contract_command: dict = {
             "type": "sodaCoreVerifyContract" if publish_results else "sodaCoreTestContract",

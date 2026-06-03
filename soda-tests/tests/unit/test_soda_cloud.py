@@ -798,3 +798,37 @@ def test_build_token_usage_dicts_empty_when_no_usage():
 
     mock_result.token_usage = []
     assert _build_token_usage_dicts(mock_result) == []
+
+
+def test_verify_contract_on_runner_returns_result_when_upload_fails():
+    """If uploading the contract file fails (no fileId), the method must return a ContractVerificationResult
+    and set sending_results_to_soda_cloud_failed=True rather than returning a list or other type."""
+    from soda_core.common.yaml import ContractYamlSource
+    from soda_core.contracts.impl.contract_yaml import ContractYaml
+
+    # First response: permission check allowed
+    # Second response: upload contract returns 200 but without fileId → treated as upload failure
+    responses = [
+        MockResponse(status_code=200, json_object={"allowed": True}),
+        MockResponse(method=MockHttpMethod.POST, status_code=200, json_object={}),
+    ]
+    mock_cloud = MockSodaCloud(responses)
+
+    result = mock_cloud.verify_contract_on_runner(
+        ContractYaml.parse(
+            ContractYamlSource.from_str(
+                """
+            dataset: test/some/schema/CUSTOMERS
+            columns:
+            - name: id
+        """
+            )
+        ),
+        variables={},
+        blocking_timeout_in_minutes=60,
+        publish_results=False,
+        verbose=False,
+    )
+
+    assert isinstance(result, ContractVerificationResult)
+    assert result.sending_results_to_soda_cloud_failed is True
