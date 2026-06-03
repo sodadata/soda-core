@@ -2,6 +2,7 @@ import os
 
 import pytest
 from helpers.test_connection import TestConnection
+from soda_core.common.data_source_impl import DataSourceImpl
 
 # define environment variables used in test cases
 ATHENA_ACCESS_KEY_ID = os.getenv("ATHENA_ACCESS_KEY_ID", None)
@@ -30,7 +31,9 @@ test_connections: list[TestConnection] = [
             """,
     ),
     TestConnection(
-        test_name="missing_credentials",
+        # access_key_id without secret_access_key is a misconfiguration: the two
+        # static credentials must be provided together (or both omitted).
+        test_name="partial_credentials",
         connection_yaml_str=f"""
                 type: athena
                 name: ATHENA_TEST_DS
@@ -43,7 +46,7 @@ test_connections: list[TestConnection] = [
                     {f"work_group: {ATHENA_WORKGROUP}" if ATHENA_WORKGROUP else ""}
             """,
         valid_yaml=False,
-        expected_yaml_error="Field required [type=missing,",
+        expected_yaml_error="access_key_id and secret_access_key must be provided together",
     ),
     TestConnection(
         test_name="incorrect_secret_access_key",
@@ -83,3 +86,31 @@ test_connections: list[TestConnection] = [
 @pytest.mark.parametrize("test_connection", test_connections, ids=[tc.test_name for tc in test_connections])
 def test_athena_connections(test_connection: TestConnection, monkeypatch: pytest.MonkeyPatch):
     test_connection.test(monkeypatch=monkeypatch)
+
+
+def test_athena_connection_without_static_credentials_parses():
+    """
+    Omitting access_key_id/secret_access_key must be valid: the AWS SDK then resolves
+    credentials via its default provider chain (e.g. IAM Roles for Service Accounts /
+    web identity federation). This is parsing-only and does not open a live connection,
+    so it runs without AWS access. Regression test for V4 onboarding requiring keys.
+    """
+    from soda_core.common.logs import Logs
+    from soda_core.common.yaml import DataSourceYamlSource
+
+    yaml_str = f"""
+        type: athena
+        name: ATHENA_TEST_DS
+        connection:
+            staging_dir: {ATHENA_S3_TEST_DIR}
+            region_name: {ATHENA_REGION_NAME}
+            catalog: {ATHENA_CATALOG}
+    """
+
+    logs = Logs()
+    data_source_impl = DataSourceImpl.from_yaml_source(DataSourceYamlSource.from_str(yaml_str=yaml_str))
+
+    assert data_source_impl is not None
+    assert not logs.has_errors
+    assert data_source_impl.data_source_model.connection_properties.access_key_id is None
+    assert data_source_impl.data_source_model.connection_properties.secret_access_key is None
