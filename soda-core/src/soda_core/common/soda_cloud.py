@@ -1106,10 +1106,19 @@ class SodaCloud:
             request_log_name="get_scan_logs",
         )
 
-    def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
+    def execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
+        """Public seam for issuing a CQRS query to Soda Cloud.
+
+        Generic and feature-neutral: callers issue their own typed queries through
+        this method rather than reaching into the private request helpers.
+        """
         return self._execute_cqrs_request(
             request_type="query", request_log_name=request_log_name, request_body=query_json_dict, is_retry=True
         )
+
+    def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
+        # Backwards-compatible private alias for existing internal callers.
+        return self.execute_query(query_json_dict, request_log_name)
 
     def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Response:
         return self._execute_cqrs_request(

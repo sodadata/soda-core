@@ -798,3 +798,21 @@ def test_build_token_usage_dicts_empty_when_no_usage():
 
     mock_result.token_usage = []
     assert _build_token_usage_dicts(mock_result) == []
+
+
+@mock.patch("requests.post")
+def test_execute_query_public_seam_posts_to_query_endpoint(mock_post):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+    mock_post.return_value = MockResponse(status_code=200, json_object={"ok": True})
+
+    response = soda_cloud.execute_query(
+        {"type": "someQueryType", "dataset": {"name": "x"}},
+        request_log_name="some_query",
+    )
+
+    assert response.status_code == 200
+    called = mock_post.call_args
+    assert called.kwargs["url"].endswith("/api/query")
+    assert called.kwargs["json"]["type"] == "someQueryType"
+    assert called.kwargs["json"]["token"] == "some_token"
