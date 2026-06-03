@@ -29,7 +29,7 @@ def test_use_active_session_routes_to_active_properties():
     assert model.connection_properties.use_catalog is True
 
 
-def test_remote_session_still_routes_correctly_with_active_mode_present():
+def test_remote_session_config_routes_to_remote_properties():
     model = _build_model(
         {
             "host": "dbc-x.cloud.databricks.com",
@@ -39,6 +39,32 @@ def test_remote_session_still_routes_correctly_with_active_mode_present():
         }
     )
     assert isinstance(model.connection_properties, SparkDataFrameRemoteSessionProperties)
+
+
+def test_conflicting_modes_raise_clear_error():
+    # use_active_session + host used to be silently resolved to active by discriminator
+    # order. Both being present is almost always a typo — we want an actionable error.
+    with pytest.raises(ValueError, match="Conflicting SparkDataFrame connection config"):
+        _build_model(
+            {
+                "use_active_session": True,
+                "host": "dbc-x.cloud.databricks.com",
+                "token": "secret",
+                "cluster_id": "0000-000000-aaaa",
+            }
+        )
+
+
+def test_remote_session_host_strips_scheme_and_trailing_slash():
+    # Users naturally paste the workspace URL with scheme; the Spark Connect URI hard-codes
+    # ``sc://...:443/`` so a scheme on host would yield ``sc://https://...:443/`` and a
+    # confusing gRPC error. The model normalises the host on validation.
+    props = SparkDataFrameRemoteSessionProperties(
+        host="https://dbc-x.cloud.databricks.com/",
+        token="secret",
+        cluster_id="0000-000000-aaaa",
+    )
+    assert props.host == "dbc-x.cloud.databricks.com"
 
 
 def test_remote_session_token_is_masked_in_repr_and_str():

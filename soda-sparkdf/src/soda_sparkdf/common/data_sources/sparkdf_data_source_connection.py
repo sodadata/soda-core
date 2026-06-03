@@ -1,3 +1,4 @@
+import re
 from abc import ABC
 from typing import Any, Literal, Optional, Union
 
@@ -58,6 +59,17 @@ class SparkDataFrameRemoteSessionProperties(SparkDataFrameConnectionProperties):
         ),
     )
 
+    @field_validator("host", mode="before")
+    @classmethod
+    def _strip_host_scheme(cls, value):
+        # Users naturally paste workspace URLs like ``https://dbc-12345.cloud.databricks.com``.
+        # The Spark Connect URI hard-codes its own ``sc://`` scheme and ``use_ssl=true``, so a
+        # scheme in the host would produce ``sc://https://...:443/`` and surface as an opaque
+        # gRPC error. Strip the scheme and trailing slash up-front.
+        if isinstance(value, str):
+            return re.sub(r"^https?://", "", value.strip()).rstrip("/")
+        return value
+
 
 class SparkDataFrameActiveSessionProperties(SparkDataFrameConnectionProperties):
     """SparkSession picked up from ``SparkSession.getActiveSession()`` at connect time.
@@ -100,6 +112,26 @@ class SparkDataFrameDataSource(DataSourceBase, ABC):
             return value
         if isinstance(value, SparkDataFrameActiveSessionProperties):
             return value
+
+        # Reject ambiguous combinations up-front rather than letting the first matching
+        # branch win silently. Each mode has a unique discriminator; mixing them is
+        # almost always a typo or a half-finished YAML edit.
+        modes_present = []
+        if "spark_session" in value:
+            modes_present.append("spark_session (existing_session mode)")
+        if value.get("use_active_session") is True:
+            modes_present.append("use_active_session (active_session mode)")
+        if "host" in value or "cluster_id" in value:
+            modes_present.append("host/cluster_id (remote_session mode)")
+        if "new_session" in value:
+            modes_present.append("new_session mode")
+        if len(modes_present) > 1:
+            raise ValueError(
+                "Conflicting SparkDataFrame connection config — multiple modes detected: "
+                + ", ".join(modes_present)
+                + ". Pick exactly one of: spark_session, use_active_session=true, "
+                "host+cluster_id, or new_session."
+            )
 
         if "spark_session" in value:
             return SparkDataFrameExistingSessionProperties(**value)

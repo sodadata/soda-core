@@ -161,10 +161,16 @@ class SparkDataFrameSqlDialect(DatabricksSqlDialect, sqlglot_dialect="spark"):
 
     def create_schema_if_not_exists_sql(self, prefixes: list[str], add_semicolon: bool = True) -> str:
         if self.use_catalog:
+            if len(prefixes) < 2:
+                raise ValueError(
+                    f"Catalog-mode SparkDF requires 2 prefixes [catalog, schema]; got {len(prefixes)}: {prefixes}"
+                )
             catalog_name: str = prefixes[0]
             schema_name: str = prefixes[1]
             quoted = f"{self.quote_default(catalog_name)}.{self.quote_default(schema_name)}"
         else:
+            if len(prefixes) < 1:
+                raise ValueError(f"SparkDF requires at least 1 prefix [schema]; got {len(prefixes)}: {prefixes}")
             quoted = self.quote_default(prefixes[0])
         return f"CREATE SCHEMA IF NOT EXISTS {quoted}" + (";" if add_semicolon else "")
 
@@ -225,8 +231,10 @@ class SparkDataFrameDataSourceConnection(DataSourceConnection):
                 raise ValueError(
                     "SparkDataFrame is configured with use_active_session=True but no active "
                     "SparkSession was found. Build a session (e.g. SparkSession.builder.…"
-                    "getOrCreate()) before opening this connection, or switch to the "
-                    "existing_session / remote / new_session connection mode."
+                    "getOrCreate()) before opening this connection, or switch to another "
+                    "connection mode: pass ``spark_session`` (existing session), "
+                    "``host`` + ``token`` + ``cluster_id`` (remote Spark Connect), or "
+                    "``new_session: true`` (local session)."
                 )
         elif isinstance(config, SparkDataFrameRemoteSessionProperties):
             # Spark Connect URI. ``token`` becomes a gRPC bearer header (handled by
