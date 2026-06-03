@@ -5,6 +5,7 @@ from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.common.logging_constants import Emoticons, soda_logger
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logs import LogCapturer
 from soda_core.common.logs_queue import LogsQueue
 from soda_core.common.soda_cloud import SodaCloud
@@ -49,7 +50,6 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
 def handle_test_data_source(
     data_source_file_path: str,
     soda_cloud_file_path: Optional[str] = None,
-    scan_id: Optional[str] = None,
 ) -> ExitCode:
     soda_logger.info(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source_impl import DataSourceImpl
@@ -60,7 +60,6 @@ def handle_test_data_source(
 
     log_uploader: Optional["_TestConnectionLogUploader"] = _build_log_uploader(
         soda_cloud_file_path=soda_cloud_file_path,
-        scan_id=scan_id,
     )
 
     try:
@@ -105,8 +104,10 @@ class _TestConnectionLogUploader:
 
 def _build_log_uploader(
     soda_cloud_file_path: Optional[str],
-    scan_id: Optional[str],
 ) -> Optional[_TestConnectionLogUploader]:
+    # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
+    # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
+    scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
     if not scan_id or not soda_cloud_file_path:
         return None
 

@@ -389,11 +389,11 @@ def test_cli_argument_mapping_for_data_source_test_command(mock_handler):
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path=None, scan_id=None)
+    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path=None)
 
 
 @patch("soda_core.cli.cli.handle_test_data_source")
-def test_cli_argument_mapping_for_data_source_test_command_with_scan_id(mock_handler):
+def test_cli_argument_mapping_for_data_source_test_command_with_soda_cloud(mock_handler):
     mock_handler.return_value = ExitCode.OK.value
     sys.argv = [
         "soda",
@@ -403,8 +403,6 @@ def test_cli_argument_mapping_for_data_source_test_command_with_scan_id(mock_han
         "ds.yaml",
         "-sc",
         "sc.yaml",
-        "--scan-id",
-        "scan-id-123",
     ]
 
     parser = create_cli_parser()
@@ -415,7 +413,7 @@ def test_cli_argument_mapping_for_data_source_test_command_with_scan_id(mock_han
 
     assert e.value.code == 0
 
-    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path="sc.yaml", scan_id="scan-id-123")
+    mock_handler.assert_called_once_with("ds.yaml", soda_cloud_file_path="sc.yaml")
 
 
 @patch("soda_core.cli.cli.handle_create_soda_cloud")
