@@ -4,8 +4,8 @@ from textwrap import dedent
 from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
-from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.env_config_helper import EnvConfigHelper
+from soda_core.common.logging_constants import Emoticons, soda_logger
 from soda_core.common.logs import LogCapturer
 from soda_core.common.logs_queue import LogsQueue
 from soda_core.common.soda_cloud import SodaCloud

@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 from soda_core.cli.exit_codes import ExitCode
 from soda_core.cli.handlers.data_source import (
     handle_create_data_source,

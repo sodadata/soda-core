@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from soda_core.common.logs_queue import LogsQueue
 
 
