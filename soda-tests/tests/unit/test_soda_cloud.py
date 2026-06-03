@@ -803,8 +803,8 @@ def test_build_token_usage_dicts_empty_when_no_usage():
 def test_verify_contract_on_runner_returns_result_when_upload_fails():
     """If uploading the contract file fails (no fileId), the method must return a ContractVerificationResult
     and set sending_results_to_soda_cloud_failed=True rather than returning a list or other type."""
-    from soda_core.contracts.impl.contract_yaml import ContractYaml
     from soda_core.common.yaml import ContractYamlSource
+    from soda_core.contracts.impl.contract_yaml import ContractYaml
 
     # First response: permission check allowed
     # Second response: upload contract returns 200 but without fileId → treated as upload failure
