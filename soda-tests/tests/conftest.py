@@ -11,7 +11,10 @@ from soda_core.contracts.impl.contract_verification_impl import (
 
 # Surface snapshot fallback events in pytest output (custom progress char,
 # end-of-session summary). Loaded as a plugin so its hooks register cleanly.
-pytest_plugins = ["helpers.snapshot_pytest_plugin"]
+pytest_plugins = [
+    "helpers.snapshot_pytest_plugin",
+    "helpers.memory_container_plugin",
+]
 
 
 def pytest_configure(config) -> None:

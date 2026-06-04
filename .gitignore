@@ -162,3 +162,7 @@ reports/*
 *.pem
 *.jks
 logs/
+
+# Per-test memory profiling artifacts (cgroup peaks, rss timeseries, memray flamegraphs).
+# Produced by @pytest.mark.memory_container — see soda-tests/memory_container/.
+.memory_test_artifacts/

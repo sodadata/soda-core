@@ -1,0 +1,822 @@
+"""Pytest plugin: re-dispatch marked tests into a memory-capped Docker container.
+
+Tests decorated with ``@pytest.mark.memory_container(limit_mb=N)`` are re-run
+inside a fresh container started with ``--memory=Nm --memory-swap=Nm``. This
+mirrors Kubernetes cgroup accounting and gives a true OOM-kill (SIGKILL,
+exit 137) at the cap rather than ``resource.setrlimit``'s soft ``MemoryError``.
+
+Activation: ``SODA_MEMORY_TESTS=true`` (matches the existing ``SODA_NIGHTLY``
+pattern). Without it, marked tests are skipped so default local + CI runs
+keep working.
+
+Three measurement sources are reconciled into a single peak:
+
+1. **Inner cgroup poller** (primary, 200 Hz): a thread inside the container
+   reads ``/sys/fs/cgroup/memory.current`` and writes ``peak.txt`` + a
+   timeseries CSV to a bind-mounted artifact directory. Flushed every 50 ms
+   so we don't lose data if the inner process is SIGKILL'd mid-write.
+2. **Kernel ground truth** (best when it exists): at clean inner shutdown,
+   we also read ``/sys/fs/cgroup/memory.peak`` (kernel-maintained max of
+   ``memory.current``) and write it to ``cgroup_peak.txt``. This is the
+   authoritative number when the test exits normally.
+3. **Host docker stats poller** (OOM safety net, ~5 Hz): a thread on the
+   host runs ``docker stats --no-stream`` against the container's CID and
+   tracks max. Survives SIGKILL because it lives outside the container.
+
+The assertion uses ``max(...)`` across whatever sources are available.
+
+Dispatch happens at ``pytest_runtest_protocol`` so host-side autouse
+fixtures do NOT run on the host before re-entering the container.
+"""
+
+from __future__ import annotations
+
+import datetime
+import hashlib
+import logging
+import os
+import re
+import subprocess
+import threading
+import time
+from pathlib import Path
+from typing import Optional
+
+import pytest
+from _pytest.reports import TestReport
+
+logger = logging.getLogger(__name__)
+
+ACTIVATION_ENV = "SODA_MEMORY_TESTS"
+INNER_ENV_VAR = "SODA_IN_MEMORY_CONTAINER"
+ARTIFACT_DIR_ENV = "SODA_MEMTEST_ARTIFACT_DIR"
+ARTIFACTS_ROOT_ENV = "SODA_MEMTEST_ARTIFACTS_ROOT"
+MEMRAY_ENABLE_ENV = "SODA_MEMTEST_MEMRAY"
+DEFAULT_IMAGE_TAG = "soda-memtest:latest"
+
+_PLUGIN_FILE = Path(__file__).resolve()
+# .../soda_claude/soda-core/soda-tests/src/helpers/memory_container_plugin.py
+#                  ^ parents[4] = soda_claude (the parent that holds both repos)
+REPO_PARENT = _PLUGIN_FILE.parents[4]
+assert (REPO_PARENT / "soda-core").is_dir(), (
+    f"REPO_PARENT={REPO_PARENT} doesn't look like the soda_claude root "
+    "(expected ./soda-core/ to exist). Did the plugin move?"
+)
+
+# Artifacts land under the active pytest rootpath in .memory_test_artifacts/
+# (gitignored). Override with SODA_MEMTEST_ARTIFACTS_ROOT for a custom location.
+ARTIFACTS_SUBDIR = ".memory_test_artifacts"
+
+# Env values that count as "on" for opt-in flags.
+_TRUTHY = {"1", "true", "yes", "on", "y", "t"}
+
+ENV_DENYLIST = {
+    "PATH", "HOME", "USER", "PWD", "OLDPWD", "SHELL", "SHLVL", "_",
+    "TMPDIR", "TMP", "TEMP", "LANG", "TERM", "COLORTERM",
+    "VIRTUAL_ENV", "PYTHONPATH", "PYTHONHOME", "PYTHONBREAKPOINT",
+    "COMMAND_MODE",
+    "PYTEST_CURRENT_TEST", "PYTEST_VERSION",
+}
+ENV_DENYLIST_PREFIXES = ("DYLD_", "LC_", "XPC_", "__CF", "PYTEST_XDIST_")
+
+_LOCALHOST_RE = re.compile(r"^(localhost|127\.0\.0\.1)(:\d+)?$")
+
+# Env-var suffixes that typically point at credential / keyfile paths on the
+# host. When such a var holds an absolute path that exists, we bind-mount it
+# read-only into the container at the same path so the inner test resolves it
+# transparently.
+_CREDENTIAL_ENV_SUFFIXES = ("_PATH", "_CREDENTIALS", "_KEYFILE", "_KEY_FILE")
+_CREDENTIAL_ENV_EXACT = frozenset({
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "AWS_SHARED_CREDENTIALS_FILE",
+    "AWS_CONFIG_FILE",
+    "AWS_WEB_IDENTITY_TOKEN_FILE",
+    "BOTO_CONFIG",
+    "KUBECONFIG",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+    "SNOWFLAKE_CONNECTIONS_FILE",
+})
+
+# Well-known credential directories — auto-mounted RO if they exist on the host.
+_WELL_KNOWN_CREDENTIAL_DIRS = ("~/.aws", "~/.config/gcloud", "~/.azure")
+
+# Paths that must NEVER be auto-mounted even if some `_PATH` env var references
+# them. Defence in depth against a misnamed/malicious env var causing us to
+# leak SSH keys, shell history, or browser data into the container's RO mount
+# (where any `pip install`'d package in the image could read them). The check
+# is a prefix match after resolving symlinks.
+_CREDENTIAL_MOUNT_DENYLIST = tuple(
+    str(Path(p).expanduser())
+    for p in (
+        "~/.ssh",
+        "~/.gnupg",
+        "~/.netrc",
+        "~/.bash_history",
+        "~/.zsh_history",
+        "~/.python_history",
+        "~/.docker/config.json",
+        "~/Library/Application Support",  # macOS browser/app data
+        "~/.mozilla",
+        "~/.config/google-chrome",
+    )
+)
+
+# Inner poller: 200 Hz, flush peak.txt every 50 ms.
+_INNER_POLL_HZ = 200
+_INNER_FLUSH_INTERVAL_S = 0.05
+
+# Host poller: 5 Hz docker stats.
+_HOST_POLL_HZ = 5
+
+_CGROUP_DIR = Path("/sys/fs/cgroup")
+
+
+# ---------------------------------------------------------------------------
+# Marker registration
+# ---------------------------------------------------------------------------
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "memory_container(limit_mb): run the test inside a fresh Docker "
+        "container with --memory=limit_mbm (and --memory-swap matched, so no "
+        "swap — matches K8s). Asserts measured peak ≤ limit_mb. Skipped "
+        "unless SODA_MEMORY_TESTS=true.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Inner-container side: cgroup poller, auto-started on session start.
+# ---------------------------------------------------------------------------
+
+
+_INNER_POLLER: Optional["_CgroupPoller"] = None
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    global _INNER_POLLER
+    if os.environ.get(INNER_ENV_VAR) != "1":
+        return
+    artifact_dir_str = os.environ.get(ARTIFACT_DIR_ENV)
+    if not artifact_dir_str:
+        return
+    artifact_dir = Path(artifact_dir_str)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    _INNER_POLLER = _CgroupPoller(artifact_dir)
+    _INNER_POLLER.start()
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    if _INNER_POLLER is not None:
+        _INNER_POLLER.stop_and_flush()
+
+
+class _CgroupPoller(threading.Thread):
+    """Reads /sys/fs/cgroup/memory.current at ~200 Hz and writes peak + timeseries."""
+
+    def __init__(self, artifact_dir: Path) -> None:
+        super().__init__(daemon=True, name="memtest-cgroup-poller")
+        self.artifact_dir = artifact_dir
+        self._stop_event = threading.Event()
+        self._peak = 0
+        self._memory_current = _CGROUP_DIR / "memory.current"
+        self._memory_peak = _CGROUP_DIR / "memory.peak"
+        self.peak_path = artifact_dir / "peak.txt"
+        self.timeseries_path = artifact_dir / "rss_timeseries.csv"
+        self.cgroup_peak_path = artifact_dir / "cgroup_peak.txt"
+        # Pre-create files so they exist even if the poller never runs.
+        self.peak_path.write_text("0\n")
+
+    def run(self) -> None:
+        if not self._memory_current.exists():
+            logger.warning("memory.current not found at %s — poller inert", self._memory_current)
+            return
+
+        interval = 1.0 / _INNER_POLL_HZ
+
+        # Hold the cgroup file open and lseek(0) per read — avoids ~tens of µs
+        # of open/close overhead per iteration that otherwise dominate at 200 Hz.
+        try:
+            mem_fd = os.open(str(self._memory_current), os.O_RDONLY)
+        except OSError as exc:
+            logger.warning("Could not open %s: %s", self._memory_current, exc)
+            return
+
+        # Block-buffered writes; flush coupled to the same cadence as peak.txt
+        # so we don't lose more than _INNER_FLUSH_INTERVAL_S of data on SIGKILL.
+        try:
+            ts_file = open(self.timeseries_path, "w", buffering=64 * 1024)
+        except OSError as exc:
+            logger.warning("Could not open timeseries file %s: %s", self.timeseries_path, exc)
+            os.close(mem_fd)
+            return
+        ts_file.write("timestamp_ns,rss_bytes\n")
+
+        start_ns = time.monotonic_ns()
+        last_flush_s = time.monotonic()
+        buf = bytearray(64)  # reused read buffer
+
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    os.lseek(mem_fd, 0, os.SEEK_SET)
+                    n = os.readv(mem_fd, [buf])
+                except OSError:
+                    break  # cgroup gone — bail out
+                try:
+                    current = int(bytes(buf[:n]).strip())
+                except ValueError:
+                    break
+
+                ts_ns = time.monotonic_ns() - start_ns
+                ts_file.write(f"{ts_ns},{current}\n")
+
+                if current > self._peak:
+                    self._peak = current
+
+                now_s = time.monotonic()
+                if now_s - last_flush_s >= _INNER_FLUSH_INTERVAL_S:
+                    ts_file.flush()
+                    self._write_peak_atomic()
+                    last_flush_s = now_s
+
+                if self._stop_event.wait(interval):
+                    break
+        finally:
+            try:
+                ts_file.flush()
+                ts_file.close()
+            except OSError:
+                pass
+            try:
+                os.close(mem_fd)
+            except OSError:
+                pass
+
+    def _write_peak_atomic(self) -> None:
+        # Write to a temp file then rename to avoid partial-read on SIGKILL.
+        tmp = self.peak_path.with_suffix(".txt.tmp")
+        try:
+            tmp.write_text(f"{self._peak}\n")
+            tmp.replace(self.peak_path)
+        except OSError:
+            pass
+
+    def stop_and_flush(self) -> None:
+        self._stop_event.set()
+        self.join(timeout=2.0)
+        self._write_peak_atomic()
+        # Also capture the kernel's own peak counter as ground truth.
+        try:
+            cgroup_peak = int(self._memory_peak.read_text().strip())
+            self.cgroup_peak_path.write_text(f"{cgroup_peak}\n")
+        except (OSError, ValueError):
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Host side: dispatch + host docker-stats poller + assertion.
+# ---------------------------------------------------------------------------
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) -> Optional[bool]:
+    marker = item.get_closest_marker("memory_container")
+    if marker is None:
+        return None  # Default protocol — host runs the test normally.
+
+    if os.environ.get(INNER_ENV_VAR) == "1":
+        return None  # Inside the container — let the default protocol invoke the body.
+
+    if os.environ.get(ACTIVATION_ENV, "").lower() not in _TRUTHY:
+        _emit_skipped(item, f"set {ACTIVATION_ENV}=true to enable memory_container tests")
+        return True
+
+    limit_mb = marker.kwargs.get("limit_mb")
+    if not isinstance(limit_mb, int) or limit_mb <= 0:
+        _emit_failed(
+            item,
+            when="setup",
+            longrepr=(
+                f"@pytest.mark.memory_container requires a positive int limit_mb. "
+                f"Got {limit_mb!r} ({type(limit_mb).__name__})."
+            ),
+        )
+        return True
+
+    _dispatch_and_emit_reports(item, limit_mb)
+    return True
+
+
+def _dispatch_and_emit_reports(item: pytest.Item, limit_mb: int) -> None:
+    item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
+    item.ihook.pytest_runtest_logreport(report=_build_report(item, when="setup", outcome="passed"))
+
+    start = time.perf_counter()
+    outcome, longrepr = _run_in_container(item, limit_mb)
+    duration = time.perf_counter() - start
+
+    # Bypassing the default protocol means pytest's own xfail handling
+    # (in _pytest/skipping.py) doesn't fire. Apply it ourselves so that
+    # @pytest.mark.xfail tests display correctly (XFAIL / XPASS).
+    outcome, longrepr, wasxfail = _apply_xfail(item, outcome, longrepr)
+    call_report = _build_report(item, when="call", outcome=outcome, longrepr=longrepr, duration=duration)
+    if wasxfail is not None:
+        call_report.wasxfail = wasxfail
+    item.ihook.pytest_runtest_logreport(report=call_report)
+    item.ihook.pytest_runtest_logreport(report=_build_report(item, when="teardown", outcome="passed"))
+    item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+
+def _apply_xfail(
+    item: pytest.Item, outcome: str, longrepr: Optional[str]
+) -> tuple[str, Optional[str], Optional[str]]:
+    """Best-effort xfail support for our protocol-replacement hook.
+
+    Limitation: only ``reason=`` and ``strict=`` kwargs are honored. ``condition``,
+    ``raises``, and ``run=False`` are NOT evaluated — using them on a
+    memory_container test will produce incorrect XFAIL semantics. If you need
+    those, use the standard pytest protocol (i.e. don't put memory_container
+    on that test).
+    """
+    xfail = item.get_closest_marker("xfail")
+    if xfail is None:
+        return outcome, longrepr, None
+    # If the user passed unsupported kwargs, fail loudly rather than silently
+    # turn a real failure into a green XFAIL.
+    unsupported = set(xfail.kwargs).difference({"reason", "strict"})
+    if unsupported:
+        raise ValueError(
+            f"memory_container does not support xfail({sorted(unsupported)}). "
+            "Only 'reason' and 'strict' are honored. See _apply_xfail docstring."
+        )
+    if xfail.args:
+        # Positional condition (e.g. xfail(sys.platform == 'win32', reason=...))
+        raise ValueError(
+            "memory_container does not support xfail(condition, ...). Use "
+            "@pytest.mark.skipif for conditional skips."
+        )
+    reason = xfail.kwargs.get("reason", "") or "expected to fail"
+    strict = bool(xfail.kwargs.get("strict", False))
+    if outcome == "failed":
+        # Matches pytest's standard xfail handling in _pytest/skipping.py:
+        # outcome="skipped" + report.wasxfail = reason. Both the terminal
+        # reporter and junitxml.append_skipped honor this combo as XFAIL.
+        return "skipped", None, reason
+    if outcome == "passed" and strict:
+        # XPASS in strict mode → real failure.
+        return "failed", f"[XPASS(strict)] {reason}", None
+    return outcome, longrepr, None
+
+
+def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[str]]:
+    image = os.environ.get("SODA_MEMTEST_IMAGE", DEFAULT_IMAGE_TAG)
+    bind_root = str(REPO_PARENT)
+    rootdir = str(item.config.rootpath)
+
+    artifact_dir = _make_artifact_dir(item)
+    cidfile = artifact_dir / "container.cid"
+    memray_enabled = os.environ.get(MEMRAY_ENABLE_ENV, "").lower() in _TRUTHY
+    memray_bin_path = artifact_dir / "memray.bin"
+
+    inner_cmd: list[str]
+    if memray_enabled:
+        inner_cmd = [
+            "python", "-m", "memray", "run",
+            "--force",  # overwrite existing .bin if present
+            "-o", str(memray_bin_path),
+            "-m", "pytest",
+            "--no-header", "-p", "no:cacheprovider", "--tb=short",
+            item.nodeid,
+        ]
+    else:
+        inner_cmd = [
+            "python", "-m", "pytest",
+            "--no-header", "-p", "no:cacheprovider", "--tb=short",
+            item.nodeid,
+        ]
+
+    cmd = [
+        "docker", "run", "--rm",
+        f"--cidfile={cidfile}",
+        f"--memory={limit_mb}m",
+        f"--memory-swap={limit_mb}m",
+        "--add-host=host.docker.internal:host-gateway",
+        # Broad mount is read-only so a misbehaving test can't write to the
+        # host repo or scribble on credential files. Artifact subdir is
+        # overlaid as :rw so the inner poller and memray can write outputs.
+        "-v", f"{bind_root}:{bind_root}:ro",
+        "-v", f"{artifact_dir}:{artifact_dir}:rw",
+        *_build_credential_mount_args(bind_root),
+        "-w", rootdir,
+        *_build_env_args(artifact_dir),
+        image,
+        *inner_cmd,
+    ]
+
+    host_poller = _DockerStatsPoller(cidfile)
+    host_poller.start()
+
+    proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, text=True)
+    _, stderr = proc.communicate()
+    rc = proc.returncode
+
+    host_poller.stop()
+    host_poller.join(timeout=2.0)
+
+    # Generate memray reports unconditionally if the .bin exists — including
+    # when the test failed or OOM'd. A flamegraph of an OOM'd run is exactly
+    # what you want to look at when diagnosing the OOM.
+    memray_reports_produced: dict[str, Path] = {}
+    if memray_enabled:
+        if memray_bin_path.exists() and memray_bin_path.stat().st_size > 0:
+            memray_reports_produced = _generate_memray_reports(image, artifact_dir, memray_bin_path)
+        else:
+            print(
+                f"[memory_container] WARNING: memray was enabled but memray.bin "
+                f"is missing or empty for {item.nodeid}. The inner process likely "
+                f"crashed before memray could flush. Artifact dir: {artifact_dir}"
+            )
+
+    def _memray_paths_blurb() -> str:
+        if not memray_reports_produced:
+            return ""
+        lines = ["\nmemray output:"]
+        for label, path in memray_reports_produced.items():
+            lines.append(f"  {label}: {path}")
+        return "\n".join(lines)
+
+    peak_bytes, peak_source = _resolve_peak(artifact_dir, host_poller.peak_bytes)
+    limit_bytes = limit_mb * 1024 * 1024
+    artifacts_hint = f"Artifacts: {artifact_dir}"
+
+    if rc == 137:
+        # OOM-kill implies the cap was reached. If we got no measurement (fast
+        # OOM beats our pollers), report ≥ limit_mb rather than the misleading 0.
+        if peak_bytes < limit_bytes:
+            peak_bytes = limit_bytes
+            peak_source = f"{peak_source or 'no sample'} (floor: cap reached by OOM-kill)"
+        peak_mb = peak_bytes / (1024 * 1024)
+        msg = (
+            f"OOM-killed at memory limit {limit_mb} MB (exit 137). "
+            f"Peak observed: {peak_mb:.1f} MB (source: {peak_source}). "
+            f"{artifacts_hint}{_memray_paths_blurb()}"
+        )
+        return "failed", msg
+
+    peak_mb = peak_bytes / (1024 * 1024)
+
+    if rc != 0:
+        return "failed", _format_failure(rc, limit_mb, image, stderr) + f"\n{artifacts_hint}{_memray_paths_blurb()}"
+
+    if peak_bytes > limit_bytes:
+        # cgroup should have prevented this — surface loudly if it ever happens.
+        msg = (
+            f"Peak {peak_mb:.1f} MB exceeded limit {limit_mb} MB but exit was clean (no OOM-kill). "
+            f"Source: {peak_source}. {artifacts_hint}{_memray_paths_blurb()}"
+        )
+        return "failed", msg
+
+    # Pass — log the peak so it's visible in pytest output.
+    print(
+        f"[memory_container] {item.nodeid}: "
+        f"peak {peak_mb:.1f} MB / {limit_mb} MB ({100 * peak_bytes / limit_bytes:.0f}%) "
+        f"(source: {peak_source}, artifacts: {artifact_dir})"
+    )
+    if memray_reports_produced:
+        # Surface the memray output paths explicitly so they aren't easy to miss.
+        for label, path in memray_reports_produced.items():
+            print(f"[memory_container]   memray {label}: {path}")
+    return "passed", None
+
+
+def _resolve_peak(artifact_dir: Path, host_peak_bytes: int) -> tuple[int, str]:
+    """Return (peak_bytes, source_label) using the best available signal."""
+    cgroup_peak = _read_int(artifact_dir / "cgroup_peak.txt")
+    inner_peak = _read_int(artifact_dir / "peak.txt")
+
+    sources: list[tuple[int, str]] = []
+    if cgroup_peak:
+        sources.append((cgroup_peak, "kernel cgroup memory.peak"))
+    if inner_peak:
+        sources.append((inner_peak, "inner 200Hz poller"))
+    if host_peak_bytes:
+        sources.append((host_peak_bytes, "host docker stats"))
+
+    if not sources:
+        return 0, "none"
+
+    peak, label = max(sources, key=lambda x: x[0])
+    return peak, label
+
+
+def _read_int(path: Path) -> int:
+    try:
+        return int(path.read_text().strip())
+    except (OSError, ValueError):
+        return 0
+
+
+def _make_artifact_dir(item: pytest.Item) -> Path:
+    # Default location: <pytest_rootpath>/.memory_test_artifacts/ — gitignored,
+    # lives inside the repo so it's discoverable. Override via SODA_MEMTEST_ARTIFACTS_ROOT.
+    override = os.environ.get(ARTIFACTS_ROOT_ENV)
+    if override:
+        root = Path(override)
+    else:
+        root = Path(item.config.rootpath) / ARTIFACTS_SUBDIR
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "_", item.nodeid).strip("_")[:120]
+    # Disambiguate truncated nodeids and avoid stomping prior runs.
+    short_hash = hashlib.sha1(item.nodeid.encode()).hexdigest()[:8]
+    timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    artifact_dir = root / sanitized / f"{timestamp}_{short_hash}"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    # Pre-create inner-poller output files on the host so they exist even if
+    # the container OOM-kills before the inner poller writes anything. Lets us
+    # distinguish "this source produced 0" from "this source vanished".
+    (artifact_dir / "peak.txt").write_text("0\n")
+    (artifact_dir / "rss_timeseries.csv").write_text("timestamp_ns,rss_bytes\n")
+    return artifact_dir
+
+
+class _DockerStatsPoller(threading.Thread):
+    """Polls `docker stats --no-stream` at ~5 Hz, tracks peak. OOM-survivable."""
+
+    def __init__(self, cidfile: Path) -> None:
+        super().__init__(daemon=True, name="memtest-stats-poller")
+        self.cidfile = cidfile
+        self._stop_event = threading.Event()
+        self.peak_bytes = 0
+
+    def run(self) -> None:
+        # Wait briefly for the container to start and write its CID.
+        cid: Optional[str] = None
+        for _ in range(50):
+            if self.cidfile.exists():
+                try:
+                    text = self.cidfile.read_text().strip()
+                except OSError:
+                    text = ""
+                if text:
+                    cid = text
+                    break
+            if self._stop_event.wait(0.1):
+                return
+        if cid is None:
+            return
+
+        interval = 1.0 / _HOST_POLL_HZ
+        while not self._stop_event.is_set():
+            try:
+                result = subprocess.run(
+                    ["docker", "stats", "--no-stream", "--format", "{{.MemUsage}}", cid],
+                    capture_output=True,
+                    text=True,
+                    timeout=2.0,
+                )
+            except subprocess.TimeoutExpired:
+                if self._stop_event.wait(interval):
+                    return
+                continue
+
+            if result.returncode != 0:
+                return  # container is gone
+
+            usage_bytes = _parse_docker_memusage(result.stdout)
+            if usage_bytes > self.peak_bytes:
+                self.peak_bytes = usage_bytes
+
+            if self._stop_event.wait(interval):
+                return
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+
+_DOCKER_UNIT_BYTES = {
+    "B": 1,
+    "KiB": 1024,
+    "KB": 1000,
+    "MiB": 1024**2,
+    "MB": 1000**2,
+    "GiB": 1024**3,
+    "GB": 1000**3,
+}
+_MEMUSAGE_RE = re.compile(r"^\s*([\d.]+)\s*([KMG]i?B|B)\s*/")
+
+
+def _parse_docker_memusage(stdout: str) -> int:
+    """Parse first column of `docker stats --format '{{.MemUsage}}'`.
+
+    Example outputs: `3.5MiB / 128MiB`, `0B / 0B`, `1.2GiB / 2GiB`.
+    """
+    match = _MEMUSAGE_RE.match(stdout)
+    if not match:
+        return 0
+    value, unit = match.group(1), match.group(2)
+    try:
+        return int(float(value) * _DOCKER_UNIT_BYTES[unit])
+    except (KeyError, ValueError):
+        return 0
+
+
+def _generate_memray_reports(image: str, artifact_dir: Path, bin_path: Path) -> dict[str, Path]:
+    """Run a second container against the same image to render memray output.
+
+    Keeps the host system memray-free — we only need docker on PATH.
+    Outputs land in the artifact dir alongside the .bin file:
+      - flamegraph.html (interactive HTML flamegraph)
+      - summary.txt (text top-N attribution)
+
+    Returns a dict of {label: path} for the reports that were actually produced.
+    """
+    artifact_str = str(artifact_dir)
+    bin_in_container = str(bin_path)
+    produced: dict[str, Path] = {}
+
+    def _run_memray_subcmd(label: str, subcmd: list[str], output_path: Path, capture_stdout: bool) -> None:
+        cmd = [
+            "docker", "run", "--rm",
+            "-v", f"{artifact_str}:{artifact_str}",
+            "-w", artifact_str,
+            image,
+            *subcmd,
+        ]
+        try:
+            if capture_stdout:
+                with open(output_path, "w") as out_file:
+                    result = subprocess.run(cmd, stdout=out_file, stderr=subprocess.PIPE, text=True, timeout=120)
+            else:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            logger.warning("memray %s timed out after 120s", label)
+            return
+        except OSError as exc:
+            logger.warning("memray %s failed to launch: %s", label, exc)
+            return
+        if result.returncode != 0:
+            logger.warning("memray %s exited %s: %s", label, result.returncode, (result.stderr or "")[:500])
+            return
+        if output_path.exists() and output_path.stat().st_size > 0:
+            produced[label] = output_path
+
+    flamegraph_path = artifact_dir / "flamegraph.html"
+    _run_memray_subcmd(
+        "flamegraph",
+        ["memray", "flamegraph", "--force", "-o", str(flamegraph_path), bin_in_container],
+        flamegraph_path,
+        capture_stdout=False,
+    )
+    summary_path = artifact_dir / "summary.txt"
+    _run_memray_subcmd(
+        "summary",
+        ["memray", "summary", bin_in_container],
+        summary_path,
+        capture_stdout=True,
+    )
+    return produced
+
+
+def _format_failure(rc: int, limit_mb: int, image: str, stderr: str) -> str:
+    if rc == 125:
+        head = (
+            f"Docker daemon rejected the run (exit 125). Likely causes: image "
+            f"'{image}' is not built (run "
+            f"`make -C soda-core/soda-tests/memory_container image-build`), "
+            f"or the Docker daemon is not running."
+        )
+    elif rc == 127:
+        head = (
+            "`docker` not found on PATH (exit 127). Install Docker / Docker Desktop "
+            "and ensure it's on PATH."
+        )
+    else:
+        head = f"Container pytest exited {rc}."
+
+    if stderr:
+        tail = stderr.strip()
+        if len(tail) > 2000:
+            tail = "…(truncated)…\n" + tail[-2000:]
+        return f"{head}\n\nstderr:\n{tail}"
+    return head
+
+
+def _emit_skipped(item: pytest.Item, message: str) -> None:
+    item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
+    longrepr = (str(item.fspath), 0, message)
+    item.ihook.pytest_runtest_logreport(
+        report=_build_report(item, when="setup", outcome="skipped", longrepr=longrepr)
+    )
+    item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+
+def _emit_failed(item: pytest.Item, when: str, longrepr: str) -> None:
+    item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
+    item.ihook.pytest_runtest_logreport(
+        report=_build_report(item, when=when, outcome="failed", longrepr=longrepr)
+    )
+    item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+
+def _build_report(
+    item: pytest.Item,
+    when: str,
+    outcome: str,
+    longrepr=None,
+    duration: float = 0.0,
+) -> TestReport:
+    return TestReport(
+        nodeid=item.nodeid,
+        location=item.location,
+        keywords={k: 1 for k in item.keywords},
+        outcome=outcome,
+        longrepr=longrepr,
+        when=when,
+        sections=[],
+        duration=duration,
+        user_properties=[],
+    )
+
+
+def _build_env_args(artifact_dir: Path) -> list[str]:
+    args: list[str] = []
+    for key, value in os.environ.items():
+        if key in ENV_DENYLIST:
+            continue
+        if any(key.startswith(prefix) for prefix in ENV_DENYLIST_PREFIXES):
+            continue
+        if key.endswith("_HOST") and _LOCALHOST_RE.match(value):
+            value = _LOCALHOST_RE.sub(r"host.docker.internal\2", value)
+        args.extend(["-e", f"{key}={value}"])
+    args.extend(["-e", f"{INNER_ENV_VAR}=1"])
+    args.extend(["-e", f"{ARTIFACT_DIR_ENV}={artifact_dir}"])
+    # Source is bind-mounted :ro — without this the import system tries to
+    # write .pyc files next to the .py sources and EROFS-fails.
+    args.extend(["-e", "PYTHONDONTWRITEBYTECODE=1"])
+    return args
+
+
+def _build_credential_mount_args(bind_root: str) -> list[str]:
+    """Bind-mount credential paths into the container read-only.
+
+    Sources:
+      1. Env vars matching *_PATH / *_CREDENTIALS / *_KEYFILE / *_KEY_FILE / GOOGLE_APPLICATION_CREDENTIALS
+         whose value is an absolute path that exists on the host.
+      2. Well-known dirs: ~/.aws, ~/.config/gcloud, ~/.azure.
+
+    Skips anything already under bind_root (already mounted RO via the broad mount)
+    or duplicates. Mount target == source path so env values resolve transparently.
+    """
+    args: list[str] = []
+    mounted: set[str] = set()
+    bind_root_resolved = str(Path(bind_root).resolve())
+
+    def _add(host_path: Path) -> None:
+        try:
+            resolved = host_path.resolve()
+        except OSError:
+            return
+        resolved_str = str(resolved)
+        if resolved_str in mounted:
+            return
+        # Already covered by the broad RO mount.
+        if resolved_str == bind_root_resolved or resolved_str.startswith(bind_root_resolved + os.sep):
+            return
+        # Denylisted: don't auto-mount sensitive subtrees regardless of how the
+        # env var was named (e.g. a `FOO_PATH=~/.ssh/id_rsa` should NOT leak).
+        for forbidden in _CREDENTIAL_MOUNT_DENYLIST:
+            if resolved_str == forbidden or resolved_str.startswith(forbidden + os.sep):
+                logger.warning(
+                    "memory_container: skipping credential auto-mount of %s — "
+                    "matches denylist entry %s. Set the value manually inside "
+                    "the container if you really need it.",
+                    resolved_str, forbidden,
+                )
+                return
+        mounted.add(resolved_str)
+        args.extend(["-v", f"{resolved_str}:{resolved_str}:ro"])
+
+    for key, value in os.environ.items():
+        if key in ENV_DENYLIST or any(key.startswith(p) for p in ENV_DENYLIST_PREFIXES):
+            continue
+        if key not in _CREDENTIAL_ENV_EXACT and not any(key.endswith(s) for s in _CREDENTIAL_ENV_SUFFIXES):
+            continue
+        if not value:
+            continue
+        try:
+            path = Path(value)
+            if not path.is_absolute() or not path.exists():
+                continue
+        except (OSError, ValueError):
+            continue
+        _add(path)
+
+    for well_known in _WELL_KNOWN_CREDENTIAL_DIRS:
+        path = Path(well_known).expanduser()
+        if path.exists():
+            _add(path)
+
+    return args
