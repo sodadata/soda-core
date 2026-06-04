@@ -1322,6 +1322,49 @@ class DataSourceTestHelper:
         )
         return test_table_specification
 
+    @classmethod
+    def create_fat_rows_test_table_spec(
+        cls,
+        table_purpose: str,
+        number_of_rows: int,
+        payload_bytes: int = 1024,
+    ) -> TestTableSpecification:
+        """Test table with a single wide TEXT `payload` column per row.
+
+        Drives memory_container tests that need a predictable DB-side result-set
+        size for FRQ-style queries. On a ``SELECT *``, the wire bytes and the
+        libpq client-side buffer hold approximately ``number_of_rows × payload_bytes``
+        of data (plus small per-row protocol overhead). The OOM-prone soda paths
+        (psycopg3's default cursor buffer in particular) scale with this total.
+
+        **Per-row payloads are unique** (each row gets a different prefix), so
+        CPython cannot intern the value across rows and psycopg's decoded copies
+        won't dedupe. Measurements thus reflect realistic per-row memory.
+
+        **Spec-build time** in Python memory is roughly
+        ``number_of_rows × payload_bytes`` — each row holds its own ``str``.
+        For multi-GB targets you'll want a server-side generator (``CREATE TABLE
+        AS SELECT … FROM generate_series(...)``) instead of this helper.
+
+        Subclasses may override to use a vendor-specific wide type (SQL Server
+        ``VARCHAR(MAX)``, Snowflake ``VARIANT``) if the default ``TEXT`` doesn't fit.
+        """
+        # Each row gets a unique 16-byte prefix (`row{i:012}_`) + ASCII filler.
+        # The unique prefix defeats CPython str interning; the filler matters
+        # for the actual byte-count on the wire / in libpq. Avoid per-char
+        # work like secrets.choice — that's ~100ms per 1MB string.
+        filler_len = max(0, payload_bytes - 16)
+        filler = "x" * filler_len
+        rows = [(i, f"row{i:012d}_{filler}") for i in range(number_of_rows)]
+        return (
+            TestTableSpecification.builder()
+            .table_purpose(table_purpose)
+            .column_integer("id")
+            .column_text("payload")
+            .rows(rows=rows)
+            .build()
+        )
+
     def get_column_mappings(self) -> dict[str, SodaDataTypeName]:
         return {
             "char_default": SodaDataTypeName.CHAR,
