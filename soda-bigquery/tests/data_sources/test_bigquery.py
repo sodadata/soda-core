@@ -83,8 +83,9 @@ test_connections: list[TestConnection] = [
         valid_connection_params=False,
         expected_connection_error="Your default credentials were not found",
     ),
-    TestConnection(  # ADC plus an optional account_info_json — the JSON must be silently
-        # ignored (same env caveat as app_default_creds above)
+    TestConnection(  # ADC plus an optional account_info_json — the JSON must be ignored at
+        # credential resolution, with an info log noting the conflict
+        # (same env caveat as app_default_creds above)
         test_name="app_default_creds_with_optional_json",
         connection_yaml_str="""
                 type: bigquery

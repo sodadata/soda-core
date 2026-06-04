@@ -62,15 +62,14 @@ class BigQueryContextAuth(BigQueryConnectionProperties):
     """BigQuery authentication using context.
 
     If use_context_auth is True, then application default credentials will be used.
-    account_info_json is accepted (so a single connection form can carry both auth modes
-    without losing the user's input when toggling) but is ignored at credential resolution
-    time; a warning is logged when both are present.
+    account_info_json is accepted but ignored at credential resolution time; an info log
+    is emitted when both are present.
     """
 
     use_context_auth: Literal[True] = Field(description=CONTEXT_AUTHENTICATION_DESCRIPTION)
     account_info_json: Optional[SecretStr] = Field(
         None,
-        description="Ignored when use_context_auth is True; accepted to round-trip form state",
+        description="Ignored when use_context_auth is True; declared so we can detect it being passed and log an info message.",
     )
 
 
