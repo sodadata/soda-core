@@ -25,9 +25,7 @@ def test_logs_info_when_account_info_json_provided_under_context_auth(caplog, mo
         connection._load_project_id_and_credentials(config)
 
     assert any(
-        record.levelno == logging.INFO
-        and "account_info_json" in record.message
-        and "ignored" in record.message
+        record.levelno == logging.INFO and "account_info_json" in record.message and "ignored" in record.message
         for record in caplog.records
     ), f"Expected an info log about ignored account_info_json. Records: {[(r.levelname, r.message) for r in caplog.records]}"
 
