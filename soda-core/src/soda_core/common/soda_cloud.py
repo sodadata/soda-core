@@ -1071,7 +1071,7 @@ class SodaCloud:
             request_log_name="get_scan_logs",
         )
 
-    def execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
+    def execute_query(self, query_json_dict: dict, request_log_name: str) -> Optional[Response]:
         """Public seam for issuing a CQRS query to Soda Cloud.
 
         Generic and feature-neutral: callers issue their own typed queries through
@@ -1082,7 +1082,7 @@ class SodaCloud:
             request_type="query", request_log_name=request_log_name, request_body=query_json_dict.copy(), is_retry=True
         )
 
-    def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
+    def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Optional[Response]:
         # Backwards-compatible private alias for existing internal callers.
         return self.execute_query(query_json_dict, request_log_name)
 
@@ -1153,14 +1153,14 @@ class SodaCloud:
             return {}
         return body if isinstance(body, dict) else {}
 
-    def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Response:
+    def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Optional[Response]:
         return self._execute_cqrs_request(
             request_type="command", request_log_name=request_log_name, request_body=command_json_dict, is_retry=True
         )
 
     def _execute_cqrs_request(
         self, request_type: str, request_log_name: str, request_body: dict, is_retry: bool
-    ) -> Response:
+    ) -> Optional[Response]:
         try:
             request_body["token"] = self._get_token()
             log_body_text: str = json.dumps(to_jsonnable(request_body), indent=2)
