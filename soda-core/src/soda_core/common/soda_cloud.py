@@ -1077,24 +1077,16 @@ class SodaCloud:
             request_log_name="get_scan_logs",
         )
 
-    def execute_query(self, query_json_dict: dict, request_log_name: str) -> Optional[Response]:
-        """Public seam for issuing a CQRS query to Soda Cloud.
+    def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Optional[Response]:
+        """Issue a CQRS query to Soda Cloud.
 
-        Generic and feature-neutral: callers issue their own typed queries through
-        this method rather than reaching into the private request helpers.
-
-        Returns:
-            The Soda Cloud ``Response``, or ``None`` if the request could not be completed
-            (e.g. ``_execute_cqrs_request`` hit an unexpected error). Callers must handle ``None``.
+        Returns the ``Response``, or ``None`` if the request could not be completed
+        (e.g. ``_execute_cqrs_request`` hit an unexpected error). Callers must handle ``None``.
         """
         # Copy so the auth token injected downstream doesn't mutate the caller's dict.
         return self._execute_cqrs_request(
             request_type="query", request_log_name=request_log_name, request_body=query_json_dict.copy(), is_retry=True
         )
-
-    def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Optional[Response]:
-        # Backwards-compatible private alias for existing internal callers.
-        return self.execute_query(query_json_dict, request_log_name)
 
     def execute_dataset_query(
         self,
@@ -1116,7 +1108,7 @@ class SodaCloud:
         stays with the caller.
         """
         parsed = DatasetIdentifier.parse(dataset_identifier)
-        response = self.execute_query(
+        response = self._execute_query(
             {
                 "type": query_type,
                 "dataset": {
@@ -1160,6 +1152,11 @@ class SodaCloud:
         try:
             body = response.json()
         except (json.JSONDecodeError, ValueError):
+            logger.warning(
+                "Soda Cloud returned a non-JSON response body (status %s); treating it as empty. First 500 chars: %s",
+                response.status_code,
+                response.text[:500],
+            )
             return {}
         return body if isinstance(body, dict) else {}
 

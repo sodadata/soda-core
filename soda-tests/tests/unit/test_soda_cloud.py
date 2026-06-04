@@ -805,13 +805,13 @@ def test_build_token_usage_dicts_empty_when_no_usage():
 
 
 @mock.patch("requests.post")
-def test_execute_query_public_seam_posts_to_query_endpoint(mock_post):
+def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
     soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
     soda_cloud.token = "some_token"
     mock_post.return_value = MockResponse(status_code=200, json_object={"ok": True})
 
     query_json_dict = {"type": "someQueryType", "dataset": {"name": "x"}}
-    response = soda_cloud.execute_query(query_json_dict, request_log_name="some_query")
+    response = soda_cloud._execute_query(query_json_dict, request_log_name="some_query")
 
     assert response.status_code == 200
     mock_post.assert_called_once_with(
@@ -819,7 +819,7 @@ def test_execute_query_public_seam_posts_to_query_endpoint(mock_post):
         headers={"User-Agent": "SodaCore/4.0.0.b1"},
         json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
     )
-    # The public seam must not mutate the caller's dict; the auth token is injected on a copy.
+    # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
     assert "token" not in query_json_dict
 
 
@@ -836,7 +836,7 @@ def _query_response(status_code, json_object=None, json_raises=False):
 
 def _soda_cloud_with_query_response(response):
     soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
-    soda_cloud.execute_query = mock.MagicMock(return_value=response)
+    soda_cloud._execute_query = mock.MagicMock(return_value=response)
     return soda_cloud
 
 
@@ -850,7 +850,7 @@ def test_execute_dataset_query_builds_envelope_and_returns_body():
     )
 
     assert body == {"contents": "yaml"}
-    args, kwargs = soda_cloud.execute_query.call_args
+    args, kwargs = soda_cloud._execute_query.call_args
     assert args[0] == {
         "type": "sodaCoreGetSomething",
         "dataset": {"datasource": "postgres_ds", "prefixes": ["public"], "name": "orders"},
