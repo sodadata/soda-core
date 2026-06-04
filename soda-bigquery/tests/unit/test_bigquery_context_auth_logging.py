@@ -25,8 +25,7 @@ def test_logs_warning_when_account_info_json_provided_under_context_auth(caplog,
         connection._load_project_id_and_credentials(config)
 
     assert any(
-        "account_info_json" in record.message and "ignored" in record.message
-        for record in caplog.records
+        "account_info_json" in record.message and "ignored" in record.message for record in caplog.records
     ), f"Expected a warning about ignored account_info_json. Records: {[r.message for r in caplog.records]}"
 
 
@@ -41,6 +40,4 @@ def test_no_warning_when_only_use_context_auth_is_provided(caplog, monkeypatch):
     with caplog.at_level(logging.WARNING, logger="soda"):
         connection._load_project_id_and_credentials(config)
 
-    assert not any(
-        "account_info_json" in record.message for record in caplog.records
-    )
+    assert not any("account_info_json" in record.message for record in caplog.records)
