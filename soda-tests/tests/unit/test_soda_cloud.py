@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -17,6 +18,9 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.dataset_identifier import DatasetIdentifier
 from soda_core.common.datetime_conversions import convert_datetime_to_str
 from soda_core.common.exceptions import (
+    ContractNotFoundException,
+    DatasetNotFoundException,
+    DataSourceNotFoundException,
     FailedContractSkeletonGenerationException,
     SodaCloudException,
 )
@@ -798,3 +802,112 @@ def test_build_token_usage_dicts_empty_when_no_usage():
 
     mock_result.token_usage = []
     assert _build_token_usage_dicts(mock_result) == []
+
+
+@mock.patch("requests.post")
+def test_execute_query_primitive_posts_to_query_endpoint(mock_post):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud.token = "some_token"
+    mock_post.return_value = MockResponse(status_code=200, json_object={"ok": True})
+
+    query_json_dict = {"type": "someQueryType", "dataset": {"name": "x"}}
+    response = soda_cloud._execute_query(query_json_dict, request_log_name="some_query")
+
+    assert response.status_code == 200
+    mock_post.assert_called_once_with(
+        url="https://dev.sodadata.io/api/query",
+        headers={"User-Agent": "SodaCore/4.0.0.b1"},
+        json={"type": "someQueryType", "dataset": {"name": "x"}, "token": "some_token"},
+    )
+    # _execute_query must not mutate the caller's dict; the auth token is injected on a copy.
+    assert "token" not in query_json_dict
+
+
+def _query_response(status_code, json_object=None, json_raises=False):
+    response = mock.MagicMock()
+    response.status_code = status_code
+    response.text = "raw body text"
+    if json_raises:
+        response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
+    else:
+        response.json.return_value = json_object
+    return response
+
+
+def _soda_cloud_with_query_response(response):
+    soda_cloud = SodaCloud.from_yaml_source(YAML_SOURCE, provided_variable_values={})
+    soda_cloud._execute_query = mock.MagicMock(return_value=response)
+    return soda_cloud
+
+
+def test_execute_dataset_query_builds_envelope_and_returns_body():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(200, {"contents": "yaml"}))
+
+    body = soda_cloud.execute_dataset_query(
+        query_type="sodaCoreGetSomething",
+        dataset_identifier="postgres_ds/public/orders",
+        request_log_name="get_something",
+    )
+
+    assert body == {"contents": "yaml"}
+    args, kwargs = soda_cloud._execute_query.call_args
+    assert args[0] == {
+        "type": "sodaCoreGetSomething",
+        "dataset": {"datasource": "postgres_ds", "prefixes": ["public"], "name": "orders"},
+    }
+    assert kwargs["request_log_name"] == "get_something"
+
+
+def test_execute_dataset_query_maps_datasource_not_found():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(400, {"code": "datasource_not_found"}))
+    with pytest.raises(DataSourceNotFoundException):
+        soda_cloud.execute_dataset_query("sodaCoreGetSomething", "missing_ds/public/orders", "get_something")
+
+
+def test_execute_dataset_query_maps_dataset_not_found():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(400, {"code": "dataset_not_found"}))
+    with pytest.raises(DatasetNotFoundException):
+        soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/missing", "get_something")
+
+
+def test_execute_dataset_query_maps_caller_supplied_error_code():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(400, {"code": "contract_not_found"}))
+    with pytest.raises(ContractNotFoundException):
+        soda_cloud.execute_dataset_query(
+            "sodaCoreGetContract",
+            "postgres_ds/public/orders",
+            "get_contract",
+            error_codes={"contract_not_found": ContractNotFoundException},
+        )
+
+
+def test_execute_dataset_query_unrecognized_400_raises_soda_cloud_exception_with_detail():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(400, {"code": "x", "message": "bad input"}))
+    with pytest.raises(SodaCloudException) as exc:
+        soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/orders", "get_something")
+    assert "bad input" in str(exc.value)
+
+
+def test_execute_dataset_query_non_200_raises_soda_cloud_exception():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(500, {"message": "boom"}))
+    with pytest.raises(SodaCloudException):
+        soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/orders", "get_something")
+
+
+def test_execute_dataset_query_none_response_raises_soda_cloud_exception():
+    soda_cloud = _soda_cloud_with_query_response(None)
+    with pytest.raises(SodaCloudException):
+        soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/orders", "get_something")
+
+
+def test_execute_dataset_query_non_json_error_body_raises_soda_cloud_exception_not_decode_error():
+    # A gateway returning a non-JSON 502 page must surface as a clean SodaCloudException,
+    # never a raw JSONDecodeError that the CLI would treat as an unexpected crash.
+    soda_cloud = _soda_cloud_with_query_response(_query_response(502, json_raises=True))
+    with pytest.raises(SodaCloudException):
+        soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/orders", "get_something")
+
+
+def test_execute_dataset_query_non_json_200_body_returns_empty_dict():
+    soda_cloud = _soda_cloud_with_query_response(_query_response(200, json_raises=True))
+    assert soda_cloud.execute_dataset_query("sodaCoreGetSomething", "postgres_ds/public/orders", "get_something") == {}
