@@ -761,14 +761,16 @@ class SodaCloud:
 
         return verification_result
 
-    def fetch_contract_for_dataset(self, dataset_identifier: str) -> str:
+    def fetch_contract_for_dataset(self, dataset_identifier: str) -> Optional[str]:
         """Fetch the contract contents for the given dataset identifier.
 
         Returns:
-            The contract content as a string, or None if:
-            - the data source or dataset does not exist
-            - no contract is linked to the dataset
-            - an unexpected response is received from the backend
+            The contract content as a string, or None if the 200 response carries no ``contents``.
+
+        Raises:
+            DataSourceNotFoundException / DatasetNotFoundException / ContractNotFoundException:
+                when the data source, dataset, or linked contract does not exist.
+            SodaCloudException: for any other non-200 response or a missing/non-JSON body.
         """
 
         logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
@@ -794,13 +796,17 @@ class SodaCloud:
             return json_content.get("checks", [])
         return []
 
-    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> str:
+    def fetch_data_source_configuration_for_dataset(self, dataset_identifier: str) -> Optional[str]:
         """Fetches the data source configuration for the source associated with the given dataset identifier.
 
         Returns:
-            The data source configuration content as a string, or None if:
-            - the data source or dataset does not exist
-            - an unexpected response is received from the backend
+            The data source configuration content as a string, or None if the 200 response carries
+            no ``contents``.
+
+        Raises:
+            DataSourceNotFoundException / DatasetNotFoundException:
+                when the data source or dataset does not exist.
+            SodaCloudException: for any other non-200 response or a missing/non-JSON body.
         """
 
         logger.info(f"Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'")
@@ -1076,6 +1082,10 @@ class SodaCloud:
 
         Generic and feature-neutral: callers issue their own typed queries through
         this method rather than reaching into the private request helpers.
+
+        Returns:
+            The Soda Cloud ``Response``, or ``None`` if the request could not be completed
+            (e.g. ``_execute_cqrs_request`` hit an unexpected error). Callers must handle ``None``.
         """
         # Copy so the auth token injected downstream doesn't mutate the caller's dict.
         return self._execute_cqrs_request(
