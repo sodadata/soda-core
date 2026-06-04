@@ -7,15 +7,33 @@
 #
 # Override the tag at the command line:
 #     make image-build IMAGE=soda-memtest:dev
+#
+# Build context is the soda_claude parent (../../../..) so we can COPY both
+# soda-core/ and soda-extensions/ into the image. .dockerignore in this
+# directory is passed via --ignore-file so colleagues get the same exclude
+# rules (Docker reads .dockerignore from the build context root by default,
+# but our build context is the parent which isn't a tracked repo).
 
 IMAGE ?= soda-memtest:latest
 DOCKERFILE := Dockerfile
-CONTEXT := .
+IGNORE_FILE := .dockerignore
+BUILD_CTX := ../../..
+REPO_PARENT_ARG ?= /Users/niels/Repositories/soda_claude
 
 .PHONY: image-build image-clean image-info
 
 image-build:
-	docker build -t $(IMAGE) -f $(DOCKERFILE) $(CONTEXT)
+	@( \
+		set -e ; \
+		cp $(IGNORE_FILE) $(BUILD_CTX)/.dockerignore ; \
+		trap "rm -f $(BUILD_CTX)/.dockerignore" EXIT ; \
+		docker buildx build \
+			-t $(IMAGE) \
+			-f $(DOCKERFILE) \
+			--build-arg REPO_PARENT=$(REPO_PARENT_ARG) \
+			--load \
+			$(BUILD_CTX) ; \
+	)
 
 image-clean:
 	-docker rmi $(IMAGE)

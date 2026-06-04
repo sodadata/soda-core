@@ -379,7 +379,16 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
 
     artifact_dir = _make_artifact_dir(item)
     cidfile = artifact_dir / "container.cid"
-    memray_enabled = os.environ.get(MEMRAY_ENABLE_ENV, "").lower() in _TRUTHY
+    # Memray defaults to ON: flamegraphs are exactly the diagnostic value we
+    # want from memory_container runs. Opt out by setting the env var to a
+    # falsy value (0, false, no, off, n, f) if speed matters.
+    memray_setting = os.environ.get(MEMRAY_ENABLE_ENV, "").lower()
+    if memray_setting == "":
+        memray_enabled = True
+    elif memray_setting in _TRUTHY:
+        memray_enabled = True
+    else:
+        memray_enabled = False
     memray_bin_path = artifact_dir / "memray.bin"
 
     inner_cmd: list[str]
