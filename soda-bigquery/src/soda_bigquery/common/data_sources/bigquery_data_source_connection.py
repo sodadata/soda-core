@@ -91,7 +91,7 @@ class BigQueryDataSourceConnection(DataSourceConnection):
     def _load_project_id_and_credentials(self, config: BigQueryConnectionProperties):
         if isinstance(config, BigQueryContextAuth):
             if config.account_info_json and config.account_info_json.get_secret_value():
-                logger.warning("account_info_json was provided but is ignored because use_context_auth is enabled.")
+                logger.info("account_info_json was provided but is ignored because use_context_auth is enabled.")
             logger.info("Using application default credentials.")
             self.credentials, self.project_id = default()
             return
