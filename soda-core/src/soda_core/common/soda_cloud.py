@@ -772,31 +772,12 @@ class SodaCloud:
         """
 
         logger.info(f"{Emoticons.SCROLL} Fetching contract from Soda Cloud for dataset '{dataset_identifier}'")
-        parsed_identifier = DatasetIdentifier.parse(dataset_identifier)
-        request = {
-            "type": "sodaCoreGetContract",
-            "dataset": {
-                "datasource": parsed_identifier.data_source_name,
-                "prefixes": parsed_identifier.prefixes,
-                "name": parsed_identifier.dataset_name,
-            },
-        }
-        response = self._execute_query(request, request_log_name="get_contract")
-        response_dict = response.json()
-
-        if response.status_code == 400:
-            error_code = response_dict.get("code")
-
-            if error_code == "contract_not_found":
-                raise ContractNotFoundException(parsed_identifier)
-            elif error_code == "datasource_not_found":
-                raise DataSourceNotFoundException(parsed_identifier)
-            elif error_code == "dataset_not_found":
-                raise DatasetNotFoundException(parsed_identifier)
-
-        if response.status_code != 200:
-            raise SodaCloudException(f"Failed to retrieve contract contents for dataset '{str(dataset_identifier)}'")
-
+        response_dict = self.execute_dataset_query(
+            query_type="sodaCoreGetContract",
+            dataset_identifier=dataset_identifier,
+            request_log_name="get_contract",
+            error_codes={"contract_not_found": ContractNotFoundException},
+        )
         return response_dict.get("contents")
 
     def fetch_checks_for_dataset_id(self, dataset_id: str) -> list[dict]:
@@ -823,27 +804,11 @@ class SodaCloud:
         """
 
         logger.info(f"Fetching data source configuration from Soda Cloud for dataset '{dataset_identifier}'")
-        parsed_identifier = DatasetIdentifier.parse(dataset_identifier)
-        request = {
-            "type": "sodaCoreGetDatasourceConfigurationFile",
-            "dataset": {
-                "datasource": parsed_identifier.data_source_name,
-                "prefixes": parsed_identifier.prefixes,
-                "name": parsed_identifier.dataset_name,
-            },
-        }
-        response = self._execute_query(request, request_log_name="get_contract_data_source_configuration")
-        response_dict = response.json()
-
-        if response.status_code == 400:
-            if response_dict["code"] == "datasource_not_found":
-                raise DataSourceNotFoundException(parsed_identifier)
-
-        if response.status_code != 200:
-            raise SodaCloudException(
-                f"Failed to retrieve data source configuration for dataset '{dataset_identifier}': {response_dict['message']}"
-            )
-
+        response_dict = self.execute_dataset_query(
+            query_type="sodaCoreGetDatasourceConfigurationFile",
+            dataset_identifier=dataset_identifier,
+            request_log_name="get_contract_data_source_configuration",
+        )
         return response_dict.get("contents")
 
     def fetch_dataset_configuration(self, dataset_identifier: DatasetIdentifier) -> Optional[DatasetConfigurationDTO]:
@@ -1112,13 +1077,81 @@ class SodaCloud:
         Generic and feature-neutral: callers issue their own typed queries through
         this method rather than reaching into the private request helpers.
         """
+        # Copy so the auth token injected downstream doesn't mutate the caller's dict.
         return self._execute_cqrs_request(
-            request_type="query", request_log_name=request_log_name, request_body=query_json_dict, is_retry=True
+            request_type="query", request_log_name=request_log_name, request_body=query_json_dict.copy(), is_retry=True
         )
 
     def _execute_query(self, query_json_dict: dict, request_log_name: str) -> Response:
         # Backwards-compatible private alias for existing internal callers.
         return self.execute_query(query_json_dict, request_log_name)
+
+    def execute_dataset_query(
+        self,
+        query_type: str,
+        dataset_identifier: str,
+        request_log_name: str,
+        error_codes: Optional[dict[str, type[SodaCloudException]]] = None,
+    ) -> dict:
+        """Issue a dataset-scoped CQRS query and return the parsed JSON body.
+
+        Builds the standard ``{type, dataset: {datasource, prefixes, name}}`` envelope,
+        issues it through :meth:`execute_query`, and maps the failures every dataset
+        query shares to typed exceptions: a missing data source or dataset
+        (``datasource_not_found`` / ``dataset_not_found``), any non-200 status, and
+        missing or non-JSON response bodies (e.g. a gateway HTML error page).
+
+        Feature-specific 400 codes can be mapped via ``error_codes`` (e.g.
+        ``{"contract_not_found": ContractNotFoundException}``); payload extraction
+        stays with the caller.
+        """
+        parsed = DatasetIdentifier.parse(dataset_identifier)
+        response = self.execute_query(
+            {
+                "type": query_type,
+                "dataset": {
+                    "datasource": parsed.data_source_name,
+                    "prefixes": parsed.prefixes,
+                    "name": parsed.dataset_name,
+                },
+            },
+            request_log_name=request_log_name,
+        )
+        if response is None:
+            raise SodaCloudException(
+                f"No response from Soda Cloud for '{query_type}' on dataset '{dataset_identifier}'"
+            )
+
+        body = self._parse_json_body(response)
+
+        if response.status_code == 400:
+            exception_type = {
+                "datasource_not_found": DataSourceNotFoundException,
+                "dataset_not_found": DatasetNotFoundException,
+                **(error_codes or {}),
+            }.get(body.get("code"))
+            if exception_type is not None:
+                raise exception_type(parsed)
+
+        if response.status_code != 200:
+            detail = body.get("message") or body.get("code") or response.text or response.status_code
+            raise SodaCloudException(f"Failed '{query_type}' for dataset '{dataset_identifier}': {detail}")
+
+        return body
+
+    @staticmethod
+    def _parse_json_body(response: Response) -> dict:
+        """Best-effort parse of a Soda Cloud JSON response body.
+
+        Returns an empty dict for missing, non-JSON, or non-object bodies so callers
+        can safely use ``.get(...)`` without risking ``JSONDecodeError``/``AttributeError``
+        on gateway error pages (HTML/plain text).
+        """
+        try:
+            body = response.json()
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        return body if isinstance(body, dict) else {}
 
     def _execute_command(self, command_json_dict: dict, request_log_name: str) -> Response:
         return self._execute_cqrs_request(
