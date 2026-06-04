@@ -1412,6 +1412,20 @@ class SodaCloud:
         )
         return response
 
+    def logs_batch_v4(self, scan_id: str, body: str):
+        headers = {
+            "Authorization": self._get_token(),
+            "Content-Type": "application/jsonlines",
+        }
+
+        response = self._http_post(
+            url=f"{self.api_url}/logs/{scan_id}/batchV4",
+            headers=headers,
+            data=body,
+            request_log_name="logs_batch_v4",
+        )
+        return response
+
 
 def to_jsonnable(o: Any, remove_null_values_in_dicts: bool = True) -> object:
     if o is None or isinstance(o, str) or isinstance(o, int) or isinstance(o, float) or isinstance(o, bool):
