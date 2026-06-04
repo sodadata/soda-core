@@ -62,10 +62,16 @@ class BigQueryContextAuth(BigQueryConnectionProperties):
     """BigQuery authentication using context.
 
     If use_context_auth is True, then application default credentials will be used.
-    The user may optionally provide JSON credentials; they will be ignored.
+    account_info_json is accepted (so a single connection form can carry both auth modes
+    without losing the user's input when toggling) but is ignored at credential resolution
+    time; a warning is logged when both are present.
     """
 
     use_context_auth: Literal[True] = Field(description=CONTEXT_AUTHENTICATION_DESCRIPTION)
+    account_info_json: Optional[SecretStr] = Field(
+        None,
+        description="Ignored when use_context_auth is True; accepted to round-trip form state",
+    )
 
 
 class BigQueryDataSource(DataSourceBase, ABC):
@@ -84,6 +90,10 @@ class BigQueryDataSourceConnection(DataSourceConnection):
 
     def _load_project_id_and_credentials(self, config: BigQueryConnectionProperties):
         if isinstance(config, BigQueryContextAuth):
+            if config.account_info_json and config.account_info_json.get_secret_value():
+                logger.warning(
+                    "account_info_json was provided but is ignored because use_context_auth is enabled."
+                )
             logger.info("Using application default credentials.")
             self.credentials, self.project_id = default()
             return
