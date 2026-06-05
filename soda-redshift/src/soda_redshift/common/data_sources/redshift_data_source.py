@@ -135,8 +135,8 @@ class RedshiftSqlDialect(SqlDialect, sqlglot_dialect="redshift"):
             ["smallint", "int2"],
             ["integer", "int", "int4"],
             ["bigint", "int8"],
-            ["real", "float4", "float"],
-            [REDSHIFT_DOUBLE_PRECISION, "float8"],
+            ["real", "float4"],
+            [REDSHIFT_DOUBLE_PRECISION, "float8", "float"],
             ["timestamp", "timestamp without time zone"],
             ["time", "time without time zone"],
         ]
