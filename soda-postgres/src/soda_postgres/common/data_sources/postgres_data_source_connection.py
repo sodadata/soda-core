@@ -126,8 +126,8 @@ class PostgresDataSourceConnection(DataSourceConnection):
         log_query: bool = True,
         row_limit: Optional[int] = None,
     ) -> tuple[tuple]:
-        """Postgres override: server-side (named) cursor that streams from the
-        backend instead of buffering the whole result client-side.
+        """Postgres override: server-side (named) cursor that streams ONE row
+        at a time from the backend instead of buffering the whole result.
 
         The base ``DataSourceConnection.execute_query_one_by_one`` uses
         ``self.connection.cursor()`` without a name. For psycopg3 that's a
@@ -136,14 +136,12 @@ class PostgresDataSourceConnection(DataSourceConnection):
         On large result sets this drove peak RSS to ~5× the source bytes
         and OOM-killed K8s pods (see memory_management/MEMORY_ANALYSIS.md).
 
-        Named cursors stream: ``itersize`` rows round-trip per fetch. By
-        default we adaptively size ``itersize`` so the in-flight batch is
-        approximately ``SODA_STREAMING_FETCH_TARGET_BYTES`` worth of data
-        (default 50 MB). The controller starts at 1, ramps up TCP-style
-        (≤2× growth per re-sample), and re-samples row size at rows
-        [1, 10, 100, 1000, then every 1000]. For diagnostic / paranoid use
-        ``SODA_STREAMING_FETCH_SIZE=<int>`` forces a fixed itersize and
-        bypasses adaptive sampling entirely.
+        Strategy: open a named (server-side) cursor and `fetchone()` per
+        row. Memory footprint is bounded by the size of the single largest
+        row plus libpq's per-fetch frame, regardless of result-set size.
+        Throughput is intentionally traded for memory predictability — the
+        previous adaptive-itersize controller is retained as dead code
+        below for future use, but is bypassed in this code path.
 
         Caveats:
           * Server-side cursors require an open transaction. If the
@@ -171,50 +169,27 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 self.rollback()
                 raise e
 
-        fixed_fetch_size = self._resolve_fixed_fetch_size()
         cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
-        controller: Optional["_AdaptiveFetchSizeController"] = None
-        if fixed_fetch_size is None:
-            controller = _AdaptiveFetchSizeController(self._resolve_fetch_target_bytes())
-            initial_itersize = controller.current
-        else:
-            initial_itersize = fixed_fetch_size
         if log_query:
-            mode_desc = (
-                f"adaptive itersize → target {controller.target_bytes // (1024 * 1024)} MB"
-                if controller is not None
-                else f"fixed itersize={fixed_fetch_size}"
-            )
             logger.debug(
                 f"SQL query one-by-one (server-side cursor {cursor_name}, "
-                f"{mode_desc}):\n{sql}"
+                f"fetchone per row — minimise memory):\n{sql}"
             )
 
         try:
             with self.connection.cursor(name=cursor_name) as cursor:
-                # itersize is still set (psycopg3 named cursors use it for
-                # `for row in cursor` iteration) but we use fetchmany() so
-                # the adaptive controller has explicit control over batch
-                # size on each round-trip — no risk of psycopg's internal
-                # iterator state interacting badly with mid-loop mutation.
-                cursor.itersize = initial_itersize
+                cursor.itersize = 1
                 cursor.execute(sql)
                 description: tuple[tuple] = cursor.description
                 rows_processed: int = 0
-                done = False
-                while not done:
-                    batch_size = controller.current if controller is not None else initial_itersize
-                    batch = cursor.fetchmany(batch_size)
-                    if not batch:
+                while True:
+                    if row_limit is not None and rows_processed >= row_limit:
                         break
-                    for row in batch:
-                        if row_limit is not None and rows_processed >= row_limit:
-                            done = True
-                            break
-                        row_callback(row, description)
-                        rows_processed += 1
-                    if controller is not None and batch:
-                        controller.observe_and_maybe_adjust(batch[-1])
+                    row = cursor.fetchone()
+                    if row is None:
+                        break
+                    row_callback(row, description)
+                    rows_processed += 1
             return description
         except psycopg.errors.Error as e:
             logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
