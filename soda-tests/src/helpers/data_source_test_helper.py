@@ -414,6 +414,14 @@ class DataSourceTestHelper:
         if hasattr(self, "_base_schema_name"):
             return self._base_schema_name
 
+        # Hard override used by the memory_container plugin (Phase 6 setup-outside
+        # architecture). Both the host-side helper and the in-container helper
+        # set this env var to the same value so ensure_test_table can dedup
+        # tables created on the host against the container's lookup.
+        fixed_schema = os.getenv("SODA_MEMTEST_FIXED_SCHEMA")
+        if fixed_schema:
+            return re.sub("[^0-9a-zA-Z]+", "_", fixed_schema).lower()
+
         schema_name_parts = []
 
         github_ref_name = os.getenv("GITHUB_REF_NAME")
@@ -587,7 +595,13 @@ class DataSourceTestHelper:
             raise AssertionError(f"Connection creation has errors. See logs.")
 
     def start_test_session_ensure_schema(self) -> None:
-        if self.is_cicd:
+        # SODA_MEMTEST_SKIP_SCHEMA_DROP=1 is set by the memory_container plugin
+        # in the in-container helper when setup_outside=True. Suppresses the
+        # CI-mode drop because the HOST helper has already populated this
+        # schema (via __prepare_outside__) and dropping it here would destroy
+        # the data the test is supposed to read.
+        skip_drop = os.getenv("SODA_MEMTEST_SKIP_SCHEMA_DROP", "").lower() in ("1", "true", "yes", "on")
+        if self.is_cicd and not skip_drop:
             self.drop_test_schema_if_exists()
         self.create_test_schema_if_not_exists()
 
@@ -617,7 +631,12 @@ class DataSourceTestHelper:
         self.data_source_impl.close_connection()
 
     def end_test_session_drop_schema(self) -> None:
-        if self.is_cicd:
+        # Same SODA_MEMTEST_SKIP_SCHEMA_DROP override as in
+        # start_test_session_ensure_schema — without this, the in-container
+        # helper would drop the schema at session end, destroying the
+        # table the host's __finalize_outside__ is about to clean up.
+        skip_drop = os.getenv("SODA_MEMTEST_SKIP_SCHEMA_DROP", "").lower() in ("1", "true", "yes", "on")
+        if self.is_cicd and not skip_drop:
             self.drop_test_schema_if_exists()
 
     def query_existing_test_tables(self) -> list[FullyQualifiedTableName]:

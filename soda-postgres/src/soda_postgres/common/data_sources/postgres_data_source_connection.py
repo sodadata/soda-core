@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
 from pathlib import Path
@@ -123,10 +125,82 @@ class PostgresDataSourceConnection(DataSourceConnection):
         log_query: bool = True,
         row_limit: Optional[int] = None,
     ) -> tuple[tuple]:
+        """Postgres override: server-side (named) cursor that streams from the
+        backend instead of buffering the whole result client-side.
+
+        The base ``DataSourceConnection.execute_query_one_by_one`` uses
+        ``self.connection.cursor()`` without a name. For psycopg3 that's a
+        client-side cursor: ``execute(sql)`` materialises the ENTIRE result
+        set in libpq's C-side buffer before the first ``fetchone()`` returns.
+        On large result sets this drove peak RSS to ~5× the source bytes
+        and OOM-killed K8s pods (see memory_management/MEMORY_ANALYSIS.md).
+
+        Named cursors stream: ``itersize`` rows round-trip per fetch. We
+        default to 100 (good balance between per-row latency and resident
+        memory); override at runtime with ``SODA_STREAMING_FETCH_SIZE`` if
+        you have unusually fat rows (drop it) or millions of tiny rows
+        (raise it).
+
+        Caveats:
+          * Server-side cursors require an open transaction. If the
+            connection is in autocommit mode, fall back to the base impl
+            (the buffered behaviour). Default psycopg3 connections aren't
+            autocommit, so this is normally fine.
+          * Server-side cursors hold a snapshot on the backend — long
+            transactions can interact with vacuum / replication slots.
+            For Soda's typical scan duration (seconds) this is irrelevant.
+        """
+        if getattr(self.connection, "autocommit", False):
+            # Server-side cursors can't be created in autocommit mode — fall
+            # back to the buffered base implementation rather than fail.
+            logger.debug(
+                "execute_query_one_by_one: connection is in autocommit mode, "
+                "falling back to buffered client-side cursor"
+            )
+            try:
+                return super().execute_query_one_by_one(
+                    sql, row_callback, log_query=log_query, row_limit=row_limit
+                )
+            except psycopg.errors.Error as e:
+                logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
+                logger.debug("Rolling back transaction")
+                self.rollback()
+                raise e
+
+        fetch_size = self._resolve_stream_fetch_size()
+        cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
+        if log_query:
+            logger.debug(
+                f"SQL query one-by-one (server-side cursor {cursor_name}, "
+                f"itersize={fetch_size}):\n{sql}"
+            )
+
         try:
-            return super().execute_query_one_by_one(sql, row_callback, log_query=log_query, row_limit=row_limit)
-        except psycopg.errors.Error as e:  # Catch the error and roll back the transaction
+            with self.connection.cursor(name=cursor_name) as cursor:
+                cursor.itersize = fetch_size
+                cursor.execute(sql)
+                description: tuple[tuple] = cursor.description
+                rows_processed: int = 0
+                for row in cursor:
+                    if row_limit is not None and rows_processed >= row_limit:
+                        break
+                    row_callback(row, description)
+                    rows_processed += 1
+            return description
+        except psycopg.errors.Error as e:
             logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
             logger.debug("Rolling back transaction")
             self.rollback()
             raise e
+
+    @staticmethod
+    def _resolve_stream_fetch_size() -> int:
+        """``SODA_STREAMING_FETCH_SIZE`` env override, with a sane default."""
+        raw = os.environ.get("SODA_STREAMING_FETCH_SIZE")
+        if not raw:
+            return 100
+        try:
+            value = int(raw)
+            return value if value > 0 else 100
+        except (TypeError, ValueError):
+            return 100

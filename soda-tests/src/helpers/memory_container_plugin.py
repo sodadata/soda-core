@@ -37,6 +37,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -52,6 +53,17 @@ INNER_ENV_VAR = "SODA_IN_MEMORY_CONTAINER"
 ARTIFACT_DIR_ENV = "SODA_MEMTEST_ARTIFACT_DIR"
 ARTIFACTS_ROOT_ENV = "SODA_MEMTEST_ARTIFACTS_ROOT"
 MEMRAY_ENABLE_ENV = "SODA_MEMTEST_MEMRAY"
+# Fixed-schema env var consumed by DataSourceTestHelper._create_schema_name.
+# When setup_outside=True, plugin sets this to a deterministic name on the
+# host helper and passes the same value into the container so both sides
+# compute the same schema name — required for ensure_test_table's dedup to
+# recognise the table that __prepare_outside__ created.
+FIXED_SCHEMA_ENV = "SODA_MEMTEST_FIXED_SCHEMA"
+# Set by the plugin (alongside FIXED_SCHEMA_ENV) when setup_outside=True, to
+# prevent the in-container DataSourceTestHelper from dropping the schema the
+# host has just populated via __prepare_outside__ (the helper's CI-mode
+# `start_test_session_ensure_schema` would otherwise drop it).
+SKIP_SCHEMA_DROP_ENV = "SODA_MEMTEST_SKIP_SCHEMA_DROP"
 DEFAULT_IMAGE_TAG = "soda-memtest:latest"
 
 _PLUGIN_FILE = Path(__file__).resolve()
@@ -307,8 +319,163 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: Optional[pytest.Item]) 
         )
         return True
 
-    _dispatch_and_emit_reports(item, limit_mb)
+    # Optional "setup outside the container" hook: heavy fixture work (creating
+    # large test tables, populating data) runs on the host before docker
+    # dispatch and is NOT included in the capped memory measurement. The test
+    # module declares __prepare_outside__ / __finalize_outside__ functions
+    # which receive a DataSourceTestHelper + the parametrize kwargs.
+    setup_outside_state = None
+    if bool(marker.kwargs.get("setup_outside", False)):
+        try:
+            setup_outside_state = _run_prepare_outside(item)
+        except Exception as exc:
+            import traceback as _tb
+            _emit_failed(
+                item,
+                when="setup",
+                longrepr=(
+                    f"memory_container setup_outside failed for {item.nodeid}:\n"
+                    f"{type(exc).__name__}: {exc}\n\n{_tb.format_exc()}"
+                ),
+            )
+            return True
+
+    try:
+        _dispatch_and_emit_reports(item, limit_mb)
+    finally:
+        if setup_outside_state is not None:
+            _run_finalize_outside(item, setup_outside_state)
     return True
+
+
+def _run_prepare_outside(item: pytest.Item) -> dict:
+    """Create a host-side DataSourceTestHelper, look up the test module's
+    ``__prepare_outside__`` function, and call it with the test's parametrize
+    kwargs. Returns state needed by ``_run_finalize_outside``.
+
+    Schema-name propagation: the host helper computes its schema name via the
+    SAME logic the test helper would normally use (``DataSourceTestHelper.
+    _create_schema_name`` — typically ``dev_<USER>`` locally or
+    ``ci_<branch>_…`` under CI). We capture that name AFTER the helper is
+    constructed, then export it via ``SODA_MEMTEST_FIXED_SCHEMA`` so the
+    in-container helper reads the same value and ``ensure_test_table`` can
+    dedup against the table the host already created.
+    """
+    test_module = item.module
+    prepare_fn = getattr(test_module, "__prepare_outside__", None)
+    if prepare_fn is None:
+        raise ValueError(
+            f"memory_container(setup_outside=True) requires "
+            f"__prepare_outside__ in {test_module.__name__}"
+        )
+    finalize_fn = getattr(test_module, "__finalize_outside__", None)
+
+    # Extract parametrize values to forward as kwargs.
+    parametrize_kwargs: dict = {}
+    if hasattr(item, "callspec") and item.callspec is not None:
+        parametrize_kwargs = dict(item.callspec.params)
+
+    # Create the host-side helper using the SAME constructor and lifecycle as
+    # the `data_source_test_helper_session` fixture in helpers/test_fixtures.py.
+    # Don't pre-set FIXED_SCHEMA_ENV here — we want the helper to compute its
+    # NATURAL schema name from USER / GITHUB_*_REF / etc. (the same name a
+    # normal test would land in).
+    from helpers.data_source_test_helper import DataSourceTestHelper
+    test_datasource = os.environ.get("TEST_DATASOURCE", "postgres")
+    helper = DataSourceTestHelper.create(test_datasource, name="primary_datasource")
+    helper.start_test_session()
+
+    # Capture the helper's chosen schema name and propagate it to the
+    # container so its in-container helper produces the same name. The
+    # attribute is cached on the helper as `_base_schema_name`; calling the
+    # method returns the cached value (no recomputation).
+    schema_name = helper._create_schema_name()
+    prev_schema = os.environ.get(FIXED_SCHEMA_ENV)
+    os.environ[FIXED_SCHEMA_ENV] = schema_name
+
+    # Suppress the in-container helper's CI-mode schema drop. Without this,
+    # when `GITHUB_ACTIONS=true` is set, the container helper's
+    # start_test_session_ensure_schema would drop the schema the host just
+    # populated via __prepare_outside__, deleting the source table and
+    # forcing the container to recreate it (defeating the whole point).
+    prev_skip_drop = os.environ.get(SKIP_SCHEMA_DROP_ENV)
+    os.environ[SKIP_SCHEMA_DROP_ENV] = "1"
+
+    try:
+        prepare_fn(helper, **parametrize_kwargs)
+    except Exception:
+        # Tear down the helper on prepare failure so we don't leak the session.
+        try:
+            helper.end_test_session(exception=None)
+        except Exception as teardown_exc:
+            # Mirror the warning to stderr too — pytest's default log_cli=false
+            # config keeps logger output out of the user's view unless the
+            # test fails, but teardown failures need to be visible.
+            msg = (
+                f"[memory_container] setup_outside teardown after prepare failure "
+                f"also raised {type(teardown_exc).__name__}: {teardown_exc}"
+            )
+            logger.warning(msg)
+            print(msg, file=sys.stderr)
+        # Restore env to the state before prepare ran.
+        _restore_env(FIXED_SCHEMA_ENV, prev_schema)
+        _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
+        raise
+
+    return {
+        "helper": helper,
+        "finalize_fn": finalize_fn,
+        "params": parametrize_kwargs,
+        "schema_name": schema_name,
+        "prev_schema_env": prev_schema,
+        "prev_skip_drop_env": prev_skip_drop,
+    }
+
+
+def _restore_env(name: str, prev_value: Optional[str]) -> None:
+    """Restore an env var to its prior state (unset if it was unset, else set
+    back to the captured value)."""
+    if prev_value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = prev_value
+
+
+def _run_finalize_outside(item: pytest.Item, state: dict) -> None:
+    """Call the test module's ``__finalize_outside__`` on the host after the
+    main container has finished. Best-effort — swallow exceptions so a
+    cleanup failure doesn't mask the test's reported outcome, but log them.
+    """
+    helper = state["helper"]
+    finalize_fn = state["finalize_fn"]
+    params = state["params"]
+    prev_schema = state["prev_schema_env"]
+    prev_skip_drop = state["prev_skip_drop_env"]
+
+    try:
+        if finalize_fn is not None:
+            try:
+                finalize_fn(helper, **params)
+            except Exception as exc:
+                msg = (
+                    f"[memory_container] __finalize_outside__ raised "
+                    f"{type(exc).__name__}: {exc} (continuing teardown — table may leak)"
+                )
+                logger.warning(msg)
+                print(msg, file=sys.stderr)
+    finally:
+        try:
+            helper.end_test_session(exception=None)
+        except Exception as teardown_exc:
+            msg = (
+                f"[memory_container] host-helper end_test_session raised "
+                f"{type(teardown_exc).__name__}: {teardown_exc}"
+            )
+            logger.warning(msg)
+            print(msg, file=sys.stderr)
+        # Restore env so subsequent unrelated tests don't see a stale schema.
+        _restore_env(FIXED_SCHEMA_ENV, prev_schema)
+        _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
 
 
 def _dispatch_and_emit_reports(item: pytest.Item, limit_mb: int) -> None:
