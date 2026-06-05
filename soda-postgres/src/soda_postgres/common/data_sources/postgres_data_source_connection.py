@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-import os
-import sys
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Literal, Optional, Union
+from typing import Callable, ClassVar, Dict, Literal, Optional, Union
 
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
@@ -139,9 +137,7 @@ class PostgresDataSourceConnection(DataSourceConnection):
         Strategy: open a named (server-side) cursor and `fetchone()` per
         row. Memory footprint is bounded by the size of the single largest
         row plus libpq's per-fetch frame, regardless of result-set size.
-        Throughput is intentionally traded for memory predictability — the
-        previous adaptive-itersize controller is retained as dead code
-        below for future use, but is bypassed in this code path.
+        Throughput is intentionally traded for memory predictability.
 
         Caveats:
           * Server-side cursors require an open transaction. If the
@@ -197,134 +193,3 @@ class PostgresDataSourceConnection(DataSourceConnection):
             self.rollback()
             raise e
 
-    @staticmethod
-    def _resolve_fixed_fetch_size() -> Optional[int]:
-        """If ``SODA_STREAMING_FETCH_SIZE`` is set to a positive int, return
-        it (forces a fixed itersize, bypasses adaptive). Otherwise return
-        None (adaptive mode is the default)."""
-        raw = os.environ.get("SODA_STREAMING_FETCH_SIZE")
-        if not raw:
-            return None
-        try:
-            value = int(raw)
-            return value if value > 0 else None
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _resolve_fetch_target_bytes() -> int:
-        """Target byte budget per fetch batch in adaptive mode.
-
-        Env: ``SODA_STREAMING_FETCH_TARGET_BYTES`` (positive int, bytes).
-        Default 50 MB — leaves comfortable headroom under a ~500 MB K8s pod
-        cap given soda's other resident state (startup floor + inserter
-        accumulator + COPY-write spike at flush time).
-        """
-        raw = os.environ.get("SODA_STREAMING_FETCH_TARGET_BYTES")
-        default = 50 * 1024 * 1024
-        if not raw:
-            return default
-        try:
-            value = int(raw)
-            return value if value > 0 else default
-        except (TypeError, ValueError):
-            return default
-
-
-class _AdaptiveFetchSizeController:
-    """TCP-ramp-style adaptive ``cursor.itersize`` controller for a single
-    streaming query.
-
-    Behaviour:
-      * Starts at ``MIN_SIZE`` (TCP-style slow start — cautious in case the
-        first rows happen to be huge).
-      * Samples row size at row positions ``[1, 10, 100, 1000]`` (rapid
-        calibration), then every ``RESAMPLE_INTERVAL`` rows (steady state).
-      * At each re-sample, computes ``desired = target_bytes // row_size``
-        and applies bounded change: at most ``2×`` up or ``0.5×`` down per
-        reaction. Bounds runaway growth on an outlier-small row AND
-        oscillation when the result set's row size is variable.
-      * Bounded by ``[MIN_SIZE, MAX_SIZE]`` — won't go below 1 (the smallest
-        unit) or above 10000 (round-trip latency dominates beyond this).
-
-    Cheap: row-size estimation only runs at re-sample points (not every row).
-    """
-
-    MIN_SIZE: int = 1
-    MAX_SIZE: int = 10_000
-    RESAMPLE_INTERVAL: int = 1000  # in steady state
-    # Slow-start schedule (orders of magnitude) — three re-samples in the
-    # first 1000 rows, where uncertainty about row size is highest.
-    _RESAMPLE_LADDER: tuple[int, ...] = (1, 10, 100, 1000)
-
-    def __init__(self, target_bytes: int) -> None:
-        self.target_bytes = target_bytes
-        self.current = self.MIN_SIZE
-        self.rows_seen = 0
-        self._ladder_idx = 0
-
-    def observe_and_maybe_adjust(self, sample_row: Any) -> Optional[int]:
-        """Called once per batch with the LAST row of that batch (cheap to
-        estimate; representative enough for the controller's purposes).
-        Updates ``self.current`` if the controller decides to grow/shrink.
-
-        Returns the new batch size if it changed, else None. The caller is
-        responsible for using ``self.current`` for the next ``fetchmany()``
-        call — this method does NOT mutate any cursor state.
-
-        Row-size estimation is only performed at re-sample points — for
-        batches in between this method is essentially a counter increment.
-        """
-        # We can't count individual rows here (we only see batch ends), but
-        # for re-sampling cadence what matters is "how much have we
-        # processed so far" — approximate by treating each call as one
-        # 'progress tick' = current batch size.
-        self.rows_seen += self.current
-        if not self._is_resample_point():
-            return None
-
-        row_bytes = self._estimate_row_size(sample_row)
-        if row_bytes <= 0:
-            return None
-
-        desired = max(self.MIN_SIZE, min(self.MAX_SIZE, self.target_bytes // row_bytes))
-
-        # Rate limit: at most 2× up or 0.5× down per reaction.
-        if desired > self.current * 2:
-            new_size = self.current * 2
-        elif self.current > 1 and desired < self.current // 2:
-            new_size = max(self.MIN_SIZE, self.current // 2)
-        else:
-            new_size = desired
-        new_size = max(self.MIN_SIZE, min(self.MAX_SIZE, new_size))
-
-        if new_size == self.current:
-            return None
-        self.current = new_size
-        return new_size
-
-    def _is_resample_point(self) -> bool:
-        if self._ladder_idx < len(self._RESAMPLE_LADDER):
-            if self.rows_seen >= self._RESAMPLE_LADDER[self._ladder_idx]:
-                self._ladder_idx += 1
-                return True
-            return False
-        # Steady state: every RESAMPLE_INTERVAL rows after the ladder ends.
-        return (self.rows_seen - self._RESAMPLE_LADDER[-1]) % self.RESAMPLE_INTERVAL == 0
-
-    @staticmethod
-    def _estimate_row_size(row: Any) -> int:
-        """Rough Python-side estimate of a row's resident size in bytes.
-
-        Sums ``sys.getsizeof`` on the tuple container and each value. ``None``
-        values are estimated at 16 bytes (a Python pointer). Applies a 1.5×
-        safety factor because ``sys.getsizeof`` underestimates for nested
-        container types and doesn't include the libpq C-side decoded copy.
-        """
-        try:
-            total = sys.getsizeof(row)
-            for v in row:
-                total += sys.getsizeof(v) if v is not None else 16
-            return int(total * 1.5)
-        except Exception:  # noqa: BLE001 — best-effort estimator, never raise
-            return 0
