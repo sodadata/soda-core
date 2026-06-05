@@ -185,27 +185,61 @@ class TestTableSpecificationBuilder:
         self._rows = rows
         return self
 
-    def build(self) -> TestTableSpecification:
+    def build(
+        self,
+        force_unique_name: Optional[str] = None,
+        placeholder_row_count: Optional[int] = None,
+    ) -> TestTableSpecification:
+        """Materialise the builder into an immutable ``TestTableSpecification``.
+
+        Two optional parameters support the memory-container "setup_outside"
+        flow, where ``__prepare_outside__`` builds the full spec (with rows)
+        on the host, while the in-container code wants the SAME unique_name
+        without paying the memory cost of re-materialising the row payload:
+
+        * ``force_unique_name``: skip the hash computation entirely and use the
+          provided unique_name. The host-side plugin already captured this name
+          via env var ``SODA_MEMTEST_FORCED_TABLE_NAMES`` and the test code
+          looks it up from there. Passing this also disables the duplicate-
+          purpose check (the host already enforced it).
+        * ``placeholder_row_count``: when set, the spec's ``row_values`` field
+          is populated with ``[None] * placeholder_row_count`` so callers like
+          ``verify_test_table_row_count`` see the right count via ``len()``
+          without holding the actual row tuples in memory.
+
+        Neither flag should be used in production tests — they exist to keep
+        the memory tests' measurements clean. Default behaviour (both None)
+        is unchanged.
+        """
         assert isinstance(self._table_purpose, str)
-        # Ensure each table_purpose maps to AT MOST ONE distinct spec across
-        # the test suite. Re-building the SAME spec is allowed — the snapshot
-        # rerun plugin re-executes a test's body, which legitimately calls
-        # .build() a second time on an identical builder.
         name_lower = self._table_purpose.lower()
-        unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
-        existing_unique_name = self.__purpose_to_unique_name.get(name_lower)
-        if existing_unique_name is not None and existing_unique_name != unique_name:
-            raise AssertionError(
-                f"Duplicate test table purpose detected: {self._table_purpose}.  In the codebase, the table_purpose "
-                f'of every test table should be unique.  Search for .table_purpose("{self._table_purpose}") and you '
-                f"should find multiple places in the test codebase where the same table_purpose is created with "
-                f"different columns or rows."
-            )
-        self.__purpose_to_unique_name[name_lower] = unique_name
+        if force_unique_name is not None:
+            unique_name = force_unique_name
+        else:
+            # Ensure each table_purpose maps to AT MOST ONE distinct spec across
+            # the test suite. Re-building the SAME spec is allowed — the snapshot
+            # rerun plugin re-executes a test's body, which legitimately calls
+            # .build() a second time on an identical builder.
+            unique_name = f"SODATEST_{self._table_purpose}_{self.__test_table_hash()}"
+            existing_unique_name = self.__purpose_to_unique_name.get(name_lower)
+            if existing_unique_name is not None and existing_unique_name != unique_name:
+                raise AssertionError(
+                    f"Duplicate test table purpose detected: {self._table_purpose}.  In the codebase, the table_purpose "
+                    f'of every test table should be unique.  Search for .table_purpose("{self._table_purpose}") and you '
+                    f"should find multiple places in the test codebase where the same table_purpose is created with "
+                    f"different columns or rows."
+                )
+            self.__purpose_to_unique_name[name_lower] = unique_name
+
+        if placeholder_row_count is not None:
+            row_values = [None] * placeholder_row_count
+        else:
+            row_values = self._rows
+
         return TestTableSpecification(
             name=self._table_purpose,
             columns=self._columns,
-            row_values=self._rows,
+            row_values=row_values,
             unique_name=unique_name,
             table_type=self._table_type,
         )
