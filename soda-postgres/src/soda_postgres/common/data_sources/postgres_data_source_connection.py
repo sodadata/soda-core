@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import uuid
 from abc import ABC
 from datetime import timezone, tzinfo
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Literal, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, Literal, Optional, Union
 
 import psycopg
 from pydantic import Field, IPvAnyAddress, SecretStr, field_validator
@@ -135,11 +136,14 @@ class PostgresDataSourceConnection(DataSourceConnection):
         On large result sets this drove peak RSS to ~5× the source bytes
         and OOM-killed K8s pods (see memory_management/MEMORY_ANALYSIS.md).
 
-        Named cursors stream: ``itersize`` rows round-trip per fetch. We
-        default to 100 (good balance between per-row latency and resident
-        memory); override at runtime with ``SODA_STREAMING_FETCH_SIZE`` if
-        you have unusually fat rows (drop it) or millions of tiny rows
-        (raise it).
+        Named cursors stream: ``itersize`` rows round-trip per fetch. By
+        default we adaptively size ``itersize`` so the in-flight batch is
+        approximately ``SODA_STREAMING_FETCH_TARGET_BYTES`` worth of data
+        (default 50 MB). The controller starts at 1, ramps up TCP-style
+        (≤2× growth per re-sample), and re-samples row size at rows
+        [1, 10, 100, 1000, then every 1000]. For diagnostic / paranoid use
+        ``SODA_STREAMING_FETCH_SIZE=<int>`` forces a fixed itersize and
+        bypasses adaptive sampling entirely.
 
         Caveats:
           * Server-side cursors require an open transaction. If the
@@ -167,25 +171,50 @@ class PostgresDataSourceConnection(DataSourceConnection):
                 self.rollback()
                 raise e
 
-        fetch_size = self._resolve_stream_fetch_size()
+        fixed_fetch_size = self._resolve_fixed_fetch_size()
         cursor_name = f"soda_stream_{uuid.uuid4().hex[:12]}"
+        controller: Optional["_AdaptiveFetchSizeController"] = None
+        if fixed_fetch_size is None:
+            controller = _AdaptiveFetchSizeController(self._resolve_fetch_target_bytes())
+            initial_itersize = controller.current
+        else:
+            initial_itersize = fixed_fetch_size
         if log_query:
+            mode_desc = (
+                f"adaptive itersize → target {controller.target_bytes // (1024 * 1024)} MB"
+                if controller is not None
+                else f"fixed itersize={fixed_fetch_size}"
+            )
             logger.debug(
                 f"SQL query one-by-one (server-side cursor {cursor_name}, "
-                f"itersize={fetch_size}):\n{sql}"
+                f"{mode_desc}):\n{sql}"
             )
 
         try:
             with self.connection.cursor(name=cursor_name) as cursor:
-                cursor.itersize = fetch_size
+                # itersize is still set (psycopg3 named cursors use it for
+                # `for row in cursor` iteration) but we use fetchmany() so
+                # the adaptive controller has explicit control over batch
+                # size on each round-trip — no risk of psycopg's internal
+                # iterator state interacting badly with mid-loop mutation.
+                cursor.itersize = initial_itersize
                 cursor.execute(sql)
                 description: tuple[tuple] = cursor.description
                 rows_processed: int = 0
-                for row in cursor:
-                    if row_limit is not None and rows_processed >= row_limit:
+                done = False
+                while not done:
+                    batch_size = controller.current if controller is not None else initial_itersize
+                    batch = cursor.fetchmany(batch_size)
+                    if not batch:
                         break
-                    row_callback(row, description)
-                    rows_processed += 1
+                    for row in batch:
+                        if row_limit is not None and rows_processed >= row_limit:
+                            done = True
+                            break
+                        row_callback(row, description)
+                        rows_processed += 1
+                    if controller is not None and batch:
+                        controller.observe_and_maybe_adjust(batch[-1])
             return description
         except psycopg.errors.Error as e:
             logger.warning(f"SQL query one-by-one failed: \n{sql}\n{e}")
@@ -194,13 +223,133 @@ class PostgresDataSourceConnection(DataSourceConnection):
             raise e
 
     @staticmethod
-    def _resolve_stream_fetch_size() -> int:
-        """``SODA_STREAMING_FETCH_SIZE`` env override, with a sane default."""
+    def _resolve_fixed_fetch_size() -> Optional[int]:
+        """If ``SODA_STREAMING_FETCH_SIZE`` is set to a positive int, return
+        it (forces a fixed itersize, bypasses adaptive). Otherwise return
+        None (adaptive mode is the default)."""
         raw = os.environ.get("SODA_STREAMING_FETCH_SIZE")
         if not raw:
-            return 100
+            return None
         try:
             value = int(raw)
-            return value if value > 0 else 100
+            return value if value > 0 else None
         except (TypeError, ValueError):
-            return 100
+            return None
+
+    @staticmethod
+    def _resolve_fetch_target_bytes() -> int:
+        """Target byte budget per fetch batch in adaptive mode.
+
+        Env: ``SODA_STREAMING_FETCH_TARGET_BYTES`` (positive int, bytes).
+        Default 50 MB — leaves comfortable headroom under a ~500 MB K8s pod
+        cap given soda's other resident state (startup floor + inserter
+        accumulator + COPY-write spike at flush time).
+        """
+        raw = os.environ.get("SODA_STREAMING_FETCH_TARGET_BYTES")
+        default = 50 * 1024 * 1024
+        if not raw:
+            return default
+        try:
+            value = int(raw)
+            return value if value > 0 else default
+        except (TypeError, ValueError):
+            return default
+
+
+class _AdaptiveFetchSizeController:
+    """TCP-ramp-style adaptive ``cursor.itersize`` controller for a single
+    streaming query.
+
+    Behaviour:
+      * Starts at ``MIN_SIZE`` (TCP-style slow start — cautious in case the
+        first rows happen to be huge).
+      * Samples row size at row positions ``[1, 10, 100, 1000]`` (rapid
+        calibration), then every ``RESAMPLE_INTERVAL`` rows (steady state).
+      * At each re-sample, computes ``desired = target_bytes // row_size``
+        and applies bounded change: at most ``2×`` up or ``0.5×`` down per
+        reaction. Bounds runaway growth on an outlier-small row AND
+        oscillation when the result set's row size is variable.
+      * Bounded by ``[MIN_SIZE, MAX_SIZE]`` — won't go below 1 (the smallest
+        unit) or above 10000 (round-trip latency dominates beyond this).
+
+    Cheap: row-size estimation only runs at re-sample points (not every row).
+    """
+
+    MIN_SIZE: int = 1
+    MAX_SIZE: int = 10_000
+    RESAMPLE_INTERVAL: int = 1000  # in steady state
+    # Slow-start schedule (orders of magnitude) — three re-samples in the
+    # first 1000 rows, where uncertainty about row size is highest.
+    _RESAMPLE_LADDER: tuple[int, ...] = (1, 10, 100, 1000)
+
+    def __init__(self, target_bytes: int) -> None:
+        self.target_bytes = target_bytes
+        self.current = self.MIN_SIZE
+        self.rows_seen = 0
+        self._ladder_idx = 0
+
+    def observe_and_maybe_adjust(self, sample_row: Any) -> Optional[int]:
+        """Called once per batch with the LAST row of that batch (cheap to
+        estimate; representative enough for the controller's purposes).
+        Updates ``self.current`` if the controller decides to grow/shrink.
+
+        Returns the new batch size if it changed, else None. The caller is
+        responsible for using ``self.current`` for the next ``fetchmany()``
+        call — this method does NOT mutate any cursor state.
+
+        Row-size estimation is only performed at re-sample points — for
+        batches in between this method is essentially a counter increment.
+        """
+        # We can't count individual rows here (we only see batch ends), but
+        # for re-sampling cadence what matters is "how much have we
+        # processed so far" — approximate by treating each call as one
+        # 'progress tick' = current batch size.
+        self.rows_seen += self.current
+        if not self._is_resample_point():
+            return None
+
+        row_bytes = self._estimate_row_size(sample_row)
+        if row_bytes <= 0:
+            return None
+
+        desired = max(self.MIN_SIZE, min(self.MAX_SIZE, self.target_bytes // row_bytes))
+
+        # Rate limit: at most 2× up or 0.5× down per reaction.
+        if desired > self.current * 2:
+            new_size = self.current * 2
+        elif self.current > 1 and desired < self.current // 2:
+            new_size = max(self.MIN_SIZE, self.current // 2)
+        else:
+            new_size = desired
+        new_size = max(self.MIN_SIZE, min(self.MAX_SIZE, new_size))
+
+        if new_size == self.current:
+            return None
+        self.current = new_size
+        return new_size
+
+    def _is_resample_point(self) -> bool:
+        if self._ladder_idx < len(self._RESAMPLE_LADDER):
+            if self.rows_seen >= self._RESAMPLE_LADDER[self._ladder_idx]:
+                self._ladder_idx += 1
+                return True
+            return False
+        # Steady state: every RESAMPLE_INTERVAL rows after the ladder ends.
+        return (self.rows_seen - self._RESAMPLE_LADDER[-1]) % self.RESAMPLE_INTERVAL == 0
+
+    @staticmethod
+    def _estimate_row_size(row: Any) -> int:
+        """Rough Python-side estimate of a row's resident size in bytes.
+
+        Sums ``sys.getsizeof`` on the tuple container and each value. ``None``
+        values are estimated at 16 bytes (a Python pointer). Applies a 1.5×
+        safety factor because ``sys.getsizeof`` underestimates for nested
+        container types and doesn't include the libpq C-side decoded copy.
+        """
+        try:
+            total = sys.getsizeof(row)
+            for v in row:
+                total += sys.getsizeof(v) if v is not None else 16
+            return int(total * 1.5)
+        except Exception:  # noqa: BLE001 — best-effort estimator, never raise
+            return 0
