@@ -340,6 +340,16 @@ class TrinoSqlDialect(SqlDialect, sqlglot_dialect="trino"):
         insert_into_sql += self.build_select_sql(insert_into_via_select.select_elements, add_semicolon=False)
         return insert_into_sql + (";" if add_semicolon else "")
 
+    def get_column_index(self, column_name: str, columns: list) -> int:
+        """
+        Override to return 1-based column index as required by Trino.
+        Trino's INFORMATION_SCHEMA.COLUMNS uses ordinal_position starting from 1,
+        while the base implementation returns a 0-based Python list index.
+        Fixes: https://github.com/sodadata/soda-core/issues/2491
+        """
+        return super().get_column_index(column_name, columns) + 1
+
+
     def _build_string_hash_sql(self, string_hash: STRING_HASH) -> str:
         # all Trino hash methods operate on binary data - TO_UTF8 converts string to binary
         return f"TO_HEX(MD5(TO_UTF8({self.build_expression_sql(string_hash.expression)})))"
