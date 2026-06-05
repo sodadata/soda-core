@@ -34,6 +34,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import logging
+import json
 import os
 import re
 import subprocess
@@ -64,6 +65,15 @@ FIXED_SCHEMA_ENV = "SODA_MEMTEST_FIXED_SCHEMA"
 # host has just populated via __prepare_outside__ (the helper's CI-mode
 # `start_test_session_ensure_schema` would otherwise drop it).
 SKIP_SCHEMA_DROP_ENV = "SODA_MEMTEST_SKIP_SCHEMA_DROP"
+# Set by the plugin after __prepare_outside__ runs, when setup_outside=True.
+# Carries a JSON list of the unique_names of every test table the host helper
+# ensured during prepare. The in-container test code reads this and builds a
+# *stub* TestTableSpecification (with the matching unique_name and no rows)
+# so the container does not rebuild 100+ MB of row tuples just to look up the
+# already-inserted table. Without this, peak measurements were contaminated
+# by ~payload_bytes × n_rows of Python tuple/string memory (peak-resident at
+# the moment of contract verification).
+FORCED_TABLE_NAMES_ENV = "SODA_MEMTEST_FORCED_TABLE_NAMES"
 DEFAULT_IMAGE_TAG = "soda-memtest:latest"
 
 _PLUGIN_FILE = Path(__file__).resolve()
@@ -401,6 +411,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
     prev_skip_drop = os.environ.get(SKIP_SCHEMA_DROP_ENV)
     os.environ[SKIP_SCHEMA_DROP_ENV] = "1"
 
+    prev_forced_names = os.environ.get(FORCED_TABLE_NAMES_ENV)
     try:
         prepare_fn(helper, **parametrize_kwargs)
     except Exception:
@@ -422,6 +433,11 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
         _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
         raise
 
+    # Capture every table the host helper ensured during prepare, so the
+    # container can skip rebuilding their (potentially huge) row payloads.
+    ensured_names = [tbl.unique_name for tbl in helper._ensured_test_tables.values()]
+    os.environ[FORCED_TABLE_NAMES_ENV] = json.dumps(ensured_names)
+
     return {
         "helper": helper,
         "finalize_fn": finalize_fn,
@@ -429,6 +445,7 @@ def _run_prepare_outside(item: pytest.Item) -> dict:
         "schema_name": schema_name,
         "prev_schema_env": prev_schema,
         "prev_skip_drop_env": prev_skip_drop,
+        "prev_forced_names_env": prev_forced_names,
     }
 
 
@@ -451,6 +468,7 @@ def _run_finalize_outside(item: pytest.Item, state: dict) -> None:
     params = state["params"]
     prev_schema = state["prev_schema_env"]
     prev_skip_drop = state["prev_skip_drop_env"]
+    prev_forced_names = state.get("prev_forced_names_env")
 
     try:
         if finalize_fn is not None:
@@ -476,6 +494,7 @@ def _run_finalize_outside(item: pytest.Item, state: dict) -> None:
         # Restore env so subsequent unrelated tests don't see a stale schema.
         _restore_env(FIXED_SCHEMA_ENV, prev_schema)
         _restore_env(SKIP_SCHEMA_DROP_ENV, prev_skip_drop)
+        _restore_env(FORCED_TABLE_NAMES_ENV, prev_forced_names)
 
 
 def _dispatch_and_emit_reports(item: pytest.Item, limit_mb: int) -> None:
