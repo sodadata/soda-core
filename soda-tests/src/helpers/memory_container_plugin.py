@@ -596,12 +596,30 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
     host_poller = _DockerStatsPoller(cidfile)
     host_poller.start()
 
-    proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, text=True)
-    _, stderr = proc.communicate()
+    # Capture BOTH stdout and stderr (instead of inheriting stdout). Pytest
+    # writes test results + tracebacks to stdout, so on failure the user
+    # needs to SEE that output. We tee to:
+    #   - the host's stdout/stderr (real-time visibility)
+    #   - a file in the artifact dir (post-hoc inspection)
+    # On failure, the message also includes a tail of the captured output.
+    stdout_log = artifact_dir / "inner_pytest_stdout.log"
+    stderr_log = artifact_dir / "inner_pytest_stderr.log"
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = proc.communicate()
     rc = proc.returncode
 
     host_poller.stop()
     host_poller.join(timeout=2.0)
+
+    # Stream the captured output to host stdout/stderr AND save to disk.
+    if stdout:
+        sys.stdout.write(stdout)
+        sys.stdout.flush()
+        stdout_log.write_text(stdout)
+    if stderr:
+        sys.stderr.write(stderr)
+        sys.stderr.flush()
+        stderr_log.write_text(stderr)
 
     # Generate memray reports unconditionally if the .bin exists — including
     # when the test failed or OOM'd. A flamegraph of an OOM'd run is exactly
@@ -629,6 +647,19 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
     limit_bytes = limit_mb * 1024 * 1024
     artifacts_hint = f"Artifacts: {artifact_dir}"
 
+    # Build a tail-of-output snippet for failure messages so the user doesn't
+    # have to scroll back through interleaved pytest output to find why the
+    # inner test failed. ~30 lines balances "informative" vs "wall of text".
+    def _output_tail() -> str:
+        parts: list[str] = []
+        if stdout:
+            tail = "\n".join(stdout.rstrip("\n").splitlines()[-30:])
+            parts.append(f"\n--- inner pytest stdout (last 30 lines) ---\n{tail}")
+        if stderr:
+            tail = "\n".join(stderr.rstrip("\n").splitlines()[-15:])
+            parts.append(f"\n--- inner pytest stderr (last 15 lines) ---\n{tail}")
+        return "".join(parts)
+
     if rc == 137:
         # OOM-kill implies the cap was reached. If we got no measurement (fast
         # OOM beats our pollers), report ≥ limit_mb rather than the misleading 0.
@@ -639,14 +670,17 @@ def _run_in_container(item: pytest.Item, limit_mb: int) -> tuple[str, Optional[s
         msg = (
             f"OOM-killed at memory limit {limit_mb} MB (exit 137). "
             f"Peak observed: {peak_mb:.1f} MB (source: {peak_source}). "
-            f"{artifacts_hint}{_memray_paths_blurb()}"
+            f"{artifacts_hint}{_memray_paths_blurb()}{_output_tail()}"
         )
         return "failed", msg
 
     peak_mb = peak_bytes / (1024 * 1024)
 
     if rc != 0:
-        return "failed", _format_failure(rc, limit_mb, image, stderr) + f"\n{artifacts_hint}{_memray_paths_blurb()}"
+        return "failed", (
+            _format_failure(rc, limit_mb, image, stderr)
+            + f"\n{artifacts_hint}{_memray_paths_blurb()}{_output_tail()}"
+        )
 
     if peak_bytes > limit_bytes:
         # cgroup should have prevented this — surface loudly if it ever happens.
