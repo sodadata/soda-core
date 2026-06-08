@@ -133,7 +133,7 @@ class _RecordingHandler(ContractVerificationHandler):
     received and the shared group response_json."""
 
     def __init__(self) -> None:
-        self.session_calls: list[tuple[list[str], Optional[dict]]] = []
+        self.session_calls: list[tuple[list[Optional[str]], Optional[dict]]] = []
 
     def handle(self, *args, **kwargs):  # required abstract; unused (we override handle_session)
         raise AssertionError("handle() should not be called when handle_session is overridden")
@@ -144,11 +144,11 @@ class _RecordingHandler(ContractVerificationHandler):
     def handle_session(
         self,
         items: list[PostProcessingSessionItem],
-        soda_cloud: SodaCloud,
+        soda_cloud: Optional[SodaCloud],
         soda_cloud_send_results_response_json: Optional[dict] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ) -> None:
-        labels = [
+        labels: list[Optional[str]] = [
             item.verification_result.check_collection.dataset_name
             if item.verification_result.check_collection
             else None
@@ -169,8 +169,8 @@ class _DefaultPathHandler(ContractVerificationHandler):
         contract_impl: ContractImpl,
         data_source_impl: Optional[DataSourceImpl],
         contract_verification_result: ContractVerificationResult,
-        soda_cloud: SodaCloud,
-        soda_cloud_send_results_response_json: dict,
+        soda_cloud: Optional[SodaCloud],
+        soda_cloud_send_results_response_json: Optional[dict],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
     ):
         cc = contract_verification_result.check_collection
