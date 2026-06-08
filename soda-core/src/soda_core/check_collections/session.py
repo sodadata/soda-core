@@ -27,12 +27,15 @@ from soda_core.common.datetime_conversions import (
 )
 from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.exceptions import InvalidArgumentException
+from soda_core.common.logging_constants import soda_logger
 from soda_core.common.logs import Logs
 from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import CheckCollectionYamlSource
 from soda_core.contracts.impl.diagnostics_warehouse_files import (
     DiagnosticsWarehouseFiles,
 )
+
+logger = soda_logger
 
 
 def execute_check_collections(
@@ -309,13 +312,23 @@ def execute_check_collections(
                 exc=errored_without_results_result.error,
             )
 
-    # Post-processing handlers — run for every successfully-VERIFIED
-    # combine-upload impl. The non-combine path runs handlers at the end
-    # of ``verify()`` only when verify() returned normally (an exception
-    # bypasses everything below the failing line); this loop is the
-    # combine-upload equivalent and must skip ERROR placeholders for
-    # parity. ``result.error`` is set exclusively by ``build_error_result``
-    # on the executor's exception branches, so it's a reliable signal.
+    # Post-processing handlers — combine-upload subtypes. The non-combine path
+    # runs handlers inline per file inside ``verify()``; combine-upload results are
+    # post-processed HERE, after the single combined upload, so handlers see the
+    # shared scan_id / response_json. Handlers run ONCE per wire-source group via
+    # ``handle_session`` (not once per file): this lets a session-scoped handler
+    # (e.g. the diagnostics-warehouse extractor) fetch config once per dataset,
+    # reuse one connection, and post a single aggregated stage update. ERROR
+    # placeholders are skipped for parity with the non-combine path (an exception
+    # in verify() bypasses handlers). Each item carries the shared response when it
+    # was part of the upload, else None, so the default per-item ``handle_session``
+    # preserves the old "run handlers regardless of upload success" semantics.
+    from soda_core.contracts.impl.contract_verification_impl import (
+        ContractVerificationHandlerRegistry,
+        PostProcessingSessionItem,
+    )
+
+    session_items_by_wire_source: dict[str, list[PostProcessingSessionItem]] = {}
     for (impl, impl_class, _, _), result in zip(constructed, results):
         if impl is None or impl_class is None or not impl_class.combine_uploads:
             continue
@@ -324,7 +337,35 @@ def execute_check_collections(
         response_for_file = (
             response_json_by_wire_source.get(impl_class.wire_source) if id(result) in uploaded_ids else None
         )
-        impl.run_post_processing_handlers(result, response_for_file)
+        session_items_by_wire_source.setdefault(impl_class.wire_source, []).append(
+            PostProcessingSessionItem(
+                contract_impl=impl,
+                verification_result=result,
+                soda_cloud_send_results_response_json=response_for_file,
+            )
+        )
+
+    for wire_source, session_items in session_items_by_wire_source.items():
+        group_response_json = response_json_by_wire_source.get(wire_source)
+        for handler in ContractVerificationHandlerRegistry.contract_verification_handlers:
+            try:
+                handler.handle_session(
+                    items=session_items,
+                    soda_cloud=soda_cloud_impl,
+                    soda_cloud_send_results_response_json=group_response_json,
+                    dwh_files=dwh_files,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error in session post-processing handler {type(handler).__name__}: {e}",
+                    exc_info=True,
+                )
+        # Re-stamp the per-file thread label on log records (incl. handler
+        # emissions) — mirrors run_post_processing_handlers' final relabel pass,
+        # now done once per file after all session handlers have run, so the
+        # Cloud-side wire grouping by ``thread`` stays correct.
+        for item in session_items:
+            item.contract_impl._apply_thread_label_to_log_records(item.verification_result.log_records)
 
     return CheckCollectionSessionResult(results)
 
