@@ -972,6 +972,7 @@ def _build_report(
 
 def _build_env_args(artifact_dir: Path) -> list[str]:
     args: list[str] = []
+    propagated_keys: set[str] = set()
     for key, value in os.environ.items():
         if key in ENV_DENYLIST:
             continue
@@ -980,6 +981,21 @@ def _build_env_args(artifact_dir: Path) -> list[str]:
         if key.endswith("_HOST") and _LOCALHOST_RE.match(value):
             value = _LOCALHOST_RE.sub(r"host.docker.internal\2", value)
         args.extend(["-e", f"{key}={value}"])
+        propagated_keys.add(key)
+
+    # Special-case SQLSERVER_HOST. The SqlServer test helper defaults to
+    # "localhost" when the env var is unset (see SqlServerDataSourceTestHelper).
+    # On the host that's fine — SQL Server is reachable on the host's
+    # localhost — but from inside the container "localhost" resolves to the
+    # container itself. The general localhost-rewrite above only fires when
+    # the env var IS set, so an unset SQLSERVER_HOST falls through and the
+    # in-container helper picks up the wrong default. Inject the
+    # docker-bridge hostname explicitly so the helper resolves the host's
+    # SQL Server. Only kicks in when the user hasn't already exported the
+    # var themselves (e.g. to point at a non-localhost server).
+    if "SQLSERVER_HOST" not in propagated_keys:
+        args.extend(["-e", "SQLSERVER_HOST=host.docker.internal"])
+
     args.extend(["-e", f"{INNER_ENV_VAR}=1"])
     args.extend(["-e", f"{ARTIFACT_DIR_ENV}={artifact_dir}"])
     # Source is bind-mounted :ro — without this the import system tries to
